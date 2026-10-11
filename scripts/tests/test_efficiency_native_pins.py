@@ -52,8 +52,12 @@ class NativePinsTests(unittest.TestCase):
                 patch.object(
                     operation,
                     "drained",
-                    side_effect=lambda record: bool(
-                        record.get("scope", {}) and record["scope"]["settled"]
+                    side_effect=lambda record: operation.DrainObservation(
+                        record.get("scope"),
+                        operation.DrainPhase.COMPLETE
+                        if record.get("scope", {}) and record["scope"]["settled"]
+                        else operation.DrainPhase.UNAVAILABLE,
+                        "controlled pin observation",
                     ),
                 ),
                 patch.object(operation, "_record", wraps=operation._record) as read,  # noqa: SLF001 -- count cold ledger reads
@@ -89,11 +93,11 @@ class NativePinsTests(unittest.TestCase):
             patch.object(operation, "populated", return_value=False),
             patch.object(operation, "unit_observation", return_value=observed),
         ):
-            self.assertFalse(operation.drained({"scope": owner}))
+            self.assertFalse(operation.drained({"scope": owner}).complete)
             observed["ActiveState"] = "inactive"
-            self.assertTrue(operation.drained({"scope": owner}))
+            self.assertTrue(operation.drained({"scope": owner}).complete)
             observed["InvocationID"] = "replacement"
-            self.assertFalse(operation.drained({"scope": owner}))
+            self.assertFalse(operation.drained({"scope": owner}).complete)
         with (
             patch.object(operation, "populated", side_effect=[False, True]),
             patch.object(
@@ -102,7 +106,7 @@ class NativePinsTests(unittest.TestCase):
                 return_value={**observed, "InvocationID": "exact"},
             ),
         ):
-            self.assertFalse(operation.drained({"scope": owner}))
+            self.assertFalse(operation.drained({"scope": owner}).complete)
 
 
 if __name__ == "__main__":

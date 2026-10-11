@@ -756,6 +756,7 @@ mod canonical_server_unit {
         assert_eq!(page.unwrap().memberships, 1);
         assert!(store.object("x-v1").await.unwrap().is_none());
         assert!(store.protect(first, Duration::from_secs(1)).await.is_err());
+        pin.finish().await.unwrap();
         remove(&store, &database).await;
     }
 

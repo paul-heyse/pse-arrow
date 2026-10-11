@@ -380,7 +380,7 @@ impl NativeRuntime {
                     .canonical_store()
                     .disconnect()
                     .await
-                    .map_err(|error| native::WorkflowError::Input(error.to_string()))
+                    .map_err(native::WorkflowError::Canonical)
             },
             || {},
         )
@@ -477,11 +477,11 @@ impl NativeRuntime {
             async {
                 let store = pse_operations::canonical::CanonicalStore::connect(&options)
                     .await
-                    .map_err(|error| native::WorkflowError::Input(error.to_string()))?;
+                    .map_err(native::WorkflowError::Canonical)?;
                 let initialized = store.create().await;
                 let drained = store.disconnect().await;
-                initialized.map_err(|error| native::WorkflowError::Input(error.to_string()))?;
-                drained.map_err(|error| native::WorkflowError::Input(error.to_string()))
+                initialized.map_err(native::WorkflowError::Canonical)?;
+                drained.map_err(native::WorkflowError::Canonical)
             },
             || {},
         )
@@ -533,11 +533,11 @@ impl NativeRuntime {
             async {
                 let store = pse_operations::canonical::CanonicalStore::connect(&options)
                     .await
-                    .map_err(|e| native::WorkflowError::Input(e.to_string()))?;
+                    .map_err(native::WorkflowError::Canonical)?;
                 store
                     .open()
                     .await
-                    .map_err(|e| native::WorkflowError::Input(e.to_string()))?;
+                    .map_err(native::WorkflowError::Canonical)?;
                 Ok(store)
             },
             || {},

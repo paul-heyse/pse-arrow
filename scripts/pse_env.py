@@ -21,6 +21,7 @@ Exit status: the command's own; 125 when this boundary fails (with a ``pse-env:`
 from __future__ import annotations
 
 import argparse
+import contextlib
 import functools
 import json
 import os
@@ -344,7 +345,7 @@ def current_memory_ceiling() -> int | None:
     return min(ceilings) if ceilings else None
 
 
-def require_store(env: Mapping[str, str]) -> None:
+def require_store(env: Mapping[str, str], *, deadline: float | None = None) -> None:
     """Fail early, with the fix, when the selected canonical server is not serving."""
     state = Path(env["PSE_SURREAL_STATE"])
     config_path = state / "config.json"
@@ -356,23 +357,56 @@ def require_store(env: Mapping[str, str]) -> None:
         )
     from scripts import surreal_server  # noqa: PLC0415 -- supervisor owns readiness
 
-    config = json.loads(config_path.read_text())
-    owner = host.inherit(env)
-    if owner is None:
-        if config.get("admission") not in {"open", "quiesced"} or (
-            config.get("admission") == "quiesced" and not config.get("parked")
-        ):
-            raise BoundaryError("Selected canonical service is not admitted")
-        return  # Demand readiness inside the registered actual allocation.
-    if config.get("parked"):
-        surreal_server.unpark_service(state)
-        config = surreal_server.config_for(state)
-    if config.get("admission") == "open" and not surreal_server.ready(state, config):
-        surreal_server.start(state, config)
-    if config.get("admission") != "open" or not surreal_server.ready(state, config):
-        raise BoundaryError(
-            f"canonical server for {state} is not ready; run: just surreal start --state {state}"
+    clock = (
+        contextlib.nullcontext()
+        if deadline is None
+        else surreal_server.lifecycle_deadline(deadline)
+    )
+    with clock as effective:
+        deadline = effective if deadline is not None else None
+        offered = {} if deadline is None else {"deadline": deadline}
+        config = (
+            json.loads(config_path.read_text())
+            if deadline is None
+            else surreal_server.config_for(state, deadline=deadline)
         )
+        owner = (
+            host.inherit(env)
+            if deadline is None
+            else host.inherit(env, deadline=deadline)
+        )
+        if deadline is not None:
+            surreal_server.remaining(deadline)
+        if owner is None:
+            if config.get("admission") not in {"open", "quiesced"} or (
+                config.get("admission") == "quiesced" and not config.get("parked")
+            ):
+                raise BoundaryError("Selected canonical service is not admitted")
+            return  # Demand readiness inside the registered actual allocation.
+        if config.get("parked"):
+            surreal_server.unpark_service(state, **offered)
+            config = surreal_server.config_for(state, **offered)
+
+        def serving() -> bool:
+            if deadline is None:
+                return surreal_server.ready(state, config)
+            observed = surreal_server.service_readiness(
+                state, config, deadline=deadline
+            )
+            surreal_server.remaining(deadline)
+            return observed.phase is surreal_server.Readiness.READY
+
+        if config.get("admission") == "open" and not serving():
+            if deadline is not None:
+                surreal_server.remaining(deadline)
+            if deadline is None:
+                surreal_server.start(state, config)
+            else:
+                surreal_server.start(state, config, deadline=deadline)
+        if config.get("admission") != "open" or not serving():
+            raise BoundaryError(
+                f"canonical server for {state} is not ready; run: just surreal start --state {state}"
+            )
 
 
 SLICE_VALUE = re.compile(r"[A-Za-z0-9_:.-]+\.slice")

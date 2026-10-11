@@ -1,10 +1,10 @@
 ---
 title: SurrealDB lifecycle and integration remediation
-status: draft
+status: done
 date: 2026-10-10
 adrs: []
-review_sources: [../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md]
-scenario_sources: [../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#4-revealing-scenarios]
+review_sources: ["git:313b53ac9dceb770c3254b6a20b3bd7f57e69af7:docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md"]
+scenario_sources: ["git:313b53ac9dceb770c3254b6a20b3bd7f57e69af7:docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#4-revealing-scenarios"]
 ---
 
 # Plan 35: SurrealDB lifecycle and integration remediation
@@ -13,7 +13,7 @@ scenario_sources: [../design_review/reviews/design_review_surrealdb-capabilities
 
 This standalone plan integrates the six findings, eight investigation avenues and two
 operator-confirmed rule changes in the
-[SurrealDB capabilities, lifecycle and integrations review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
+[SurrealDB capabilities, lifecycle and integrations review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
 It owns the corrective target, production and inquiry packets, current finding dispositions
 and affected qualification. Plan 28 retains its existing mechanisms, N4/T5/L4 consumer
 acceptance and E3/E4/E5 campaign; this is not an extension of Plan 28. Plan 34's completed
@@ -22,7 +22,7 @@ implementation and acceptance retain their historical meaning.
 The maintainer authorized this document's creation and existing-plan reconciliation on
 2026-10-10, and explicitly accepted RC01 and RC02 during preparation. That authorization
 does not implement the production changes described below or restart the interrupted
-campaign. Production execution requires its own instruction. The document is **Proposed**;
+campaign. The maintainer authorized full execution on 2026-10-10. The selected target is **Implemented** and **Tested** at the affected boundaries below;
 the [checkpoint](#current-checkpoint) owns its next action.
 
 The authoring baseline is `main` at `991fcea1984ea9cca0f281f050c87fad067a1431`, with the
@@ -88,8 +88,8 @@ database or native capability probe was executed while authoring this plan.
 
 | Review item | Operator decision | Required route before dependent implementation |
 |---|---|---|
-| [RC01](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#rc01) — narrow broad per-problem pacing | Accepted, 2026-10-10 | SD00 records the changed target through a blueprint `design:` amendment to §14.4 and the current operation explanation. SD05 replaces unnecessary read/read ordering while retaining exact server guards, original clocks and writer progress. Plan 34 SI05 remains historical evidence, with a prospective handoff to this owner. |
-| [RC02](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#rc02) — separate storage and native deployment configuration consumption | Accepted, 2026-10-10 | SD00 identifies affected deployment/API contract owners and stages their `design:` amendment; SD03 moves native interpretation and validation to composition, migrating all consumers together. The authoritative configuration remains single-owned. |
+| [RC01](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#rc01) — narrow broad per-problem pacing | Accepted, 2026-10-10 | SD00 records the changed target through a blueprint `design:` amendment to §14.4 and the current operation explanation. SD05 replaces unnecessary read/read ordering while retaining exact server guards, original clocks and writer progress. Plan 34 SI05 remains historical evidence, with a prospective handoff to this owner. |
+| [RC02](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#rc02) — separate storage and native deployment configuration consumption | Accepted, 2026-10-10 | SD00 identifies affected deployment/API contract owners and stages their `design:` amendment; SD03 moves native interpretation and validation to composition, migrating all consumers together. The authoritative configuration remains single-owned. |
 
 Acceptance selects the target; it does not assert that amendments, migrations or qualification
 are complete. Authoritative edits require the visible design-edit route and blueprint revision
@@ -226,14 +226,14 @@ required evidence exists. Dependencies are consumed slices, not whole-document b
 
 | Packet | Required input | Delivery and targeted acceptance | Progress |
 |---|---|---|---|
-| SD00 — Decision routes and execution premises | Accepted RC01/RC02; current source/profile ownership and the handoffs authored here | Stage the exact contract amendments before dependent changes. Reconcile current owners, frozen tooling/worker closures and the two unvalidated fixture edits. Select unchanged positive/negative controls; preserve concurrent resources. No campaign relaunch or blanket reset. | Scheduled |
-| SD01 — Lifecycle observation and cancellation evidence | Existing supervisor/native observation contracts; F02, S01/S02 | Implement meaningful phase/identity/cause observations and migrate startup/status/drain/fixture consumers. Distinguish owned startup, stop/maintenance, mismatch, unavailable manager and actual completion. Validate the existing fixture corrections at current entrypoints; exercise real nested cancellation and independent storage survival. Remove replaced Boolean interpretation and obsolete mocks. | Scheduled |
-| SD02 — Deadline-aware control waits | SD00; SD01's failure distinction where consumed; F01, S01 | Make metadata acquisition and relevant control waits respect the original clock, including post-wait expiry. Exercise held-lock expiry with no late admission, same-owner join/replacement refusal and cancellation with retained cleanup. Delete unconditional blocking admission paths after callers move. | Scheduled |
-| SD03 — Capability-correct deployment composition | SD00's RC02 route; existing storage/runtime/worker contracts; F04, S04/S05/S08 | Separate storage projection from native deployment interpretation and migrate all affected constructors/reloads. Test storage-only access without native policy, execution refusal for invalid association, isolated contexts and stale generations. Delete storage-owned native policy/reload APIs after consumer migration. | Scheduled |
-| SD04 — Typed Python infrastructure failures | Existing Canonical diagnostic projection; F05, S07; coordinate shared constructor edits with SD03 | Preserve canonical causes through runtime connect/open, explicit initialization and close. Exercise infrastructure timeout, interpretation mismatch, failed disconnect and invalid user input as distinct outcomes. Remove affected Input(string) conversions; retain protected-reader drain. | Scheduled |
-| SD05 — Independent protected reads | SD00's RC01 route; SQ01's emitted-operation classification; F03, S03/S10 | Narrow local pacing without changing distributed guard premises. Show two actual independent reads overlap; retain sixteen-reader/staging controls, writer/reclaimer progress, expired protection, absent/set edits and exact lost-ack settlement. Migrate affected queries and remove displaced broad coordination/tests. | Scheduled |
-| SD06 — One terminal occurrence realization | Existing terminal study contract and SD00; SQ08's internal consumer assessment; F06, S06 | Derive all internal terminal views from one checked paged inventory under correct allocation ownership. Test multipage ordering, failed/cancelled/partial outcomes, exact associations and later-page corruption. Retain compact open polling; delete repeated internal scans and their obsolete assertions. | Scheduled |
-| SD07 — Affected integration, qualification and handoff | SD01–SD06 complete; every SQ inquiry decided and selected migrations/controls delivered | Run affected assembled lifecycle, storage/read/reclaim, study, managed execution, Python and maintenance journeys; scope-end checks and independent bounded integration review. Reconcile dispositions, enduring owners and Plan 28 prerequisites. Do not acquire the full E3/E4/E5 campaign. | Scheduled |
+| SD00 — Decision routes and execution premises | Accepted RC01/RC02; current source/profile ownership and the handoffs authored here | Stage the exact contract amendments before dependent changes. Reconcile current owners, frozen tooling/worker closures and the two unvalidated fixture edits. Select unchanged positive/negative controls; preserve concurrent resources. No campaign relaunch or blanket reset. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD01 — Lifecycle observation and cancellation evidence | Existing supervisor/native observation contracts; F02, S01/S02 | Implement meaningful phase/identity/cause observations and migrate startup/status/drain/fixture consumers. Distinguish owned startup, stop/maintenance, mismatch, unavailable manager and actual completion. Validate the existing fixture corrections at current entrypoints; exercise real nested cancellation and independent storage survival. Remove replaced Boolean interpretation and obsolete mocks. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD02 — Deadline-aware control waits | SD00; SD01's failure distinction where consumed; F01, S01 | Make metadata acquisition and relevant control waits respect the original clock, including post-wait expiry. Exercise held-lock expiry with no late admission, same-owner join/replacement refusal and cancellation with retained cleanup. Delete unconditional blocking admission paths after callers move. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD03 — Capability-correct deployment composition | SD00's RC02 route; existing storage/runtime/worker contracts; F04, S04/S05/S08 | Separate storage projection from native deployment interpretation and migrate all affected constructors/reloads. Test storage-only access without native policy, execution refusal for invalid association, isolated contexts and stale generations. Delete storage-owned native policy/reload APIs after consumer migration. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD04 — Typed Python infrastructure failures | Existing Canonical diagnostic projection; F05, S07; coordinate shared constructor edits with SD03 | Preserve canonical causes through runtime connect/open, explicit initialization and close. Exercise infrastructure timeout, interpretation mismatch, failed disconnect and invalid user input as distinct outcomes. Remove affected Input(string) conversions; retain protected-reader drain. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD05 — Independent protected reads | SD00's RC01 route; SQ01's emitted-operation classification; F03, S03/S10 | Narrow local pacing without changing distributed guard premises. Show two actual independent reads overlap; retain sixteen-reader/staging controls, writer/reclaimer progress, expired protection, absent/set edits and exact lost-ack settlement. Migrate affected queries and remove displaced broad coordination/tests. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD06 — One terminal occurrence realization | Existing terminal study contract and SD00; SQ08's internal consumer assessment; F06, S06 | Derive all internal terminal views from one checked paged inventory under correct allocation ownership. Test multipage ordering, failed/cancelled/partial outcomes, exact associations and later-page corruption. Retain compact open polling; delete repeated internal scans and their obsolete assertions. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SD07 — Affected integration, qualification and handoff | SD01–SD06 complete; every SQ inquiry decided and selected migrations/controls delivered | Run affected assembled lifecycle, storage/read/reclaim, study, managed execution, Python and maintenance journeys; scope-end checks and independent bounded integration review. Reconcile dispositions, enduring owners and Plan 28 prerequisites. Do not acquire the full E3/E4/E5 campaign. | Complete; see [acceptance evidence](#acceptance-evidence) |
 
 SD01 establishes the observation contract used to explain SD02 refusal and cancellation;
 its entire real-system qualification need not block local deadline work. SD03 and SD04 share
@@ -270,19 +270,54 @@ speedup threshold, cost model or new permanent benchmarking platform is required
 
 | Packet | Question, evidence and decision boundary | Integration and acceptance | Progress |
 |---|---|---|---|
-| SQ01 — Complete native access paths (Q01) | Inspect emitted protected reads, exact predicates, interval/dereference access, multi-selector intent, payload projections and actual EXPLAIN/execution evidence. Compare short transaction/function composition with added interactive-session lifetime. Returned-row limits do not bound examined work. | Supply SD05's read/effect classification early. At canonical query owners, implement fitting predicate/index/bulk/projection corrections and migrate consumers. Preserve exact membership/absence, framing and later-page refusal; examine complete-operation behavior under skew and mutation. Retain Plan 34's disproved binary-index result until changed planner evidence warrants revisiting it. | Scheduled |
-| SQ02 — Native integrity and inverse ownership (Q02) | For applicable registry families, compare ENFORCED endpoint admission, REFERENCE deletion/inverse semantics and existing checks. Establish staging order, independent evidence lifetime and import bypass; do not infer dangling current publications merely from missing ENFORCED. | Select constraints/bookkeeping replacements at the registry/generator owner, regenerate rather than hand-edit outputs, and test creation, missing endpoints, retained evidence, reclamation and actual restore integrity. A new relation family or changed metadata/commit meaning takes its decision route first. Keep guards/validation that establish different properties. | Scheduled |
-| SQ03 — Fitting graph representations (Q03) | Examine useful derived connectivity and actual traversals for LIGHTWEIGHT or native adjacency caching. Compare edge metadata, multiplicity/order, high degree, write amplification, overflow/bypass and batched starting-record lookup. | Integrate fitting representations at existing topology/retrieval owners with all readers/writers migrated and replacement removal. Test exact traversal and lifecycle behavior, including high-degree cases. Preserve equation-structure and numerical graph authority; do not add a second persisted topology without a concrete benefit. | Scheduled |
-| SQ04 — Streaming cancellation and SDK patch retirement (Q04) | Compare each local patch guarantee against pinned upstream and streaming facilities: local admission, dispatch uncertainty, original clocks, reserved control progress, setup replay, provisional/terminal frames and physical drain. | Retire only patch mechanisms whose complete consumed contract is supplied by the selected library route, with affected transport controls and callers migrated. Retain the remainder explicitly. Cancellation ACK is not completion, socket drain is not native/server completion, and uncertain writes retain their original identities. An upgrade is exact-pinned and scoped, not wholesale resolution. | Scheduled |
-| SQ05 — Local task lifetime primitives (Q05) | Identify generic in-process bookkeeping that a fitting JoinSet, TaskTracker or cancellation token can remove. Separate signal, outcome collection, task join, started blocking work and native/remote completion. | Replace fitting task machinery at its existing owner and delete the old path. Test failure/panic evidence, cancellation races and actual joined resource lifetime. Do not let a helper that discards outcomes replace a drain that must report failures. No new resource caps or scheduling framework. | Scheduled |
-| SQ06 — Notifications and database-local projections (Q06) | Assess LIVE, CHANGEFEED/SHOW CHANGES and sync/async events for useful wakeups, catch-up or local projections. Resolve Rust reconnect/unsubscribe, cursor retention gaps, duplicates and retry exhaustion. | Integrate a fitting notification/projection with explicit owner and recovery behavior. Test interruption, gap recovery and idempotence. Keep authoritative reread, current cache dependencies and durable claim/publication protocols; events must not mint scientific completion or exactly-once native effects. | Scheduled |
-| SQ07 — Maintenance, deployment and native frontends (Q07 and review §6) | Compare export/checkpoint facilities and embedding against full backup/recovery and shared multiprocess authority. Assess existing native MCP, Postgres wire, GraphQL and DEFINE API for fitting adapter removal or useful exploration; distinguish SurrealQL from PostgreSQL semantics, authorization and body/identity contracts. | Implement fitting maintenance/frontend simplifications at existing owners with restore/authorization and affected consumer controls. Preserve credentials, deployment envelope, fresh authority and exact scientific values. Retain native MCP rather than duplicate it. A backend/deployment replacement, new authority or changed public contract requires its own confirmed rule/decision route; no hidden fallback. Experimental modules/WASM are not presumed numerical execution owners. | Scheduled |
-| SQ08 — Active lookup and study interfaces (Q08) | Assess bounded exact-equality compiler request lookup and actual study consumers. Determine whether indexed lookup or paged public status removes useful work without duplicating authority, retention or representations. | Supply SD06's internal single-read projection decision early. Integrate fitting lookup/interface changes with exact collision/equality, invalidation/ownership and paging controls. Do not make a new public API or compiler index a prerequisite for removing repeated terminal scans. Keep process-local handles out of durable identity. | Scheduled |
+| SQ01 — Complete native access paths (Q01) | Inspect emitted protected reads, exact predicates, interval/dereference access, multi-selector intent, payload projections and actual EXPLAIN/execution evidence. Compare short transaction/function composition with added interactive-session lifetime. Returned-row limits do not bound examined work. | Supply SD05's read/effect classification early. At canonical query owners, implement fitting predicate/index/bulk/projection corrections and migrate consumers. Preserve exact membership/absence, framing and later-page refusal; examine complete-operation behavior under skew and mutation. Retain Plan 34's disproved binary-index result until changed planner evidence warrants revisiting it. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SQ02 — Native integrity and inverse ownership (Q02) | For applicable registry families, compare ENFORCED endpoint admission, REFERENCE deletion/inverse semantics and existing checks. Establish staging order, independent evidence lifetime and import bypass; do not infer dangling current publications merely from missing ENFORCED. | Select constraints/bookkeeping replacements at the registry/generator owner, regenerate rather than hand-edit outputs, and test creation, missing endpoints, retained evidence, reclamation and actual restore integrity. A new relation family or changed metadata/commit meaning takes its decision route first. Keep guards/validation that establish different properties. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SQ03 — Fitting graph representations (Q03) | Examine useful derived connectivity and actual traversals for LIGHTWEIGHT or native adjacency caching. Compare edge metadata, multiplicity/order, high degree, write amplification, overflow/bypass and batched starting-record lookup. | Integrate fitting representations at existing topology/retrieval owners with all readers/writers migrated and replacement removal. Test exact traversal and lifecycle behavior, including high-degree cases. Preserve equation-structure and numerical graph authority; do not add a second persisted topology without a concrete benefit. | Complete; existing route retained (decision below) |
+| SQ04 — Streaming cancellation and SDK patch retirement (Q04) | Compare each local patch guarantee against pinned upstream and streaming facilities: local admission, dispatch uncertainty, original clocks, reserved control progress, setup replay, provisional/terminal frames and physical drain. | Retire only patch mechanisms whose complete consumed contract is supplied by the selected library route, with affected transport controls and callers migrated. Retain the remainder explicitly. Cancellation ACK is not completion, socket drain is not native/server completion, and uncertain writes retain their original identities. An upgrade is exact-pinned and scoped, not wholesale resolution. | Complete; existing route retained (decision below) |
+| SQ05 — Local task lifetime primitives (Q05) | Identify generic in-process bookkeeping that a fitting JoinSet, TaskTracker or cancellation token can remove. Separate signal, outcome collection, task join, started blocking work and native/remote completion. | Replace fitting task machinery at its existing owner and delete the old path. Test failure/panic evidence, cancellation races and actual joined resource lifetime. Do not let a helper that discards outcomes replace a drain that must report failures. No new resource caps or scheduling framework. | Complete; see [acceptance evidence](#acceptance-evidence) |
+| SQ06 — Notifications and database-local projections (Q06) | Assess LIVE, CHANGEFEED/SHOW CHANGES and sync/async events for useful wakeups, catch-up or local projections. Resolve Rust reconnect/unsubscribe, cursor retention gaps, duplicates and retry exhaustion. | Integrate a fitting notification/projection with explicit owner and recovery behavior. Test interruption, gap recovery and idempotence. Keep authoritative reread, current cache dependencies and durable claim/publication protocols; events must not mint scientific completion or exactly-once native effects. | Complete; existing route retained (decision below) |
+| SQ07 — Maintenance, deployment and native frontends (Q07 and review §6) | Compare export/checkpoint facilities and embedding against full backup/recovery and shared multiprocess authority. Assess existing native MCP, Postgres wire, GraphQL and DEFINE API for fitting adapter removal or useful exploration; distinguish SurrealQL from PostgreSQL semantics, authorization and body/identity contracts. | Implement fitting maintenance/frontend simplifications at existing owners with restore/authorization and affected consumer controls. Preserve credentials, deployment envelope, fresh authority and exact scientific values. Retain native MCP rather than duplicate it. A backend/deployment replacement, new authority or changed public contract requires its own confirmed rule/decision route; no hidden fallback. Experimental modules/WASM are not presumed numerical execution owners. | Complete; existing route retained (decision below) |
+| SQ08 — Active lookup and study interfaces (Q08) | Assess bounded exact-equality compiler request lookup and actual study consumers. Determine whether indexed lookup or paged public status removes useful work without duplicating authority, retention or representations. | Supply SD06's internal single-read projection decision early. Integrate fitting lookup/interface changes with exact collision/equality, invalidation/ownership and paging controls. Do not make a new public API or compiler index a prerequisite for removing repeated terminal scans. Keep process-local handles out of durable identity. | Complete; see [acceptance evidence](#acceptance-evidence) |
 
 Record a selected realization, affected owners and acceptance beside its inquiry as execution
 proceeds. A capability may be useful without replacing all custom logic: explicitly preserve
 the remaining contract instead of claiming wholesale native equivalence. If a decision changes
 other packets' assumptions, update their inputs and controls together before dependent work.
+
+### Inquiry decisions selected during execution (2026-10-10)
+
+- **SQ01:** retain exact guarded transaction and interval semantics; batch full-source scope,
+  document/data, package and fit selection through existing bounded protected selectors. Native
+  query-plan controls examine scoped intervals and target dereferences before any new index is
+  justified. Existing binary-index counterevidence remains applicable.
+- **SQ02:** enforce endpoints for memberships, analysis edges/inputs, problem runs and run
+  sources. Create the problem endpoint earlier in the same source-edit transaction. Study
+  dependencies remain unenforced because valid predecessor references can cross ingestion pages;
+  enforcing them would require another staging mechanism. REFERENCE/cascade does not replace
+  bounded semantic reachability cleanup or independently retained evidence. Import bypass still
+  requires post-restore integrity validation.
+- **SQ03:** retain the current graph representation. Emitted production queries use indexed
+  records/tables; adjacency caching does not accelerate those predicates. LIGHTWEIGHT relations
+  would lose consumed metadata and require another topology. No concrete traversal consumer
+  justifies that replacement in this scope.
+- **SQ04:** retain the pinned SDK patch. Upstream streaming cancellation does not supply the
+  complete original-clock, reserved-control, dispatch uncertainty, ordered finite replay or
+  physical-disconnect contracts. Cancellation acknowledgement cannot establish completion.
+- **SQ05:** replace fixture release counters/notifications with TaskTracker tokens while preserving
+  explicit live-reader admission and failure/panic/cancellation evidence. Native thread joins and
+  outcome-bearing task joins retain their distinct obligations.
+- **SQ06:** retain compact authoritative polling. LIVE/changefeeds add subscription/reconnect,
+  gap and duplicate handling while still requiring the same current-header reread. No selected
+  database projection replaces scientific transition authority; SD06 removes the actual repeated
+  terminal hydration.
+- **SQ07:** retain existing native export/import, preserving deployment envelope and fresh
+  admission. Embedding cannot replace shared multiprocess authority; additional protocol frontends
+  would add contracts without retiring a consumed adapter. Existing authenticated bounded native
+  MCP remains the exploration route. No backend or public frontend replacement is selected.
+- **SQ08:** adopt generation-local FxHash buckets with full equality within collisions and
+  pre-admitted collection overhead. Retain the existing complete public study views: paging them
+  would add a second interface without retiring required complete associations. Internal terminal
+  consumers instead share one checked occurrence realization.
 
 ## Finding dispositions
 
@@ -291,12 +326,12 @@ in the tables above; historical review findings and Plan 34 outcomes are not rew
 
 | Finding | Scenario | Disposition | Decision/work owner | Evidence or completion condition |
 |---|---|---|---|---|
-| [Surreal F01](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f01) | S01 | Scheduled | SD02 / existing supervisor admission owner | Held-lock original-clock expiry prevents late admission; actual cleanup remains owned. The review counterexample is defect evidence, not correction acceptance. |
-| [Surreal F02](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f02) | S01/S02 | Scheduled | SD01 / supervisor and native-operation observation owners | Typed progress/mismatch/unavailable causes govern consumers; actual nested interruption and independent storage survival pass with decisive refusal observations retained. Historical cause stays unresolved unless supported. |
-| [Surreal F03](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f03) | S03/S10 | Scheduled | RC01; SD05 with SQ01 / canonical operation owner | Actual independent reads overlap, while mixed writer/reclaimer progress, protection and exact uncertain-effect settlement survive. Historical sixteen-reader safety does not prove this target. |
-| [Surreal F04](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f04) | S04/S05/S08 | Scheduled | RC02; SD03 / runtime/deployment composition | Storage-only construction consumes no native policy; managed execution still validates actual association and current admission. All affected consumers leave the old store-owned policy path. |
-| [Surreal F05](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f05) | S07 | Scheduled | SD04 / existing workflow diagnostic and Python owners | Canonical timeout, mismatch and disconnect causes survive Python without string parsing; user input retains a distinct classification. |
-| [Surreal F06](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f06) | S06 | Scheduled | SD06 with SQ08 / study result and execution consumers | One terminal occurrence hydration serves internal views with correct retained ownership, exact ordering/associations and late-page refusal. |
+| [Surreal F01](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f01) | S01 | Resolved | SD02 / existing supervisor admission owner | **Tested:** held supervisor/host-ledger exclusion and post-acquisition expiry controls, including actual child-held locks, prevent late launch or ledger mutation. The complete setup selection passes; see [acceptance evidence](#acceptance-evidence). |
+| [Surreal F02](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f02) | S01/S02 | Resolved | SD01 / supervisor and native-operation observation owners | **Tested:** typed observation controls and actual nested cancellation, kernel drain, independent storage survival, restart exhaustion and composed fixture retirement pass. The historical failure cause remains unresolved; see [acceptance evidence](#acceptance-evidence). |
+| [Surreal F03](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f03) | S03/S10 | Resolved | RC01; SD05 with SQ01 / canonical operation owner | **Tested:** actual SDK independent-read overlap, sixteen-reader/mutation, protection, reclamation and lost-ack controls pass in the assembled canonical selection; see [acceptance evidence](#acceptance-evidence). |
+| [Surreal F04](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f04) | S04/S05/S08 | Resolved | RC02; SD03 / runtime/deployment composition | **Tested:** storage-only configuration and invalid native selection controls pass; original Rust/Python sixteen-owner and cancellation journeys validate migrated execution composition. See [acceptance evidence](#acceptance-evidence). |
+| [Surreal F05](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f05) | S07 | Resolved | SD04 / existing workflow diagnostic and Python owners | **Tested:** typed canonical error projection and Python diagnostic/cache journeys retain infrastructure causes separately from invalid input; see [acceptance evidence](#acceptance-evidence). |
+| [Surreal F06](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md#f06) | S06 | Resolved | SD06 with SQ08 / study result and execution consumers | **Tested:** terminal inventory ordering, retained ownership, exact associations and later-page corruption controls pass, alongside original native/Python study consumers; see [acceptance evidence](#acceptance-evidence). |
 
 S08's domain extension and S05's integration replacement are preservation scenarios across
 SD03/SQ02–SQ05/SQ08. S09 belongs to SQ02/SQ03/SQ06/SQ07; S10 belongs to SD05/SQ01/SQ04
@@ -333,7 +368,7 @@ handoff identifies the new prospective target while preserving completed SM/SI d
 and evidence. Other companions link those owners rather than repeat a live campaign status.
 Plan/index adoption supplies no new functional or scientific qualification.
 
-On a later authorized Plan 28 continuation, select affected Plan 35 prerequisites by actual
+On the authorized Plan 28 testing continuation after this plan completes, select affected Plan 35 prerequisites by actual
 consumption:
 
 | Existing acceptance route | Prerequisite supplied here |
@@ -354,7 +389,9 @@ physics-oracle framework remain outside the current qualification target.
 
 ## Verification and completion
 
-**Proposed verification.** During implementation use `scripts/pse-env --` with targeted compile
+**Tested, affected scope (2026-10-10).** The acceptance evidence below records the executed
+commands, modes, zero-failure baseline and qualification limits. The original proposed
+controls remain the coverage specification. During implementation use `scripts/pse-env --` with targeted compile
 checks and unit controls at the touched owners. Rust tests explicitly enable
 `pse-relations/force-validate`; managed selections retain the existing nextest filter rules.
 Generator/registry changes regenerate their outputs in the same packet. No mid-plan full
@@ -407,18 +444,153 @@ update Plan 28's dependency handoff and current-work selection, then retire only
 completed documents/reviews under ADR-0096. Retain the source review while findings or decisions
 depend on it. Do not retire Plan 34 merely because this plan has a higher number. When production
 work closes, record an evidence-labelled Outcome with what was built, a mistake corrected,
-deliberate deviations and qualification limits; no production Outcome is claimed now.
+deliberate deviations and qualification limits.
 
 ## Current checkpoint
 
-The standalone target, six finding routes, eight inquiry packets, accepted RC01/RC02 and
-affected qualification are authored. Existing-plan handoffs distinguish the stopped campaign
-from conditional continuation, and lifecycle/publication bindings point to this owner.
-No production packet or inquiry implementation is complete through this authoring task.
-The two pre-existing fixture edits remain unvalidated; the historical nested drain cause
-remains unresolved. Existing scoped review probes keep their original evidence limits.
+Functional scope and affected integration are complete (2026-10-10). SD00–SD06 and selected
+SQ01/SQ02/SQ05/SQ08 changes are integrated, their replaced paths removed, and all six finding
+dispositions have correction evidence. The four retained-design inquiries have explicit
+technical decisions. Accepted RC01/RC02 contracts live at their architecture owners.
 
-Next: prepare detailed execution against current source and deployment ownership, then execute
-only when instructed. Begin with SD00 and the observation/clock boundary; SD03/SD04 and the
-independent inquiries may follow their stated inputs. Keep the full Plan 28 campaign stopped
-until a later explicit continuation instruction and its affected prerequisites are satisfied.
+The final setup, assembled canonical, native/Python study and managed sixteen-owner controls
+pass. Actual lifecycle/MCP/bounded restart and maintenance controls compose successfully in
+one exclusive owner; actual scientific recovery also passes on the fresh final reference.
+Independent bounded source review found no remaining material issue. Integration repairs
+preserve exact probe/borrowed-service ownership, original cleanup clocks, concurrent host
+registrations and private receiver parents. Failed profiles remain preserved. The historical
+nested-observer cause remains unresolved; current controls establish current behavior only.
+
+SD07 is complete: affected acceptance, repaired scope-end checks, governance, native lints,
+full feature powerset, independent bounded review and documentation retirement have passed.
+The resolved review is retained through immutable Git references; this highest-numbered plan
+remains as the completed handoff. Proceed directly to the maintainer-authorized remaining
+Plan 28 E3/E4/E5 campaign at [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step).
+Keep original thousand-point/sixteen-case workloads and reference capacities unchanged.
+
+## Acceptance evidence
+
+**Tested, 2026-10-10; baseline zero throughout.** These are affected Plan 35 controls on
+Linux with SurrealDB/Rust SDK 3.3.0, RocksDB and the pinned native provider environment.
+Rust correctness invocations enable `pse-relations/force-validate`. The assembled canonical
+and managed Rust controls use `local`; the five earlier study controls used `default` as
+recorded below. No retry, reduced numerical fixture or historical internal-result
+comparison supplies acceptance. Commands below run through `scripts/pse-env --` and retain
+private raw artifacts under the named ignored `build/` directories.
+
+| Scope and command | Actual result and conditions |
+|---|---|
+| `just setup-test-report build/plan35-setup-private-receivers-20261010` | 805 tests passed, zero failures/errors, 41.871 s; includes held-lock original-clock expiry, exact borrowed-affiliation return/races, fixture host-reference refusal and private receiver parent creation/refusal. |
+| `just unit-package pse-operations 'test(/_server_unit::/) \| test(canonical_capability_tests)' --features pse-operations/canonical-tests --profile local` | 103 passed, zero failed, 60 unselected; 262.881 s, Nextest `83faab39-1f42-4db8-8ac8-8c43ca2dc897`. Actual independent read overlap, protected mutation/reclamation, bounded selector behavior, endpoint enforcement and native query-plan controls. |
+| `just unit-native-package pse-runtime canonical-tests,native-solvers <filter>` with the exact study filter below | Five passed, zero failed, 178.791 s, `default` profile; Nextest `003d4a08-5aa9-4e75-bdf9-989016745a4c`. Cancellation, equal bindings, claim expiry, live owner and terminal cancellation retain original contracts. |
+| `just py-test python/pse/tests/test_canonical_results.py -m 'component or (integration and not producer_deployment)' -q --tb=short` | Six passed, zero failed, 131.25 s; selected canonical diagnostic/cache/result journeys under the reference owner. |
+| `just native-test --profile local --managed-primary-route -p pse-runtime -E 'test(managed_primary_study_enters_sixteen_native_owners_and_retains_original_results) \| test(managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail)'` | Both original controls passed, zero failed, 788 unselected; 153.394 s, Nextest `34268ad4-f11e-4475-a371-d1508152e7e9`. Fresh private final reference profile; sixteen native owners, original results, cancellation/drain and tail refusal. |
+| `just native-python build/plan35-managed-python-final-20261010 --managed-primary-route --tb=short -q` with the original sixteen-owner result, sixteen-owner cancellation and unusable-predecessor partial tests | Three passed, zero failed, 114.25 s; original public Python workloads and assertions. |
+| `.venv/bin/python -m scripts.tests.surreal_fixture_check` with full, `--mcp-only` and `--bounded-b-controls` selections, followed by `scripts/tests/efficiency_maintenance_actual_check.py` in one exclusive owner | All four commands and enclosing owner exited zero. `build/plan35-{lifecycle,mcp,bounded,maintenance}-current-20261010` retain positive controls, genuine canonical initialization, exact probe retirement, no outstanding host references and successful fixture retirement. Real SIGKILL/reopen, uncertain-write reconciliation, backup/restore, native budget/slot/drain, restart exhaustion and VIEWER/missing-context refusal are exercised. |
+| `just canonical-recovery-test --scientific --profile-state "$PSE_SURREAL_STATE" --directory build/plan35-scientific-recovery-current-20261010` | Exited zero on the final reference profile, with native SIGKILL/reopen, protected history/exact bits, large staging, stale authority/refusal, gated restore and public-API rebuild/original-space solve checks. |
+| `just hygiene --output build/plan35-hygiene-20261010` and affected repair commands `just lint-py`, `just typecheck` | Original 28-gate sweep: 26 passed, two Python static gates failed. Both repaired gates subsequently exit zero with no lint findings/type diagnostics (two configured type suppressions). This is repaired composite scope-end evidence. Generation, Rust/default/no-default lint and documentation checks passed. |
+| `just governance`, `just lint-native-contracts`, `just lint-native-data` | All exited zero; both native lints report zero warnings. Governance artifacts: `build/assessment/20261010T225736.114499Z-governance-3317852-c51db3`. |
+| `just features-powerset` | Both feature-combination and no-default-feature gates exited zero; 355 feature combinations. Artifacts: `build/assessment/20261010T225813.227922Z-features-powerset-3327065-640030`. |
+| `just docs` | Exited zero after resolved-review retirement; 311 chapters published with scoped search. |
+
+The exact five-control study filter was:
+
+```text
+test(canonical_study_cancel_preserves) | test(canonical_study_equal_bindings_and_failed_usable_dependency) | test(canonical_study_expired_claim) | test(canonical_study_summary_live_owner) | test(canonical_study_cancellation_after_summary_close)
+```
+
+The three managed Python selectors were:
+
+```text
+python/pse/tests/test_studies.py::test_public_study_sixteen_native_owners_retain_equal_occurrences_and_original_roots
+python/pse/tests/test_studies.py::test_public_study_cancel_drains_sixteen_native_owners_and_never_starts_tail
+python/pse/tests/test_studies.py::test_study_unusable_predecessor_retains_refusal_without_dispatch
+```
+
+Additional focused compiler hash/equality, transport, native-selection and terminal-page controls
+passed at their affected owners. The separate runtime full-source control passed one selected
+test at `pse-runtime::workflow::modeling::canonical`; the canonical server count does not
+include that runtime test. The assembled canonical selection supersedes the repaired
+single retention fixture. The final setup selection supersedes the earlier setup captures.
+Independent bounded source review found no remaining material issue in the integrated target,
+including final deadline forwarding, concurrent host-owner preservation and private parent
+creation. It does not substitute for Plan 28 E5's independent assembled campaign review.
+
+The final managed/scientific profile is
+`$HOME/.local/state/pse-arrow/surreal-plan35-final-reference-20261010` (port 18247,
+`pse.substrate.v3`, nonresident `plan28-reference`). Its original envelope is 128 GiB pool,
+16 GiB worker, sixteen lanes and 32 math workers; host placement is 140 GiB primary,
+16 GiB server and 4 GiB observer. `target/debug/pse-worker`, the linked Python extension and
+frozen current receiver closure identify deployed inputs. Resume a quiesced profile by
+`just surreal readmit` and `just surreal start` inside its admitted owner; never infer readiness
+from a previous process or directory. Failed profiles and their evidence remain preserved.
+
+**Qualification limits:** affected acceptance does not establish Plan 28 E3/E4/E5, a measured
+speedup, physical power-loss durability or whole-product scientific equivalence. The native
+query-plan control returns 208 selected members in 64/64/40 pages and 104 inverse candidates;
+those counts do not establish examined work or throughput. The historical nested-observer
+failure remains undiagnosed. Current real controls establish current owned behavior only.
+
+## Outcome (recorded after implementation)
+
+### What was built
+
+**Implemented:** SD00–SD06 and selected SQ01/SQ02/SQ05/SQ08 changes are integrated at their
+existing semantic owners. Admission and cleanup observations preserve exact owned identity
+and original clocks through metadata exclusion; storage configuration no longer interprets
+native policy; runtime composition validates execution capabilities; Python retains canonical
+error causes; independent immutable reads share fair per-problem coordination; terminal study
+consumers reuse one checked occurrence realization. Bulk full-source reads, ENFORCED endpoint
+constraints, tracked release tasks and full-equality compiler hash buckets remove the selected
+work without changing scientific identity or publication authority. Replaced native-store APIs,
+broad read serialization and repeated internal terminal scans are removed.
+
+**Implemented:** accepted RC01/RC02 enduring contracts are recorded in blueprint revision 146,
+§14.4 and §20.6 through the design-edit route. The substrate guide owns observation, admission,
+recovery/adoption, exact recovery-probe retirement, stopped borrowed-service affiliation return,
+fixture host-reference refusal and private receiver-directory creation. No accepted ADR was
+rewritten. SQ03/SQ04/SQ06/SQ07 retain the existing graph, patched SDK, compact authoritative
+polling and shared deployment/native frontend routes for the explicit technical reasons above;
+no second topology, backend, notification authority or public study interface is introduced.
+
+**Tested:** the [acceptance evidence](#acceptance-evidence) resolves all six findings at their
+required boundaries, including real lifecycle, managed execution and scientific recovery.
+The affected scope uses repaired composite evidence where earlier attempts failed; each final
+covering selection named there has zero failures. Full feature-powerset and documentation checks also pass. The resolved source review is
+retired to immutable Git history; current dispositions and evidence remain here.
+Plan 28 independently owns the subsequently authorized comprehensive E3/E4/E5 continuation.
+
+### A mistake made and corrected
+
+Real composition exposed ownership defects that isolated tests had not exercised: a successful
+recovery probe database remained in backup, and a stopped service's borrowed affiliation
+remained in the enclosing host allocation. Successful probes now retire only their exact
+acknowledged database after namespace verification; stopped borrowed affiliations return only
+after exact generation and kernel-drain proof, preserving concurrent owner changes and the
+original cleanup clock. Failed or uncertain probes and unrelated state remain retained.
+
+The original managed tests also exposed intermediate receiver directories created with the
+caller's permissive umask. Native selection correctly refused them. The producer now creates
+every new parent privately and rejects unsafe existing parents without chmod/adoption; the
+unchanged original managed tests pass on a fresh profile. Other corrected test assumptions
+include genuine canonical initialization, selected namespace/database headers, finished
+retention pins and bounded terminal fixture pages. The historical failure capture and failed
+profiles retain their original meaning; current passing behavior does not diagnose the earlier
+nested-observer failure's cause.
+
+### Deviations from the plan, deliberate
+
+Actual lifecycle composition required the exact successful-probe retirement, host-affiliation
+return and producer privacy fixes described above. They restore the existing preservation,
+capability and ownership contracts rather than add a new backend or change scientific semantics.
+The task-owned dead allocation from an earlier retired MCP fixture was recovered only after
+positive retained retirement evidence, exact record comparison and fresh proof for every
+registered unit; its receipt is `build/plan35-mcp-20261010/allocation-recovery.json`.
+No other allocation or application state was removed.
+
+The maintainer's subsequent authorization adds the entire remaining Plan 28 testing campaign
+after this standalone scope. That work remains with Plan 28 and does not enlarge Plan 35's
+claim of affected acceptance. Optional strict producer/distribution checks, a new thermodynamic
+oracle, physical power-loss guarantees and a measured performance benefit remain outside this
+Outcome's evidence. Concurrent repository workloads were present; small noisy timing changes
+are not grounds for rejecting an otherwise correct expected-beneficial implementation.

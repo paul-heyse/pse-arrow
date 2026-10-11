@@ -1047,12 +1047,6 @@ path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
 [exceptions.values]
 doc_owner = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
 
-[[exceptions]]
-path = "docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md"
-[exceptions.values]
-doc_owner = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
-doc_retention = "while-dependent"
-
 [[scope_tables]]
 path = "docs/plans/35-surrealdb-lifecycle-and-integration-remediation.md"
 name = "implementation-packets-and-dependencies"

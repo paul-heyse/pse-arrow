@@ -3056,6 +3056,9 @@ mod tests {
                     .failure(pse_relations::generated::runtime::simulation_samples::RELATION_ID)
                     .is_none()
             );
+            // A saturated live pool must refuse projection. Disposable program
+            // retention is allowed to yield, so release it before saturation.
+            runtime.clear_program_cache();
             let pool = runtime.shared.pool();
             let before = pool.reserved();
             let pressure = MemoryConsumer::new("test:trajectory-pressure").register(&pool);

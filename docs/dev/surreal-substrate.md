@@ -70,6 +70,17 @@ initialization route. Administrative startup defines the read-only account and c
 authenticated WebSocket readiness; process/listener readiness and interpretation/
 receiver admission remain separate.
 
+Storage construction reads only the authenticated storage projection. Runtime/worker
+composition selects native allocation and receiver policy together for the connected
+database, checks registered receiver generation and actual executable bytes, and refuses
+changed configuration before reporting readiness. Invalid unused native policy does not
+prevent storage inspection. An explicit execution request still requires valid policy.
+
+Immutable protected reads share a local per-problem turn. Protection creation/renewal,
+publication, staging and other mutations take an exclusive, fair writer turn. The turn
+covers a complete short RPC/retry decision, never native work or hydration; its queue
+consumes the original clock. Server guards and generations remain distributed authority.
+
 Pre-database catalog creation cannot use the ordinary in-database UTC fence in
 SurrealDB 3.3. It uses a fresh unselected administrative connection under the original
 transport clock and finite server backstops. A lost submitted DDL response remains
@@ -109,6 +120,10 @@ it is not permission to restart a borrowed service. Actual lifecycle mutations s
 require the exact reservation and all-context drain. Borrowed-service cleanup checks the
 current launch allocation and bound incarnation inside that reservation before mutating
 the service; an old cleanup snapshot cannot stop a replacement owner.
+After proving the selected service and its recorded process incarnation drained,
+exclusive cleanup returns only that borrowed service affiliation under the original
+stop clock. It preserves the enclosing caller and its other registered work. A concurrent
+registration prevents allocation retirement until that work also drains.
 
 Host allocation admission reclaims ended owners without starting unrelated queued parked
 services. An explicit `--store` demand resumes only the selected service under its admitted
@@ -125,6 +140,10 @@ and the exact selected context. It does not require the base `pse/canonical` dat
 or install canonical schema. It writes and reads an acknowledged operation in that
 context, abandons another fully submitted response, kills the process, reopens the
 same disk generation, and reconciles the original identities in the same context.
+Successful reconciliation removes only this operation's probe database and checks its
+absence in the namespace catalog before publishing positive qualification. The saved
+context records both settlement and retirement. Historical or uncertain probes are not
+removed by a later qualification.
 Failure retains any created probe database and private context evidence with restart
 qualification disabled. Local cleanup has its own bounded drain clock; an operation
 timeout does not prove that submitted effects are absent. The control finishes stopped
@@ -139,6 +158,10 @@ publish new immutable receiver generations per isolated context while the storag
 service continues. Existing receivers keep their exact admitted worker, producer
 receipt, source closure and configuration. Runtime readiness checks actual bytes,
 process generation, database and role placement, rather than mutable build paths.
+Context publication creates each receiver-directory level privately and refuses an
+existing parent with unsafe permissions, ownership or a symlink. Native selection
+checks those same private premises before execution. Permission validation is not
+an implicit repair or adoption route for an older profile.
 Reference mode preserves the original primary/observer allocation; functional and
 timing profiles are separate declarations.
 
@@ -166,6 +189,20 @@ service closure/selection credentials. Those commands preserve earlier profile a
 credential evidence. Unknown or incompatible profiles are refused. `ensure`, `drain`
 and `recover` operate only on the selected ownership; status is read-only and redacts
 secrets. A wider allocation must be explicitly admitted before launching its roles.
+
+Readiness reports a phase and cause with the selected and observed owner identities;
+startup, stopping, maintenance, mismatch and unavailable manager observations are distinct.
+Metadata exclusion and control waits consume an existing enclosing clock, including an
+expiry check after acquisition. Cancellation retains separate cleanup ownership. Native
+drain reports terminal unit ownership and empty descendants; a missing leader or an
+unavailable manager alone does not establish drain.
+
+Worker and primary launch reservations retain their exact child handoff until the matching
+pending nonce is settled. The child records its actual scope inode before running the payload;
+retiring the host allocation ledger does not erase that proof. Failed registration joins and
+cleans up the owned launcher under its cleanup clock. If ownership or drain remains unknown,
+the reservation stays closed. A later `drain`, `stop` or stopped-profile `readmit` retries
+reconciliation against that same launch; missing allocation metadata alone cannot release it.
 
 RocksDB's block cache is one quarter of the allocated server memory. Each write buffer
 is `min(32 MiB, allocation / 64)`, with two buffers per column family. The tracked-memory
@@ -301,6 +338,14 @@ its owner. Only after current initialization and preserved hashes are acknowledg
 exact replaced database removed. This is explicit disposal of derived internal state, never
 an automatic opening migration or a reset of authored/external inputs.
 
+Generated endpoint enforcement changes the schema digest even when the interpretation
+version stays unchanged. Ordinary opening refuses an old digest. Adopt the current schema
+through explicit preserving reconstruction/current restore and semantic validation; neither
+supervisor readmission nor successful server startup alone upgrades canonical schema.
+Memberships, analysis edges/inputs, problem runs and run sources enforce existing endpoints.
+Study dependency ingestion permits valid references to predecessors in later pages. Native
+import bypasses endpoint admission, so post-restore integrity checks remain required.
+
 Interrupted rebuild or restore remains closed. `recover-maintenance --state PATH` resumes
 its durable phase after verifying exact identities and preserved inputs; an interrupted
 rebuild initializer also requires `--initializer-command COMMAND ...`. Recovery observes
@@ -323,6 +368,13 @@ cargo build -p xtask --no-default-features --features canonical-tools --locked
 .venv/bin/python scripts/tests/efficiency_maintenance_actual_check.py \
   --directory /absolute/new/private-maintenance-control --port 18243
 ```
+
+The lifecycle fixture also requires that `canonical-tools` initializer. It initializes
+the selected namespace/database through the production schema path before toy writes;
+the native MCP-only control independently exercises its disposable namespace. Successful
+owned fixture retirement requires service, process and scope drain plus a read-only host
+ledger observation showing no live/restored service references. A remaining reference or
+unavailable observation retains the fixture and prevents positive evidence publication.
 
 The directory must be new. This control checks preserved authored file hashes, current
 schema initialization, full analysis removal, fresh database/account authority, closed

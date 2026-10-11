@@ -118,10 +118,6 @@ pub struct CanonicalOptions {
     pub selection_username: String,
     /// Read-only authentication secret, omitted from Debug.
     pub selection_password: String,
-    /// Finite managed native-worker allocation read from the owning supervisor profile.
-    pub native: NativeAllocation,
-    /// Explicit verified interpreter, supervisor and worker for managed primary startup.
-    pub primary_receiver: Option<ManagedPrimaryReceiver>,
     state_path: PathBuf,
     initializer_nonce: Option<String>,
 }
@@ -223,94 +219,6 @@ impl WriteAdmission {
         Ok(())
     }
 }
-/// Materialized executable association for the managed study receiver.
-#[derive(Clone, Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ManagedPrimaryReceiver {
-    /// Interpreter selected by the owning supervisor environment.
-    pub supervisor_executable: PathBuf,
-    /// Supervisor entry point selected at profile construction.
-    pub supervisor_script: PathBuf,
-    /// Exact linked worker selected at profile construction.
-    pub worker_executable: PathBuf,
-    /// Supervisor file SHA-256 association, verified at launch.
-    pub supervisor_sha256: String,
-    /// Linked worker file SHA-256 association, verified at launch and readiness.
-    pub worker_sha256: String,
-}
-/// The application profile's separately capped native-worker slots.
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
-pub struct NativeAllocation {
-    /// Maximum managed worker processes sharing this store.
-    pub native_workers: usize,
-    /// Hard process memory cap for each worker.
-    pub native_worker_memory_bytes: usize,
-    /// Optional materialized shared-runtime execution profile.
-    #[serde(default)]
-    pub execution: Option<NativeExecutionAllocation>,
-}
-/// Finite runtime allocation materialized by the existing deployment supervisor.
-#[derive(Clone, Copy, Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NativeExecutionAllocation {
-    /// Shared application pool capacity, distinct from the process cap.
-    pub pool_memory_bytes: usize,
-    /// Maximum aggregate numeric capacity of one case worker.
-    pub worker_bytes: usize,
-    /// Shared CPU permits for all case and inner native work.
-    pub cpu_threads: usize,
-    /// Maximum ordinary concurrent case lanes in the primary group.
-    pub case_lanes: usize,
-    /// Total pending, executing and retained session population.
-    pub math_jobs: usize,
-    /// Ordinary optimizer team width.
-    pub compiler_cores: usize,
-    /// Admission-only clock where no enclosing deadline exists.
-    pub admission_wait_ms: u64,
-    /// Explicit process headroom policy; not a measured resident-memory bound.
-    pub process_headroom_bytes: usize,
-    /// Separately placed observer allocation without native assistance.
-    pub observer_memory_bytes: usize,
-}
-impl NativeAllocation {
-    /// Validate the selected finite profile without inferring process RSS from pool capacity.
-    /// # Errors
-    /// Invalid populations or a runtime allocation that exceeds the process cap.
-    pub fn validate(&self) -> Result<(), CanonicalError> {
-        if !(1..=32).contains(&self.native_workers) || self.native_worker_memory_bytes == 0 {
-            return Err(CanonicalError::Configuration(
-                "finite native-worker allocation required".into(),
-            ));
-        }
-        if let Some(profile) = self.execution
-            && (self.native_workers != 1
-                || profile.pool_memory_bytes == 0
-                || profile.worker_bytes == 0
-                || profile.worker_bytes > profile.pool_memory_bytes
-                || profile.cpu_threads == 0
-                || profile.case_lanes == 0
-                || profile.case_lanes > profile.cpu_threads
-                || profile
-                    .case_lanes
-                    .checked_mul(2)
-                    .is_none_or(|population| population > profile.math_jobs)
-                || profile.compiler_cores == 0
-                || profile.compiler_cores > profile.cpu_threads
-                || profile.admission_wait_ms == 0
-                || profile.process_headroom_bytes == 0
-                || profile.observer_memory_bytes == 0
-                || profile
-                    .pool_memory_bytes
-                    .checked_add(profile.process_headroom_bytes)
-                    .is_none_or(|bytes| bytes > self.native_worker_memory_bytes))
-        {
-            return Err(CanonicalError::Configuration(
-                "shared execution profile exceeds the managed allocation".into(),
-            ));
-        }
-        Ok(())
-    }
-}
 impl std::fmt::Debug for CanonicalOptions {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -346,9 +254,6 @@ impl CanonicalOptions {
             schema_interpretation: String,
             max_message_bytes: usize,
             credentials_file: String,
-            resources: NativeAllocation,
-            #[serde(default)]
-            primary_receiver: Option<ManagedPrimaryReceiver>,
         }
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
@@ -425,29 +330,6 @@ impl CanonicalOptions {
                 ));
             }
             deployment.database = database.to_owned();
-            let context_path = state.join(".contexts").join(format!("{database}.json"));
-            if context_path
-                .try_exists()
-                .map_err(|error| CanonicalError::Configuration(error.to_string()))?
-            {
-                #[derive(serde::Deserialize)]
-                struct Context {
-                    version: u32,
-                    database: String,
-                    resources: NativeAllocation,
-                    #[serde(default)]
-                    primary_receiver: Option<ManagedPrimaryReceiver>,
-                }
-                let context: Context = serde_json::from_slice(&read(&context_path)?)
-                    .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-                if context.version != 1 || context.database != database {
-                    return Err(CanonicalError::Configuration(
-                        "registered test context identity/version mismatch".into(),
-                    ));
-                }
-                deployment.resources = context.resources;
-                deployment.primary_receiver = context.primary_receiver;
-            }
         }
         let initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
         let admission = WriteAdmission::read(state)?;
@@ -470,21 +352,6 @@ impl CanonicalOptions {
                 "unsupported protocol bound".into(),
             ));
         }
-        deployment.resources.validate()?;
-        if let Some(receiver) = &deployment.primary_receiver {
-            let digest = |value: &str| {
-                value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
-            };
-            if deployment.resources.execution.is_none()
-                || !receiver.supervisor_executable.is_absolute()
-                || !receiver.supervisor_script.is_absolute()
-                || !receiver.worker_executable.is_absolute()
-                || !digest(&receiver.supervisor_sha256)
-                || !digest(&receiver.worker_sha256)
-            {
-                return Err(CanonicalError::Configuration("managed primary requires an execution profile and exact executable association".into()));
-            }
-        }
         let credentials: Credentials =
             serde_json::from_slice(&read(Path::new(&deployment.credentials_file))?)
                 .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
@@ -496,8 +363,6 @@ impl CanonicalOptions {
             password: credentials.password,
             selection_username: credentials.selection_username,
             selection_password: credentials.selection_password,
-            native: deployment.resources,
-            primary_receiver: deployment.primary_receiver,
             state_path: state.to_owned(),
             initializer_nonce,
         })
@@ -605,16 +470,23 @@ impl Drop for ProtectionOwner {
 
 /// Local pacing of complete short decisions sharing one problem's server guards.
 /// The server's guarded predicates and generations remain the distributed authority.
+#[derive(Clone, Copy)]
+pub(crate) enum QueryEffect {
+    Read,
+    Mutation,
+}
+
 #[derive(Default)]
-struct StagingTurns {
+struct ProblemTurns {
     problems: std::sync::Mutex<
-        std::collections::BTreeMap<String, std::sync::Weak<tokio::sync::Mutex<()>>>,
+        std::collections::BTreeMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>,
     >,
 }
-impl StagingTurns {
+impl ProblemTurns {
     async fn run<F, T>(
         &self,
         problem: &str,
+        effect: QueryEffect,
         deadline: tokio::time::Instant,
         operation: F,
     ) -> Result<T, CanonicalError>
@@ -626,15 +498,26 @@ impl StagingTurns {
         }
         let gate = self.gate(problem)?;
         within_clock(deadline, async {
-            let _turn = gate.lock_owned().await;
-            if tokio::time::Instant::now() >= deadline {
-                return Err(CanonicalError::Timeout);
+            match effect {
+                QueryEffect::Read => {
+                    let _turn = gate.read_owned().await;
+                    if tokio::time::Instant::now() >= deadline {
+                        return Err(CanonicalError::Timeout);
+                    }
+                    operation.await
+                }
+                QueryEffect::Mutation => {
+                    let _turn = gate.write_owned().await;
+                    if tokio::time::Instant::now() >= deadline {
+                        return Err(CanonicalError::Timeout);
+                    }
+                    operation.await
+                }
             }
-            operation.await
         })
         .await
     }
-    fn gate(&self, problem: &str) -> Result<Arc<tokio::sync::Mutex<()>>, CanonicalError> {
+    fn gate(&self, problem: &str) -> Result<Arc<tokio::sync::RwLock<()>>, CanonicalError> {
         let mut problems = self.problems.lock().map_err(|_| {
             CanonicalError::Configuration("staging admission owner poisoned".into())
         })?;
@@ -642,7 +525,7 @@ impl StagingTurns {
         if let Some(gate) = problems.get(problem).and_then(std::sync::Weak::upgrade) {
             return Ok(gate);
         }
-        let gate = Arc::new(tokio::sync::Mutex::new(()));
+        let gate = Arc::new(tokio::sync::RwLock::new(()));
         problems.insert(problem.to_owned(), Arc::downgrade(&gate));
         Ok(gate)
     }
@@ -652,7 +535,7 @@ impl StagingTurns {
 /// Thin remote client; clones share its bounded transport.
 pub struct CanonicalStore {
     pub(crate) db: Arc<CanonicalClient>,
-    staging_turns: Arc<StagingTurns>,
+    problem_turns: Arc<ProblemTurns>,
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
     #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
@@ -685,26 +568,6 @@ impl CanonicalStore {
     pub fn deployment_state(&self) -> &Path {
         &self.state_path
     }
-    /// Re-read the validated managed native allocation at its existing owner.
-    /// # Errors
-    /// Invalid or unavailable owning deployment configuration.
-    pub fn native_allocation(&self) -> Result<NativeAllocation, CanonicalError> {
-        Ok(
-            CanonicalOptions::from_state_for_database(&self.state_path, Some(&self.database))?
-                .native,
-        )
-    }
-    /// Re-read the selected executable association for the managed primary receiver.
-    /// # Errors
-    /// Invalid or unavailable owning deployment configuration.
-    pub fn managed_primary_receiver(
-        &self,
-    ) -> Result<Option<ManagedPrimaryReceiver>, CanonicalError> {
-        Ok(
-            CanonicalOptions::from_state_for_database(&self.state_path, Some(&self.database))?
-                .primary_receiver,
-        )
-    }
     /// One owner-local turn covers only a bounded RPC, never hydration or
     /// scientific work. Its original request clock includes queueing; dropping a
     /// waiter or request releases local ownership without inferring remote completion.
@@ -716,9 +579,10 @@ impl CanonicalStore {
     where
         F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        self.staging_turns
+        self.problem_turns
             .run(
                 problem,
+                QueryEffect::Mutation,
                 original_deadline(REQUEST_TIMEOUT),
                 bounded_query(future),
             )
@@ -731,6 +595,7 @@ impl CanonicalStore {
     pub(crate) async fn protected_query<F, Q>(
         &self,
         problem: &str,
+        effect: QueryEffect,
         operation: &'static str,
         build: F,
     ) -> Result<surrealdb::IndexedResults, CanonicalError>
@@ -738,15 +603,24 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        self.staging_turns
+        self.problem_turns
             .run(
                 problem,
+                effect,
                 original_deadline(REQUEST_TIMEOUT),
                 protected_query(operation, build),
             )
             .await
     }
 
+    /// Endpoint actually selected by this authenticated storage handle.
+    pub fn endpoint(&self) -> &str {
+        &self.connection_options.endpoint
+    }
+    /// Namespace actually selected by this authenticated storage handle.
+    pub fn namespace(&self) -> &str {
+        &self.namespace
+    }
     /// Exact configured canonical database selected by this deployment handle.
     pub fn database(&self) -> &str {
         &self.database
@@ -802,7 +676,7 @@ impl CanonicalStore {
         .await?;
         Ok(Self {
             db,
-            staging_turns: Arc::default(),
+            problem_turns: Arc::default(),
             #[cfg(any(test, feature = "test-support"))]
             fixture_lifetime: None,
             #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
@@ -1143,7 +1017,7 @@ impl CanonicalStore {
     ) -> Result<ProtectedSelection, CanonicalError> {
         let key = selection.key();
         let revision = selection.revision();
-        let mut response = self.protected_query(&revision.problem, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
+        let mut response = self.protected_query(&revision.problem, QueryEffect::Mutation, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
             IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
@@ -1178,7 +1052,7 @@ impl CanonicalStore {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
+        let mut response = self.protected_query(&selection.revision().problem, QueryEffect::Read, "canonical::select_names", || Ok(self.db.query(format!("{}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND scope = $scope AND name IN $names AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;", PROTECTED_BEGIN))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.to_owned())).bind(("names", names.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1295,7 +1169,7 @@ impl CanonicalStore {
         // Admission can reuse a previously rooted exact product rather than create
         // the proposed publication key. Settle both branches after a lost response,
         // without requiring a still-live preparation pin or admitting anything new.
-        let mut response = self.protected_query(&product.problem, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; LET $rpc_result = IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN $rpc_result; COMMIT;")
+        let mut response = self.protected_query(&product.problem, QueryEffect::Read, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; LET $rpc_result = IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN $rpc_result; COMMIT;")
             .bind(("problem", product.problem.clone())).bind(("product", wire::encode_canonical_products(product)?)))).await?;
         let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
         if matches!(value, Value::None) {
@@ -1323,7 +1197,7 @@ impl CanonicalStore {
         // A submitted acquisition can outlive its failed local response. Record
         // release even before its row exists so that a later acquisition refuses it.
         let sequence = crate::canonical_codec::encode_uint(revision.sequence)?;
-        self.protected_query(&revision.problem, "canonical::release", || Ok(self.db.query(r#"BEGIN;
+        self.protected_query(&revision.problem, QueryEffect::Mutation, "canonical::release", || Ok(self.db.query(r#"BEGIN;
             SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection);
@@ -1648,6 +1522,7 @@ IF ($head.head ?? NONE) != $expected { THROW 'head compare-and-set conflict'; };
 LET $changes = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
 IF array::len($changes) != $stage.edit_count OR array::len($changes) > /* EDIT_LIMIT */ { THROW 'closed staging metadata coverage mismatch'; };
 LET $sequence = ($head.sequence ?? 0dec) + 1dec;
+UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
 // Close all displaced intervals before checking the final namespace. Every
 // physical page uses exact changed logical IDs; no unchanged source is rewritten.
 FOR $batch IN array::clump($changes, 64) {
@@ -1727,7 +1602,6 @@ FOR $batch IN array::clump($changes, 64) {
 CREATE type::record('canonical_revisions', $operation) SET key = $operation, problem = $problem, sequence = $sequence, parent = $expected, operation = $operation, request = $request, interpretation = $interpretation;
 CREATE type::record('canonical_roots', 'history:' + $operation) SET key = 'history:' + $operation, problem = $problem, revision = $operation, sequence = $sequence, owner_kind = 'history', owner = $operation;
 UPDATE type::record('canonical_stages', $operation) SET activated = true;
-UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
 UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
 UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec, incarnation = incarnation ?? <string>rand::uuid::v4();
@@ -1773,6 +1647,98 @@ mod canonical_admission_unit {
         .unwrap();
         (scope, owner)
     }
+    fn private_document(path: &Path, value: &serde_json::Value) {
+        use std::{io::Write, os::unix::fs::OpenOptionsExt};
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+            .unwrap();
+        file.write_all(&serde_json::to_vec(value).unwrap()).unwrap();
+    }
+    fn storage_scope() -> (Scope, serde_json::Value) {
+        use std::os::unix::fs::PermissionsExt;
+        let (scope, _) = scope();
+        std::fs::set_permissions(&scope.0, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let credentials = scope.0.join("credentials.json");
+        private_document(
+            &credentials,
+            &serde_json::json!({
+                "username": "owner", "password": "secret",
+                "selection_username": "viewer", "selection_password": "secret",
+            }),
+        );
+        let config = serde_json::json!({
+            "profile_version": 2, "endpoint": "ws://127.0.0.1:8000",
+            "namespace": "canonical", "database": "selected",
+            "schema_interpretation": wire::INTERPRETATION,
+            "max_message_bytes": MESSAGE_BYTES, "credentials_file": credentials,
+            "accepting_writes": false,
+        });
+        (scope, config)
+    }
+    #[test]
+    fn storage_projection_ignores_absent_malformed_and_invalid_native_policy() {
+        let (scope, config) = storage_scope();
+        std::fs::create_dir(scope.0.join(".contexts")).unwrap();
+        std::fs::write(
+            scope.0.join(".contexts/isolated.json"),
+            b"invalid unused native context",
+        )
+        .unwrap();
+        for native in [
+            None,
+            Some(serde_json::json!({"resources": "unused", "primary_receiver": 42})),
+            Some(
+                serde_json::json!({"resources": {"native_workers": 0}, "primary_receiver": {"worker_executable": "relative"}}),
+            ),
+        ] {
+            let mut selected = config.clone();
+            if let Some(native) = native {
+                selected
+                    .as_object_mut()
+                    .unwrap()
+                    .extend(native.as_object().unwrap().clone());
+            }
+            private_document(&scope.0.join("config.json"), &selected);
+            let default = CanonicalOptions::from_state(&scope.0).unwrap();
+            assert_eq!(default.database, "selected");
+            let isolated =
+                CanonicalOptions::from_state_for_database(&scope.0, Some("isolated")).unwrap();
+            assert_eq!(isolated.database, "isolated");
+        }
+    }
+    #[test]
+    fn storage_projection_retains_interpretation_protocol_credentials_and_identity_validation() {
+        let (scope, config) = storage_scope();
+        let mut mismatched = config.clone();
+        mismatched["schema_interpretation"] = "unsupported".into();
+        private_document(&scope.0.join("config.json"), &mismatched);
+        assert!(matches!(
+            CanonicalOptions::from_state(&scope.0),
+            Err(CanonicalError::Interpretation { .. })
+        ));
+        let mut invalid = config.clone();
+        invalid["max_message_bytes"] = 0.into();
+        private_document(&scope.0.join("config.json"), &invalid);
+        assert!(matches!(
+            CanonicalOptions::from_state(&scope.0),
+            Err(CanonicalError::Configuration(_))
+        ));
+        private_document(&scope.0.join("config.json"), &config);
+        assert!(CanonicalOptions::from_state_for_database(&scope.0, Some("../invalid")).is_err());
+        private_document(
+            &scope.0.join("credentials.json"),
+            &serde_json::json!({"username": "owner"}),
+        );
+        assert!(matches!(
+            CanonicalOptions::from_state(&scope.0),
+            Err(CanonicalError::Configuration(_))
+        ));
+    }
+
     fn admission(owner: serde_json::Value, accepting_writes: bool) -> WriteAdmission {
         serde_json::from_value(serde_json::json!({
             "namespace": "fresh", "database": "current", "accepting_writes": accepting_writes,
@@ -1951,25 +1917,25 @@ mod staging_turn_unit {
     use super::*;
 
     #[tokio::test]
-    async fn staging_turns_share_one_problem_and_release_cancelled_waiters() {
-        let turns = StagingTurns::default();
+    async fn problem_turns_share_one_problem_and_release_cancelled_waiters() {
+        let turns = ProblemTurns::default();
         let gate = turns.gate("problem").unwrap();
         assert!(Arc::ptr_eq(&gate, &turns.gate("problem").unwrap()));
-        let held = gate.clone().lock_owned().await;
-        let mut cancelled = Box::pin(gate.clone().lock_owned());
+        let held = gate.clone().write_owned().await;
+        let mut cancelled = Box::pin(gate.clone().write_owned());
         std::future::poll_fn(|context| {
             assert!(cancelled.as_mut().poll(context).is_pending());
             std::task::Poll::Ready(())
         })
         .await;
-        let mut following = Box::pin(gate.clone().lock_owned());
+        let mut following = Box::pin(gate.clone().write_owned());
         std::future::poll_fn(|context| {
             assert!(following.as_mut().poll(context).is_pending());
             std::task::Poll::Ready(())
         })
         .await;
         let independent = turns.gate("independent").unwrap();
-        let independent_held = independent.clone().try_lock_owned().unwrap();
+        let independent_held = independent.clone().try_write_owned().unwrap();
         drop(cancelled);
         drop(held);
         let following = tokio::time::timeout(std::time::Duration::from_secs(1), following)
@@ -1989,13 +1955,14 @@ mod staging_turn_unit {
 
     #[tokio::test]
     async fn protected_turn_queue_preserves_deadline_and_does_not_start_expired_work() {
-        let turns = StagingTurns::default();
+        let turns = ProblemTurns::default();
         let gate = turns.gate("problem").unwrap();
-        let held = gate.clone().lock_owned().await;
+        let held = gate.clone().write_owned().await;
         let started = std::sync::atomic::AtomicBool::new(false);
         let result = turns
             .run(
                 "problem",
+                QueryEffect::Mutation,
                 tokio::time::Instant::now() + std::time::Duration::from_millis(1),
                 async {
                     started.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -2007,16 +1974,22 @@ mod staging_turn_unit {
         assert!(!started.load(std::sync::atomic::Ordering::Relaxed));
         drop(held);
         let result = turns
-            .run("problem", tokio::time::Instant::now(), async {
-                started.store(true, std::sync::atomic::Ordering::Relaxed);
-                Ok(())
-            })
+            .run(
+                "problem",
+                QueryEffect::Mutation,
+                tokio::time::Instant::now(),
+                async {
+                    started.store(true, std::sync::atomic::Ordering::Relaxed);
+                    Ok(())
+                },
+            )
             .await;
         assert!(matches!(result, Err(CanonicalError::Timeout)));
         assert!(!started.load(std::sync::atomic::Ordering::Relaxed));
         turns
             .run(
                 "problem",
+                QueryEffect::Mutation,
                 tokio::time::Instant::now() + std::time::Duration::from_secs(1),
                 async { Ok(()) },
             )
@@ -2026,35 +1999,160 @@ mod staging_turn_unit {
 
     #[tokio::test]
     async fn protected_turn_cancelled_waiter_releases_queue_without_blocking_other_problems() {
-        let turns = StagingTurns::default();
+        let turns = ProblemTurns::default();
         let gate = turns.gate("problem").unwrap();
-        let held = gate.clone().lock_owned().await;
+        let held = gate.clone().write_owned().await;
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1);
         let cancelled_started = std::sync::atomic::AtomicBool::new(false);
-        let mut cancelled = Box::pin(turns.run("problem", deadline, async {
-            cancelled_started.store(true, std::sync::atomic::Ordering::Relaxed);
-            Ok(())
-        }));
+        let mut cancelled =
+            Box::pin(
+                turns.run("problem", QueryEffect::Mutation, deadline, async {
+                    cancelled_started.store(true, std::sync::atomic::Ordering::Relaxed);
+                    Ok(())
+                }),
+            );
         std::future::poll_fn(|context| {
             assert!(cancelled.as_mut().poll(context).is_pending());
             std::task::Poll::Ready(())
         })
         .await;
-        let mut following = Box::pin(turns.run("problem", deadline, async { Ok(()) }));
+        let mut following =
+            Box::pin(turns.run("problem", QueryEffect::Mutation, deadline, async { Ok(()) }));
         std::future::poll_fn(|context| {
             assert!(following.as_mut().poll(context).is_pending());
             std::task::Poll::Ready(())
         })
         .await;
         turns
-            .run("independent", deadline, async { Ok(()) })
+            .run("independent", QueryEffect::Mutation, deadline, async {
+                Ok(())
+            })
             .await
             .unwrap();
         drop(cancelled);
         drop(held);
         following.await.unwrap();
         assert!(!cancelled_started.load(std::sync::atomic::Ordering::Relaxed));
-        assert!(gate.try_lock_owned().is_ok());
+        assert!(gate.try_write_owned().is_ok());
+    }
+
+    #[tokio::test]
+    async fn overlapping_problem_reads_retain_queued_writer_preference() {
+        use std::{future::Future, task::Poll};
+        let turns = ProblemTurns::default();
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(2);
+        let (entered, mut observed) = tokio::sync::mpsc::unbounded_channel();
+        let (first_release, first_held) = tokio::sync::oneshot::channel();
+        let (second_release, second_held) = tokio::sync::oneshot::channel();
+        let (writer_release, writer_held) = tokio::sync::oneshot::channel();
+        let mut first = Box::pin(turns.run("problem", QueryEffect::Read, deadline, async {
+            entered.send("first_read").unwrap();
+            first_held.await.unwrap();
+            Ok(())
+        }));
+        let mut second = Box::pin(turns.run("problem", QueryEffect::Read, deadline, async {
+            entered.send("second_read").unwrap();
+            second_held.await.unwrap();
+            Ok(())
+        }));
+        std::future::poll_fn(|cx| {
+            assert!(first.as_mut().poll(cx).is_pending());
+            assert!(second.as_mut().poll(cx).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        assert_eq!(observed.try_recv().unwrap(), "first_read");
+        assert_eq!(observed.try_recv().unwrap(), "second_read");
+        let mut writer = Box::pin(
+            turns.run("problem", QueryEffect::Mutation, deadline, async {
+                entered.send("writer").unwrap();
+                writer_held.await.unwrap();
+                Ok(())
+            }),
+        );
+        let mut late = Box::pin(turns.run("problem", QueryEffect::Read, deadline, async {
+            entered.send("late_read").unwrap();
+            Ok(())
+        }));
+        std::future::poll_fn(|cx| {
+            // Poll the writer first to establish its queue position exactly.
+            assert!(writer.as_mut().poll(cx).is_pending());
+            assert!(late.as_mut().poll(cx).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        assert!(observed.try_recv().is_err());
+        first_release.send(()).unwrap();
+        first.await.unwrap();
+        std::future::poll_fn(|cx| {
+            assert!(writer.as_mut().poll(cx).is_pending());
+            assert!(late.as_mut().poll(cx).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        assert!(
+            observed.try_recv().is_err(),
+            "one remaining read still excludes the writer"
+        );
+        second_release.send(()).unwrap();
+        second.await.unwrap();
+        std::future::poll_fn(|cx| {
+            // Even polling the late reader first cannot bypass the queued writer.
+            assert!(late.as_mut().poll(cx).is_pending());
+            assert!(writer.as_mut().poll(cx).is_pending());
+            assert!(late.as_mut().poll(cx).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        assert_eq!(observed.try_recv().unwrap(), "writer");
+        assert!(observed.try_recv().is_err());
+        writer_release.send(()).unwrap();
+        writer.await.unwrap();
+        late.await.unwrap();
+        assert_eq!(observed.try_recv().unwrap(), "late_read");
+    }
+
+    #[tokio::test]
+    async fn queued_problem_read_keeps_enclosing_original_clock_and_never_starts() {
+        use std::{
+            future::Future,
+            sync::atomic::{AtomicBool, Ordering},
+            task::Poll,
+        };
+        let turns = ProblemTurns::default();
+        let held = turns.gate("problem").unwrap().write_owned().await;
+        let original = tokio::time::Instant::now() + std::time::Duration::from_millis(20);
+        let offered = original + std::time::Duration::from_secs(30);
+        let started = AtomicBool::new(false);
+        let mut queued = Box::pin(within_clock(
+            original,
+            turns.run("problem", QueryEffect::Read, offered, async {
+                started.store(true, Ordering::SeqCst);
+                Ok(())
+            }),
+        ));
+        std::future::poll_fn(|cx| {
+            assert!(queued.as_mut().poll(cx).is_pending());
+            Poll::Ready(())
+        })
+        .await;
+        assert!(!started.load(Ordering::SeqCst));
+        assert!(matches!(queued.await, Err(CanonicalError::Timeout)));
+        assert!(!started.load(Ordering::SeqCst));
+        drop(held);
+        turns
+            .run(
+                "problem",
+                QueryEffect::Read,
+                tokio::time::Instant::now() + std::time::Duration::from_secs(1),
+                async { Ok(()) },
+            )
+            .await
+            .unwrap();
+        assert!(
+            !started.load(Ordering::SeqCst),
+            "expired work never resumes after ownership is released"
+        );
     }
 }
 
@@ -2213,8 +2311,8 @@ mod canonical_server_unit {
 
         // Hold local pacing so submission is known to own its token before the
         // caller disappears. The completion task must still acquire and release it.
-        let gate = store.staging_turns.gate(&revision.problem).unwrap();
-        let held = gate.lock_owned().await;
+        let gate = store.problem_turns.gate(&revision.problem).unwrap();
+        let held = gate.write_owned().await;
         let pending_store = store.clone();
         let pending = tokio::spawn(async move {
             pending_store
@@ -2282,10 +2380,10 @@ mod canonical_server_unit {
             .collect::<Vec<_>>();
         followers.push(selection);
         let held = store
-            .staging_turns
+            .problem_turns
             .gate(&revision.problem)
             .unwrap()
-            .lock_owned()
+            .write_owned()
             .await;
         let barrier = Arc::new(tokio::sync::Barrier::new(FOLLOWERS));
         let mut finishes = tokio::task::JoinSet::new();
@@ -2548,10 +2646,10 @@ mod canonical_server_unit {
             .await
             .unwrap();
         let held = store
-            .staging_turns
+            .problem_turns
             .gate(&revision.problem)
             .unwrap()
-            .lock_owned()
+            .write_owned()
             .await;
         let release = within_clock(
             tokio::time::Instant::now() + std::time::Duration::from_millis(25),

@@ -39,12 +39,59 @@ class ManagedStudyControlTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.state = Path(self.temporary.name)
+        root = Path(self.temporary.name)
+        self.state = root / "state"
+        self.state.mkdir(mode=0o700)
+        self.resources = FIXTURE.test_resources
+        registry = patch.object(
+            self.resources, "registry", return_value=root / "registry"
+        )
+        registry.start()
+        self.addCleanup(registry.stop)
+        config = patch.object(
+            FIXTURE.server,
+            "config_for",
+            return_value={
+                "instance_id": "owned-service",
+                "namespace": "pse",
+                "admission": "open",
+                "accepting_writes": True,
+            },
+        )
+        config.start()
+        self.addCleanup(config.stop)
+        self.invocation = self.resources.invocation("python", [{"name": self.id()}])
+        environment = patch.dict(
+            os.environ,
+            {
+                self.resources.MARKER: str(self.invocation),
+                "PSE_TEST_EXECUTION_EFFECTS": "canonical",
+            },
+        )
+        environment.start()
+        self.addCleanup(environment.stop)
         self.fixture = FIXTURE.ManagedStudyFixture(str(self.state))
+        self.fixture.database = f"canonical_test_{self.fixture.nonce}"
+        self.fixture.controls_resource = self.resources.register(
+            {
+                "state": str(self.state),
+                "database": self.fixture.database,
+                "kind": "controls",
+                "directory": str(self.fixture.directory),
+                "test": self.id(),
+            }
+        )
         self.fixture.directory.mkdir(mode=0o700)
-        self.fixture.lock.touch(mode=0o600)
-        self.fixture.lock_owned = True
-        self.fixture.database = "owned-database"
+        with FIXTURE.server.state_lock(self.state):
+            FIXTURE._write_private(
+                self.fixture.lock,
+                {
+                    "nonce": self.fixture.nonce,
+                    "pid": os.getpid(),
+                    "start": FIXTURE.native_operation.start_identity(os.getpid()),
+                },
+            )
+            self.fixture.lock_owned = True
         self.held = FIXTURE.NativeEntries(
             self.fixture.nonce,
             self.fixture.database,
@@ -54,13 +101,36 @@ class ManagedStudyControlTests(unittest.TestCase):
             16,
         )
 
+    def retire_controls(self) -> None:
+        resource = self.fixture.controls_resource
+        record = self.resources.resource_status(resource)
+        assert record["drained"] is True
+        assert record["pin"] is True
+        assert self.fixture.directory.exists()
+        assert self.resources.reclaim(resource) == "retention pin"
+        assert self.fixture.directory.exists()
+        assert self.resources.finalize(
+            self.invocation,
+            {self.id(): "pass"},
+            complete=True,
+            terminal_owner="runner",
+        ) == [resource]
+        assert self.resources.reclaim(resource) == "removed"
+        assert not self.fixture.directory.exists()
+
     def caller(self, body: str) -> list[str]:
         script = (
-            "import msgspec,sys,time,signal; from pathlib import Path; "
+            "import importlib.util,sys,time,signal; from pathlib import Path; "
+            f"sys.path.insert(0, {ROOT!r}); "
+            "spec=importlib.util.spec_from_file_location("
+            "'managed_study_fixture_controls', "
+            f"{str(Path(__file__).with_name('managed_study_fixture.py'))!r}); "
+            "fixture=importlib.util.module_from_spec(spec); "
+            "sys.modules[spec.name]=fixture; "
+            "spec.loader.exec_module(fixture); "
             "directory=Path(sys.argv[1]); "
-            "(directory/'calling.json').write_bytes(msgspec.json.encode("
-            "{'nonce':sys.argv[2],'started':time.monotonic()})); "
-            "(directory/'calling.json').chmod(0o600);\n" + body
+            "fixture._write_private(directory/'calling.json', "
+            "{'nonce':sys.argv[2],'started':time.monotonic()});\n" + body
         )
         return [
             sys.executable,
@@ -69,6 +139,25 @@ class ManagedStudyControlTests(unittest.TestCase):
             str(self.fixture.directory),
             self.fixture.nonce,
         ]
+
+    def test_close_preserves_lock_published_by_another_nonce(self) -> None:
+        record = FIXTURE._read_object(self.fixture.lock)
+        record["nonce"] = "another-qualification-owner"
+        FIXTURE._write_private(self.fixture.lock, record)
+        self.fixture.close()
+        assert FIXTURE._read_object(self.fixture.lock) == record
+        assert not self.fixture.lock_owned
+        self.retire_controls()
+
+    def test_malformed_lock_is_retained_instead_of_accepted_as_owner(self) -> None:
+        self.fixture.lock.write_bytes(b"")
+        with pytest.raises(FIXTURE.msgspec.DecodeError):
+            self.fixture.close()
+        assert self.fixture.lock.exists()
+        assert self.fixture.lock_owned
+        assert self.fixture.directory.exists()
+        record = self.resources.resource_status(self.fixture.controls_resource)
+        assert record["pin"] is True
 
     def test_hanging_public_caller_receives_sigint_and_joins_before_cleanup(
         self,
@@ -91,8 +180,8 @@ class ManagedStudyControlTests(unittest.TestCase):
         assert time.monotonic() - began < 2
         assert interrupted.exists()
         assert self.fixture.caller.returncode is not None
-        assert not self.fixture.directory.exists()
         assert not self.fixture.lock.exists()
+        self.retire_controls()
 
     def test_unjoined_caller_retains_controls_lock_and_exact_pid(self) -> None:
         command = self.caller(
@@ -131,6 +220,8 @@ class ManagedStudyControlTests(unittest.TestCase):
         ):
             self.fixture.call(command, lambda _value: None)
         assert self.fixture.caller.returncode == 1
+        assert not self.fixture.lock.exists()
+        self.retire_controls()
 
     def test_child_setup_is_bounded_before_public_call_marker(self) -> None:
         with pytest.raises(AssertionError, match="public caller setup timed out"):
@@ -141,6 +232,7 @@ class ManagedStudyControlTests(unittest.TestCase):
             )
         assert self.fixture.caller.returncode is not None
         assert not self.fixture.lock.exists()
+        self.retire_controls()
 
     def primary(
         self, body: str, *, directory: Path | None = None
@@ -210,8 +302,8 @@ class ManagedStudyControlTests(unittest.TestCase):
         with self.service(process)[0], self.service(process)[1]:
             self.fixture.close()
         assert process.wait(timeout=2) == 0
-        assert not self.fixture.directory.exists()
         assert not self.fixture.lock.exists()
+        self.retire_controls()
 
     def test_malformed_snapshot_does_not_release_a_live_primary_allocation(
         self,

@@ -32,8 +32,7 @@ const IDENTITY_BYTES: usize = 4096;
 #[derive(Debug, Default)]
 pub(crate) struct ResultReadDrain {
     live: std::sync::atomic::AtomicUsize,
-    pending: std::sync::atomic::AtomicUsize,
-    changed: tokio::sync::Notify,
+    releases: tokio_util::task::TaskTracker,
     error: std::sync::Mutex<Option<CanonicalError>>,
 }
 #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
@@ -46,12 +45,12 @@ impl ResultReadDrain {
         self.live.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     }
     pub(crate) fn release(self: &Arc<Self>) -> ResultReleaseTask {
-        self.pending
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        let token = self.releases.token();
         self.live.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
         ResultReleaseTask {
             drain: self.clone(),
             completed: false,
+            _token: token,
         }
     }
     fn failure(&self, error: CanonicalError) {
@@ -67,19 +66,10 @@ impl ResultReadDrain {
         if self.live.load(std::sync::atomic::Ordering::SeqCst) != 0 {
             return Err(invalid("isolated fixture still has live protected readers"));
         }
-        tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, async {
-            loop {
-                let notified = self.changed.notified();
-                tokio::pin!(notified);
-                notified.as_mut().enable();
-                if self.pending.load(std::sync::atomic::Ordering::SeqCst) == 0 {
-                    break;
-                }
-                notified.await;
-            }
-        })
-        .await
-        .map_err(|_| CanonicalError::Timeout)?;
+        self.releases.close();
+        tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, self.releases.wait())
+            .await
+            .map_err(|_| CanonicalError::Timeout)?;
         if let Some(error) = self
             .error
             .lock()
@@ -95,6 +85,7 @@ impl ResultReadDrain {
 pub(crate) struct ResultReleaseTask {
     drain: Arc<ResultReadDrain>,
     completed: bool,
+    _token: tokio_util::task::task_tracker::TaskTrackerToken,
 }
 #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
 impl ResultReleaseTask {
@@ -113,10 +104,7 @@ impl Drop for ResultReleaseTask {
                 "result protection release task ended before completion",
             ));
         }
-        self.drain
-            .pending
-            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
-        self.drain.changed.notify_waiters();
+        // The tracker token drops only after failure/completion has been recorded.
     }
 }
 
@@ -170,7 +158,7 @@ impl ResultRead {
             return Err(invalid("positive read protection lifetime required"));
         }
         let selection = &self.owner.selection;
-        self.owner.store.protected_query(&selection.revision().problem, "canonical_results::renew", ||Ok(self.owner.store.db.query(format!("{PROTECTED_BEGIN}\nUPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;\nUPSERT type::record('canonical_guards','retention:'+$problem) SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nCOMMIT;"))
+        self.owner.store.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Mutation, "canonical_results::renew", ||Ok(self.owner.store.db.query(format!("{PROTECTED_BEGIN}\nUPDATE type::record('canonical_protections',$protection) SET expires_at=time::micros()+$lifetime;\nUPSERT type::record('canonical_guards','retention:'+$problem) SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nCOMMIT;"))
             .bind(("problem",selection.revision().problem.clone())).bind(("revision",selection.revision().key.clone()))
             .bind(("sequence",canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection",selection.key().to_owned())).bind(("lifetime",micros)))).await?;
@@ -408,6 +396,7 @@ impl CanonicalStore {
         let mut response = self
             .protected_query(
                 &read.run.problem,
+                crate::canonical::QueryEffect::Read,
                 "canonical_results::result_output_page",
                 || {
                     Ok(self
@@ -622,7 +611,7 @@ impl CanonicalStore {
             .closed_manifest
             .as_deref()
             .ok_or_else(|| invalid("terminal attempt lacks closed manifest"))?;
-        let mut response=self.protected_query(&owner.selection.revision().problem, "canonical_results::read_results", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nfn::pse_execution_v1::available($pse_rpc_expires_at, $run);\nLET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
+        let mut response=self.protected_query(&owner.selection.revision().problem, crate::canonical::QueryEffect::Mutation, "canonical_results::read_results", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nfn::pse_execution_v1::available($pse_rpc_expires_at, $run);\nLET $attempt_record=SELECT * FROM ONLY type::record('canonical_attempts',$attempt);
 LET $manifest_record=SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);
 IF $attempt_record=NONE OR $attempt_record.run!=$run OR !$attempt_record.terminal OR !$attempt_record.closed OR $attempt_record.ingestion_open OR $attempt_record.closed_manifest!=$manifest OR $manifest_record=NONE OR $manifest_record.attempt!=$attempt OR $manifest_record.generation!=$attempt_record.generation {{ THROW 'terminal result selection unavailable'; }};
 UPSERT type::record('canonical_result_protections',$protection) SET key=$protection,run=$run,attempt=$attempt,manifest=$manifest;
@@ -688,7 +677,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         } else {
             ""
         };
-        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_block_page", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block_page", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_result_blocks WHERE result_set=$result_set AND output=$output AND partition=$partition AND {cursor}ordinal<$count AND end>$start AND start<$end ORDER BY ordinal LIMIT {PAGE} TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned()))
@@ -739,7 +728,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
             return Err(invalid("payload outside admitted descriptor"));
         }
         let key = result_batch_key(&read.attempt.key, &set.key, ordinal);
-        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_payload", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_batches',$batch) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned())).bind(("batch",key.clone())))).await?;
@@ -779,7 +768,7 @@ SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);\nCOMMIT
         {
             return Err(invalid("block outside admitted descriptor"));
         }
-        let mut response=self.protected_query(&read.run.problem, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result = {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
+        let mut response=self.protected_query(&read.run.problem, crate::canonical::QueryEffect::Read, "canonical_results::result_block", ||Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $pse_rpc_result = {{metadata:(SELECT * FROM ONLY type::record('canonical_result_blocks',$key)),batch:(SELECT * FROM ONLY type::record('canonical_result_batches',$batch))}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
             .bind(("problem",read.run.problem.clone())).bind(("revision",read.run.revision.clone()))
             .bind(("sequence",canonical_codec::encode_uint(read.owner.selection.revision().sequence)?))
             .bind(("protection",read.owner.selection.key().to_owned())).bind(("key",metadata.key.clone())).bind(("batch",metadata.batch.clone())))).await?;
@@ -929,12 +918,8 @@ mod canonical_results_server_unit {
                 "injected result protection release failure"
             }
         };
-        assert_eq!(
-            store
-                .result_read_drain
-                .pending
-                .load(std::sync::atomic::Ordering::SeqCst),
-            0,
+        assert!(
+            store.result_read_drain.releases.is_empty(),
             "the failed release must drain instead of waiting for the RPC timeout"
         );
         let error = removal.await.unwrap_err();

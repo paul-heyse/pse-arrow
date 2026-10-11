@@ -36,11 +36,15 @@ pub use progress_documents::{IncumbentDocument, ProgressEventDocument, ProgressM
 mod progress;
 pub use progress::ProgressStream;
 mod bindings;
+mod native_deployment;
 mod physical_cache;
 mod worker;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
     PointOverlay,
+};
+pub use native_deployment::{
+    ManagedPrimaryReceiver, NativeAllocation, NativeExecutionAllocation, NativeExecutionSelection,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
 mod study;

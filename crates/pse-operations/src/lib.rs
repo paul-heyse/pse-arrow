@@ -6,6 +6,8 @@
 
 pub mod canonical;
 pub mod canonical_analyses;
+#[cfg(all(test, feature = "canonical-tests"))]
+mod canonical_capability_tests;
 pub mod canonical_codec;
 pub mod canonical_execution;
 pub mod canonical_result_retention;

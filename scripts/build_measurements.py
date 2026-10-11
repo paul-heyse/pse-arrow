@@ -8,6 +8,7 @@ import argparse
 import atexit
 import hashlib
 import json
+import math
 import os
 import resource
 import shutil
@@ -27,6 +28,8 @@ from scripts import (
     build_environment,
     host_admission,
     native_operation,
+    pse_env,
+    surreal_server,
     validation,
 )
 
@@ -121,6 +124,171 @@ NATIVE_PACKAGES = (
     "pse-tests-conformance",
 )
 OPERATION_OUTPUT = "PSE_BUILD_MEASUREMENT_OUTPUT"
+STORE_SELECTION = "PSE_BUILD_MEASUREMENT_STORE_SELECTION"
+STORE_LAUNCH = "PSE_BUILD_MEASUREMENT_STORE_LAUNCH"
+STORE_PREPARATION_SECONDS = 40
+
+
+def store_launch_handoff(
+    output: Path, environment: dict[str, str], *, deadline: float | None = None
+) -> dict:
+    """Accept only the child of this live, newly started outer measurement."""
+    if deadline is not None:
+        surreal_server.remaining(deadline)
+    launch = json.loads(environment.get(STORE_LAUNCH, "null"))
+    if not isinstance(launch, dict):
+        raise ValueError(  # noqa: TRY004 -- malformed handoff is a value refusal
+            "store preparation requires a fresh outer launch handoff"
+        )
+    pid = launch.get("pid")
+    started = launch.get("started_monotonic")
+    if (
+        type(pid) is not int
+        or pid <= 1
+        or pid == os.getpid()
+        or not isinstance(started, (int, float))
+        or not math.isfinite(started)
+        or launch.get("output") != str(output.resolve())
+        or native_operation.start_identity(pid) != launch.get("start")
+    ):
+        raise ValueError("store preparation outer launch identity differs")
+    ancestor = os.getppid()
+    while ancestor > 1 and ancestor != pid:
+        if deadline is not None:
+            surreal_server.remaining(deadline)
+        status = Path(f"/proc/{ancestor}/status").read_text().splitlines()
+        ancestor = int(
+            next(line.split()[1] for line in status if line.startswith("PPid:"))
+        )
+    if ancestor != pid:
+        raise ValueError("store preparation requires its live outer launch ancestor")
+    timing = json.loads((output / "native-operation.json").read_text())
+    setup = timing.get("setup_started_monotonic")
+    if (
+        not isinstance(setup, (int, float))
+        or not math.isfinite(setup)
+        or setup < started
+        or setup > time.monotonic()
+    ):
+        raise ValueError("store preparation timing predates its fresh outer launch")
+    if deadline is not None:
+        surreal_server.remaining(deadline)
+    return timing
+
+
+def selected_store(
+    environment: dict[str, str], *, quiesced: bool, deadline: float | None = None
+) -> dict[str, object]:
+    """Bind this explicit nonresident selection without granting startup authority."""
+    state = Path(environment.get("PSE_SURREAL_STATE", ""))
+    worker = Path(environment.get("PSE_WORKER_BINARY", ""))
+    if not state.is_absolute() or not worker.is_absolute():
+        raise ValueError("store preparation requires explicit state and worker paths")
+    config = surreal_server.config_for(state, deadline=deadline)
+    if surreal_server.service_directory(state, deadline=deadline) != state:
+        raise ValueError("store preparation requires the selected service state")
+    if config.get("resident") is not False or (
+        quiesced and (config["admission"] != "quiesced" or config["accepting_writes"])
+    ):
+        raise ValueError("store preparation requires a quiesced nonresident profile")
+    if config["resources"] == surreal_server.reference_resources():
+        profile = "reference"
+    elif config["resources"] == surreal_server.execution_resources("wide"):
+        profile = "exclusive"
+    else:
+        raise ValueError("store preparation supports exact reference or wide profiles")
+    memory = host_admission.select(profile).memory
+    if (
+        environment.get("PSE_RESOURCE_CLASS") != profile
+        or host_admission.finite_bytes(environment.get("PSE_MEMORY_MAX", "")) != memory
+    ):
+        raise ValueError("store preparation requires its matching enclosing allocation")
+    receiver = surreal_server.checked_primary(config)
+    digest = surreal_server.file_digest(worker)
+    if digest != receiver["worker_sha256"]:
+        raise ValueError("selected store and worker bytes differ")
+    if deadline is not None:
+        surreal_server.remaining(deadline)
+    return {
+        "state": str(state),
+        "worker": str(worker),
+        "worker_sha256": digest,
+        "receiver": receiver,
+        "instance_id": config["instance_id"],
+        "endpoint": config["endpoint"],
+        "resources": config["resources"],
+        "profile": profile,
+        "memory_bytes": memory,
+    }
+
+
+def prepare_selected_store(output: Path, environment: dict[str, str]) -> dict:
+    """Prepare only the selected store inside this measured complete-operation owner."""
+    started = time.monotonic()
+    deadline = started + STORE_PREPARATION_SECONDS
+    expected = json.loads(environment[STORE_SELECTION])
+    owner = native_operation.owner_record(deadline=deadline)
+    allocation = host_admission.inherit(environment, deadline=deadline)
+    if owner is None or allocation is None:
+        raise ValueError("store preparation requires its authentic measured owner")
+    timing = store_launch_handoff(output, environment, deadline=deadline)
+    if (
+        timing.get("owner_record_path") != str(owner)
+        or timing.get("setup_status") != "passed"
+        or timing.get("host_allocation", {}).get("path")
+        != str(allocation.directory / allocation.nonce)
+    ):
+        raise ValueError("store preparation handoff differs from the measured owner")
+    selected = selected_store(environment, quiesced=True, deadline=deadline)
+    if (
+        selected != expected
+        or allocation.profile.name != selected["profile"]
+        or allocation.profile.memory != selected["memory_bytes"]
+    ):
+        raise ValueError("store preparation selection changed before admission")
+    state = Path(environment["PSE_SURREAL_STATE"])
+    with (
+        surreal_server.lifecycle_deadline(deadline),
+        surreal_server.lifecycle_reservation(
+            state, purpose="startup", deadline=deadline
+        ),
+    ):
+        surreal_server.readmit_supervisor(state, deadline=deadline)
+        if selected_store(environment, quiesced=True, deadline=deadline) != selected:
+            raise ValueError("store preparation selection changed during readmission")
+        surreal_server.start(
+            state,
+            surreal_server.config_for(state, deadline=deadline),
+            deadline=deadline,
+        )
+        pse_env.require_store(environment, deadline=deadline)
+        if selected_store(environment, quiesced=False, deadline=deadline) != selected:
+            raise ValueError("store preparation selection changed during startup")
+        surreal_server.remaining(deadline)
+    finished = time.monotonic()
+    return {
+        "wall_seconds": finished - started,
+        "started_monotonic": started,
+        "finished_monotonic": finished,
+        "status": "passed",
+        "deadline": deadline,
+        "selected": selected,
+        "scope": "authenticated selected nonresident readmission, startup and normal store readiness",
+    }
+
+
+def workflow_environment(
+    env: dict[str, str], source: Path, output: Path
+) -> dict[str, str]:
+    """Keep nested checkout composition on this campaign's exact owned target."""
+    result = {
+        **env,
+        "UV_PROJECT_ENVIRONMENT": str(source / ".venv"),
+        "PSE_CARGO_TARGET_DIR": str(output / "target"),
+        "CARGO_TARGET_DIR": str(output / "target"),
+    }
+    result.pop("VIRTUAL_ENV", None)
+    return result
 
 
 def selected_packages(
@@ -550,13 +718,16 @@ def prepare_inputs(
     native: bool,
     workflow: bool,
     conditions: dict[str, object],
+    prepare_store: bool = False,
 ) -> tuple[Path, dict[str, str], dict[str, object]]:
     """Time the snapshot and admission actually executed after target entry.
 
     The operation record proves existing admission/generation state, not elapsed
     setup time or a cache hit. Initial launcher setup has already happened here.
     """
-    owner = native_operation.owner_record()
+    owner = (
+        native_operation.current() if prepare_store else native_operation.owner_record()
+    )
 
     def observation() -> dict[str, object] | None:
         if owner is None:
@@ -567,11 +738,14 @@ def prepare_inputs(
     operation: dict[str, object] = {
         "preexisting_at_measurement_target_entry": owner is not None,
         "record_path": str(owner) if owner is not None else None,
-        "before": observation(),
+        # Store authentication owns its clock and the native-operation timing
+        # receipt already binds the entry owner. Do not wait on a record lock
+        # before that phase has established its deadline.
+        "before": None if prepare_store else observation(),
         "evidence_scope": "authentic existing admissions and generation pins; no setup durations or cache-hit inference",
     }
     receipt: dict[str, object] = {
-        "scope": "measurement target snapshot and capability_environment call only",
+        "scope": "measurement target selected store preparation, snapshot and capability_environment calls",
         "excludes": [
             "native operation launch and capability setup before target entry",
             "Cargo samples and compiler-cache server startup/shutdown",
@@ -581,16 +755,28 @@ def prepare_inputs(
         "requested_capabilities": ["solver", "klu", "isolation", "uno", "petsc"]
         if native or workflow
         else [],
-        "phase_order": ["snapshot", "capability_environment"],
+        "phase_order": [
+            *(["selected_store"] if prepare_store else []),
+            "snapshot",
+            "capability_environment",
+        ],
         "phases": {},
         "native_operation": operation,
         "cache_scope": "native prerequisites follow the existing operation; cold-cache selects a downstream empty compiler cache only",
     }
     phases: dict[str, object] = {}
     receipt["phases"] = phases
-    phase = "snapshot"
+    phase = "selected_store" if prepare_store else "snapshot"
     started = time.monotonic()
     try:
+        if prepare_store:
+            phases[phase] = prepare_selected_store(output, original)
+            os.environ.pop(STORE_LAUNCH, None)
+            original.pop(STORE_LAUNCH, None)
+            os.environ["PSE_REQUIRE_STORE"] = "1"
+            original = {**original, "PSE_REQUIRE_STORE": "1"}
+            phase = "snapshot"
+            started = time.monotonic()
         source = snapshot(root, output)
         phases[phase] = {"wall_seconds": time.monotonic() - started, "status": "passed"}
         phase = "capability_environment"
@@ -621,11 +807,17 @@ def prepare_inputs(
         receipt["status"] = "passed"
     except BaseException as error:
         if phase not in phases:
-            phases[phase] = {
+            failed_phase: dict[str, object] = {
                 "wall_seconds": time.monotonic() - started,
                 "status": "failed",
                 "error_type": type(error).__name__,
             }
+            if phase == "selected_store":
+                failed_phase.update(
+                    started_monotonic=started,
+                    finished_monotonic=time.monotonic(),
+                )
+            phases[phase] = failed_phase
         receipt["status"] = "failed"
         receipt["error_type"] = type(error).__name__
         raise
@@ -654,6 +846,7 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
     }
     phases: dict[str, object] = {}
     receipt["phases"] = phases
+    store_prepared = True
     try:
         native = json.loads((output / "native-operation.json").read_text())
         receipt["native_operation"] = native
@@ -686,8 +879,30 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
                 "status": "passed",
                 "scope": "setup receipt serialization and native supervisor child preparation",
             }
+            preparation_path = output / "preparation.json"
+            if preparation_path.exists():
+                preparation = json.loads(preparation_path.read_text())
+                store = preparation.get("phases", {}).get("selected_store")
+                if store is not None:
+                    if not (
+                        child_start
+                        <= store["started_monotonic"]
+                        <= store["finished_monotonic"]
+                        <= child_end
+                    ):
+                        raise ValueError(  # noqa: TRY301 -- record malformed timing
+                            "store preparation boundaries are out of order"
+                        )
+                    phases["selected_store_preparation"] = {
+                        **store,
+                        "included_in": "measurement_child",
+                    }
+                    store_prepared = store.get("status") == "passed"
+                    if not store_prepared:
+                        receipt["error"] = "selected store preparation did not complete"
         drain_start = child_end if child_end is not None else setup_end
-        native_drained = native_operation.drained(native["owner"])
+        native_drain = native_operation.drained(native["owner"])
+        native_drained = native_drain.complete
         allocation = Path(native["host_allocation"]["path"])
         # Read the current ledger, not a pre-return copy which could miss later
         # registered handoff scopes. A removed owner was retired by host admission.
@@ -700,6 +915,12 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
         )
         receipt["drain_observation"] = {
             "native_scope_drained": native_drained,
+            "native_scope_observation": {
+                "phase": native_drain.phase.value,
+                "cause": native_drain.cause,
+                "selected": native_drain.owner,
+                "observed": native_drain.observed,
+            },
             "host_allocation_drained": allocation_drained,
             "host_allocation_retired": allocation_owner is None,
             "retained_host_allocation": allocation_owner,
@@ -724,6 +945,7 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
                 and native["setup_status"] == "passed"
                 and child_end is not None
                 and native["child_exit_code"] == 0
+                and store_prepared
             ):
                 receipt["status"] = "passed"
         else:
@@ -743,16 +965,36 @@ def complete_operation(output: Path, started: float, exit_code: int) -> int:
 
 
 def ensure_capability_operation(
-    root: Path, output: Path, *, native: bool, workflow: bool
+    root: Path,
+    output: Path,
+    *,
+    native: bool,
+    workflow: bool,
+    prepare_store: bool = False,
 ) -> int | None:
     """Observe the real operation before setup, snapshot and child builds."""
     if os.environ.get(OPERATION_OUTPUT):
+        if prepare_store:
+            store_launch_handoff(output, dict(os.environ))
         return None
-    if native_operation.owner_record() is not None:
+    existing = native_operation.owner_record()
+    if prepare_store and (
+        existing is not None or os.environ.get(host_admission.MARKER)
+    ):
+        raise ValueError("--prepare-store requires a new complete-operation owner")
+    if existing is not None:
         return None
+    selection = (
+        selected_store(dict(os.environ), quiesced=True) if prepare_store else None
+    )
     output = validation.fresh_output(root, output)
     environment = dict(os.environ)
     environment[OPERATION_OUTPUT] = str(output)
+    if selection is not None:
+        environment[STORE_SELECTION] = json.dumps(selection, sort_keys=True)
+        # Deliberately defer this demand until the measured child owns placement.
+        # An explicit empty caller value also prevents a local default restoring it.
+        environment["PSE_REQUIRE_STORE"] = ""
     linked = native or workflow
     if linked:
         environment["PSE_NATIVE_CAPABILITIES"] = "solver,klu,isolation,uno,petsc"
@@ -760,6 +1002,15 @@ def ensure_capability_operation(
             output / "native-operation.json"
         )
     started = time.monotonic()
+    if prepare_store:
+        environment[STORE_LAUNCH] = json.dumps(
+            {
+                "pid": os.getpid(),
+                "start": native_operation.start_identity(os.getpid()),
+                "started_monotonic": started,
+                "output": str(output),
+            }
+        )
     command = [
         str(root / "scripts/pse-env"),
         *(["--native"] if linked else []),
@@ -812,6 +1063,11 @@ def main() -> None:
         help="also measure extension, compiled stubs and native units in the snapshot",
     )
     parser.add_argument(
+        "--prepare-store",
+        action="store_true",
+        help="readmit/start the selected quiesced nonresident store inside a new native workflow owner",
+    )
+    parser.add_argument(
         "--cold-cache",
         action="store_true",
         help="use an empty task-owned compiler cache",
@@ -830,6 +1086,8 @@ def main() -> None:
         parser.error("warm/edit workloads require at least three repetitions")
     if args.execute and args.native:
         parser.error("use --workflow for the native unit selection")
+    if args.prepare_store and not (args.native and args.workflow):
+        parser.error("--prepare-store requires --native --workflow")
     try:
         packages = selected_packages(
             args.package, native=args.native, workload=args.workload
@@ -837,25 +1095,42 @@ def main() -> None:
     except ValueError as error:
         parser.error(str(error))
     root = Path(__file__).resolve().parents[1]
+    settings = tomllib.loads((root / ".config/build.toml").read_text())
+    if shutil.disk_usage(root).free < settings["free_space_gib"] * 1024**3:
+        raise ValueError(
+            "insufficient free space; inventory and reclaim inactive outputs first"
+        )
     status = ensure_capability_operation(
-        root, args.output, native=args.native, workflow=args.workflow
+        root,
+        args.output,
+        native=args.native,
+        workflow=args.workflow,
+        prepare_store=args.prepare_store,
     )
     if status is not None:
         raise SystemExit(status)
-    settings = tomllib.loads((root / ".config/build.toml").read_text())
     if shutil.disk_usage(root).free < settings["free_space_gib"] * 1024**3:
         raise ValueError(
             "insufficient free space; inventory and reclaim inactive outputs first"
         )
     selected_output = os.environ.pop(OPERATION_OUTPUT, None)
     if selected_output is None:
+        if args.prepare_store:
+            raise ValueError("store preparation requires its measured output handoff")
         output = validation.fresh_output(root, args.output)
     else:
         output = Path(selected_output)
         if (
             output != args.output.resolve()
-            or host_admission.inherit(dict(os.environ)) is None
-            or ((args.native or args.workflow) and native_operation.current() is None)
+            or (
+                not args.prepare_store
+                and host_admission.inherit(dict(os.environ)) is None
+            )
+            or (
+                not args.prepare_store
+                and (args.native or args.workflow)
+                and native_operation.current() is None
+            )
         ):
             raise ValueError(
                 "measurement output handoff requires its authentic workload owner"
@@ -866,6 +1141,7 @@ def main() -> None:
         validation.command_env(),
         native=args.native,
         workflow=args.workflow,
+        prepare_store=args.prepare_store,
         conditions={
             "native": args.native,
             "packages": packages,
@@ -875,6 +1151,7 @@ def main() -> None:
             if not args.package
             else "selected-packages",
             "workflow": args.workflow,
+            "prepare_store": args.prepare_store,
             "compiler_cache_selection": args.cache,
             "cold_compiler_cache": args.cold_cache,
             "frontend": args.frontend,
@@ -983,8 +1260,7 @@ def main() -> None:
                 raise RuntimeError("selected workload unit execution failed")
     if args.workflow:
         workflow = []
-        workflow_env = {**env, "UV_PROJECT_ENVIRONMENT": str(source / ".venv")}
-        workflow_env.pop("VIRTUAL_ENV", None)
+        workflow_env = workflow_environment(env, source, output)
         for repetition in range(args.repetitions):
             for recipe in ("py-sync-native", "python-stubs", "unit-native-contracts"):
                 name = f"workflow-{repetition}-{recipe}"

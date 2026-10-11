@@ -762,19 +762,23 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 ## Current checkpoint
 
 The maintainer subsequently interrupted the campaign and pivoted to the
-[SurrealDB lifecycle and integration review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
-[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination)
-now owns that review's corrective target, accepted RC01/RC02 and capability inquiries as a
-distinct scope. The campaign remains stopped; authoring Plan 35 does not authorize its
-restart. Before a later authorized continuation, consume the affected implemented and
-verified prerequisites through [28e](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step).
-Neither all unrelated Plan 35 inquiries nor its whole-plan completion is an automatic
-prerequisite to every Plan 28 operation. E3/E4/E5 and N4/T5/L4 acceptance remain here.
+[SurrealDB lifecycle and integration review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#outcome-recorded-after-implementation)
+completed that distinct corrective scope, accepted RC01/RC02 and capability decisions, with
+its [affected acceptance](35-surrealdb-lifecycle-and-integration-remediation.md#acceptance-evidence).
+The maintainer authorized all remaining testing, targeting zero failures, after that completion.
+The post-Plan-35 captures remain diagnostic/incomplete. Corrections passed targeted native
+checks; the subsequent comprehensive attempt exhausted storage during native compilation.
+Storage recovery, frozen-context refresh and the E3 relaunch
+are owned by [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step),
+followed by conformance/external parity, E4's full 37-selector and build/locality
+measurements, and independent E5 review.
+E3/E4/E5 and N4/T5/L4 acceptance remain open until their covering evidence exists.
 
 The earlier execution authorization on 2026-10-10 covered the entirety of remaining Plan 28,
 including the required development/scientific E3 campaign, all selected E4 measurements,
 and E5 independent assembled review and closure. Its historical scope superseded the former
-failure-only instructions; the later review pivot governs the next action. Its starting tree was
+failure-only instructions; Plan 35 completion precedes the newly authorized testing continuation. Its starting tree was
 `991fcea1984ea9cca0f281f050c87fad067a1431` (Plan 34 implemented).
 
 A–D, N0–N14, T0–T7, L0–L7, I0–I2 and J0–J3 mechanisms and the selected graph/hash
@@ -797,14 +801,16 @@ now supply integrated corrections and actual native/Python/recovery evidence. Re
 exact source/profile/tool closure before relaunching invalidated covering invocations;
 these scoped passes do not establish E3/E4/E5 or transfer their ownership.
 
-First reconcile stale live execution instructions and packet statuses. Scientific
-rebuild/restore acceptance, profile-matching prerequisite composition, build-owner
-setup/admission/drain instrumentation, and policy/preflight/trajectory and unchanged-byte
-edit fixtures are implemented with scoped evidence. Consume matching Plan 34 evidence,
-reconcile the nine exact passing failed-identity receipts at 28e, check any invalidated
-controls, and refresh the stale wide receiver through stopped/drained readmission.
-Actual campaign measurements remain outstanding. Preserve conservative numerical/provider
-variants and standalone one-shot fitting/shooting contracts.
+Source reconciliation and stale instruction updates are complete. Scientific rebuild/restore,
+profile-matching prerequisite composition, build-owner setup/admission/drain instrumentation,
+and policy/preflight/trajectory and unchanged-byte edit fixtures are implemented with scoped
+evidence. The final reference profile is `surreal-plan35-final-reference-20261010` (port 18247,
+nonresident `plan28-reference`, `pse.substrate.v3`), with the current worker/native extension
+and private frozen receiver closure. Admit its original 140 GiB primary plus 16 GiB server
+and 4 GiB observer envelope, then readmit/start inside that owner. Preserve the original
+production numerical controls. Prepare a fresh ordinary-wide profile only for E4's matching
+ordinary functional prerequisite and measurements; current reference evidence cannot be
+transferred to a different wide context. No actual E3/E4 completion is claimed yet.
 
 Root owns shared declarations, generators, runner selection, finding dispositions and final
 integration. Bounded workers own disjoint consumer changes and targeted checks. Confirm E1/E2

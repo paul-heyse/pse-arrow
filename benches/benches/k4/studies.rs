@@ -53,7 +53,8 @@ impl ManagedReceiver {
     }
     fn finish(&mut self) {
         let store = self.store.as_ref().unwrap();
-        let receiver = store.managed_primary_receiver().unwrap().unwrap();
+        let selected = workflow::NativeExecutionSelection::from_store(store).unwrap();
+        let receiver = selected.receiver().unwrap();
         let status = std::process::Command::new(&receiver.supervisor_executable)
             .current_dir(support::repository())
             .arg("-m")
@@ -414,7 +415,8 @@ pub(super) fn measure(
                 };
                 let mut receiver=managed.then(|| ManagedReceiver::new(&runtime));
                 let receiving_profile=if managed {
-                    let allocation=runtime.canonical().store().native_allocation().unwrap();
+                    let selected=workflow::NativeExecutionSelection::from_store(runtime.canonical().store()).unwrap();
+                    let allocation=selected.allocation();
                     allocation.validate().unwrap();
                     assert_eq!(allocation.native_workers, 1);
                     assert_eq!(allocation.native_worker_memory_bytes, 140_usize << 30);

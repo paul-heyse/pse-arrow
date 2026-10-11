@@ -679,9 +679,7 @@ impl CanonicalStore {
         if read.selection.revision() != &receipt.revision {
             return Ok(false);
         }
-        let mut response = self.protected_query(
-            &read.selection.revision().problem,
-            "canonical_selection::adopt_dependencies_from_same_revision",
+        let mut response = self.protected_query(&read.selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::adopt_dependencies_from_same_revision",
             || Ok(self.db.query(format!(
                 "{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"
             ))
@@ -745,7 +743,7 @@ impl CanonicalStore {
         if logicals.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&read.selection.revision().problem, "canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&read.selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::resolve_logicals", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem AND logical IN $logicals AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", read.selection.revision().problem.clone())).bind(("revision", read.selection.revision().key.clone())).bind(("protection", read.selection.key().to_owned())).bind(("logicals", logicals.to_vec())).bind(("sequence", crate::canonical_codec::encode_uint(read.selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let members = rows
@@ -911,6 +909,7 @@ impl CanonicalStore {
         let mut response = self
             .protected_query(
                 &read.selection.revision().problem,
+                crate::canonical::QueryEffect::Read,
                 "canonical_selection::next_membership_pages",
                 || {
                     let mut query = self
@@ -1069,7 +1068,7 @@ impl CanonicalStore {
     ) -> Result<Vec<Membership>, CanonicalError> {
         let scoped = membership_scope_predicate(scope.is_some(), "scope");
         let (suppliers, referenced) = membership_reference_predicate(target.is_some(), "");
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}{suppliers}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)){referenced} ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}{suppliers}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)){referenced} ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1175,6 +1174,7 @@ impl CanonicalStore {
         let mut response = self
             .protected_query(
                 &read.selection.revision().problem,
+                crate::canonical::QueryEffect::Read,
                 "canonical_selection::resolve_name_pairs",
                 || {
                     let mut query = self
@@ -1230,7 +1230,7 @@ impl CanonicalStore {
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let scoped = membership_scope_predicate(scope.is_some(), "scope");
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1536,9 +1536,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(
-            &selection.revision().problem,
-            "canonical_selection::product_candidate_presence",
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate_presence",
             || {
                 Ok(self
                     .db
@@ -1574,7 +1572,7 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
             .bind(("protection", selection.key().to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;

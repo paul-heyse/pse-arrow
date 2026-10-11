@@ -30,6 +30,8 @@ use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc, time:
 /// Nextest test processes. The two-worker study consumes both configured slots.
 struct ManagedWorkerCase {
     _lock: std::fs::File,
+    state: std::path::PathBuf,
+    selected: Option<pse_runtime::workflow::NativeExecutionSelection>,
     units: Vec<String>,
 }
 impl ManagedWorkerCase {
@@ -50,6 +52,24 @@ impl ManagedWorkerCase {
             .open(state.join(".worker-integration.lock"))
             .unwrap();
         lock.lock().unwrap();
+        Self {
+            _lock: lock,
+            state: state.to_path_buf(),
+            selected: None,
+            units: Vec::new(),
+        }
+    }
+    fn bind_database(&mut self, database: &str) {
+        assert!(
+            self.selected.is_none(),
+            "one case owns one selected database"
+        );
+        let selected = pse_runtime::workflow::NativeExecutionSelection::from_state(
+            &self.state,
+            Some(database),
+        )
+        .unwrap();
+        let state = selected.receiver_state();
         let output = supervisor_at(state).arg("status").output().unwrap();
         assert!(
             output.status.success(),
@@ -71,7 +91,31 @@ impl ManagedWorkerCase {
             checked.success(),
             "another process already owns this fixture profile's worker slots"
         );
-        Self { _lock: lock, units }
+        selected.require_current().unwrap();
+        self.units = units;
+        self.selected = Some(selected);
+    }
+    fn command(&self, executable: &std::ffi::OsStr) -> std::process::Command {
+        let selected = self
+            .selected
+            .as_ref()
+            .expect("bind the exact worker database");
+        selected.require_current().unwrap();
+        managed_worker_command_with(
+            supervisor_at(selected.receiver_state()),
+            selected.database(),
+            executable,
+        )
+    }
+    fn spawn(&self, name: &str, lease_seconds: u64) -> std::process::Child {
+        spawn_worker_with(
+            self.command(
+                &std::env::var_os("PSE_WORKER_BINARY")
+                    .expect("worker-test supplies its built worker"),
+            ),
+            name,
+            lease_seconds,
+        )
     }
     fn kill_solver(&self) {
         // The scientific process is in slot zero in this serial single-worker case.
@@ -113,22 +157,6 @@ fn supervisor_python(code: &str) -> std::process::Command {
         .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."));
     command
 }
-fn managed_worker(database: &str) -> std::process::Command {
-    managed_worker_command(
-        database,
-        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
-    )
-}
-fn managed_worker_command(database: &str, executable: &std::ffi::OsStr) -> std::process::Command {
-    managed_worker_command_with(supervisor(), database, executable)
-}
-fn managed_worker_command_at(
-    state: &Path,
-    database: &str,
-    executable: &std::ffi::OsStr,
-) -> std::process::Command {
-    managed_worker_command_with(supervisor_at(state), database, executable)
-}
 fn managed_worker_command_with(
     mut command: std::process::Command,
     database: &str,
@@ -139,22 +167,6 @@ fn managed_worker_command_with(
         .arg(executable)
         .args(["--canonical-database", database]);
     command
-}
-fn spawn_worker(name: &str, lease_seconds: u64, canonical_database: &str) -> std::process::Child {
-    spawn_worker_with(managed_worker(canonical_database), name, lease_seconds)
-}
-fn spawn_worker_at(
-    state: &Path,
-    name: &str,
-    lease_seconds: u64,
-    canonical_database: &str,
-) -> std::process::Child {
-    let command = managed_worker_command_at(
-        state,
-        canonical_database,
-        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
-    );
-    spawn_worker_with(command, name, lease_seconds)
 }
 fn spawn_worker_with(
     mut command: std::process::Command,
@@ -711,11 +723,13 @@ async fn submit_single(
         .unwrap();
     (package, case, handle)
 }
-async fn drain_worker(name: &str, local: &Runtime) {
-    let database = local.canonical_store().database().to_owned();
+async fn drain_worker(name: &str, managed: &ManagedWorkerCase) {
+    let command = managed.command(
+        &std::env::var_os("PSE_WORKER_BINARY").expect("worker-test supplies its built worker"),
+    );
     let name = name.to_owned();
     let status =
-        tokio::task::spawn_blocking(move || spawn_worker(&name, 30, &database).wait().unwrap())
+        tokio::task::spawn_blocking(move || spawn_worker_with(command, &name, 30).wait().unwrap())
             .await
             .unwrap();
     assert!(status.success(), "{status}");
@@ -785,8 +799,9 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
     reason = "one managed two-process journey keeps scientific assertions and optional fresh-miss cleanup together"
 )]
 async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
-    let _managed = ManagedWorkerCase::acquire();
+    let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
+    managed.bind_database(local.canonical_store().database());
     let (local, operations) =
         bind_operations(&shared, local, "replay-enqueuer", LeasePolicy::default());
     let expect_miss = std::env::var_os("PSE_WORKER_REPLAY_EXPECT_MISS").is_some();
@@ -836,7 +851,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             )
             .await
             .unwrap();
-        let mut command = managed_worker_command(local.canonical_store().database(), &executable);
+        let mut command = managed.command(&executable);
         command.env_remove("PSE_PRODUCER_RECEIPT").args([
             "--name",
             name,
@@ -850,8 +865,14 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
             .await
             .unwrap();
         if expect_miss {
-            drop(_managed);
-            assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").status().unwrap().success());
+            let receiver_state = managed
+                .selected
+                .as_ref()
+                .unwrap()
+                .receiver_state()
+                .to_path_buf();
+            drop(managed);
+            assert!(supervisor_python("from scripts import surreal_server as s; import os,pathlib; p=pathlib.Path(os.environ['PSE_SURREAL_STATE']); s.workers_drained(p,s.config_for(p))").env("PSE_SURREAL_STATE", receiver_state).status().unwrap().success());
             drop(handle);
             drop(package);
             local.clear_program_cache();
@@ -910,13 +931,14 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn worker_runs_authored_case_end_to_end() {
-    let _managed = ManagedWorkerCase::acquire();
+    let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
+    managed.bind_database(local.canonical_store().database());
     let (local, operations) = bind_operations(&shared, local, "enqueuer", LeasePolicy::default());
     let (physical, modeling) = sources();
     let (package, case, handle) =
         submit_single(&shared, &local, physical, modeling, settings(), 1).await;
-    drain_worker("worker-child", &local).await;
+    drain_worker("worker-child", &managed).await;
     let status = handle.status().await.unwrap();
     assert_eq!(status.state, StudyState::Concluded);
     let point = &status.points[0];
@@ -956,8 +978,9 @@ async fn worker_runs_authored_case_end_to_end() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn durable_worker_round_trips_a_package_with_a_data_document() {
-    let _managed = ManagedWorkerCase::acquire();
+    let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = runtime();
+    managed.bind_database(local.canonical_store().database());
     let (local, operations) =
         bind_operations(&shared, local, "data-enqueuer", LeasePolicy::default());
     let (physical, mut modeling) = sources_of(DATA_SQUARE);
@@ -972,7 +995,7 @@ async fn durable_worker_round_trips_a_package_with_a_data_document() {
             .unwrap()
             .is_some()
     );
-    drain_worker("worker-data", &local).await;
+    drain_worker("worker-data", &managed).await;
     let status = handle.status().await.unwrap();
     assert_eq!(status.state, StudyState::Concluded);
     let point = &status.points[0];
@@ -1090,7 +1113,11 @@ async fn long_scip_study(
     .await
     .2
 }
-async fn wait_study_assignment(local: &Runtime, handle: &StudyHandle) -> (String, String) {
+async fn wait_study_assignment(
+    local: &Runtime,
+    handle: &StudyHandle,
+    worker: &mut std::process::Child,
+) -> (String, String) {
     let key = pse_operations::canonical_studies::point_key(
         &handle.study_id().to_string(),
         OccurrenceKey(0),
@@ -1101,16 +1128,21 @@ async fn wait_study_assignment(local: &Runtime, handle: &StudyHandle) -> (String
         // cancellation clocks remain separate and unchanged.
         Duration::from_secs(600),
         "study assignment",
-        || async {
-            let point = local
-                .canonical_store()
-                .canonical_study_point(&key)
-                .await
-                .unwrap()
-                .unwrap();
-            pse_operations::canonical_studies::point_facts(&point)
-                .unwrap()
-                .native_started
+        || {
+            let exited = worker.try_wait().unwrap();
+            let key = &key;
+            async move {
+                let point = local
+                    .canonical_store()
+                    .canonical_study_point(key)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let started = pse_operations::canonical_studies::point_facts(&point)
+                    .unwrap()
+                    .native_started;
+                assignment_observed(started, exited)
+            }
         },
     )
     .await;
@@ -1136,10 +1168,40 @@ async fn wait_study_assignment(local: &Runtime, handle: &StudyHandle) -> (String
     (point.run, attempt)
 }
 
+fn assignment_observed(started: bool, exited: Option<std::process::ExitStatus>) -> bool {
+    assert!(
+        started || exited.is_none(),
+        "managed worker exited before study assignment: {exited:?}; see captured worker stderr"
+    );
+    started
+}
+
+#[test]
+fn assignment_watchdog_keeps_waiting_for_live_worker_without_native_fence() {
+    assert!(!assignment_observed(false, None));
+}
+
+#[test]
+#[should_panic(expected = "managed worker exited before study assignment")]
+fn assignment_watchdog_reports_early_worker_exit_without_native_fence() {
+    use std::os::unix::process::ExitStatusExt;
+    assignment_observed(false, Some(std::process::ExitStatus::from_raw(256)));
+}
+
+#[test]
+fn assignment_watchdog_retains_observed_native_fence_after_worker_exit() {
+    use std::os::unix::process::ExitStatusExt;
+    assert!(assignment_observed(
+        true,
+        Some(std::process::ExitStatus::from_raw(256))
+    ));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authored_policy() {
-    let managed = ManagedWorkerCase::acquire();
+    let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = scip_runtime();
+    managed.bind_database(local.canonical_store().database());
     let policy = LeasePolicy {
         lease: Duration::from_secs(2),
         heartbeat: Duration::from_millis(200),
@@ -1147,8 +1209,8 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
     };
     let (local, operations) = bind_operations(&shared, local, "killed-enqueuer", policy);
     let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
-    let mut worker = spawn_worker("worker-killed", 2, local.canonical_store().database());
-    let (run, first) = wait_study_assignment(&local, &handle).await;
+    let mut worker = managed.spawn("worker-killed", 2);
+    let (run, first) = wait_study_assignment(&local, &handle, &mut worker).await;
     managed.kill_solver();
     assert!(!worker.wait().unwrap().success());
     assert!(
@@ -1161,7 +1223,7 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
             .terminal
     );
     tokio::time::sleep(Duration::from_secs(3)).await;
-    drain_worker("worker-replacement", &local).await;
+    drain_worker("worker-replacement", &managed).await;
     let lost = operations
         .store()
         .canonical_attempt(&first)
@@ -1218,13 +1280,14 @@ async fn killed_worker_freezes_truthful_observations_and_retries_only_by_authore
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn cross_process_cancel_stops_scip() {
-    let _managed = ManagedWorkerCase::acquire();
+    let mut managed = ManagedWorkerCase::acquire();
     let (shared, local) = scip_runtime();
+    managed.bind_database(local.canonical_store().database());
     let (local, operations) =
         bind_operations(&shared, local, "cancel-enqueuer", LeasePolicy::default());
     let handle = long_scip_study(&shared, &local, Duration::from_secs(120), 1).await;
-    let mut worker = spawn_worker("worker-cancelled", 30, local.canonical_store().database());
-    let (_, attempt) = wait_study_assignment(&local, &handle).await;
+    let mut worker = managed.spawn("worker-cancelled", 30);
+    let (_, attempt) = wait_study_assignment(&local, &handle, &mut worker).await;
     let requested = tokio::time::Instant::now();
     handle.cancel().await.unwrap();
     let status = tokio::task::spawn_blocking(move || worker.wait().unwrap())
@@ -1262,9 +1325,18 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     let _selected_managed = ManagedWorkerCase::acquire();
     let profile = two_worker_fixture_state();
     let state = profile.state().to_path_buf();
-    let _managed = ManagedWorkerCase::acquire_at(&state);
+    let mut managed = ManagedWorkerCase::acquire_at(&state);
     const POINTS: usize = 8;
     let store = canonical_fixture_store_at(&state).await;
+    managed.bind_database(store.database());
+    let selected = managed.selected.as_ref().unwrap();
+    assert_eq!(selected.receiver_state(), state.as_path());
+    assert_eq!(selected.allocation().native_workers, 2);
+    assert_eq!(
+        selected.allocation().native_worker_memory_bytes,
+        8_usize << 30
+    );
+    assert!(selected.allocation().execution.is_none());
     let (shared, local) = runtime_with_store(store);
     let (local, operations) =
         bind_operations(&shared, local, "parallel-enqueuer", LeasePolicy::default());
@@ -1313,8 +1385,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
         )
         .await
         .unwrap();
-    let mut children = ["worker-left", "worker-right"]
-        .map(|name| spawn_worker_at(&state, name, 30, local.canonical_store().database()));
+    let mut children = ["worker-left", "worker-right"].map(|name| managed.spawn(name, 30));
     let statuses = tokio::task::spawn_blocking(move || {
         children.each_mut().map(|worker| worker.wait().unwrap())
     })

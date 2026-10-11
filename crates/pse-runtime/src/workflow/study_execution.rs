@@ -85,7 +85,7 @@ pub struct StudyReport {
     /// cross-process execution or reuse evidence.
     pub preparations: crate::math::PreparationCounts,
     pub(in crate::workflow) runtime: super::Runtime,
-    pub(in crate::workflow) _owner: Arc<pse_columnar::AllocationLease>,
+    pub(in crate::workflow) _owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
 impl StudyReport {
     /// Original application store and shared pool for exact connected results.
@@ -142,44 +142,30 @@ impl ModelingPackage {
             .await?;
         drop(sources);
         let mut cancellation_recorded = false;
-        loop {
+        let inventory = loop {
             if cancel.token().is_cancelled() && !cancellation_recorded {
                 handle.cancel().await?;
                 cancellation_recorded = true;
             }
-            if handle.result().await?.is_some() {
-                break;
+            if let Some(inventory) = handle.terminal_inventory().await? {
+                break inventory;
             }
-            // This observer has no native work to schedule. Bound header polling
-            // independently of case count so waiting does not flood the worker's store.
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        }
-        let bytes = definition
+        };
+        let status = inventory.status;
+        let facts = inventory.facts;
+        let owner = inventory.owner;
+        let projection_bytes = status
             .points
             .len()
-            .checked_mul(size_of::<PointOutcome>() + 4096)
-            .ok_or_else(|| super::contract("study outcome extent"))?;
-        let owner = self
+            .checked_mul(size_of::<PointOutcome>() + size_of::<Option<StudyOccurrenceResult>>())
+            .ok_or_else(|| super::contract("study report extent"))?;
+        let projection_owner = self
             .runtime
             .shared
             .math()
-            .reserve("study:retained-occurrence-summaries", bytes)?;
-        let status = handle.status().await?;
-        let mut after = None;
-        let mut facts = Vec::with_capacity(status.points.len());
-        loop {
-            let page = operations
-                .store()
-                .study_point_page(&handle.study_id().to_string(), after)
-                .await?;
-            if page.is_empty() {
-                break;
-            }
-            for point in page {
-                after = Some(point.ordinal);
-                facts.push(point.facts()?);
-            }
-        }
+            .reserve("study:terminal-report", projection_bytes)?;
+        let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> = vec![owner, projection_owner];
         let decision =
             pse_operations::study_policy::transition(&definition.graph(), &facts, status.cancelled)
                 .map_err(policy_error)?;
@@ -230,7 +216,7 @@ impl ModelingPackage {
             decision,
             preparations: Default::default(),
             runtime: self.runtime.clone(),
-            _owner: owner,
+            _owner: Arc::new(owners),
         })
     }
     async fn study_inner(

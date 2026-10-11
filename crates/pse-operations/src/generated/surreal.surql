@@ -17,7 +17,7 @@ DEFINE FIELD active ON canonical_analyses TYPE bool;
 DEFINE FIELD retiring ON canonical_analyses TYPE bool;
 DEFINE INDEX canonical_analyses_key ON canonical_analyses FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_analysis_edges TYPE RELATION IN canonical_analysis_nodes OUT canonical_analysis_nodes SCHEMAFULL;
+DEFINE TABLE canonical_analysis_edges TYPE RELATION IN canonical_analysis_nodes OUT canonical_analysis_nodes ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_analysis_edges TYPE string;
 DEFINE FIELD analysis ON canonical_analysis_edges TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_analysis_edges TYPE record<canonical_analysis_nodes> ASSERT $value = type::record('canonical_analysis_nodes', $this.source);
@@ -28,7 +28,7 @@ DEFINE FIELD kind ON canonical_analysis_edges TYPE string;
 DEFINE FIELD evidence ON canonical_analysis_edges TYPE option<string>;
 DEFINE INDEX canonical_analysis_edges_key ON canonical_analysis_edges FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_analysis_inputs TYPE RELATION IN canonical_analyses OUT canonical_attempts SCHEMAFULL;
+DEFINE TABLE canonical_analysis_inputs TYPE RELATION IN canonical_analyses OUT canonical_attempts ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_analysis_inputs TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_analysis_inputs TYPE record<canonical_analyses> ASSERT $value = type::record('canonical_analyses', $this.analysis);
 DEFINE FIELD analysis ON canonical_analysis_inputs TYPE string;
@@ -92,7 +92,7 @@ DEFINE FIELD interpretation ON canonical_interpretations TYPE string;
 DEFINE FIELD schema_digest ON canonical_interpretations TYPE string;
 DEFINE INDEX canonical_interpretations_key ON canonical_interpretations FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_memberships TYPE RELATION IN canonical_problems OUT canonical_version_manifests SCHEMAFULL;
+DEFINE TABLE canonical_memberships TYPE RELATION IN canonical_problems OUT canonical_version_manifests ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_memberships TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_memberships TYPE record<canonical_problems> ASSERT $value = type::record('canonical_problems', $this.problem);
 DEFINE FIELD problem ON canonical_memberships TYPE string;
@@ -113,7 +113,7 @@ DEFINE FIELD payload ON canonical_payload_blocks TYPE bytes;
 DEFINE FIELD digest ON canonical_payload_blocks TYPE string;
 DEFINE INDEX canonical_payload_blocks_key ON canonical_payload_blocks FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_problem_runs TYPE RELATION IN canonical_problems OUT canonical_runs SCHEMAFULL;
+DEFINE TABLE canonical_problem_runs TYPE RELATION IN canonical_problems OUT canonical_runs ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_problem_runs TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_problem_runs TYPE record<canonical_problems> ASSERT $value = type::record('canonical_problems', $this.problem);
 DEFINE FIELD problem ON canonical_problem_runs TYPE string;
@@ -289,7 +289,7 @@ DEFINE FIELD owner_kind ON canonical_roots TYPE string;
 DEFINE FIELD owner ON canonical_roots TYPE string;
 DEFINE INDEX canonical_roots_key ON canonical_roots FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_run_sources TYPE RELATION IN canonical_runs OUT canonical_revisions SCHEMAFULL;
+DEFINE TABLE canonical_run_sources TYPE RELATION IN canonical_runs OUT canonical_revisions ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_run_sources TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_run_sources TYPE record<canonical_runs> ASSERT $value = type::record('canonical_runs', $this.run);
 DEFINE FIELD run ON canonical_run_sources TYPE string;

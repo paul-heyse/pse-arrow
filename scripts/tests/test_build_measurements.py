@@ -12,17 +12,511 @@ import subprocess
 import tempfile
 import tomllib
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from scripts import build_measurements, host_admission, native_operation, validation
+from scripts import (
+    build_environment,
+    build_measurements,
+    host_admission,
+    native_operation,
+    surreal_server,
+    validation,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from unittest.mock import MagicMock
+
+
+def drain_fixture(complete: bool) -> native_operation.DrainObservation:
+    return native_operation.DrainObservation(
+        None,
+        native_operation.DrainPhase.COMPLETE
+        if complete
+        else native_operation.DrainPhase.POPULATED,
+        "controlled observation",
+    )
 
 
 class BuildMeasurementTests(unittest.TestCase):
+    @staticmethod
+    def store_fixture(
+        output: Path,
+    ) -> tuple[dict[str, str], dict[str, object], dict[str, str]]:
+        state = output / "state"
+        state.mkdir()
+        worker = output / "worker"
+        worker.write_bytes(b"exact qualified worker")
+        environment = {
+            "PSE_SURREAL_STATE": str(state),
+            "PSE_WORKER_BINARY": str(worker),
+            "PSE_RESOURCE_CLASS": "exclusive",
+            "PSE_MEMORY_MAX": "144G",
+            "PSE_REQUIRE_STORE": "",
+            build_measurements.STORE_LAUNCH: json.dumps(
+                {
+                    "pid": os.getppid(),
+                    "start": native_operation.start_identity(os.getppid()),
+                    "started_monotonic": 90,
+                    "output": str(output),
+                }
+            ),
+        }
+        config: dict[str, object] = {
+            "resident": False,
+            "admission": "quiesced",
+            "accepting_writes": False,
+            "resources": surreal_server.execution_resources("wide"),
+            "instance_id": "selected-instance",
+            "endpoint": "ws://127.0.0.1:18244",
+        }
+        receiver = {"worker_sha256": surreal_server.file_digest(worker)}
+        return environment, config, receiver
+
+    def test_store_preparation_requires_native_workflow_before_launch(self) -> None:
+        for flags in ([], ["--native"], ["--workflow"]):
+            with (
+                self.subTest(flags=flags),
+                patch.object(
+                    build_measurements.sys,
+                    "argv",
+                    ["measure", "/new", "--prepare-store", *flags],
+                ),
+                patch.object(
+                    build_measurements, "ensure_capability_operation"
+                ) as launch,
+                self.assertRaises(SystemExit),
+            ):
+                build_measurements.main()
+            launch.assert_not_called()
+
+    def test_disk_floor_refuses_before_any_workload_admission(self) -> None:
+        with (
+            patch.object(
+                build_measurements.sys,
+                "argv",
+                ["measure", "/new", "--native", "--workflow", "--prepare-store"],
+            ),
+            patch.object(
+                build_measurements.shutil,
+                "disk_usage",
+                return_value=type("Disk", (), {"free": 43 << 30})(),
+            ),
+            patch.object(build_measurements, "ensure_capability_operation") as launch,
+            self.assertRaisesRegex(ValueError, "insufficient free space"),
+        ):
+            build_measurements.main()
+        launch.assert_not_called()
+
+    def test_prepare_store_refuses_preexisting_owner_before_effects(self) -> None:
+        for native_owner, host_owner in [(Path("/owner"), ""), (None, "/ledger/owner")]:
+            with (
+                self.subTest(native_owner=native_owner, host_owner=host_owner),
+                patch.dict(os.environ, {host_admission.MARKER: host_owner}, clear=True),
+                patch.object(
+                    native_operation, "owner_record", return_value=native_owner
+                ),
+                patch.object(validation, "fresh_output") as fresh,
+                patch.object(native_operation, "run") as launch,
+                self.assertRaisesRegex(ValueError, "new complete-operation owner"),
+            ):
+                build_measurements.ensure_capability_operation(
+                    Path("/checkout"),
+                    Path("/new"),
+                    native=True,
+                    workflow=True,
+                    prepare_store=True,
+                )
+            fresh.assert_not_called()
+            launch.assert_not_called()
+
+    def test_prepare_store_rejects_old_owner_with_plausible_output_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            environment, _, _ = self.store_fixture(output)
+            environment[build_measurements.OPERATION_OUTPUT] = str(output)
+            environment[host_admission.MARKER] = str(output / "old-allocation")
+            (output / "native-operation.json").write_text(
+                json.dumps(
+                    {
+                        "owner_record_path": str(output / "old-owner.json"),
+                        "setup_started_monotonic": 89,
+                        "setup_status": "passed",
+                        "host_allocation": {"path": environment[host_admission.MARKER]},
+                    }
+                )
+            )
+            with (
+                patch.dict(os.environ, environment, clear=True),
+                patch.object(
+                    native_operation,
+                    "owner_record",
+                    return_value=output / "old-owner.json",
+                ),
+                patch.object(build_measurements.time, "monotonic", return_value=100),
+                patch.object(build_measurements, "selected_store") as selection,
+                patch.object(validation, "fresh_output") as fresh,
+                patch.object(native_operation, "run") as launch,
+                patch.object(surreal_server, "readmit_supervisor") as readmit,
+                patch.object(surreal_server, "start") as start,
+                self.assertRaisesRegex(ValueError, "predates its fresh outer launch"),
+            ):
+                build_measurements.ensure_capability_operation(
+                    output, output, native=True, workflow=True, prepare_store=True
+                )
+            selection.assert_not_called()
+            fresh.assert_not_called()
+            launch.assert_not_called()
+            readmit.assert_not_called()
+            start.assert_not_called()
+
+    def test_prepare_store_accepts_live_outer_child_marker(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            environment, _, _ = self.store_fixture(output)
+            environment[build_measurements.OPERATION_OUTPUT] = str(output)
+            (output / "native-operation.json").write_text(
+                json.dumps({"setup_started_monotonic": 95})
+            )
+            with (
+                patch.dict(os.environ, environment, clear=True),
+                patch.object(build_measurements.time, "monotonic", return_value=100),
+                patch.object(native_operation, "run") as launch,
+            ):
+                self.assertIsNone(
+                    build_measurements.ensure_capability_operation(
+                        output, output, native=True, workflow=True, prepare_store=True
+                    )
+                )
+            launch.assert_not_called()
+
+    def test_prepare_store_refuses_self_or_replaced_outer_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            environment, _, _ = self.store_fixture(output)
+            for changed in (
+                {
+                    "pid": os.getpid(),
+                    "start": native_operation.start_identity(os.getpid()),
+                },
+                {"start": "replaced-start-identity"},
+                {"output": str(output / "other")},
+            ):
+                handoff = json.loads(environment[build_measurements.STORE_LAUNCH])
+                handoff.update(changed)
+                with (
+                    self.subTest(changed=changed),
+                    self.assertRaisesRegex(ValueError, "outer launch identity differs"),
+                ):
+                    build_measurements.store_launch_handoff(
+                        output,
+                        {
+                            **environment,
+                            build_measurements.STORE_LAUNCH: json.dumps(handoff),
+                        },
+                    )
+
+    def test_store_demand_is_deferred_only_for_explicit_owned_preparation(self) -> None:
+        with (
+            patch.dict(os.environ, {"PSE_REQUIRE_STORE": "1"}, clear=True),
+            patch.object(native_operation, "owner_record", return_value=None),
+            patch.object(
+                build_measurements,
+                "selected_store",
+                return_value={"state": "/selected"},
+            ),
+            patch.object(validation, "fresh_output", return_value=Path("/new")),
+            patch.object(native_operation, "run", return_value=0) as launch,
+            patch.object(build_measurements, "complete_operation", return_value=0),
+        ):
+            build_measurements.ensure_capability_operation(
+                Path("/checkout"),
+                Path("/new"),
+                native=True,
+                workflow=True,
+                prepare_store=True,
+            )
+            prepared = launch.call_args.args[1]
+            self.assertEqual(prepared["PSE_REQUIRE_STORE"], "")
+            self.assertEqual(
+                json.loads(prepared[build_measurements.STORE_SELECTION]),
+                {"state": "/selected"},
+            )
+            self.assertEqual(os.environ["PSE_REQUIRE_STORE"], "1")
+            handoff = json.loads(prepared[build_measurements.STORE_LAUNCH])
+            self.assertEqual(handoff["pid"], os.getpid())
+            self.assertEqual(
+                handoff["start"], native_operation.start_identity(os.getpid())
+            )
+            self.assertEqual(handoff["output"], "/new")
+            self.assertLessEqual(
+                handoff["started_monotonic"], build_measurements.time.monotonic()
+            )
+            build_measurements.ensure_capability_operation(
+                Path("/checkout"), Path("/new"), native=True, workflow=True
+            )
+            self.assertEqual(launch.call_args.args[1]["PSE_REQUIRE_STORE"], "1")
+
+    def test_unsupported_store_refuses_before_output_or_launch(self) -> None:
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(native_operation, "owner_record", return_value=None),
+            patch.object(
+                build_measurements,
+                "selected_store",
+                side_effect=ValueError("unsupported selected store"),
+            ),
+            patch.object(validation, "fresh_output") as fresh,
+            patch.object(native_operation, "run") as launch,
+            self.assertRaisesRegex(ValueError, "unsupported selected store"),
+        ):
+            build_measurements.ensure_capability_operation(
+                Path("/checkout"),
+                Path("/new"),
+                native=True,
+                workflow=True,
+                prepare_store=True,
+            )
+        fresh.assert_not_called()
+        launch.assert_not_called()
+
+    def test_selected_store_rejects_residency_quiescence_profile_and_worker_changes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            environment, config, receiver = self.store_fixture(Path(directory))
+            for changes in (
+                {"resident": True},
+                {"admission": "open"},
+                {"accepting_writes": True},
+                {"resources": surreal_server.execution_resources("timing")},
+            ):
+                with (
+                    self.subTest(changes=changes),
+                    patch.object(
+                        surreal_server, "config_for", return_value={**config, **changes}
+                    ),
+                    patch.object(
+                        surreal_server,
+                        "service_directory",
+                        return_value=Path(environment["PSE_SURREAL_STATE"]),
+                    ),
+                    patch.object(
+                        surreal_server, "checked_primary", return_value=receiver
+                    ),
+                    self.assertRaises(ValueError),
+                ):
+                    build_measurements.selected_store(environment, quiesced=True)
+            with (
+                patch.object(surreal_server, "config_for", return_value=config),
+                patch.object(
+                    surreal_server,
+                    "service_directory",
+                    return_value=Path(environment["PSE_SURREAL_STATE"]),
+                ),
+                patch.object(
+                    surreal_server,
+                    "checked_primary",
+                    return_value={"worker_sha256": "replaced"},
+                ),
+                self.assertRaisesRegex(ValueError, "worker bytes differ"),
+            ):
+                build_measurements.selected_store(environment, quiesced=True)
+
+    def test_store_preparation_shares_one_clock_and_refuses_late_or_changed_start(
+        self,
+    ) -> None:
+        for failure in (None, "expired", "worker-changed", "owner-changed"):
+            with (
+                tempfile.TemporaryDirectory() as directory,
+                self.subTest(failure=failure),
+            ):
+                output = Path(directory)
+                environment, config, receiver = self.store_fixture(output)
+                owner = output / "operation.json"
+                allocation = host_admission.Allocation(
+                    output / "ledger", "a" * 32, host_admission.select("exclusive"), 1.0
+                )
+                (output / "native-operation.json").write_text(
+                    json.dumps(
+                        {
+                            "owner_record_path": str(
+                                owner
+                                if failure != "owner-changed"
+                                else output / "foreign.json"
+                            ),
+                            "setup_started_monotonic": 95,
+                            "setup_status": "passed",
+                            "host_allocation": {
+                                "path": str(allocation.directory / allocation.nonce)
+                            },
+                        }
+                    )
+                )
+                calls: list[str] = []
+                with (
+                    patch.object(surreal_server, "config_for", return_value=config),
+                    patch.object(
+                        surreal_server,
+                        "service_directory",
+                        return_value=Path(environment["PSE_SURREAL_STATE"]),
+                    ),
+                    patch.object(
+                        surreal_server, "checked_primary", return_value=receiver
+                    ),
+                    patch.object(
+                        native_operation, "owner_record", return_value=owner
+                    ) as native_owner,
+                    patch.object(
+                        host_admission, "inherit", return_value=allocation
+                    ) as inherited,
+                    patch.object(
+                        surreal_server,
+                        "lifecycle_reservation",
+                        return_value=nullcontext(),
+                    ),
+                    patch.object(
+                        build_measurements.time, "monotonic", return_value=100
+                    ) as clock,
+                ):
+                    environment[build_measurements.STORE_SELECTION] = json.dumps(
+                        build_measurements.selected_store(environment, quiesced=True)
+                    )
+
+                    def readmit(
+                        _state: Path,
+                        *,
+                        deadline: float,
+                        failure: str | None = failure,
+                        clock: MagicMock = clock,
+                        calls: list[str] = calls,
+                        environment: dict[str, str] = environment,
+                        config: dict[str, object] = config,
+                    ) -> dict[str, object]:
+                        self.assertEqual(deadline, 140)
+                        calls.append("readmit")
+                        if failure == "expired":
+                            clock.return_value = 141
+                        elif failure == "worker-changed":
+                            Path(environment["PSE_WORKER_BINARY"]).write_bytes(
+                                b"replacement"
+                            )
+                        return config
+
+                    def start(
+                        _state: Path,
+                        _config: dict[str, object],
+                        *,
+                        deadline: float,
+                        calls: list[str] = calls,
+                        config: dict[str, object] = config,
+                    ) -> None:
+                        self.assertEqual(deadline, 140)
+                        calls.append("start")
+                        config["admission"] = "open"
+                        config["accepting_writes"] = True
+
+                    def ready(
+                        _environment: dict[str, str],
+                        *,
+                        deadline: float,
+                        calls: list[str] = calls,
+                    ) -> None:
+                        self.assertEqual(deadline, 140)
+                        calls.append("ready")
+                        self.assertEqual(surreal_server._STARTUP.deadline, 140)  # noqa: SLF001 -- final readiness must inherit the phase clock
+
+                    with (
+                        patch.object(
+                            surreal_server, "readmit_supervisor", side_effect=readmit
+                        ),
+                        patch.object(surreal_server, "start", side_effect=start),
+                        patch.object(
+                            build_measurements.pse_env,
+                            "require_store",
+                            side_effect=ready,
+                        ),
+                    ):
+                        if failure is None:
+                            receipt = build_measurements.prepare_selected_store(
+                                output, environment
+                            )
+                            self.assertEqual(receipt["deadline"], 140)
+                            self.assertEqual(calls, ["readmit", "start", "ready"])
+                        else:
+                            with self.assertRaises(
+                                (ValueError, surreal_server.DeadlineExpiredError)
+                            ):
+                                build_measurements.prepare_selected_store(
+                                    output, environment
+                                )
+                            self.assertEqual(
+                                calls, [] if failure == "owner-changed" else ["readmit"]
+                            )
+                    native_owner.assert_called_once_with(deadline=140)
+                    inherited.assert_called_once_with(environment, deadline=140)
+
+    def test_failed_store_preparation_prevents_snapshot_and_retains_phase(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with (
+                patch.object(native_operation, "current", return_value=None),
+                patch.object(
+                    build_measurements,
+                    "prepare_selected_store",
+                    side_effect=ValueError("selected owner refused"),
+                ),
+                patch.object(build_measurements, "snapshot") as snapshot,
+                patch.object(
+                    build_measurements.time, "monotonic", side_effect=[100, 101, 102]
+                ),
+                self.assertRaisesRegex(ValueError, "selected owner refused"),
+            ):
+                build_measurements.prepare_inputs(
+                    output,
+                    output,
+                    {},
+                    native=True,
+                    workflow=True,
+                    prepare_store=True,
+                    conditions={},
+                )
+            snapshot.assert_not_called()
+            receipt = json.loads((output / "preparation.json").read_text())
+            self.assertEqual(receipt["status"], "failed")
+            self.assertEqual(receipt["phase_order"][0], "selected_store")
+            self.assertEqual(receipt["phases"]["selected_store"]["status"], "failed")
+            self.assertEqual(
+                receipt["phases"]["selected_store"]["started_monotonic"], 100
+            )
+            self.assertEqual(
+                receipt["phases"]["selected_store"]["finished_monotonic"], 102
+            )
+
+    def test_workflow_target_survives_real_nested_checkout_configuration(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            source = output / "source"
+            source.mkdir()
+            for name in (".config/build.toml", ".cargo/config.toml"):
+                destination = source / name
+                destination.parent.mkdir(exist_ok=True)
+                destination.write_bytes((root / name).read_bytes())
+            environment = build_measurements.workflow_environment(
+                {"VIRTUAL_ENV": "/other", "PSE_CARGO_TARGET_DIR": "/other-target"},
+                source,
+                output,
+            )
+            actual = build_environment.configure(source, environment, cache="off")
+            self.assertEqual(actual["CARGO_TARGET_DIR"], str(output / "target"))
+            self.assertEqual(actual["PSE_CARGO_TARGET_DIR"], str(output / "target"))
+            self.assertEqual(actual["UV_PROJECT_ENVIRONMENT"], str(source / ".venv"))
+            self.assertNotIn("VIRTUAL_ENV", actual)
+
     @staticmethod
     def build_source_fixture(root: Path) -> dict[str, str]:
         files = {
@@ -474,8 +968,24 @@ class BuildMeasurementTests(unittest.TestCase):
             (output / "summary.json").write_text(
                 json.dumps({"builds": {"cold": {"wall_seconds": 7}}})
             )
+            (output / "preparation.json").write_text(
+                json.dumps(
+                    {
+                        "phases": {
+                            "selected_store": {
+                                "started_monotonic": 21,
+                                "finished_monotonic": 25,
+                                "wall_seconds": 4,
+                                "status": "passed",
+                            }
+                        }
+                    }
+                )
+            )
             with (
-                patch.object(native_operation, "drained", return_value=True) as drain,
+                patch.object(
+                    native_operation, "drained", return_value=drain_fixture(True)
+                ) as drain,
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
                 ),
@@ -491,6 +1001,13 @@ class BuildMeasurementTests(unittest.TestCase):
             self.assertTrue(receipt["setup_inclusive"])
             self.assertEqual(receipt["phases"]["native_setup"]["wall_seconds"], 7)
             self.assertEqual(receipt["phases"]["measurement_child"]["wall_seconds"], 30)
+            self.assertEqual(
+                receipt["phases"]["selected_store_preparation"]["wall_seconds"], 4
+            )
+            self.assertEqual(
+                receipt["phases"]["selected_store_preparation"]["included_in"],
+                "measurement_child",
+            )
             self.assertEqual(receipt["phases"]["final_drain"]["wall_seconds"], 5)
             summary = json.loads((output / "summary.json").read_text())
             self.assertEqual(summary["builds"]["cold"]["wall_seconds"], 7)
@@ -513,7 +1030,9 @@ class BuildMeasurementTests(unittest.TestCase):
             }
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
-                patch.object(native_operation, "drained", return_value=False),
+                patch.object(
+                    native_operation, "drained", return_value=drain_fixture(False)
+                ),
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
                 ),
@@ -545,7 +1064,9 @@ class BuildMeasurementTests(unittest.TestCase):
             }
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
-                patch.object(native_operation, "drained", return_value=True),
+                patch.object(
+                    native_operation, "drained", return_value=drain_fixture(True)
+                ),
                 patch.object(
                     host_admission, "readonly_snapshot", return_value={"owners": {}}
                 ),
@@ -578,7 +1099,9 @@ class BuildMeasurementTests(unittest.TestCase):
             retained = {"units": {"surviving-worker": {"group": "/live"}}}
             (output / "native-operation.json").write_text(json.dumps(native))
             with (
-                patch.object(native_operation, "drained", return_value=True),
+                patch.object(
+                    native_operation, "drained", return_value=drain_fixture(True)
+                ),
                 patch.object(
                     host_admission,
                     "readonly_snapshot",

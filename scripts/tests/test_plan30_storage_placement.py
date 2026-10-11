@@ -81,6 +81,7 @@ class StoragePlacementTests(unittest.TestCase):
                 "resources": server.execution_resources("timing"),
                 "resident": True,
             }
+            deadline = server.time.monotonic() + 5
             with (
                 patch.object(host, "inherit", return_value=caller),
                 patch.object(host, "acquire", return_value=store) as acquire,
@@ -90,12 +91,14 @@ class StoragePlacementTests(unittest.TestCase):
                     return_value=contextlib.nullcontext(ledger),
                 ),
             ):
-                selected = server.service_allocation(state, config, 123.0)
+                selected = server.service_allocation(state, config, deadline)
             assert selected is store
             assert acquire.call_args.args[0].name == "store-timing"
-            assert acquire.call_args.kwargs["deadline"] == 123.0
+            assert acquire.call_args.kwargs["deadline"] == deadline
             assert caller.profile.memory + store.profile.memory == 64 * host.GIB
-            store.register.assert_called_once_with(server.unit_name(state))
+            store.register.assert_called_once_with(
+                server.unit_name(state), deadline=deadline
+            )
             caller.register.assert_not_called()
 
 

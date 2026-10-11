@@ -1352,6 +1352,7 @@ impl ModelingPackage {
         ),
         WorkflowError,
     > {
+        use pse_operations::canonical_staging::SELECTED_OBJECT_BATCH;
         use pse_relations::generated::authored::{documents, fit_cases, packages};
         let store = self.runtime.canonical.store();
         let protection = store
@@ -1361,18 +1362,22 @@ impl ModelingPackage {
             )
             .await?;
         let mut read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> =
-            async {
-                let (mut physical, physical_lease, _physical_version) =
-                    physical_context(&self.runtime, &mut read).await?;
-                let mut index = SourceIndex::default();
-                let mut leases = vec![physical_lease];
-                if let Some(visible) = &mut physical.documents {
-                    for member in store
-                        .resolve_kind_scope(&mut read, None, "physical_scope_document")
-                        .await?
-                    {
-                        let value = selected_object(&self.runtime, &read, &member.version).await?;
+        let result: Result<_, WorkflowError> = async {
+            let (mut physical, physical_lease, _physical_version) =
+                physical_context(&self.runtime, &mut read).await?;
+            let mut index = SourceIndex::default();
+            let mut leases = vec![physical_lease];
+            let cancel = crate::CancelSource::new();
+            if let Some(visible) = &mut physical.documents {
+                let members = store
+                    .resolve_kind_scope(&mut read, None, "physical_scope_document")
+                    .await?;
+                for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                    let versions = chunk
+                        .iter()
+                        .map(|member| member.version.clone())
+                        .collect::<Vec<_>>();
+                    for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
                         let entry: PhysicalScope = decode(value.payload.as_slice())?;
                         if entry.package != physical.package {
                             return Err(contract("canonical document physical package differs"));
@@ -1383,53 +1388,60 @@ impl ModelingPackage {
                         leases.push(value.lease.clone());
                     }
                 }
-                let cancel = crate::CancelSource::new();
-                let mut after = String::new();
-                loop {
-                    let page = store
-                        .membership_page(read.selection(), None, &after)
-                        .await?;
-                    let Some(last) = page.last() else {
-                        break;
-                    };
-                    after = last.key.clone();
-                    let modeling = page
-                        .into_iter()
-                        .filter(|member| {
-                            member.logical.starts_with("modeling:")
-                                && member.logical != CONTEXT_LOGICAL
-                                && member.logical != PHYSICAL_SCOPE_LOGICAL
-                        })
-                        .collect();
-                    self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
-                        .await?;
-                }
-                let validation = self.runtime.validation_context()?;
-                let mut document_builder =
-                    documents::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                        .map_err(super::super::relation)?;
-                let mut inventory = pse_modeling::document::DocumentInventory {
-                    field_spans: index.fields,
-                    ..Default::default()
+            }
+            let mut after = String::new();
+            loop {
+                let page = store
+                    .membership_page(read.selection(), None, &after)
+                    .await?;
+                let Some(last) = page.last() else {
+                    break;
                 };
-                for member in store
-                    .resolve_kind_scope(&mut read, None, "document")
-                    .await?
-                {
-                    let value = selected_object(&self.runtime, &read, &member.version).await?;
-                    let mut row: pse_model::generated::authored::documents::Row =
-                        decode(value.payload.as_slice())?;
+                after = last.key.clone();
+                let modeling = page
+                    .into_iter()
+                    .filter(|member| {
+                        member.logical.starts_with("modeling:")
+                            && member.logical != CONTEXT_LOGICAL
+                            && member.logical != PHYSICAL_SCOPE_LOGICAL
+                    })
+                    .collect();
+                self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
+                    .await?;
+            }
+            let validation = self.runtime.validation_context()?;
+            let mut document_builder =
+                documents::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                    .map_err(super::super::relation)?;
+            let mut inventory = pse_modeling::document::DocumentInventory {
+                field_spans: index.fields,
+                ..Default::default()
+            };
+            let members = store
+                .resolve_kind_scope(&mut read, None, "document")
+                .await?;
+            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                let versions = chunk
+                    .iter()
+                    .map(|member| member.version.clone())
+                    .collect::<Vec<_>>();
+                let mut rows = Vec::with_capacity(chunk.len());
+                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
+                    rows.push(decode::<pse_model::generated::authored::documents::Row>(
+                        value.payload.as_slice(),
+                    )?);
                     leases.push(value.lease.clone());
+                }
+                let logicals = rows
+                    .iter()
+                    .map(|row| format!("data:{}", row.document_id))
+                    .collect::<Vec<_>>();
+                let mut data = objects(&self.runtime, &mut read, &logicals, &cancel).await?;
+                for (mut row, logical) in rows.into_iter().zip(logicals) {
                     inventory
                         .packages
                         .insert(row.document_id, row.package_id.as_id());
-                    if let Some(data) = object(
-                        &self.runtime,
-                        &mut read,
-                        &format!("data:{}", row.document_id),
-                    )
-                    .await?
-                    {
+                    if let Some(data) = data.remove(&logical) {
                         leases.push(data.lease.clone());
                         let bytes = data.row.payload.into_vec();
                         let (document, lease) =
@@ -1448,49 +1460,62 @@ impl ModelingPackage {
                     }
                     document_builder.push(row).map_err(super::super::relation)?;
                 }
-                let mut package_builder =
-                    packages::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                        .map_err(super::super::relation)?;
-                for member in store.resolve_kind_scope(&mut read, None, "package").await? {
-                    let value = selected_object(&self.runtime, &read, &member.version).await?;
+            }
+            let mut package_builder =
+                packages::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                    .map_err(super::super::relation)?;
+            let members = store.resolve_kind_scope(&mut read, None, "package").await?;
+            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                let versions = chunk
+                    .iter()
+                    .map(|member| member.version.clone())
+                    .collect::<Vec<_>>();
+                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
                     leases.push(value.lease.clone());
                     package_builder
                         .push(decode(value.payload.as_slice())?)
                         .map_err(super::super::relation)?;
                 }
-                let mut fit_builder =
-                    fit_cases::Builder::with_registry(&self.runtime.registry, 0, &validation)
-                        .map_err(super::super::relation)?;
-                for member in store.resolve_kind_scope(&mut read, None, "fit").await? {
-                    let value = selected_object(&self.runtime, &read, &member.version).await?;
+            }
+            let mut fit_builder =
+                fit_cases::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                    .map_err(super::super::relation)?;
+            let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
+            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                let versions = chunk
+                    .iter()
+                    .map(|member| member.version.clone())
+                    .collect::<Vec<_>>();
+                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
                     fit_builder
                         .push(decode(value.payload.as_slice())?)
                         .map_err(super::super::relation)?;
                     leases.push(value.lease.clone());
                 }
-                let sources = BTreeMap::from([
-                    (
-                        fit_cases::RELATION_ID,
-                        fit_builder.finish().map_err(super::super::relation)?,
-                    ),
-                    (
-                        documents::RELATION_ID,
-                        document_builder.finish().map_err(super::super::relation)?,
-                    ),
-                    (
-                        packages::RELATION_ID,
-                        package_builder.finish().map_err(super::super::relation)?,
-                    ),
-                ]);
-                Ok((
-                    index.rows.into_values().collect(),
-                    physical,
-                    Arc::new(inventory),
-                    sources,
-                    leases,
-                ))
             }
-            .await;
+            let sources = BTreeMap::from([
+                (
+                    fit_cases::RELATION_ID,
+                    fit_builder.finish().map_err(super::super::relation)?,
+                ),
+                (
+                    documents::RELATION_ID,
+                    document_builder.finish().map_err(super::super::relation)?,
+                ),
+                (
+                    packages::RELATION_ID,
+                    package_builder.finish().map_err(super::super::relation)?,
+                ),
+            ]);
+            Ok((
+                index.rows.into_values().collect(),
+                physical,
+                Arc::new(inventory),
+                sources,
+                leases,
+            ))
+        }
+        .await;
         let release = read.finish().await;
         let result = result?;
         release?;
@@ -2387,6 +2412,7 @@ mod tests {
         reason = "namespace inventory fixtures require valid authored declarations and their expected identities"
     )]
     use super::*;
+    use pse_relations::columnar::RelationRow;
     fn parse(source: &str) -> Vec<Declaration> {
         pse_authoring::language::parse(
             source,
@@ -2435,6 +2461,230 @@ mod tests {
             index.requests.is_empty(),
             "complete inventories and grammar leaves need no negative re-probe"
         );
+    }
+
+    #[tokio::test]
+    async fn full_source_batches_preserve_order_nullable_data_scopes_and_owned_leases() {
+        use pse_model::generated::{
+            enums::{IdPolicy, PackageKind},
+            identities::{FitId, PackageId},
+        };
+        use pse_operations::canonical_staging::{SELECTED_OBJECT_BATCH, SOURCE_BLOCK_BYTES};
+        use pse_relations::generated::authored::{documents, fit_cases, packages};
+        let runtime = crate::workflow::tests::runtime();
+        let rows = parse("package p {def Root {var x:Scalar; eq e:x==1;}}");
+        let mut package = runtime
+            .modeling_package(rows.clone(), crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let data_bytes = include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../packages/reference/data/poling2000/data/water_antoine.parquet"
+        ));
+        let count = SELECTED_OBJECT_BATCH + 3;
+        let mut edits = Vec::new();
+        let physical = PhysicalScope {
+            package: Some("physical".into()),
+            documents: Some(BTreeSet::new()),
+        };
+        edits.push(edit(
+            PHYSICAL_SCOPE_LOGICAL.into(),
+            "context".into(),
+            "physical_scope".into(),
+            "physical_scope".into(),
+            payload(&physical).unwrap(),
+            Vec::new(),
+        ));
+        let mut expected_documents = BTreeMap::new();
+        let mut expected_packages = BTreeMap::new();
+        let mut expected_fits = BTreeMap::new();
+        let mut visible = BTreeSet::new();
+        for index in 0..count {
+            let mut bytes = [37; 16];
+            bytes[..8].copy_from_slice(&(index as u64).to_le_bytes());
+            let document_id = SemanticId::from_bytes(bytes);
+            let package_id = PackageId::from_id(document_id);
+            let text = index == 1;
+            let row = documents::Row {
+                document_id,
+                package_id,
+                path: if text {
+                    "source.pse".into()
+                } else {
+                    format!("data/{index}.parquet")
+                },
+                // Cross a payload-block boundary on a nullable-data document.
+                source_text: text.then(|| " ".repeat(SOURCE_BLOCK_BYTES + 17)),
+                content: None,
+            };
+            let logical = format!("document:{document_id}");
+            edits.push(edit(
+                logical.clone(),
+                "documents".into(),
+                document_id.to_string(),
+                "document".into(),
+                payload(&row).unwrap(),
+                Vec::new(),
+            ));
+            let mut expected = row.clone();
+            if !text {
+                edits.push(edit(
+                    format!("data:{document_id}"),
+                    "data".into(),
+                    document_id.to_string(),
+                    "data".into(),
+                    data_bytes.to_vec(),
+                    Vec::new(),
+                ));
+                expected.content = Some(data_bytes.to_vec().into());
+            }
+            expected_documents.insert(logical, expected);
+            let row = packages::Row {
+                package_id,
+                name: format!("p{index}"),
+                version: "1.0.0".into(),
+                kind: PackageKind::Model,
+                id_policy: IdPolicy::Named,
+                dependencies: Vec::new(),
+                content_hash: pse_ids::encoding_checksum(&bytes).content_hash(),
+                doc: String::new(),
+            };
+            let logical = format!("package:{package_id}");
+            edits.push(edit(
+                logical.clone(),
+                "packages".into(),
+                package_id.to_string(),
+                "package".into(),
+                payload(&row).unwrap(),
+                Vec::new(),
+            ));
+            expected_packages.insert(logical, row);
+            let row = fit_cases::Row {
+                fit_id: FitId::from_id(document_id),
+                parameters: Vec::new(),
+                experiments: Vec::new(),
+                observations: Vec::new(),
+            };
+            let logical = format!("fit:{}", row.fit_id);
+            edits.push(edit(
+                logical.clone(),
+                "fits".into(),
+                row.fit_id.to_string(),
+                "fit".into(),
+                payload(&row).unwrap(),
+                Vec::new(),
+            ));
+            expected_fits.insert(logical, row);
+            visible.insert(document_id);
+            let entry = PhysicalScope {
+                package: physical.package.clone(),
+                documents: Some(BTreeSet::from([document_id])),
+            };
+            edits.push(edit(
+                format!("physical_scope_document:{document_id}"),
+                "physical_name_scopes".into(),
+                document_id.to_string(),
+                "physical_scope_document".into(),
+                payload(&entry).unwrap(),
+                Vec::new(),
+            ));
+        }
+        let store = runtime.canonical.store();
+        let revision = store
+            .edit(
+                &package.revision.canonical.problem,
+                Some(&package.revision.canonical.key),
+                "full-source-batch-fixture",
+                &edits,
+            )
+            .await
+            .unwrap();
+        package.revision.canonical = revision.clone();
+        let mut read = SelectedRead::new(
+            store
+                .protect(revision, std::time::Duration::from_secs(60))
+                .await
+                .unwrap(),
+        );
+        let document_order = store
+            .resolve_kind_scope(&mut read, None, "document")
+            .await
+            .unwrap();
+        let package_order = store
+            .resolve_kind_scope(&mut read, None, "package")
+            .await
+            .unwrap();
+        let fit_order = store
+            .resolve_kind_scope(&mut read, None, "fit")
+            .await
+            .unwrap();
+        read.finish().await.unwrap();
+        let baseline = runtime.shared.pool().reserved();
+        let (acquired, physical, inventory, sources, owners) = package.full_source().await.unwrap();
+        assert_eq!(acquired.len(), rows.len());
+        assert!(rows.iter().all(|row| {
+            acquired
+                .iter()
+                .any(|actual| actual.declaration_id == row.declaration_id)
+        }));
+        assert_eq!(physical.documents, Some(visible));
+        assert_eq!(inventory.packages.len(), count);
+        assert_eq!(inventory.documents.len(), count - 1);
+        assert_eq!(
+            documents::Row::rows(&sources[&documents::RELATION_ID]).unwrap(),
+            document_order
+                .iter()
+                .map(|member| expected_documents[&member.logical].clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            packages::Row::rows(&sources[&packages::RELATION_ID]).unwrap(),
+            package_order
+                .iter()
+                .map(|member| expected_packages[&member.logical].clone())
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            fit_cases::Row::rows(&sources[&fit_cases::RELATION_ID]).unwrap(),
+            fit_order
+                .iter()
+                .map(|member| expected_fits[&member.logical].clone())
+                .collect::<Vec<_>>()
+        );
+        assert!(owners.len() > 4 * count);
+        assert!(runtime.shared.pool().reserved() > baseline);
+        drop((acquired, physical, inventory, sources, owners));
+        assert_eq!(runtime.shared.pool().reserved(), baseline);
+
+        // Refuse a malformed payload in the final document batch; no partial
+        // export or accumulated reservation escapes the failed acquisition.
+        let last = document_order.last().unwrap();
+        let bad = edit(
+            last.logical.clone(),
+            last.scope.clone(),
+            last.name.clone(),
+            "document".into(),
+            b"{".to_vec(),
+            Vec::new(),
+        );
+        package.revision.canonical = store
+            .edit(
+                &package.revision.canonical.problem,
+                Some(&package.revision.canonical.key),
+                "full-source-late-refusal",
+                &[bad],
+            )
+            .await
+            .unwrap();
+        assert!(
+            package
+                .full_source()
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("canonical source decoding")
+        );
+        assert_eq!(runtime.shared.pool().reserved(), baseline);
     }
 
     #[tokio::test]

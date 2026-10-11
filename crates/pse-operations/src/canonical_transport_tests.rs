@@ -622,7 +622,13 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let (sent, mut received) = mpsc::unbounded_channel();
+    let (owner_arrived, mut owner_arrival) = tokio::sync::oneshot::channel();
+    let (release_owner, owner_release) = tokio::sync::oneshot::channel();
+    let (owner_written, owner_write) = tokio::sync::oneshot::channel();
     let server = tokio::spawn(async move {
+        let mut owner_arrived = Some(owner_arrived);
+        let mut owner_release = Some(owner_release);
+        let mut owner_written = Some(owner_written);
         let (stream, _) = listener.accept().await.unwrap();
         let mut socket = accept_hdr_async(stream, native_protocol).await.unwrap();
         while let Some(Ok(Message::Binary(bytes))) = socket.next().await {
@@ -644,6 +650,9 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
                     .and_then(|credentials| credentials.get("user"))
                     .and_then(Value::as_string)
                     .is_some_and(|username| username == "owner");
+            if owner {
+                owner_arrived.take().unwrap().send(()).unwrap();
+            }
             let mut reply = Object::new();
             reply.insert("id", request.get("id").unwrap().clone());
             reply.insert("session", request.get("session").unwrap().clone());
@@ -655,7 +664,7 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
                 );
             } else {
                 if owner {
-                    tokio::time::sleep(Duration::from_millis(150)).await;
+                    owner_release.take().unwrap().await.unwrap();
                 }
                 let result = if method == "signin" {
                     Value::String("synthetic-access-token".into())
@@ -680,6 +689,9 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
                 ))
                 .await
                 .unwrap();
+            if owner {
+                owner_written.take().unwrap().send(()).unwrap();
+            }
         }
     });
     let options = crate::canonical::CanonicalOptions {
@@ -690,27 +702,31 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
         password: "test".into(),
         selection_username: "viewer".into(),
         selection_password: "test".into(),
-        native: crate::canonical::NativeAllocation {
-            native_workers: 1,
-            native_worker_memory_bytes: 1024,
-            execution: None,
-        },
-        primary_receiver: None,
         state_path: std::path::PathBuf::new(),
         initializer_nonce: None,
     };
     let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()))
         .await
         .unwrap();
-    let client = super::CanonicalClient::new(sdk, Duration::from_millis(60), &options);
+    // Ordinary peer completion and deliberate expiry have distinct fault models.
+    // The late peer holds the final acknowledgment until the original clock expires.
+    let client = super::CanonicalClient::new(sdk, Duration::from_secs(2), &options);
     let first = client.select_existing().await.unwrap_err();
+    assert!(
+        owner_arrival.try_recv().is_ok(),
+        "selection failed before reaching the intended Owner acknowledgment: {first:?}"
+    );
     if late_acknowledgment {
         assert!(matches!(
             first,
             crate::canonical::CanonicalError::Timeout | crate::canonical::CanonicalError::Driver(_)
         ));
     } else {
-        assert!(first.to_string().contains("owner acknowledgment refused"));
+        assert!(
+            matches!(&first, crate::canonical::CanonicalError::Driver(_))
+                && first.to_string().contains("owner acknowledgment refused"),
+            "expected the peer's acknowledged Owner refusal: {first:?}"
+        );
     }
     assert_eq!(
         *client.selection.lock().await,
@@ -727,7 +743,13 @@ async fn canonical_selection_refuses_unacknowledged_owner(late_acknowledgment: b
     );
     // Even an eventual successful transport acknowledgment cannot repair the
     // caller's abandoned authorization transition or admit later mutations.
-    tokio::time::sleep(Duration::from_millis(200)).await;
+    if late_acknowledgment {
+        release_owner.send(()).unwrap();
+    }
+    tokio::time::timeout(Duration::from_secs(2), owner_write)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
         client
             .select_existing()
@@ -765,4 +787,220 @@ async fn canonical_selection_rejected_owner_ack_poisoned_handle_refuses_cached_p
 #[tokio::test]
 async fn canonical_selection_late_owner_ack_cannot_unpoison_cancelled_handle() {
     canonical_selection_refuses_unacknowledged_owner(true).await;
+}
+
+/// One real FlatBuffers connection whose first two read replies have a peer-side
+/// barrier. A serialized canonical read path cannot complete either read.
+async fn canonical_read_barrier_peer() -> (
+    crate::canonical::CanonicalStore,
+    mpsc::UnboundedReceiver<String>,
+    tokio::task::JoinHandle<()>,
+) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (sent, received) = mpsc::unbounded_channel();
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut socket = accept_hdr_async(stream, native_protocol).await.unwrap();
+        let mut withheld = Vec::new();
+        while let Some(Ok(message)) = socket.next().await {
+            let Message::Binary(bytes) = message else {
+                continue;
+            };
+            let Value::Object(request) = surrealdb::types::decode(&bytes).unwrap() else {
+                continue;
+            };
+            if request.get("id").is_none_or(|id| matches!(id, Value::None)) {
+                continue;
+            }
+            let method = request.get("method").and_then(Value::as_string).unwrap();
+            let query = request
+                .get("params")
+                .and_then(Value::as_array)
+                .and_then(|params| params.first())
+                .and_then(Value::as_string);
+            let mut reply = Object::new();
+            reply.insert("id", request.get("id").unwrap().clone());
+            reply.insert("session", request.get("session").unwrap().clone());
+            if method == "query" {
+                let query = query.unwrap();
+                sent.send(query.clone()).unwrap();
+                let mut statement = Object::new();
+                statement.insert("status", "OK");
+                statement.insert("time", "0ns");
+                statement.insert("result", true);
+                reply.insert(
+                    "result",
+                    Value::Array(vec![Value::Object(statement)].into()),
+                );
+                if matches!(
+                    query.as_str(),
+                    "RETURN 'FIRST_READ'" | "RETURN 'SECOND_READ'"
+                ) {
+                    withheld.push(reply);
+                    if withheld.len() != 2 {
+                        continue;
+                    }
+                    // Neither reply is sent until two query envelopes arrived.
+                    // This is a dispatch barrier, independent of elapsed duration.
+                    for ready in withheld.drain(..) {
+                        socket
+                            .send(Message::Binary(
+                                surrealdb::types::encode(&Value::Object(ready))
+                                    .unwrap()
+                                    .into(),
+                            ))
+                            .await
+                            .unwrap();
+                    }
+                    continue;
+                }
+            } else if method == "version" {
+                reply.insert("result", Value::String("3.3.0".into()));
+            } else {
+                reply.insert("result", Value::None);
+            }
+            socket
+                .send(Message::Binary(
+                    surrealdb::types::encode(&Value::Object(reply))
+                        .unwrap()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+        }
+        assert!(
+            withheld.is_empty(),
+            "both protected reads must cross the dispatch barrier"
+        );
+    });
+    let options = crate::canonical::CanonicalOptions {
+        endpoint: format!("ws://{address}"),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
+    };
+    let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()))
+        .await
+        .unwrap();
+    let client = Arc::new(super::CanonicalClient::new(
+        sdk,
+        Duration::from_secs(2),
+        &options,
+    ));
+    // Test-only assembly leaves service/catalog installation outside this wire
+    // control. Reads still traverse CanonicalStore::protected_query, ProblemTurns,
+    // bounded response checking, CanonicalClient and the actual bounded SDK driver.
+    let store = crate::canonical::CanonicalStore {
+        db: client.clone(),
+        activation_db: client,
+        problem_turns: Arc::default(),
+        fixture_lifetime: None,
+        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+        result_read_drain: Arc::default(),
+        connection_options: options.clone(),
+        state_path: options.state_path.clone(),
+        database: options.database,
+        namespace: options.namespace,
+    };
+    (store, received, server)
+}
+
+#[tokio::test]
+async fn canonical_protected_reads_cross_actual_dispatch_barrier_and_expired_queue_never_dispatches()
+ {
+    use crate::canonical::{CanonicalError, QueryEffect};
+    use std::{
+        future::Future,
+        sync::atomic::{AtomicBool, Ordering},
+        task::Poll,
+    };
+    let (store, mut received, server) = canonical_read_barrier_peer().await;
+    let first = store.protected_query(
+        "problem",
+        QueryEffect::Read,
+        "canonical::barrier_first",
+        || Ok(store.db.query("RETURN 'FIRST_READ';")),
+    );
+    let second = store.protected_query(
+        "problem",
+        QueryEffect::Read,
+        "canonical::barrier_second",
+        || Ok(store.db.query("RETURN 'SECOND_READ';")),
+    );
+    let (mut first, mut second) = tokio::time::timeout(Duration::from_secs(2), async {
+        tokio::try_join!(first, second)
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(first.take::<Value>(0).unwrap(), Value::Bool(true));
+    assert_eq!(second.take::<Value>(0).unwrap(), Value::Bool(true));
+    let mut dispatched = [
+        next_query(&mut received).await,
+        next_query(&mut received).await,
+    ];
+    dispatched.sort();
+    assert_eq!(dispatched, ["RETURN 'FIRST_READ'", "RETURN 'SECOND_READ'"]);
+
+    let held = store
+        .problem_turns
+        .gate("problem")
+        .unwrap()
+        .write_owned()
+        .await;
+    let original = tokio::time::Instant::now() + Duration::from_millis(20);
+    let context = RequestContext::new(original.into_std());
+    let built = AtomicBool::new(false);
+    let mut expired = Box::pin(super::within_clock(
+        original,
+        store.protected_query(
+            "problem",
+            QueryEffect::Read,
+            "canonical::expired_queued_read",
+            || {
+                built.store(true, Ordering::SeqCst);
+                Ok(store
+                    .db
+                    .query("RETURN 'EXPIRED_READ';")
+                    .request_context(context.clone()))
+            },
+        ),
+    ));
+    // Establish that this read really joined the writer's local queue before
+    // its original clock expires; do not substitute an already-expired call.
+    std::future::poll_fn(|cx| {
+        assert!(expired.as_mut().poll(cx).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    assert!(!built.load(Ordering::SeqCst));
+    assert!(matches!(expired.await, Err(CanonicalError::Timeout)));
+    assert!(!built.load(Ordering::SeqCst));
+    assert_eq!(context.dispatch_state(), DispatchState::NotDispatched);
+    drop(held);
+    let mut after = store
+        .protected_query(
+            "problem",
+            QueryEffect::Read,
+            "canonical::after_expiry",
+            || Ok(store.db.query("RETURN 'AFTER_EXPIRY';")),
+        )
+        .await
+        .unwrap();
+    assert_eq!(after.take::<Value>(0).unwrap(), Value::Bool(true));
+    // This acknowledged later query is an ordered wire sentinel: an accidentally
+    // dispatched expired query would precede it in the peer's observed messages.
+    assert_eq!(next_query(&mut received).await, "RETURN 'AFTER_EXPIRY'");
+    store.db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(received.try_recv().is_err());
 }

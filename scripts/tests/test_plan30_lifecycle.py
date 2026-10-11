@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator
 from unittest.mock import MagicMock, patch
 
 from scripts import host_admission, native_operation, test_resources
@@ -28,6 +28,21 @@ from scripts import surreal_server as server
 from scripts.tests import surreal_fixture_check
 
 startup_clock = server._STARTUP  # noqa: SLF001 -- checks restoration of the actual private lifecycle clock
+
+
+def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
+    return server.ServiceObservation(
+        phase,
+        Path("/fixture"),
+        "fixture",
+        "fixture.service",
+        "controlled observation",
+        manager={"ActiveState": "active"}
+        if phase in {server.Readiness.READY, server.Readiness.STARTING}
+        else {},
+        listener_owned=phase in {server.Readiness.READY, server.Readiness.STARTING},
+        protocol_ready=phase is server.Readiness.READY,
+    )
 
 
 class Plan30LifecycleTests(unittest.TestCase):
@@ -73,8 +88,17 @@ class Plan30LifecycleTests(unittest.TestCase):
         manager = patch.object(
             server,
             "systemctl",
-            return_value=subprocess.CompletedProcess(
-                [], 0, "ActiveState=inactive\nControlGroup=\n", ""
+            side_effect=lambda *arguments, **_kwargs: subprocess.CompletedProcess(
+                [],
+                0,
+                (
+                    "inactive\n"
+                    if "--value" in arguments and "--property=ActiveState" in arguments
+                    else ""
+                    if "--value" in arguments
+                    else "ActiveState=inactive\nControlGroup=\n"
+                ),
+                "",
             ),
         )
         manager.start()
@@ -357,6 +381,111 @@ class Plan30LifecycleTests(unittest.TestCase):
             publish.assert_not_called()
         assert not ((self.state / ".contexts").exists())
 
+    def test_context_materialization_creates_every_parent_privately_under_permissive_umask(
+        self,
+    ) -> None:
+        self.state.chmod(0o700)
+        for mask in (0o000, 0o002):
+            with self.subTest(umask=mask):
+                previous = os.umask(mask)
+                try:
+                    with patch.object(
+                        server, "selected_worker_receipt", return_value=(None, None)
+                    ):
+                        descriptor = server.register_context(
+                            self.state, f"private_{mask}", "functional"
+                        )
+                finally:
+                    os.umask(previous)
+                receiver = Path(str(descriptor["receiver_state"]))
+                for path in (
+                    self.state / ".contexts",
+                    self.state / ".receivers",
+                    receiver.parent,
+                    receiver,
+                ):
+                    assert path.stat().st_mode & 0o777 == 0o700
+                    assert path.stat().st_uid == os.getuid()
+                    assert not path.is_symlink()
+                assert (
+                    server.receiver_context(self.state, f"private_{mask}") == receiver
+                )
+
+    def test_context_materialization_refuses_unsafe_existing_parents_without_adoption(
+        self,
+    ) -> None:
+        allocation = server.execution_resources("functional")
+        identity = hashlib.sha256(
+            json.dumps(
+                {
+                    "receiver": None,
+                    "resources": allocation,
+                    "producer": None,
+                    "producer_digest": None,
+                },
+                sort_keys=True,
+            ).encode()
+        ).hexdigest()
+        original_lstat = Path.lstat
+        for index, relative in enumerate(
+            (".contexts", ".receivers", ".receivers/" + identity)
+        ):
+            for mode in ("permissions", "symlink", "file", "foreign"):
+                with self.subTest(parent=relative, failure=mode):
+                    state = self.root / f"unsafe-{index}-{mode}"
+                    state.mkdir(mode=0o700)
+                    server.write_json(state / "config.json", self.config)
+                    unsafe = state / relative
+                    if unsafe.parent != state:
+                        unsafe.parent.mkdir(mode=0o700)
+                    outside = self.root / f"outside-{index}-{mode}"
+                    if mode == "symlink":
+                        outside.mkdir(mode=0o700)
+                        (outside / "preserved").write_bytes(b"foreign receiver state")
+                        unsafe.symlink_to(outside, target_is_directory=True)
+                    elif mode == "file":
+                        unsafe.write_bytes(b"preserved unknown file")
+                    else:
+                        unsafe.mkdir(mode=0o700)
+                        if mode == "permissions":
+                            unsafe.chmod(0o775)
+                    before = unsafe.lstat()
+
+                    def observed(
+                        path: Path, unsafe: Path = unsafe, mode: str = mode
+                    ) -> os.stat_result:
+                        information = original_lstat(path)
+                        if path == unsafe and mode == "foreign":
+                            fields = list(information)
+                            fields[4] = os.getuid() + 1
+                            return os.stat_result(fields)
+                        return information
+
+                    with (
+                        patch.object(
+                            server, "selected_worker_receipt", return_value=(None, None)
+                        ),
+                        patch.object(Path, "lstat", observed),
+                        pytest.raises(
+                            server.SupervisorError, match="private real owned"
+                        ),
+                    ):
+                        server.register_context(state, "refused_case", "functional")
+                    after = unsafe.lstat()
+                    assert (after.st_ino, after.st_uid, after.st_mode) == (
+                        before.st_ino,
+                        before.st_uid,
+                        before.st_mode,
+                    )
+                    assert not (state / ".contexts/refused_case.json").exists()
+                    if mode == "symlink":
+                        assert list(outside.iterdir()) == [outside / "preserved"]
+                        assert (
+                            outside / "preserved"
+                        ).read_bytes() == b"foreign receiver state"
+                    elif mode == "file":
+                        assert unsafe.read_bytes() == b"preserved unknown file"
+
     def test_storage_affinity_is_independent_of_execution_role_width(self) -> None:
         binary = Path(self.config["server"]["binary"])
         binary.write_bytes(b"owned storage executable")
@@ -625,9 +754,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server,
                 "service_readiness",
                 side_effect=[
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.STARTING,
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.STARTING),
                 ],
             ),
             patch.object(server, "listener_ready", return_value=True),
@@ -770,7 +899,8 @@ class Plan30LifecycleTests(unittest.TestCase):
     def test_explicit_parking_carries_original_clock_and_restores_after_failure(
         self,
     ) -> None:
-        for previous, expected in ((None, 40.0), (25.0, 25.0)):
+        now = time.monotonic()
+        for previous, expected in ((None, now + 40), (now + 25, now + 25)):
             with (
                 self.subTest(previous=previous),
                 patch.object(startup_clock, "deadline", previous, create=True),
@@ -784,7 +914,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                     patch.object(server, "_park_service", side_effect=failing_park),
                     pytest.raises(server.SupervisorError, match="bounded park failure"),
                 ):
-                    server.park_service(self.state, deadline=40.0)
+                    server.park_service(self.state, deadline=now + 40)
                 assert startup_clock.deadline == previous
 
     def test_graceful_stop_settles_deactivating_unit_even_when_not_active(self) -> None:
@@ -923,29 +1053,29 @@ class Plan30LifecycleTests(unittest.TestCase):
         context = self.context()
         previous = getattr(startup_clock, "deadline", None)
         deadline = time.monotonic() + 0.05
-        with patch.object(startup_clock, "deadline", deadline, create=True):
-            with (
-                server.lifecycle_reservation(self.state),
-                patch.object(
-                    server, "wait_reservation", wraps=server.wait_reservation
-                ) as join,
-                patch.object(server, "_ensure_primary") as admit,
+        with (
+            patch.object(startup_clock, "deadline", deadline, create=True),
+            server.lifecycle_reservation(self.state),
+            patch.object(
+                server, "wait_reservation", wraps=server.wait_reservation
+            ) as join,
+            patch.object(server, "_ensure_primary") as admit,
+        ):
+            owner = server.read_json(self.state / "lifecycle-owner.json")
+            with pytest.raises(
+                server.SupervisorError, match="original admission clock"
             ):
-                owner = server.read_json(self.state / "lifecycle-owner.json")
-                with pytest.raises(
-                    server.SupervisorError, match="original admission clock"
-                ):
-                    server.ensure_primary(self.state, database="case")
-                join.assert_called_once_with(
-                    self.state,
-                    self.state / "lifecycle-owner.json",
-                    owner["nonce"],
-                    deadline,
-                )
-                assert deadline <= time.monotonic() < deadline + 1
-                admit.assert_not_called()
-                assert server.read_json(self.state / "lifecycle-owner.json") == owner
-                assert startup_clock.deadline == deadline
+                server.ensure_primary(self.state, database="case")
+            join.assert_called_once_with(
+                self.state,
+                self.state / "lifecycle-owner.json",
+                owner["nonce"],
+                deadline,
+            )
+            assert deadline <= time.monotonic() < deadline + 1
+            admit.assert_not_called()
+            assert server.read_json(self.state / "lifecycle-owner.json") == owner
+            assert startup_clock.deadline == deadline
         assert not ((context / "primary-admission.json").exists())
         assert not (self.state / "lifecycle-owner.json").exists()
         assert (getattr(startup_clock, "deadline", None)) == (previous)
@@ -1100,6 +1230,21 @@ class Plan30LifecycleTests(unittest.TestCase):
                     },
                     {"status": "OK", "result": None},
                 ]
+            if sql.startswith("USE NS"):
+                assert options["select_context"] is False
+                assert sql == (
+                    "USE NS `pse_recovery`; REMOVE DATABASE `"
+                    + str(control["database"])
+                    + "`; INFO FOR NS;"
+                )
+                return [
+                    {
+                        "status": "OK",
+                        "result": {"namespace": "pse_recovery", "database": None},
+                    },
+                    {"status": "OK", "result": None},
+                    {"status": "OK", "result": {"databases": {}}},
+                ]
             acknowledged = {
                 "operation": control["operation"],
                 "payload": "acknowledged-v1",
@@ -1139,6 +1284,202 @@ class Plan30LifecycleTests(unittest.TestCase):
         context = server.object_mapping(proof["administrative_context"])
         assert context["database"] == database
         assert server.read_json(Path(str(context["evidence"])))["outcome"] == "passed"
+
+    def test_stopped_borrowed_service_returns_only_proven_affiliation(self) -> None:
+        unit = server.unit_name(self.state)
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 17}
+        owner = MagicMock(spec=host_admission.Allocation)
+        owner.directory = self.root / "host"
+        owner.nonce = "a" * 32
+        owner.profile = MagicMock(exclusive=True)
+        launch = {
+            "generation": self.config["instance_id"],
+            "allocation": str(owner.directory / owner.nonce),
+            "binding": binding,
+        }
+        server.write_json(self.state / "service-launch.json", launch)
+        for mode in ("undrained", "replacement", "drained"):
+            borrowed = [str(self.state), "/other/profile"]
+            units = {unit: dict(binding), "other.scope": {}}
+            record: dict[str, object] = {
+                "boot": "original",
+                "borrowed_services": borrowed,
+                "units": units,
+            }
+            owners: dict[str, object] = {owner.nonce: record}
+            ledger: dict[str, object] = {"owners": owners}
+            held: list[bool] = []
+
+            @contextlib.contextmanager
+            def metadata(
+                _directory: Path,
+                held: list[bool] = held,
+                ledger: dict[str, object] = ledger,
+                *,
+                deadline: float | None = None,
+            ) -> Generator[dict[str, object], None, None]:
+                assert deadline == getattr(startup_clock, "deadline", None)
+                held.append(True)
+                try:
+                    yield ledger
+                finally:
+                    held.pop()
+
+            def proof(
+                selected: dict[str, object],
+                *,
+                allocation: Path,
+                mode: str = mode,
+                held: list[bool] = held,
+                units: dict[str, dict[str, str | int]] = units,
+                deadline: float | None = None,
+            ) -> bool:
+                assert deadline == getattr(startup_clock, "deadline", None)
+                assert not held
+                assert allocation == owner.directory / owner.nonce
+                assert selected["service"] == str(self.state)
+                assert selected["borrowed_services"] == []
+                assert selected["units"] == {unit: binding}
+                assert selected["released"] is True
+                if mode == "replacement":
+                    units[unit] = {**binding, "invocation": "c" * 32}
+                return mode != "undrained"
+
+            with (
+                self.subTest(mode=mode),
+                patch.object(host_admission, "inherit", return_value=owner),
+                patch.object(
+                    host_admission, "allocation_metadata", side_effect=metadata
+                ),
+                patch.object(host_admission, "drained", side_effect=proof),
+            ):
+                if mode == "drained":
+                    server.release_stopped_service(self.state, self.config)
+                    assert borrowed == ["/other/profile"]
+                    assert units[unit] == binding
+                    assert "other.scope" in units
+                    assert owners[owner.nonce] is record
+                else:
+                    with pytest.raises(
+                        server.SupervisorError, match=r"undrained|changed"
+                    ):
+                        server.release_stopped_service(self.state, self.config)
+                    assert borrowed == [str(self.state), "/other/profile"]
+            owner.release.assert_not_called()
+
+    def test_stopped_borrowed_service_held_ledger_expires_without_late_return(
+        self,
+    ) -> None:
+        unit = server.unit_name(self.state)
+        profile = host_admission.select("reference")
+        binding: host_admission.BoundUnit = {
+            "group": "/owned",
+            "invocation": "b" * 32,
+            "inode": 17,
+        }
+        inherit_owner = host_admission.inherit
+        for boundary in ("inherit", "snapshot", "publication"):
+            with self.subTest(boundary=boundary):
+                directory = self.root / ("host-" + boundary)
+                directory.mkdir(mode=0o700)
+                owner = host_admission.Allocation(
+                    directory, "a" * 32, profile, time.monotonic() + 5
+                )
+                with host_admission.allocation_metadata(directory) as ledger:
+                    ledger["owners"][owner.nonce] = {
+                        "boot": host_admission.boot(),
+                        "pid": os.getpid(),
+                        "start": native_operation.start_identity(os.getpid()),
+                        "class": profile.name,
+                        "memory": profile.memory,
+                        "lane": profile.lane,
+                        "slots": profile.slots,
+                        "cores": list(profile.cores),
+                        "exclusive": True,
+                        "deadline": owner.deadline,
+                        "units": {unit: binding, "other.scope": {}},
+                        "borrowed_services": [str(self.state), "/other/profile"],
+                    }
+                launch = {
+                    "generation": self.config["instance_id"],
+                    "allocation": str(directory / owner.nonce),
+                    "binding": binding,
+                }
+                server.write_json(self.state / "service-launch.json", launch)
+                before = (directory / "allocations.json").read_bytes()
+                children: list[subprocess.Popen[str]] = []
+
+                def hold_ledger(
+                    children: list[subprocess.Popen[str]] = children,
+                    directory: Path = directory,
+                ) -> None:
+                    child = subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-c",
+                            "import fcntl,sys; f=open(sys.argv[1],'r+'); fcntl.flock(f,fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()",
+                            str(directory / ".lock"),
+                        ],
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.PIPE,
+                        text=True,
+                    )
+                    children.append(child)
+                    assert child.stdout is not None
+                    assert child.stdout.readline().strip() == "held"
+
+                def drained(
+                    selected: dict[str, object],
+                    *,
+                    allocation: Path,
+                    deadline: float | None,
+                    owner: host_admission.Allocation = owner,
+                    boundary: str = boundary,
+                    hold_ledger: Callable[[], None] = hold_ledger,
+                ) -> bool:
+                    assert deadline == startup_clock.deadline
+                    assert allocation == owner.directory / owner.nonce
+                    assert selected["units"] == {unit: binding}
+                    assert selected["borrowed_services"] == []
+                    if boundary == "publication":
+                        hold_ledger()
+                    return True
+
+                if boundary != "publication":
+                    hold_ledger()
+                deadline = time.monotonic() + 0.15
+                started = time.monotonic()
+                inheritance = (
+                    patch.object(host_admission, "inherit", side_effect=inherit_owner)
+                    if boundary == "inherit"
+                    else patch.object(host_admission, "inherit", return_value=owner)
+                )
+                try:
+                    with (
+                        patch.object(startup_clock, "deadline", deadline, create=True),
+                        inheritance as inherited,
+                        patch.object(
+                            host_admission, "drained", side_effect=drained
+                        ) as proof,
+                        pytest.raises(
+                            (
+                                server.DeadlineExpiredError,
+                                host_admission.AdmissionError,
+                            ),
+                            match=r"deadline|clock",
+                        ),
+                    ):
+                        server.release_stopped_service(self.state, self.config)
+                    assert inherited.call_args.kwargs["deadline"] == deadline
+                    assert inherited.call_args.kwargs["handoff"] is True
+                    assert proof.call_count == (1 if boundary == "publication" else 0)
+                    assert time.monotonic() - started < 0.75
+                finally:
+                    for child in children:
+                        child.communicate("release\n", timeout=5)
+                        assert child.returncode == 0
+                assert (directory / "allocations.json").read_bytes() == before
+                assert server.read_json(self.state / "service-launch.json") == launch
 
     def test_recovery_incomplete_provisioning_retains_context_without_enabling_restart(
         self,
@@ -1267,9 +1608,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                 server,
                 "service_readiness",
                 side_effect=[
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.STARTING,
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.STARTING),
                 ],
             ),
             patch.object(server, "listener_ready", return_value=True),
@@ -1348,9 +1689,9 @@ class Plan30LifecycleTests(unittest.TestCase):
                         server,
                         "service_readiness",
                         side_effect=[
-                            server.Readiness.ACTIONABLE_ABSENT,
-                            server.Readiness.ACTIONABLE_ABSENT,
-                            server.Readiness.STARTING,
+                            readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                            readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                            readiness_fixture(server.Readiness.STARTING),
                         ],
                     ),
                     patch.object(server, "listener_ready", return_value=True),
@@ -1375,7 +1716,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                     patch.object(
                         server,
                         "service_readiness",
-                        return_value=server.Readiness.STARTING,
+                        return_value=readiness_fixture(server.Readiness.STARTING),
                     ),
                     patch.object(server, "active", return_value=True),
                     patch.object(server, "listener_ready", return_value=True),
@@ -1408,7 +1749,7 @@ class Plan30LifecycleTests(unittest.TestCase):
                     patch.object(
                         server,
                         "service_readiness",
-                        return_value=server.Readiness.STARTING,
+                        return_value=readiness_fixture(server.Readiness.STARTING),
                     ),
                     patch.object(server, "active", return_value=True),
                     patch.object(server, "listener_ready", return_value=True),
@@ -1443,8 +1784,10 @@ class Plan30LifecycleTests(unittest.TestCase):
         held = []
 
         @contextlib.contextmanager
-        def tracked(state: Path) -> Generator[None, None, None]:
-            with lock(state):
+        def tracked(
+            state: Path, *, deadline: float | None = None, cleanup: bool = False
+        ) -> Generator[None, None, None]:
+            with lock(state, deadline=deadline, cleanup=cleanup):
                 held.append(state)
                 try:
                     yield
@@ -1459,9 +1802,13 @@ class Plan30LifecycleTests(unittest.TestCase):
                 [], 0, "ActiveState=inactive\nControlGroup=\n", ""
             )
 
-        def readiness(*_args: object, **_kwargs: object) -> server.Readiness:
+        def readiness(*_args: object, **_kwargs: object) -> server.ServiceObservation:
             assert not held
-            return server.Readiness.READY
+            return readiness_fixture(server.Readiness.READY)
+
+        def predecessor(*_args: object, **_kwargs: object) -> dict[str, object]:
+            assert not held
+            return {}
 
         child = MagicMock()
         child.poll.return_value = None
@@ -1482,6 +1829,7 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "worker_observation", return_value=active),
             patch.object(native_operation, "prepare_handoff", return_value={}),
             patch.object(host_admission, "inherit", return_value=MagicMock()),
+            patch.object(server, "registration_predecessor", side_effect=predecessor),
             patch.object(
                 server.subprocess,
                 "Popen",

@@ -176,9 +176,34 @@ struct Request {
     bindings: Bindings,
     limits: Limits,
 }
+/// A process-local bucket hint only. Complete Salsa input fields remain the
+/// equality authority, and the generation owns every handle in the buckets.
+fn request_hash(
+    root: DeclarationId,
+    instance: InstanceId,
+    bindings: &Bindings,
+    limits: Limits,
+) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hash = rustc_hash::FxHasher::default();
+    root.hash(&mut hash);
+    instance.hash(&mut hash);
+    bindings.arguments.hash(&mut hash);
+    bindings.scope.hash(&mut hash);
+    bindings.facts.hash(&mut hash);
+    bindings.demand.hash(&mut hash);
+    bindings.formulation.omitted.hash(&mut hash);
+    bindings.formulation.elastic.hash(&mut hash);
+    limits.depth.hash(&mut hash);
+    limits.items.hash(&mut hash);
+    limits.members.hash(&mut hash);
+    limits.body_occurrences.hash(&mut hash);
+    limits.body_slots.hash(&mut hash);
+    hash.finish()
+}
 pub(super) struct State {
     pub(super) catalog: Catalog,
-    requests: Vec<(Request, usize)>,
+    requests: rustc_hash::FxHashMap<u64, Vec<Request>>,
     request_bytes: usize,
     pub(super) revision: Arc<ModelingRevision>,
     pub(super) input_bytes: usize,
@@ -490,7 +515,7 @@ impl CompilerWorkspace {
             executable::configure(&mut self.db, self.limits.query_values);
             self.modeling = Some(State {
                 catalog,
-                requests: Vec::new(),
+                requests: rustc_hash::FxHashMap::default(),
                 request_bytes: 0,
                 revision,
                 input_bytes,
@@ -550,6 +575,17 @@ impl CompilerWorkspace {
         bindings: Bindings,
         limits: Limits,
     ) -> Result<(Catalog, Request)> {
+        let hash = request_hash(root, instance, &bindings, limits);
+        self.modeling_request_in_bucket(root, instance, bindings, limits, hash)
+    }
+    fn modeling_request_in_bucket(
+        &mut self,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        hash: u64,
+    ) -> Result<(Catalog, Request)> {
         if self.retention_exceeded() {
             self.rebuild(self.inputs.clone())?;
         }
@@ -574,8 +610,9 @@ impl CompilerWorkspace {
                 bindings
                     .demand
                     .iter()
-                    .map(|s| s.capacity() + size_of::<String>())
-                    .sum::<usize>(),
+                    .map(String::capacity)
+                    .sum::<usize>()
+                    .saturating_add(bindings.demand.capacity() * size_of::<String>()),
             );
         let binding_bytes = binding_bytes
             .saturating_add(bindings.formulation.omitted.len() * 64)
@@ -589,7 +626,7 @@ impl CompilerWorkspace {
             );
         // CompilerContext are immutable by complete root/instance/binding/limit meaning. A/B/A
         // can fetch the original memo rather than overwriting a singleton root slot.
-        if let Some((request, _)) = state.requests.iter().find(|(r, _)| {
+        if let Some(request) = state.requests.get(&hash).into_iter().flatten().find(|r| {
             *r.root(&self.db) == root
                 && *r.instance(&self.db) == instance
                 && r.bindings(&self.db) == &bindings
@@ -597,7 +634,17 @@ impl CompilerWorkspace {
         }) {
             return Ok((state.catalog, *request));
         }
-        let bytes = binding_bytes.saturating_add(size_of::<Request>() + 128);
+        // Charge the map's minimum table/growth slack and control bytes, plus
+        // collision-vector spare capacity. New vectors start at one handle;
+        // subsequent growth retains at most twice their occupied handles. The
+        // conservative table allowance applies even when a hash bucket exists.
+        let index_bytes =
+            4 * (size_of::<(u64, Vec<Request>)>() + 1) + 2 * size_of::<Request>() + 128;
+        let bytes = binding_bytes
+            .saturating_add(
+                size_of::<Bindings>() + size_of::<Limits>() + size_of::<Request>() + 128,
+            )
+            .saturating_add(index_bytes);
         if bytes > self.limits.input_bytes.saturating_sub(state.input_bytes) {
             return Err(CompileError::Limit("modeling selection bindings"));
         }
@@ -606,10 +653,14 @@ impl CompilerWorkspace {
         {
             // Rotation releases only local handles; owned products remain valid.
             self.rebuild(self.inputs.clone())?;
-            return self.modeling_request(root, instance, bindings, limits);
+            return self.modeling_request_in_bucket(root, instance, bindings, limits, hash);
         }
         let request = Request::new(&self.db, root, instance, bindings, limits);
-        state.requests.push((request, bytes));
+        state
+            .requests
+            .entry(hash)
+            .or_insert_with(|| Vec::with_capacity(1))
+            .push(request);
         state.request_bytes = state.request_bytes.saturating_add(bytes);
         Ok((state.catalog, request))
     }

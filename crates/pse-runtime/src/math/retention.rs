@@ -9,6 +9,8 @@ use datafusion::{
 use pse_compiler::workspace::ModelingBodyRetention;
 use pse_ids::roles::{AdmittedClosureHash, PreparedViewHash, SemanticBodyHash};
 use std::sync::atomic::Ordering;
+mod weighted;
+use weighted::{WeightedCache, entry_weight};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Key {
     Package(AdmittedClosureHash),
@@ -24,12 +26,12 @@ enum Key {
 impl CacheKey for Key {
     fn size(&self) -> usize {
         size_of::<Self>()
-            + 128
-            + match self {
+            .saturating_add(128)
+            .saturating_add(match self {
                 Self::Selected(request) => request.retained_bytes(),
                 Self::Basis(key) | Self::Frontier(key) => key.retained_bytes(),
                 _ => 0,
-            }
+            })
     }
     fn table_ref(&self) -> Option<&TableReference> {
         None
@@ -51,30 +53,34 @@ impl CacheValue for Product {
         // Retention counts reachable payload, and positive entry overhead, independently
         // from unique allocation leases already held by the shared product owners.
         size_of::<Self>()
-            + 128
-            + match self {
+            .saturating_add(128)
+            .saturating_add(match self {
                 Self::Package(p) => p.retained_bytes(),
-                Self::Selected(values) => {
-                    values.capacity()
-                        * size_of::<Arc<crate::workflow::modeling::SelectedAdmission>>()
-                        + values.iter().map(|p| p.retained_bytes()).sum::<usize>()
-                }
-                Self::Body(body) => body.math().retained_bytes() + body.descriptor_bytes(),
+                Self::Selected(values) => values.iter().fold(
+                    values.capacity().saturating_mul(size_of::<
+                        Arc<crate::workflow::modeling::SelectedAdmission>,
+                    >()),
+                    |bytes, admission| bytes.saturating_add(admission.retained_bytes()),
+                ),
+                Self::Body(body) => body
+                    .math()
+                    .retained_bytes()
+                    .saturating_add(body.descriptor_bytes()),
                 Self::EncodedBody(body) => body.retained_bytes(),
                 Self::Basis(basis) => basis.retained_bytes(),
                 Self::Frontier(frontier) => frontier.retained_bytes(),
                 Self::Solver(p) => p.compiled().retained_bytes(),
                 Self::Program(p) => p.assembly.retained_bytes(),
-            }
+            })
     }
 }
-/// One service-local barrier coordinates pressure, cache publication and native LRU trim.
+/// One service-local barrier coordinates pressure, cache publication and weighted trim.
 /// Lock order is this state, then the cache's clear fence, then the native cache lock.
 /// Neither pool admission nor an asynchronous wait runs under this barrier.
 pub(super) struct Pressure {
     demands: Mutex<usize>,
     artifacts: Arc<DefaultCache<artifacts::Key, Value>>,
-    modeling: Arc<DefaultCache<Key, Product>>,
+    modeling: Arc<WeightedCache<Key, Product>>,
     artifact_fence: Arc<pse_columnar::retention::RetentionFence>,
     modeling_fence: Arc<pse_columnar::retention::RetentionFence>,
     limit: usize,
@@ -115,7 +121,7 @@ impl Pressure {
         Arc::new(Self {
             demands: Mutex::new(0),
             artifacts: Arc::new(DefaultCache::new(limit).with_name("pse.cache.math_artifacts")),
-            modeling: Arc::new(DefaultCache::new(limit).with_name("pse.cache.modeling_products")),
+            modeling: Arc::new(WeightedCache::new(limit, "pse.cache.modeling_products")),
             artifact_fence: Arc::default(),
             modeling_fence: Arc::default(),
             limit,
@@ -227,7 +233,7 @@ impl Pressure {
     }
 }
 pub(crate) struct ModelingCache {
-    entries: Arc<DefaultCache<Key, Product>>,
+    entries: Arc<WeightedCache<Key, Product>>,
     fence: Arc<pse_columnar::retention::RetentionFence>,
     pressure: Arc<Pressure>,
     selected_updates: Mutex<()>,
@@ -269,10 +275,9 @@ impl ModelingCache {
         if self
             .fence
             .admit(generation, || {
-                if key.size().saturating_add(value.size()) > self.entries.cache_limit() {
+                if !self.entries.put(key, value) {
                     self.bypasses.fetch_add(1, Ordering::Relaxed);
                 }
-                self.entries.put(&key, value)
             })
             .is_none()
         {
@@ -319,7 +324,8 @@ impl ModelingCache {
         values.push(admission);
         loop {
             let product = Product::Selected(Arc::new(values));
-            if key.size().saturating_add(product.size()) <= self.entries.cache_limit() {
+            if entry_weight(&key, &product).is_some_and(|bytes| bytes <= self.entries.cache_limit())
+            {
                 self.put(generation, key, product);
                 break;
             }

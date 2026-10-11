@@ -749,6 +749,13 @@ Qualified restart retains that storage charge through the restart delay and only
 after the owned predecessor drains. Missing or stale ownership refuses replacement.
 Dedicated timing storage and its separately admitted timing caller retain their selected lane.
 
+Canonical connection construction consumes storage identity, credentials, interpretation
+and admission only. Native allocation and receiver association are interpreted together by
+runtime deployment composition for the selected database, from the same authoritative
+declaration. Storage-only access does not validate unused native policy. Managed execution
+still requires finite native allocation, the actual receiver association and fresh admission;
+configuration selection alone is not execution authority.
+
 Host readiness distinguishes compatible ready, owned startup, actionable absence,
 unavailable observation and authenticated mismatch. Compatible borrowers join the startup
 owner under their original clock; uncertainty or mismatch cannot authorize restart.

@@ -35,6 +35,7 @@ import tomllib
 import urllib.error
 import urllib.request
 import uuid
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -74,6 +75,8 @@ WORKER_CAPABILITIES = ("solver", "klu", "isolation", "uno", "petsc")
 class Readiness(Enum):
     READY = "ready"
     STARTING = "starting"
+    STOPPING = "stopping"
+    MAINTENANCE = "maintenance"
     ACTIONABLE_ABSENT = "actionable-absent"
     UNAVAILABLE = "unavailable"
     MISMATCH = "mismatch"
@@ -81,6 +84,29 @@ class Readiness(Enum):
 
 class SupervisorError(RuntimeError):
     """An actionable lifecycle error with no credential-bearing output."""
+
+
+class DeadlineExpiredError(SupervisorError):
+    """The original admission/control deadline expired before the next effect."""
+
+
+@dataclass(frozen=True)
+class ServiceObservation:
+    phase: Readiness
+    state: Path
+    instance_id: object
+    unit: str
+    cause: str
+    reservation: Mapping[str, object] | None = None
+    manager: Mapping[str, str] = field(default_factory=dict)
+    listener_owned: bool = False
+    protocol_ready: bool = False
+
+    def diagnostic(self) -> str:
+        return f"Service readiness is {self.phase.value}: {self.cause}; selected={self.state}/{self.instance_id}, unit={self.unit}; reservation={self.reservation}; observed={dict(self.manager)}"
+
+    def __bool__(self) -> bool:
+        raise TypeError("Consume ServiceObservation.phase explicitly")
 
 
 class LifecycleBusyError(SupervisorError):
@@ -158,12 +184,47 @@ def checked_directory(path: Path, *, empty: bool = False) -> Path:
 
 
 @contextlib.contextmanager
-def state_lock(state: Path) -> Generator[None, None, None]:
+def state_lock(
+    state: Path, *, deadline: float | None = None, cleanup: bool = False
+) -> Generator[None, None, None]:
+    if not cleanup:
+        inherited = getattr(_STARTUP, "deadline", None)
+        deadline = (
+            inherited
+            if deadline is None
+            else deadline
+            if inherited is None
+            else min(deadline, inherited)
+        )
+    else:
+        deadline = None
+
+    def lock_remaining() -> float:
+        if deadline is None:
+            raise SupervisorError("Metadata exclusion has no admission deadline")
+        try:
+            return remaining(deadline)
+        except DeadlineExpiredError as error:
+            raise DeadlineExpiredError(
+                f"Metadata exclusion deadline expired; selected={state}; admission refused"
+            ) from error
+
+    if deadline is not None:
+        lock_remaining()
     fd = os.open(
         state / ".supervisor.lock", os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600
     )
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
+        while True:
+            if deadline is not None:
+                lock_remaining()
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                time.sleep(0.02 if deadline is None else min(0.02, lock_remaining()))
+        if deadline is not None:
+            lock_remaining()
         yield
     finally:
         os.close(fd)
@@ -251,9 +312,16 @@ def publish_generation(
 
 
 @contextlib.contextmanager
-def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
+def lifecycle_reservation(
+    state: Path, *, purpose: str = "maintenance", deadline: float | None = None
+) -> Generator[None, None, None]:
     """Reserve an operation with short metadata exclusion, never an IPC-held lock."""
     state = service_directory(state)
+    deadline = getattr(_STARTUP, "deadline", None) if deadline is None else deadline
+    if deadline is not None:
+        remaining(deadline)
+    if purpose not in {"startup", "stop", "maintenance"}:
+        raise SupervisorError("Unknown lifecycle reservation purpose")
     if getattr(_LIFECYCLE, "state", None) == state:
         yield
         return
@@ -264,8 +332,9 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
         "pid": os.getpid(),
         "start": native_operation.start_identity(os.getpid()),
         "boot": Path("/proc/sys/kernel/random/boot_id").read_text().strip(),
+        "purpose": purpose,
     }
-    with state_lock(state):
+    with state_lock(state, deadline=deadline):
         previous = read_json(path) if path.exists() else None
         if (
             previous is not None
@@ -273,6 +342,8 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
             and reservation_live(previous)
         ):
             raise LifecycleBusyError(previous["nonce"])
+        if deadline is not None:
+            remaining(deadline)
         write_json(path, selected)
     previous_state = getattr(_LIFECYCLE, "state", None)
     _LIFECYCLE.state = state
@@ -280,8 +351,15 @@ def lifecycle_reservation(state: Path) -> Generator[None, None, None]:
         yield
     finally:
         try:
-            drain_maintenance_listener(state)
-            with state_lock(state):
+            # This reservation already owns the listener. Its existing stop
+            # lifetime must survive expiry/cancellation of admission.
+            admission_deadline = getattr(_STARTUP, "deadline", None)
+            _STARTUP.deadline = None
+            try:
+                drain_maintenance_listener(state)
+            finally:
+                _STARTUP.deadline = admission_deadline
+            with state_lock(state, cleanup=True):
                 if path.exists() and read_json(path).get("nonce") == selected["nonce"]:
                     path.unlink()
         finally:
@@ -292,11 +370,13 @@ def wait_reservation(state: Path, path: Path, nonce: object, deadline: float) ->
     """Wait for this exact owner without extending the caller's admission clock."""
     while True:
         remaining(deadline)
-        with state_lock(state):
+        with state_lock(state, deadline=deadline):
             if not path.exists():
+                remaining(deadline)
                 return
             current = read_json(path)
             if current.get("nonce") != nonce or not reservation_live(current):
+                remaining(deadline)
                 return
         time.sleep(min(0.02, remaining(deadline)))
 
@@ -309,6 +389,10 @@ def reservation_live(reservation: dict[str, object]) -> bool:
         != Path("/proc/sys/kernel/random/boot_id").read_text().strip()
     ):
         return False
+    if reservation.get("unresolved") is True:
+        # Launcher exit does not settle a dispatched manager job or its scope.
+        # Only the owning cleanup may remove this retained admission fence.
+        return True
     try:
         # One kernel observation binds process state and start identity. An
         # unreaped zombie retains its PID/start tick but owns no live authority.
@@ -328,9 +412,17 @@ def context_admission(
     state: Path, *, deadline: float | None = None
 ) -> Generator[None, None, None]:
     """Serialize only admission metadata against all service lifecycle changes."""
+    inherited = getattr(_STARTUP, "deadline", None)
+    deadline = (
+        inherited
+        if deadline is None
+        else deadline
+        if inherited is None
+        else min(deadline, inherited)
+    )
     service = service_directory(state)
     while True:
-        with state_lock(service):
+        with state_lock(service, deadline=deadline):
             lifecycle = service / "lifecycle-owner.json"
             owner = read_json(lifecycle) if lifecycle.exists() else None
             live = owner is not None and reservation_live(owner)
@@ -339,9 +431,13 @@ def context_admission(
                 if config["admission"] != "open" or not config["accepting_writes"]:
                     raise SupervisorError("Service context admission is closed")
                 if service == state:
+                    if deadline is not None:
+                        remaining(deadline)
                     yield
                 else:
-                    with state_lock(state):
+                    with state_lock(state, deadline=deadline):
+                        if deadline is not None:
+                            remaining(deadline)
                         yield
                 return
             if deadline is None:
@@ -365,10 +461,12 @@ def managed_contexts(state: Path) -> list[Path]:
     return contexts
 
 
-def close_context_admission(state: Path, *, admission: str = "quiesced") -> None:
+def close_context_admission(
+    state: Path, *, admission: str = "quiesced", cleanup: bool = False
+) -> None:
     # No admission can pass the service reservation while these small writes run.
     for context in managed_contexts(state):
-        with state_lock(context):
+        with state_lock(context, cleanup=cleanup):
             config = config_for(context)
             config["accepting_writes"] = False
             if config["admission"] != "validation_required":
@@ -382,6 +480,9 @@ def open_context_admission(state: Path) -> None:
             config = config_for(context)
             if config.get("derived_rebuild_pending"):
                 raise SupervisorError("Incomplete derived cutover remains closed")
+            deadline = getattr(_STARTUP, "deadline", None)
+            if deadline is not None:
+                remaining(deadline)
             config.update(accepting_writes=True, admission="open")
             write_json(context / "config.json", config)
 
@@ -416,6 +517,11 @@ def require_borrowers_drained(state: Path) -> None:
 
 def all_contexts_drained(state: Path) -> None:
     require_borrowers_drained(state)
+    # Offline recovery shares the enclosing control's original clock. Standalone
+    # offline callers use the existing ninety-second stop-control lifetime.
+    recovery_deadline = getattr(_STARTUP, "deadline", None)
+    if recovery_deadline is None:
+        recovery_deadline = time.monotonic() + 90
     for context in managed_contexts(state):
         for pending in [
             context / "primary-admission.json",
@@ -423,6 +529,8 @@ def all_contexts_drained(state: Path) -> None:
             context / "primary-observer.json",
             *context.glob("worker-admission-*.json"),
         ]:
+            if pending.exists() and read_json(pending).get("unresolved") is True:
+                reconcile_registration(context, pending, deadline=recovery_deadline)
             if pending.exists() and reservation_live(read_json(pending)):
                 raise SupervisorError(
                     "Context launch reservation remains active; wait for admission to settle"
@@ -475,9 +583,35 @@ def owned_generations(state: Path) -> set[Path]:
     return generations
 
 
-def readmit_supervisor(state: Path) -> dict[str, object]:
+@contextlib.contextmanager
+def lifecycle_deadline(deadline: float | None) -> Generator[float | None, None, None]:
+    """Share one original control clock across public lifecycle composition."""
+    if deadline is not None and not math.isfinite(deadline):
+        raise SupervisorError("Lifecycle control requires a finite absolute deadline")
+    previous = getattr(_STARTUP, "deadline", None)
+    selected = (
+        previous
+        if deadline is None
+        else deadline
+        if previous is None
+        else min(previous, deadline)
+    )
+    _STARTUP.deadline = selected
+    try:
+        if selected is not None:
+            remaining(selected)
+        yield selected
+        if selected is not None:
+            remaining(selected)
+    finally:
+        _STARTUP.deadline = previous
+
+
+def readmit_supervisor(
+    state: Path, *, deadline: float | None = None
+) -> dict[str, object]:
     """Explicitly publish current owned code without modifying retained generations."""
-    with lifecycle_reservation(state):
+    with lifecycle_deadline(deadline), lifecycle_reservation(state):
         return _readmit_supervisor(state)
 
 
@@ -493,6 +627,9 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
         )
     close_context_admission(state)
     all_contexts_drained(state)
+    deadline = getattr(_STARTUP, "deadline", None)
+    if deadline is not None:
+        remaining(deadline)
     history = state / ".profile-history"
     history.mkdir(mode=0o700, exist_ok=True)
     write_json(history / (uuid.uuid4().hex + ".json"), config)
@@ -507,6 +644,8 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
             selection_password=secrets.token_urlsafe(36),
         )
         write_json(state / "credentials.json", credentials)
+    if deadline is not None:
+        remaining(deadline)
     supervisor = publish_generation(state)
     server = dict(object_mapping(config["server"]))
     server["binary_sha256"] = file_digest(Path(str(server["binary"])))
@@ -643,8 +782,26 @@ def register_context(
             raise SupervisorError(
                 "Context was registered concurrently; use its explicit owner"
             )
-        directory.mkdir(mode=0o700, exist_ok=True)
-        receiver_state.mkdir(mode=0o700, parents=True, exist_ok=False)
+        # mkdir(parents=True) uses the process umask for intermediate parents.
+        # Native selection authenticates every receiver parent independently.
+        for parent in (state, directory, state / ".receivers", receiver_state.parent):
+            with contextlib.suppress(FileExistsError):
+                parent.mkdir(mode=0o700)
+            information = parent.lstat()
+            if (
+                not stat.S_ISDIR(information.st_mode)
+                or information.st_uid != os.getuid()
+                or information.st_mode & 0o077
+            ):
+                raise SupervisorError(
+                    "Receiver state parents must be private real owned directories"
+                )
+        try:
+            receiver_state.mkdir(mode=0o700)
+        except FileExistsError as error:
+            raise SupervisorError(
+                "Receiver state already exists; retain its explicit owner"
+            ) from error
         selected.update(config_for(state))
         selected.update(
             database=database,
@@ -1292,9 +1449,19 @@ def systemd_environment() -> dict[str, str]:
 
 
 def systemctl(
-    *arguments: str, check: bool = True, cleanup_timeout: float | None = None
+    *arguments: str,
+    check: bool = True,
+    cleanup_timeout: float | None = None,
+    deadline: float | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    deadline = getattr(_STARTUP, "deadline", None)
+    inherited = getattr(_STARTUP, "deadline", None)
+    deadline = (
+        inherited
+        if deadline is None
+        else deadline
+        if inherited is None
+        else min(deadline, inherited)
+    )
     timeout = (
         cleanup_timeout
         if cleanup_timeout is not None
@@ -1308,6 +1475,8 @@ def systemctl(
         timeout=timeout,
         check=False,
     )
+    if deadline is not None and cleanup_timeout is None:
+        remaining(deadline)
     if check and result.returncode:
         raise SupervisorError(
             "User systemd operation failed; a user manager is required for capped supervision"
@@ -1373,7 +1542,9 @@ def group_populated(group: str) -> bool:
     return populated == "1"
 
 
-def worker_observation(state: Path, slot: int) -> dict[str, str]:
+def worker_observation(
+    state: Path, slot: int, *, deadline: float | None = None
+) -> dict[str, str]:
     result = systemctl(
         "show",
         "--property=LoadState",
@@ -1382,6 +1553,7 @@ def worker_observation(state: Path, slot: int) -> dict[str, str]:
         "--property=MemoryMax",
         worker_unit(state, slot),
         check=False,
+        deadline=deadline,
     )
     fields = dict(
         line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
@@ -1586,7 +1758,7 @@ def execution_slice(state: Path) -> str:
     placement = placement_observation(state)
     if placement is not None and placement.get("allocation_slice"):
         return str(placement["allocation_slice"])
-    allocation = host_admission.inherit(os.environ)
+    allocation = inherit_host_owner()
     if allocation is None:
         raise SupervisorError("Scientific placement requires an admitted host owner")
     return host_admission.allocation_slice(allocation)
@@ -1594,7 +1766,7 @@ def execution_slice(state: Path) -> str:
 
 def physical_cpus(count: int) -> list[int]:
     """Select declared physical cores independently of the launcher's affinity."""
-    allocation = host_admission.inherit(os.environ)
+    allocation = inherit_host_owner()
     if allocation is None:
         raise SupervisorError("Scientific role requires an actual host allocation")
     cores = list(allocation.profile.cores)
@@ -1654,12 +1826,20 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
     if not isinstance(execution, dict):
         return
 
-    owner = host_admission.inherit(os.environ)
+    owner = inherit_host_owner()
     if owner is None:
         raise SupervisorError("Scientific placement requires actual host ownership")
     width = integer(execution["cpu_threads"])
     cpus = physical_cpus(width)
-    host_admission.enforce_allocation(owner, systemd_environment())
+    deadline = getattr(_STARTUP, "deadline", None)
+    try:
+        host_admission.enforce_allocation(
+            owner, systemd_environment(), deadline=deadline
+        )
+    except host_admission.AdmissionError:
+        if deadline is not None:
+            remaining(deadline)
+        raise
     group = group_for_slice(host_admission.allocation_slice(owner))
     total = int((group / "memory.max").read_text().strip())
     if (
@@ -1687,6 +1867,8 @@ def ensure_execution_placement(state: Path, allocation: dict[str, object]) -> No
     if shutil.which("taskset") is None:
         raise SupervisorError("Reference role placement requires taskset")
     # Caps are ceilings, not upfront physical reservations or measured demand.
+    if deadline is not None:
+        remaining(deadline)
     write_json(
         state / "execution-placement.json",
         {
@@ -1719,7 +1901,7 @@ def selected_slice(state: Path, allocation: dict[str, object]) -> list[str]:
     if "execution" in allocation:
         return [f"--slice={execution_slice(state)}"]
 
-    owner = host_admission.inherit(os.environ)
+    owner = inherit_host_owner()
     if owner is None:
         raise SupervisorError(
             "Managed role requires an admitted originating host allocation"
@@ -1806,7 +1988,20 @@ def worker(
     command: list[str],
     *,
     capabilities: tuple[str, ...] = WORKER_CAPABILITIES,
+    deadline: float | None = None,
 ) -> int:
+    # Move startup's existing budget ahead of worker admission. It does not
+    # bound the admitted child's healthy execution or its owned cleanup.
+    previous = getattr(_STARTUP, "deadline", None)
+    deadline = time.monotonic() + 40 if deadline is None else deadline
+    _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
+    try:
+        return _worker(state, command, capabilities=capabilities)
+    finally:
+        _STARTUP.deadline = previous
+
+
+def _worker(state: Path, command: list[str], *, capabilities: tuple[str, ...]) -> int:
     if not command:
         raise SupervisorError(
             "worker requires --worker-command followed by an executable and arguments"
@@ -1862,6 +2057,7 @@ def worker(
         if slot is None:
             raise SupervisorError("All configured native worker slots are occupied")
         pending = state / f"worker-admission-{slot}.json"
+        remaining(_STARTUP.deadline)
         write_json(
             pending,
             {
@@ -1869,15 +2065,25 @@ def worker(
                 "pid": os.getpid(),
                 "start": native_operation.start_identity(os.getpid()),
                 "unit": worker_unit(state, slot),
+                "boot": host_admission.boot(),
             },
         )
+    child: subprocess.Popen[bytes] | None = None
+    registered = False
+    launcher_result: int | None = None
+    cleanup_complete = False
+    cleanup_cause = ""
+    host_owner: host_admission.Allocation | None = None
+    handoff: Path | None = None
+    predecessor: dict[str, object] = {}
+    cleanup_binding: dict[str, object] = {}
     try:
         # Once reserved, an offline operation refuses this pending launch rather
         # than racing its process registration. No metadata lock crosses IPC.
         if worker_busy(settled_worker(state, slot)) or (
             "execution" in allocation and worker_busy(primary_observation(state))
         ):
-            raise SupervisorError(
+            raise SupervisorError(  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
                 "Selected worker allocation became occupied during admission"
             )
         start(state, config)
@@ -1887,43 +2093,391 @@ def worker(
         if root not in sys.path:
             sys.path.insert(0, root)
 
-        handoff = native_operation.prepare_handoff(worker_unit(state, slot))
-
-        host_owner = host_admission.inherit(os.environ)
-        if host_owner is None:
-            raise SupervisorError(
-                "Managed worker must belong to an admitted host allocation"
+        try:
+            handoff = native_operation.prepare_handoff(
+                worker_unit(state, slot),
+                reservation=(pending, token),
+                deadline=_STARTUP.deadline,
             )
-        host_owner.register(worker_unit(state, slot))
+        except native_operation.DeadlineExpiredError as error:
+            raise DeadlineExpiredError(
+                f"Worker handoff exceeded its original admission clock; selected={worker_unit(state, slot)}"
+            ) from error
+
+        host_owner = register_role_owner(worker_unit(state, slot), _STARTUP.deadline)
+        predecessor = registration_predecessor(
+            worker_unit(state, slot), host_owner, deadline=_STARTUP.deadline
+        )
+        remaining(_STARTUP.deadline)
         child = subprocess.Popen(
             worker_scope_command(
                 state, slot, allocation, command, capabilities=capabilities
             ),
             env=worker_environment(state, slot, allocation, handoff),
         )
-        deadline = time.monotonic() + 10
+        deadline = min(time.monotonic() + 10, _STARTUP.deadline)
         while child.poll() is None:
-            observation = worker_observation(state, slot)
+            observation = worker_observation(state, slot, deadline=deadline)
             if observation["ActiveState"] == "active":
                 if observation.get("MemoryMax") != str(
                     allocation["native_worker_memory_bytes"]
                 ):
-                    systemctl("stop", worker_unit(state, slot))
-                    raise SupervisorError(
+                    raise SupervisorError(  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
                         "Managed worker memory cap differs from its configured allocation"
                     )
+                registered = True
                 break
             if time.monotonic() >= deadline:
-                child.terminate()
-                systemctl("stop", worker_unit(state, slot), check=False)
-                raise SupervisorError("Managed worker scope did not register")
+                raise DeadlineExpiredError("Managed worker scope did not register")  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
             time.sleep(0.02)
+        if not registered:
+            # A short payload can finish before the first active observation.
+            # Reconcile this launch's exact completed generation, preserving the
+            # systemd-run status rather than manufacturing a registration error.
+            launcher_result = child.wait()
+            if host_owner is None:
+                raise SupervisorError("Completed worker has no admitted host owner")  # noqa: TRY301 -- retain ownership through registration cleanup
+            stop_registered_owner(
+                worker_unit(state, slot),
+                host_owner,
+                predecessor=predecessor,
+                handoff=handoff,
+                stop=False,
+                evidence=cleanup_binding,
+            )
+            cleanup_complete = True
+    except BaseException as failure:
+        if child is not None:
+            # Registration failure and owned cleanup have distinct lifetimes.
+            # Joining this exact launcher excludes further caller dispatch; its
+            # exit alone never proves that the independent scope drained.
+            admission_deadline = getattr(_STARTUP, "deadline", None)
+            _STARTUP.deadline = None
+            try:
+                if child.poll() is None:
+                    child.kill()
+                if launcher_result is None:
+                    launcher_result = child.wait()
+                if host_owner is None:
+                    raise SupervisorError("Worker cleanup has no admitted host owner")  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
+                stop_registered_owner(
+                    worker_unit(state, slot),
+                    host_owner,
+                    predecessor=predecessor,
+                    handoff=handoff,
+                    evidence=cleanup_binding,
+                )
+                cleanup_complete = True
+            except (
+                OSError,
+                KeyError,
+                ValueError,
+                SupervisorError,
+                host_admission.AdmissionError,
+                subprocess.SubprocessError,
+            ) as cleanup_error:
+                cleanup_cause = f"{type(cleanup_error).__name__}: {cleanup_error}"
+                failure.add_note(
+                    f"Worker cleanup unresolved; selected={worker_unit(state, slot)}; admission reservation retained: {cleanup_cause}"
+                )
+            finally:
+                _STARTUP.deadline = admission_deadline
+        raise
     finally:
-        with state_lock(state):
+        with state_lock(state, cleanup=True):
             if pending.exists() and read_json(pending).get("nonce") == token:
-                pending.unlink()
-    result = child.wait()
+                if child is None or registered or cleanup_complete:
+                    pending.unlink()
+                else:
+                    retained = read_json(pending)
+                    retained.update(
+                        unresolved=True,
+                        cleanup_cause=cleanup_cause,
+                        predecessor=predecessor,
+                        binding=cleanup_binding or None,
+                        handoff=str(handoff) if handoff is not None else None,
+                        allocation=str(host_owner.directory / host_owner.nonce)
+                        if host_owner is not None
+                        else None,
+                    )
+                    write_json(pending, retained)
+    if child is None:
+        raise SupervisorError("Worker launcher was not created")
+    result = child.wait() if launcher_result is None else launcher_result
     return result if result >= 0 else 128 - result
+
+
+def inherit_host_owner(
+    deadline: float | None = None,
+) -> host_admission.Allocation | None:
+    """Consume the same role/startup clock through supported host observation."""
+    inherited = getattr(_STARTUP, "deadline", None)
+    deadline = (
+        inherited
+        if deadline is None
+        else deadline
+        if inherited is None
+        else min(deadline, inherited)
+    )
+    try:
+        return host_admission.inherit(os.environ, deadline=deadline)
+    except host_admission.AdmissionError:
+        if deadline is not None:
+            remaining(deadline)
+        raise
+
+
+def register_role_owner(unit: str, deadline: float) -> host_admission.Allocation:
+    """Join and register the originating host owner on the offered clock."""
+    try:
+        owner = inherit_host_owner(deadline)
+        if owner is None:
+            raise SupervisorError(
+                f"Managed native role requires an admitted host allocation; selected={unit}"
+            )
+        owner.register(unit, deadline=deadline)
+    except host_admission.AdmissionError:
+        # Preserve supervisor's typed original-clock failure when host metadata
+        # reports timeout; other ownership refusals retain their own cause.
+        remaining(deadline)
+        raise
+    return owner
+
+
+def registration_predecessor(
+    unit: str, host_owner: host_admission.Allocation, *, deadline: float
+) -> dict[str, object]:
+    """Snapshot before dispatch; register() intentionally preserves old bindings."""
+    ledger = host_admission.readonly_snapshot(host_owner.directory, deadline=deadline)
+    owner = ledger["owners"].get(host_owner.nonce)
+    if not isinstance(owner, dict):
+        raise SupervisorError("Registration allocation is unavailable before dispatch")
+    return dict(object_mapping(owner["units"].get(unit, {})))
+
+
+def reconcile_registration(state: Path, pending: Path, *, deadline: float) -> None:
+    """Retry an unresolved launch through the existing offline drain owner."""
+    selected = read_json(pending, deadline=deadline)
+    if (
+        selected.get("unresolved") is not True
+        or selected.get("boot") != host_admission.boot()
+    ):
+        return
+    unit = selected.get("unit")
+    if unit not in {
+        primary_unit(state),
+        *(
+            worker_unit(state, n)
+            for n in range(
+                integer(
+                    object_mapping(config_for(state)["resources"])["native_workers"]
+                )
+            )
+        ),
+    }:
+        raise SupervisorError("Retained registration has an invalid selected unit")
+    marker = selected.get("allocation")
+    if not isinstance(marker, str):
+        raise SupervisorError("Retained registration has no allocation owner")
+    allocation = Path(marker)
+    if not allocation.is_absolute() or not re.fullmatch(
+        r"[a-f0-9]{32}", allocation.name
+    ):
+        raise SupervisorError("Retained registration allocation is invalid")
+    predecessor = selected.get("predecessor")
+    if not isinstance(predecessor, dict):
+        raise SupervisorError("Retained registration lacks its prelaunch generation")
+    handoff = selected.get("handoff")
+    binding = selected.get("binding")
+    if binding is None and isinstance(handoff, str):
+        try:
+            proof = read_json(Path(handoff), deadline=deadline)
+        except FileNotFoundError as error:
+            raise SupervisorError(
+                f"Retained registration fresh handoff is unavailable; selected={unit}"
+            ) from error
+        scope = proof.get("scope")
+        if (
+            proof.get("registration")
+            == {"path": str(pending), "nonce": selected.get("nonce")}
+            and proof.get("handoff") == unit
+            and isinstance(scope, dict)
+            and scope.get("unit") == unit
+            and type(proof.get("scope_inode")) is int
+        ):
+            binding = {**scope, "inode": proof["scope_inode"]}
+
+    def retain(binding: dict[str, object]) -> None:
+        nonlocal selected
+        if selected.get("binding") == binding:
+            return
+        with state_lock(state, deadline=deadline):
+            if (
+                not pending.exists()
+                or read_json(pending, deadline=deadline) != selected
+            ):
+                raise SupervisorError("Retained registration changed during recovery")
+            updated = {**selected, "binding": dict(binding)}
+            remaining(deadline)
+            write_json(pending, updated)
+            selected = updated
+
+    stop_registered_owner(
+        str(unit),
+        allocation,
+        predecessor=predecessor,
+        handoff=Path(handoff) if isinstance(handoff, str) else None,
+        deadline=deadline,
+        retained_binding=binding,
+        retain=retain,
+    )
+    with state_lock(state, deadline=deadline):
+        if pending.exists() and read_json(pending, deadline=deadline) == selected:
+            remaining(deadline)
+            pending.unlink()
+
+
+def stop_registered_owner(
+    unit: str,
+    host_owner: host_admission.Allocation | Path,
+    *,
+    predecessor: dict[str, object],
+    handoff: Path | None,
+    deadline: float | None = None,
+    stop: bool = True,
+    evidence: dict[str, object] | None = None,
+    retained_binding: object = None,
+    retain: Callable[[dict[str, object]], None] | None = None,
+) -> None:
+    """Settle this fresh launch, never a predecessor's already completed binding."""
+    marker = (
+        host_owner
+        if isinstance(host_owner, Path)
+        else host_owner.directory / host_owner.nonce
+    )
+    with host_admission.allocation_metadata(marker.parent, deadline=deadline) as ledger:
+        owner = ledger["owners"].get(marker.name)
+        if not isinstance(owner, dict):
+            if not isinstance(retained_binding, dict):
+                raise SupervisorError(
+                    "Registration cleanup allocation retired without retained fresh binding"
+                )
+            binding = dict(retained_binding)
+        else:
+            binding = {"unit": unit, **object_mapping(owner["units"][unit])}
+            if retained_binding is not None and binding != retained_binding:
+                raise SupervisorError(
+                    "Registration cleanup allocation binding differs from retained launch"
+                )
+    if (
+        binding.get("unit") != unit
+        or not isinstance(binding.get("invocation"), str)
+        or not re.fullmatch(r"[a-f0-9]{32}", str(binding.get("invocation", "")))
+        or not isinstance(binding.get("group"), str)
+        or type(binding.get("inode")) is not int
+        or binding.get("invocation") == predecessor.get("invocation")
+    ):
+        raise SupervisorError("Registration cleanup has no fresh bound invocation")
+    if retained_binding is not None:
+        if not isinstance(retained_binding, dict) or binding != retained_binding:
+            raise SupervisorError("Retained registration binding is invalid")
+    elif handoff is not None:
+        # Handoff writes publish atomically; a detached read never waits behind
+        # child binding/cancellation while this cleanup clock is expiring.
+        record = read_json(handoff, deadline=deadline)
+        scope = record.get("scope")
+        if (
+            record.get("handoff") != unit
+            or not isinstance(scope, dict)
+            or scope
+            != {
+                "unit": unit,
+                "group": binding.get("group"),
+                "invocation": binding.get("invocation"),
+            }
+        ):
+            raise SupervisorError(
+                "Registration cleanup fresh handoff is unbound or differs from charged generation"
+            )
+    if evidence is not None:
+        # Only an authenticated fresh generation can outlive ledger retirement.
+        evidence.clear()
+        evidence.update(binding)
+    if retain is not None:
+        retain(binding)
+    observed = native_operation.unit_observation(unit, deadline=deadline)
+    inode = host_admission.group_identity(str(binding.get("group", "")))
+    if (
+        isinstance(binding.get("group"), str)
+        and isinstance(binding.get("invocation"), str)
+        and type(binding.get("inode")) is int
+        and observed.get("LoadState") == "not-found"
+        and inode in {None, binding["inode"]}
+    ):
+        settled = native_operation.drained(
+            {
+                "scope": {
+                    "unit": unit,
+                    "group": binding["group"],
+                    "invocation": binding["invocation"],
+                }
+            },
+            deadline=deadline,
+        )
+        if settled.complete:
+            return
+        raise SupervisorError(settled.diagnostic())
+    if not stop:
+        if (
+            observed.get("InvocationID") != binding.get("invocation")
+            or observed.get("ControlGroup") not in {binding.get("group"), ""}
+            or inode not in {None, binding.get("inode")}
+        ):
+            raise SupervisorError(
+                "Completed registration generation differs from selected owner"
+            )
+        completion = native_operation.drained(
+            {
+                "scope": {
+                    "unit": unit,
+                    "group": binding["group"],
+                    "invocation": binding["invocation"],
+                }
+            },
+            deadline=deadline,
+        )
+        if not completion.complete:
+            raise SupervisorError(completion.diagnostic())
+        return
+    if (
+        not isinstance(binding.get("group"), str)
+        or not isinstance(binding.get("invocation"), str)
+        or type(binding.get("inode")) is not int
+        or observed.get("ControlGroup") != binding["group"]
+        or observed.get("InvocationID") != binding["invocation"]
+        or inode != binding["inode"]
+    ):
+        raise SupervisorError(
+            f"Registration cleanup invocation/group/inode is unresolved or changed; selected={binding}; observed={observed}; inode={inode}"
+        )
+    if stop:
+        systemctl("stop", unit, deadline=deadline)
+    drained = native_operation.drained(
+        {
+            "scope": {
+                "unit": unit,
+                "group": binding["group"],
+                "invocation": binding["invocation"],
+            }
+        },
+        deadline=deadline,
+    )
+    if not drained.complete:
+        raise SupervisorError(drained.diagnostic())
+    if host_admission.group_identity(binding["group"]) not in {None, binding["inode"]}:
+        raise SupervisorError(
+            "Registration cleanup group generation changed during drain"
+        )
 
 
 def primary_unit(state: Path) -> str:
@@ -2638,16 +3192,13 @@ def release_current_observer(state: Path) -> None:
     """
     config_for(state)
     state = checked_directory(state)
-    with state_lock(state):
-        registration = _checked_current_observer(state)
-        # Keep the control request finite without changing general manager policy.
-        prior = getattr(_STARTUP, "deadline", None)
-        deadline = time.monotonic() + 10
-        _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
-        try:
-            observed = primary_observation(state)
-        finally:
-            _STARTUP.deadline = prior
+    prior = getattr(_STARTUP, "deadline", None)
+    deadline = time.monotonic() + 10
+    _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
+    try:
+        with state_lock(state):
+            registration = _checked_current_observer(state)
+        observed = primary_observation(state)
         group = observed["ControlGroup"]
         if observed["ActiveState"] not in {"inactive", "failed"} or (
             group and group_populated(group)
@@ -2655,9 +3206,13 @@ def release_current_observer(state: Path) -> None:
             raise SupervisorError(
                 "Observer handoff requires a stopped, drained primary"
             )
-        if _checked_current_observer(state) != registration:
-            raise SupervisorError("Observer registration changed before handoff")
-        (state / "primary-observer.json").unlink()
+        with state_lock(state):
+            if _checked_current_observer(state) != registration:
+                raise SupervisorError("Observer registration changed before handoff")
+            remaining(_STARTUP.deadline)
+            (state / "primary-observer.json").unlink()
+    finally:
+        _STARTUP.deadline = prior
 
 
 def qualification_directory(state: Path, selected: Path) -> Path:
@@ -2710,12 +3265,14 @@ def ensure_primary(
                 )
             owner = read_json(reservation) if reservation.exists() else None
             if owner is None or not reservation_live(owner):
+                remaining(deadline)
                 write_json(
                     reservation,
                     {
                         "nonce": token,
                         "pid": os.getpid(),
                         "start": native_operation.start_identity(os.getpid()),
+                        "boot": host_admission.boot(),
                     },
                 )
                 break
@@ -2726,9 +3283,14 @@ def ensure_primary(
             state, observer_pid, database, _STARTUP.deadline, qualification
         )
     finally:
-        with state_lock(state):
-            if reservation.exists() and read_json(reservation).get("nonce") == token:
-                reservation.unlink()
+        with state_lock(state, cleanup=True):
+            if reservation.exists():
+                selected = read_json(reservation)
+                if (
+                    selected.get("nonce") == token
+                    and selected.get("unresolved") is not True
+                ):
+                    reservation.unlink()
         _STARTUP.deadline = prior
 
 
@@ -2783,11 +3345,22 @@ def _ensure_primary(
     if root not in sys.path:
         sys.path.insert(0, root)
 
-    host_owner = host_admission.inherit(os.environ)
-    if host_owner is None:
-        raise SupervisorError("Primary must belong to an admitted host allocation")
-    host_owner.register(primary_unit(state))
-    handoff = native_operation.prepare_handoff(primary_unit(state))
+    host_owner = register_role_owner(primary_unit(state), deadline)
+    predecessor = registration_predecessor(
+        primary_unit(state), host_owner, deadline=deadline
+    )
+    reservation = state / "primary-admission.json"
+    selected_reservation = read_json(reservation, deadline=deadline)
+    try:
+        handoff = native_operation.prepare_handoff(
+            primary_unit(state),
+            reservation=(reservation, str(selected_reservation["nonce"])),
+            deadline=deadline,
+        )
+    except native_operation.DeadlineExpiredError as error:
+        raise DeadlineExpiredError(
+            f"Primary handoff exceeded its original admission clock; selected={primary_unit(state)}"
+        ) from error
     nonce = uuid.uuid4().hex
     write_json(state / "primary-launch.json", {"nonce": nonce})
     (state / "primary-receiver.json").unlink(missing_ok=True)
@@ -2841,38 +3414,89 @@ def _ensure_primary(
     )
     if qualification is not None:
         command.extend(["--qualification-native-entry", str(qualification)])
+    launch_attempted = False
+    cleanup_binding: dict[str, object] = {}
     try:
-        result = subprocess.run(
-            command,
-            env=environment,
-            capture_output=True,
-            timeout=remaining(deadline),
-            check=False,
+        launch_timeout = remaining(deadline)
+        launch_attempted = True
+        try:
+            result = subprocess.run(
+                command,
+                env=environment,
+                capture_output=True,
+                timeout=launch_timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as error:
+            raise DeadlineExpiredError(
+                "Primary launch exceeded its original admission clock"
+            ) from error
+        if result.returncode:
+            raise SupervisorError("Cannot launch the capped primary receiver")  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
+        while time.monotonic() < deadline:
+            observed = primary_observation(state)
+            if primary_ready(
+                state, config, observed, selected_database, *ready_arguments
+            ):
+                return {
+                    "ready": True,
+                    "unit": primary_unit(state),
+                    "execution": allocation["execution"],
+                    "canonical_database": selected_database,
+                    "placement": placement_observation(state),
+                }
+            if observed["ActiveState"] == "failed":
+                break
+            time.sleep(min(0.05, remaining(deadline)))
+        raise SupervisorError(  # noqa: TRY301 -- owned-launch failures must enter registration cleanup
+            "Primary receiver did not establish its actual runtime readiness"
         )
-    except subprocess.TimeoutExpired:
-        systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
-        raise SupervisorError(
-            "Primary launch exceeded its original admission clock"
-        ) from None
-    if result.returncode:
-        raise SupervisorError("Cannot launch the capped primary receiver")
-    while time.monotonic() < deadline:
-        observed = primary_observation(state)
-        if primary_ready(state, config, observed, selected_database, *ready_arguments):
-            return {
-                "ready": True,
-                "unit": primary_unit(state),
-                "execution": allocation["execution"],
-                "canonical_database": selected_database,
-                "placement": placement_observation(state),
-            }
-        if observed["ActiveState"] == "failed":
-            break
-        time.sleep(0.05)
-    systemctl("stop", primary_unit(state), check=False, cleanup_timeout=10)
-    raise SupervisorError(
-        "Primary receiver did not establish its actual runtime readiness"
-    )
+    except BaseException as failure:
+        if not launch_attempted:
+            raise
+        # Preserve the existing ten-second primary cleanup lifetime. Every
+        # cleanup control consumes that clock independently of expired admission.
+        cleanup_deadline = time.monotonic() + 10
+        admission_deadline = getattr(_STARTUP, "deadline", None)
+        _STARTUP.deadline = None
+        try:
+            stop_registered_owner(
+                primary_unit(state),
+                host_owner,
+                predecessor=predecessor,
+                handoff=handoff,
+                deadline=cleanup_deadline,
+                evidence=cleanup_binding,
+            )
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+            SupervisorError,
+            host_admission.AdmissionError,
+            subprocess.SubprocessError,
+        ) as cleanup_error:
+            cause = f"{type(cleanup_error).__name__}: {cleanup_error}"
+            with state_lock(state, cleanup=True):
+                path = state / "primary-admission.json"
+                if path.exists():
+                    retained = read_json(path)
+                    retained.update(
+                        unresolved=True,
+                        cleanup_cause=cause,
+                        predecessor=predecessor,
+                        binding=cleanup_binding or None,
+                        unit=primary_unit(state),
+                        handoff=str(handoff) if handoff is not None else None,
+                        allocation=str(host_owner.directory / host_owner.nonce),
+                    )
+                    write_json(path, retained)
+            failure.add_note(
+                f"Primary cleanup unresolved; selected={primary_unit(state)}; admission reservation retained: {cause}"
+            )
+        finally:
+            _STARTUP.deadline = admission_deadline
+        raise
 
 
 def drain_context(
@@ -2924,9 +3548,25 @@ def drain_context(
                     "Receiver identity changed before cooperative drain"
                 )
             signal.pidfd_send_signal(descriptor, signal.SIGINT)
-            while not native_operation.drained({"scope": association}):
-                remaining(_STARTUP.deadline)
-                time.sleep(0.02)
+            while True:
+                completion = native_operation.drained(
+                    {"scope": association}, deadline=_STARTUP.deadline
+                )
+                if completion.complete:
+                    break
+                if completion.phase in {
+                    native_operation.DrainPhase.MISMATCH,
+                    native_operation.DrainPhase.UNAVAILABLE,
+                }:
+                    raise SupervisorError(
+                        completion.diagnostic() + "; receiver drain unresolved"
+                    )
+                try:
+                    time.sleep(min(0.02, remaining(_STARTUP.deadline)))
+                except DeadlineExpiredError as error:
+                    raise DeadlineExpiredError(
+                        completion.diagnostic() + "; receiver drain deadline expired"
+                    ) from error
         finally:
             os.close(descriptor)
         return [association]
@@ -2939,15 +3579,23 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
     allocation = config["resources"]
     if not isinstance(allocation, dict):
         raise SupervisorError("Invalid resource configuration")
-    is_active = active(state)
-    listener_owned = owns_listener(state, config)
+    observed = service_readiness(state, config)
+    is_active = observed.manager.get("ActiveState") == "active"
+    listener_owned = observed.listener_owned
     return {
         "state": str(state),
         "active": is_active,
         "listener_owned": listener_owned,
-        "authenticated_websocket_ready": is_active
-        and listener_owned
-        and protocol_ready(state, config),
+        "authenticated_websocket_ready": observed.protocol_ready,
+        "lifecycle": {
+            "phase": observed.phase.value,
+            "cause": observed.cause,
+            "state": str(observed.state),
+            "instance_id": observed.instance_id,
+            "unit": observed.unit,
+            "reservation": observed.reservation,
+            "manager": dict(observed.manager),
+        },
         "service_generation": config["instance_id"],
         "supervisor_generation": config.get("service_supervisor"),
         "parked": bool(config.get("parked")),
@@ -2985,19 +3633,28 @@ def listener_ready(state: Path, config: dict[str, object]) -> bool:
         return False
 
 
-def protocol_ready(state: Path, config: dict[str, object]) -> bool:
-    owner = service_directory(state)
+def protocol_ready(
+    state: Path, config: dict[str, object], *, deadline: float | None = None
+) -> bool:
+    owner = service_directory(state, deadline=deadline)
     if owner != state:
-        return protocol_ready(owner, config_for(owner))
+        return protocol_ready(
+            owner, config_for(owner, deadline=deadline), deadline=deadline
+        )
     path = state / "protocol-readiness.json"
     try:
         if not stat.S_ISREG(path.stat().st_mode):
             raise SupervisorError("Protocol readiness is not a regular owned record")
     except FileNotFoundError:
         return False
-    proof = read_json(path)
+    proof = read_json(path, deadline=deadline)
     observed = systemctl(
-        "show", "--property=InvocationID", "--value", unit_name(state), check=False
+        "show",
+        "--property=InvocationID",
+        "--value",
+        unit_name(state),
+        check=False,
+        deadline=deadline,
     )
     if observed.returncode:
         raise SupervisorError("Protocol invocation observation is unavailable")
@@ -3121,77 +3778,153 @@ def owns_listener(
 
 def service_readiness(
     state: Path, config: dict[str, object], *, deadline: float | None = None
-) -> Readiness:
-    """Observe absence separately from unavailable or incompatible ownership proof."""
+) -> ServiceObservation:
+    """One selected lifecycle observation supplies phase, identity and refusal cause."""
+    fields: dict[str, str] = {}
+    reservation: dict[str, object] | None = None
+    unit = ""
+    listener_owned = False
+
+    def result(
+        phase: Readiness, cause: str, *, protocol: bool = False
+    ) -> ServiceObservation:
+        return ServiceObservation(
+            phase,
+            state,
+            config.get("instance_id"),
+            unit,
+            cause,
+            dict(reservation) if reservation is not None else None,
+            dict(fields),
+            listener_owned,
+            protocol,
+        )
+
     try:
-        owner = service_directory(state)
+        if deadline is not None:
+            remaining(deadline)
+        owner = service_directory(state, deadline=deadline)
         if owner != state:
-            return service_readiness(owner, config_for(owner), deadline=deadline)
-        reservation = state / "lifecycle-owner.json"
-        if (
-            getattr(_LIFECYCLE, "state", None) != state
-            and reservation.exists()
-            and reservation_live(read_json(reservation))
-        ):
-            return Readiness.STARTING
+            return service_readiness(
+                owner, config_for(owner, deadline=deadline), deadline=deadline
+            )
+        unit = unit_name(state)
+        path = state / "lifecycle-owner.json"
+        if getattr(_LIFECYCLE, "state", None) != state and path.exists():
+            selected = read_json(path, deadline=deadline)
+            if reservation_live(selected):
+                reservation = selected
+                purpose = selected.get("purpose")
+                if not isinstance(purpose, str):
+                    return result(
+                        Readiness.UNAVAILABLE, "live reservation purpose unavailable"
+                    )
+                phase = {
+                    "startup": Readiness.STARTING,
+                    "stop": Readiness.STOPPING,
+                    "maintenance": Readiness.MAINTENANCE,
+                }.get(purpose)
+                if phase is None:
+                    return result(
+                        Readiness.UNAVAILABLE, "live reservation purpose unavailable"
+                    )
+                return result(phase, "live owned " + purpose + " reservation")
         observed = systemctl(
             "show",
             "--property=ActiveState",
             "--property=ControlGroup",
-            unit_name(state),
+            "--property=InvocationID",
+            unit,
             check=False,
+            deadline=deadline,
         )
         if observed.returncode:
-            return Readiness.UNAVAILABLE
-        fields = dict(
-            line.split("=", 1) for line in observed.stdout.splitlines() if "=" in line
-        )
+            return result(Readiness.UNAVAILABLE, "user manager observation failed")
+        for line in observed.stdout.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                fields[key] = value
         status = fields.get("ActiveState")
         if status in {"inactive", "failed"}:
-            # An inactive unit is actionable only when no recorded process survives.
             try:
-                process = read_json(state / "server-process.json")
-                pid = integer(process["pid"])
-                live = native_operation.start_identity(pid) == process.get("start")
+                process = read_json(state / "server-process.json", deadline=deadline)
+                live = native_operation.start_identity(
+                    integer(process["pid"])
+                ) == process.get("start")
             except FileNotFoundError:
                 live = False
             group = fields.get("ControlGroup", "")
             if live or (group and group_populated(group)) or listening_inodes(config):
-                return Readiness.MISMATCH
-            return Readiness.ACTIONABLE_ABSENT
-        if status == "activating":
-            return (
-                Readiness.STARTING
-                if getattr(_LIFECYCLE, "state", None) == state
-                else Readiness.UNAVAILABLE
+                return result(
+                    Readiness.MISMATCH,
+                    "inactive unit retains a process, populated group or listener",
+                )
+            return result(
+                Readiness.ACTIONABLE_ABSENT,
+                "unit terminal with no surviving listener or process",
+            )
+        if status == "activating" or (
+            status == "active" and not listening_inodes(config)
+        ):
+            # Merely holding lifecycle exclusion does not authenticate a unit.
+            # Joining requires its exact already charged launch and kernel group.
+            _, launch = recorded_storage_owner(state, config, deadline=deadline)
+            binding = object_mapping(launch["binding"])
+            if (
+                fields.get("InvocationID") != binding.get("invocation")
+                or fields.get("ControlGroup") != binding.get("group")
+                or host_admission.group_identity(fields.get("ControlGroup", ""))
+                != binding.get("inode")
+            ):
+                return result(
+                    Readiness.MISMATCH, "starting invocation differs from owned launch"
+                )
+            return result(
+                Readiness.STARTING, "authenticated owned unit awaiting listener"
+            )
+        if status == "deactivating":
+            return result(
+                Readiness.STOPPING, "unit deactivating; replacement remains excluded"
             )
         if status != "active":
-            return Readiness.UNAVAILABLE
-        if not listening_inodes(config):
-            # An activated owned launch may not have bound its listener yet.
-            # This permits observation under its existing clock, never a restart.
-            return Readiness.UNAVAILABLE
+            return result(Readiness.UNAVAILABLE, "unit phase unavailable")
         if not _owns_listener(state, config, deadline=deadline):
-            return Readiness.MISMATCH
+            return result(Readiness.MISMATCH, "selected listener ownership differs")
+        listener_owned = True
         with urllib.request.urlopen(
             f"http://127.0.0.1:{config['port']}/health",
             timeout=1 if deadline is None else min(1, remaining(deadline)),
         ) as response:
             if response.status != 200:
-                return Readiness.UNAVAILABLE
+                return result(Readiness.UNAVAILABLE, "owned listener health refused")
+        if deadline is not None:
+            remaining(deadline)
         if (state / ".maintenance-listener.json").exists():
             require_maintenance_owner(state, config)
-            return Readiness.STARTING
-        return Readiness.READY if protocol_ready(state, config) else Readiness.STARTING
+            return result(Readiness.MAINTENANCE, "owned maintenance listener")
+        if protocol_ready(state, config, deadline=deadline):
+            return result(
+                Readiness.READY, "authenticated native protocol ready", protocol=True
+            )
+        return result(
+            Readiness.STARTING, "owned listener awaiting authenticated protocol"
+        )
+    except DeadlineExpiredError as error:
+        raise DeadlineExpiredError(
+            result(
+                Readiness.UNAVAILABLE, "original control deadline expired"
+            ).diagnostic()
+            + "; admission refused"
+        ) from error
     except (
         OSError,
         SupervisorError,
         host_admission.AdmissionError,
         subprocess.SubprocessError,
-    ):
-        return Readiness.UNAVAILABLE
-    except (KeyError, ValueError, StopIteration):
-        return Readiness.MISMATCH
+    ) as error:
+        return result(Readiness.UNAVAILABLE, f"{type(error).__name__}: {error}")
+    except (KeyError, ValueError, StopIteration) as error:
+        return result(Readiness.MISMATCH, f"{type(error).__name__}: {error}")
 
 
 def _owns_listener(
@@ -3264,7 +3997,9 @@ def listening_inodes(config: dict[str, object]) -> set[str]:
 def remaining(deadline: float) -> float:
     value = deadline - time.monotonic()
     if value <= 0:
-        raise SupervisorError("Managed startup exceeded its original admission clock")
+        raise DeadlineExpiredError(
+            "Managed startup exceeded its original admission clock"
+        )
     return value
 
 
@@ -3390,11 +4125,11 @@ def storage_unit_observation(
 
 
 def resume_storage_allocation(
-    state: Path, config: dict[str, object]
+    state: Path, config: dict[str, object], *, deadline: float | None = None
 ) -> host_admission.Allocation:
     """Reuse charged capacity only after the exact owned predecessor has drained."""
-    owner, launch = recorded_storage_owner(state, config)
-    observed = storage_unit_observation(state)
+    owner, launch = recorded_storage_owner(state, config, deadline=deadline)
+    observed = storage_unit_observation(state, deadline=deadline)
     group = observed.get("ControlGroup", "")
     binding = object_mapping(launch["binding"])
     if (
@@ -3415,6 +4150,8 @@ def resume_storage_allocation(
     }
     if processes != {os.getpid()}:
         raise SupervisorError("Storage predecessor or descendants remain undrained")
+    if deadline is not None:
+        remaining(deadline)
     return owner
 
 
@@ -3496,7 +4233,7 @@ def service_allocation(
     state: Path, config: dict[str, object], deadline: float
 ) -> host_admission.Allocation:
 
-    inherited = host_admission.inherit(os.environ)
+    inherited = inherit_host_owner(deadline)
     if inherited is not None and inherited.profile.exclusive:
         allocation = inherited
     else:
@@ -3510,19 +4247,24 @@ def service_allocation(
             host_admission.select(profile, requested), deadline=deadline
         )
     storage_placement(config, allocation)
-    allocation.register(unit_name(state))
+    allocation.register(unit_name(state), deadline=deadline)
     if allocation.profile.exclusive:
-        with host_admission.allocation_metadata(allocation.directory) as ledger:
+        with host_admission.allocation_metadata(
+            allocation.directory, deadline=deadline
+        ) as ledger:
             borrowed = ledger["owners"][allocation.nonce].setdefault(
                 "borrowed_services", []
             )
             if str(state) not in borrowed:
                 borrowed.append(str(state))
     if not allocation.profile.exclusive:
-        with host_admission.allocation_metadata(allocation.directory) as ledger:
+        with host_admission.allocation_metadata(
+            allocation.directory, deadline=deadline
+        ) as ledger:
             ledger["owners"][allocation.nonce].update(
                 service=str(state), parkable=bool(config.get("resident"))
             )
+    remaining(deadline)
     write_json(
         state / "service-launch.json",
         {
@@ -3609,7 +4351,7 @@ def _park_service(
 
 
 def unpark_service(state: Path, *, deadline: float | None = None) -> None:
-    with lifecycle_reservation(state):
+    with lifecycle_reservation(state, purpose="startup", deadline=deadline):
         config = config_for(state)
         if config.get("parked"):
             start(state, config, deadline=deadline)
@@ -3665,12 +4407,25 @@ def start(
                 )
             config.update(current)
             observed = service_readiness(state, config, deadline=deadline)
-            if observed in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
-                raise SupervisorError(
-                    f"Service readiness is {observed.value}; startup refused"
+            if observed.phase in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
+                raise SupervisorError(observed.diagnostic() + "; startup refused")
+            if observed.reservation is not None:
+                wait_reservation(
+                    state,
+                    state / "lifecycle-owner.json",
+                    observed.reservation["nonce"],
+                    deadline,
                 )
+                continue
+            if observed.phase is Readiness.STOPPING:
+                raise SupervisorError(
+                    observed.diagnostic() + "; startup replacement refused"
+                )
+            if observed.phase is Readiness.STARTING and not observed.listener_owned:
+                time.sleep(min(0.02, remaining(deadline)))
+                continue
             if (
-                observed is Readiness.READY
+                observed.phase is Readiness.READY
                 and config["admission"] == "open"
                 and config["accepting_writes"]
                 and not config.get("parked")
@@ -3678,7 +4433,7 @@ def start(
             ):
                 return None
             try:
-                with lifecycle_reservation(state):
+                with lifecycle_reservation(state, purpose="startup", deadline=deadline):
                     current = config_for(state)
                     if startup_selection(current) != selection:
                         raise SupervisorError(
@@ -3726,14 +4481,27 @@ def _start(
     resumed = False
     try:
         observed = service_readiness(state, config, deadline=deadline)
-        if observed in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
-            raise SupervisorError(
-                f"Service readiness is {observed.value}; startup refused"
-            )
-        if observed in {Readiness.READY, Readiness.STARTING}:
-            if not listener_ready(state, config):
-                raise SupervisorError("Owned server unit is active but unhealthy")
-            if not maintenance and not protocol_ready(state, config):
+        if observed.phase in {Readiness.UNAVAILABLE, Readiness.MISMATCH}:
+            raise SupervisorError(observed.diagnostic() + "; startup refused")
+        while observed.phase is Readiness.STARTING and not observed.listener_owned:
+            time.sleep(min(0.02, remaining(deadline)))
+            observed = service_readiness(state, config, deadline=deadline)
+        if observed.phase in {
+            Readiness.UNAVAILABLE,
+            Readiness.MISMATCH,
+            Readiness.STOPPING,
+        }:
+            raise SupervisorError(observed.diagnostic() + "; startup refused")
+        if observed.phase in {
+            Readiness.READY,
+            Readiness.STARTING,
+            Readiness.MAINTENANCE,
+        }:
+            if not observed.listener_owned:
+                raise SupervisorError(
+                    observed.diagnostic() + "; owned listener not ready"
+                )
+            if not maintenance and not observed.protocol_ready:
                 establish_protocol_readiness(state, config, deadline)
             if parked:
                 with state_lock(state):
@@ -3752,8 +4520,11 @@ def _start(
         remaining(deadline)
         allocation_owner = service_allocation(state, config, deadline)
         environment = systemd_environment()
-        host_admission.enforce_parent(allocation_owner.profile, environment)
+        host_admission.enforce_parent(
+            allocation_owner.profile, environment, deadline=deadline
+        )
         materialize_service(state, config, allocation_owner)
+        remaining(deadline)
         if parked:
             # _serve may proceed only after deliberate startup owns its allocation.
             # Failed admission must retain the premise used by queued reconciliation.
@@ -3769,14 +4540,14 @@ def _start(
             raise SupervisorError("Cannot start owned persistent service unit")
         while time.monotonic() < deadline:
             observed = service_readiness(state, config, deadline=deadline)
-            if observed is Readiness.UNAVAILABLE:
+            if observed.phase is Readiness.UNAVAILABLE:
                 time.sleep(min(0.1, remaining(deadline)))
                 continue
-            if observed is Readiness.MISMATCH:
+            if observed.phase is Readiness.MISMATCH:
                 raise SupervisorError(
-                    "Service readiness became mismatch; admission remains closed"
+                    observed.diagnostic() + "; admission remains closed"
                 )
-            if listener_ready(state, config):
+            if observed.listener_owned:
                 if not maintenance:
                     establish_protocol_readiness(state, config, deadline)
                 if not validation:
@@ -3786,16 +4557,15 @@ def _start(
                     open_context_admission(state)
                 resumed = True
                 return None
-            if not active(state):
+            if observed.phase is Readiness.ACTIONABLE_ABSENT:
                 break
-            time.sleep(0.1)
-        if service_readiness(state, config, deadline=deadline) in {
+            time.sleep(min(0.1, remaining(deadline)))
+        observed = service_readiness(state, config, deadline=deadline)
+        if observed.phase in {
             Readiness.UNAVAILABLE,
             Readiness.MISMATCH,
         }:
-            raise SupervisorError(
-                "Startup observation is unavailable or mismatched; admission remains closed"
-            )
+            raise SupervisorError(observed.diagnostic() + "; admission remains closed")
         systemctl("stop", unit_name(state), check=False)
         raise SupervisorError(
             "Server did not become healthy; inspect the private bounded server.log"
@@ -3804,11 +4574,11 @@ def _start(
         if parked and not resumed:
             # Keep any partial lifetime charged through its existing owner. Closing
             # admission and retaining parking intent does not prove a service drain.
-            with state_lock(state):
+            with state_lock(state, cleanup=True):
                 config.update(config_for(state))
                 config["parked"] = True
                 write_json(state / "config.json", config)
-            close_context_admission(state)
+            close_context_admission(state, cleanup=True)
             config.update(config_for(state))
 
 
@@ -3817,7 +4587,7 @@ def stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> Non
     deadline = time.monotonic() + 90
     _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
     try:
-        with lifecycle_reservation(state):
+        with lifecycle_reservation(state, purpose="stop", deadline=_STARTUP.deadline):
             close_context_admission(state)
             config.update(config_for(state))
             _stop(state, config, abrupt=abrupt)
@@ -3908,23 +4678,76 @@ def _stop(state: Path, config: dict[str, object], *, abrupt: bool = False) -> No
 
 
 def release_stopped_service(state: Path, config: dict[str, object]) -> None:
-    """Release the drained storage owner, never its caller's borrowed host lane."""
+    """Release drained storage affiliation, never its caller's borrowed host lane."""
     launch_path = state / "service-launch.json"
     if not launch_path.exists():
         return
-    launch = read_json(launch_path)
+    deadline = getattr(_STARTUP, "deadline", None)
+    launch = read_json(launch_path, deadline=deadline)
     if launch.get("generation") != config["instance_id"]:
         raise SupervisorError("Stopped service allocation has a different generation")
 
     try:
         owner = host_admission.inherit(
-            {host_admission.MARKER: str(launch["allocation"])}, handoff=True
+            {host_admission.MARKER: str(launch["allocation"])},
+            handoff=True,
+            deadline=deadline,
         )
     except host_admission.AdmissionError:
         # A dead launch caller is settled by host reconciliation using the
         # recorded cgroup inode/invocation, not by guessing a live replacement.
+        if deadline is not None:
+            remaining(deadline)
         return
-    if owner is None or owner.profile.exclusive:
+    if owner is None:
+        return
+    unit = unit_name(state)
+    if owner.profile.exclusive:
+        with host_admission.allocation_metadata(
+            owner.directory, deadline=deadline
+        ) as ledger:
+            record = ledger["owners"].get(owner.nonce)
+            if not isinstance(record, dict):
+                raise SupervisorError("Stopped storage allocation is unavailable")
+            borrowed = record.get("borrowed_services", [])
+            if not isinstance(borrowed, list):
+                raise SupervisorError("Invalid borrowed storage affiliation")
+            if str(state) not in borrowed:
+                return  # A prior authenticated stop already returned this affiliation.
+            binding = dict(record["units"].get(unit, {}))
+            if not binding or binding != launch.get("binding"):
+                raise SupervisorError("Stopped borrowed storage binding changed")
+            selected = {
+                **record,
+                "service": str(state),
+                "borrowed_services": [],
+                "units": {unit: binding},
+                "released": True,
+            }
+        # Kernel and recorded process proof occurs outside metadata exclusion.
+        # Keeping the stopped affiliation pins a disposable profile until its
+        # enclosing caller exits, even though that caller may own other work.
+        if not host_admission.drained(
+            selected, allocation=owner.directory / owner.nonce, deadline=deadline
+        ):
+            raise SupervisorError("Stopped borrowed storage lifetime is undrained")
+        with host_admission.allocation_metadata(
+            owner.directory, deadline=deadline
+        ) as ledger:
+            record = ledger["owners"].get(owner.nonce)
+            if (
+                not isinstance(record, dict)
+                or record["units"].get(unit) != binding
+                or read_json(launch_path, deadline=deadline) != launch
+            ):
+                raise SupervisorError("Stopped borrowed storage affiliation changed")
+            borrowed = record.get("borrowed_services", [])
+            if not isinstance(borrowed, list):
+                raise SupervisorError("Invalid borrowed storage affiliation")
+            if str(state) in borrowed:
+                if deadline is not None:
+                    remaining(deadline)
+                borrowed.remove(str(state))
         return
     with host_admission.allocation_metadata(owner.directory) as ledger:
         record = ledger["owners"].get(owner.nonce)
@@ -4044,18 +4867,26 @@ def _serve(state: Path) -> int:
     deadline = _STARTUP.deadline
     launch_path = state / "service-launch.json"
     if launch_path.is_file():
-        launch = storage_launch(state, config)
+        launch = storage_launch(state, config, deadline=deadline)
         if "binding" in launch:
-            allocation_owner = resume_storage_allocation(state, config)
+            allocation_owner = resume_storage_allocation(
+                state, config, deadline=deadline
+            )
         else:
+            launch_deadline = launch["deadline"]
+            if not isinstance(launch_deadline, (int, float)):
+                raise SupervisorError("Storage launch lacks a finite admission clock")
+            _STARTUP.deadline = min(deadline, launch_deadline)
             allocation_owner = host_admission.inherit(
-                {host_admission.MARKER: str(launch["allocation"])}, handoff=True
+                {host_admission.MARKER: str(launch["allocation"])},
+                handoff=True,
+                deadline=_STARTUP.deadline,
             )
         if allocation_owner is None:
             raise SupervisorError("Storage launch has no admitted owner")
     else:
         allocation_owner = service_allocation(state, config, deadline)
-        launch = storage_launch(state, config)
+        launch = storage_launch(state, config, deadline=deadline)
     storage_placement(config, allocation_owner)
     if "binding" not in launch:
         launch_deadline = launch["deadline"]
@@ -4063,15 +4894,21 @@ def _serve(state: Path) -> int:
             raise SupervisorError("Storage launch lacks a finite admission clock")
         _STARTUP.deadline = min(deadline, launch_deadline)
     remaining(_STARTUP.deadline)
-    allocation_owner.bind(unit_name(state))
-    with host_admission.allocation_metadata(allocation_owner.directory) as ledger:
+    allocation_owner.bind(unit_name(state), deadline=_STARTUP.deadline)
+    with host_admission.allocation_metadata(
+        allocation_owner.directory, deadline=_STARTUP.deadline
+    ) as ledger:
         binding = dict(
             ledger["owners"][allocation_owner.nonce]["units"][unit_name(state)]
         )
     launch["binding"] = binding
+    remaining(_STARTUP.deadline)
     write_json(launch_path, launch)
     os.environ.update(allocation_owner.environment())
-    host_admission.enforce_parent(allocation_owner.profile, systemd_environment())
+    host_admission.enforce_parent(
+        allocation_owner.profile, systemd_environment(), deadline=_STARTUP.deadline
+    )
+    remaining(_STARTUP.deadline)
     os.sched_setaffinity(0, list(allocation_owner.profile.cores))
     remaining(_STARTUP.deadline)
     credentials_path = state / "credentials.json"
@@ -4117,6 +4954,7 @@ def _serve(state: Path) -> int:
     # A recovery listener observes existing ROOT authorities; it must never
     # bootstrap a supplied candidate into an empty or unknown catalog.
     environment = server_environment(config, credentials, bootstrap=not maintenance)
+    remaining(_STARTUP.deadline)
     child = subprocess.Popen(
         command,
         env=environment,
@@ -4458,8 +5296,8 @@ def maintenance_failure(
     for name, raw in diagnostics.items():
         value = raw
         for authority in authorities:
-            for field in ("password", "selection_password"):
-                secret = authority.get(field)
+            for credential_key in ("password", "selection_password"):
+                secret = authority.get(credential_key)
                 if isinstance(secret, str) and secret:
                     value = value.replace(secret, "[REDACTED]")
         diagnostics[name] = value[-MESSAGE_BYTES:]
@@ -5834,7 +6672,7 @@ def qualify_recovery(state: Path) -> dict[str, object]:
             controls = checked_directory(state / ".recovery-controls")
             context_directory = controls / operation
             context_directory.mkdir(mode=0o700)
-            context = {
+            context: dict[str, object] = {
                 "owner": "supervisor-recovery-v1",
                 "generation": generation,
                 "namespace": namespace,
@@ -5912,6 +6750,46 @@ def qualify_recovery(state: Path) -> dict[str, object]:
                 # Old process-group drain plus reopen bounds settlement of this
                 # exact probe. No absent-ack replay or scientific claim occurs.
                 recovered = readback[1]["result"]
+                context.update(
+                    outcome="settled",
+                    acknowledged_survived=True,
+                    unknown_outcome="committed"
+                    if recovered == unknown
+                    else "not_committed",
+                    retirement="pending",
+                )
+                write_json(context_directory / "context.json", context)
+                # Only this newly generated, settled probe is disposable. Leave
+                # historical/incomplete contexts intact and do not select the
+                # removed database in the administrative request's session.
+                retired = administrative_query(
+                    state,
+                    f"USE NS `{namespace}`; REMOVE DATABASE `{database}`; INFO FOR NS;",
+                    deadline,
+                    namespace=namespace,
+                    database=database,
+                    select_context=False,
+                )
+                if (
+                    len(retired) != 3
+                    or any(
+                        row.get("status") != "OK" or "result" not in row
+                        for row in retired
+                    )
+                    or retired[0]["result"]
+                    != {"namespace": namespace, "database": None}
+                    or retired[1]["result"] is not None
+                ):
+                    raise SupervisorError(
+                        "Recovery probe retirement lacked complete acknowledgments"
+                    )
+                catalog = object_mapping(retired[2]["result"])
+                if database in object_mapping(catalog.get("databases")):
+                    raise SupervisorError(
+                        "Recovery probe database remains addressable after retirement"
+                    )
+                context["retirement"] = "complete"
+                write_json(context_directory / "context.json", context)
             finally:
                 cleanup_prior = _STARTUP.deadline
                 _STARTUP.deadline = time.monotonic() + 90
@@ -5936,6 +6814,7 @@ def qualify_recovery(state: Path) -> dict[str, object]:
                         "namespace": namespace,
                         "database": database,
                         "evidence": str(context_directory / "context.json"),
+                        "retired": True,
                     },
                     "acknowledged_survived": True,
                     "unknown_outcome": "committed"
@@ -6208,6 +7087,22 @@ def parser() -> argparse.ArgumentParser:
 
 
 def dispatch(args: argparse.Namespace) -> int:
+    # These controls already own these budgets in their implementation. Capture
+    # them before dispatch's reservation, rather than after metadata acquisition.
+    budget = {"stop": 90, "kill": 90, "recover": 40, "qualify-recovery": 90}.get(
+        args.command
+    )
+    previous = getattr(_STARTUP, "deadline", None)
+    if budget is not None:
+        deadline = time.monotonic() + budget
+        _STARTUP.deadline = deadline if previous is None else min(previous, deadline)
+    try:
+        return _dispatch(args)
+    finally:
+        _STARTUP.deadline = previous
+
+
+def _dispatch(args: argparse.Namespace) -> int:
     if args.qualification_native_entry is not None and args.command != "ensure-primary":
         raise SupervisorError(
             "Qualification control is only available with ensure-primary"
@@ -6272,7 +7167,16 @@ def dispatch(args: argparse.Namespace) -> int:
         with (
             contextlib.nullcontext()
             if args.command in {"status", "start", "ensure"}
-            else lifecycle_reservation(state)
+            else lifecycle_reservation(
+                state,
+                purpose=(
+                    "stop"
+                    if args.command in {"stop", "kill"}
+                    else "startup"
+                    if args.command == "recover"
+                    else "maintenance"
+                ),
+            )
         ):
             config = config_for(state)
             if args.command == "readmit":
@@ -6373,6 +7277,13 @@ def main(argv: list[str] | None = None) -> int:
             else f"{type(error).__name__}: supervisor operation failed"
         )
         print(message, file=sys.stderr)
+        for note in getattr(error, "__notes__", ()):
+            # Only these supervisor-authored notes contain safe owner metadata;
+            # notes from arbitrary validators may include secret-bearing text.
+            if note.startswith(
+                ("Worker cleanup unresolved;", "Primary cleanup unresolved;")
+            ):
+                print(note, file=sys.stderr)
         return 1
 
 

@@ -112,7 +112,7 @@ just bench-builds build/build-measurements/baseline --cache off
 just bench-builds build/build-measurements/cached --cache on --cold-cache --recovery --second-worktree
 just bench-builds build/build-measurements/frontend-screen --frontend 4 --jobs 16 --screen
 just bench-builds build/build-measurements/profile-one --cache on --dependency-opt 1 --execute
-just bench-builds build/build-measurements/native-workflow --cache on --native --workflow
+just bench-builds build/build-measurements/native-workflow --cache on --native --workflow --prepare-store
 ```
 
 Every output directory must be new. The runner snapshots dirty and untracked source
@@ -126,6 +126,13 @@ the existing scientific workload allocation in the launch environment. `PSE_REQU
 keeps that selected service available during admission, equivalent to `pse-env --store`.
 For example, the Plan 28 wide workflow uses `PSE_SURREAL_STATE`, `PSE_WORKER_BINARY`,
 `PSE_RESOURCE_CLASS=exclusive` and `PSE_MEMORY_MAX=144G` outside a workload owner.
+When that selected nonresident service is stopped, `--prepare-store` authenticates the
+fresh complete-operation owner's child handoff, then readmits, starts and checks the
+same selected store within one finite lifecycle reservation. It requires both
+`--native` and `--workflow` and refuses an already active native owner. Store preparation
+is included in the measurement-child and complete-operation durations; its separately
+reported duration overlaps those totals. The option preserves the selected worker,
+receiver and allocation declarations.
 `--execute` repeats compiler/relations library tests with explicit force-validation.
 `--cold-cache` uses an empty compiler cache owned by that campaign. Source downloads
 and native installations remain separately cached. Candidate profile overrides live

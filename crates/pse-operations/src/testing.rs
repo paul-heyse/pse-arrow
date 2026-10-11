@@ -285,15 +285,8 @@ pub(crate) fn register_database(
 ) -> Result<String, crate::canonical::CanonicalError> {
     let (test, executable) = selected_fixture_identity()?;
     let mut payload = serde_json::json!({"state": options.state_path(), "database": options.database, "kind": "database", "test": test, "executable": executable, "units": []});
-    if execution_profile.is_some()
-        || options.native.execution.is_some()
-        || options.primary_receiver.is_some()
-    {
-        if let Some(profile) = execution_profile {
-            payload["execution_profile"] = profile.into();
-        } else if let Ok(profile) = std::env::var("PSE_TEST_EXECUTION_PROFILE") {
-            payload["execution_profile"] = profile.into();
-        }
+    if let Some(profile) = execution_profile {
+        payload["execution_profile"] = profile.into();
         if let Some(worker) = std::env::var_os("PSE_WORKER_BINARY") {
             payload["worker"] = std::path::PathBuf::from(worker)
                 .to_string_lossy()
@@ -311,7 +304,8 @@ pub(crate) fn register_database(
 /// and reference eligibility alone authorize disposal. Drop never infers pass.
 pub fn canonical_fixture_store()
 -> Result<crate::canonical::CanonicalStore, crate::canonical::CanonicalError> {
-    canonical_fixture_with_options(&canonical_fixture_options()?, true)
+    let profile = std::env::var("PSE_TEST_EXECUTION_PROFILE").ok();
+    canonical_fixture_with_profile(&canonical_fixture_options()?, true, profile.as_deref())
 }
 
 /// Explicit managed fixture selection. The registry owns profile resources and
@@ -337,6 +331,8 @@ fn canonical_fixture_options()
 /// Register an explicit test database before connecting, then retain its physical
 /// clients on the fixture executor through the final managed borrower.
 /// `initialize` is false for tests whose subject is explicit schema installation.
+/// The supplied state's allocation is authoritative; ambient recipe profiles apply
+/// only to `canonical_fixture_store`, not this explicit selection.
 pub fn canonical_fixture_with_options(
     options: &crate::canonical::CanonicalOptions,
     initialize: bool,
@@ -591,6 +587,25 @@ pub async fn expire_acknowledged_attempt(
     if response.take::<Option<bool>>(index)? != Some(true) {
         return Err(CanonicalError::IncompleteResponse);
     }
+    Ok(())
+}
+
+/// Corrupt one terminal occurrence only in its registered isolated fixture.
+pub async fn invalidate_terminal_study_outcome(
+    store: &crate::canonical::CanonicalStore,
+    study: &str,
+    occurrence: pse_model::study::OccurrenceKey,
+) -> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::{CanonicalError, bounded_query};
+    if !store.database().starts_with("canonical_test_") || store.fixture_lifetime.is_none() {
+        return Err(CanonicalError::Configuration(
+            "occurrence invalidation requires a registered isolated fixture".into(),
+        ));
+    }
+    bounded_query(store.db.query("BEGIN; LET $study = SELECT * FROM ONLY type::record('canonical_studies',$study); IF $study = NONE OR !$study.terminal { THROW 'fixture study is not terminal'; }; UPDATE ONLY type::record('canonical_study_points',$point) SET outcome=$outcome; COMMIT;")
+        .bind(("study", study.to_owned()))
+        .bind(("point", crate::canonical_studies::point_key(study, occurrence)))
+        .bind(("outcome", surrealdb::types::Bytes::from(vec![0xff])))).await?;
     Ok(())
 }
 

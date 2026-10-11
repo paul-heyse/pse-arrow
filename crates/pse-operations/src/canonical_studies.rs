@@ -474,12 +474,17 @@ impl CanonicalStore {
                 }
                 let object = wire::encode_canonical_studies(&row)?;
                 self.ensure_writes()?;
-                self.protected_query(&row.problem, "canonical_studies::create_study", || {
-                    Ok(self
-                        .db
-                        .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at, $row);")
-                        .bind(("row", object.clone())))
-                })
+                self.protected_query(
+                    &row.problem,
+                    crate::canonical::QueryEffect::Mutation,
+                    "canonical_studies::create_study",
+                    || {
+                        Ok(self
+                            .db
+                            .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at, $row);")
+                            .bind(("row", object.clone())))
+                    },
+                )
                 .await?;
                 if cancelled() {
                     return self.stop_study_creation(&row, run, points).await;
@@ -748,6 +753,17 @@ impl CanonicalStore {
         }).await
     }
     /// Read a study header without its occurrence graph.
+    pub async fn canonical_study_summary(
+        &self,
+        key: &str,
+    ) -> Result<Option<StudySummary>, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let mut result = bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);")
+                .bind(("key",key.to_owned()))).await?;
+            result.take::<Option<Object>>(0)?.map(decode_study_summary).transpose()
+        }).await
+    }
+    /// Read the complete stored study header when its definition is needed.
     pub async fn canonical_study(&self, key: &str) -> Result<Option<Study>, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(

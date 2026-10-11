@@ -25,6 +25,7 @@ once_cell.workspace = true
 pse-model.workspace = true
 tracing.workspace = true
 salsa.workspace = true
+rustc-hash.workspace = true
 pse-structural.workspace = true
 pse-diagnostics.workspace = true
 thiserror.workspace = true

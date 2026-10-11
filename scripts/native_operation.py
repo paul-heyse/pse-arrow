@@ -17,6 +17,8 @@ import subprocess
 import sys
 import time
 import uuid
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, Self, TypedDict, TypeVar, cast
 
@@ -75,6 +77,11 @@ class Admission(TypedDict, total=False):
     inputs: dict[str, str | None]
 
 
+class RegistrationOwner(TypedDict):
+    path: str
+    nonce: str
+
+
 class OperationRecord(TypedDict):
     version: int
     scope: ScopeOwner | None
@@ -89,6 +96,7 @@ class OperationRecord(TypedDict):
     foreground_children: NotRequired[list[str]]
     cancelled: NotRequired[bool]
     scope_inode: NotRequired[int]
+    registration: NotRequired[RegistrationOwner]
 
 
 Observed = TypeVar("Observed")
@@ -116,29 +124,50 @@ def start_identity(pid: int) -> str:
     return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[19]
 
 
-def unit_observation(unit: str) -> dict[str, str]:
+class DeadlineExpiredError(ValueError):
+    """An offered absolute native admission/control clock expired."""
+
+
+def admission_remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise DeadlineExpiredError("native operation original admission clock expired")
+    return remaining
+
+
+def unit_observation(unit: str, *, deadline: float | None = None) -> dict[str, str]:
     environment = dict(os.environ)
     runtime = Path(f"/run/user/{os.getuid()}")
     if (runtime / "bus").is_socket():
         environment.setdefault("XDG_RUNTIME_DIR", str(runtime))
         environment.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus")
-    result = subprocess.run(
-        [
-            "systemctl",
-            "--user",
-            "show",
-            "--property=InvocationID",
-            "--property=ControlGroup",
-            "--property=LoadState",
-            "--property=ActiveState",
-            unit,
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        env=environment,
-    )
+    timeout = 10 if deadline is None else min(10, admission_remaining(deadline))
+    try:
+        result = subprocess.run(
+            [
+                "systemctl",
+                "--user",
+                "show",
+                "--property=InvocationID",
+                "--property=ControlGroup",
+                "--property=LoadState",
+                "--property=ActiveState",
+                unit,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=environment,
+        )
+    except subprocess.TimeoutExpired as error:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise DeadlineExpiredError(
+                "native operation original observation clock expired"
+            ) from error
+        raise
+    if deadline is not None:
+        admission_remaining(deadline)
     if result.returncode:
         raise ValueError("native operation unit observation unavailable")
     return dict(
@@ -146,8 +175,10 @@ def unit_observation(unit: str) -> dict[str, str]:
     )
 
 
-def scope_owner() -> ScopeOwner | None:
+def scope_owner(*, deadline: float | None = None) -> ScopeOwner | None:
     """Only real scope membership and its invocation grant operation reuse."""
+    if deadline is not None:
+        admission_remaining(deadline)
     try:
         group = process_group(os.getpid())
         unit = next(
@@ -158,7 +189,9 @@ def scope_owner() -> ScopeOwner | None:
                 part,
             )
         )
-        observed = unit_observation(unit)
+        observed = unit_observation(
+            unit, **({"deadline": deadline} if deadline is not None else {})
+        )
         control = observed["ControlGroup"]
         invocation = observed["InvocationID"]
         if (
@@ -170,10 +203,16 @@ def scope_owner() -> ScopeOwner | None:
             or not (group == control or group.startswith(control + "/"))
         ):
             return None
+    except DeadlineExpiredError:
+        raise
     except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
+        if deadline is not None:
+            admission_remaining(deadline)
         return None
 
     else:
+        if deadline is not None:
+            admission_remaining(deadline)
         return {"unit": unit, "group": control, "invocation": invocation}
 
 
@@ -191,25 +230,105 @@ def populated(group: str) -> bool:
     return fields["populated"] == "1"
 
 
-def drained(record: Mapping[str, object]) -> bool:
-    """Parent exit never releases a populated group. Unknown owners stay pinned."""
+class DrainPhase(Enum):
+    COMPLETE = "complete"
+    POPULATED = "populated"
+    ACTIVE = "active"
+    MISMATCH = "mismatch"
+    UNAVAILABLE = "unavailable"
+
+
+@dataclass(frozen=True)
+class DrainObservation:
+    owner: Mapping[str, object] | None
+    phase: DrainPhase
+    cause: str
+    observed: Mapping[str, str] | None = None
+
+    @property
+    def complete(self) -> bool:
+        return self.phase is DrainPhase.COMPLETE
+
+    def diagnostic(self) -> str:
+        return f"native drain {self.phase.value}: {self.cause}; selected={self.owner}; observed={self.observed}"
+
+    def __bool__(self) -> bool:
+        raise TypeError("Consume DrainObservation.complete or its phase explicitly")
+
+
+def drained(
+    record: Mapping[str, object], *, deadline: float | None = None
+) -> DrainObservation:
+    """Observe this native owner; unknown premises keep its obligations pinned."""
     owner = record.get("scope")
-    if not isinstance(owner, dict):
-        return False
+    if not isinstance(owner, dict) or any(
+        not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
+    ):
+        return DrainObservation(None, DrainPhase.UNAVAILABLE, "missing scope identity")
+    selected = dict(owner)
     try:
         if populated(owner["group"]):
-            return False
-        observed = unit_observation(owner["unit"])
-        if observed.get("LoadState") == "not-found":
-            return True
-        return (
-            observed.get("InvocationID") == owner["invocation"]
-            and observed.get("ControlGroup") in {owner["group"], ""}
-            and observed.get("ActiveState") in {"inactive", "failed"}
-            and not populated(owner["group"])
+            return DrainObservation(
+                selected, DrainPhase.POPULATED, "owned descendants remain"
+            )
+        observed = unit_observation(
+            owner["unit"], **({"deadline": deadline} if deadline is not None else {})
         )
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
-        return False
+        if observed.get("LoadState") == "not-found":
+            # A group can repopulate while the manager is being observed.
+            if populated(owner["group"]):
+                return DrainObservation(
+                    selected,
+                    DrainPhase.POPULATED,
+                    "group populated during observation",
+                    observed,
+                )
+            return DrainObservation(
+                selected,
+                DrainPhase.COMPLETE,
+                "unit absent and owned group empty",
+                observed,
+            )
+        if observed.get("LoadState") != "loaded" or any(
+            key not in observed
+            for key in ("InvocationID", "ControlGroup", "ActiveState")
+        ):
+            return DrainObservation(
+                selected,
+                DrainPhase.UNAVAILABLE,
+                "unit observation lacks required identity or phase",
+                observed,
+            )
+        if observed.get("InvocationID") != owner["invocation"] or observed.get(
+            "ControlGroup"
+        ) not in {owner["group"], ""}:
+            return DrainObservation(
+                selected,
+                DrainPhase.MISMATCH,
+                "unit identity differs from selected owner",
+                observed,
+            )
+        if observed.get("ActiveState") not in {"inactive", "failed"}:
+            return DrainObservation(
+                selected, DrainPhase.ACTIVE, "owned unit is not terminal", observed
+            )
+        if populated(owner["group"]):
+            return DrainObservation(
+                selected,
+                DrainPhase.POPULATED,
+                "group populated during observation",
+                observed,
+            )
+        return DrainObservation(
+            selected,
+            DrainPhase.COMPLETE,
+            "owned unit terminal and group empty",
+            observed,
+        )
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        return DrainObservation(
+            selected, DrainPhase.UNAVAILABLE, f"{type(error).__name__}: {error}"
+        )
 
 
 def _record(path: Path) -> OperationRecord:
@@ -219,7 +338,9 @@ def _record(path: Path) -> OperationRecord:
     return cast("OperationRecord", value)
 
 
-def owner_record() -> Path | None:
+def owner_record(*, deadline: float | None = None) -> Path | None:
+    if deadline is not None:
+        admission_remaining(deadline)
     marker = os.environ.get(MARKER)
     if not marker:
         return None
@@ -248,20 +369,35 @@ def owner_record() -> Path | None:
         record = _record(path)
         owner = record.get("scope")
         if owner:
-            return path if scope_owner() == owner else None
+            return (
+                path
+                if scope_owner(
+                    **({"deadline": deadline} if deadline is not None else {})
+                )
+                == owner
+                else None
+            )
         pid = record["pid"]
         if start_identity(pid) != record["start"]:
             return None
         descendant = os.getpid()
         while descendant > 1:
+            if deadline is not None:
+                admission_remaining(deadline)
             if descendant == pid:
                 return path
             status = Path(f"/proc/{descendant}/status").read_text().splitlines()
             descendant = int(
                 next(line.split()[1] for line in status if line.startswith("PPid:"))
             )
+    except DeadlineExpiredError:
+        raise
     except (OSError, ValueError, KeyError, StopIteration, subprocess.SubprocessError):
+        if deadline is not None:
+            admission_remaining(deadline)
         return None
+    if deadline is not None:
+        admission_remaining(deadline)
     return None
 
 
@@ -271,12 +407,26 @@ def current() -> Path | None:
 
 
 @contextlib.contextmanager
-def record_lock(path: Path) -> Generator[None, None, None]:
+def record_lock(
+    path: Path, *, deadline: float | None = None
+) -> Generator[None, None, None]:
     # A synchronous cancellation handler must not reacquire our own flock.
     previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM, signal.SIGINT})
     try:
+        if deadline is not None:
+            admission_remaining(deadline)
         with path.with_suffix(".lock").open("a") as lock:
-            fcntl.flock(lock, fcntl.LOCK_EX)
+            if deadline is None:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+            else:
+                while True:
+                    admission_remaining(deadline)
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        time.sleep(min(0.02, admission_remaining(deadline)))
+                admission_remaining(deadline)
             yield
     finally:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous)
@@ -343,8 +493,9 @@ def pinned_generations(base: Path) -> set[str] | None:
 
     Publication coordination held by the caller excludes a new selection of the
     generation being reclaimed. Record exclusion protects handoff/pin mutations.
-    Unknown records conservatively refuse reclamation; completed operations have
-    no consumer after drain and are deleted rather than becoming an archive.
+    Unknown records conservatively refuse reclamation. Settled records no longer
+    pin generation bytes; exact cancellation/registration owners may still need
+    their proof until those owners retire.
     """
     pinned: set[str] = set()
     for path in (base / ".operations").glob("*.json"):
@@ -356,9 +507,11 @@ def pinned_generations(base: Path) -> set[str] | None:
                     not isinstance(generation, str) for generation in generations
                 ):
                     return None
-                if drained(record):
+                if drained(record).complete:
                     # The live parent may still need this exact child binding
                     # during cancellation. Its settled child no longer pins bytes.
+                    if registration_pending(record):
+                        continue
                     if (
                         record.get("foreground") is True
                         and foreground_parent(record, path).exists()
@@ -394,32 +547,91 @@ def foreground_children(record: OperationRecord) -> list[str]:
     raise ValueError("invalid foreground child associations")
 
 
-def prepare_handoff(expected_unit: str, *, foreground: bool = False) -> Path | None:
+def registration_pending(record: OperationRecord) -> bool:
+    """Settled launch proof belongs to its matching unresolved admission owner."""
+    selected = record.get("registration")
+    if selected is None:
+        return False
+    if (
+        not isinstance(selected, dict)
+        or not isinstance(selected.get("path"), str)
+        or not isinstance(selected.get("nonce"), str)
+        or not Path(selected["path"]).is_absolute()
+    ):
+        raise ValueError("invalid native registration association")
+    try:
+        pending = json.loads(Path(selected["path"]).read_text())
+    except FileNotFoundError:
+        return False
+    if not isinstance(pending, dict):
+        raise ValueError("invalid native registration owner")  # noqa: TRY004 -- malformed persisted records use ValueError
+    return pending.get("nonce") == selected["nonce"]
+
+
+def prepare_handoff(
+    expected_unit: str,
+    *,
+    foreground: bool = False,
+    reservation: tuple[Path, str] | None = None,
+    deadline: float | None = None,
+) -> Path | None:
     """Pin before launch; a dead launcher leaves a conservative pending guard."""
-    parent = owner_record()
-    if parent is None:
+    parent = owner_record(**({"deadline": deadline} if deadline is not None else {}))
+    if parent is None and reservation is None:
         return None
-    with record_lock(parent):
-        registered = _record(parent)
-        if foreground and registered.get("cancelled"):
+    if parent is None:
+        from scripts import native_cache as cache  # noqa: PLC0415 -- reciprocal owner
+
+        directory = cache.cache_root(dict(os.environ)) / ".operations"
+        if deadline is not None:
+            admission_remaining(deadline)
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        directory.chmod(0o700)
+    else:
+        directory = parent.parent
+    with (
+        record_lock(parent, deadline=deadline)
+        if parent is not None
+        else contextlib.nullcontext()
+    ):
+        if deadline is not None:
+            admission_remaining(deadline)
+        registered = _record(parent) if parent is not None else None
+        if foreground and (registered is None or parent is None):
+            raise ValueError("native foreground parent is unavailable")
+        if foreground and registered is not None and registered.get("cancelled"):
             raise ValueError("native foreground parent is cancelled")
-        path = parent.parent / f"handoff-{uuid.uuid4().hex}.json"
+        path = directory / f"handoff-{uuid.uuid4().hex}.json"
         record: OperationRecord = {
             "version": VERSION,
             "scope": None,
             "handoff": expected_unit,
             "admissions": {},
-            "generations": registered["generations"][:],
+            "generations": registered["generations"][:]
+            if registered is not None
+            else [],
         }
+        if reservation is not None:
+            selected, nonce = reservation
+            if not selected.is_absolute() or not nonce:
+                raise ValueError("native handoff requires an exact registration owner")
+            pending = json.loads(selected.read_text())
+            if not isinstance(pending, dict) or pending.get("nonce") != nonce:
+                raise ValueError("native registration owner changed before handoff")
+            record["registration"] = {"path": str(selected), "nonce": nonce}
         children: list[str] = []
-        if foreground:
+        if foreground and registered is not None:
             if not re.fullmatch(r"pse-native-[a-f0-9]{32}\.scope", expected_unit):
                 raise ValueError("foreground handoff requires an observer scope")
             record.update(foreground=True, parent=str(parent))
             children = foreground_children(registered)
+        if deadline is not None:
+            admission_remaining(deadline)
         write_json(path, record)
-        if foreground:
+        if foreground and registered is not None and parent is not None:
             registered["foreground_children"] = [*children, str(path)]
+            if deadline is not None:
+                admission_remaining(deadline)
             write_json(parent, registered)
     return path
 
@@ -449,19 +661,24 @@ def bind_handoff(path: Path) -> None:
                     "native child handoff differs from its registered scope"
                 )
             record["scope"] = owner
-            if parent is not None:
+            if parent is not None or record.get("registration") is not None:
                 from scripts import host_admission  # noqa: PLC0415 -- reciprocal owner
 
-                if record.get("parent") != str(parent) or (
-                    registered is not None
-                    and str(path) not in foreground_children(registered)
+                if parent is not None and (
+                    record.get("parent") != str(parent)
+                    or (
+                        registered is not None
+                        and str(path) not in foreground_children(registered)
+                    )
                 ):
                     raise ValueError("native foreground parent association changed")
                 inode = host_admission.group_identity(owner["group"])
                 if inode is None or record.get("scope_inode", inode) != inode:
-                    raise ValueError("native foreground scope generation changed")
+                    raise ValueError("native handoff scope generation changed")
                 record["scope_inode"] = inode
-                if registered is None or registered.get("cancelled"):
+                if parent is not None and (
+                    registered is None or registered.get("cancelled")
+                ):
                     record["cancelled"] = True
             write_json(path, record)
             if record.get("foreground") and record.get("cancelled"):
@@ -497,8 +714,11 @@ def stop_foreground_handoff(record: OperationRecord) -> None:
         not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
     ):
         raise ValueError("invalid foreground scope identity")
-    if drained(record):
+    initial = drained(record)
+    if initial.complete:
         return
+    if initial.phase in {DrainPhase.UNAVAILABLE, DrainPhase.MISMATCH}:
+        raise ValueError(initial.diagnostic() + "; foreground cancellation refused")
     observed = unit_observation(owner["unit"])
     if (
         observed.get("LoadState") != "loaded"
@@ -507,7 +727,9 @@ def stop_foreground_handoff(record: OperationRecord) -> None:
         or type(record.get("scope_inode")) is not int
         or host_admission.group_identity(owner["group"]) != record["scope_inode"]
     ):
-        raise ValueError("foreground observer scope identity changed")
+        raise ValueError(
+            f"foreground observer scope identity changed; selected={owner}; observed={observed}"
+        )
     # Stop waits for this authenticated scope. Its native handler first settles
     # any nested foreground handoffs before its own scope kill.
     subprocess.run(
@@ -515,8 +737,11 @@ def stop_foreground_handoff(record: OperationRecord) -> None:
         check=True,
         timeout=10,
     )
-    if not drained(record):
-        raise ValueError("foreground observer scope did not drain")
+    completion = drained(record)
+    if not completion.complete:
+        raise ValueError(
+            completion.diagnostic() + "; foreground observer scope did not drain"
+        )
 
 
 def cancel_foreground_handoffs() -> None:

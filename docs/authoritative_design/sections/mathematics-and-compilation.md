@@ -850,9 +850,11 @@ A previously qualified complete source receipt may be adopted only after a guard
 store check verifies a fresh live pin and the entire identical immutable canonical revision
 row. The receipt carries no retained protection or publication authority. Changed rows
 continue full positive, absence, membership and interpretation qualification. Protected
-read and staging transactions share the existing weak per-problem pacing owner; each
-complete short decision includes local queueing in its original request deadline, with
-server guards remaining authoritative. No pacing turn spans hydration or native work.
+read transactions share local per-problem pacing, while transactions changing protection,
+publication or retention premises take exclusive access. Fair admission prevents later
+readers from overtaking a queued writer. Each complete short decision includes local
+queueing in its original request deadline; server guards remain authoritative across
+stores and processes. No pacing turn spans hydration or native work.
 
 Scoped preparation inherits the enclosing absolute operation clock through its driver and
 independent children; it cannot renew that clock on a basis hit or phase change. An unscoped
@@ -913,8 +915,12 @@ requests (`PreparedFunctions`) and builds no presolve or coefficient projection,
 every evaluation binds its own values.
 
 The shared `MathService` retains immutable admitted package snapshots, semantic bodies,
-solver views, observation and parametric programs in a byte-bounded DataFusion
-`DefaultCache`. Fixed-count package LRUs are removed. Keys include the consumed physical,
+solver views, observation and parametric programs in a byte-bounded `quick_cache`
+weighted cache. Each insertion records an immutable positive charge for the actual retained
+key, payload and entry overhead; structurally equal lookup keys can own different allocation
+capacities without replacing the resident key or changing its recorded charge. Replacement
+and eviction use the admitted entry's charge. Pressure trims synchronously, and zero capacity
+releases the backing storage before the configured ceiling is restored. Keys include the consumed physical,
 provider, profile and admission dependencies; package retention also binds actual registry
 and engine-context owners. Mutable workspaces, evaluators and cancellation remain
 attempt-owned. Exact package reconstruction obtains a fresh workspace over the admitted

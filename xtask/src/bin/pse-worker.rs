@@ -100,7 +100,7 @@ fn ensure_openmp_environment() -> Result<(), String> {
 
 fn resource_budget(
     cli: &Cli,
-    allocation: pse_operations::canonical::NativeAllocation,
+    allocation: pse_runtime::workflow::NativeAllocation,
 ) -> Result<ResourceBudget, String> {
     allocation.validate().map_err(|error| error.to_string())?;
     let configured = allocation.native_worker_memory_bytes;
@@ -177,9 +177,7 @@ fn resource_budget(
     })
 }
 
-fn verify_placement(
-    allocation: &pse_operations::canonical::NativeAllocation,
-) -> Result<(), String> {
+fn verify_placement(allocation: &pse_runtime::workflow::NativeAllocation) -> Result<(), String> {
     let Some(execution) = allocation.execution else {
         return Ok(());
     };
@@ -316,18 +314,21 @@ fn producer_receipt_observation(
     Ok((Some(display), Some(digest)))
 }
 
-fn publish_ready(cli: &Cli) -> Result<(), String> {
+fn publish_ready(
+    cli: &Cli,
+    selected: &pse_runtime::workflow::NativeExecutionSelection,
+) -> Result<(), String> {
     let Some(nonce) = std::env::var_os("PSE_PRIMARY_NONCE") else {
         return Ok(());
     };
     let state = std::env::var_os("PSE_SURREAL_STATE").ok_or("managed primary state missing")?;
     let state = std::path::Path::new(&state);
-    let options = pse_operations::canonical::CanonicalOptions::from_state(state)
+    selected
+        .require_current()
         .map_err(|error| error.to_string())?;
-    let execution = options
-        .native
-        .execution
-        .ok_or("managed primary execution profile missing")?;
+    let (_, execution) = selected
+        .managed_primary()
+        .map_err(|error| error.to_string())?;
     if cli.maximum_in_flight != Some(execution.case_lanes)
         || cli.until_idle
         || cli.maximum_actions.is_some()
@@ -341,7 +342,7 @@ fn publish_ready(cli: &Cli) -> Result<(), String> {
     let value = serde_json::json!({
         "producer_receipt_path": receipt_path, "producer_receipt_sha256": receipt_sha256,
         "ready": true, "pid": std::process::id(), "nonce": nonce.to_string_lossy(),
-        "canonical_database": cli.canonical_database.as_deref().unwrap_or(&options.database),
+        "canonical_database": selected.database(),
         "pool_memory_bytes": execution.pool_memory_bytes, "worker_bytes": execution.worker_bytes,
         "cpu_threads": execution.cpu_threads, "case_lanes": execution.case_lanes, "math_jobs": execution.math_jobs,
     });
@@ -373,14 +374,18 @@ fn publish_ready(cli: &Cli) -> Result<(), String> {
         .map_err(|error| error.to_string())
 }
 
-async fn runtime(cli: &Cli) -> Result<Runtime, String> {
+async fn runtime(
+    cli: &Cli,
+) -> Result<(Runtime, pse_runtime::workflow::NativeExecutionSelection), String> {
     let state = std::env::var_os("PSE_SURREAL_STATE")
         .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
-    let options =
-        pse_operations::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))
-            .map_err(|e| format!("managed canonical configuration: {e}"))?;
-    verify_placement(&options.native).map_err(|e| format!("managed placement: {e}"))?;
-    let shared = SharedRuntime::build(resource_budget(cli, options.native)?)
+    let selected = pse_runtime::workflow::NativeExecutionSelection::from_state(
+        std::path::Path::new(&state),
+        cli.canonical_database.as_deref(),
+    )
+    .map_err(|e| format!("managed execution configuration: {e}"))?;
+    verify_placement(&selected.allocation()).map_err(|e| format!("managed placement: {e}"))?;
+    let shared = SharedRuntime::build(resource_budget(cli, selected.allocation())?)
         .map_err(|e| format!("runtime budget: {e}"))?;
     let registry = pse_schema::shared_registry().map_err(|e| format!("registry: {e}"))?;
     let sessions = Arc::new(
@@ -403,11 +408,15 @@ async fn runtime(cli: &Cli) -> Result<Runtime, String> {
         .name
         .clone()
         .unwrap_or_else(|| Operations::process_worker("pse-worker"));
-    Runtime::from_shared(shared, registry, sessions, deployment)
+    let runtime = Runtime::from_shared(shared, registry, sessions, deployment)
         .and_then(|runtime| {
             runtime.with_durability(DurabilitySelection::Durable { worker, policy })
         })
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    selected
+        .require_current()
+        .map_err(|error| error.to_string())?;
+    Ok((runtime, selected))
 }
 
 fn diagnostic_report(error: &WorkflowError) -> String {
@@ -480,7 +489,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let runtime = match executor.block_on(runtime(&cli)) {
+    let (runtime, selected) = match executor.block_on(runtime(&cli)) {
         Ok(runtime) => runtime,
         Err(error) => {
             eprintln!("error: runtime initialization: {error}");
@@ -491,7 +500,7 @@ fn main() -> ExitCode {
     let qualification = match cli
         .qualification_native_entry
         .as_deref()
-        .map(|directory| qualification::Controller::open(directory, &cli))
+        .map(|directory| qualification::Controller::open(directory, &cli, &selected))
         .transpose()
     {
         Ok(qualification) => qualification,
@@ -512,7 +521,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     }
-    if let Err(error) = publish_ready(&cli) {
+    if let Err(error) = publish_ready(&cli, &selected) {
         eprintln!("error: primary readiness publication: {error}");
         return ExitCode::FAILURE;
     }
@@ -651,8 +660,8 @@ mod tests {
         );
     }
 
-    fn legacy_allocation(bytes: usize) -> pse_operations::canonical::NativeAllocation {
-        pse_operations::canonical::NativeAllocation {
+    fn legacy_allocation(bytes: usize) -> pse_runtime::workflow::NativeAllocation {
+        pse_runtime::workflow::NativeAllocation {
             native_workers: 2,
             native_worker_memory_bytes: bytes,
             execution: None,
@@ -682,7 +691,7 @@ mod tests {
     #[test]
     fn selected_reference_budget_consumes_exact_allocated_fields() {
         let cli = Cli::try_parse_from(["pse-worker"]).unwrap();
-        let execution = pse_operations::canonical::NativeExecutionAllocation {
+        let execution = pse_runtime::workflow::NativeExecutionAllocation {
             pool_memory_bytes: 128 << 30,
             worker_bytes: 16 << 30,
             cpu_threads: 16,
@@ -693,7 +702,7 @@ mod tests {
             process_headroom_bytes: 12 << 30,
             observer_memory_bytes: 4 << 30,
         };
-        let allocation = pse_operations::canonical::NativeAllocation {
+        let allocation = pse_runtime::workflow::NativeAllocation {
             native_workers: 1,
             native_worker_memory_bytes: 140 << 30,
             execution: Some(execution),
@@ -831,7 +840,11 @@ mod qualification {
         result
     }
     impl Controller {
-        pub(super) fn open(directory: &Path, cli: &super::Cli) -> Result<Arc<Self>, String> {
+        pub(super) fn open(
+            directory: &Path,
+            cli: &super::Cli,
+            selected: &pse_runtime::workflow::NativeExecutionSelection,
+        ) -> Result<Arc<Self>, String> {
             let state =
                 std::env::var_os("PSE_SURREAL_STATE").ok_or("qualification state missing")?;
             let state = std::fs::canonicalize(state).map_err(|error| error.to_string())?;
@@ -842,10 +855,8 @@ mod qualification {
                     "qualification control must be beneath the selected private state".into(),
                 );
             }
-            let options = pse_operations::canonical::CanonicalOptions::from_state(&state)
-                .map_err(|error| error.to_string())?;
-            let profile = options
-                .native
+            let profile = selected
+                .allocation()
                 .execution
                 .ok_or("qualification requires the selected reference profile")?;
             if profile.pool_memory_bytes != 128 << 30
@@ -867,7 +878,7 @@ mod qualification {
                     != cli
                         .canonical_database
                         .as_deref()
-                        .unwrap_or(&options.database)
+                        .unwrap_or(selected.database())
                 || request.entry_timeout_ms == 0
                 || request.entry_timeout_ms > 90_000
             {

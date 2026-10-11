@@ -32,12 +32,11 @@ pub(super) async fn open(
 ) -> Result<pse_runtime::workflow::CanonicalDeployment, String> {
     let state = std::env::var_os("PSE_SURREAL_STATE")
         .ok_or("PSE_SURREAL_STATE must select a supervised canonical deployment")?;
-    let mut options =
-        pse_operations::canonical::CanonicalOptions::from_state(std::path::Path::new(&state))
-            .map_err(|e| e.to_string())?;
-    if let Some(database) = database {
-        options.database = database.to_owned();
-    }
+    let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
+        std::path::Path::new(&state),
+        database,
+    )
+    .map_err(|e| e.to_string())?;
     let store = pse_operations::canonical::CanonicalStore::connect(&options)
         .await
         .map_err(|e| e.to_string())?;

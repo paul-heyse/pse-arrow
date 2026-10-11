@@ -5,6 +5,9 @@
 Run `python -m scripts.tests.surreal_fixture_check` for the journey or add
 `--validate-only` to check the state passed in PSE_SURREAL_STATE during restore.
 This administrative HTTP control exercises lifecycle; Rust owns native WebSocket checks.
+Every non-MCP journey requires a current `target/debug/xtask` built with
+`canonical-tools`; it installs the production canonical schema before toy writes.
+MCP-only controls do not require that initializer.
 """
 
 from __future__ import annotations
@@ -32,6 +35,7 @@ from scripts import surreal_server as server
 
 INTERPRETATION = server.SUBSTRATE_INTERPRETATION
 FIXTURE = {"operation": "ack-fixed-1", "exact_bits": "8000000000000000"}
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def record_ownership(directory: Path, unit: str) -> None:
@@ -61,6 +65,7 @@ def record_ownership(directory: Path, unit: str) -> None:
 
 def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] | None:
     """Verify successful terminal state before saving proof and retiring new inputs."""
+    deadline = time.monotonic() + 90
     proof: dict[str, object] | None = None
     mcp = (
         server.read_json(directory / "mcp-control.json")
@@ -101,13 +106,27 @@ def finish_fixture(directory: Path, evidence: Path | None) -> dict[str, object] 
                 "boot": scope["boot"],
                 "released": True,
                 "units": {scope["unit"]: scope},
-            }
+            },
+            deadline=deadline,
         )
         for scope in scopes
     ):
         raise server.SupervisorError(
             "Fixture kernel lifetime remains undrained; retained"
         )
+    if attached_state is None:
+        states = {str(directory / "live"), str(directory / "restored")}
+        snapshot = host_admission.readonly_snapshot(
+            host_admission.root_path(), deadline=deadline
+        )
+        if any(
+            owner.get("service") in states
+            or states.intersection(owner.get("borrowed_services", []))
+            for owner in snapshot["owners"].values()
+        ):
+            raise server.SupervisorError(
+                "Fixture storage remains referenced by a host allocation; retained"
+            )
     if evidence is not None:
         evidence = evidence.resolve()
         if evidence.exists():
@@ -189,8 +208,8 @@ def query(state: Path, text: str) -> list[dict[str, object]]:
         headers={
             "Authorization": f"Basic {token}",
             "Accept": "application/json",
-            "surreal-ns": "pse",
-            "surreal-db": "canonical",
+            "surreal-ns": str(config["namespace"]),
+            "surreal-db": str(config["database"]),
         },
     )
     with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 -- literal authenticated loopback endpoint; config_for validates port
@@ -200,6 +219,37 @@ def query(state: Path, text: str) -> list[dict[str, object]]:
     ):
         raise server.SupervisorError("Fixture query failed")
     return result
+
+
+def initialize_canonical(state: Path) -> None:
+    """Install and verify the current schema through its production initializer."""
+    xtask = ROOT / "target/debug/xtask"
+    if not xtask.is_file() or not os.access(xtask, os.X_OK):
+        raise server.SupervisorError(
+            "Non-MCP fixture requires current target/debug/xtask built with canonical-tools"
+        )
+    environment = dict(os.environ)
+    environment.pop("PSE_CANONICAL_INITIALIZER", None)
+    environment["PSE_SURREAL_STATE"] = str(state)
+    result = subprocess.run(
+        [str(xtask), "canonical-init", str(state)],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # Keep initializer diagnostics private with the retained fixture, including
+    # failures from an outdated binary lacking the canonical-tools command.
+    diagnostic = state / "canonical-initializer.log"
+    descriptor = os.open(diagnostic, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w") as stream:
+        stream.write(result.stdout + "\n" + result.stderr)
+    if result.returncode:
+        raise server.SupervisorError(
+            "Production canonical initializer failed; private diagnostic "
+            + str(diagnostic)
+        )
 
 
 def check(state: Path) -> None:
@@ -746,11 +796,9 @@ def journey(
                     flush=True,
                 )
                 return
+            initialize_canonical(state)
             query(
                 state,
-                "DEFINE NAMESPACE IF NOT EXISTS pse; USE NS pse; DEFINE DATABASE IF NOT EXISTS canonical; USE DB canonical; "
-                "DEFINE TABLE IF NOT EXISTS canonical_interpretations SCHEMALESS; "
-                f"UPSERT canonical_interpretations:current CONTENT {{key:'current',interpretation:{json.dumps(INTERPRETATION)}}}; "
                 "DEFINE TABLE IF NOT EXISTS supervisor_probe SCHEMALESS; "
                 "UPSERT supervisor_probe:ack CONTENT {operation:'ack-fixed-1',exact_bits:'8000000000000000'};",
             )

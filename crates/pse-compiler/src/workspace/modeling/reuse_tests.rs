@@ -130,6 +130,153 @@ fn immutable_binding_inputs_allow_a_b_a_and_more_selections_than_old_root_cap() 
     }
 }
 
+#[test]
+fn request_hash_buckets_compare_every_field_and_reuse_a_after_collisions() {
+    use pse_modeling::specialize::Value;
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { var x:Scalar; eq a:x==1; } }",
+    );
+    let instance = InstanceId::from_id(SemanticId::NIL);
+    let bindings = Bindings::default();
+    let limits = Limits::default();
+    let base_hash = request_hash(root, instance, &bindings, limits);
+    let (_, original) = workspace
+        .modeling_request_in_bucket(root, instance, bindings.clone(), limits, 0)
+        .unwrap();
+    let mut variants = vec![
+        (
+            DeclarationId::from_id(SemanticId::from_bytes([19; 16])),
+            instance,
+            bindings.clone(),
+            limits,
+        ),
+        (
+            root,
+            InstanceId::from_id(SemanticId::from_bytes([20; 16])),
+            bindings.clone(),
+            limits,
+        ),
+    ];
+    for field in 0..6 {
+        let mut changed = bindings.clone();
+        match field {
+            0 => {
+                changed.arguments.insert("n".into(), Value::Integer(2));
+            }
+            1 => {
+                changed.scope.insert("n".into(), Value::Integer(2));
+            }
+            2 => {
+                changed.facts.insert(
+                    pse_modeling::analysis::Fact::Stage("s".into()),
+                    Value::Boolean(true),
+                );
+            }
+            3 => changed.demand.push("x".into()),
+            4 => {
+                changed
+                    .formulation
+                    .omitted
+                    .insert(SemanticId::from_bytes([21; 16]));
+            }
+            _ => {
+                changed
+                    .formulation
+                    .elastic
+                    .insert(SemanticId::from_bytes([22; 16]), Value::Integer(2));
+            }
+        }
+        variants.push((root, instance, changed, limits));
+    }
+    for field in 0..5 {
+        let mut changed = limits;
+        match field {
+            0 => changed.depth += 1,
+            1 => changed.items += 1,
+            2 => changed.members += 1,
+            3 => changed.body_occurrences = Some(17),
+            _ => changed.body_slots = Some(23),
+        }
+        variants.push((root, instance, bindings.clone(), changed));
+    }
+    let mut handles = vec![original];
+    for (root, instance, bindings, limits) in variants {
+        assert_ne!(request_hash(root, instance, &bindings, limits), base_hash);
+        let (_, request) = workspace
+            .modeling_request_in_bucket(root, instance, bindings.clone(), limits, 0)
+            .unwrap();
+        assert!(
+            !handles.contains(&request),
+            "a colliding request must keep its own complete meaning"
+        );
+        let (_, again) = workspace
+            .modeling_request_in_bucket(root, instance, bindings, limits, 0)
+            .unwrap();
+        assert!(again == request);
+        handles.push(request);
+    }
+    let (_, again) = workspace
+        .modeling_request_in_bucket(root, instance, bindings, limits, 0)
+        .unwrap();
+    assert!(again == original);
+    let state = workspace.modeling.as_ref().unwrap();
+    assert_eq!(state.requests.len(), 1);
+    assert!(state.requests[&0] == handles);
+    assert!(state.request_bytes > handles.len() * size_of::<Bindings>());
+}
+
+#[test]
+fn request_bucket_bytes_rotate_generation_without_invalidating_escaped_products() {
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let root = publish_frontier_source(
+        &mut workspace,
+        "package p { def Root { var x:Scalar; eq a:x==1; } }",
+    );
+    let escaped = prepare(&mut workspace, root, Bindings::default());
+    let occurrences = escaped.occurrences();
+    let state = workspace.modeling.as_ref().unwrap();
+    let per_request = state.request_bytes;
+    assert!(per_request > 0);
+    workspace.limits.input_bytes = state.input_bytes
+        + workspace.inputs.quantities.allocation_extent()
+        + workspace.inputs.preconditions.allocation_extent()
+        + 2 * per_request;
+    let available = workspace.limits.input_bytes - state.input_bytes;
+    let generation = workspace.generation();
+    for n in 1..=available / per_request + 1 {
+        let mut id = [0; 16];
+        id[..8].copy_from_slice(&(n as u64).to_le_bytes());
+        workspace
+            .modeling_request(
+                root,
+                InstanceId::from_id(SemanticId::from_bytes(id)),
+                Bindings::default(),
+                Limits::default(),
+            )
+            .unwrap();
+        if workspace.generation() != generation {
+            break;
+        }
+    }
+    assert_eq!(workspace.generation(), generation + 1);
+    let state = workspace.modeling.as_ref().unwrap();
+    assert_eq!(state.requests.values().map(Vec::len).sum::<usize>(), 1);
+    assert_eq!(state.request_bytes, per_request);
+    drop(workspace);
+    assert_eq!(escaped.occurrences(), occurrences);
+    assert!(!escaped.model.symbols.is_empty());
+}
+
 #[derive(Debug)]
 struct RefuseOnce(AtomicBool);
 impl ModelingBodyRetention for RefuseOnce {

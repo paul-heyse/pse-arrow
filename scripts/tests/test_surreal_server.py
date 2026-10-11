@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import errno
+import io
 import json
 import os
 import shutil
@@ -26,6 +27,97 @@ from scripts.tests import canonical_recovery_check as recovery
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+
+def readiness_fixture(phase: server.Readiness) -> server.ServiceObservation:
+    return server.ServiceObservation(
+        phase,
+        Path("/fixture"),
+        "fixture",
+        "fixture.service",
+        "controlled observation",
+        manager={"ActiveState": "active"}
+        if phase in {server.Readiness.READY, server.Readiness.STARTING}
+        else {},
+        listener_owned=phase in {server.Readiness.READY, server.Readiness.STARTING},
+        protocol_ready=phase is server.Readiness.READY,
+    )
+
+
+class LifecycleClockTests(unittest.TestCase):
+    def test_lifecycle_deadline_narrows_nested_clock_and_restores_on_failure(
+        self,
+    ) -> None:
+        with (
+            patch.object(server.time, "monotonic", return_value=100),
+            patch.object(server._STARTUP, "deadline", None, create=True),  # noqa: SLF001 -- observe exact nested clock restoration
+        ):
+            self.assertIsNone(server._STARTUP.deadline)  # noqa: SLF001 -- establish the original absent clock
+            with server.lifecycle_deadline(140) as outer:
+                self.assertEqual(outer, 140)
+                with server.lifecycle_deadline(160) as inner:
+                    self.assertEqual(inner, 140)
+                    self.assertEqual(server._STARTUP.deadline, 140)  # noqa: SLF001 -- later offers cannot renew the original clock
+                with (
+                    self.assertRaisesRegex(ValueError, "controlled failure"),
+                    server.lifecycle_deadline(120),
+                ):
+                    self.assertEqual(server._STARTUP.deadline, 120)  # noqa: SLF001 -- earlier offers narrow the shared control clock
+                    raise ValueError("controlled failure")
+                self.assertEqual(server._STARTUP.deadline, 140)  # noqa: SLF001 -- nested failure restores the enclosing clock
+            self.assertIsNone(server._STARTUP.deadline)  # noqa: SLF001 -- final exit restores the original absence
+
+    def test_lifecycle_deadline_refuses_nonfinite_offers(self) -> None:
+        for deadline in (float("nan"), float("inf")):
+            with (
+                self.subTest(deadline=deadline),
+                self.assertRaisesRegex(
+                    server.SupervisorError, "finite absolute deadline"
+                ),
+                server.lifecycle_deadline(deadline),
+            ):
+                self.fail("nonfinite clock entered lifecycle composition")
+
+    def test_expired_readmission_refuses_before_reservation_or_publication(
+        self,
+    ) -> None:
+        with (
+            patch.object(server.time, "monotonic", return_value=100),
+            patch.object(server._STARTUP, "deadline", None, create=True),  # noqa: SLF001 -- original control clock is absent
+            patch.object(server, "lifecycle_reservation") as reserve,
+            patch.object(server, "publish_generation") as publish,
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.readmit_supervisor(Path("/selected"), deadline=99)
+        reserve.assert_not_called()
+        publish.assert_not_called()
+
+    def test_readmission_expiry_during_drain_prevents_late_publication(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            config = {"admission": "quiesced", "accepting_writes": False}
+            with (
+                patch.object(server.time, "monotonic", return_value=100) as clock,
+                patch.object(server._STARTUP, "deadline", None, create=True),  # noqa: SLF001 -- assert public readmission restores its offered clock
+                patch.object(
+                    server,
+                    "lifecycle_reservation",
+                    return_value=contextlib.nullcontext(),
+                ),
+                patch.object(server, "config_for", return_value=config),
+                patch.object(server, "active", return_value=False),
+                patch.object(server, "close_context_admission"),
+                patch.object(
+                    server,
+                    "all_contexts_drained",
+                    side_effect=lambda _state: setattr(clock, "return_value", 141),
+                ),
+                patch.object(server, "publish_generation") as publish,
+                self.assertRaises(server.DeadlineExpiredError),
+            ):
+                server.readmit_supervisor(state, deadline=140)
+            publish.assert_not_called()
+            self.assertFalse((state / ".profile-history").exists())
 
 
 class SurrealSupervisorTests(unittest.TestCase):
@@ -167,10 +259,158 @@ class SurrealSupervisorTests(unittest.TestCase):
             original, candidate, self.state, restored, primary=True
         )
 
+    def test_held_metadata_lock_expires_without_late_admission(self) -> None:
+        config = self.initialized()
+        program = "import fcntl,sys; f=open(sys.argv[1], 'a'); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(self.state / ".supervisor.lock")],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            for control in ("join", "reservation", "context"):
+                with self.subTest(control=control):
+                    started = server.time.monotonic()
+                    deadline = started + 0.05
+                    with self.assertRaises(server.DeadlineExpiredError):
+                        if control == "join":
+                            server.wait_reservation(
+                                self.state,
+                                self.state / "absent.json",
+                                "absent",
+                                deadline,
+                            )
+                        elif control == "reservation":
+                            with server.lifecycle_reservation(
+                                self.state, purpose="startup", deadline=deadline
+                            ):
+                                self.fail("expired lifecycle was admitted")
+                        else:
+                            with server.context_admission(
+                                self.state, deadline=deadline
+                            ):
+                                self.fail("expired context was admitted")
+                    self.assertLess(server.time.monotonic() - started, 0.5)
+                    self.assertFalse((self.state / "lifecycle-owner.json").exists())
+                    self.assertEqual(server.config_for(self.state), config)
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+
+    def test_lock_rechecks_clock_after_acquisition_before_effects(self) -> None:
+        self.initialized()
+        original = server.fcntl.flock
+
+        def delayed(descriptor: int, operation: int) -> None:
+            original(descriptor, operation)
+            server.time.sleep(0.04)
+
+        with (
+            patch.object(server.fcntl, "flock", side_effect=delayed),
+            self.assertRaises(server.DeadlineExpiredError),
+            server.lifecycle_reservation(
+                self.state, purpose="startup", deadline=server.time.monotonic() + 0.02
+            ),
+        ):
+            self.fail("post-acquisition expiry admitted effects")
+        self.assertFalse((self.state / "lifecycle-owner.json").exists())
+
+    def test_expired_owned_lifecycle_retains_cleanup_and_releases_only_its_reservation(
+        self,
+    ) -> None:
+        self.initialized()
+        deadline = server.time.monotonic() + 0.02
+        calls = []
+
+        def cleanup(state: Path) -> None:
+            self.assertEqual(state, self.state)
+            self.assertIsNone(server._STARTUP.deadline)  # noqa: SLF001 -- cleanup consumes its own existing lifetime
+            self.assertTrue((state / "lifecycle-owner.json").exists())
+            calls.append(state)
+
+        with (
+            patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- original caller clock
+            patch.object(server, "drain_maintenance_listener", side_effect=cleanup),
+            self.assertRaises(server.DeadlineExpiredError),
+            server.lifecycle_reservation(
+                self.state, purpose="startup", deadline=deadline
+            ),
+        ):
+            server.time.sleep(0.04)
+            server.remaining(deadline)
+        self.assertEqual(calls, [self.state])
+        self.assertFalse((self.state / "lifecycle-owner.json").exists())
+
+    def test_live_reservation_observations_distinguish_operation_purpose(self) -> None:
+        config = self.initialized()
+        for purpose, phase in (
+            ("startup", server.Readiness.STARTING),
+            ("stop", server.Readiness.STOPPING),
+            ("maintenance", server.Readiness.MAINTENANCE),
+            (None, server.Readiness.UNAVAILABLE),
+        ):
+            selected = {
+                "nonce": "selected",
+                "pid": os.getpid(),
+                "start": server.native_operation.start_identity(os.getpid()),
+                "purpose": purpose,
+            }
+            server.write_json(self.state / "lifecycle-owner.json", selected)
+            with (
+                self.subTest(purpose=purpose),
+                patch.object(server, "systemctl") as manager,
+            ):
+                observed = server.service_readiness(self.state, config)
+                self.assertEqual(observed.phase, phase)
+                self.assertEqual(observed.instance_id, config["instance_id"])
+                self.assertEqual(observed.state, self.state)
+                self.assertEqual(observed.reservation, selected)
+                self.assertIn("reservation", observed.cause)
+                manager.assert_not_called()
+        (self.state / "lifecycle-owner.json").unlink()
+
+    def test_external_activation_requires_exact_owned_launch(self) -> None:
+        config = self.initialized()
+        invocation = "a" * 32
+        manager = subprocess.CompletedProcess(
+            [],
+            0,
+            f"ActiveState=activating\nControlGroup=/owned\nInvocationID={invocation}\n",
+            "",
+        )
+        launch = {"binding": {"invocation": invocation, "group": "/owned", "inode": 17}}
+        with (
+            patch.object(server, "systemctl", return_value=manager),
+            patch.object(server, "recorded_storage_owner", return_value=(None, launch)),
+            patch.object(server.host_admission, "group_identity", return_value=17),
+        ):
+            observed = server.service_readiness(self.state, config)
+            self.assertEqual(observed.phase, server.Readiness.STARTING)
+            self.assertEqual(observed.manager["InvocationID"], invocation)
+            launch["binding"]["invocation"] = "b" * 32
+            self.assertEqual(
+                server.service_readiness(self.state, config).phase,
+                server.Readiness.MISMATCH,
+            )
+        with (
+            patch.object(server, "systemctl", return_value=manager),
+            patch.object(
+                server,
+                "recorded_storage_owner",
+                side_effect=server.SupervisorError("launch proof unavailable"),
+            ),
+        ):
+            observed = server.service_readiness(self.state, config)
+            self.assertEqual(observed.phase, server.Readiness.UNAVAILABLE)
+            self.assertIn("launch proof unavailable", observed.cause)
+
     def test_typed_readiness_separates_absence_unavailable_and_mismatch(self) -> None:
         config = self.initialized()
         self.assertEqual(
-            server.service_readiness(self.state, config),
+            server.service_readiness(self.state, config).phase,
             server.Readiness.ACTIONABLE_ABSENT,
         )
         active = subprocess.CompletedProcess(
@@ -190,12 +430,12 @@ class SurrealSupervisorTests(unittest.TestCase):
                     patch.object(server, "_owns_listener", side_effect=error),
                 ):
                     self.assertEqual(
-                        server.service_readiness(self.state, config),
+                        server.service_readiness(self.state, config).phase,
                         server.Readiness.UNAVAILABLE,
                     )
             with patch.object(server, "_owns_listener", return_value=False):
                 self.assertEqual(
-                    server.service_readiness(self.state, config),
+                    server.service_readiness(self.state, config).phase,
                     server.Readiness.MISMATCH,
                 )
         with patch.object(
@@ -204,12 +444,13 @@ class SurrealSupervisorTests(unittest.TestCase):
             return_value=subprocess.CompletedProcess([], 1, "", "unavailable"),
         ):
             self.assertEqual(
-                server.service_readiness(self.state, config),
+                server.service_readiness(self.state, config).phase,
                 server.Readiness.UNAVAILABLE,
             )
         with patch.object(server, "listening_inodes", return_value={"unowned"}):
             self.assertEqual(
-                server.service_readiness(self.state, config), server.Readiness.MISMATCH
+                server.service_readiness(self.state, config).phase,
+                server.Readiness.MISMATCH,
             )
 
     def test_stop_keeps_allocation_until_exact_zombie_is_reaped(self) -> None:
@@ -258,13 +499,14 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server.time, "sleep", side_effect=reap) as wait,
         ):
             self.assertEqual(
-                server.service_readiness(self.state, config), server.Readiness.MISMATCH
+                server.service_readiness(self.state, config).phase,
+                server.Readiness.MISMATCH,
             )
             server._stop(self.state, config)  # noqa: SLF001 -- isolate the exact process drain boundary
             wait.assert_called_once_with(0.05)
             released.assert_called_once_with(self.state, config)
             self.assertEqual(
-                server.service_readiness(self.state, config),
+                server.service_readiness(self.state, config).phase,
                 server.Readiness.ACTIONABLE_ABSENT,
             )
 
@@ -309,7 +551,10 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def test_unknown_or_mismatched_readiness_never_reserves_or_starts(self) -> None:
         config = self.initialized()
-        for observation in (server.Readiness.UNAVAILABLE, server.Readiness.MISMATCH):
+        for observation in (
+            readiness_fixture(server.Readiness.UNAVAILABLE),
+            readiness_fixture(server.Readiness.MISMATCH),
+        ):
             with (
                 self.subTest(observation=observation),
                 patch.object(server, "service_readiness", return_value=observation),
@@ -325,7 +570,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         config = self.initialized()
         with (
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch.object(server, "lifecycle_reservation") as reservation,
             patch.object(server, "_start") as launch,
@@ -340,13 +587,13 @@ class SurrealSupervisorTests(unittest.TestCase):
         original_wait = server.wait_reservation
         deadline = server.time.monotonic() + 10
 
-        def readiness(*_args: object, **_kwargs: object) -> server.Readiness:
+        def readiness(*_args: object, **_kwargs: object) -> server.ServiceObservation:
             if completed.is_set():
-                return server.Readiness.READY
+                return readiness_fixture(server.Readiness.READY)
             return (
-                server.Readiness.STARTING
+                readiness_fixture(server.Readiness.STARTING)
                 if entered.is_set()
-                else server.Readiness.ACTIONABLE_ABSENT
+                else readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)
             )
 
         def launch(*_args: object, **kwargs: object) -> None:
@@ -390,13 +637,15 @@ class SurrealSupervisorTests(unittest.TestCase):
             entered, joining, release, completed = (threading.Event() for _ in range(4))
             original_wait = server.wait_reservation
 
-            def readiness(*_args: object, **_kwargs: object) -> server.Readiness:
+            def readiness(
+                *_args: object, **_kwargs: object
+            ) -> server.ServiceObservation:
                 if completed.is_set():
-                    return server.Readiness.READY
+                    return readiness_fixture(server.Readiness.READY)
                 return (
-                    server.Readiness.STARTING
+                    readiness_fixture(server.Readiness.STARTING)
                     if entered.is_set()
-                    else server.Readiness.ACTIONABLE_ABSENT
+                    else readiness_fixture(server.Readiness.ACTIONABLE_ABSENT)
                 )
 
             def launch(*_args: object, **_kwargs: object) -> None:
@@ -439,7 +688,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             with (
                 self.subTest(command=command),
                 patch.object(
-                    server, "service_readiness", return_value=server.Readiness.READY
+                    server,
+                    "service_readiness",
+                    return_value=readiness_fixture(server.Readiness.READY),
                 ),
                 patch.object(server, "lifecycle_reservation") as reservation,
                 patch.object(server, "_start") as launch,
@@ -522,7 +773,10 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(
                 server,
                 "service_readiness",
-                side_effect=[server.Readiness.STARTING, server.Readiness.UNAVAILABLE],
+                side_effect=[
+                    readiness_fixture(server.Readiness.STARTING),
+                    readiness_fixture(server.Readiness.UNAVAILABLE),
+                ],
             ),
             patch.object(server, "wait_reservation", side_effect=release),
             patch.object(server, "_start") as launch,
@@ -570,7 +824,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         with (
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.STARTING
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.STARTING),
             ),
             patch.object(server.time, "monotonic", side_effect=[1.0, 1.0, 3.0]),
             patch.object(server, "_start") as launch,
@@ -594,7 +850,9 @@ class SurrealSupervisorTests(unittest.TestCase):
 
         with (
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.STARTING
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.STARTING),
             ),
             patch.object(server, "wait_reservation", side_effect=changed),
             patch.object(server, "_start") as launch,
@@ -617,7 +875,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(
                 server,
                 "service_readiness",
-                return_value=server.Readiness.ACTIONABLE_ABSENT,
+                return_value=readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
             ),
             patch.object(server, "service_allocation", return_value=self.allocation),
             patch.object(server, "materialize_service"),
@@ -639,8 +897,8 @@ class SurrealSupervisorTests(unittest.TestCase):
                 server,
                 "service_readiness",
                 side_effect=[
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.UNAVAILABLE,
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.UNAVAILABLE),
                 ],
             ),
             patch.object(server, "service_allocation") as allocation,
@@ -661,10 +919,10 @@ class SurrealSupervisorTests(unittest.TestCase):
                 server,
                 "service_readiness",
                 side_effect=[
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.UNAVAILABLE,
-                    server.Readiness.STARTING,
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.UNAVAILABLE),
+                    readiness_fixture(server.Readiness.STARTING),
                 ],
             ) as observed,
             patch.object(server, "service_allocation", return_value=self.allocation),
@@ -688,8 +946,8 @@ class SurrealSupervisorTests(unittest.TestCase):
                 server,
                 "service_readiness",
                 side_effect=[
-                    server.Readiness.ACTIONABLE_ABSENT,
-                    server.Readiness.UNAVAILABLE,
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.UNAVAILABLE),
                 ],
             ),
             patch.object(server, "service_allocation", return_value=self.allocation),
@@ -924,6 +1182,11 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.addCleanup(self.scratch.cleanup)
         self.root = Path(self.scratch.name)
         self.state = self.root / "state"
+        native_cache = patch.dict(
+            os.environ, {"PSE_NATIVE_CACHE": str(self.root / "native-cache")}
+        )
+        native_cache.start()
+        self.addCleanup(native_cache.stop)
         # Supervisor unit controls borrow a declared owner without touching the
         # live machine ledger. Host admission itself has its own owner tests.
         self.allocation = MagicMock(spec=host.Allocation)
@@ -931,17 +1194,24 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.allocation.nonce = "a" * 32
         self.allocation.profile = host.select("reference")
         self.allocation.environment.return_value = {}
+        self.host_inherit = host.inherit
+        self.host_snapshot = host.readonly_snapshot
         for target, name, value in (
             (host, "inherit", self.allocation),
             (host, "enforce_allocation", None),
             (host, "enforce_parent", None),
+            (
+                host,
+                "readonly_snapshot",
+                {"owners": {self.allocation.nonce: {"units": {}}}},
+            ),
         ):
             owned = patch.object(target, name, return_value=value)
             owned.start()
             self.addCleanup(owned.stop)
 
         def manager_result(
-            *arguments: str, check: bool = True
+            *arguments: str, check: bool = True, **_kwargs: object
         ) -> subprocess.CompletedProcess[str]:
             self.assertIsInstance(check, bool)
             output = (
@@ -1002,6 +1272,173 @@ class SurrealSupervisorTests(unittest.TestCase):
             b"acknowledged fixed operation identity"
         )
         return server.config_for(self.state)
+
+    def check_recovery_probe_retirement(
+        self, mode: str, *, unknown_committed: bool = False
+    ) -> None:
+        if not (self.state / "config.json").is_file():
+            self.initialized()
+        history = self.state / ".recovery-controls" / "historical" / "context.json"
+        history.parent.mkdir(parents=True, exist_ok=True)
+        historical = {"outcome": "incomplete", "database": "historical_probe"}
+        server.write_json(history, historical)
+        clocks: list[float] = []
+        selected: list[Path] = []
+
+        def query(
+            _state: Path,
+            sql: str,
+            deadline: float,
+            *,
+            namespace: str,
+            database: str,
+            select_context: bool = True,
+        ) -> list[dict[str, object]]:
+            clocks.append(deadline)
+            self.assertGreater(deadline, server.time.monotonic())
+            self.assertEqual(namespace, "pse_recovery")
+            path = (
+                self.state
+                / ".recovery-controls"
+                / database.removeprefix("recovery_")
+                / "context.json"
+            )
+            context = server.read_json(path)
+            selected.append(path)
+            self.assertEqual(context["database"], database)
+            acknowledged = {
+                "operation": context["operation"],
+                "payload": "acknowledged-v1",
+            }
+            unknown = {
+                "operation": context["unknown_operation"],
+                "payload": "unknown-v1",
+            }
+            if sql.startswith("DEFINE NAMESPACE"):
+                self.assertFalse(select_context)
+                return [
+                    {"status": "OK", "result": None},
+                    {
+                        "status": "OK",
+                        "result": {"namespace": namespace, "database": None},
+                    },
+                    {"status": "OK", "result": None},
+                ]
+            if sql.startswith("UPSERT"):
+                return [
+                    {"status": "OK", "result": None},
+                    {"status": "OK", "result": acknowledged},
+                ]
+            if sql.startswith("SELECT"):
+                return [
+                    {"status": "OK", "result": acknowledged},
+                    {"status": "OK", "result": unknown if unknown_committed else None},
+                ]
+            self.assertEqual(
+                sql, f"USE NS `{namespace}`; REMOVE DATABASE `{database}`; INFO FOR NS;"
+            )
+            self.assertFalse(select_context)
+            self.assertEqual(context["outcome"], "settled")
+            self.assertTrue(context["acknowledged_survived"])
+            self.assertEqual(
+                context["unknown_outcome"],
+                "committed" if unknown_committed else "not_committed",
+            )
+            self.assertEqual(context["retirement"], "pending")
+            if mode == "unavailable":
+                raise OSError("retirement response unavailable")
+            if mode == "expired":
+                raise server.DeadlineExpiredError("original control clock expired")
+            result: list[dict[str, object]] = [
+                {"status": "OK", "result": {"namespace": namespace, "database": None}},
+                {"status": "OK", "result": None},
+                {
+                    "status": "OK",
+                    "result": {"databases": {"historical_probe": "retained"}},
+                },
+            ]
+            if mode == "partial":
+                return result[:2]
+            if mode == "wrong-context":
+                result[0]["result"] = {"namespace": namespace, "database": database}
+            if mode == "failed-statement":
+                result[1]["status"] = "ERR"
+            if mode == "missing-result":
+                result[1].pop("result")
+            if mode == "malformed-catalog":
+                result[2]["result"] = {}
+            if mode == "still-present":
+                result[2]["result"] = {"databases": {database: "not retired"}}
+            return result
+
+        with (
+            patch.object(server, "all_contexts_drained"),
+            patch.object(server, "recovery_generation", return_value="same-generation"),
+            patch.object(server, "start") as start,
+            patch.object(server, "stop"),
+            patch.object(server, "reset_failure_window"),
+            patch.object(server, "administrative_query", side_effect=query),
+            patch.object(server, "abandon_administrative_response"),
+            patch.object(server, "materialize_service") as materialize,
+            patch.object(server, "public_status", return_value={"qualified": True}),
+        ):
+            if mode == "passed":
+                self.assertEqual(
+                    server.qualify_recovery(self.state), {"qualified": True}
+                )
+            else:
+                with self.assertRaises((server.SupervisorError, OSError)):
+                    server.qualify_recovery(self.state)
+                materialize.assert_not_called()
+        self.assertEqual(len(clocks), 4)
+        self.assertEqual(len(set(clocks)), 1)
+        self.assertTrue(
+            all(call.kwargs["deadline"] == clocks[0] for call in start.call_args_list)
+        )
+        context = server.read_json(selected[-1])
+        self.assertEqual(server.read_json(history), historical)
+        self.assertEqual(
+            context["retirement"], "complete" if mode == "passed" else "pending"
+        )
+        self.assertEqual(
+            context["outcome"], "passed" if mode == "passed" else "settled"
+        )
+        self.assertEqual(
+            server.config_for(self.state)["restart_qualified"], mode == "passed"
+        )
+        if mode == "passed":
+            proof = server.read_json(self.state / "recovery-qualification.json")
+            self.assertTrue(
+                server.object_mapping(proof["administrative_context"])["retired"]
+            )
+            self.assertEqual(proof["unknown_outcome"], context["unknown_outcome"])
+        else:
+            self.assertFalse((self.state / "recovery-qualification.json").exists())
+
+    def test_recovery_retires_only_its_settled_probe_before_positive_qualification(
+        self,
+    ) -> None:
+        for committed in (False, True):
+            with self.subTest(unknown_committed=committed):
+                self.check_recovery_probe_retirement(
+                    "passed", unknown_committed=committed
+                )
+
+    def test_recovery_uncertain_probe_retirement_keeps_evidence_and_restart_disabled(
+        self,
+    ) -> None:
+        for mode in (
+            "partial",
+            "wrong-context",
+            "failed-statement",
+            "missing-result",
+            "malformed-catalog",
+            "still-present",
+            "unavailable",
+            "expired",
+        ):
+            with self.subTest(mode=mode):
+                self.check_recovery_probe_retirement(mode)
 
     def test_joint_budget_rejects_overallocation(self) -> None:
         with self.assertRaises(server.SupervisorError):
@@ -1357,7 +1794,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "primary_observation", return_value=observation),
             patch.object(server, "primary_ready", return_value=True),
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch.object(server.subprocess, "run") as launch,
         ):
@@ -1388,7 +1827,21 @@ class SurrealSupervisorTests(unittest.TestCase):
             "ActiveState": "inactive",
             "ControlGroup": "",
         }
+        deadline = server.time.monotonic() + 5
+        admission = []
+
+        def prepare(
+            unit: str, *, reservation: tuple[Path, str], deadline: float
+        ) -> Path:
+            self.assertGreater(deadline, server.time.monotonic())
+            self.assertEqual(unit, server.primary_unit(self.state))
+            self.assertEqual(reservation[0], self.state / "primary-admission.json")
+            self.assertEqual(server.read_json(reservation[0])["nonce"], reservation[1])
+            admission.append(reservation[1])
+            return self.root / "handoff"
+
         with (
+            patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
             patch.object(server, "ensure_execution_placement"),
             patch.object(server, "primary_observation", return_value=inactive),
             patch.object(
@@ -1396,11 +1849,13 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as readiness,
             patch.object(server, "settled_worker", return_value=inactive),
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch(
                 "scripts.native_operation.prepare_handoff",
-                return_value=self.root / "handoff",
+                side_effect=prepare,
             ) as handoff,
             patch.object(
                 server.subprocess,
@@ -1409,7 +1864,11 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as launch,
         ):
             receipt = server.ensure_primary(self.state, database="isolated-study")
-        handoff.assert_called_once_with(server.primary_unit(self.state))
+        handoff.assert_called_once_with(
+            server.primary_unit(self.state),
+            reservation=(self.state / "primary-admission.json", admission[0]),
+            deadline=deadline,
+        )
         self.assertEqual(receipt["canonical_database"], "isolated-study")
         self.assertEqual(readiness.call_args.args[-1], "isolated-study")
         command = launch.call_args.args[0]
@@ -1491,7 +1950,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         def metadata(_directory: Path) -> Generator[dict[str, object], None, None]:
             yield ledger
 
-        def manager(*arguments: str) -> subprocess.CompletedProcess[str]:
+        def manager(
+            *arguments: str, **_kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
             if arguments[0] == "set-property":
                 for argument in arguments:
                     if argument.startswith("MemoryMax="):
@@ -1846,7 +2307,9 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as readiness,
             patch.object(server, "settled_worker", return_value=inactive),
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch(
                 "scripts.native_operation.prepare_handoff",
@@ -2130,6 +2593,337 @@ class SurrealSupervisorTests(unittest.TestCase):
         ):
             server.ensure_execution_placement(self.state, server.reference_resources())
         manager.assert_not_called()
+
+    def test_placement_host_lookup_boundaries_share_original_deadline(self) -> None:
+        self.reference_fixture()
+        directory = self.allocation.directory
+        directory.mkdir(mode=0o700)
+        program = "import fcntl,os,sys; f=open(sys.argv[1], 'a'); os.chmod(sys.argv[1], 0o600); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(directory / ".lock")],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        controls = (
+            lambda: server.execution_slice(self.state),
+            lambda: server.physical_cpus(1),
+            lambda: server.selected_slice(self.state, {}),
+            lambda: server.ensure_execution_placement(
+                self.state, server.reference_resources()
+            ),
+        )
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            for control in controls:
+                deadline = server.time.monotonic() + 0.05
+                with (
+                    self.subTest(control=control),
+                    patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
+                    patch.dict(
+                        os.environ,
+                        {host.MARKER: str(directory / self.allocation.nonce)},
+                    ),
+                    patch.object(
+                        host, "inherit", side_effect=self.host_inherit
+                    ) as inherit,
+                    patch.object(
+                        host, "readonly_snapshot", side_effect=self.host_snapshot
+                    ),
+                    patch.object(host, "enforce_allocation") as enforce,
+                    self.assertRaises(server.DeadlineExpiredError),
+                ):
+                    control()
+                self.assertEqual(inherit.call_args.kwargs["deadline"], deadline)
+                enforce.assert_not_called()
+                self.assertFalse((self.state / "execution-placement.json").exists())
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+        self.assertFalse((self.state / "execution-placement.json").exists())
+
+    def test_placement_enforcement_and_publication_consume_original_clock(self) -> None:
+        self.reference_fixture()
+        group = self.root / "placement-group"
+        group.mkdir()
+        (group / "memory.max").write_text(str(160 * server.GIB))
+        for boundary in ("enforcement", "publication"):
+            clock = [10.0]
+
+            def expire_enforcement(
+                *_args: object,
+                boundary: str = boundary,
+                clock: list[float] = clock,
+                **kwargs: object,
+            ) -> None:
+                self.assertEqual(kwargs["deadline"], 11)
+                if boundary == "enforcement":
+                    clock[0] = 12
+                    raise host.AdmissionError("host control clock expired")
+
+            def expire_publication(
+                _group: Path, *, clock: list[float] = clock
+            ) -> tuple[int, int]:
+                clock[0] = 12
+                return 160 * server.GIB, 16
+
+            with (
+                self.subTest(boundary=boundary),
+                patch.object(server._STARTUP, "deadline", 11, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
+                patch.object(
+                    server.time, "monotonic", side_effect=lambda clock=clock: clock[0]
+                ),
+                patch.object(server, "physical_cpus", return_value=list(range(16))),
+                patch.object(server, "group_for_slice", return_value=group),
+                patch.object(
+                    host, "enforce_allocation", side_effect=expire_enforcement
+                ),
+                patch.object(
+                    server,
+                    "host_memory",
+                    return_value=(188 * server.GIB, 112 * server.GIB),
+                ),
+                patch.object(
+                    server, "effective_limits", side_effect=expire_publication
+                ),
+                self.assertRaises(server.DeadlineExpiredError),
+            ):
+                server.ensure_execution_placement(
+                    self.state, server.reference_resources()
+                )
+            self.assertFalse((self.state / "execution-placement.json").exists())
+
+    def test_storage_admission_consumed_by_role_start_shares_original_clock(
+        self,
+    ) -> None:
+        config = self.initialized()
+        deadline = server.time.monotonic() + 5
+        for exclusive in (False, True):
+            owner = MagicMock(spec=host.Allocation)
+            owner.directory = self.allocation.directory
+            owner.nonce = self.allocation.nonce
+            owner.profile = (
+                host.select("reference")
+                if exclusive
+                else host.select(
+                    "store-functional",
+                    str(
+                        server.object_mapping(config["resources"])[
+                            "server_memory_bytes"
+                        ]
+                    ),
+                )
+            )
+            row: dict[str, object] = {"units": {}}
+
+            @contextlib.contextmanager
+            def metadata(
+                _directory: Path,
+                *,
+                deadline: float | None = None,
+                offered: float = deadline,
+                owner: host.Allocation = owner,
+                row: dict[str, object] = row,
+            ) -> Generator[dict[str, object], None, None]:
+                self.assertEqual(deadline, offered)
+                yield {"owners": {owner.nonce: row}}
+
+            with (
+                self.subTest(exclusive=exclusive),
+                patch.object(
+                    host, "inherit", return_value=owner if exclusive else None
+                ) as inherit,
+                patch.object(host, "acquire", return_value=owner) as acquire,
+                patch.object(host, "allocation_metadata", side_effect=metadata),
+            ):
+                self.assertIs(
+                    server.service_allocation(self.state, config, deadline), owner
+                )
+            self.assertEqual(inherit.call_args.kwargs["deadline"], deadline)
+            owner.register.assert_called_once_with(
+                server.unit_name(self.state), deadline=deadline
+            )
+            if exclusive:
+                acquire.assert_not_called()
+                self.assertEqual(row["borrowed_services"], [str(self.state)])
+            else:
+                self.assertEqual(acquire.call_args.kwargs["deadline"], deadline)
+                self.assertEqual(row["service"], str(self.state))
+            self.assertEqual(
+                server.read_json(self.state / "service-launch.json")["deadline"],
+                deadline,
+            )
+
+    def test_storage_resume_keeps_exact_predecessor_checks_on_original_clock(
+        self,
+    ) -> None:
+        config = self.initialized()
+        deadline = server.time.monotonic() + 5
+        predecessor = {"group": "/owned", "invocation": "a" * 32, "inode": 17}
+        processes = self.root / "cgroup.procs"
+        for scenario in (
+            "valid",
+            "same-invocation",
+            "replacement-group",
+            "outside-membership",
+            "surviving-descendant",
+        ):
+            observed = {
+                "ControlGroup": "/replacement"
+                if scenario == "replacement-group"
+                else "/owned",
+                "InvocationID": "a" * 32 if scenario == "same-invocation" else "b" * 32,
+                "ActiveState": "activating",
+            }
+            processes.write_text(
+                str(os.getpid())
+                + ("\n99999999" if scenario == "surviving-descendant" else "")
+            )
+            with (
+                self.subTest(scenario=scenario),
+                patch.object(
+                    server,
+                    "recorded_storage_owner",
+                    return_value=(self.allocation, {"binding": predecessor}),
+                ) as record,
+                patch.object(
+                    server, "storage_unit_observation", return_value=observed
+                ) as observe,
+                patch.object(
+                    server.native_operation,
+                    "process_group",
+                    return_value="/outside"
+                    if scenario == "outside-membership"
+                    else "/owned",
+                ),
+                patch.object(Path, "rglob", return_value=iter([processes])),
+            ):
+                if scenario == "valid":
+                    self.assertIs(
+                        server.resume_storage_allocation(
+                            self.state, config, deadline=deadline
+                        ),
+                        self.allocation,
+                    )
+                else:
+                    with self.assertRaises(server.SupervisorError):
+                        server.resume_storage_allocation(
+                            self.state, config, deadline=deadline
+                        )
+            record.assert_called_once_with(self.state, config, deadline=deadline)
+            observe.assert_called_once_with(self.state, deadline=deadline)
+
+    def test_storage_serve_consumed_host_controls_share_startup_or_resume_clock(
+        self,
+    ) -> None:
+        config = self.initialized()
+        unit = server.unit_name(self.state)
+        parent_deadline = server.time.monotonic() + 5
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 18}
+        for restart in (False, True):
+            launch: dict[str, object] = {
+                "allocation": str(self.allocation.directory / self.allocation.nonce),
+                "deadline": parent_deadline - 1,
+            }
+            if restart:
+                launch["binding"] = {**binding, "invocation": "a" * 32}
+            server.write_json(self.state / "service-launch.json", launch)
+            expected_deadline = parent_deadline if restart else parent_deadline - 1
+
+            @contextlib.contextmanager
+            def metadata(
+                _directory: Path,
+                *,
+                deadline: float | None = None,
+                expected_deadline: float = expected_deadline,
+            ) -> Generator[dict[str, object], None, None]:
+                self.assertEqual(deadline, expected_deadline)
+                yield {"owners": {self.allocation.nonce: {"units": {unit: binding}}}}
+
+            self.allocation.bind.reset_mock()
+            with (
+                self.subTest(restart=restart),
+                patch.object(server._STARTUP, "deadline", parent_deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
+                patch.object(server, "storage_launch", return_value=launch),
+                patch.object(
+                    server, "resume_storage_allocation", return_value=self.allocation
+                ) as resume,
+                patch.object(host, "inherit", return_value=self.allocation) as inherit,
+                patch.object(server, "storage_placement"),
+                patch.object(host, "allocation_metadata", side_effect=metadata),
+                patch.object(host, "enforce_parent") as enforce,
+                patch.object(
+                    server.os,
+                    "sched_setaffinity",
+                    side_effect=RuntimeError("stop before payload"),
+                ),
+                self.assertRaisesRegex(RuntimeError, "stop before payload"),
+            ):
+                server.serve(self.state)
+            if restart:
+                resume.assert_called_once_with(
+                    self.state, config, deadline=parent_deadline
+                )
+                inherit.assert_not_called()
+            else:
+                self.assertEqual(
+                    inherit.call_args.kwargs["deadline"], expected_deadline
+                )
+            self.allocation.bind.assert_called_once_with(
+                unit, deadline=expected_deadline
+            )
+            self.assertEqual(enforce.call_args.kwargs["deadline"], expected_deadline)
+
+    def test_storage_hash_expiry_prevents_payload_dispatch(self) -> None:
+        config = self.initialized()
+        deadline = server.time.monotonic() + 5
+        clock = [deadline - 1]
+        unit = server.unit_name(self.state)
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 18}
+        launch = {
+            "allocation": str(self.allocation.directory / self.allocation.nonce),
+            "deadline": deadline,
+            "binding": binding,
+        }
+        server.write_json(self.state / "service-launch.json", launch)
+
+        @contextlib.contextmanager
+        def metadata(
+            _directory: Path, *, deadline: float | None = None
+        ) -> Generator[dict[str, object], None, None]:
+            self.assertEqual(deadline, launch["deadline"])
+            yield {"owners": {self.allocation.nonce: {"units": {unit: binding}}}}
+
+        def hash_after_expiry(_path: Path) -> str:
+            clock[0] = deadline + 1
+            return str(server.object_mapping(config["server"])["binary_sha256"])
+
+        with (
+            patch.object(server, "config_for", return_value=config),
+            patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
+            patch.object(
+                server.time, "monotonic", side_effect=lambda clock=clock: clock[0]
+            ),
+            patch.object(server, "storage_launch", return_value=launch),
+            patch.object(
+                server, "resume_storage_allocation", return_value=self.allocation
+            ),
+            patch.object(server, "storage_placement"),
+            patch.object(host, "allocation_metadata", side_effect=metadata),
+            patch.object(server.os, "sched_setaffinity"),
+            patch.object(
+                server, "file_digest", side_effect=hash_after_expiry
+            ) as digest,
+            patch.object(server.subprocess, "Popen") as dispatch,
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.serve(self.state)
+        digest.assert_called_once_with(
+            Path(str(server.object_mapping(config["server"])["binary"]))
+        )
+        dispatch.assert_not_called()
+        self.assertFalse((self.state / "server-process.json").exists())
 
     def test_host_capacity_below_cap_refuses_before_placement_mutation(self) -> None:
         # Host capacity belongs to admission; the supervisor must respect its
@@ -2542,7 +3336,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         original_drain = server.workers_drained
 
         @server.contextlib.contextmanager
-        def lock(_state: Path) -> Generator[None, None, None]:
+        def lock(_state: Path, **_kwargs: object) -> Generator[None, None, None]:
             nonlocal locked
             self.assertFalse(locked)
             locked = True
@@ -2599,7 +3393,16 @@ class SurrealSupervisorTests(unittest.TestCase):
         )
         with (
             patch.object(server, "active", return_value=False),
-            patch.object(server, "listener_ready", return_value=True),
+            patch.object(
+                server,
+                "service_readiness",
+                side_effect=[
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.ACTIONABLE_ABSENT),
+                    readiness_fixture(server.Readiness.STARTING),
+                    readiness_fixture(server.Readiness.READY),
+                ],
+            ),
             patch.object(server, "establish_protocol_readiness"),
             patch.object(server, "service_allocation", return_value=self.allocation),
             patch.dict(os.environ, {"XDG_CONFIG_HOME": str(self.root / "user-config")}),
@@ -2814,50 +3617,39 @@ class SurrealSupervisorTests(unittest.TestCase):
                             ]
                         )
 
-    def test_public_websocket_readiness_requires_live_owned_listener_and_proof(
-        self,
-    ) -> None:
+    def test_public_websocket_readiness_consumes_one_selected_observation(self) -> None:
         config = self.initialized()
-        server.write_json(
-            self.state / "protocol-readiness.json",
-            {
-                "schema": "native-ws-readiness-v1",
-                "instance_id": config["instance_id"],
-                "invocation": "retained-invocation",
-                "binary_sha256": server.object_mapping(config["server"])[
-                    "binary_sha256"
-                ],
-                "credentials_sha256": server.file_digest(
-                    self.state / "credentials.json"
-                ),
-            },
-        )
-        observed = subprocess.CompletedProcess([], 0, "retained-invocation\n", "")
-        with patch.object(server, "systemctl", return_value=observed):
-            # systemd can retain the authenticated invocation after stopping.
-            self.assertTrue(server.protocol_ready(self.state, config))
-            for is_active, listener_owned in (
-                (False, False),
-                (False, True),
-                (True, False),
-                (True, True),
+        for phase in (
+            server.Readiness.READY,
+            server.Readiness.STARTING,
+            server.Readiness.STOPPING,
+            server.Readiness.MAINTENANCE,
+            server.Readiness.UNAVAILABLE,
+            server.Readiness.MISMATCH,
+        ):
+            selected = readiness_fixture(phase)
+            with (
+                self.subTest(phase=phase),
+                patch.object(
+                    server, "service_readiness", return_value=selected
+                ) as observe,
+                patch.object(server, "owns_listener") as listener,
+                patch.object(server, "protocol_ready") as protocol,
             ):
-                with (
-                    self.subTest(active=is_active, listener_owned=listener_owned),
-                    patch.object(server, "active", return_value=is_active) as active,
-                    patch.object(
-                        server, "owns_listener", return_value=listener_owned
-                    ) as listener,
-                ):
-                    status = server.public_status(self.state, config)
-                    self.assertEqual(status["active"], is_active)
-                    self.assertEqual(status["listener_owned"], listener_owned)
-                    self.assertEqual(
-                        status["authenticated_websocket_ready"],
-                        is_active and listener_owned,
-                    )
-                    active.assert_called_once_with(self.state)
-                    listener.assert_called_once_with(self.state, config)
+                status = server.public_status(self.state, config)
+                self.assertEqual(
+                    status["active"], selected.manager.get("ActiveState") == "active"
+                )
+                self.assertEqual(status["listener_owned"], selected.listener_owned)
+                self.assertEqual(
+                    status["authenticated_websocket_ready"], selected.protocol_ready
+                )
+                lifecycle = server.object_mapping(status["lifecycle"])
+                self.assertEqual(lifecycle["phase"], phase.value)
+                self.assertEqual(lifecycle["cause"], selected.cause)
+                observe.assert_called_once_with(self.state, config)
+                listener.assert_not_called()
+                protocol.assert_not_called()
 
     def test_owned_environment_does_not_inherit_authentication_bypass(self) -> None:
         config = self.initialized()
@@ -3056,14 +3848,16 @@ class SurrealSupervisorTests(unittest.TestCase):
             "MemoryMax": str(server.GIB),
         }
 
-        def observe(_state: Path, slot: int) -> dict[str, str]:
+        def observe(_state: Path, slot: int, **_kwargs: object) -> dict[str, str]:
             if slot == 0:
                 return busy
             return idle if spawn.call_count == 0 else busy
 
         with (
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch.object(server, "worker_observation", side_effect=observe),
             patch.object(server.subprocess, "Popen", return_value=child) as spawn,
@@ -3093,7 +3887,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         locked = False
 
         @server.contextlib.contextmanager
-        def lock(_state: Path) -> Generator[None, None, None]:
+        def lock(_state: Path, **_kwargs: object) -> Generator[None, None, None]:
             nonlocal locked
             self.assertFalse(locked)
             locked = True
@@ -3124,7 +3918,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         with (
             patch.object(server, "state_lock", side_effect=lock),
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch.object(
                 server,
@@ -3148,6 +3944,1110 @@ class SurrealSupervisorTests(unittest.TestCase):
         ):
             server.worker(self.state, ["/worker"])
         spawn.assert_not_called()
+
+    def test_worker_registration_observation_failure_joins_launcher_and_keeps_uncertain_owner(
+        self,
+    ) -> None:
+        self.initialized()
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        unit = server.worker_unit(self.state, 0)
+        binding = {"group": "/owned", "invocation": "a" * 32, "inode": 17}
+        handoff = self.root / "worker-handoff.json"
+        server.write_json(
+            handoff,
+            {
+                "handoff": unit,
+                "scope": {"unit": unit, "group": "/owned", "invocation": "a" * 32},
+            },
+        )
+        for error_kind in ("deadline", "timeout"):
+            for completion in (
+                "complete",
+                "unknown",
+                "replacement-invocation",
+                "replacement-group",
+                "replacement-inode",
+                "predecessor",
+                "unbound-handoff",
+            ):
+                with self.subTest(error=error_kind, cleanup=completion):
+                    server.write_json(
+                        handoff,
+                        {
+                            "handoff": unit,
+                            "scope": None
+                            if completion == "unbound-handoff"
+                            else {
+                                "unit": unit,
+                                "group": "/owned",
+                                "invocation": "a" * 32,
+                            },
+                        },
+                    )
+                    child = MagicMock()
+                    child.poll.return_value = None
+                    child.wait.return_value = -9
+                    joined = []
+                    child.wait.side_effect = lambda joined=joined: (
+                        joined.append(True) or -9
+                    )
+
+                    def observe(
+                        _state: Path,
+                        _slot: int,
+                        *,
+                        deadline: float | None = None,
+                        error_kind: str = error_kind,
+                    ) -> dict[str, str]:
+                        if deadline is None:
+                            return inactive
+                        server._STARTUP.deadline = server.time.monotonic() - 1  # noqa: SLF001 -- expire only after actual Popen
+                        if error_kind == "deadline":
+                            raise server.DeadlineExpiredError(
+                                "registration clock expired"
+                            )
+                        raise subprocess.TimeoutExpired("manager observation", 0)
+
+                    @contextlib.contextmanager
+                    def ledger(
+                        _directory: Path,
+                        *,
+                        joined: list[bool] = joined,
+                        **_kwargs: object,
+                    ) -> Generator[dict[str, object], None, None]:
+                        self.assertTrue(
+                            joined, "launcher must be joined before manager cleanup"
+                        )
+                        yield {
+                            "owners": {
+                                self.allocation.nonce: {"units": {unit: binding}}
+                            }
+                        }
+
+                    actual = {
+                        "LoadState": "loaded",
+                        "ActiveState": "active",
+                        "ControlGroup": "/owned",
+                        "InvocationID": "a" * 32,
+                    }
+                    if completion == "replacement-invocation":
+                        actual["InvocationID"] = "b" * 32
+                    if completion == "replacement-group":
+                        actual["ControlGroup"] = "/replacement"
+                    drained = server.native_operation.DrainObservation(
+                        {"unit": unit, **binding},
+                        server.native_operation.DrainPhase.COMPLETE
+                        if completion == "complete"
+                        else server.native_operation.DrainPhase.UNAVAILABLE,
+                        "controlled cleanup observation",
+                    )
+                    with (
+                        patch.object(server, "ensure_execution_placement"),
+                        patch.object(server, "start"),
+                        patch.object(
+                            server.native_operation,
+                            "prepare_handoff",
+                            return_value=handoff,
+                        ),
+                        patch.object(server, "worker_observation", side_effect=observe),
+                        patch.object(server.subprocess, "Popen", return_value=child),
+                        patch.object(
+                            host,
+                            "readonly_snapshot",
+                            return_value={
+                                "owners": {
+                                    self.allocation.nonce: {
+                                        "units": {
+                                            unit: binding
+                                            if completion == "predecessor"
+                                            else {}
+                                        }
+                                    }
+                                }
+                            },
+                        ),
+                        patch.object(host, "allocation_metadata", side_effect=ledger),
+                        patch.object(
+                            host,
+                            "group_identity",
+                            return_value=18
+                            if completion == "replacement-inode"
+                            else 17,
+                        ),
+                        patch.object(
+                            server.native_operation,
+                            "unit_observation",
+                            return_value=actual,
+                        ),
+                        patch.object(
+                            server.native_operation, "drained", return_value=drained
+                        ),
+                        patch.object(
+                            server,
+                            "systemctl",
+                            return_value=subprocess.CompletedProcess([], 0),
+                        ) as control,
+                        self.assertRaises(
+                            (server.DeadlineExpiredError, subprocess.TimeoutExpired)
+                        ),
+                    ):
+                        server.worker(self.state, ["/fixture-worker"])
+                    child.kill.assert_called_once()
+                    child.wait.assert_called_once()
+                    stops = [
+                        call
+                        for call in control.call_args_list
+                        if call.args[0] == "stop"
+                    ]
+                    self.assertEqual(
+                        len(stops),
+                        0
+                        if completion.startswith("replacement")
+                        or completion in {"predecessor", "unbound-handoff"}
+                        else 1,
+                    )
+                    pending = self.state / "worker-admission-0.json"
+                    self.assertEqual(pending.exists(), completion != "complete")
+                    if pending.exists():
+                        retained = server.read_json(pending)
+                        self.assertTrue(retained["unresolved"])
+                        self.assertEqual(
+                            retained["binding"],
+                            None
+                            if completion in {"predecessor", "unbound-handoff"}
+                            else {"unit": unit, **binding},
+                        )
+                        retained.update(pid=99999999, start="departed launcher")
+                        self.assertTrue(server.reservation_live(retained))
+                        with (
+                            patch.object(server, "require_borrowers_drained"),
+                            patch.object(server, "reconcile_registration"),
+                            self.assertRaisesRegex(
+                                server.SupervisorError, "reservation remains active"
+                            ),
+                        ):
+                            server.all_contexts_drained(self.state)
+                        pending.unlink()
+
+    def test_primary_acknowledged_launch_observation_timeout_retains_uncertain_admission(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        unit = server.primary_unit(self.state)
+        binding = {"group": "/owned", "invocation": "a" * 32, "inode": 17}
+        server.write_json(
+            self.root / "owned-handoff",
+            {
+                "handoff": unit,
+                "scope": {"unit": unit, "group": "/owned", "invocation": "a" * 32},
+            },
+        )
+        for completion in (
+            "complete",
+            "unknown",
+            "replacement",
+            "predecessor",
+            "unbound-handoff",
+        ):
+            with self.subTest(cleanup=completion):
+                server.write_json(
+                    self.root / "owned-handoff",
+                    {
+                        "handoff": unit,
+                        "scope": None
+                        if completion == "unbound-handoff"
+                        else {"unit": unit, "group": "/owned", "invocation": "a" * 32},
+                    },
+                )
+                observed_count = []
+
+                def observe(
+                    _state: Path, *, observed_count: list[bool] = observed_count
+                ) -> dict[str, str]:
+                    observed_count.append(True)
+                    if len(observed_count) == 1:
+                        return inactive
+                    server._STARTUP.deadline = server.time.monotonic() - 1  # noqa: SLF001 -- acknowledged launch precedes expiry
+                    raise subprocess.TimeoutExpired("primary readiness observation", 0)
+
+                @contextlib.contextmanager
+                def ledger(
+                    _directory: Path, *, deadline: float | None = None
+                ) -> Generator[dict[str, object], None, None]:
+                    self.assertIsNotNone(deadline)
+                    self.assertGreater(deadline, server.time.monotonic())
+                    self.assertIsNone(server._STARTUP.deadline)  # noqa: SLF001 -- cleanup clock is separate
+                    yield {
+                        "owners": {self.allocation.nonce: {"units": {unit: binding}}}
+                    }
+
+                actual = {
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "ControlGroup": "/owned",
+                    "InvocationID": "a" * 32,
+                }
+                if completion == "replacement":
+                    actual["InvocationID"] = "b" * 32
+                drained = server.native_operation.DrainObservation(
+                    {"unit": unit, **binding},
+                    server.native_operation.DrainPhase.COMPLETE
+                    if completion == "complete"
+                    else server.native_operation.DrainPhase.UNAVAILABLE,
+                    "controlled cleanup observation",
+                )
+                with (
+                    patch.object(server, "ensure_execution_placement"),
+                    patch.object(server, "start"),
+                    patch.object(
+                        server.native_operation,
+                        "prepare_handoff",
+                        return_value=self.root / "owned-handoff",
+                    ),
+                    patch.object(server, "primary_observation", side_effect=observe),
+                    patch.object(server, "primary_ready", return_value=False),
+                    patch.object(server, "settled_worker", return_value=inactive),
+                    patch.object(
+                        server.subprocess,
+                        "run",
+                        return_value=subprocess.CompletedProcess([], 0),
+                    ) as launched,
+                    patch.object(
+                        host,
+                        "readonly_snapshot",
+                        return_value={
+                            "owners": {
+                                self.allocation.nonce: {
+                                    "units": {
+                                        unit: binding
+                                        if completion == "predecessor"
+                                        else {}
+                                    }
+                                }
+                            }
+                        },
+                    ),
+                    patch.object(host, "allocation_metadata", side_effect=ledger),
+                    patch.object(host, "group_identity", return_value=17),
+                    patch.object(
+                        server.native_operation, "unit_observation", return_value=actual
+                    ),
+                    patch.object(
+                        server.native_operation, "drained", return_value=drained
+                    ),
+                    patch.object(
+                        server,
+                        "systemctl",
+                        return_value=subprocess.CompletedProcess([], 0),
+                    ) as control,
+                    self.assertRaises(subprocess.TimeoutExpired),
+                ):
+                    server.ensure_primary(self.state)
+                launched.assert_called_once()
+                self.assertEqual(len(observed_count), 2)
+                stops = [
+                    call for call in control.call_args_list if call.args[0] == "stop"
+                ]
+                self.assertEqual(
+                    len(stops),
+                    0
+                    if completion in {"replacement", "predecessor", "unbound-handoff"}
+                    else 1,
+                )
+                pending = self.state / "primary-admission.json"
+                self.assertEqual(pending.exists(), completion != "complete")
+                if pending.exists():
+                    retained = server.read_json(pending)
+                    self.assertTrue(retained["unresolved"])
+                    self.assertEqual(
+                        retained["binding"],
+                        None
+                        if completion in {"predecessor", "unbound-handoff"}
+                        else {"unit": unit, **binding},
+                    )
+                    retained.update(pid=99999999, start="departed launcher")
+                    self.assertTrue(server.reservation_live(retained))
+                    pending.unlink()
+
+    def test_short_worker_reconciles_fresh_completed_owner_and_preserves_status(
+        self,
+    ) -> None:
+        self.initialized()
+        unit = server.worker_unit(self.state, 0)
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 17}
+        predecessor = {**binding, "invocation": "a" * 32}
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        handoff = self.root / "fresh-handoff.json"
+        server.write_json(
+            handoff,
+            {
+                "handoff": unit,
+                "scope": {"unit": unit, "group": "/owned", "invocation": "b" * 32},
+            },
+        )
+
+        @contextlib.contextmanager
+        def ledger(
+            _directory: Path, **_kwargs: object
+        ) -> Generator[dict[str, object], None, None]:
+            yield {"owners": {self.allocation.nonce: {"units": {unit: binding}}}}
+
+        for guarded in (False, True):
+            for status in (0, 7, -15):
+                with self.subTest(handoff=guarded, status=status):
+                    child = MagicMock()
+                    child.poll.return_value = status
+                    child.wait.return_value = status
+                    with (
+                        patch.object(server, "start"),
+                        patch.object(server, "ensure_execution_placement"),
+                        patch.object(
+                            server, "worker_observation", return_value=inactive
+                        ),
+                        patch.object(
+                            server.native_operation,
+                            "prepare_handoff",
+                            return_value=handoff if guarded else None,
+                        ),
+                        patch.object(
+                            host,
+                            "readonly_snapshot",
+                            return_value={
+                                "owners": {
+                                    self.allocation.nonce: {
+                                        "units": {unit: predecessor}
+                                    }
+                                }
+                            },
+                        ),
+                        patch.object(host, "allocation_metadata", side_effect=ledger),
+                        patch.object(host, "group_identity", return_value=None),
+                        patch.object(
+                            server.native_operation,
+                            "unit_observation",
+                            return_value=inactive,
+                        ),
+                        patch.object(
+                            server.native_operation,
+                            "drained",
+                            return_value=server.native_operation.DrainObservation(
+                                binding,
+                                server.native_operation.DrainPhase.COMPLETE,
+                                "fresh owner drained",
+                            ),
+                        ),
+                        patch.object(server.subprocess, "Popen", return_value=child),
+                        patch.object(
+                            server,
+                            "systemctl",
+                            return_value=subprocess.CompletedProcess([], 0),
+                        ) as control,
+                    ):
+                        self.assertEqual(
+                            server.worker(self.state, ["/short-worker"]),
+                            status if status >= 0 else 128 - status,
+                        )
+                    child.wait.assert_called_once()
+                    child.kill.assert_not_called()
+                    self.assertFalse(
+                        any(call.args[0] == "stop" for call in control.call_args_list)
+                    )
+                    self.assertFalse((self.state / "worker-admission-0.json").exists())
+
+    def test_registration_cleanup_refuses_predecessor_and_unbound_fresh_handoff(
+        self,
+    ) -> None:
+        self.initialized()
+        binding: dict[str, object] = {
+            "group": "/old",
+            "invocation": "a" * 32,
+            "inode": 17,
+        }
+        for unit in (
+            server.worker_unit(self.state, 0),
+            server.primary_unit(self.state),
+        ):
+            for stale in ("predecessor", "unbound-handoff"):
+                with self.subTest(unit=unit, state=stale):
+                    handoff = self.root / "new-handoff.json"
+                    server.write_json(handoff, {"handoff": unit, "scope": None})
+
+                    @contextlib.contextmanager
+                    def ledger(
+                        _directory: Path, *, unit: str = unit, **_kwargs: object
+                    ) -> Generator[dict[str, object], None, None]:
+                        yield {
+                            "owners": {
+                                self.allocation.nonce: {"units": {unit: binding}}
+                            }
+                        }
+
+                    with (
+                        patch.object(host, "allocation_metadata", side_effect=ledger),
+                        patch.object(
+                            server.native_operation,
+                            "unit_observation",
+                            return_value={"LoadState": "not-found"},
+                        ) as observe,
+                        patch.object(
+                            server.native_operation,
+                            "drained",
+                            return_value=server.native_operation.DrainObservation(
+                                binding,
+                                server.native_operation.DrainPhase.COMPLETE,
+                                "old owner drained",
+                            ),
+                        ) as drain,
+                        patch.object(server, "systemctl") as control,
+                        self.assertRaisesRegex(server.SupervisorError, "fresh"),
+                    ):
+                        server.stop_registered_owner(
+                            unit,
+                            self.allocation,
+                            predecessor=binding if stale == "predecessor" else {},
+                            handoff=handoff,
+                        )
+                    observe.assert_not_called()
+                    drain.assert_not_called()
+                    control.assert_not_called()
+
+    def test_offline_drain_retries_only_retained_exact_registration_owner(self) -> None:
+        self.initialized()
+        unit = server.worker_unit(self.state, 0)
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 17}
+        predecessor = {**binding, "invocation": "a" * 32}
+        handoff = self.root / "fresh-handoff.json"
+        server.write_json(
+            handoff,
+            {
+                "handoff": unit,
+                "scope": {"unit": unit, "group": "/owned", "invocation": "b" * 32},
+            },
+        )
+        pending = self.state / "worker-admission-0.json"
+        selected = {
+            "nonce": "selected",
+            "unit": unit,
+            "boot": host.boot(),
+            "unresolved": True,
+            "allocation": str(self.allocation.directory / self.allocation.nonce),
+            "handoff": str(handoff),
+            "predecessor": predecessor,
+        }
+
+        @contextlib.contextmanager
+        def ledger(
+            _directory: Path, **_kwargs: object
+        ) -> Generator[dict[str, object], None, None]:
+            yield {"owners": {self.allocation.nonce: {"units": {unit: binding}}}}
+
+        for completion in ("unknown", "replacement", "complete"):
+            server.write_json(pending, selected)
+            actual = {
+                "LoadState": "loaded",
+                "ActiveState": "active",
+                "ControlGroup": "/owned",
+                "InvocationID": "b" * 32,
+            }
+            if completion == "replacement":
+                actual["InvocationID"] = "c" * 32
+            drained = server.native_operation.DrainObservation(
+                binding,
+                server.native_operation.DrainPhase.COMPLETE
+                if completion == "complete"
+                else server.native_operation.DrainPhase.UNAVAILABLE,
+                "retry owner drain",
+            )
+            with (
+                self.subTest(completion=completion),
+                patch.object(server, "require_borrowers_drained"),
+                patch.object(server, "workers_drained"),
+                patch.object(host, "allocation_metadata", side_effect=ledger),
+                patch.object(host, "group_identity", return_value=17),
+                patch.object(
+                    server.native_operation, "unit_observation", return_value=actual
+                ),
+                patch.object(server.native_operation, "drained", return_value=drained),
+                patch.object(
+                    server, "systemctl", return_value=subprocess.CompletedProcess([], 0)
+                ) as control,
+            ):
+                if completion == "complete":
+                    server.all_contexts_drained(self.state)
+                    self.assertFalse(pending.exists())
+                else:
+                    with self.assertRaises(server.SupervisorError):
+                        server.all_contexts_drained(self.state)
+                    self.assertEqual(
+                        server.read_json(pending),
+                        {**selected, "binding": {"unit": unit, **binding}},
+                    )
+                self.assertEqual(
+                    any(call.args[0] == "stop" for call in control.call_args_list),
+                    completion != "replacement",
+                )
+
+    def test_registration_recovery_held_host_ledger_expires_without_late_drain(
+        self,
+    ) -> None:
+        self.initialized()
+        directory = self.allocation.directory
+        directory.mkdir(mode=0o700)
+        pending = self.state / "worker-admission-0.json"
+        selected = {
+            "nonce": "selected",
+            "unit": server.worker_unit(self.state, 0),
+            "boot": host.boot(),
+            "unresolved": True,
+            "allocation": str(directory / self.allocation.nonce),
+            "predecessor": {},
+            "handoff": None,
+        }
+        server.write_json(pending, selected)
+        program = "import fcntl,os,sys; f=open(sys.argv[1], 'a'); os.chmod(sys.argv[1], 0o600); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(directory / ".lock")],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            started = server.time.monotonic()
+            deadline = started + 0.05
+            with (
+                patch.object(server._STARTUP, "deadline", deadline, create=True),  # noqa: SLF001 -- exercise the original inherited admission clock
+                patch.object(server, "require_borrowers_drained"),
+                patch.object(server.native_operation, "unit_observation") as observe,
+                patch.object(server.native_operation, "drained") as drain,
+                self.assertRaises(host.AdmissionError),
+            ):
+                server.all_contexts_drained(self.state)
+            self.assertLess(server.time.monotonic() - started, 0.5)
+            observe.assert_not_called()
+            drain.assert_not_called()
+            self.assertEqual(server.read_json(pending), selected)
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+        with self.assertRaises(server.DeadlineExpiredError):
+            server.reconcile_registration(self.state, pending, deadline=deadline)
+        self.assertEqual(server.read_json(pending), selected)
+
+    def test_registration_recovery_retired_allocation_requires_retained_fresh_binding_and_drain(
+        self,
+    ) -> None:
+        self.initialized()
+        unit = server.worker_unit(self.state, 0)
+        binding = {"unit": unit, "group": "/owned", "invocation": "b" * 32, "inode": 17}
+        pending = self.state / "worker-admission-0.json"
+        selected = {
+            "nonce": "selected",
+            "unit": unit,
+            "boot": host.boot(),
+            "unresolved": True,
+            "allocation": str(self.allocation.directory / self.allocation.nonce),
+            "predecessor": {"invocation": "a" * 32},
+            "binding": binding,
+            "handoff": str(self.root / "already-collected-handoff"),
+        }
+
+        @contextlib.contextmanager
+        def retired(
+            _directory: Path, **_kwargs: object
+        ) -> Generator[dict[str, object], None, None]:
+            yield {"owners": {}}
+
+        for scenario in (
+            "complete",
+            "unknown",
+            "replacement",
+            "replacement-inode",
+            "no-evidence",
+        ):
+            case = (
+                {**selected, "binding": None} if scenario == "no-evidence" else selected
+            )
+            server.write_json(pending, case)
+            observed = {"LoadState": "not-found"}
+            if scenario == "replacement":
+                observed = {
+                    "LoadState": "loaded",
+                    "ActiveState": "active",
+                    "InvocationID": "c" * 32,
+                    "ControlGroup": "/owned",
+                }
+            completion = server.native_operation.DrainObservation(
+                binding,
+                server.native_operation.DrainPhase.UNAVAILABLE
+                if scenario == "unknown"
+                else server.native_operation.DrainPhase.COMPLETE,
+                "retired owner observation",
+            )
+            with (
+                self.subTest(scenario=scenario),
+                patch.object(host, "allocation_metadata", side_effect=retired),
+                patch.object(
+                    host,
+                    "group_identity",
+                    return_value=18 if scenario == "replacement-inode" else None,
+                ),
+                patch.object(
+                    server.native_operation, "unit_observation", return_value=observed
+                ),
+                patch.object(
+                    server.native_operation, "drained", return_value=completion
+                ) as drain,
+                patch.object(server, "systemctl") as control,
+            ):
+                deadline = server.time.monotonic() + 1
+                if scenario == "complete":
+                    server.reconcile_registration(
+                        self.state, pending, deadline=deadline
+                    )
+                    self.assertFalse(pending.exists())
+                    drain.assert_called_once()
+                    self.assertEqual(drain.call_args.kwargs["deadline"], deadline)
+                else:
+                    with self.assertRaises(server.SupervisorError):
+                        server.reconcile_registration(
+                            self.state, pending, deadline=deadline
+                        )
+                    self.assertEqual(server.read_json(pending), case)
+                control.assert_not_called()
+
+    def test_recovery_persists_late_bound_owner_before_drain_and_allocation_retirement(
+        self,
+    ) -> None:
+        self.initialized()
+        unit = server.worker_unit(self.state, 0)
+        binding = {"group": "/owned", "invocation": "b" * 32, "inode": 17}
+        handoff = self.root / "late-bound-handoff"
+        server.write_json(
+            handoff,
+            {
+                "handoff": unit,
+                "scope": {"unit": unit, "group": "/owned", "invocation": "b" * 32},
+            },
+        )
+        pending = self.state / "worker-admission-0.json"
+        server.write_json(
+            pending,
+            {
+                "nonce": "selected",
+                "unit": unit,
+                "boot": host.boot(),
+                "unresolved": True,
+                "allocation": str(self.allocation.directory / self.allocation.nonce),
+                "predecessor": {"invocation": "a" * 32},
+                "binding": None,
+                "handoff": str(handoff),
+            },
+        )
+        retired = False
+
+        @contextlib.contextmanager
+        def ledger(
+            _directory: Path, **_kwargs: object
+        ) -> Generator[dict[str, object], None, None]:
+            yield {
+                "owners": {}
+                if retired
+                else {self.allocation.nonce: {"units": {unit: binding}}}
+            }
+
+        def observe(_unit: str, **_kwargs: object) -> dict[str, str]:
+            self.assertEqual(
+                server.read_json(pending)["binding"], {"unit": unit, **binding}
+            )
+            return {"LoadState": "not-found"}
+
+        with (
+            patch.object(host, "allocation_metadata", side_effect=ledger),
+            patch.object(host, "group_identity", return_value=None),
+            patch.object(
+                server.native_operation, "unit_observation", side_effect=observe
+            ),
+            patch.object(
+                server.native_operation,
+                "drained",
+                return_value=server.native_operation.DrainObservation(
+                    binding,
+                    server.native_operation.DrainPhase.UNAVAILABLE,
+                    "transient observation",
+                ),
+            ) as drain,
+        ):
+            with self.assertRaises(server.SupervisorError):
+                server.reconcile_registration(
+                    self.state, pending, deadline=server.time.monotonic() + 1
+                )
+            retired = True
+            handoff.unlink()
+            drain.return_value = server.native_operation.DrainObservation(
+                binding,
+                server.native_operation.DrainPhase.COMPLETE,
+                "retired exact owner empty",
+            )
+            server.reconcile_registration(
+                self.state, pending, deadline=server.time.monotonic() + 1
+            )
+        self.assertFalse(pending.exists())
+
+    def test_child_handoff_proof_survives_retirement_before_first_recovery_capture(
+        self,
+    ) -> None:
+        self.initialized()
+        operation = server.native_operation
+        for enclosing_parent in (False, True):
+            for primary in (False, True):
+                with self.subTest(parent=enclosing_parent, primary=primary):
+                    base = self.root / f"native-{enclosing_parent}-{primary}"
+                    unit = (
+                        server.primary_unit(self.state)
+                        if primary
+                        else server.worker_unit(self.state, 0)
+                    )
+                    pending = self.state / (
+                        "primary-admission.json"
+                        if primary
+                        else "worker-admission-0.json"
+                    )
+                    nonce = "selected-registration"
+                    predecessor: dict[str, object] = {"invocation": "a" * 32}
+                    selected = {
+                        "nonce": nonce,
+                        "unit": unit,
+                        "boot": host.boot(),
+                        "unresolved": True,
+                        "allocation": str(
+                            self.allocation.directory / self.allocation.nonce
+                        ),
+                        "predecessor": predecessor,
+                        "binding": None,
+                    }
+                    server.write_json(pending, selected)
+                    with (
+                        patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}),
+                        patch.object(operation, "scope_owner", return_value=None),
+                        operation.Operation(base)
+                        if enclosing_parent
+                        else contextlib.nullcontext(),
+                    ):
+                        handoff = operation.prepare_handoff(
+                            unit, reservation=(pending, nonce)
+                        )
+                    assert handoff is not None
+                    selected["handoff"] = str(handoff)
+                    server.write_json(pending, selected)
+                    retired = [False]
+
+                    @contextlib.contextmanager
+                    def ledger(
+                        _directory: Path,
+                        *,
+                        retired: list[bool] = retired,
+                        unit: str = unit,
+                        **_kwargs: object,
+                    ) -> Generator[dict[str, object], None, None]:
+                        yield {
+                            "owners": {}
+                            if retired[0]
+                            else {self.allocation.nonce: {"units": {unit: {}}}}
+                        }
+
+                    # Initial cleanup cannot capture any fresh ledger binding.
+                    with (
+                        patch.object(host, "allocation_metadata", side_effect=ledger),
+                        self.assertRaisesRegex(server.SupervisorError, "fresh"),
+                    ):
+                        server.stop_registered_owner(
+                            unit,
+                            self.allocation,
+                            predecessor=predecessor,
+                            handoff=handoff,
+                        )
+                    self.assertIsNone(server.read_json(pending)["binding"])
+                    # The actual child publishes to the existing handoff before
+                    # payload completion; allocation retirement precedes first retry.
+                    scope = {
+                        "unit": unit,
+                        "group": "/late-owned",
+                        "invocation": "b" * 32,
+                    }
+                    with (
+                        patch.object(operation, "scope_owner", return_value=scope),
+                        patch.object(host, "group_identity", return_value=17),
+                    ):
+                        operation.bind_handoff(handoff)
+                    retired[0] = True
+                    self.assertIsNone(server.read_json(pending)["binding"])
+                    with (
+                        patch.object(host, "allocation_metadata", side_effect=ledger),
+                        patch.object(host, "group_identity", return_value=None),
+                        patch.object(operation, "populated", return_value=False),
+                        patch.object(
+                            operation,
+                            "unit_observation",
+                            return_value={"LoadState": "not-found"},
+                        ),
+                        patch.object(server, "systemctl") as control,
+                    ):
+                        self.assertEqual(operation.pinned_generations(base), set())
+                        self.assertTrue(
+                            handoff.exists(),
+                            "settled proof remains owned by the matching reservation",
+                        )
+                        proof = server.read_json(handoff)
+                        for invalid in (
+                            {
+                                **proof,
+                                "registration": {
+                                    "path": str(pending),
+                                    "nonce": "predecessor",
+                                },
+                            },
+                            {
+                                key: value
+                                for key, value in proof.items()
+                                if key != "scope_inode"
+                            },
+                        ):
+                            server.write_json(handoff, invalid)
+                            with self.assertRaises(server.SupervisorError):
+                                server.reconcile_registration(
+                                    self.state,
+                                    pending,
+                                    deadline=server.time.monotonic() + 1,
+                                )
+                            self.assertEqual(server.read_json(pending), selected)
+                        server.write_json(handoff, proof)
+                        server.reconcile_registration(
+                            self.state, pending, deadline=server.time.monotonic() + 1
+                        )
+                        self.assertFalse(pending.exists())
+                        self.assertEqual(operation.pinned_generations(base), set())
+                        self.assertFalse(
+                            handoff.exists(),
+                            "proof retires after its registration owner settles",
+                        )
+                    control.assert_not_called()
+
+    def test_held_parent_handoff_lock_expires_without_dispatch_and_restores_signals(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        operation = server.native_operation
+        parent = self.root / "parent-operation.json"
+        operation.write_json(
+            parent,
+            {
+                "version": operation.VERSION,
+                "scope": None,
+                "admissions": {},
+                "generations": [],
+            },
+        )
+        program = "import fcntl,sys; f=open(sys.argv[1], 'a'); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(parent.with_suffix(".lock"))],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        original_mask = server.signal.pthread_sigmask(server.signal.SIG_BLOCK, set())
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            for role in ("worker", "primary"):
+                with self.subTest(role=role):
+                    started = server.time.monotonic()
+                    deadline = started + 0.2
+                    with (
+                        patch.object(
+                            operation, "owner_record", return_value=parent
+                        ) as discover,
+                        patch.object(server, "start"),
+                        patch.object(server, "ensure_execution_placement"),
+                        patch.object(
+                            server, "worker_observation", return_value=inactive
+                        ),
+                        patch.object(
+                            server, "primary_observation", return_value=inactive
+                        ),
+                        patch.object(server, "primary_ready", return_value=False),
+                        patch.object(server.subprocess, "Popen") as dispatch_worker,
+                        patch.object(server.subprocess, "run") as dispatch_primary,
+                        self.assertRaises(server.DeadlineExpiredError),
+                    ):
+                        if role == "worker":
+                            server.worker(
+                                self.state, ["/never-dispatch"], deadline=deadline
+                            )
+                        else:
+                            with patch.object(
+                                server._STARTUP,  # noqa: SLF001 -- exercise the original inherited admission clock
+                                "deadline",
+                                deadline,
+                                create=True,
+                            ):
+                                server.ensure_primary(self.state)
+                    self.assertLess(server.time.monotonic() - started, 1.0)
+                    discover.assert_called_once_with(deadline=deadline)
+                    dispatch_worker.assert_not_called()
+                    dispatch_primary.assert_not_called()
+                    self.assertEqual(
+                        server.signal.pthread_sigmask(server.signal.SIG_BLOCK, set()),
+                        original_mask,
+                    )
+                    self.assertFalse(list(self.root.glob("handoff-*.json")))
+                    self.assertFalse((self.state / "worker-admission-0.json").exists())
+                    self.assertFalse((self.state / "primary-admission.json").exists())
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+        self.assertFalse(
+            list(self.root.glob("handoff-*.json")),
+            "release after expiry cannot publish a late handoff",
+        )
+
+    def test_held_host_ledger_expires_in_inherit_and_register_before_role_dispatch(
+        self,
+    ) -> None:
+        self.reference_fixture()
+        directory = self.allocation.directory
+        directory.mkdir(mode=0o700)
+        program = "import fcntl,os,sys; f=open(sys.argv[1], 'a'); os.chmod(sys.argv[1], 0o600); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(directory / ".lock")],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        inactive = {
+            "LoadState": "not-found",
+            "ActiveState": "inactive",
+            "ControlGroup": "",
+        }
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            for role in ("worker", "primary"):
+                for boundary in ("inherit", "register"):
+                    with self.subTest(role=role, boundary=boundary):
+                        self.allocation.register.side_effect = (
+                            None
+                            if boundary == "inherit"
+                            else lambda unit, *, deadline: host.Allocation.register(
+                                self.allocation, unit, deadline=deadline
+                            )
+                        )
+                        started = server.time.monotonic()
+                        deadline = started + 0.2
+                        with (
+                            patch.dict(
+                                os.environ,
+                                {host.MARKER: str(directory / self.allocation.nonce)},
+                            ),
+                            patch.object(
+                                host,
+                                "inherit",
+                                side_effect=self.host_inherit
+                                if boundary == "inherit"
+                                else None,
+                                return_value=self.allocation,
+                            ) as inherit,
+                            patch.object(
+                                host,
+                                "readonly_snapshot",
+                                side_effect=self.host_snapshot,
+                            ),
+                            patch.object(
+                                server.native_operation,
+                                "prepare_handoff",
+                                return_value=None,
+                            ),
+                            patch.object(server, "start"),
+                            patch.object(server, "ensure_execution_placement"),
+                            patch.object(
+                                server, "worker_observation", return_value=inactive
+                            ),
+                            patch.object(
+                                server, "primary_observation", return_value=inactive
+                            ),
+                            patch.object(server, "primary_ready", return_value=False),
+                            patch.object(server.subprocess, "Popen") as dispatch_worker,
+                            patch.object(server.subprocess, "run") as dispatch_primary,
+                            self.assertRaises(server.DeadlineExpiredError),
+                        ):
+                            if role == "worker":
+                                server.worker(
+                                    self.state, ["/never-dispatch"], deadline=deadline
+                                )
+                            else:
+                                with patch.object(
+                                    server._STARTUP,  # noqa: SLF001 -- exercise the original inherited admission clock
+                                    "deadline",
+                                    deadline,
+                                    create=True,
+                                ):
+                                    server.ensure_primary(self.state)
+                        self.assertLess(server.time.monotonic() - started, 1.0)
+                        self.assertEqual(inherit.call_args.kwargs["deadline"], deadline)
+                        dispatch_worker.assert_not_called()
+                        dispatch_primary.assert_not_called()
+                        self.assertFalse(
+                            (self.state / "worker-admission-0.json").exists()
+                        )
+                        self.assertFalse(
+                            (self.state / "primary-admission.json").exists()
+                        )
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+
+    def test_cli_surfaces_safe_cleanup_notes_preserving_primary_error(self) -> None:
+        for failure in (
+            server.DeadlineExpiredError("original admission expired"),
+            subprocess.TimeoutExpired("secret-bearing-command", 0),
+        ):
+            note = "Primary cleanup unresolved; selected=owned.service; admission reservation retained: TimeoutExpired: cleanup clock expired"
+            failure.add_note(note)
+            failure.add_note("untrusted validator secret must remain redacted")
+            output = io.StringIO()
+            with (
+                self.subTest(error=type(failure).__name__),
+                patch.object(server, "dispatch", side_effect=failure),
+                patch.object(server.sys, "stderr", output),
+            ):
+                self.assertEqual(server.main(["status", "--state", str(self.state)]), 1)
+            self.assertIn(note, output.getvalue())
+            self.assertNotIn("secret", output.getvalue())
+            self.assertIn(
+                "original admission expired"
+                if isinstance(failure, server.SupervisorError)
+                else "TimeoutExpired: supervisor operation failed",
+                output.getvalue(),
+            )
 
     def test_worker_requires_systemd_and_refuses_mismatched_cap(self) -> None:
         self.initialized()
@@ -3175,7 +5075,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         }
         with (
             patch.object(
-                server, "service_readiness", return_value=server.Readiness.READY
+                server,
+                "service_readiness",
+                return_value=readiness_fixture(server.Readiness.READY),
             ),
             patch.object(
                 server,
@@ -4614,7 +6516,9 @@ class SurrealSupervisorTests(unittest.TestCase):
                 )
             with (
                 patch.object(
-                    server, "service_readiness", return_value=server.Readiness.STARTING
+                    server,
+                    "service_readiness",
+                    return_value=readiness_fixture(server.Readiness.STARTING),
                 ),
                 patch.object(server, "listener_ready", return_value=True),
                 patch.object(server, "protocol_ready") as readiness,
@@ -5247,6 +7151,7 @@ class StandaloneSupervisorTests(unittest.TestCase):
             "from pathlib import Path\n"
             "spec = importlib.util.spec_from_file_location('supervisor', sys.argv[1])\n"
             "module = importlib.util.module_from_spec(spec)\n"
+            "sys.modules[spec.name] = module\n"
             "spec.loader.exec_module(module)\n"
             "def observed_owner(*args):\n"
             "    raise RuntimeError('worker environment owner reached')\n"
@@ -5277,6 +7182,7 @@ class StandaloneSupervisorTests(unittest.TestCase):
             "import importlib.util, sys\n"
             "spec = importlib.util.spec_from_file_location('supervisor', sys.argv[1])\n"
             "module = importlib.util.module_from_spec(spec)\n"
+            "sys.modules[spec.name] = module\n"
             "spec.loader.exec_module(module)\n"
             "print(module.placement_slice())\n"
         )

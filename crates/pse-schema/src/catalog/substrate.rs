@@ -24,6 +24,16 @@ pub const RESULT_MESSAGE_BYTES: usize = 4 * 1024 * 1024;
 /// only increase its extent. This ceiling protects loops, never chooses blocks.
 pub const RESULT_INDEX_RECORDS: usize = RESULT_INDEX_BYTES / 7;
 
+/// Relations whose endpoints exist before insertion, including first publication.
+/// Study dependencies intentionally allow predecessors on later ingestion pages.
+pub const ENFORCED_RELATIONS: &[&str] = &[
+    "canonical_memberships",
+    "canonical_analysis_edges",
+    "canonical_analysis_inputs",
+    "canonical_problem_runs",
+    "canonical_run_sources",
+];
+
 /// Physical access path owned by the canonical declaration route.
 #[derive(Clone, Copy, Debug)]
 pub struct NativeIndex {

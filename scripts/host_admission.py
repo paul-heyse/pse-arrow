@@ -433,7 +433,7 @@ def verify_light_control_child(
                 ),
                 owner["deadline"],
             )
-            allocation.bind(unit, deadline=deadline)
+            allocation.bind(unit, deadline=deadline, fresh=True)
             return allocation
     raise AdmissionError("Fixed control child is outside its registered actual scope")
 
@@ -655,7 +655,10 @@ def group_identity(group: str) -> int | None:
 
 
 def service_processes_drained(
-    record: Mapping[str, object], allocation: Path | None
+    record: Mapping[str, object],
+    allocation: Path | None,
+    *,
+    deadline: float | None = None,
 ) -> bool:
     """Do not reclaim an affiliated storage process merely because its cgroup emptied."""
     from scripts import surreal_server  # noqa: PLC0415 -- reciprocal ownership
@@ -674,6 +677,8 @@ def service_processes_drained(
             return False
         services.append(record["service"])
     for selected in services:
+        if deadline is not None:
+            require_admission_time(deadline, "Original drain clock expired")
         state = Path(selected)
         unit = surreal_server.unit_name(state)
         if unit not in units:
@@ -682,7 +687,9 @@ def service_processes_drained(
             return False
         launch = None
         try:
-            launch = json.loads((state / "service-launch.json").read_text())
+            launch = surreal_server.read_json(
+                state / "service-launch.json", deadline=deadline
+            )
             affiliation = launch["allocation"]
             if not isinstance(affiliation, str) or not re.fullmatch(
                 r"[a-f0-9]{32}", Path(affiliation).name
@@ -690,7 +697,9 @@ def service_processes_drained(
                 return False
             if Path(affiliation).absolute() != allocation.absolute():
                 continue  # A stale service descriptor belongs to a different owner.
-            process = json.loads((state / "server-process.json").read_text())
+            process = surreal_server.read_json(
+                state / "server-process.json", deadline=deadline
+            )
             generation = launch["generation"]
             if (
                 not isinstance(generation, str)
@@ -718,7 +727,12 @@ def service_processes_drained(
                 (state / "server-process.json").read_text()
             except FileNotFoundError:
                 try:
-                    if operation.unit_observation(unit).get("LoadState") == "not-found":
+                    observed = (
+                        operation.unit_observation(unit)
+                        if deadline is None
+                        else operation.unit_observation(unit, deadline=deadline)
+                    )
+                    if observed.get("LoadState") == "not-found":
                         continue
                 except (OSError, ValueError, subprocess.SubprocessError):
                     pass
@@ -730,7 +744,14 @@ def service_processes_drained(
     return True
 
 
-def drained(record: Mapping[str, object], *, allocation: Path | None = None) -> bool:
+def drained(
+    record: Mapping[str, object],
+    *,
+    allocation: Path | None = None,
+    deadline: float | None = None,
+) -> bool:
+    if deadline is not None:
+        require_admission_time(deadline, "Original drain clock expired")
     generation = record.get("boot")
     if not isinstance(generation, str) or not re.fullmatch(
         r"[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}", generation
@@ -743,13 +764,17 @@ def drained(record: Mapping[str, object], *, allocation: Path | None = None) -> 
         return False
     if (
         record.get("service") or record.get("borrowed_services")
-    ) and not service_processes_drained(record, allocation):
+    ) and not service_processes_drained(record, allocation, deadline=deadline):
         return False
     for unit, owner in units.items():
         if not isinstance(owner, dict):
             return False
         try:
-            observed = operation.unit_observation(unit)
+            observed = (
+                operation.unit_observation(unit)
+                if deadline is None
+                else operation.unit_observation(unit, deadline=deadline)
+            )
             if (
                 record.get("service")
                 and observed.get("LoadState") == "loaded"
@@ -783,6 +808,8 @@ def drained(record: Mapping[str, object], *, allocation: Path | None = None) -> 
                 return False
         except (OSError, ValueError, subprocess.SubprocessError):
             return False
+    if deadline is not None:
+        require_admission_time(deadline, "Original drain clock expired")
     return bool(record.get("released")) or not caller_alive(record)
 
 
@@ -1006,7 +1033,10 @@ class Allocation:
                 raise AdmissionError("Allocation is no longer live")
             owner["units"].setdefault(unit, {})
 
-    def bind(self, unit: str, *, deadline: float | None = None) -> None:
+    def bind(
+        self, unit: str, *, deadline: float | None = None, fresh: bool = False
+    ) -> None:
+        """Authenticate actual membership; fixed controls additionally require freshness."""
         observed = control_unit_observation(unit, deadline)
         group = operation.process_group(os.getpid())
         control = observed.get("ControlGroup", "")
@@ -1020,7 +1050,7 @@ class Allocation:
             owner = state["owners"].get(self.nonce)
             if not isinstance(owner, dict) or unit not in owner["units"]:
                 raise AdmissionError("Unit was not registered before launch")
-            if deadline is not None and owner["units"][unit]:
+            if fresh and owner["units"][unit]:
                 raise AdmissionError("Fixed control ownership was already bound")
             identity = group_identity(control)
             if identity is None:
@@ -1041,6 +1071,12 @@ class Allocation:
         drain_borrowed_services(
             self.directory, owner, allocation=self.directory / self.nonce, explicit=True
         )
+        # Returning a stopped borrowed service can retire only that affiliation.
+        # Judge and release the current record, including any other surviving work.
+        with allocation_metadata(self.directory) as state:
+            owner = state["owners"].get(self.nonce)
+        if not isinstance(owner, dict):
+            return True
         # Explicit owner release only relaxes caller liveness; actual units stay charged.
         snapshot = cast("AllocationRecord", dict(owner))
         snapshot["pid"] = -1
@@ -1051,7 +1087,10 @@ class Allocation:
                     state["owners"][self.nonce]["released"] = True
             return False
         with allocation_metadata(self.directory) as state:
-            if state["owners"].get(self.nonce) == owner:
+            current = state["owners"].get(self.nonce)
+            if current is not None and current != owner:
+                return False
+            if current == owner:
                 del state["owners"][self.nonce]
         retire_empty_allocation(self)
         return True

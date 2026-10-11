@@ -765,21 +765,48 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
-The latest maintainer instruction interrupted the campaign and pivoted to the
-[SurrealDB review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
-[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#existing-plan-coordination)
-owns its corrective scope separately. The campaign remains stopped. The sequence below is
-a conditional continuation route, not an instruction to relaunch during plan authoring.
-After later authorization, consume the applicable Plan 35 lifecycle/clock, storage composition,
-diagnostic, read-coordination and terminal-study slices wherever a covering invocation uses
-those contracts. Shared matching evidence may serve both owners; an unrelated inquiry does
-not become a blanket campaign gate.
+The maintainer interrupted the campaign and pivoted to the
+[SurrealDB review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
+[Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#outcome-recorded-after-implementation)
+has completed its standalone corrective scope and
+[affected acceptance](35-surrealdb-lifecycle-and-integration-remediation.md#acceptance-evidence).
+The maintainer authorized all remaining testing, targeting zero failures, after that completion.
+The `build/plan28-e3-final-plan35-20261010` capture is diagnostic and incomplete:
+its early checks passed, but native and Python failures required corrections before a
+fresh comprehensive run. Reviewed corrections are integrated for immutable cache-entry
+charges, optional-retention pressure fixtures, exact fixture borrower departure,
+phase-correct concurrency and transport probes, database-specific worker launch/teardown,
+managed-study controls and measured build/store lifecycle composition. Regeneration and
+native compilation passed. Affected native checks passed as a repaired composite on a
+fresh private reference deployment with the rebuilt qualification worker. The next capture,
+`build/plan28-e3-final-corrections-20261011`, is also incomplete: 37 early gates passed,
+Python lint and typing failed, and native compilation exhausted the filesystem before
+full-suite execution. Cancellation through its authenticated operation owner ended with
+exit 120. Its last receipt still says native-test is running; no compiler remains.
+The Python static repairs subsequently passed lint, typing and all 63 affected controls
+when about 100 MiB briefly became available. Formatting and readiness passed too. The
+selected service was quiesced and stopped through its supervisor; its final observation
+is actionable-absent, with no listener/process or reservation. Governance tests passed
+26/26, but the enclosing governance aggregate exhausted storage during generation.
+
+Free storage before further qualification; build/locality retains its 50 GiB starting
+floor plus fresh-target space. Refresh frozen tooling/worker/context as necessary, readmit
+and start inside the proper owner, then rerun full E3, conformance/external parity, all
+E4 measurements and independent E5 review below.
+The cancelled diagnostic native/managed phases supply no full-suite acceptance; retain
+the original sixteen-worker and thousand-point workloads in the final runs. Build/locality
+measurement remains constrained by the existing 50 GiB starting floor and actual fresh-target
+space; no retained output or shared cache has been deleted to satisfy it.
+Consume matching Plan 35 lifecycle/clock, storage composition, diagnostic, read-coordination
+and terminal-study evidence at actual consumers; an unrelated inquiry is not a blanket gate.
+E3/E4/E5 and N4/T5/L4 acceptance remain open until covering evidence exists.
 
 The latest attempted `plan28-e3-unified-state-qualified-20261010` setup capture recorded
 754 tests, eight failures and three errors against baseline zero; the enclosing campaign
 was interrupted with exit 130. The review distinguishes ten source-supported stale-fixture
-explanations from one unresolved nested-observer drain failure. The two existing fixture
-edits remain unvalidated. The review's isolated cancellation pass and lock-clock
+explanations from one unresolved nested-observer drain failure. Those fixture explanations have since been corrected and validated in Plan 35
+(setup 805 passed and actual lifecycle/MCP/bounded composition passed); the historical
+interrupted capture itself remains nonqualifying. The review's isolated cancellation pass and lock-clock
 counterexample retain their narrower scope and do not qualify E3. Future failure evidence
 must retain the decisive owned-lifecycle observation rather than infer a leak from Boolean
 drain refusal. This checkpoint owns the campaign's current status; the review retains the
@@ -835,7 +862,7 @@ inventories and refusal oracle; this pass does not establish the historical fail
 cause or enclosing E3 acceptance. Full command output is retained at
 `build/plan28-conditional-original-20261010.log`.
 
-1. Reconcile live plan/index/command instructions before implementation. Implemented packet
+1. Live plan/index/command instructions and source reconciliation are complete. Implemented packet
    mechanisms remain implemented; N4/T5/L4 and E3–E5 acceptance remain open. Plan 33's completed
    corrections and decisions keep their separate owner.
 2. Consume completed functional preparation and Plan 34's exact matching evidence:
@@ -843,9 +870,11 @@ cause or enclosing E3 acceptance. Full command output is retained at
    composition, build-owner setup/admission/drain instrumentation, and all four added growth
    and edit/copy fixtures. These mechanisms are implemented, not a fresh implementation backlog.
    The nine original failed identities are mapped above; exercise any invalidated controls
-   without treating a narrower receipt as full-native qualification. Refresh the stale wide
-   receiver only through stopped/drained reconfiguration/readmission, preserving state and
-   credentials. Reconcile N4/T5/L4 consumers and delete any proved displaced mechanism.
+   without treating a narrower receipt as full-native qualification. The final reference is
+   `surreal-plan35-final-reference-20261010` (port 18247, current private receiver closure);
+   readmit/start inside its original 140 GiB reference primary owner. For E4 prepare a fresh
+   ordinary-wide profile with its matching standalone functional report, preserving other
+   profiles and credentials. N4/T5/L4 source consumers are reconciled; composed acceptance remains.
    Repairs use targeted compilation and functional tests before integrated qualification.
 3. At functional scope end, run comprehensive development `just assessment`, current
    `just seed-conformance`, pinned `just parity`, actual canonical recovery at the original
@@ -978,6 +1007,88 @@ subsequent attempted capture. Independently killed observer
 supervisors still require demonstrated drain and may conservatively refuse completion.
 
 ## Outcome (recorded after implementation)
+
+### Post-Plan-35 diagnostic and corrections — 2026-10-11
+
+**Tested, incomplete (baseline zero):** the comprehensive development command
+`just assessment --output build/plan28-e3-final-plan35-20261010 --python-profile dev --live`
+ran under the 140 GiB reference primary owner with the original 128 GiB pool,
+sixteen lanes, thirty-two math jobs and 16 GiB worker capacity. All 39 early gates
+passed. Ordinary native execution selected 3,160 tests: 3,133 passed, ten failed,
+one was interrupted and sixteen did not run; eight additional identities were excluded.
+Ordinary Python selected 210: 193 passed, four failed and thirteen did not complete.
+Managed Rust was blocked by the native result; managed Python was cancelled before
+complete accounting. The native and Python phases were deliberately interrupted after
+confirmed defects invalidated the capture. Neither their terminal report nor their
+partial passing results establish E3 acceptance. Full output remains in that capture
+and `/tmp/plan28-e3-final-plan35-20261010.log`.
+
+**Implemented; Interface-checked:** immutable insertion charges replace the modeling
+cache's equal-key allocation-capacity accounting hazard. Native-artifact retention keeps
+its existing owner. Fixture corrections distinguish optional retention from live users,
+hold late acknowledgments across the original clock, rendezvous preparation before the
+native-entry observation window, and launch/retire workers through their exact database
+receiver. Managed-study controls now publish authentic lock ownership and exercise real
+drain, terminal finalization and reclamation. Build/store preparation uses one bounded
+lifecycle clock and preserves exact output, process and deployment ownership. Independent
+source review found no remaining material finding in these bounded corrections; this is
+not final E5 acceptance.
+
+**Tested (baseline zero):** after `just codegen` and native all-target compilation,
+`just unit-package pse-runtime 'test(math::retention::weighted::tests) | test(math::retention::pressure_tests)' --execution-effects native-local --features pse-runtime/native-solvers`
+passed 10/10 under force-validation in 0.038 seconds. The initial canonical-route
+invocation built successfully but ran no tests because its service was quiesced;
+the explicit native-local route matches these database-independent controls.
+`python -m unittest scripts.tests.test_build_measurements scripts.tests.test_surreal_server.LifecycleClockTests scripts.tests.test_pse_env.StoreReadinessTests`
+passed 51/51 in 0.518 seconds, and
+`python python/pse/tests/test_managed_study_fixture.py` passed 12/12 in 1.257 seconds,
+using the checkout interpreter through `scripts/pse-env`. `just ready` and
+`just turn-end` passed.
+
+**Tested, repaired composite (baseline zero):** the original native failures plus
+the four related concurrency probes and all worker controls were selected with
+`just native-test -p pse-runtime -p pse-operations --profile local -E <affected-selection>`
+under the fresh private `surreal-plan28-corrections-reference-20261011` deployment and
+140 GiB reference owner. The selected identities are retained in
+`build/native-tests/1791681736411296219/native-selected.json`, with output in
+`/tmp/plan28-corrections-native-targeted-20261011.log`: 20/21 passed in 339.903 seconds.
+The fitting clone-owner test reached a previously masked full-pool assertion after
+optional retention yielded to pressure. Its fixture now clears disposable retention
+after all original last-owner assertions and before saturation, and additionally
+proves exact saturation before preparation. Independent source review found no material
+finding. The original refusal and final exact-pool assertions remain unchanged.
+`just unit-native-package pse-runtime pse-runtime/native-solvers,pse-runtime/canonical-tests 'test(prepared_fit_clones_share_the_original_reservation)' --profile local`
+then passed 1/1 in 6.729 seconds under the same reference conditions; output is
+`/tmp/plan28-fitting-pressure-rerun-20261011.log`. This composite qualifies the bounded
+affected scope, not comprehensive E3. Scientific, managed, Python and measurement
+campaigns still require covering execution.
+
+**Tested, incomplete (baseline zero):**
+`just assessment --output build/plan28-e3-final-corrections-20261011 --python-profile dev --live`
+passed 37 early gates, including 825/825 setup controls, both Clippy modes, generation,
+family, documentation and doctest checks. Python lint reported four findings; typing
+reported two. The capture was cancelled before long native execution to repair those
+findings, but native compilation also encountered `No space left on device`. The owning
+operation exited 120; the last partial receipt is not a live-process authority or acceptance.
+Lint-comment placement, a long fixture string and explicitly typed deadline forwarding
+are repaired without changing failure classes or absent-deadline behavior.
+
+**Tested, repaired static scope (baseline zero):** after failed compilation released
+about 100 MiB, the normal light boundary ran checkout `ruff check --no-cache --config pyproject.toml`
+and `pyrefly check --min-severity warn`: both passed, with zero reported diagnostics
+(two configured typing suppressions). The same three-module unittest selection passed
+51/51 in 0.162 seconds; managed-study controls passed 12/12 in 1.137 seconds. Temporary
+files used `/dev/shm`; logs are retained in `build/plan28-e3-static-repairs-20261011`.
+`just turn-end` and `just ready` passed. The selected reference service then completed
+`just surreal quiesce` and `just surreal stop --drained`, reporting quiesced admission,
+no listener/process and no reservation. Application data remains intact.
+
+**Tested, incomplete (baseline zero):** `just governance` passed its 26/26 governance
+tests in 1.623 seconds, but generation compilation again exhausted storage and the
+aggregate could not finish writing its report (outer exit 125). Evidence remains in
+`build/assessment/20261011T015130.797938Z-governance-1166335-f69714`. No retained outputs,
+caches or application data were deleted. Native compilation, remaining manual checks,
+full scientific/managed/Python acceptance and E3/E4/E5 closure remain storage-blocked.
 
 ### Assembled continuation corrections — 2026-10-10
 

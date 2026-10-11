@@ -1519,7 +1519,13 @@ impl CanonicalStore {
                 row.remove("problem")
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?;
-            self.protected_query(&problem, operation, build).await
+            self.protected_query(
+                &problem,
+                crate::canonical::QueryEffect::Mutation,
+                operation,
+                build,
+            )
+            .await
         })
         .await
     }
@@ -1530,7 +1536,7 @@ impl CanonicalStore {
             let encoded = wire::encode_canonical_runs(&row)?;
             self.ensure_writes()?;
             let response = self
-                .protected_query(&row.problem, "canonical_execution::begin_run", || {
+                .protected_query(&row.problem, crate::canonical::QueryEffect::Mutation, "canonical_execution::begin_run", || {
                     Ok(self
                         .db
                         .query("RETURN fn::pse_execution_v1::begin_run($pse_rpc_expires_at, $row,$sources);")

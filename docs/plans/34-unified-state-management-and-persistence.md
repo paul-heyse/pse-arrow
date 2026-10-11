@@ -356,7 +356,7 @@ silently resolve a finding; update its disposition only with the required correc
 
 ## Existing-plan coordination and qualification handoff
 
-The subsequent [SurrealDB capabilities, lifecycle and integrations review](../design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md)
+The subsequent [SurrealDB capabilities, lifecycle and integrations review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md)
 has its own corrective owner in [Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md).
 The maintainer accepted that review's RC01/RC02 on 2026-10-10: narrow local read pacing
 while retaining distributed safety, and move native deployment interpretation to composition.

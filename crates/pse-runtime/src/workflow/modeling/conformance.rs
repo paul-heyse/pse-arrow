@@ -28,6 +28,10 @@ tokio::task_local! {
 fn probe_phase(fixture: DeclarationId, phase: &'static str) {
     let _ = CONFORMANCE_TEST_PROBE.try_with(|probe| probe.phase(fixture, phase));
 }
+#[cfg(test)]
+fn probe_native_phase(phase: &'static str) {
+    let _ = CONFORMANCE_TEST_FIXTURE.try_with(|fixture| probe_phase(*fixture, phase));
+}
 
 /// The authored fixture data of a test declaration, if any.
 fn authored_fixture(
@@ -1341,7 +1345,7 @@ impl ModelingPackage {
             };
             let model = admitted.model.clone();
             #[cfg(test)]
-            probe_phase(fixture, "native preparation/admission");
+            probe_phase(fixture, "case resolution");
             let bindings = admitted.analysis.bindings.clone();
             let solve_order = admitted.analysis.order;
             covered.extend(
@@ -1682,6 +1686,8 @@ impl ModelingPackage {
                 cap,
             );
             let structure = resolution.model.case.compiled().plan.structure();
+            #[cfg(test)]
+            probe_phase(fixture, "route assessment");
             let decision = match resolution.route_decision().and_then(|decision| {
                 let identity = resolution.admission_identity(&decision)?;
                 let tables =
@@ -2113,6 +2119,8 @@ impl ModelingPackage {
             "modeling:derivative-sample",
             policy.allowance().map_err(MathRuntimeError::from)?,
         )?;
+        #[cfg(test)]
+        probe_native_phase("derivative support preparation");
         let prepared = service
             .prepare_order_within_task(
                 resolution.model.case.clone(),
@@ -2122,6 +2130,8 @@ impl ModelingPackage {
             )
             .await?;
         let plan = &prepared.compiled().plan;
+        #[cfg(test)]
+        probe_native_phase("derivative provider preparation");
         let providers = crate::math::MathService::within_task(
             &scope,
             cancel,
@@ -2138,6 +2148,8 @@ impl ModelingPackage {
             ),
         )
         .await?;
+        #[cfg(test)]
+        probe_native_phase("derivative numerical resolution");
         let mut targets = plan
             .numerical_targets(&self.quantities)
             .map_err(MathRuntimeError::from)?;
@@ -2161,6 +2173,8 @@ impl ModelingPackage {
                 .map_err(MathRuntimeError::from)?;
         let values = resolution.model.values.clone();
         let initial = plan.columns().iter().map(|id| values.scalars[id]).collect();
+        #[cfg(test)]
+        probe_native_phase("derivative artifact assembly");
         let assembly =
             crate::math::MathService::within_task(&scope, cancel, service.assemble(prepared))
                 .await?;
@@ -2169,6 +2183,14 @@ impl ModelingPackage {
             .try_with(Arc::clone)
             .ok()
             .zip(CONFORMANCE_TEST_FIXTURE.try_with(|id| *id).ok());
+        #[cfg(test)]
+        if let Some((probe, fixture)) = &probe {
+            // Cold selected preparation and artifact construction are not part of
+            // the probe's native-entry observation. Wait without a native job or
+            // CPU permit, still bounded by this diagnostic's original clock.
+            crate::math::MathService::within_task(&scope, cancel, probe.prepared(*fixture)).await?;
+            probe.phase(*fixture, "native CPU/memory admission");
+        }
         Ok(service
             .with_owned_worker(
                 assembly,
@@ -2322,6 +2344,10 @@ mod tests {
         finished: Vec<DeclarationId>,
         refused: BTreeMap<DeclarationId, String>,
         phases: BTreeMap<DeclarationId, &'static str>,
+        prepared: BTreeSet<DeclarationId>,
+        preparation_open: bool,
+        #[cfg(feature = "solver-kinsol")]
+        initial: BTreeSet<DeclarationId>,
         #[cfg(feature = "solver-kinsol")]
         expected: BTreeSet<DeclarationId>,
         open: bool,
@@ -2331,6 +2357,8 @@ mod tests {
     pub(super) struct FixtureProbe {
         state: Mutex<ProbeState>,
         wake: std::sync::Condvar,
+        #[cfg(feature = "solver-kinsol")]
+        service: std::sync::Weak<crate::math::MathService>,
     }
     impl FixtureProbe {
         pub(super) fn phase(&self, fixture: DeclarationId, phase: &'static str) {
@@ -2341,15 +2369,53 @@ mod tests {
                 .insert(fixture, phase);
         }
         #[cfg(feature = "solver-kinsol")]
-        fn for_fixtures(fixtures: &[DeclarationId]) -> Arc<Self> {
-            let probe = Arc::new(Self::default());
-            probe
-                .state
-                .lock()
-                .unwrap()
-                .expected
-                .extend(fixtures.iter().copied());
-            probe
+        fn for_fixtures(
+            fixtures: &[DeclarationId],
+            service: &Arc<crate::math::MathService>,
+        ) -> Arc<Self> {
+            assert!(
+                fixtures.len() >= 16,
+                "the controlled initial wave has sixteen fixtures"
+            );
+            Arc::new(Self {
+                state: Mutex::new(ProbeState {
+                    expected: fixtures.iter().copied().collect(),
+                    initial: fixtures[..16].iter().copied().collect(),
+                    ..Default::default()
+                }),
+                wake: std::sync::Condvar::new(),
+                service: Arc::downgrade(service),
+            })
+        }
+        pub(super) async fn prepared(
+            &self,
+            fixture: DeclarationId,
+        ) -> Result<(), MathRuntimeError> {
+            {
+                let mut state = self.state.lock().unwrap();
+                assert!(
+                    state.prepared.insert(fixture),
+                    "one prepared diagnostic per fixture"
+                );
+                state.phases.insert(fixture, "native preparation ready");
+            }
+            loop {
+                {
+                    let state = self.state.lock().unwrap();
+                    if state.preparation_open || state.open {
+                        return Ok(());
+                    }
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+            }
+        }
+        #[cfg(feature = "solver-kinsol")]
+        async fn wait_initial_preparation(&self, deadline: std::time::Instant) {
+            self.wait_until(deadline, "preparation", |state| {
+                state.prepared == state.initial
+            })
+            .await;
+            self.state.lock().unwrap().preparation_open = true;
         }
         #[cfg(feature = "solver-kinsol")]
         fn state_snapshot(&self) -> ProbeState {
@@ -2361,16 +2427,24 @@ mod tests {
         #[cfg(feature = "solver-kinsol")]
         fn snapshot(&self) -> String {
             let state = self.state_snapshot();
+            let admission = self.service.upgrade().map_or_else(
+                || "runtime dropped".to_owned(),
+                |service| {
+                    let (reserved, cpu, jobs) = service.test_admission_snapshot();
+                    format!("pool_reserved={reserved} available_cpu={cpu} available_jobs={jobs}")
+                },
+            );
             let missing = state
                 .expected
                 .difference(&state.entered)
                 .map(ToString::to_string)
                 .collect::<Vec<_>>();
             format!(
-                "active={} maximum={} entered={} finished={} cancellation_observed={} missing_native_entries=[{}]; refusals=[{}]; phases={:?}",
+                "active={} maximum={} entered={} prepared={} finished={} cancellation_observed={} {admission} missing_native_entries=[{}]; refusals=[{}]; phases={:?}",
                 state.active,
                 state.maximum,
                 state.entered.len(),
+                state.prepared.len(),
                 state.finished.len(),
                 state.cancelled.len(),
                 missing.join(","),
@@ -2454,26 +2528,46 @@ mod tests {
         }
         #[cfg(feature = "solver-kinsol")]
         async fn wait(&self, condition: impl Fn(&ProbeState) -> bool) {
-            tokio::time::timeout(std::time::Duration::from_secs(20), async {
-                loop {
-                    let state = self.state_snapshot();
-                    if condition(&state) {
-                        break;
+            self.wait_until(
+                std::time::Instant::now() + std::time::Duration::from_secs(20),
+                "native",
+                condition,
+            )
+            .await;
+        }
+        #[cfg(feature = "solver-kinsol")]
+        async fn wait_until(
+            &self,
+            deadline: std::time::Instant,
+            boundary: &'static str,
+            condition: impl Fn(&ProbeState) -> bool,
+        ) {
+            tokio::time::timeout(
+                deadline.saturating_duration_since(std::time::Instant::now()),
+                async {
+                    loop {
+                        let state = self.state_snapshot();
+                        if condition(&state) {
+                            break;
+                        }
+                        assert!(
+                            !state
+                                .refused
+                                .keys()
+                                .any(|fixture| !state.entered.contains(fixture)),
+                            "fixture refused before native entry: {}",
+                            self.snapshot()
+                        );
+                        tokio::time::sleep(std::time::Duration::from_millis(2)).await;
                     }
-                    assert!(
-                        !state
-                            .refused
-                            .keys()
-                            .any(|fixture| !state.entered.contains(fixture)),
-                        "fixture refused before native entry: {}",
-                        self.snapshot()
-                    );
-                    tokio::time::sleep(std::time::Duration::from_millis(2)).await;
-                }
-            })
+                },
+            )
             .await
             .unwrap_or_else(|_| {
-                panic!("conformance native boundary timed out: {}", self.snapshot())
+                panic!(
+                    "conformance {boundary} boundary timed out: {}",
+                    self.snapshot()
+                )
             });
         }
     }
@@ -2661,12 +2755,14 @@ mod tests {
         let source = parallel_source(16);
         let package = parallel_package(&source, 16).await;
         let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order);
+        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
         let run = CONFORMANCE_TEST_PROBE
             .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
+        let prepare_until = preparation_deadline(&cancel).unwrap();
         let controls = async {
+            probe.wait_initial_preparation(prepare_until).await;
             probe.wait(|state| state.active == 16).await;
             {
                 let state = probe.state_snapshot();
@@ -2850,12 +2946,14 @@ mod tests {
     async fn conformance_parallel_reuses_slots_while_first_fixture_is_still_running() {
         let package = parallel_package(&parallel_source(20), 16).await;
         let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order);
+        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
         let run = CONFORMANCE_TEST_PROBE
             .scope(probe.clone(), package.conform(parallel_policy(), &cancel));
+        let prepare_until = preparation_deadline(&cancel).unwrap();
         let controls = async {
+            probe.wait_initial_preparation(prepare_until).await;
             probe.wait(|state| state.active == 16).await;
             for fixture in &order[1..16] {
                 probe.release(*fixture);
@@ -2902,16 +3000,20 @@ mod tests {
         let package = parallel_package(&parallel_source(20), 16).await;
         let order = discovery(&package).await;
         let pool = package.runtime.shared.pool();
-        let probe = FixtureProbe::for_fixtures(&order);
+        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
+        let prepare_until = preparation_deadline(&cancel).unwrap();
         let mut run = Box::pin(
             CONFORMANCE_TEST_PROBE
                 .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
         );
         tokio::select! {
             result = &mut run => panic!("conformance returned before all sixteen admitted workers: {}; {}", result_summary(&result), probe.snapshot()),
-            () = probe.wait(|state| state.active == 16) => {}
+            () = async {
+                probe.wait_initial_preparation(prepare_until).await;
+                probe.wait(|state| state.active == 16).await;
+            } => {}
         }
         let initial = order[..16].iter().copied().collect::<BTreeSet<_>>();
         assert_eq!(
@@ -2977,17 +3079,21 @@ mod tests {
     async fn conformance_parallel_fatal_fixture_drains_other_issued_workers() {
         let package = parallel_package(&parallel_source(20), 16).await;
         let order = discovery(&package).await;
-        let probe = FixtureProbe::for_fixtures(&order);
+        let probe = FixtureProbe::for_fixtures(&order, package.runtime.shared.math());
         probe.state.lock().unwrap().fatal_fixture = Some(order[0]);
         let _drain = ProbeDrain(probe.clone());
         let cancel = crate::CancelSource::new();
+        let prepare_until = preparation_deadline(&cancel).unwrap();
         let mut run = Box::pin(
             CONFORMANCE_TEST_PROBE
                 .scope(probe.clone(), package.conform(parallel_policy(), &cancel)),
         );
         tokio::select! {
             result = &mut run => panic!("conformance returned before all issued workers: {}; {}", result_summary(&result), probe.snapshot()),
-            () = probe.wait(|state| state.active == 16) => {}
+            () = async {
+                probe.wait_initial_preparation(prepare_until).await;
+                probe.wait(|state| state.active == 16).await;
+            } => {}
         }
         let initial = order[..16].iter().copied().collect::<BTreeSet<_>>();
         assert_eq!(

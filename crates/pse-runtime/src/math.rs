@@ -480,6 +480,14 @@ impl MathService {
     pub(crate) fn cores(&self) -> usize {
         self.cores
     }
+    #[cfg(all(test, feature = "solver-kinsol"))]
+    pub(crate) fn test_admission_snapshot(&self) -> (usize, usize, usize) {
+        (
+            self.pool.reserved(),
+            self.cpu.available_permits(),
+            self.jobs.available_permits(),
+        )
+    }
 }
 impl std::fmt::Debug for MathService {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

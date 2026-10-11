@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 145
+revision: 147
 date: 2026-10-10
 ---
 
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 147 | 2026-10-10 | Plan 28 E3 correction within §14.3: mathematical-product retention records immutable insertion charges for actual resident keys and payloads, with library-owned weighted eviction and synchronous pressure release. Native artifact retention and semantic identity are unchanged. | Maintainer-authorized remaining Plan 28 execution; visible `.design-edit`; implementation and qualification remain owned by Plan 28. |
+| 146 | 2026-10-10 | Plan 35 confirmed RC01/RC02: §14.4 independent protected reads with fair effect-aware pacing; §20.6 storage configuration consumption separate from native execution composition. | Maintainer-authorized Plan 35 execution; visible `.design-edit`; implementation and affected qualification remain owned by Plan 35. |
 | 145 | 2026-10-10 | Plan 34 implementation handoff within ADR-0164/0166: §14.3/§14.4 component allocation anchors and pressure-aware optional retention; §5.4 completion-owned protected grouped acquisition; §19 checked deployment composition; §20.6 exact cancelled-export settlement, typed readiness, selected-demand service resumption and content/association recovery meaning. | Maintainer-authorized implementation; visible `.design-edit`; existing decision status unchanged; affected assembled qualification remains owned by Plan 34. |
 | 144 | 2026-10-09 | Proposed ADR-0172: §5.2/§20.3–§20.6/§21.1 fresh analysis occurrences, immutable creation grants, exact absent-header/primary conflict fences, constant-size shared closure authority full bounded retirement without per-analysis history, and explicit preserving cutover/restore fencing with durable closed-phase recovery and resource-configured owner-only maintenance. | Maintainer-authorized Plan 33 RC03; independent scoped target verdict Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF10 implementation and emitted-query qualification remain outstanding. |
 | 143 | 2026-10-09 | Proposed ADR-0171: §5.3/§14.3 compact physical occurrences against immutable body inventories, collision-independent membership and versioned direct derived-product cutover. | Maintainer-authorized Plan 33 RC04; scoped target review Accept at Proposed strength; `PSE_DESIGN_EDIT=1`; EFF03 implementation remains outstanding. |

@@ -4,8 +4,10 @@
 
 import ctypes
 import hashlib
+import json
 import os
 import shlex
+import socket
 import subprocess
 import sys
 import threading
@@ -17,7 +19,10 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.documents import ObservationText
 from pse.contracts.enums import (
+    DiagnosticCode,
+    FailureClass,
     NativeBackend,
     NativeSolveIntent,
     PresolvePolicyKind,
@@ -81,12 +86,128 @@ def _settings() -> pse.SolveSettings:
     )
 
 
+def _physical_cache_usage(runtime: pse.Runtime) -> tuple[int, int]:
+    # Resource usage covers the shared process; each workflow runtime registers
+    # its own component under this family name.
+    caches = [
+        cache
+        for cache in runtime.resource_usage().caches
+        if cache.name == "pse.cache.physical_admission"
+    ]
+    assert caches
+    return (
+        sum(cache.entries for cache in caches),
+        sum(cache.retained_bytes for cache in caches),
+    )
+
+
+@pytest.mark.component
+def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
+    inspection_settings: pse.EngineSettings, tmp_path: Path
+) -> None:
+    state = tmp_path / "private-storage"
+    state.mkdir(mode=0o700)
+    credentials = state / "credentials.json"
+    credentials.write_text(
+        json.dumps(
+            {
+                "username": "fixture",
+                "password": "fixture",
+                "selection_username": "fixture_viewer",
+                "selection_password": "fixture",
+            }
+        )
+    )
+    credentials.chmod(0o600)
+    config = {
+        "profile_version": 2,
+        "endpoint": "ws://127.0.0.1:1",
+        "namespace": "fixture",
+        "database": "fixture",
+        "schema_interpretation": "unsupported-fixture-interpretation",
+        "max_message_bytes": 4 * 1024 * 1024,
+        "credentials_file": str(credentials),
+        "accepting_writes": False,
+        "resources": "deliberately unused native policy",
+    }
+    path = state / "config.json"
+
+    def publish() -> None:
+        path.write_text(json.dumps(config))
+        path.chmod(0o600)
+
+    publish()
+    with pytest.raises(pse.InspectionError) as mismatch:
+        pse.Runtime(inspection_settings, substrate=str(state))
+    assert mismatch.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+    stopped = threading.Event()
+    accepted = threading.Event()
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        config["endpoint"] = f"ws://127.0.0.1:{listener.getsockname()[1]}"
+        config["schema_interpretation"] = "pse.substrate.v3"
+        publish()
+
+        def withhold_handshake() -> None:
+            with listener.accept()[0]:
+                accepted.set()
+                stopped.wait()
+
+        peer = threading.Thread(target=withhold_handshake)
+        peer.start()
+        try:
+            # Consume the production constructor's original clock, without a test-only
+            # timeout override or an invented shorter healthy-command deadline.
+            with pytest.raises(pse.InspectionError) as timeout:
+                pse.Runtime(inspection_settings, substrate=str(state))
+            assert accepted.is_set()
+            assert timeout.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+            assert (
+                timeout.value.report.failure_class
+                == FailureClass.RUNTIME_INFRASTRUCTURE
+            )
+            assert timeout.value.report.observations["detail"] == ObservationText(
+                value="canonical store request deadline expired"
+            )
+        finally:
+            stopped.set()
+            # If construction refused before connecting, wake the fixture's accept.
+            if not accepted.is_set():
+                with socket.create_connection(listener.getsockname()):
+                    pass
+            peer.join()
+
+
+@pytest.mark.integration
+def test_canonical_open_failure_and_invalid_user_range_keep_distinct_diagnostics(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+) -> None:
+    with pytest.raises(pse.InspectionError) as unavailable:
+        pse.Runtime(
+            inspection_settings,
+            substrate=canonical_substrate.state,
+            database=canonical_substrate.database + "_uninitialized",
+        )
+    assert unavailable.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+    assert unavailable.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
+    runtime = canonical_substrate.runtime(inspection_settings)
+    with pytest.raises(pse.InspectionError, match="range is reversed") as invalid:
+        runtime.results(
+            "unselected", "unselected", "runtime.solve_variables", start=2, end=1
+        )
+    assert invalid.value.report.code == DiagnosticCode.WORKFLOW_INPUT
+    assert invalid.value.report.failure_class == FailureClass.COMPILE_MATH
+
+
 @pytest.mark.integration
 def test_canonical_close_releases_optional_cache_after_completed_run(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
+    assert _physical_cache_usage(runtime) == (0, 0)
     package, case = _package(runtime)
     prepared = package.prepare_solve(case, _settings())
     handle = prepared.start()
@@ -103,14 +224,12 @@ def test_canonical_close_releases_optional_cache_after_completed_run(
     assert record["terminal"]
     assert record["outcome"] == "succeeded"
     del variables, result, handle, prepared, package
-    (physical_cache,) = [
-        cache
-        for cache in runtime.resource_usage().caches
-        if cache.name == "pse.cache.physical_admission"
-    ]
-    assert physical_cache.entries > 0
+    entries, retained_bytes = _physical_cache_usage(runtime)
+    assert entries > 0
+    assert retained_bytes > 0
     # The public drain releases its own optional retention without a manual clear.
     runtime.close()
+    assert _physical_cache_usage(runtime) == (0, 0)
 
 
 @pytest.mark.integration
@@ -119,6 +238,7 @@ def test_canonical_close_refuses_live_result_reader_then_allows_departure(
     canonical_substrate: CanonicalFixture,
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
+    assert _physical_cache_usage(runtime) == (0, 0)
     package, case = _package(runtime)
     prepared = package.prepare_solve(case, _settings())
     handle = prepared.start()
@@ -132,26 +252,30 @@ def test_canonical_close_refuses_live_result_reader_then_allows_departure(
     stream = runtime.results(run, attempt, "runtime.solve_variables")
     reader = pa.RecordBatchReader.from_stream(stream)
     del result, handle, prepared, package
-    (physical_cache,) = [
-        cache
-        for cache in runtime.resource_usage().caches
-        if cache.name == "pse.cache.physical_admission"
-    ]
-    assert physical_cache.entries > 0
-    with pytest.raises(pse.InspectionError, match="live protected readers"):
-        runtime.close()
-    (physical_cache,) = [
-        cache
-        for cache in runtime.resource_usage().caches
-        if cache.name == "pse.cache.physical_admission"
-    ]
-    assert physical_cache.entries == 0
-    # The unread selection still owns its protection and fetches an actual
-    # canonical block after refusal, before requesting EOF can release it.
-    batch = reader.read_next_batch()
-    assert batch.to_pylist() == expected
-    with pytest.raises(pse.InspectionError, match="live protected readers"):
-        runtime.close()
+    try:
+        entries, retained_bytes = _physical_cache_usage(runtime)
+        assert entries > 0
+        assert retained_bytes > 0
+        with pytest.raises(
+            pse.InspectionError, match="live protected readers"
+        ) as failure:
+            runtime.close()
+        assert failure.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+        assert failure.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
+        assert _physical_cache_usage(runtime) == (0, 0)
+        # The unread selection still owns its protection and fetches an actual
+        # canonical block after refusal, before requesting EOF can release it.
+        batch = reader.read_next_batch()
+        assert batch.to_pylist() == expected
+        with pytest.raises(
+            pse.InspectionError, match="live protected readers"
+        ) as failure:
+            runtime.close()
+        assert failure.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
+        assert failure.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
+    finally:
+        reader.close()
+        stream.close()
     del batch, reader, stream
     runtime.close()
 

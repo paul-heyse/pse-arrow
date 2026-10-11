@@ -1079,8 +1079,9 @@ def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
         return "protected reference or active borrow"
     if check_units:
         for owner in record["units"]:
-            if not operation.drained({"scope": owner}):
-                return "supervised descendant not drained"
+            observed = operation.drained({"scope": owner})
+            if not observed.complete:
+                return "supervised descendant not drained: " + observed.diagnostic()
     if record["kind"] == "evidence" and "owner_root" in record:
         manifest = report_manifest(record)
         if manifest is None:

@@ -512,6 +512,175 @@ class PseEnvTests(unittest.TestCase):
 
 
 class StoreReadinessTests(unittest.TestCase):
+    def test_store_deadline_survives_host_lookup_and_refuses_late_effects(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            config: dict[str, object] = {"admission": "open", "parked": True}
+            surreal_server.write_json(state / "config.json", config)
+            environment = {"PSE_SURREAL_STATE": str(state)}
+            with patch.object(
+                surreal_server.time, "monotonic", return_value=100
+            ) as clock:
+
+                def inherited(_env: object, *, deadline: float) -> MagicMock:
+                    self.assertEqual(deadline, 140)
+                    clock.return_value = 141
+                    return MagicMock(spec=pse_env.host.Allocation)
+
+                with (
+                    patch.object(surreal_server, "config_for", return_value=config),
+                    patch.object(
+                        pse_env.host, "inherit", side_effect=inherited
+                    ) as inherit,
+                    patch.object(surreal_server, "unpark_service") as resume,
+                    patch.object(surreal_server, "start") as start,
+                    patch.object(surreal_server, "service_readiness") as observe,
+                    self.assertRaises(surreal_server.DeadlineExpiredError),
+                ):
+                    pse_env.require_store(environment, deadline=140)
+                inherit.assert_called_once_with(environment, deadline=140)
+                resume.assert_not_called()
+                start.assert_not_called()
+                observe.assert_not_called()
+
+    def test_store_readiness_deadline_reaches_storage_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            config: dict[str, object] = {
+                "admission": "open",
+                "instance_id": "selected",
+                "resources": {"server_memory_bytes": 1024},
+            }
+            surreal_server.write_json(state / "config.json", config)
+            surreal_server.write_json(
+                state / "service-launch.json",
+                {
+                    "deadline": 90,
+                    "generation": "selected",
+                    "service_class": "functional",
+                    "server_memory_bytes": 1024,
+                    "allocation": str(state / "ledger" / ("a" * 32)),
+                },
+            )
+            with patch.object(
+                surreal_server.time, "monotonic", return_value=100
+            ) as clock:
+
+                def contended(selected: Path, *, deadline: float) -> dict[str, object]:
+                    self.assertEqual(selected, state / "ledger")
+                    self.assertEqual(deadline, 140)
+                    clock.return_value = 141
+                    raise pse_env.host.AdmissionError("original ledger clock expired")
+
+                with (
+                    patch.object(surreal_server, "config_for", return_value=config),
+                    patch.object(
+                        pse_env.host,
+                        "inherit",
+                        return_value=MagicMock(spec=pse_env.host.Allocation),
+                    ),
+                    patch.object(
+                        surreal_server,
+                        "systemctl",
+                        return_value=subprocess.CompletedProcess(
+                            [], 0, "ActiveState=activating\n"
+                        ),
+                    ),
+                    patch.object(
+                        pse_env.host, "readonly_snapshot", side_effect=contended
+                    ) as ledger,
+                    patch.object(surreal_server, "start") as start,
+                    patch.object(surreal_server.urllib.request, "urlopen") as health,
+                    self.assertRaises(surreal_server.DeadlineExpiredError),
+                ):
+                    pse_env.require_store(
+                        {"PSE_SURREAL_STATE": str(state)}, deadline=140
+                    )
+                ledger.assert_called_once_with(state / "ledger", deadline=140)
+                start.assert_not_called()
+                health.assert_not_called()
+
+    def test_store_readiness_health_uses_original_remaining_budget(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            config: dict[str, object] = {"admission": "open", "port": 18244}
+            surreal_server.write_json(state / "config.json", config)
+            response = MagicMock()
+            response.__enter__.return_value.status = 200
+            with (
+                patch.object(surreal_server.time, "monotonic", return_value=100),
+                patch.object(surreal_server, "config_for", return_value=config),
+                patch.object(
+                    pse_env.host,
+                    "inherit",
+                    return_value=MagicMock(spec=pse_env.host.Allocation),
+                ) as inherit,
+                patch.object(
+                    surreal_server,
+                    "systemctl",
+                    return_value=subprocess.CompletedProcess(
+                        [], 0, "ActiveState=active\n"
+                    ),
+                ),
+                patch.object(
+                    surreal_server, "listening_inodes", return_value={"selected-socket"}
+                ),
+                patch.object(
+                    surreal_server, "_owns_listener", return_value=True
+                ) as listener,
+                patch.object(
+                    surreal_server, "protocol_ready", return_value=True
+                ) as protocol,
+                patch.object(
+                    surreal_server.urllib.request, "urlopen", return_value=response
+                ) as health,
+                patch.object(surreal_server, "start") as start,
+            ):
+                pse_env.require_store(
+                    {"PSE_SURREAL_STATE": str(state)}, deadline=100.25
+                )
+            self.assertEqual(inherit.call_args.kwargs["deadline"], 100.25)
+            self.assertEqual(listener.call_count, 2)
+            self.assertEqual(protocol.call_count, 2)
+            self.assertEqual(health.call_count, 2)
+            for observed in (listener, protocol):
+                for call in observed.call_args_list:
+                    self.assertEqual(call.kwargs["deadline"], 100.25)
+            for call in health.call_args_list:
+                self.assertEqual(call.kwargs["timeout"], 0.25)
+            start.assert_not_called()
+
+    def test_store_deadline_uses_earlier_enclosing_lifecycle_clock(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            state = Path(temporary)
+            config: dict[str, object] = {"admission": "open", "parked": True}
+            surreal_server.write_json(state / "config.json", config)
+            with patch.object(
+                surreal_server.time, "monotonic", return_value=100
+            ) as clock:
+
+                def inherited(_env: object, *, deadline: float) -> MagicMock:
+                    self.assertEqual(deadline, 120)
+                    clock.return_value = 121
+                    return MagicMock(spec=pse_env.host.Allocation)
+
+                with (
+                    self.assertRaises(surreal_server.DeadlineExpiredError),
+                    surreal_server.lifecycle_deadline(120),
+                    patch.object(
+                        surreal_server, "config_for", return_value=config
+                    ) as configuration,
+                    patch.object(pse_env.host, "inherit", side_effect=inherited),
+                    patch.object(surreal_server, "unpark_service") as resume,
+                    patch.object(surreal_server, "start") as start,
+                ):
+                    pse_env.require_store(
+                        {"PSE_SURREAL_STATE": str(state)}, deadline=140
+                    )
+                configuration.assert_called_once_with(state, deadline=120)
+                resume.assert_not_called()
+                start.assert_not_called()
+
     def test_functional_explicit_store_demand_resumes_only_selected_independent_store(
         self,
     ) -> None:

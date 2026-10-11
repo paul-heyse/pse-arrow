@@ -262,6 +262,152 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
+async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_late_corruption() {
+    use datafusion::execution::memory_pool::MemoryConsumer;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let runtime = durable_runtime();
+    let (sources, definition) = admitted(&runtime, |_, _, fixed| {
+        (0..65)
+            .map(|index| point(fixed, index * 3 + 7, vec![], StartPolicy::Fresh))
+            .collect()
+    })
+    .await;
+    let expected = definition
+        .points
+        .iter()
+        .map(|point| point.policy.key)
+        .collect::<Vec<_>>();
+    let handle = runtime
+        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let pages = Arc::new(AtomicUsize::new(0));
+    let count = pages.clone();
+    study::TERMINAL_PAGE_OBSERVER
+        .scope(
+            Box::new(move || {
+                count.fetch_add(1, Ordering::Relaxed);
+            }),
+            async {
+                assert!(handle.terminal_inventory().await.unwrap().is_none());
+            },
+        )
+        .await;
+    assert_eq!(
+        pages.load(Ordering::Relaxed),
+        0,
+        "open observation never hydrates occurrences"
+    );
+    handle.cancel().await.unwrap();
+    for _ in 0..70 {
+        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
+            break;
+        }
+    }
+    let pool = runtime.shared.pool();
+    let before = pool.reserved();
+    let count = pages.clone();
+    let inventory = study::TERMINAL_PAGE_OBSERVER
+        .scope(
+            Box::new(move || {
+                count.fetch_add(1, Ordering::Relaxed);
+            }),
+            handle.terminal_inventory(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        pages.load(Ordering::Relaxed),
+        3,
+        "two populated pages and one end page realize every internal view"
+    );
+    assert_eq!(
+        inventory
+            .facts
+            .iter()
+            .map(|fact| fact.key)
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(
+        inventory
+            .status
+            .points
+            .iter()
+            .map(|point| OccurrenceKey(point.point_index))
+            .collect::<Vec<_>>(),
+        expected
+    );
+    assert!(inventory.status.points.iter().all(|point| point.settled
+        && point.state == StudyPointState::Cancelled
+        && point.attempt.is_none()));
+    let retained = pool.reserved();
+    assert!(retained > before);
+    let owner = inventory.owner.clone();
+    drop(inventory);
+    assert_eq!(
+        pool.reserved(),
+        retained,
+        "retained views share one allocation owner"
+    );
+    drop(owner);
+    assert_eq!(pool.reserved(), before);
+    let filler = MemoryConsumer::new("test:terminal-inventory-pressure").register(&pool);
+    filler
+        .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
+        .unwrap();
+    pages.store(0, Ordering::Relaxed);
+    let count = pages.clone();
+    let refused = study::TERMINAL_PAGE_OBSERVER
+        .scope(
+            Box::new(move || {
+                count.fetch_add(1, Ordering::Relaxed);
+            }),
+            handle.terminal_inventory(),
+        )
+        .await;
+    assert!(refused.is_err());
+    assert_eq!(
+        pages.load(Ordering::Relaxed),
+        0,
+        "admission precedes occurrence page allocation"
+    );
+    drop(filler);
+    pse_operations::testing::invalidate_terminal_study_outcome(
+        runtime.canonical_store(),
+        &handle.study_id().to_string(),
+        *expected.last().unwrap(),
+    )
+    .await
+    .unwrap();
+    pages.store(0, Ordering::Relaxed);
+    // The deliberate full-pool pressure may evict independent preparation caches.
+    // The late-page failure must return exactly its own starting reservation.
+    let before_corrupt = pool.reserved();
+    let count = pages.clone();
+    let refused = study::TERMINAL_PAGE_OBSERVER
+        .scope(
+            Box::new(move || {
+                count.fetch_add(1, Ordering::Relaxed);
+            }),
+            handle.terminal_inventory(),
+        )
+        .await;
+    assert!(
+        refused.is_err(),
+        "no successfully decoded prefix escapes a corrupt later page"
+    );
+    assert_eq!(pages.load(Ordering::Relaxed), 2);
+    assert_eq!(
+        pool.reserved(),
+        before_corrupt,
+        "failed realization releases every reservation"
+    );
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
 async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     let runtime = durable_runtime();
     let mut authored = None;
@@ -1755,7 +1901,8 @@ impl ManagedStudyFixture {
                 .join(format!("{}.json", store.database())),
         );
         let state = std::path::PathBuf::from(context["receiver_state"].as_str().unwrap());
-        let allocation = store.native_allocation().unwrap();
+        let selected = NativeExecutionSelection::from_store(store).unwrap();
+        let allocation = selected.allocation();
         allocation.validate().unwrap();
         assert_eq!(allocation.native_workers, 1);
         let profile = allocation.execution.unwrap();
@@ -1772,7 +1919,7 @@ impl ManagedStudyFixture {
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30
         );
-        let receiver = store.managed_primary_receiver().unwrap().unwrap();
+        let receiver = selected.receiver().unwrap();
         let nonce: pse_ids::SemanticId = pse_operations::mint_id();
         let nonce = nonce.to_string();
         let directory = state.join(format!("native-entry-qualification-{nonce}"));
@@ -2867,6 +3014,9 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     };
     assert_eq!(original.coordinates.len(), COORDINATES);
     assert_eq!(original.component_reports().len(), COORDINATES);
+    // Saturation below must constrain the seed grant itself; optional retained
+    // preparation products may otherwise be reclaimed to admit that grant.
+    runtime.clear_program_cache();
     let pool = runtime.shared.pool();
     let reserved = pool.reserved();
     let descriptor = study_execution::completed_modeling_seed(&completed).unwrap();

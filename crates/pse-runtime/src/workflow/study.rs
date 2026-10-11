@@ -1408,6 +1408,8 @@ pub struct StudyResults {
     pub attempt: String,
     /// Occurrence identity, execution and optional native attempt.
     pub points: Vec<(u32, String, Option<String>)>,
+    #[serde(skip)]
+    _owner: Option<std::sync::Arc<dyn pse_columnar::PayloadOwner>>,
 }
 /// Explicit cancellation receipt; native process drain remains the worker's obligation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -1419,6 +1421,18 @@ pub struct StudyCancel {
     pub generation: u64,
     /// A concluded study cannot revoke admitted history.
     pub already_concluded: bool,
+}
+
+/// One terminal realization; its reservation follows retained consumers.
+pub(in crate::workflow) struct TerminalStudyInventory {
+    pub status: StudyStatus,
+    pub facts: Vec<pse_model::study::PointFacts>,
+    pub owner: std::sync::Arc<dyn pse_columnar::PayloadOwner>,
+}
+
+#[cfg(test)]
+tokio::task_local! {
+    pub(in crate::workflow) static TERMINAL_PAGE_OBSERVER: Box<dyn Fn() + Send + Sync>;
 }
 
 /// A durable study's exact canonical selection.
@@ -1500,28 +1514,169 @@ impl StudyHandle {
             already_concluded: false,
         })
     }
-    /// Sealed canonical handles; incomplete private staging is never returned as a result.
-    pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
-        // Completion polling needs only the guarded header. Hydrating every occurrence
-        // while a study is open amplifies one wait into a whole-study read on every poll.
-        // The terminal path below still checks the authoritative run and complete facts.
-        let study = self
-            .runtime
-            .canonical_store()
-            .canonical_study(&self.study_id.to_string())
+    /// Hydrate terminal occurrences once. Open polling reads only the compact header.
+    pub(in crate::workflow) async fn terminal_inventory(
+        &self,
+    ) -> Result<Option<TerminalStudyInventory>, WorkflowError> {
+        let store = self.runtime.canonical_store();
+        let study = store
+            .canonical_study_summary(&self.study_id.to_string())
             .await?
             .ok_or_else(|| contract("canonical study absent"))?;
         if !study.terminal {
             return Ok(None);
         }
-        let status = self.status().await?;
+        let run = store
+            .canonical_run(&study.run)
+            .await?
+            .ok_or_else(|| contract("canonical study run absent"))?;
+        let Some(attempt) = run.terminal_attempt else {
+            return Ok(None);
+        };
+        if study.key != self.study_id.to_string()
+            || !study.active
+            || study.next_ordinal != study.point_count
+        {
+            return Err(contract("terminal study inventory header disagrees"));
+        }
+        let count =
+            usize::try_from(study.point_count).map_err(|_| contract("study point extent"))?;
+        if count > MAXIMUM_STUDY_POINTS {
+            return Err(contract("study point extent"));
+        }
+        let owner_count = count.div_ceil(64) + 2;
+        let bytes = count
+            .checked_mul(size_of::<PointStatus>() + size_of::<pse_model::study::PointFacts>())
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    owner_count * size_of::<std::sync::Arc<pse_columnar::AllocationLease>>(),
+                )
+            })
+            .ok_or_else(|| contract("study point extent"))?;
+        let base_owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("study:retained-occurrence-summaries", bytes)?;
+        let mut owners = Vec::with_capacity(owner_count);
+        owners.push(base_owner);
+        // A response and its decoded page coexist only during this realization.
+        let _page_owner = self.runtime.shared.math().reserve(
+            "study:occurrence-page",
+            pse_operations::canonical::MESSAGE_BYTES * 4,
+        )?;
+        let mut points = Vec::with_capacity(count);
+        let mut facts = Vec::with_capacity(count);
+        let mut after = None;
+        loop {
+            #[cfg(test)]
+            let _ = TERMINAL_PAGE_OBSERVER.try_with(|observer| observer());
+            let page = store.study_point_page(&study.key, after).await?;
+            if page.is_empty() {
+                break;
+            }
+            let extent = page.iter().try_fold(0usize, |sum, point| {
+                let variable = point.key.len()
+                    + point.study.len()
+                    + point.run.len()
+                    + point.attempt.as_ref().map_or(0, String::len)
+                    + point.facts.as_slice().len()
+                    + point
+                        .outcome
+                        .as_ref()
+                        .map_or(0, |value| value.as_slice().len());
+                sum.checked_add(
+                    variable
+                        .checked_mul(4)
+                        .ok_or_else(|| contract("study point extent"))?,
+                )
+                .ok_or_else(|| contract("study point extent"))
+            })?;
+            owners.push(
+                self.runtime
+                    .shared
+                    .math()
+                    .reserve("study:retained-occurrence-page", extent)?,
+            );
+            for point in page {
+                if points.len() >= count
+                    || point.study != study.key
+                    || point.ordinal != points.len() as u64
+                    || point.key
+                        != pse_operations::canonical_studies::point_key(
+                            &study.key,
+                            pse_model::study::OccurrenceKey(
+                                u32::try_from(point.occurrence)
+                                    .map_err(|_| contract("occurrence overflow"))?,
+                            ),
+                        )
+                    || !point.settled
+                {
+                    return Err(contract("terminal occurrence membership disagrees"));
+                }
+                let fact = point.facts()?;
+                let outcome = point
+                    .outcome()?
+                    .ok_or_else(|| contract("terminal occurrence outcome absent"))?;
+                if outcome.key != fact.key || outcome.lifecycle != fact.lifecycle {
+                    return Err(contract("terminal occurrence outcome disagrees"));
+                }
+                after = Some(point.ordinal);
+                points.push(PointStatus {
+                    point_index: fact.key.0,
+                    state: fact.lifecycle,
+                    outcome: Some(outcome),
+                    run: point.run,
+                    attempt: point.attempt,
+                    settled: point.settled,
+                });
+                facts.push(fact);
+            }
+        }
+        if points.len() != count {
+            return Err(contract("terminal occurrence inventory incomplete"));
+        }
+        // Recheck the immutable terminal header before publishing the realization.
+        if store.canonical_study_summary(&study.key).await?.as_ref() != Some(&study) {
+            return Err(contract("terminal study changed during occurrence read"));
+        }
+        store
+            .read_results(&study.run, &attempt, Duration::from_secs(60))
+            .await?;
+        Ok(Some(TerminalStudyInventory {
+            status: StudyStatus {
+                study_id: self.study_id,
+                state: StudyState::Concluded,
+                run: study.run,
+                result_attempt: Some(attempt),
+                cancelled: study.cancelled,
+                points,
+            },
+            facts,
+            owner: std::sync::Arc::new(owners),
+        }))
+    }
+    /// Sealed canonical handles; incomplete private staging is never returned as a result.
+    pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
+        let Some(inventory) = self.terminal_inventory().await? else {
+            return Ok(None);
+        };
+        let status = inventory.status;
         let Some(attempt) = status.result_attempt else {
             return Ok(None);
         };
-        self.runtime
-            .canonical_store()
-            .read_results(&status.run, &attempt, Duration::from_secs(60))
-            .await?;
+        let projection_bytes = status
+            .points
+            .len()
+            .checked_mul(size_of::<(u32, String, Option<String>)>())
+            .ok_or_else(|| contract("study result extent"))?;
+        let projection_owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("study:terminal-results", projection_bytes)?;
+        let owners: Vec<std::sync::Arc<dyn pse_columnar::PayloadOwner>> =
+            vec![inventory.owner, projection_owner];
         Ok(Some(StudyResults {
             run: status.run,
             attempt,
@@ -1530,6 +1685,7 @@ impl StudyHandle {
                 .into_iter()
                 .map(|point| (point.point_index, point.run, point.attempt))
                 .collect(),
+            _owner: Some(std::sync::Arc::new(owners)),
         }))
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.

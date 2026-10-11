@@ -25,6 +25,16 @@ from unittest.mock import patch
 from scripts import test_resources as resources
 
 
+def drain_fixture(complete: bool) -> resources.operation.DrainObservation:
+    return resources.operation.DrainObservation(
+        None,
+        resources.operation.DrainPhase.COMPLETE
+        if complete
+        else resources.operation.DrainPhase.POPULATED,
+        "controlled observation",
+    )
+
+
 class TestResourceTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -455,12 +465,18 @@ class TestResourceTests(unittest.TestCase):
             resource,
             units=[{"unit": "owned.scope", "group": "/owned", "invocation": "b" * 32}],
         )
-        with patch.object(resources.operation, "drained", return_value=False):
+        with patch.object(
+            resources.operation, "drained", return_value=drain_fixture(False)
+        ):
             self.assertEqual(
-                resources.reclaim(resource), "supervised descendant not drained"
+                resources.reclaim(resource),
+                "supervised descendant not drained: "
+                + drain_fixture(False).diagnostic(),
             )
         with (
-            patch.object(resources.operation, "drained", return_value=True),
+            patch.object(
+                resources.operation, "drained", return_value=drain_fixture(True)
+            ),
             patch.object(resources, "remove_owned") as removal,
         ):
             self.assertEqual(resources.reclaim(resource), "removed")
@@ -622,10 +638,14 @@ class TestResourceTests(unittest.TestCase):
             self.finish_report(
                 resource, {"complete": True, "required_checks_covered": True}
             )
-        with patch.object(resources.operation, "drained", return_value=False):
+        with patch.object(
+            resources.operation, "drained", return_value=drain_fixture(False)
+        ):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertTrue((directory / "run.log").exists())
-        with patch.object(resources.operation, "drained", return_value=True):
+        with patch.object(
+            resources.operation, "drained", return_value=drain_fixture(True)
+        ):
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertFalse((directory / "run.log").exists())
         self.assertTrue((directory / "checks.json").exists())
@@ -708,7 +728,9 @@ class TestResourceTests(unittest.TestCase):
         with resources.resource_metadata() as ledger:
             for resource, _directory in reports[:4]:
                 ledger["owners"][resource]["units"] = [{"unit": "retained.scope"}]
-        with patch.object(resources.operation, "drained", return_value=False) as drain:
+        with patch.object(
+            resources.operation, "drained", return_value=drain_fixture(False)
+        ) as drain:
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertEqual(drain.call_count, 4)
             self.assertTrue((reports[4][1] / "run.log").exists())

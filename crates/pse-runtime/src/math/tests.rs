@@ -872,6 +872,9 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
     );
     drop(directional);
     drop(pressure);
+    // This admission control measures live/transient owners. Optional retained
+    // products may legitimately yield under pressure and change the total.
+    math.clear_program_cache();
     let baseline = math.pool.reserved();
     let hold = || {
         let reservation = MemoryConsumer::new("test:rebind-pressure").register(&math.pool);

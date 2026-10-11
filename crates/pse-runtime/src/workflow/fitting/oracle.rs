@@ -1290,10 +1290,14 @@ mod tests {
         assert!(owner.upgrade().is_none());
         assert!(pool.reserved() <= before - bytes);
 
+        // Disposable program retention may yield to pressure. Release it first so
+        // saturation covers live allocations throughout the refusal check.
+        revision.runtime.clear_program_cache();
         let pressure = datafusion::execution::memory_pool::MemoryConsumer::new("test:fit-pressure")
             .register(&pool);
         let limit = revision.runtime.shared.budget().memory_limit_bytes.get();
         pressure.try_grow(limit - pool.reserved()).unwrap();
+        assert_eq!(pool.reserved(), limit);
         assert!(
             revision
                 .prepare_fit(

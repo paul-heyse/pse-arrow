@@ -26,6 +26,24 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
+def readiness_fixture(
+    phase: surreal_server.Readiness,
+) -> surreal_server.ServiceObservation:
+    return surreal_server.ServiceObservation(
+        phase,
+        Path("/fixture"),
+        "fixture",
+        "fixture.service",
+        "controlled observation",
+        manager={"ActiveState": "active"}
+        if phase in {surreal_server.Readiness.READY, surreal_server.Readiness.STARTING}
+        else {},
+        listener_owned=phase
+        in {surreal_server.Readiness.READY, surreal_server.Readiness.STARTING},
+        protocol_ready=phase is surreal_server.Readiness.READY,
+    )
+
+
 class HostAdmissionTests(unittest.TestCase):
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
@@ -220,6 +238,23 @@ class HostAdmissionTests(unittest.TestCase):
             host.reconcile(self.directory, resume_parked=False)
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
+
+    def test_unbound_storage_observation_uses_original_drain_clock(self) -> None:
+        owner, service, unit = self.storage_process_fixture()
+        (service / "server-process.json").unlink()
+        with host.allocation_metadata(self.directory) as ledger:
+            record = dict(ledger["owners"][owner.nonce])
+        record["units"] = {unit: {}}
+        deadline = time.monotonic() + 1
+        with patch.object(
+            host.operation, "unit_observation", return_value={"LoadState": "not-found"}
+        ) as observe:
+            self.assertTrue(
+                host.service_processes_drained(
+                    record, self.directory / owner.nonce, deadline=deadline
+                )
+            )
+        observe.assert_called_once_with(unit, deadline=deadline)
 
     def test_stale_borrowed_snapshot_cannot_park_resumed_allocation(self) -> None:
         original, service, unit = self.storage_process_fixture(borrowed=True)
@@ -489,13 +524,16 @@ class HostAdmissionTests(unittest.TestCase):
         admitted = False
         owner: host.Allocation | None = None
 
-        def inherit(_environment: object) -> host.Allocation | None:
+        def inherit(_environment: object, *, deadline: float) -> host.Allocation | None:
             nonlocal owner
+            self.assertGreater(deadline, time.monotonic())
             if not admitted:
                 return None
             # Admit the later matching owner after reconcile takes its queue snapshot.
             # Registering it beforehand would correctly defer reconciliation entirely.
-            owner = host.acquire(host.select("reference"), directory=self.directory)
+            owner = host.acquire(
+                host.select("reference"), directory=self.directory, deadline=deadline
+            )
             return owner
 
         def materialize(
@@ -518,7 +556,11 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(
                 surreal_server,
                 "service_readiness",
-                return_value=surreal_server.Readiness.ACTIONABLE_ABSENT,
+                side_effect=lambda *_args, **_kwargs: readiness_fixture(
+                    surreal_server.Readiness.STARTING
+                    if any(call.args[0] == "start" for call in manager.call_args_list)
+                    else surreal_server.Readiness.ACTIONABLE_ABSENT
+                ),
             ),
             patch.object(
                 surreal_server,
@@ -626,7 +668,7 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertTrue(owner.release())
 
         @contextlib.contextmanager
-        def lifecycle(_state: Path) -> Generator[None, None, None]:
+        def lifecycle(_state: Path, **_kwargs: object) -> Generator[None, None, None]:
             nonlocal interleaved
             if not interleaved:
                 interleaved = True
@@ -1018,8 +1060,96 @@ class HostAdmissionTests(unittest.TestCase):
             assert inherited is not None
             self.assertEqual(inherited.nonce, owner.nonce)
             with self.assertRaisesRegex(host.AdmissionError, "already bound"):
-                owner.bind(unit, deadline=time.monotonic() + 1)
+                owner.bind(unit, deadline=time.monotonic() + 1, fresh=True)
         self.assertEqual((ledger.read_bytes(), ledger.stat().st_ino), before)
+
+    def test_authenticated_rebind_has_bounded_clock_separate_from_fixed_freshness(
+        self,
+    ) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "owned-storage.service"
+        owner.register(unit)
+        original = {"group": "/owned", "invocation": "a" * 32, "inode": 17}
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["units"][unit] = original
+        deadline = time.monotonic() + 1
+        with (
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={"ControlGroup": "/owned", "InvocationID": "b" * 32},
+            ) as observe,
+            patch.object(host.operation, "process_group", return_value="/owned/child"),
+            patch.object(host, "group_identity", return_value=18),
+        ):
+            with self.assertRaisesRegex(host.AdmissionError, "already bound"):
+                owner.bind(unit, deadline=deadline, fresh=True)
+            owner.bind(unit, deadline=deadline)
+        self.assertEqual(observe.call_args.args, (unit, deadline))
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertEqual(
+                ledger["owners"][owner.nonce]["units"][unit],
+                {"group": "/owned", "invocation": "b" * 32, "inode": 18},
+            )
+        before = (self.directory / "allocations.json").read_bytes()
+        with (
+            patch.object(
+                host,
+                "control_unit_observation",
+                return_value={"ControlGroup": "/owned", "InvocationID": "c" * 32},
+            ),
+            patch.object(host.operation, "process_group", return_value="/outside"),
+            self.assertRaisesRegex(host.AdmissionError, "actual unit"),
+        ):
+            owner.bind(unit, deadline=time.monotonic() + 1)
+        self.assertEqual((self.directory / "allocations.json").read_bytes(), before)
+
+    def test_authenticated_rebind_held_ledger_expires_without_late_publication(
+        self,
+    ) -> None:
+        owner = host.acquire_light_control(
+            directory=self.directory, deadline=time.monotonic() + 1
+        )
+        unit = "owned-storage.service"
+        owner.register(unit)
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["units"][unit] = {
+                "group": "/owned",
+                "invocation": "a" * 32,
+                "inode": 17,
+            }
+        before = (self.directory / "allocations.json").read_bytes()
+        program = "import fcntl,sys; f=open(sys.argv[1], 'a'); fcntl.flock(f, fcntl.LOCK_EX); print('held',flush=True); sys.stdin.readline()"
+        child = subprocess.Popen(
+            [sys.executable, "-c", program, str(self.directory / ".lock")],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert child.stdout is not None
+            self.assertEqual(child.stdout.readline().strip(), "held")
+            started = time.monotonic()
+            with (
+                patch.object(
+                    host,
+                    "control_unit_observation",
+                    return_value={"ControlGroup": "/owned", "InvocationID": "b" * 32},
+                ),
+                patch.object(
+                    host.operation, "process_group", return_value="/owned/child"
+                ),
+                patch.object(host, "group_identity", return_value=18),
+                self.assertRaises(host.AdmissionError),
+            ):
+                owner.bind(unit, deadline=started + 0.05)
+            self.assertLess(time.monotonic() - started, 0.5)
+        finally:
+            child.communicate("release\n", timeout=5)
+            self.assertEqual(child.returncode, 0)
+        self.assertEqual((self.directory / "allocations.json").read_bytes(), before)
 
     def test_unbound_control_child_refuses_dead_launch_parent_without_writes(
         self,
@@ -1258,6 +1388,82 @@ class HostAdmissionTests(unittest.TestCase):
         ):
             host.inherit(owner.environment())
         self.assertTrue(owner.release())
+
+    def test_release_refreshes_returned_affiliation_and_preserves_other_work(
+        self,
+    ) -> None:
+        for surviving in (False, True):
+            with self.subTest(surviving=surviving):
+                owner = host.acquire(
+                    host.select("functional"), directory=self.directory
+                )
+                with host.allocation_metadata(self.directory) as ledger:
+                    ledger["owners"][owner.nonce]["borrowed_services"] = [
+                        "/owned/store"
+                    ]
+
+                def returned(
+                    *_args: object,
+                    owner: host.Allocation = owner,
+                    surviving: bool = surviving,
+                    **_kwargs: object,
+                ) -> None:
+                    with host.allocation_metadata(self.directory) as ledger:
+                        record = ledger["owners"][owner.nonce]
+                        record["borrowed_services"] = []
+                        if surviving:
+                            record["units"]["other.scope"] = {
+                                "group": "/other",
+                                "invocation": "a" * 32,
+                                "inode": 17,
+                            }
+
+                def drained(record: dict[str, object], **_kwargs: object) -> bool:
+                    self.assertEqual(record["borrowed_services"], [])
+                    return not record["units"]
+
+                with (
+                    patch.object(host, "drain_borrowed_services", side_effect=returned),
+                    patch.object(host, "drained", side_effect=drained),
+                    patch.object(host, "retire_empty_allocation"),
+                ):
+                    self.assertEqual(owner.release(), not surviving)
+                with host.allocation_metadata(self.directory) as ledger:
+                    if surviving:
+                        record = ledger["owners"][owner.nonce]
+                        self.assertIn("other.scope", record["units"])
+                        self.assertTrue(record["released"])
+                    else:
+                        self.assertNotIn(owner.nonce, ledger["owners"])
+                if surviving:
+                    with (
+                        patch.object(host, "drained", return_value=True),
+                        patch.object(host, "retire_empty_allocation"),
+                    ):
+                        self.assertTrue(owner.release())
+
+    def test_release_reports_retention_when_other_work_registers_during_proof(
+        self,
+    ) -> None:
+        owner = host.acquire(host.select("functional"), directory=self.directory)
+
+        def register(_record: dict[str, object], **_kwargs: object) -> bool:
+            owner.register("late.scope")
+            return True
+
+        with (
+            patch.object(host, "drained", side_effect=register),
+            patch.object(host, "retire_empty_allocation") as retire,
+        ):
+            self.assertFalse(owner.release())
+        retire.assert_not_called()
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertIn("late.scope", ledger["owners"][owner.nonce]["units"])
+        with (
+            patch.object(host, "drained", return_value=True),
+            patch.object(host, "retire_empty_allocation"),
+        ):
+            self.assertTrue(owner.release())
 
     def test_parent_death_and_pid_reuse_do_not_release_surviving_unit(self) -> None:
         owner = host.acquire(host.select("functional"), directory=self.directory)

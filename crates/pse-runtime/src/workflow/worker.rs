@@ -523,18 +523,13 @@ impl Runtime {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
         let store = operations(self)?.store();
-        let allocation = store.native_allocation()?;
-        let profile = allocation
-            .execution
-            .ok_or_else(|| contract("durable study requires a managed execution profile"))?;
+        let selected = super::NativeExecutionSelection::from_store(store)?;
+        let (receiver, profile) = selected.managed_primary()?;
         if self.shared.budget().memory_limit_bytes.get() > profile.observer_memory_bytes {
             return Err(contract(
                 "durable observer pool exceeds its managed observer allocation",
             ));
         }
-        let receiver = store.managed_primary_receiver()?.ok_or_else(|| {
-            contract("durable study requires a configured managed primary receiver")
-        })?;
         if cancel.token().is_cancelled() {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
@@ -543,7 +538,7 @@ impl Runtime {
             .arg(&receiver.supervisor_script)
             .arg("ensure-primary")
             .arg("--state")
-            .arg(store.deployment_state())
+            .arg(selected.receiver_state())
             .arg("--canonical-database")
             .arg(store.database())
             .arg("--observer-pid")
@@ -595,6 +590,7 @@ impl Runtime {
         if !ready.ready {
             return Err(contract("managed primary is not ready"));
         }
+        selected.require_current()?;
         Ok(())
     }
     /// A definite decision rejection can demand a fresh shared-policy decision.

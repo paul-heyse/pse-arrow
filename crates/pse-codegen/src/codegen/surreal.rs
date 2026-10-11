@@ -32,9 +32,14 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             };
             let _ = writeln!(
                 ddl,
-                "DEFINE TABLE {table} TYPE RELATION IN {} OUT {} SCHEMAFULL;",
+                "DEFINE TABLE {table} TYPE RELATION IN {} OUT {}{} SCHEMAFULL;",
                 target("in")?,
-                target("out")?
+                target("out")?,
+                if pse_schema::catalog::substrate::ENFORCED_RELATIONS.contains(&table) {
+                    " ENFORCED"
+                } else {
+                    ""
+                }
             );
         }
         let module = format_ident!("{table}");

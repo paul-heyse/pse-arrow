@@ -1255,6 +1255,7 @@ impl CanonicalStore {
         let mut response = self
             .protected_query(
                 &selection.revision().problem,
+                crate::canonical::QueryEffect::Read,
                 "canonical_staging::selected_source_records",
                 || {
                     Ok(self
@@ -1353,6 +1354,7 @@ impl CanonicalStore {
             let mut response = self
                 .protected_query(
                     &selection.revision().problem,
+                    crate::canonical::QueryEffect::Read,
                     "canonical_staging::authorized_record",
                     || {
                         Ok(self
@@ -1376,7 +1378,7 @@ impl CanonicalStore {
             return Ok(response.take(response.num_statements().saturating_sub(2))?);
         }
         if let Some(selection) = selection {
-            let mut response = self.protected_query(&selection.revision().problem, "canonical_staging::authorized_record", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 {{ RETURN NONE; }} ELSE {{ RETURN SELECT * FROM ONLY type::record($table, $key); }};\nLET $pse_rpc_result = $row;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
+            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 {{ RETURN NONE; }} ELSE {{ RETURN SELECT * FROM ONLY type::record($table, $key); }};\nLET $pse_rpc_result = $row;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"))
                 .bind(("problem", selection.revision().problem.clone())).bind(("protection", selection.key().to_owned()))
                 .bind(("revision", selection.revision().key.clone())).bind(("sequence", canonical_codec::encode_uint(selection.revision().sequence)?))
                 .bind(("version", version.to_owned())).bind(("table", table.to_owned())).bind(("key", key.to_owned())))).await?;

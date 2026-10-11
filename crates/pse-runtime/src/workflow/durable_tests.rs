@@ -149,7 +149,9 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
     drop(selection);
     drop(result);
     drop(handle);
+    drop(prepared);
     drop(package);
+    runtime.clear_program_cache();
     runtime
         .canonical()
         .store()
@@ -209,7 +211,9 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
     );
     drop(result);
     drop(handle);
+    drop(prepared);
     drop(package);
+    runtime.clear_program_cache();
     runtime
         .canonical()
         .store()

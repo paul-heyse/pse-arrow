@@ -27,6 +27,7 @@ from unittest.mock import patch
 from scripts import (
     build_environment,
     build_measurements,
+    host_admission,
     producer_deployment,
     pse_env,
     surreal_server,
@@ -35,6 +36,14 @@ from scripts import (
 from scripts import native_cache as cache
 from scripts import native_operation as operation
 from scripts import native_pipeline_cache as pipeline
+
+
+def drain_fixture(complete: bool) -> operation.DrainObservation:
+    return operation.DrainObservation(
+        None,
+        operation.DrainPhase.COMPLETE if complete else operation.DrainPhase.POPULATED,
+        "controlled observation",
+    )
 
 
 class NativeOperationTests(unittest.TestCase):
@@ -110,9 +119,15 @@ class NativeOperationTests(unittest.TestCase):
 
     def await_drain(self, record: Mapping[str, object]) -> None:
         deadline = time.monotonic() + 15
-        while not operation.drained(record):
+        while True:
+            observed = operation.drained(record)
+            if observed.complete:
+                return
             if time.monotonic() >= deadline:
-                self.fail("authentic native fixture scope did not drain")
+                self.fail(
+                    observed.diagnostic()
+                    + "; authentic native fixture scope did not drain"
+                )
             time.sleep(0.02)
 
     def fixture_environment(self, base: Path) -> dict[str, str]:
@@ -676,13 +691,13 @@ class NativeOperationTests(unittest.TestCase):
                 operation._record(handoff)["generations"],  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
                 [str(generation)],
             )
-            self.assertFalse(operation.drained(operation._record(handoff)))  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+            self.assertFalse(operation.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             child_owner = {"unit": unit, "group": "/worker", "invocation": "b" * 32}
             with patch.object(operation, "scope_owner", return_value=child_owner):
                 operation.bind_handoff(handoff)
             self.assertEqual(operation._record(handoff)["scope"], child_owner)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             with patch.object(operation, "populated", return_value=True):
-                self.assertFalse(operation.drained(operation._record(handoff)))  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
+                self.assertFalse(operation.drained(operation._record(handoff)).complete)  # noqa: SLF001 -- inspect the actual private manager record in ownership controls
             with (
                 patch.object(
                     operation,
@@ -692,6 +707,128 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertRaisesRegex(ValueError, "differs"),
             ):
                 operation.bind_handoff(handoff)
+
+    def test_registration_handoff_requires_exact_owner_and_child_inode(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            pending = base / "worker-admission-0.json"
+            operation.write_json(pending, {"nonce": "selected"})
+            unit = "pse-surreal-worker-" + "a" * 16 + "-0.scope"
+            with (
+                patch.object(operation, "owner_record", return_value=None),
+                patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}),
+            ):
+                with self.assertRaisesRegex(ValueError, "changed"):
+                    operation.prepare_handoff(
+                        unit, reservation=(pending, "predecessor")
+                    )
+                handoff = operation.prepare_handoff(
+                    unit, reservation=(pending, "selected")
+                )
+            assert handoff is not None
+            scope = {"unit": unit, "group": "/owned", "invocation": "b" * 32}
+            with (
+                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(host_admission, "group_identity", return_value=None),
+                self.assertRaisesRegex(ValueError, "generation"),
+            ):
+                operation.bind_handoff(handoff)
+            self.assertIsNone(operation._record(handoff)["scope"])  # noqa: SLF001 -- inspect child-owned proof before publication
+            with (
+                patch.object(operation, "scope_owner", return_value=scope),
+                patch.object(host_admission, "group_identity", return_value=17),
+            ):
+                operation.bind_handoff(handoff)
+            record = operation._record(handoff)  # noqa: SLF001 -- inspect published child ownership proof
+            self.assertEqual(record["scope_inode"], 17)
+            self.assertTrue(operation.registration_pending(record))
+            operation.write_json(pending, {"nonce": "replacement"})
+            self.assertFalse(operation.registration_pending(record))
+
+    def test_handoff_clock_checks_after_lock_acquisition_and_before_publication(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            parent = base / "parent.json"
+            operation.write_json(
+                parent,
+                {
+                    "version": operation.VERSION,
+                    "scope": None,
+                    "admissions": {},
+                    "generations": [],
+                },
+            )
+            original_mask = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+            with (
+                patch.object(operation.time, "monotonic", side_effect=[10, 10, 12]),
+                self.assertRaises(operation.DeadlineExpiredError),
+                operation.record_lock(parent, deadline=11),
+            ):
+                self.fail("expired lock acquisition must not enter the protected body")
+            self.assertEqual(
+                signal.pthread_sigmask(signal.SIG_BLOCK, set()), original_mask
+            )
+            clock = [10.0]
+
+            def expire() -> object:
+                clock[0] = 12
+                return type("Nonce", (), {"hex": "late"})()
+
+            with (
+                patch.object(operation, "owner_record", return_value=parent),
+                patch.object(operation.time, "monotonic", side_effect=lambda: clock[0]),
+                patch.object(operation.uuid, "uuid4", side_effect=expire),
+                self.assertRaises(operation.DeadlineExpiredError),
+            ):
+                operation.prepare_handoff("owned.scope", deadline=11)
+            self.assertFalse(list(base.glob("handoff-*.json")))
+            self.assertEqual(
+                signal.pthread_sigmask(signal.SIG_BLOCK, set()), original_mask
+            )
+
+    def test_handoff_parent_discovery_consumes_original_manager_clock(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            operations = base / ".operations"
+            operations.mkdir(mode=0o700)
+            parent = operations / "parent.json"
+            unit = "pse-native-" + "a" * 32 + ".scope"
+            scope = {"unit": unit, "group": "/owned/" + unit, "invocation": "b" * 32}
+            operation.write_json(
+                parent,
+                {
+                    "version": operation.VERSION,
+                    "scope": scope,
+                    "admissions": {},
+                    "generations": [],
+                },
+            )
+            clock = [10.0]
+
+            def timeout(
+                _command: list[str], **kwargs: object
+            ) -> subprocess.CompletedProcess[str]:
+                self.assertEqual(kwargs["timeout"], 0.25)
+                clock[0] = 10.25
+                raise subprocess.TimeoutExpired("manager", 0.25)
+
+            with (
+                patch.dict(
+                    os.environ,
+                    {"PSE_NATIVE_CACHE": str(base), operation.MARKER: str(parent)},
+                ),
+                patch.object(operation, "process_group", return_value=scope["group"]),
+                patch.object(operation.time, "monotonic", side_effect=lambda: clock[0]),
+                patch.object(
+                    operation.subprocess, "run", side_effect=timeout
+                ) as manager,
+                self.assertRaises(operation.DeadlineExpiredError),
+            ):
+                operation.prepare_handoff("never.scope", deadline=10.25)
+            manager.assert_called_once()
+            self.assertFalse(list(operations.glob("handoff-*.json")))
 
     def test_cancellation_drains_authentic_scope_and_fallback_signals_group(
         self,
@@ -952,7 +1089,7 @@ class NativeOperationTests(unittest.TestCase):
                         patch.object(
                             operation,
                             "drained",
-                            side_effect=lambda record, stopped=stopped: (
+                            side_effect=lambda record, stopped=stopped: drain_fixture(
                                 record["scope"]["unit"] in stopped
                             ),
                         ),
@@ -997,7 +1134,9 @@ class NativeOperationTests(unittest.TestCase):
                 with patch.object(
                     operation,
                     "drained",
-                    side_effect=lambda record: record["scope"] is not None,
+                    side_effect=lambda record: drain_fixture(
+                        record["scope"] is not None
+                    ),
                 ):
                     self.assertEqual(operation.pinned_generations(base), set())
                     self.assertTrue(path.exists())
@@ -1103,9 +1242,8 @@ class NativeOperationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertEqual(native["requested_capabilities"], [])
             self.assert_fixture_scope(native["owner"]["scope"], live=False)
-            # Mirror pse-env's outer launcher: release the exact fixture's empty
-            # allocation before asking the native owner to prove terminal drain.
-            self.assertFalse(operation.populated(native["owner"]["scope"]["group"]))
+            # Mirror pse-env's outer launcher: the exact allocation release
+            # verifies its units before native ownership proves terminal drain.
             allocation = pse_env.host.inherit(environment)
             self.assertIsNotNone(allocation)
             assert allocation is not None
@@ -1593,7 +1731,9 @@ child.wait()
                 )
                 self.assert_fixture_scope(persistent["record"]["scope"])
                 self.assertFalse(
-                    operation.drained(json.loads(Path(parent["durable"]).read_text()))
+                    operation.drained(
+                        json.loads(Path(parent["durable"]).read_text())
+                    ).complete
                 )
                 (base / "stop").touch()
                 self.await_drain(persistent["record"])
@@ -1753,7 +1893,7 @@ sys.exit(128+v.RECEIVED_SIGNAL if result['status']=='interrupted' else result['e
                 self.assertFalse(
                     operation.drained(
                         json.loads(Path(validation_owner["durable"]).read_text())
-                    )
+                    ).complete
                 )
                 (base / "stop").touch()
                 self.await_drain(persistent["record"])
@@ -1786,7 +1926,7 @@ from scripts import native_operation as n,surreal_server as s,host_admission as 
 base=Path(sys.argv[1]); state=base/'state'; state.mkdir()
 unit='pse-native-'+uuid.uuid4().hex+'.scope'; owner=h.inherit(os.environ); owner.register(unit)
 handoff=n.prepare_handoff(unit,foreground=True); n.cancel_foreground_handoffs()
-assert not n.drained(n._record(handoff))
+assert not n.drained(n._record(handoff)).complete
 allocation={'execution':{'cpu_threads':1,'observer_memory_bytes':128*1024**2}}
 payload="from pathlib import Path; import sys; Path(sys.argv[1]).touch()"
 command=s.observer_scope_command(state,allocation,unit,[sys.executable,'-c',payload,str(base/'payload-ran')])
@@ -1828,6 +1968,74 @@ n.write_json(base/'pending-complete.json',{'status':status,'handoff':n._record(h
             self.assert_fixture_scope(child["scope"], live=False)
             self.await_drain(child)
             self.await_drain(completed["parent"])
+
+
+class DrainObservationTests(unittest.TestCase):
+    def test_selected_owner_phase_and_unavailable_cause_survive(self) -> None:
+        owner = {"unit": "owned.scope", "group": "/owned", "invocation": "a" * 32}
+        terminal = {
+            "LoadState": "loaded",
+            "ActiveState": "inactive",
+            "ControlGroup": "/owned",
+            "InvocationID": "a" * 32,
+        }
+        scenarios = [
+            (True, terminal, operation.DrainPhase.POPULATED, "descendants"),
+            (False, terminal, operation.DrainPhase.COMPLETE, "terminal"),
+            (
+                False,
+                {**terminal, "ActiveState": "active"},
+                operation.DrainPhase.ACTIVE,
+                "not terminal",
+            ),
+            (
+                False,
+                {**terminal, "InvocationID": "b" * 32},
+                operation.DrainPhase.MISMATCH,
+                "identity",
+            ),
+            (
+                False,
+                PermissionError("manager inaccessible"),
+                operation.DrainPhase.UNAVAILABLE,
+                "manager inaccessible",
+            ),
+        ]
+        for population, observed, phase, cause in scenarios:
+            observation = (
+                patch.object(operation, "unit_observation", side_effect=observed)
+                if isinstance(observed, Exception)
+                else patch.object(operation, "unit_observation", return_value=observed)
+            )
+            with (
+                self.subTest(phase=phase),
+                patch.object(operation, "populated", return_value=population),
+                observation,
+            ):
+                result = operation.drained({"scope": owner})
+                self.assertEqual(result.owner, owner)
+                self.assertEqual(result.phase, phase)
+                self.assertIn(cause, result.cause)
+                self.assertEqual(
+                    result.complete, phase is operation.DrainPhase.COMPLETE
+                )
+                with self.assertRaises(TypeError):
+                    bool(result)
+        result = operation.drained({"scope": None})
+        self.assertEqual(result.phase, operation.DrainPhase.UNAVAILABLE)
+        self.assertIn("missing scope", result.cause)
+
+    def test_unit_absence_does_not_complete_repopulated_group(self) -> None:
+        owner = {"unit": "owned.scope", "group": "/owned", "invocation": "a" * 32}
+        with (
+            patch.object(operation, "populated", side_effect=[False, True]),
+            patch.object(
+                operation, "unit_observation", return_value={"LoadState": "not-found"}
+            ),
+        ):
+            result = operation.drained({"scope": owner})
+        self.assertEqual(result.phase, operation.DrainPhase.POPULATED)
+        self.assertFalse(result.complete)
 
 
 if __name__ == "__main__":
