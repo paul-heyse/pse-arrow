@@ -765,6 +765,20 @@ generic search/MCP work needs a concrete new requirement; it is not hidden accep
 
 ## Checkpoint and next step
 
+Execution resumed on 2026-10-11 under the maintainer's instruction to implement the
+detailed remaining-scope approach, starting from `e403c66c81f73fbc45f61542df8b7504a87c38eb`.
+The current Nextest edits and separate untracked workspace-test review are preserved.
+The selected reference profile remains stopped and quiesced; its immutable supervisor
+and receiver generations verify, and its worker matches the rebuilt checkout worker.
+All 39 prior positive assessment gates include the now-changed Nextest configuration
+in their recorded inputs, so exact unchanged-input reuse is unavailable on this tree.
+A fresh comprehensive assessment is selected. Its first launch was refused by the
+existing exclusive heavy-work owner before any campaign gate started. Continue independent
+read-only consumer/worktree and measurement-prerequisite reconciliation while waiting
+for ordinary admission; do not override capacity or stop another owner's work.
+E3/E4/E5 and composed N4/T5/L4 acceptance remain open. The historical continuation
+below retains its original evidence and conditions.
+
 The maintainer interrupted the campaign and pivoted to the
 [SurrealDB review](https://github.com/paul-heyse/pse-arrow/blob/313b53ac9dceb770c3254b6a20b3bd7f57e69af7/docs/design_review/reviews/design_review_surrealdb-capabilities-lifecycle-and-integrations_2026-10-10.md).
 [Plan 35](35-surrealdb-lifecycle-and-integration-remediation.md#outcome-recorded-after-implementation)
