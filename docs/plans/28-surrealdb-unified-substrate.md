@@ -496,9 +496,11 @@ has the open dispositions below; its recommendations and conditional rule impact
 adopted merely by publication.
 A scheduled package or accepted rule is not resolution. Links identify local evidence owners;
 resolve only when correction and relevant acceptance actually exist. US/EF/F scenario IDs
-refer to their originating reviews; PE scenario IDs refer to the new review. The PE entries
-now schedule the documented repository-wide extension; authoring is not implementation or
-correction evidence and does not change scientific acceptance criteria.
+refer to their originating reviews; PE scenario IDs refer to the production efficiency review.
+The mechanisms selected by these rows are implemented with scoped evidence in the companion
+Outcomes. Remaining scheduled work is composed N4/T5/L4 acceptance and E3/E4/E5, as specified
+by each row and the current checkpoint; it is not a fresh implementation backlog. Findings
+stay open until their full acceptance obligation is demonstrated. Scientific criteria are unchanged.
 
 | Finding | Review scenarios | Disposition | Work owner | Required evidence or question |
 |---|---|---|---|---|
@@ -520,12 +522,12 @@ correction evidence and does not change scientific acceptance criteria.
 | [F03](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f03) | S03/S07 | Resolved | A1 | [A Outcome](28a-canonical-substrate-and-revisions.md#outcome-recorded-after-implementation): zero-result, lost-ack, cancellation, normal/repeated creation and marker refusal controls pass. They do not establish the cause of historical missing-table failures. |
 | [F04](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f04) | S01/S03/S04/S07 | Scheduled | E1/E2; B3; C/D; E3 | Validate corrected fixture/wire premises, producer mechanism controls, progress and intended-point scientific controls, then complete the stable assembled development campaign against zero under [E's evidence policy](28e-rebuild-retirement-and-qualification.md#development-phase-evidence-and-optional-artifact-requalification). |
 | [F05](../design_review/reviews/design_review_plan-28-completion_2026-10-06.md#f05) | S06/S08 | Scheduled | B3; E3/E4/E5 | Development functional campaign, all applicable prepared measurements, accepted assembled review and enduring-owner retirement route; actual installed strict deployment qualification is explicit optional scope under [E's evidence policy](28e-rebuild-retirement-and-qualification.md#development-phase-evidence-and-optional-artifact-requalification). |
-| [PE01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe01) | S02 | In progress | 28f N1/N4; numerical policy/quality consumers | Shared ordered kind/ID projection and confirmed related maps; frozen scales, allowances, attribution and refusal controls. No tolerance changes. |
-| [PE02](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe02) | S03/S05 | In progress | 28g T0/T1/T5; C/D | Payload/index/resource admission and generated finite replay bounds replace scalar-count-driven framing. Exact rows/indexes, coverage, atomic visibility and complete-route E4 observations remain. |
-| [PE03](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe03) | S03/S05/S10 | In progress | 28g T2/T3/T5; C/D | Compact sufficient append acknowledgment and composed protected acquisition; distinct replay/read completion, expiry and cancellation controls. |
-| [PE04](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe04) | S01/S04/S10 | In progress | 28f N0/N2/N4; B/C3 | Bounded immutable checked selected preparation, complete invalidation and fresh protection; all confirmed repeat consumers migrate without merging occurrences or attempt state. |
-| [PE05](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe05) | S06 | In progress | 28h L0/L1/L2/L4; E2 | Operation-scoped verified generation and actual capability setup; corruption/provider/input and concurrent-use/drain controls. Refines EF06 without claiming a measured bottleneck. |
-| [PE06](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe06) | S07 | In progress | 28h L0/L3/L4; B3/E2 | RC01 confirmed 2026-10-07; actual artifact-specific association plus complete outer observation, relevant/unrelated edit and genuine installed-role controls. |
+| [PE01](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe01) | S02 | Scheduled | 28f N1/N4; numerical policy/quality consumers | **Implemented** with scoped companion evidence; composed acceptance remains. Shared ordered kind/ID projection and confirmed related maps; frozen scales, allowances, attribution and refusal controls. No tolerance changes. |
+| [PE02](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe02) | S03/S05 | Scheduled | 28g T0/T1/T5; C/D | **Implemented** with scoped companion evidence; composed acceptance remains. Payload/index/resource admission and generated finite replay bounds replace scalar-count-driven framing. Exact rows/indexes, coverage, atomic visibility and complete-route E4 observations remain. |
+| [PE03](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe03) | S03/S05/S10 | Scheduled | 28g T2/T3/T5; C/D | **Implemented** with scoped companion evidence; composed acceptance remains. Compact sufficient append acknowledgment and composed protected acquisition; distinct replay/read completion, expiry and cancellation controls. |
+| [PE04](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe04) | S01/S04/S10 | Scheduled | 28f N0/N2/N4; B/C3 | **Implemented** with scoped companion evidence; composed acceptance remains. Bounded immutable checked selected preparation, complete invalidation and fresh protection; all confirmed repeat consumers migrate without merging occurrences or attempt state. |
+| [PE05](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe05) | S06 | Scheduled | 28h L0/L1/L2/L4; E2 | **Implemented** with scoped companion evidence; composed acceptance remains. Operation-scoped verified generation and actual capability setup; corruption/provider/input and concurrent-use/drain controls. Refines EF06 without claiming a measured bottleneck. |
+| [PE06](../design_review/reviews/design_review_production-execution-efficiency_2026-10-07.md#pe06) | S07 | Scheduled | 28h L0/L3/L4; B3/E2 | **Implemented** with scoped companion evidence; composed acceptance remains. RC01 confirmed 2026-10-07; actual artifact-specific association plus complete outer observation, relevant/unrelated edit and genuine installed-role controls. |
 
 The efficiency review's conditional query-plan, Taylor-zero, numeric-scratch and related
 library options have bounded N0/T0 decision routes; applicability precedes dependent changes.
@@ -769,10 +771,16 @@ its [affected acceptance](35-surrealdb-lifecycle-and-integration-remediation.md#
 The maintainer authorized all remaining testing, targeting zero failures, after that completion.
 The post-Plan-35 captures remain diagnostic/incomplete. Corrections passed targeted native
 checks; the subsequent comprehensive attempt exhausted storage during native compilation.
-Storage recovery, frozen-context refresh and the E3 relaunch
-are owned by [28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step),
-followed by conformance/external parity, E4's full 37-selector and build/locality
-measurements, and independent E5 review.
+The maintainer freed storage and committed the integrated corrections at `7c269f4a537cf52770df75a1b4e5a18ff47b9e01`.
+The worker rebuild and frozen deployment refresh subsequently completed. On 2026-10-11
+the maintainer requested shutdown for a host restart. The fresh assessment passed 39 gates
+before cancellation during native test compilation; its enclosing exit was 130. The native
+operation is drained and the selected reference service is quiesced/stopped, with no surviving
+listener/process or reservation. No subagent is running. Database state, frozen inputs and
+the rebuilt checkout target are retained.
+[28e's checkpoint](28e-rebuild-retirement-and-qualification.md#checkpoint-and-next-step)
+owns restart preparation, the unfinished E3 suites and scientific/recovery acceptance,
+E4's full 37-selector and build/locality measurements, and independent E5 review.
 E3/E4/E5 and N4/T5/L4 acceptance remain open until their covering evidence exists.
 
 The earlier execution authorization on 2026-10-10 covered the entirety of remaining Plan 28,
@@ -804,7 +812,7 @@ these scoped passes do not establish E3/E4/E5 or transfer their ownership.
 Source reconciliation and stale instruction updates are complete. Scientific rebuild/restore,
 profile-matching prerequisite composition, build-owner setup/admission/drain instrumentation,
 and policy/preflight/trajectory and unchanged-byte edit fixtures are implemented with scoped
-evidence. The final reference profile is `surreal-plan35-final-reference-20261010` (port 18247,
+evidence. The current selected reference profile is `surreal-plan28-corrections-reference-20261011` (port 18248,
 nonresident `plan28-reference`, `pse.substrate.v3`), with the current worker/native extension
 and private frozen receiver closure. Admit its original 140 GiB primary plus 16 GiB server
 and 4 GiB observer envelope, then readmit/start inside that owner. Preserve the original

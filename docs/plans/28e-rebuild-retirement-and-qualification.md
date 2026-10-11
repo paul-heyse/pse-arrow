@@ -789,10 +789,50 @@ selected service was quiesced and stopped through its supervisor; its final obse
 is actionable-absent, with no listener/process or reservation. Governance tests passed
 26/26, but the enclosing governance aggregate exhausted storage during generation.
 
-Free storage before further qualification; build/locality retains its 50 GiB starting
-floor plus fresh-target space. Refresh frozen tooling/worker/context as necessary, readmit
-and start inside the proper owner, then rerun full E3, conformance/external parity, all
-E4 measurements and independent E5 review below.
+The maintainer freed storage and committed/pushed the integrated corrections at
+`7c269f4a537cf52770df75a1b4e5a18ff47b9e01`; execution resumed from a clean checkout.
+About 346 GiB was available at resumption. The checkout target had been removed; the
+qualification worker was rebuilt and the selected frozen tooling/receiver closure refreshed.
+Retained frozen worker bytes and database state were not deleted or treated as a current checkout build.
+Build/locality retains its 50 GiB starting floor plus actual fresh-target space. Verify
+readiness, readmit and start inside the proper owner, then run fresh full E3,
+conformance/external parity, all E4 measurements and independent E5 review below.
+Authenticated readiness passed on the selected reference profile before the fresh assessment.
+The maintainer requested shutdown for a host restart on 2026-10-11. Execution is now stopped:
+`just assessment --output build/plan28-e3-complete-20261011 --python-profile dev --live`,
+inside the original 140 GiB reference primary owner with the selected service started in that
+same owner and native solver/KLU/isolation/UNO/PETSc environment, passed 39 gates against
+baseline zero. These include setup's 825 tests, both Clippy graphs, Python static checks,
+codegen freshness, compile/docs and doctests. The assessment was interrupted during native
+test compilation and its enclosing command exited 130. The native gate is interrupted;
+managed-native, native-Python and managed-Python are `not_run`. No full native/Python suite,
+scientific/recovery completion, E4 measurement or E5 acceptance is claimed.
+
+Shutdown used the authenticated native operation owner. Its owned systemd unit is absent
+and its cgroup empty. The selected service was quiesced and stopped through its supervisor;
+the final observation is `actionable-absent`, admission `quiesced`, with no listener/process
+or reservation. Database state, credentials, frozen inputs, rebuilt worker and warm build
+outputs remain retained. All known subagents are completed; none is running. The cancelled
+capture and shutdown observations remain under `build/plan28-qualification-resume-20261011`.
+The final activity check also found a separate workspace Nextest run launched from a Cursor
+terminal. It was interrupted through its authenticated process handle; none of its eleven
+recorded processes survived. That interrupted run supplies no additional campaign acceptance.
+
+The five older worktree branches have no commits absent from `main`. A read-only three-way
+audit found older dirty snapshots that conflict with later integrated corrections. Its clean
+candidate additions (retention guard control and native deployment exports) are already in
+current `main`; no source replacement was needed. The dirty worktrees remain intact at
+`../pse-arrow-wt/{p28a-description-20261008,p28j-compiler-20261008,plan35-composition,plan35-lifecycle,plan35-lookup}`.
+They are not declared fully reconciled or removed: inspect any remaining dirty conflicts for
+genuinely unique work before retirement, preserving the later fixes on `main`. The audit is
+`build/plan28-qualification-resume-20261011/worktree-audit.json`.
+
+After restart, reobserve host admission, available storage and the selected service before
+readmitting/starting it inside the reference campaign owner. Verify the retained worker and
+frozen closure still match; rebuild/refresh only invalidated inputs. Resume unfinished E3
+using a fresh output capture and matching prior gate evidence where supported. Do not treat
+the cancelled assessment as complete or rerun already valid checks merely because of restart.
+Scientific/recovery controls, all E4 measurements and E5 remain pending. No test is left running.
 The cancelled diagnostic native/managed phases supply no full-suite acceptance; retain
 the original sixteen-worker and thousand-point workloads in the final runs. Build/locality
 measurement remains constrained by the existing 50 GiB starting floor and actual fresh-target
@@ -870,9 +910,10 @@ cause or enclosing E3 acceptance. Full command output is retained at
    composition, build-owner setup/admission/drain instrumentation, and all four added growth
    and edit/copy fixtures. These mechanisms are implemented, not a fresh implementation backlog.
    The nine original failed identities are mapped above; exercise any invalidated controls
-   without treating a narrower receipt as full-native qualification. The final reference is
-   `surreal-plan35-final-reference-20261010` (port 18247, current private receiver closure);
-   readmit/start inside its original 140 GiB reference primary owner. For E4 prepare a fresh
+   without treating a narrower receipt as full-native qualification. The selected reference is
+   `surreal-plan28-corrections-reference-20261011` (port 18248); its rebuilt worker and refreshed
+   frozen receiver closure are retained. After restart verify those inputs, then readmit/start inside its original
+   140 GiB reference primary owner. For E4 prepare a fresh
    ordinary-wide profile with its matching standalone functional report, preserving other
    profiles and credentials. N4/T5/L4 source consumers are reconciled; composed acceptance remains.
    Repairs use targeted compilation and functional tests before integrated qualification.
