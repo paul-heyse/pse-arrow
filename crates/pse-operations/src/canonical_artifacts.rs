@@ -260,6 +260,22 @@ mod canonical_artifact_tests {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    async fn canonical_artifact_owner_release_fences_both_acquisition_orders() {
+        let (store,revision)=fixture().await;
+        let (intent,blocks)=content(&store,&revision).await;
+        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"audit","independent").await.unwrap();
+        store.retain_artifact(&intent.key,"user","retain-first").await.unwrap();
+        store.release_artifact(&intent.key,"user","retain-first").await.unwrap();
+        assert!(store.retain_artifact(&intent.key,"user","retain-first").await.is_err());
+        store.release_artifact(&intent.key,"project","release-first").await.unwrap();
+        store.release_artifact(&intent.key,"project","release-first").await.unwrap();
+        assert!(store.retain_artifact(&intent.key,"project","release-first").await.is_err());
+        store.retain_artifact(&intent.key,"user","new-independent-lifetime").await.unwrap();
+        assert!(store.collect_artifact(&intent).await.is_err());
+        assert!(store.read_artifact(&intent.key,Duration::from_secs(10)).await.is_ok(),"other owners remain available");
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn canonical_artifact_bounded_collection_fences_late_original_creation() {
         let (store,revision)=fixture().await;
         let (intent,blocks)=content(&store,&revision).await;

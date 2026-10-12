@@ -2947,6 +2947,7 @@ impl Operations {
             if let Some(point)=&capsule.document.prediction && (!capsule.assessment.permits_result || point.permission.usability!=capsule.assessment.usability || !point.permission.permits_use()) { return Err(contract("retained prediction permission differs")); }
             let solution=SemanticId::parse_hex(&capsule.header.key).map(SolutionId::from_id).map_err(|error|contract(error.to_string()))?;
             let assessment=Arc::new(pse_columnar::Leased::new(Arc::new(capsule.assessment),owner.clone()));
+            read.release().await?;
             decode_admitted_seed(solution,capsule.header,capsule.document,assessment,owner)
         }).await
     }

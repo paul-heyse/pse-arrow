@@ -102,6 +102,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::attach($rpc_expiry:int,$key:string,$obligat
     IF $row=NONE OR $row.retiring OR ($require_active AND !$row.active) OR $obligation.artifact!=$key OR $obligation.owner_kind NOT IN ['study','user','project','analysis','audit'] OR string::len($obligation.owner)=0 { THROW 'artifact obligation unavailable'; };
     IF $obligation.owner_kind='study' { fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))!=NONE { THROW 'study artifact owner retired'; }; };
     IF $obligation.owner_kind='analysis' { LET $analysis=SELECT * FROM ONLY type::record('canonical_analyses',$obligation.owner) FOR UPDATE; IF $analysis=NONE OR $analysis.retiring { THROW 'analysis artifact owner retired'; }; };
+    IF (SELECT * FROM ONLY type::record('canonical_artifact_releases',$obligation.key) FOR UPDATE)!=NONE { THROW 'artifact obligation permanently released'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key) FOR UPDATE;
     IF $old!=NONE { IF object::remove($old,['id'])!=$obligation { THROW 'artifact obligation identity changed'; }; }
     ELSE { CREATE ONLY type::record('canonical_artifact_obligations',$obligation.key) CONTENT $obligation; };
@@ -116,6 +117,9 @@ DEFINE FUNCTION fn::pse_artifact_v1::release($rpc_expiry:int,$obligation:object)
         fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner);
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))=NONE { THROW 'study input release requires explicit study retirement'; };
     };
+    LET $released=SELECT * FROM ONLY type::record('canonical_artifact_releases',$obligation.key) FOR UPDATE;
+    IF $released!=NONE { IF object::remove($released,['id'])!=$obligation { THROW 'artifact release identity changed'; }; }
+    ELSE { CREATE ONLY type::record('canonical_artifact_releases',$obligation.key) CONTENT $obligation; };
     DELETE ONLY type::record('canonical_artifact_obligations',$obligation.key);
     RETURN true;
 };

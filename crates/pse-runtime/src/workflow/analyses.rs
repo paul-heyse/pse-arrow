@@ -431,7 +431,7 @@ impl Runtime {
             )?;
             edge(&mut graph, node, attempt_node, "input_provenance", None)?;
         }
-        let staging_owner=format!("analysis-staging:{}",uuid::Uuid::new_v4());
+        let staging_owner=format!("analysis-staging:{}",pse_operations::mint_id::<pse_model::generated::identities::RunId>());
         let mut copied=Vec::new();
         for name in ["runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.local_validity","runtime.candidate_assessments","runtime.run_lineage"] {
             let spec=self.registry().relation(name).ok_or_else(||contract("analysis relation unavailable"))?;
