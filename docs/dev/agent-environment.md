@@ -167,6 +167,13 @@ their separate lifetime owners; cancelling a foreground assessment does not stop
 and command, canonical servers and workers, Cargo processes in this checkout and the slice
 limits. It is not a lock: a bare Cargo lock owner is reported as unknown.
 
+If an empty owned scope stays active and its user-manager journal reports inotify
+`ENOSPC`, check `fs.inotify.max_user_watches` and `fs.inotify.max_user_instances`.
+This is watch exhaustion, distinct from free disk space. On this workstation the
+maintainer raised the runtime limits to 524288 watches and 1024 instances during
+Plan37 qualification. Preserve exact drain requirements; increasing a cleanup timeout
+cannot restore missing manager notifications. These runtime settings reset on reboot.
+
 ## Builds in one checkout
 
 `PSE_TEST_RESOURCE_STATE=/absolute/private/directory` selects an isolated test-resource
@@ -256,7 +263,7 @@ built linked worker when creating state:
 ```bash
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
-just surreal setup --interpretation pse.substrate.v4 --execution-profile plan28-reference \
+just surreal setup --interpretation pse.substrate.v5 --execution-profile plan28-reference \
   --worker-executable "$PWD/target/debug/pse-worker"
 just surreal start
 just canonical-init "$PSE_SURREAL_STATE"

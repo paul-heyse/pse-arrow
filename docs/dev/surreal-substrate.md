@@ -11,7 +11,7 @@ Use `just surreal <command>` and the focused test recipes in `just --list`.
 The underlying tool commands are:
 
 ```bash
-.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v4
+.venv/bin/python scripts/surreal_server.py setup --interpretation pse.substrate.v5
 .venv/bin/python scripts/surreal_server.py start
 .venv/bin/python scripts/surreal_server.py status
 ```
@@ -23,8 +23,9 @@ through symlinks. Repeated setup of an owned compatible state preserves its chos
 release, credentials and allocation; it is not a reconfiguration or upgrade command.
 No legacy import, cleanup or deletion of other application state occurs.
 
-The current generated interpretation is `pse.substrate.v4`, including typed scalar
-result-row locators. Plan 36 exercises it on newly owned fixtures. These commands
+The current generated interpretation is `pse.substrate.v5`, including independent
+scientific artifacts, copied study inputs and releasable detail history with permanent
+identity fences. Fresh stores and evidence replace earlier design-phase data. These commands
 do not authorize activation, migration or deletion of an existing deployment;
 an existing interpretation mismatch still refuses ordinary startup/admission.
 
@@ -175,7 +176,7 @@ Timing uses a dedicated state and endpoint. With an already built linked worker:
 ```bash
 timing_state="${XDG_STATE_HOME:-$HOME/.local/state}/pse-arrow/surreal-timing-v2"
 scripts/pse-env --resource-class timing -- just surreal setup --state "$timing_state" \
-  --port 18242 --interpretation pse.substrate.v4 --execution-profile timing \
+  --port 18242 --interpretation pse.substrate.v5 --execution-profile timing \
   --worker-executable "$PWD/target/debug/pse-worker"
 scripts/pse-env --resource-class timing -- just surreal start --state "$timing_state"
 ```
@@ -290,9 +291,9 @@ Restore into a new or empty owned target, never over an existing application:
 
 ```bash
 .venv/bin/python scripts/surreal_server.py restore --state /path/to/restored-state \
-  --source /path/to/new-backup --interpretation pse.substrate.v4
+  --source /path/to/new-backup --interpretation pse.substrate.v5
 .venv/bin/python scripts/surreal_server.py validate --state /path/to/restored-state \
-  --interpretation pse.substrate.v4 --check-command <typed-semantic-validator> <arguments>
+  --interpretation pse.substrate.v5 --check-command <typed-semantic-validator> <arguments>
 .venv/bin/python scripts/surreal_server.py start --state /path/to/restored-state
 ```
 
@@ -315,7 +316,7 @@ recovery compares complete schema metadata and exact float/binary bits while dis
 metadata map order and transport chunk boundaries.
 
 `validate` starts the gated server, authenticates against `pse/canonical`, and requires
-`canonical_interpretations:current.interpretation` to match `pse.substrate.v4`. It then
+`canonical_interpretations:current.interpretation` to match `pse.substrate.v5`. It then
 runs the supplied semantic validator with `PSE_SURREAL_STATE` selecting the restore.
 The validator owns exact selected values, operation identities and schema/codec checks;
 it must use the read path permitted during validation, not normal write admission.
