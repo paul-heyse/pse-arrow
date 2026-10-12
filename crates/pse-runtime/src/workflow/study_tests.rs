@@ -950,6 +950,76 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
     drop(package);
 }
 
+#[cfg(all(feature = "canonical-tests",feature="solver-ipopt"))]
+#[tokio::test]
+async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement() {
+    let runtime=super::durable_tests::durable_runtime_on(tests::runtime_with_workspace(64<<20));
+    let (package,mut definition)=related_definition(&runtime).await;
+    definition.points.truncate(2);
+    let second_key=definition.points[1].policy.key;
+    definition.points[1]=definition.points[0].clone();
+    definition.points[1].policy.key=second_key;
+    let cancel=crate::CancelSource::new();
+    let mut lane=super::study_operations::StudyPreparationLane::new();
+    let prepared=lane.prepare(&package,&definition.points[0].operation,&definition.points[0].binding,&cancel).await.unwrap();
+    let original=prepared.start(&runtime,&cancel).await.unwrap().wait().await.unwrap();
+    assert!(original.usable(),"{:?}",original.report());
+    let producer=original.canonical_run_key().unwrap().to_owned();
+    let attempt=original.canonical_attempt_key().unwrap().to_owned();
+    let record=runtime.operations().unwrap().record(&producer,&attempt).await.unwrap();
+    assert_eq!(record.solutions.len(),1);
+    let solution=record.solutions[0].1;
+    drop(record);
+    drop(original);
+    drop(prepared);
+    lane.close().await.unwrap();
+    for point in &mut definition.points {
+        point.policy.start=StartPolicy::Explicit {role:SeedRole::PrimalSolution,seed:solution};
+    }
+    let (physical,_)=sources(CASES);
+    let handle=runtime.start_defined_study(physical,definition.clone(),&cancel).await.unwrap();
+    let study=handle.study_id().to_string();
+    let store=runtime.canonical_store();
+    let capsule=store.study_input(&study,&solution.to_string()).await.unwrap();
+    let retained=runtime.operations().unwrap().artifact_seed(&capsule).await.unwrap();
+    assert_eq!(retained.solution(),solution);
+    assert_eq!(retained.header().run,producer);
+    assert_eq!(retained.header().attempt,attempt);
+    drop(retained);
+    for point in &definition.points {
+        let native=store.canonical_study_point(&pse_operations::canonical_studies::point_key(&study,point.policy.key)).await.unwrap().unwrap();
+        assert_eq!(native.seed_solution.as_deref(),Some(solution.to_string().as_str()));
+        assert_eq!(store.study_input(&study,native.seed_solution.as_ref().unwrap()).await.unwrap(),capsule,"repeated exact external seed shares one copied study input");
+        assert!(!native.assigned && native.attempt.is_none(),"producer retires before any dispatch");
+    }
+    drop(package);
+    runtime.clear_program_cache();
+    let mut retired=false;
+    for _ in 0..32 {
+        if store.forget_run_results(&producer).await.is_ok() {retired=true;break;}
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(retired,"study owns copied capsule, not a coarse producer obligation");
+    assert!(runtime.operations().unwrap().seed(solution).await.is_err(),"fresh original lookup is unavailable");
+    let replacement=runtime.clone().with_durability(DurabilitySelection::Durable {worker:"replacement-retained-study-input".into(),policy:LeasePolicy::default()}).unwrap();
+    for _ in 0..8 {
+        if handle.status().await.unwrap().points.iter().all(|point|point.settled) {break;}
+        assert!(!matches!(replacement.work_once().await.unwrap(),Processed::Idle),"replacement must consume retained study input");
+    }
+    let status=handle.status().await.unwrap();
+    assert_eq!(status.points.len(),2);
+    for point in &status.points {
+        assert!(point.settled);
+        let outcome=point.outcome.as_ref().unwrap();
+        assert!(outcome.scientific.usable,"{outcome:?}");
+        assert_eq!(outcome.start,Some(StartProvenance::Explicit {role:SeedRole::PrimalSolution,seed:solution}));
+        assert_eq!(outcome.key.0,point.point_index,"actual provenance belongs to each occurrence");
+        let result=replacement.operations().unwrap().record(&point.run,point.attempt.as_ref().unwrap()).await.unwrap();
+        assert_eq!(result.solutions.len(),1,"replacement executes a native corrected solve");
+    }
+    assert_eq!(store.study_input(&study,&solution.to_string()).await.unwrap(),capsule);
+}
+
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science() {
