@@ -24,7 +24,8 @@ from scripts import surreal_server as server
 
 import pse
 from pse._build import compiled_features
-from pse.contracts.documents import ObservationText, SensitivityRequest
+from pse import codec
+from pse.contracts.documents import HistoryObligation, HistoryOwner, ObservationText, SensitivityRequest
 from pse.contracts.enums import (
     DiagnosticCode,
     FailureClass,
@@ -369,6 +370,26 @@ def test_canonical_result_selection_and_progress_reopen(
     assert record["terminal"]
     assert record["outcome"] == "succeeded"
     assert manifest["attempt"] == attempt
+    history_owner = codec.decode_json(
+        json.dumps({"kind": "run", "key": run}).encode(), HistoryOwner
+    )
+    audit = codec.decode_json(
+        json.dumps({"key": "python-history-audit", "owner": {"kind": "run", "key": run},
+                    "purpose": "audit", "attribution": "installed Python boundary"}).encode(),
+        HistoryObligation,
+    )
+    reopened.retain_history_obligation(audit)
+    with pytest.raises(pse.InspectionError):
+        reopened.release_history(history_owner)
+    reopened.release_history_obligation(audit)
+    with pytest.raises(pse.InspectionError):
+        reopened.retain_history_obligation(audit)
+    # Releasing an audit does not implicitly retire scientific payloads.
+    with pytest.raises(pse.InspectionError):
+        reopened.release_history(history_owner)
+    with pytest.raises(pse.InspectionError):
+        reopened.reclaim_history_page(history_owner)
+    assert pa.table(reopened.run_record(run)).num_rows == 1
     reopened_dependencies = reopened.analysis(dependencies.key)
     assert pa.table(reopened_dependencies.edges()).to_pylist() == dependency_rows
     provenance = reopened.result_analysis(run, attempt, controls)
