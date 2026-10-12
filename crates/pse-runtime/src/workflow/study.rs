@@ -433,8 +433,13 @@ impl Runtime {
                     self.modeling_revision(revision.clone(), context, BTreeMap::new()),
                 )
                 .await?;
-                // Immutable scientific entry admission is complete before any claim. This
-                // checks bindings and seed roles without constructing native solve views.
+                // Binding/role admission reuses structure. Explicit starts also validate
+                // compatibility against one prepared target before study activation.
+                let study_id: StudyId = pse_operations::mint_id();
+                let key = study_id.to_string();
+                let mut admitted_seeds = BTreeMap::new();
+                let mut seed_lane = super::study_operations::StudyPreparationLane::new();
+                let mut seed_preparation: Option<((pse_ids::ContentHash, Vec<String>, Vec<SemanticId>), super::ModelingSolvePreparation)> = None;
                 let mut admission = None;
                 for point in &definition.points {
                     creation_checkpoint(cancel)?;
@@ -457,12 +462,26 @@ impl Runtime {
                             "study seed consumption differs from its scientific owner",
                         ));
                     }
+                    if let pse_model::study::StartPolicy::Explicit { seed, .. } = &point.policy.start {
+                        if !admitted_seeds.contains_key(seed) {
+                            let selected = creation_input(cancel, operations.seed(*seed)).await?;
+                            admitted_seeds.insert(*seed, selected);
+                        }
+                        let target_key=super::study_operations::DeclaredStudyAdmission::binding_key(&point.operation,&point.binding)?;
+                        if !seed_preparation.as_ref().is_some_and(|(key,_)|key==&target_key) {
+                            let target=creation_effect(cancel,seed_lane.prepare(&package,&point.operation,&point.binding,cancel)).await?;
+                            let super::PreparedStudyOperation::DeclaredCase(target)=target else { return Err(contract("explicit study seed requires a declared scientific case")); };
+                            seed_preparation=Some((target_key,*target));
+                        }
+                        let target=&seed_preparation.as_ref().ok_or_else(||contract("study seed target absent"))?.1;
+                        target.clone().with_admitted_start(admitted_seeds.get(seed).ok_or_else(||contract("study explicit seed absent"))?)?;
+                    }
                 }
+                drop(seed_preparation);
+                seed_lane.close().await?;
                 drop(admission);
                 creation_checkpoint(cancel)?;
-                let study_id: StudyId = pse_operations::mint_id();
                 let run_id: RunId = pse_operations::mint_id();
-                let key = study_id.to_string();
                 let run = format!("run:{run_id}");
                 let physical_revision =
                     creation_input(cancel, self.canonical_store().revision(&physical.revision))
@@ -521,6 +540,11 @@ impl Runtime {
                         })
                     })
                     .collect::<Result<Vec<_>, WorkflowError>>()?;
+                for solution in admitted_seeds.keys() {
+                    creation_checkpoint(cancel)?;
+                    let artifact=creation_effect(cancel,operations.promote_seed(*solution,"study",&key)).await?;
+                    creation_effect(cancel,self.canonical_store().retain_study_input(&key,&solution.to_string(),&artifact.key)).await?;
+                }
                 let activated = self
                     .canonical_store()
                     .create_study(&key, &request, &metadata, &points, &|| {
@@ -645,7 +669,8 @@ impl Runtime {
                     start => {
                         let (role, selected) = match start {
                             StartPolicy::Explicit { role, seed } => {
-                                let selected = match self.operations()?.seed(*seed).await {
+                                let retained=self.canonical_store().study_input(&point.study,&seed.to_string()).await?;
+                                let selected = match self.operations()?.artifact_seed(&retained).await {
                                     Ok(admitted) => Some(admitted),
                                     Err(WorkflowError::SeedRead(
                                         super::durable::SeedReadError::Missing { .. },

@@ -11,6 +11,7 @@ use pse_model::generated::{
 };
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, Revision},
+    canonical_results::ResultRead,
     canonical_execution::{
         AppendAck, AttemptFence, CanonicalAttempt, CanonicalRun, ClosedAttempt, EmptySetAck,
         RESULT_ACKNOWLEDGMENT_BYTES, RESULT_BATCH_BYTES, ResultAcknowledgments, ResultManifest,
@@ -232,7 +233,7 @@ impl Operations {
 
     pub(super) async fn progress_coverage(
         &self,
-        read: &pse_operations::canonical_results::ResultRead,
+        read: &ResultRead,
     ) -> Result<super::ProgressCoverage, WorkflowError> {
         Ok(self
             .decode_completion(CompletionSelection::Full(read))
@@ -2367,7 +2368,7 @@ async fn write_chunks(
 }
 #[derive(Clone, Copy)]
 enum CompletionSelection<'a> {
-    Full(&'a pse_operations::canonical_results::ResultRead),
+    Full(&'a ResultRead),
     Slim(&'a pse_operations::canonical_results::CompletionRead),
 }
 impl CompletionSelection<'_> {
@@ -2385,7 +2386,7 @@ impl CompletionSelection<'_> {
 async fn read_chunks(
     store: &CanonicalStore,
     pool: &Arc<dyn MemoryPool>,
-    read: &pse_operations::canonical_results::ResultRead,
+    read: &ResultRead,
     name: &str,
     first: u64,
     count: u64,
@@ -2506,6 +2507,16 @@ struct SeedDocument {
     warm: SeedPayload,
     prediction: Option<super::modeling::results::PortablePrediction>,
 }
+/// Sufficient copied seed meaning; no unrelated completion/report tables are retained.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SeedCapsule {
+    version: u8,
+    header: pse_model::generated::runtime::canonical_result_seeds::Row,
+    assessment: pse_model::generated::runtime::candidate_assessments::Row,
+    document: SeedDocument,
+    manifest: pse_model::generated::runtime::canonical_result_manifests::Row,
+}
 /// One freshly admitted original seed, sharing its decoded payload and allocation.
 /// Retaining this value permits consuming its immutable bytes; a later acquisition
 /// still has to establish current original-manifest and scientific permission.
@@ -2513,7 +2524,7 @@ struct SeedDocument {
 pub struct AdmittedSeed {
     solution: SolutionId,
     header: pse_model::generated::runtime::canonical_result_seeds::Row,
-    completion: Arc<pse_columnar::Leased<StoredCompletion>>,
+    assessment: Arc<pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>>,
     pub(crate) start: Arc<pse_columnar::Leased<WarmStart>>,
     pub(crate) prediction:
         Option<Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>>,
@@ -2533,12 +2544,28 @@ impl AdmittedSeed {
     }
     /// Copied original assessment at acquisition, not authority for a future read.
     pub fn assessment(&self) -> Option<&pse_model::generated::runtime::candidate_assessments::Row> {
-        self.completion
-            .completion
-            .as_ref()?
-            .assessments
-            .get(self.header.step as usize)
+        Some(&self.assessment)
     }
+}
+fn decode_admitted_seed(
+    solution: SolutionId,
+    row: pse_model::generated::runtime::canonical_result_seeds::Row,
+    payload: SeedDocument,
+    assessment: Arc<pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>>,
+    owner: Arc<pse_columnar::AllocationLease>,
+) -> Result<AdmittedSeed, WorkflowError> {
+    let backend=NativeBackend::try_from(row.backend.as_str()).map_err(|error|contract(error.to_string()))?;
+    let start=WarmStart {
+        origin: None,
+        compatibility: Compatibility {
+            layout: ContentHash::parse_hex(&row.layout).map_err(|error|contract(format!("seed layout: {error}")))?,
+            profile: ContentHash::parse_hex(&row.profile).map_err(|error|contract(format!("seed profile: {error}")))?,
+            data: ContentHash::parse_hex(&row.data).map_err(|error|contract(format!("seed data: {error}")))?,
+            backend,
+        },
+        payload:warm_payload(payload.warm),
+    };
+    Ok(AdmittedSeed { solution,header:row,assessment,start:Arc::new(pse_columnar::Leased::new(Arc::new(start),owner.clone())),prediction:payload.prediction.map(|point|Arc::new(pse_columnar::Leased::new(Arc::new(point),owner.clone()))) })
 }
 fn bits(values: &[f64]) -> Vec<u64> {
     values.iter().map(|v| v.to_bits()).collect()
@@ -2811,6 +2838,13 @@ impl Operations {
         solution: SolutionId,
         row: pse_model::generated::runtime::canonical_result_seeds::Row,
     ) -> Result<AdmittedSeed, WorkflowError> {
+        self.load_seed(solution, row).await.map(|(seed, _, _)| seed)
+    }
+    async fn load_seed(
+        &self,
+        solution: SolutionId,
+        row: pse_model::generated::runtime::canonical_result_seeds::Row,
+    ) -> Result<(AdmittedSeed, ResultRead, SeedCapsule), WorkflowError> {
         if row.key != solution.to_string() {
             return Err(contract("stored seed identity differs from selection"));
         }
@@ -2871,30 +2905,50 @@ impl Operations {
                 "retained prediction differs from admitted scientific permission",
             ));
         }
-        let backend = NativeBackend::try_from(row.backend.as_str())
-            .map_err(|error| contract(error.to_string()))?;
-        let start = WarmStart {
-            origin: None,
-            compatibility: Compatibility {
-                layout: ContentHash::parse_hex(&row.layout)
-                    .map_err(|error| contract(format!("seed layout: {error}")))?,
-                profile: ContentHash::parse_hex(&row.profile)
-                    .map_err(|error| contract(format!("seed profile: {error}")))?,
-                data: ContentHash::parse_hex(&row.data)
-                    .map_err(|error| contract(format!("seed data: {error}")))?,
-                backend,
-            },
-            payload: warm_payload(payload.warm),
+        use pse_model::HeapUsage;
+        let assessment_owner = reserve(&self.pool, assessment.heap_bytes().checked_add(size_of_val(assessment)).ok_or_else(|| contract("seed assessment extent"))?)?;
+        let assessment = Arc::new(pse_columnar::Leased::new(Arc::new(assessment.clone()), assessment_owner));
+        let capsule = SeedCapsule {
+            version: 1,
+            header: row.clone(),
+            assessment: (**assessment).clone(),
+            document: payload.clone(),
+            manifest: read.manifest().clone(),
         };
-        Ok(AdmittedSeed {
-            solution,
-            header: row,
-            completion: completed,
-            start: Arc::new(pse_columnar::Leased::new(Arc::new(start), owner.clone())),
-            prediction: payload
-                .prediction
-                .map(|point| Arc::new(pse_columnar::Leased::new(Arc::new(point), owner.clone()))),
-        })
+        let seed = decode_admitted_seed(solution, row, payload, assessment, owner)?;
+        Ok((seed, read, capsule))
+    }
+    /// Promote one freshly qualified original seed to an independent copied capsule.
+    pub async fn promote_seed(&self, solution: SolutionId, owner_kind: &str, owner: &str) -> Result<pse_operations::canonical_artifacts::Artifact, WorkflowError> {
+        let activity = self.store.admit_activity()?;
+        activity.scope(async {
+            let row = self.store.result_seed(&solution.to_string()).await?.ok_or(SeedReadError::Missing { solution })?;
+            let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
+            let sources = self.store.analysis_run_sources(&capsule.header.run).await?;
+            let revision = sources.iter().find(|source|source.key==read.run().revision).ok_or_else(||contract("seed artifact primary source absent"))?;
+            let payload = serde_json::to_vec(&capsule).map_err(|error|contract(error.to_string()))?;
+            let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest)).map_err(|error|contract(error.to_string()))?;
+            let mut artifact = self.store.new_artifact(revision,"seed",provenance,1,payload.len() as u64).await?;
+            let block = pse_operations::canonical_artifacts::artifact_block(&artifact.key,0,"seed-capsule:v1",payload,&capsule.header.digest,1);
+            pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block));
+            Ok(self.store.persist_artifact(&artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block),owner_kind,owner).await?)
+        }).await
+    }
+    /// Acquire a retained independent seed. Producer result metadata is never consulted.
+    pub async fn artifact_seed(&self, artifact: &str) -> Result<AdmittedSeed, WorkflowError> {
+        let activity = self.store.admit_activity()?;
+        activity.scope(async {
+            let read = self.store.read_artifact(artifact,Duration::from_secs(60)).await?;
+            if read.header().kind!="seed" || read.header().block_count!=1 { return Err(contract("artifact is not a seed capsule")); }
+            let block = read.block(0).await?;
+            let owner = reserve(&self.pool, block.payload.len().checked_mul(4).ok_or_else(||contract("seed capsule decode extent"))?)?;
+            let capsule:SeedCapsule=serde_json::from_slice(&block.payload).map_err(|error|contract(error.to_string()))?;
+            if capsule.version!=1 || capsule.document.version!=1 || !capsule.assessment.permits_seed || capsule.header.digest!=block.original_digest || capsule.manifest.attempt!=capsule.header.attempt || capsule.manifest.generation!=capsule.header.attempt_generation { return Err(contract("retained seed scientific witness differs")); }
+            if let Some(point)=&capsule.document.prediction && (!capsule.assessment.permits_result || point.permission.usability!=capsule.assessment.usability || !point.permission.permits_use()) { return Err(contract("retained prediction permission differs")); }
+            let solution=SemanticId::parse_hex(&capsule.header.key).map(SolutionId::from_id).map_err(|error|contract(error.to_string()))?;
+            let assessment=Arc::new(pse_columnar::Leased::new(Arc::new(capsule.assessment),owner.clone()));
+            decode_admitted_seed(solution,capsule.header,capsule.document,assessment,owner)
+        }).await
     }
     /// Acquire one explicitly selected original seed and its optional prediction once.
     pub async fn seed(&self, solution: SolutionId) -> Result<AdmittedSeed, WorkflowError> {
@@ -4300,7 +4354,7 @@ mod canonical_durable_codec {
     async fn admit(
         operations: &Operations,
         fence: &AttemptFence,
-    ) -> pse_operations::canonical_results::ResultRead {
+    ) -> ResultRead {
         let closed = operations
             .store
             .close_result_ingestion(fence, "codec-close")

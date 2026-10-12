@@ -70,7 +70,6 @@ pub struct CanonicalResultReader {
     cancel: CancellationToken,
     output: Option<OutputFilter>,
     indexes: BTreeMap<String, OutputRows>,
-    last_receipt: Option<(String, u64)>,
     // Drop all metadata-backed pages and indexes before their shared grant.
     metadata_owner: Option<Arc<MemoryReservation>>,
     _selection_owner: MemoryReservation,
@@ -214,9 +213,6 @@ impl CanonicalResultReader {
                     .map_err(Into::into)
             })
             .transpose()
-    }
-    pub(super) fn last_receipt(&self) -> Option<&(String, u64)> {
-        self.last_receipt.as_ref()
     }
     /// Return one admitted registry relation batch for native columnar algorithms.
     /// The reader holds renewable protection for further database reads; copied
@@ -525,16 +521,6 @@ impl CanonicalResultReader {
             } else {
                 checked
             };
-            // The receipt outlives this block response and its page grant.
-            // Transfer the actual String after admitting its true capacity;
-            // release the preceding receipt's charge only after it is dropped.
-            self._selection_owner
-                .try_grow(block.batch.key.capacity())
-                .map_err(pse_engine::EngineError::from)?;
-            let previous = self.last_receipt.replace((block.batch.key, lower));
-            let released = previous.as_ref().map_or(0, |(key, _)| key.capacity());
-            drop(previous);
-            self._selection_owner.shrink(released);
             return Ok(Some(checked));
         }
     }
@@ -742,7 +728,6 @@ impl Runtime {
             cancel,
             output: None,
             indexes: BTreeMap::new(),
-            last_receipt: None,
             _selection_owner: selection_owner,
         })
     }

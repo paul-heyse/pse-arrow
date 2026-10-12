@@ -56,7 +56,8 @@ fn target_kind(kind: pse_model::generated::enums::NumericalTarget) -> &'static s
         NumericalTarget::Closure => "closure",
     }
 }
-type Graph = DiGraph<(String, String), (String, Option<String>)>;
+use pse_operations::canonical_artifacts::{ArtifactLocator, ArtifactRead};
+type Graph = DiGraph<(String, String), (String, Option<ArtifactLocator>)>;
 // Four MiB transport, native/typed copies, a <=128 KiB header configuration
 // or <=64 bounded graph rows, and Arrow projection scratch. No IPC verifier.
 fn vertex(
@@ -80,7 +81,7 @@ fn edge(
     source: NodeIndex,
     target: NodeIndex,
     kind: &str,
-    evidence: Option<String>,
+    evidence: Option<ArtifactLocator>,
 ) -> Result<(), WorkflowError> {
     if graph.edge_count() >= ANALYSIS_EDGES {
         return Err(contract("analysis edge bound exceeded"));
@@ -262,7 +263,7 @@ impl Runtime {
         &self,
         revision: &pse_operations::canonical::Revision,
         sources: &[pse_operations::canonical::Revision],
-        inputs: &[pse_operations::canonical_results::ResultRead],
+        inputs: &[ArtifactRead],
         method: &str,
         configuration: Vec<u8>,
         graph: Graph,
@@ -278,9 +279,8 @@ impl Runtime {
         }
         for input in inputs {
             input_hash
-                .str(&input.run().key)
-                .str(&input.attempt().key)
-                .str(&input.manifest().digest);
+                .str(&input.header().key)
+                .str(&input.header().creation_request_digest);
         }
         for index in &selected {
             let (semantic, kind) = &graph[*index];
@@ -306,7 +306,7 @@ impl Runtime {
                 .str(source)
                 .str(target)
                 .str(kind)
-                .str(evidence.as_deref().unwrap_or(""));
+                .part(&serde_json::to_vec(evidence).map_err(|error|contract(error.to_string()))?);
         }
         let input_digest = input_hash.finish_hash().to_hex();
         let mut header = self
@@ -347,6 +347,7 @@ impl Runtime {
                 .get(&target)
                 .ok_or_else(|| contract("analysis target absent"))?
                 .clone();
+            let evidence_bytes=serde_json::to_vec(&evidence).map_err(|error|contract(error.to_string()))?;
             let edge_key = analysis_key(
                 "pse.analysis.edge.v1",
                 &[
@@ -354,7 +355,7 @@ impl Runtime {
                     source.as_bytes(),
                     target.as_bytes(),
                     kind.as_bytes(),
-                    evidence.as_deref().unwrap_or("").as_bytes(),
+                    &evidence_bytes,
                 ],
             );
             retained_edges.push(AnalysisEdge {
@@ -363,7 +364,10 @@ impl Runtime {
                 source,
                 target,
                 kind,
-                evidence,
+                evidence_artifact:evidence.as_ref().map(|locator|locator.artifact.clone()),
+                evidence_block:evidence.as_ref().map(|locator|locator.block),
+                evidence_row:evidence.as_ref().and_then(|locator|locator.row),
+                evidence_field:evidence.and_then(|locator|locator.field),
             });
         }
         pse_operations::canonical_analyses::seal_analysis_request(
@@ -427,146 +431,72 @@ impl Runtime {
             )?;
             edge(&mut graph, node, attempt_node, "input_provenance", None)?;
         }
-        for relation_name in [
-            "runtime.parametric_sensitivities",
-            "runtime.response_sensitivities",
-        ] {
-            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let spec = self
-                .registry()
-                .relation(relation_name)
-                .ok_or_else(|| contract("analysis relation unavailable"))?;
-            if !input
-                .sets()
-                .iter()
-                .any(|set| set.name == spec.id.to_string())
-            {
-                continue;
-            }
-            // The complete evidence relation must fit this explicit bounded graph
-            // campaign; refusal avoids silently treating a prefix as complete.
-            let descriptor = input
-                .sets()
-                .iter()
-                .find(|set| set.name == spec.id.to_string())
-                .ok_or_else(|| contract("analysis descriptor absent"))?;
-            if descriptor.row_count > 4096 {
-                return Err(contract(
-                    "analysis evidence relation exceeds bounded campaign",
-                ));
-            }
-            let mut reader = self
-                .results(run, attempt, relation_name, 0, u64::MAX, cancel.clone())
-                .await?;
-            while let Some(batch) = reader.next_relation_batch().await? {
+        let staging_owner=format!("analysis-staging:{}",uuid::Uuid::new_v4());
+        let mut copied=Vec::new();
+        for name in ["runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.local_validity","runtime.candidate_assessments","runtime.run_lineage"] {
+            let spec=self.registry().relation(name).ok_or_else(||contract("analysis relation unavailable"))?;
+            let Some(set)=input.sets().iter().find(|set|set.name==spec.id.to_string()) else {continue;};
+            if copied.len().saturating_add(set.batch_count as usize)>64 {return Err(contract("analysis artifact block bound"));}
+            for ordinal in 0..set.batch_count {
                 input.renew(Duration::from_secs(600)).await?;
-                let (batch_key, start) = reader
-                    .last_receipt()
-                    .ok_or_else(|| contract("analysis original batch receipt absent"))?
-                    .clone();
-                if relation_name == "runtime.parametric_sensitivities" {
-                    let view=pse_relations::generated::runtime::parametric_sensitivities::View::from_checked(&batch).map_err(relation)?;
-                    for index in 0..view.len() {
-                        let row = view.row(index).map_err(relation)?;
-                        let parameter = vertex(
-                            &mut graph,
-                            &mut nodes,
-                            row.parameter_id.to_string(),
-                            "parameter",
-                        )?;
-                        let target_name = if matches!(
-                            row.target_kind,
-                            pse_model::generated::enums::NumericalTarget::Objective
-                        ) {
-                            format!("objective:step:{}", row.step)
-                        } else {
-                            row.target_id.to_string()
-                        };
-                        let target = vertex(
-                            &mut graph,
-                            &mut nodes,
-                            target_name,
-                            target_kind(row.target_kind),
-                        )?;
-                        for (field, value) in [("primal", row.primal), ("dual", row.dual)] {
-                            if value.is_some() {
-                                let evidence = format!(
-                                    "ipc:{}:{batch_key}:{}:{field}",
-                                    spec.id,
-                                    start + index as u64
-                                );
-                                edge(
-                                    &mut graph,
-                                    parameter,
-                                    target,
-                                    &format!("retained_parametric_{field}"),
-                                    Some(evidence),
-                                )?;
-                            }
-                        }
-                        edge(
-                            &mut graph,
-                            attempt_node,
-                            target,
-                            "produced_evidence",
-                            Some(format!(
-                                "ipc:{}:{batch_key}:{}",
-                                spec.id,
-                                start + index as u64
-                            )),
-                        )?;
+                let block=self.canonical_store().result_payload(&input,&set.key,ordinal).await?;
+                copied.push((name,block.batch.payload.to_vec(),block.batch.row_count,block.batch.digest));
+            }
+        }
+        let provenance=serde_json::to_vec(&(1u8,run,attempt,input.manifest())).map_err(|error|contract(error.to_string()))?;
+        let mut artifact=self.canonical_store().new_artifact(&revision,"graph-evidence",provenance,copied.len() as u64,copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum()).await?;
+        let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))|pse_operations::canonical_artifacts::artifact_block(&artifact.key,ordinal as u64,name,payload,&digest,rows)).collect::<Vec<_>>();
+        pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&input),&blocks);
+        self.canonical_store().persist_artifact(&artifact,&sources,std::slice::from_ref(&input),&blocks,"audit",&staging_owner).await?;
+        let artifact_read=self.canonical_store().read_artifact(&artifact.key,Duration::from_secs(600)).await?;
+        for ordinal in 0..artifact.block_count {
+            let block=artifact_read.block(ordinal).await?;
+            let relation_name=block.relation.as_str();
+            if !["runtime.parametric_sensitivities","runtime.response_sensitivities"].contains(&relation_name) {continue;}
+            let spec=self.registry().relation(relation_name).ok_or_else(||contract("analysis copied relation unavailable"))?;
+            let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
+            let decoded=super::result_blocks::decode_result_block(block.payload.as_slice(),schema,usize::try_from(block.rows).map_err(|_|contract("analysis row extent"))?)?;
+            let batch=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
+            let locator=|row,field:Option<&str>|Some(ArtifactLocator {artifact:artifact.key.clone(),block:ordinal,row:Some(row),field:field.map(str::to_owned)});
+            if relation_name=="runtime.parametric_sensitivities" {
+                let view=pse_relations::generated::runtime::parametric_sensitivities::View::from_checked(&batch).map_err(relation)?;
+                for index in 0..view.len() {
+                    let row=view.row(index).map_err(relation)?;
+                    let parameter=vertex(&mut graph,&mut nodes,row.parameter_id.to_string(),"parameter")?;
+                    let target_name=if matches!(row.target_kind,pse_model::generated::enums::NumericalTarget::Objective) {format!("objective:step:{}",row.step)} else {row.target_id.to_string()};
+                    let target=vertex(&mut graph,&mut nodes,target_name,target_kind(row.target_kind))?;
+                    for (field,value) in [("primal",row.primal),("dual",row.dual)] {
+                        if value.is_some() { edge(&mut graph,parameter,target,&format!("retained_parametric_{field}"),locator(index as u64,Some(field)))?; }
                     }
-                } else {
-                    let view=pse_relations::generated::runtime::response_sensitivities::View::from_checked(&batch).map_err(relation)?;
-                    for index in 0..view.len() {
-                        let row = view.row(index).map_err(relation)?;
-                        let parameter = vertex(
-                            &mut graph,
-                            &mut nodes,
-                            row.parameter_id.to_string(),
-                            "parameter",
-                        )?;
-                        let output =
-                            vertex(&mut graph, &mut nodes, row.output_id.to_string(), "output")?;
-                        edge(
-                            &mut graph,
-                            parameter,
-                            output,
-                            "retained_response_sensitivity",
-                            Some(format!(
-                                "ipc:{}:{batch_key}:{}:value",
-                                spec.id,
-                                start + index as u64
-                            )),
-                        )?;
-                        edge(
-                            &mut graph,
-                            attempt_node,
-                            output,
-                            "produced_evidence",
-                            Some(format!(
-                                "ipc:{}:{batch_key}:{}",
-                                spec.id,
-                                start + index as u64
-                            )),
-                        )?;
-                    }
+                    edge(&mut graph,attempt_node,target,"produced_evidence",locator(index as u64,None))?;
+                }
+            } else {
+                let view=pse_relations::generated::runtime::response_sensitivities::View::from_checked(&batch).map_err(relation)?;
+                for index in 0..view.len() {
+                    let row=view.row(index).map_err(relation)?;
+                    let parameter=vertex(&mut graph,&mut nodes,row.parameter_id.to_string(),"parameter")?;
+                    let output=vertex(&mut graph,&mut nodes,row.output_id.to_string(),"output")?;
+                    edge(&mut graph,parameter,output,"retained_response_sensitivity",locator(index as u64,Some("value")))?;
+                    edge(&mut graph,attempt_node,output,"produced_evidence",locator(index as u64,None))?;
                 }
             }
         }
         let configuration = serde_json::to_vec(&(1_u8, controls, run, attempt))
             .map_err(|error| contract(error.to_string()))?;
-        self.store_analysis_graph(
+        let handle=self.store_analysis_graph(
             &revision,
             &sources,
-            &[input],
+            std::slice::from_ref(&artifact_read),
             "result-sensitivity-provenance-reachability:v1",
             configuration,
             graph,
             nodes,
             controls,
         )
-        .await
+        .await?;
+        self.canonical_store().release_artifact(&artifact.key,"audit",&staging_owner).await?;
+        artifact_read.release().await?;
+        Ok(handle)
 
         }).await
     }
@@ -759,7 +689,7 @@ mod canonical_analyses_server_unit {
         let edges = canonical_analysis_edges::Row::rows(&pre.edges(None).await.unwrap()).unwrap();
         assert!(edges.iter().any(|edge| edge.kind == "numerical_incidence"));
         assert!(edges.iter().any(|edge| edge.kind == "execution_dependency"));
-        assert!(edges.iter().all(|edge| edge.evidence.is_none()));
+        assert!(edges.iter().all(|edge| edge.evidence_artifact.is_none()));
         let replay = prepared
             .dependency_analysis(&controls, CancellationToken::new())
             .await
@@ -820,10 +750,10 @@ mod canonical_analyses_server_unit {
             .iter()
             .find(|edge| edge.kind == "retained_parametric_primal")
             .unwrap()
-            .evidence
-            .as_ref()
-            .unwrap();
-        assert!(evidence.ends_with(":0:primal"));
+            ;
+        assert!(evidence.evidence_artifact.is_some());
+        assert_eq!(evidence.evidence_row,Some(0));
+        assert_eq!(evidence.evidence_field.as_deref(),Some("primal"));
         assert!(
             !edges
                 .iter()
