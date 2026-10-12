@@ -22,6 +22,8 @@ pub struct Select<'r, C: Connection, R, T = ()> {
     pub(super) resource: Result<Resource>,
     pub(super) response_type: PhantomData<R>,
     pub(super) query_type: PhantomData<T>,
+    // Actual resource bytes precede the undispatched ownership cleanup.
+    pub(super) request_drain: Option<surrealdb_engine_api::request::UndispatchedPayloadDrain>,
 }
 
 impl<C, R, T> WithTransaction for Select<'_, C, R, T>
@@ -40,6 +42,15 @@ where
 {
     /// Attach the original operation clock without changing the session.
     pub fn request_context(mut self, context: crate::opt::RequestContext) -> Self {
+        let context = match self.request_context.as_ref() {
+            Some(previous) => context.inherit_request_ownership(previous),
+            None => context,
+        };
+        if let Some(drain) = &mut self.request_drain {
+            drain.update_context(Some(context.clone()));
+        } else if context.has_request_ownership() {
+            self.request_drain = Some(surrealdb_engine_api::request::UndispatchedPayloadDrain::caller(Some(context.clone())));
+        }
         self.request_context = Some(context);
         self
     }
@@ -57,14 +68,15 @@ where
 macro_rules! into_future {
     ($method:ident) => {
         fn into_future(self) -> Self::IntoFuture {
-            let Select {
-                request_context,
-                txn,
-                client,
-                resource,
-                ..
-            } = self;
+            let Select { request_context, txn, client, resource, request_drain, .. } = self;
+            // Exclude response PhantomData from the Send future. Ordered fields
+            // still drain actual resources before cleanup if never polled.
+            let owned = (client, resource, request_context, txn, request_drain);
             Box::pin(async move {
+                let (client, resource, request_context, txn, request_drain) = owned;
+                let _request_drain = request_drain;
+                let client = client;
+                let resource = resource;
                 let router = client.inner.router.extract()?;
 
                 let what = resource?;
@@ -199,6 +211,32 @@ where
             resource: self.resource,
             response_type: self.response_type,
             query_type: PhantomData,
+            request_drain: self.request_drain,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_context_replacement_clears_composed_activity_on_unpolled_drop() {
+        for future in [false, true] {
+            let db = crate::Surreal::<crate::engine::any::Any>::init();
+            let first = std::sync::Arc::new(());
+            let second = std::sync::Arc::new(());
+            let first_weak = std::sync::Arc::downgrade(&first);
+            let second_weak = std::sync::Arc::downgrade(&second);
+            let old = crate::opt::RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_lifetime_owner(first);
+            let current = crate::opt::RequestContext::new(old.deadline()).with_lifetime_owner(second);
+            let builder = db.select::<Vec<Value>>("item").request_context(old.clone()).into_owned().request_context(current);
+            assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
+            if future { drop(builder.into_future()); } else { drop(builder); }
+            assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none(),
+                "metadata clones cannot strand an undispatched activity");
+            assert!(old.payload_owner().is_none());
         }
     }
 }

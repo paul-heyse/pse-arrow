@@ -209,7 +209,7 @@ pub(crate) async fn run_router(
                     let Ok(session_id) = session else {
                         break 'router
                     };
-                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
                         route_rx.close();
                         break 'router;
                     }
@@ -228,7 +228,7 @@ pub(crate) async fn run_router(
                     // receiving this route establishes a happens-before with the sender, so
                     // those earlier events are now observable and one drain pass suffices.
                     while let Ok(session_id) = session_rx.try_recv() {
-                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
                             route_rx.close();
                             super::refuse_undispatched_route(route, Error::connection("Physical connection closed".to_string(), surrealdb_types::ConnectionError::ConnectionFailed));
                             break 'router;
@@ -239,6 +239,7 @@ pub(crate) async fn run_router(
                         route, None, &state.sessions, &state.sink
                     ).await {
                         HandleResult::Ok => {}
+                        HandleResult::Failed => { route_rx.close(); break 'router; }
                         HandleResult::Disconnected => {
                             router_reconnect(&state, &endpoint).await;
                             continue 'router;
@@ -252,6 +253,7 @@ pub(crate) async fn run_router(
                                 &message, None, &state.sessions, &state.sink
                             ).await {
                                 HandleResult::Ok => continue,
+                                HandleResult::Failed => { route_rx.close(); break 'router; }
                                 HandleResult::Disconnected => {
                                     router_reconnect(&state, &endpoint).await;
                                     continue 'router;

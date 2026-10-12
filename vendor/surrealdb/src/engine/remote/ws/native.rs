@@ -300,7 +300,7 @@ pub(crate) async fn run_router(
                     let Ok(session_id) = session else {
                         break 'router
                     };
-                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
                         route_rx.close();
                         break 'router;
                     }
@@ -320,7 +320,7 @@ pub(crate) async fn run_router(
                     // receiving this route establishes a happens-before with the sender, so
                     // those earlier events are now observable and one drain pass suffices.
                     while let Ok(session_id) = session_rx.try_recv() {
-                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected | HandleResult::Failed) {
                             route_rx.close();
                             super::refuse_undispatched_route(route, Error::connection("Physical connection closed".to_string(), surrealdb_types::ConnectionError::ConnectionFailed));
                             break 'router;
@@ -331,6 +331,7 @@ pub(crate) async fn run_router(
                         route, config.max_message_size, &state.sessions, &state.sink
                     ).await {
                         HandleResult::Ok => {}
+                        HandleResult::Failed => { route_rx.close(); break 'router; }
                         HandleResult::Disconnected => {
                             router_reconnect(&maybe_connector, &config, &state, &endpoint).await;
                             continue 'router;
@@ -349,6 +350,7 @@ pub(crate) async fn run_router(
                                 message, config.max_message_size, &state.sessions, &state.sink
                             ).await {
                                 HandleResult::Ok => continue,
+                                HandleResult::Failed => { route_rx.close(); break 'router; }
                                 HandleResult::Disconnected => {
                                     router_reconnect(&maybe_connector, &config, &state, &endpoint).await;
                                     continue 'router;
@@ -462,14 +464,16 @@ async fn run_bounded_router(
                 }
                 Ok::<(), Error>(())
             };
-            if matches!(
-                time::timeout(time::Duration::from_secs(5), replay).await,
-                Ok(Ok(()))
-            ) {
+            if replay.await.is_ok() {
                 loop {
                     tokio::select! { biased;
                         _ = maintenance.tick() => {
-                            if routes.is_closed() || super::maintain_request_lifetimes(&sessions).await { break; }
+                            if routes.is_closed() { break; }
+                            match super::maintain_request_lifetimes(&sessions).await {
+                                HandleResult::Ok => {}
+                                HandleResult::Failed => { routes.close(); break; }
+                                HandleResult::Disconnected => break,
+                            }
                         }
                         event = sessions_rx.recv() => {
                             let Ok(event) = event else { routes.close(); break; };
@@ -484,17 +488,25 @@ async fn run_bounded_router(
                                 if !bounded_session_event(event, &sessions, &sink, &routes).await { alive = false; break; }
                             }
                             if !alive { backlog.push(route); break; }
-                            if !matches!(time::timeout(time::Duration::from_secs(5), handle_route::<Message, _, _>(route, config.max_message_size, &sessions, &sink)).await, Ok(HandleResult::Ok)) { break; }
+                            let result = time::timeout_at(bounded_handler_deadline(&sessions), handle_route::<Message, _, _>(route, config.max_message_size, &sessions, &sink)).await;
+                            if !bounded_handler_result(result, &sessions, &routes) { break; }
                         }
                         message = stream.next() => {
                             let Some(Ok(message)) = message else { break; };
-                            if !matches!(time::timeout(time::Duration::from_secs(5), handle_owned_response::<Message, _, _>(message, config.max_message_size, &sessions, &sink)).await, Ok(HandleResult::Ok)) { break; }
+                            let result = time::timeout_at(bounded_handler_deadline(&sessions), handle_owned_response::<Message, _, _>(message, config.max_message_size, &sessions, &sink)).await;
+                            if !bounded_handler_result(result, &sessions, &routes) { break; }
                         }
                         _ = ping.tick() => {
-                            if !matches!(time::timeout(time::Duration::from_secs(5), sink.write().await.send(create_ping_message())).await, Ok(Ok(()))) { break; }
+                            let result = time::timeout_at(bounded_handler_deadline(&sessions), async {
+                                sink.write().await.send(create_ping_message()).await.map(|_| HandleResult::Ok).unwrap_or(HandleResult::Disconnected)
+                            }).await;
+                            if !bounded_handler_result(result, &sessions, &routes) { break; }
                         }
                     }
                 }
+            } else {
+                // Setup transmission failure is terminal for this bounded client.
+                routes.close();
             }
         } // Both split halves dropped here, before local admission is released.
         reset_sessions(&sessions).await;
@@ -514,6 +526,29 @@ async fn run_bounded_router(
     }
 }
 
+/// A handler must not hide the restoration deadline while it awaits IO.
+fn bounded_handler_deadline(sessions: &Sessions) -> time::Instant {
+    let ordinary = std::time::Instant::now() + time::Duration::from_secs(5);
+    sessions.values().into_iter().flatten()
+        .filter_map(|state| super::replay_cursor(&state).map(|cursor| cursor.deadline))
+        .fold(ordinary, std::cmp::min).into()
+}
+
+fn bounded_handler_result(
+    result: Result<HandleResult, time::error::Elapsed>,
+    sessions: &Sessions,
+    routes: &Receiver<Route>,
+) -> bool {
+    if matches!(result, Ok(HandleResult::Ok)) { return true; }
+    if matches!(result, Ok(HandleResult::Failed))
+        || (result.is_err() && sessions.values().into_iter().flatten()
+            .any(|state| super::replay_cursor(&state).is_some()))
+    {
+        routes.close();
+    }
+    false
+}
+
 async fn bounded_session_event(
     event: SessionId,
     sessions: &Sessions,
@@ -531,14 +566,16 @@ async fn bounded_session_event(
         SessionId::Drop(_) => return true,
         _ => return true, // Refuse additional sessions without allocating a registry entry.
     }
-    if !matches!(
-        time::timeout(
-            time::Duration::from_secs(5),
-            handle_session::<Message, _, _>(event, sessions, sink),
-        )
-        .await,
-        Ok(HandleResult::Ok)
-    ) {
+    // Initial setup owns its absolute deadline before its first send; do not
+    // start a separate allowance around only this lifecycle event.
+    let result = match event {
+        SessionId::Initial(id) => super::handle_session_initial::<Message, _, _>(
+            id, sessions, sink, true,
+        ).await,
+        _ => handle_session::<Message, _, _>(event, sessions, sink).await,
+    };
+    if result != HandleResult::Ok {
+        routes.close();
         return false;
     }
     for (_, state) in sessions.to_vec() {

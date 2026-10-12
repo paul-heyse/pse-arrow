@@ -123,6 +123,34 @@ mod lifecycle_tests {
         retired.release_payload_after_drain();
     }
 
+    #[test]
+    fn lifetime_composition_and_context_replacement_preserve_clearable_cells() {
+        let first = Arc::new(());
+        let second = Arc::new(());
+        let bytes = Arc::new(vec![0u8; 8]);
+        let first_weak = Arc::downgrade(&first);
+        let second_weak = Arc::downgrade(&second);
+        let bytes_weak = Arc::downgrade(&bytes);
+        let old = RequestContext::new(Instant::now() + std::time::Duration::from_secs(30))
+            .with_lifetime_owner(first).with_payload_owner(bytes);
+        let current = RequestContext::new(old.deadline()).with_lifetime_owner(second)
+            .inherit_request_ownership(&old);
+        let retired = current.clone();
+        let handling = current.lifetime_owner().unwrap().retain();
+        current.mark_completed();
+        assert!(first_weak.upgrade().is_some(), "dispatch fact is not local work drain");
+        current.release_lifetime_after_drain();
+        assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
+        assert!(bytes_weak.upgrade().is_some(), "non-byte completion cannot release payload bytes");
+        assert!(retired.lifetime_owner().unwrap().retain().0.is_empty());
+        drop(handling);
+        assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none());
+        old.release_lifetime_after_drain();
+        retired.release_lifetime_after_drain();
+        current.release_payload_after_drain();
+        assert!(bytes_weak.upgrade().is_none());
+    }
+
     #[tokio::test]
     async fn expired_original_clock_never_becomes_a_new_wait() {
         let context = RequestContext::new(Instant::now() - std::time::Duration::from_secs(1));
@@ -150,7 +178,63 @@ struct Lifecycle {
 
 /// Shared original deadline and cancellation for one logical operation.
 #[derive(Debug, Clone)]
-pub struct RequestContext(Arc<Lifecycle>, Option<PayloadOwnership>);
+pub struct RequestContext(Arc<Lifecycle>, Option<PayloadOwnership>, Option<RequestLifetimeOwnership>);
+
+/// Non-byte local activity ownership. Metadata clones share clearable cells;
+/// actual response handling retains separate holds until its local work drains.
+#[derive(Debug, Clone)]
+pub struct RequestLifetimeOwnership(Arc<RequestLifetimeContents>);
+
+#[derive(Debug)]
+enum RequestLifetimeContents {
+    Owner(std::sync::Mutex<Option<Arc<dyn std::fmt::Debug + Send + Sync>>>),
+    Joined(RequestLifetimeOwnership, RequestLifetimeOwnership),
+}
+
+/// Actual driver work, independent of retired request metadata.
+#[derive(Debug, Default)]
+pub struct RequestLifetimeRetention(Vec<Arc<dyn std::fmt::Debug + Send + Sync>>);
+
+impl RequestLifetimeOwnership {
+    fn new(owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Self {
+        Self(Arc::new(RequestLifetimeContents::Owner(std::sync::Mutex::new(Some(owner)))))
+    }
+    fn join(self, other: Self) -> Self {
+        if Arc::ptr_eq(&self.0, &other.0) { return self; }
+        Self(Arc::new(RequestLifetimeContents::Joined(self, other)))
+    }
+    /// Snapshot only actual live work; released metadata grants no new hold.
+    pub fn retain(&self) -> RequestLifetimeRetention {
+        let mut retained = RequestLifetimeRetention::default();
+        self.retain_into(&mut retained);
+        retained
+    }
+    fn retain_into(&self, retained: &mut RequestLifetimeRetention) {
+        match self.0.as_ref() {
+            RequestLifetimeContents::Owner(owner) => {
+                let owner = owner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                if let Some(owner) = owner.as_ref() { retained.0.push(owner.clone()); }
+            }
+            RequestLifetimeContents::Joined(first, second) => {
+                first.retain_into(retained);
+                second.retain_into(retained);
+            }
+        }
+    }
+    fn release_after_drain(&self) {
+        match self.0.as_ref() {
+            RequestLifetimeContents::Owner(owner) => {
+                // Drop outside the slot lock: owner destructors may notify waiters.
+                let owner = owner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+                drop(owner);
+            }
+            RequestLifetimeContents::Joined(first, second) => {
+                first.release_after_drain();
+                second.release_after_drain();
+            }
+        }
+    }
+}
 
 /// Shared local allocation drain state. Joined metadata keeps only clearable
 /// allocation leaves, never an independently retained immutable grant.
@@ -302,7 +386,7 @@ impl PayloadOwnership {
     }
 }
 
-/// Lexical cleanup for bytes which never reached a transport. Declare this
+/// Lexical cleanup for request ownership which never reached a transport. Declare this
 /// before the actual byte-owning locals (or as their last struct field).
 /// Caller guards stop at authenticated enqueue; driver guards stop at dispatch.
 #[derive(Debug)]
@@ -334,6 +418,7 @@ impl Drop for UndispatchedPayloadDrain {
                 && (!self.caller || !context.0.enqueued.load(Ordering::Acquire))
             {
                 context.release_payload_after_drain();
+                context.release_lifetime_after_drain();
             }
         }
     }
@@ -377,8 +462,28 @@ impl RequestContext {
                 wake: Notify::new(),
             }),
             None,
+            None,
         )
     }
+
+    /// Keep non-byte local activity through actual terminal completion or drain.
+    /// This does not classify payload bytes or authorize replay or remote effects.
+    pub fn with_lifetime_owner(mut self, owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Self {
+        let next = RequestLifetimeOwnership::new(owner);
+        self.2 = Some(match self.2.take() {
+            Some(previous) => previous.join(next),
+            None => next,
+        });
+        self
+    }
+    /// Shared clearable activity metadata; taking a hold is driver-only.
+    pub fn lifetime_owner(&self) -> Option<RequestLifetimeOwnership> { self.2.clone() }
+    /// Driver-only local terminal cleanup, independent of remote outcome.
+    pub fn release_lifetime_after_drain(&self) {
+        if let Some(owner) = &self.2 { owner.release_after_drain(); }
+    }
+    /// Whether a builder needs lexical undispatched cleanup for either owner.
+    pub fn has_request_ownership(&self) -> bool { self.1.is_some() || self.2.is_some() }
 
     /// Keep the actual prepaid request allocation through local transport drain.
     /// This owner never becomes a binding, session value or replay permission.
@@ -390,11 +495,17 @@ impl RequestContext {
         });
         self
     }
-    /// Preserve the same drain cell when a query receives a current lifecycle.
+    /// Preserve both independent drain cells when a builder receives a current lifecycle.
     /// Copying the allocation out would strand it in retired old metadata.
-    pub fn inherit_payload_ownership(mut self, previous: &Self) -> Self {
+    pub fn inherit_request_ownership(mut self, previous: &Self) -> Self {
         if let Some(previous) = &previous.1 {
             self.1 = Some(match self.1.take() {
+                Some(current) => current.join(previous.clone()),
+                None => previous.clone(),
+            });
+        }
+        if let Some(previous) = &previous.2 {
+            self.2 = Some(match self.2.take() {
                 Some(current) => current.join(previous.clone()),
                 None => previous.clone(),
             });

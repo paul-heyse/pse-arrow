@@ -28,10 +28,13 @@ fn into_future<C, O>(this: Select<C, O, Live>) -> BoxFuture<Result<Stream<O>>>
 where
     C: Connection,
 {
-    let Select {
-        client, resource, ..
-    } = this;
+    let Select { client, resource, request_context, request_drain, .. } = this;
+    let owned = (client, resource, request_context, request_drain);
     Box::pin(async move {
+        let (client, resource, request_context, request_drain) = owned;
+        let _request_drain = request_drain;
+        let client = client;
+        let resource = resource;
         let router = client.inner.router.extract()?;
         if !router.features.contains(&ExtraFeatures::LiveQueries) {
             return Err(Error::configuration(
@@ -136,7 +139,7 @@ where
         // Execute the LIVE SELECT query directly to get the UUID
         let results = router
             .query_results(
-                ctx_txn(client.session_id, None),
+                ctx_txn(client.session_id, None).with_request_context(request_context),
                 Cow::Owned(query),
                 variables,
             )

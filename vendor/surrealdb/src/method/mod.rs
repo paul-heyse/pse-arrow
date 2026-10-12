@@ -756,6 +756,7 @@ where
             resource: resource.into_resource(),
             response_type: PhantomData,
             query_type: PhantomData,
+            request_drain: None,
         }
     }
 

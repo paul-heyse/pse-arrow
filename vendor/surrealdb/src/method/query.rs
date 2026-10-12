@@ -81,12 +81,12 @@ where
     /// Attach the original operation clock without changing the session.
     pub fn request_context(mut self, context: crate::opt::RequestContext) -> Self {
         let context = match self.request_context.as_ref() {
-            Some(previous) => context.inherit_payload_ownership(previous),
+            Some(previous) => context.inherit_request_ownership(previous),
             None => context,
         };
         if let Some(drain) = &mut self.payload_drain {
             drain.update_context(Some(context.clone()));
-        } else if context.payload_owner().is_some() {
+        } else if context.has_request_ownership() {
             self.payload_drain = Some(
                 surrealdb_engine_api::request::UndispatchedPayloadDrain::caller(Some(
                     context.clone(),
@@ -1012,6 +1012,27 @@ impl WithStats<IndexedResults> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_context_replacement_clears_composed_activity_on_unpolled_drop() {
+        for future in [false, true] {
+            let db = crate::Surreal::<crate::engine::any::Any>::init();
+            let first = std::sync::Arc::new(());
+            let second = std::sync::Arc::new(());
+            let first_weak = std::sync::Arc::downgrade(&first);
+            let second_weak = std::sync::Arc::downgrade(&second);
+            let old = crate::opt::RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_lifetime_owner(first);
+            let current = crate::opt::RequestContext::new(old.deadline()).with_lifetime_owner(second);
+            let builder = db.query("RETURN 1").request_context(old.clone()).into_owned().request_context(current);
+            assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
+            if future { drop(builder.into_future()); } else { drop(builder); }
+            assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none(),
+                "metadata clones cannot strand an undispatched activity");
+            assert!(old.payload_owner().is_none());
+        }
+    }
+
 
     #[test]
     fn request_context_override_preserves_prepaid_payload_owner() {
