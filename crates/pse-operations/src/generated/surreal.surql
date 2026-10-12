@@ -161,23 +161,6 @@ DEFINE FIELD artifact_creation_closed_through ON canonical_guards TYPE option<de
 DEFINE FIELD protection_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE INDEX canonical_guards_key ON canonical_guards FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_historical_results SCHEMAFULL;
-DEFINE FIELD key ON canonical_historical_results TYPE string;
-DEFINE FIELD attempt ON canonical_historical_results TYPE string;
-DEFINE FIELD run ON canonical_historical_results TYPE string;
-DEFINE FIELD revision ON canonical_historical_results TYPE string;
-DEFINE FIELD sequence ON canonical_historical_results TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD generation ON canonical_historical_results TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
-DEFINE FIELD manifest ON canonical_historical_results TYPE string;
-DEFINE FIELD manifest_digest ON canonical_historical_results TYPE string;
-DEFINE FIELD outcome ON canonical_historical_results TYPE string;
-DEFINE FIELD interpretation ON canonical_historical_results TYPE string;
-DEFINE FIELD issuing_store ON canonical_historical_results TYPE string;
-DEFINE FIELD migration ON canonical_historical_results TYPE string;
-DEFINE FIELD snapshot ON canonical_historical_results TYPE string;
-DEFINE FIELD source_digest ON canonical_historical_results TYPE string;
-DEFINE INDEX canonical_historical_results_key ON canonical_historical_results FIELDS key UNIQUE;
-
 DEFINE TABLE canonical_history_identities SCHEMAFULL;
 DEFINE FIELD key ON canonical_history_identities TYPE string;
 DEFINE FIELD category ON canonical_history_identities TYPE string;
@@ -283,7 +266,6 @@ DEFINE FIELD receipt ON canonical_product_associations TYPE string;
 DEFINE FIELD descriptor ON canonical_product_associations TYPE string;
 DEFINE FIELD producer ON canonical_product_associations TYPE string;
 DEFINE FIELD interpretation ON canonical_product_associations TYPE string;
-DEFINE FIELD historical_blob ON canonical_product_associations TYPE option<string>;
 DEFINE INDEX canonical_product_associations_key ON canonical_product_associations FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_product_descriptors SCHEMAFULL;
@@ -643,7 +625,6 @@ DEFINE INDEX product_discovery ON canonical_product_associations FIELDS problem,
 DEFINE INDEX product_descriptor_association ON canonical_product_associations FIELDS descriptor, key;
 DEFINE INDEX product_content_association ON canonical_product_associations FIELDS content, key;
 DEFINE INDEX product_receipt_association ON canonical_product_associations FIELDS receipt, key;
-DEFINE INDEX product_association_archive ON canonical_product_associations FIELDS historical_blob, key;
 DEFINE INDEX edge_source ON canonical_edges FIELDS source_version;
 DEFINE INDEX membership_pages ON canonical_memberships FIELDS problem, key;
 DEFINE INDEX membership_scope_pages ON canonical_memberships FIELDS problem, scope, key;

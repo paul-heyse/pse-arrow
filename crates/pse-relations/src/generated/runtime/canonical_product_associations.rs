@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    167u8, 80u8, 58u8, 217u8, 108u8, 125u8, 156u8, 28u8, 152u8, 224u8, 228u8, 9u8, 52u8,
-    214u8, 84u8, 102u8, 134u8, 139u8, 164u8, 211u8, 4u8, 244u8, 111u8, 86u8, 60u8, 64u8,
-    112u8, 245u8, 30u8, 44u8, 46u8, 82u8,
+    212u8, 184u8, 112u8, 54u8, 181u8, 200u8, 93u8, 49u8, 91u8, 247u8, 130u8, 120u8,
+    251u8, 97u8, 231u8, 35u8, 62u8, 46u8, 85u8, 85u8, 41u8, 187u8, 56u8, 244u8, 109u8,
+    90u8, 0u8, 85u8, 57u8, 194u8, 199u8, 184u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
     fn append(
@@ -62,10 +62,6 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
             &self.r#interpretation,
             children[11usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#historical_blob,
-            children[12usize].as_mut(),
-        )?;
         output.append(true);
         Ok(())
     }
@@ -98,9 +94,6 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
         <String as crate::columnar::ArrowValue>::append_null(
             children[11usize].as_mut(),
         )?;
-        <Option<
-            String,
-        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -157,12 +150,6 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProductAssociationsRow {
             )?,
             r#interpretation: <String as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
-                index,
-            )?,
-            r#historical_blob: <Option<
-                String,
-            > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
                 index,
             )?,
         })
@@ -248,10 +235,6 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
             &self.r#interpretation,
             columns[11usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#historical_blob,
-            columns[12usize].as_mut(),
-        )?;
         Ok(())
     }
     fn relation(
@@ -291,10 +274,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        26_624_usize + size_of::<Self::Builder>()
+        24_576_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        208usize
+        192usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -346,17 +329,6 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProductAssociationsRow {
             bytes,
             crate::columnar::allocation_add(8, (self.r#interpretation).len())?,
         )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            if let Some(value) = (self.r#historical_blob).as_ref() {
-                crate::columnar::allocation_add(
-                    1,
-                    crate::columnar::allocation_add(8, (value).len())?,
-                )
-            } else {
-                Ok::<usize, crate::RelationError>(1)
-            }?,
-        )?;
         Ok(bytes)
     }
 }
@@ -367,7 +339,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 12usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -428,11 +400,6 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 13usize] = [
         name: "interpretation",
         position: 11usize,
     },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "historical_blob",
-        position: 12usize,
-    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -460,8 +427,6 @@ pub mod columns {
     pub const PRODUCER: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///interpretation
     pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[11usize];
-    ///historical_blob
-    pub const HISTORICAL_BLOB: crate::columnar::ColumnReference = super::COLUMNS[12usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -481,7 +446,6 @@ pub struct RuntimeCanonicalProductAssociationsView<'a> {
     descriptor_column: &'a arrow_array::StringArray,
     producer_column: &'a arrow_array::StringArray,
     interpretation_column: &'a arrow_array::StringArray,
-    historical_blob_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -562,9 +526,6 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
             interpretation_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(11usize).as_ref())?,
-            historical_blob_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -723,18 +684,6 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
     pub fn interpretation_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[11usize]
     }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "historical_blob",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn historical_blob_column(&self) -> &'a arrow_array::StringArray {
-        self.historical_blob_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "historical_blob", "`.")]
-    pub fn historical_blob_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
-    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -769,10 +718,6 @@ impl<'a> RuntimeCanonicalProductAssociationsView<'a> {
             r#producer: crate::columnar::ArrowValue::read(self.producer_column, index)?,
             r#interpretation: crate::columnar::ArrowValue::read(
                 self.interpretation_column,
-                index,
-            )?,
-            r#historical_blob: crate::columnar::ArrowValue::read(
-                self.historical_blob_column,
                 index,
             )?,
         })

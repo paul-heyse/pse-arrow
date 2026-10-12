@@ -33,8 +33,6 @@ pub struct RuntimeCanonicalProductAssociationsRow {
     pub r#producer: String,
     ///interpretation
     pub r#interpretation: String,
-    ///historical_blob
-    pub r#historical_blob: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalProductAssociationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -56,10 +54,6 @@ impl crate::SemanticEq for RuntimeCanonicalProductAssociationsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#interpretation,
                 &other.r#interpretation,
-            )
-            && crate::SemanticEq::semantic_eq(
-                &self.r#historical_blob,
-                &other.r#historical_blob,
             )
     }
 }
@@ -96,8 +90,6 @@ impl crate::SemanticFrame for RuntimeCanonicalProductAssociationsRow {
         crate::SemanticFrame::frame(&self.r#producer, hash);
         hash.str(stringify!(r#interpretation));
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
-        hash.str(stringify!(r#historical_blob));
-        crate::SemanticFrame::frame(&self.r#historical_blob, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalProductAssociationsRow {
@@ -115,6 +107,5 @@ impl crate::HeapUsage for RuntimeCanonicalProductAssociationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#descriptor))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#producer))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#historical_blob))
     }
 }

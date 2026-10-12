@@ -1697,17 +1697,19 @@ impl CanonicalStore {
                 .receipt
                 .as_ref()
                 .ok_or(CanonicalError::PayloadLimit)?;
-            let (kind, digest, bytes) = if version == descriptor.version {
+            let (kind, digest, bytes, limit) = if version == descriptor.version {
                 (
                     BODY_CONTENT_KIND,
                     descriptor.digest.as_str(),
                     descriptor.payload_bytes,
+                    PRODUCT_PAYLOAD_LIMIT,
                 )
             } else if version == receipt.version {
                 (
                     SELECTION_RECEIPT_KIND,
                     receipt.digest.as_str(),
                     receipt.bytes,
+                    PRODUCT_DEPENDENCY_LIMIT,
                 )
             } else {
                 return Err(CanonicalError::Configuration(
@@ -1719,7 +1721,7 @@ impl CanonicalStore {
                 || header.reference_count != 0
                 || header.payload_digest != digest
                 || header.payload_len != bytes as u64
-                || length > PRODUCT_BLOB_LIMIT
+                || length > limit
             {
                 return Err(CanonicalError::Configuration(
                     "product manifest differs from descriptor".into(),
