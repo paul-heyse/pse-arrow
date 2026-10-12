@@ -454,9 +454,13 @@ Exclusive rollout execution lives in `scripts/surrealkit_maintenance.py`. It req
 an already closed, drained, privately owned service; it does not stop another caller's
 work or activate an interpretation. Its durable pending selection keeps ordinary
 start/open/backup/restore/rebuild paths closed until the actual operation owner
-settles the exact submitted phases and the native child/listener drain. Beta TTL,
-CLI success and catalog parity cannot supply that settlement. This is a maintenance
-foundation; persistent deployment rollout and final target cutover remain Plan37 work.
+settles the exact submitted phases and the native child/listener drain. The immutable
+predecessor marker is captured before the first SQL submission. A phased start and
+completion share one pending nonce; completion requires an independently settled start.
+Settlement retains the selected pending record and phase evidence until explicit canonical
+activation. Metadata repair refuses unsettled SQL, including beta's `running_complete`
+shortcut. Beta TTL, CLI success and catalog parity alone cannot supply settlement.
+Persistent generated-schema settlement and final cutover qualification remain Plan37 work.
 
 ## Disposable tests and retained evidence
 

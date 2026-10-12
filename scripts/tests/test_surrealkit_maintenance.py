@@ -75,6 +75,7 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(server, "service_directory", side_effect=lambda state: state),
             patch.object(server, "managed_contexts", side_effect=lambda state: [state]),
             patch.object(server, "all_contexts_drained"),
+            patch.object(tool, "predecessor_marker", return_value=None),
             patch.object(server, "active", return_value=False),
             patch.object(server, "reservation_live", return_value=True),
             patch.object(server, "maintenance_endpoint", side_effect=self.endpoint),
@@ -268,7 +269,7 @@ class MaintenanceTests(unittest.TestCase):
                     server.read_json(self.state / "config.json")["accepting_writes"]
                 )
 
-    def test_blind_up_refused_and_repair_status_preserve_original_unknown_command(
+    def test_blind_up_and_unsettled_repair_refused_status_preserves_unknown_command(
         self,
     ) -> None:
         self.native_status = 125
@@ -277,7 +278,7 @@ class MaintenanceTests(unittest.TestCase):
         with self.assertRaisesRegex(tool.MaintenanceError, "blind replay"):
             self.run_tool()
         self.native_status = 0
-        for mode, identity in [("status", None), ("repair", "one")]:
+        for mode, identity in [("status", None)]:
             result = tool.execute(
                 self.binary,
                 self.state,
@@ -290,6 +291,8 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(result["sql_outcome"], "unknown")
             self.assertEqual(result["command"], ["rollout", "up", "--complete"])
             self.assertEqual(result["attempts"][-1]["phase"], "cli_succeeded")
+        with self.assertRaisesRegex(tool.MaintenanceError, "exact SQL settlement"):
+            tool.execute(self.binary, self.state, self.folder, "repair", rollout_id="one", pending_nonce=nonce)
         with self.assertRaisesRegex(tool.MaintenanceError, "pending rollout identity"):
             tool.execute(
                 self.binary, self.state, self.folder, "status", pending_nonce="other"
@@ -464,7 +467,8 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(
             result["settlement"]["operation"]["identity"], "actual-operation-id"
         )
-        self.assertNotIn(tool.PENDING, server.read_json(self.state / "config.json"))
+        self.assertEqual(self.current()["phase"], "settled")
+        self.assertEqual(self.current()["sql_outcome"], "settled")
         self.assertFalse(
             server.read_json(self.state / "config.json")["accepting_writes"]
         )
@@ -472,6 +476,41 @@ class MaintenanceTests(unittest.TestCase):
             (self.state / ".surrealkit" / str(value["nonce"]) / "settled.json").exists()
         )
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
+
+    def test_complete_requires_settled_start_and_retains_one_nonce(self) -> None:
+        value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+        nonce = value["nonce"]
+        with self.assertRaisesRegex(tool.MaintenanceError, "exact settled start"):
+            tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=nonce)
+        proof = {**self.evidence(value), "phase": "start"}
+        tool.settle(self.state, nonce, lambda *_: proof)
+        result = tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=nonce)
+        self.assertEqual(result["nonce"], nonce)
+        self.assertEqual(result["command"], ["rollout", "complete", "one"])
+        self.assertEqual(result["phase_history"], [{"command": ["rollout", "start", "one"], "settlement": proof}])
+        self.assertEqual(result["sql_outcome"], "unknown")
+        self.assertNotIn("settlement", result)
+        self.assertIsNone(result["previous_marker"])
+
+    def test_predecessor_is_captured_before_submission_and_never_recaptured(self) -> None:
+        marker = {"interpretation": "v5", "schema_digest": "before", "issuing_store": "store"}
+        with patch.object(tool, "predecessor_marker", return_value=marker) as capture:
+            value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+            capture.assert_called_once()
+        self.assertEqual(value["previous_marker"], marker)
+        proof = {**self.evidence(value), "phase": "start"}
+        tool.settle(self.state, value["nonce"], lambda *_: proof)
+        with patch.object(tool, "predecessor_marker") as capture:
+            result = tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=value["nonce"])
+            capture.assert_not_called()
+        self.assertEqual(result["previous_marker"], marker)
+
+    def test_settlement_rejects_wrong_phase_without_publishing_settled(self) -> None:
+        value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+        with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
+            tool.settle(self.state, value["nonce"], lambda *_: self.evidence(value))
+        self.assertEqual(self.current()["sql_outcome"], "unknown")
+        self.assertNotIn("settlement", self.current())
 
     def test_settlement_drain_or_owner_loss_cannot_clear_pending(self) -> None:
         value = self.run_tool()

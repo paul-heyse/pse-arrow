@@ -219,6 +219,26 @@ def require_child_drains(state: Path, value: dict[str, object]) -> None:
         update(state, value)
 
 
+def predecessor_marker(state: Path, config: dict[str, object]) -> object:
+    """Capture the immutable predecessor before any selected rollout SQL."""
+    credentials = surreal_server.read_json(state / "credentials.json")
+    catalog = surreal_server.maintenance_catalog(state, config, credentials, "DB")
+    if "canonical_interpretations" not in surreal_server.object_mapping(catalog["tables"]):
+        return None
+    result = surreal_server.maintenance_query(
+        state, config, credentials,
+        "LET $value=(SELECT interpretation,schema_digest,issuing_store FROM ONLY canonical_interpretations:current);",
+    )
+    marker = result.get("value")
+    if marker is not None and (
+        not isinstance(marker, dict)
+        or set(marker) != {"interpretation", "schema_digest", "issuing_store"}
+        or any(not isinstance(value, str) or not value for value in marker.values())
+    ):
+        raise MaintenanceError("Canonical predecessor marker is malformed")
+    return marker
+
+
 def execute(
     binary: Path,
     state: Path,
@@ -238,7 +258,8 @@ def execute(
     with surreal_server.lifecycle_reservation(state):
         config = selected(state)
         owner = surreal_server.read_json(state / "lifecycle-owner.json")
-        if mode in {"status", "repair"}:
+        continuing = mode == "complete" and pending_nonce is not None
+        if mode in {"status", "repair"} or continuing:
             if pending_nonce is None:
                 raise MaintenanceError("Recovery requires the exact pending nonce")
             value = pending(state, pending_nonce)
@@ -251,8 +272,24 @@ def execute(
                 raise MaintenanceError(
                     "Recovery frozen input differs from submitted rollout"
                 )
-            if mode == "repair" and rollout_id not in value["rollouts"]:
-                raise MaintenanceError("Repair does not name a submitted rollout")
+            if mode == "repair":
+                if rollout_id not in value["rollouts"]:
+                    raise MaintenanceError("Repair does not name a submitted rollout")
+                if value.get("sql_outcome") != "settled":
+                    raise MaintenanceError("Repair requires exact SQL settlement before metadata repair")
+            if continuing:
+                if (
+                    value.get("phase") != "start_settled"
+                    or value.get("command") != ["rollout", "start", rollout_id]
+                    or value.get("rollouts") != [rollout_id]
+                    or value.get("settlement", {}).get("phase") != "start"
+                ):
+                    raise MaintenanceError("Completion requires the exact settled start phase")
+                value.setdefault("phase_history", []).append({
+                    "command": value["command"],
+                    "settlement": value.pop("settlement"),
+                })
+                value.update(command=args, phase="prepared", sql_outcome="not_submitted")
         else:
             if config.get(PENDING) is not None or pending_nonce is not None:
                 raise MaintenanceError(
@@ -277,6 +314,7 @@ def execute(
                 "tool": provenance,
                 "owner": owner,
                 "attempts": [],
+                "phase_history": [],
             }
             if rollout_id is not None and rollout_id not in value["rollouts"]:
                 raise MaintenanceError("Selected rollout is absent from frozen chain")
@@ -331,6 +369,12 @@ def execute(
             surreal_server.require_maintenance_owner(
                 state, surreal_server.config_for(state)
             )
+            if "previous_marker" not in value and mode not in {"status", "repair"}:
+                if continuing:
+                    raise MaintenanceError("Original predecessor marker unavailable; activation refused")
+                value["previous_marker"] = predecessor_marker(state, config)
+            value["initializer"] = owner
+            update(state, value)
             record["phase"] = "submitted"
             # Recovery inspection/repair cannot erase the original uncertain SQL.
             if mode not in {"status", "repair"}:
@@ -443,6 +487,8 @@ def settle(
         value = pending(state, nonce)
         require_child_drains(state, value)
         owner = surreal_server.read_json(state / "lifecycle-owner.json")
+        value["initializer"] = owner
+        update(state, value)
         surreal_server.drain_maintenance_listener(state)
         endpoint = surreal_server.maintenance_endpoint(state)
         try:
@@ -462,7 +508,7 @@ def settle(
                     for key in ("owner", "identity")
                 )
                 or not isinstance(evidence.get("phase"), str)
-                or not evidence["phase"]
+                or evidence["phase"] != ("start" if value["command"][1] == "start" else "complete")
                 or not isinstance(evidence.get("steps"), list)
                 or not evidence["steps"]
                 or any(
@@ -490,10 +536,12 @@ def settle(
             current = config.get(PENDING)
             if not isinstance(current, dict) or current.get("nonce") != nonce:
                 raise MaintenanceError("Pending selection changed during settlement")
+            value["phase"] = "start_settled" if value["command"][1] == "start" else "settled"
+            value["sql_outcome"] = "settled"
             surreal_server.write_json(
                 state / ".surrealkit" / nonce / "settled.json", value
             )
-            config.pop(PENDING)
+            config[PENDING] = value
             config["accepting_writes"] = False
             surreal_server.write_json(state / "config.json", config)
         return value
