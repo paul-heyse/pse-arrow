@@ -2870,9 +2870,10 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             assert_eq!(set.batch_count,1);
             original_members.push(store.result_payload(input,&set.key,0).await.unwrap());
         }
-        let provenance=serde_json::to_vec(&producer_inputs.iter().map(|input|(input.run(),input.attempt(),input.manifest(),input.sets())).collect::<Vec<_>>()).unwrap();
+        let provenance=serde_json::to_vec(&producer_inputs.iter().map(|input|(&input.run().key,&input.run().revision,input.run().sequence,&input.attempt().key,input.attempt().generation,&input.attempt().outcome,input.manifest(),input.sets())).collect::<Vec<_>>()).unwrap();
         let mut artifact=store.new_artifact(&revision,"transport-fixture",provenance,2,original_members.iter().map(|member|member.batch.payload.len() as u64).sum()).await.unwrap();
         let blocks=original_members.iter().enumerate().map(|(ordinal,member)|pse_operations::canonical_artifacts::artifact_block(&artifact.key,ordinal as u64,"runtime.solve_metrics",member.batch.payload.to_vec(),&member.batch.digest,member.batch.row_count)).collect::<Vec<_>>();
+        drop(original_members);
         let staging_owner=format!("partial-transport-staging:{}",fixture.nonce);
         pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&producer_inputs,&blocks,"audit",&staging_owner);
         store.persist_artifact(&artifact,std::slice::from_ref(&revision),&producer_inputs,&blocks,"audit",&staging_owner).await.unwrap();
