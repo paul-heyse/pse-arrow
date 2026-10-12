@@ -396,21 +396,6 @@ mod tests {
     };
 
     #[test]
-    fn artifact_cleanup_report_preserves_original_intent_and_all_outstanding_identities() {
-        let intent=pse_operations::canonical_artifacts::Artifact {key:"original-artifact".into(),kind:"local-analysis".into(),revision:"revision".into(),primary_problem:"problem".into(),primary_authority:"authority".into(),creation_nonce:"nonce".into(),creation_expires_at:1,creation_request_digest:"original-seal".into(),interpretation:"original-interpretation".into(),provenance:Vec::new().into(),block_count:1,payload_bytes:1,active:false,retiring:false};
-        let original=pse_operations::canonical::CanonicalError::ArtifactUnsettled {intent:Box::new(intent.clone()),source:Box::new(pse_operations::canonical::CanonicalError::PayloadLimit)};
-        let report=DiagnosticReport::observe(&original);
-        assert_eq!(report.artifact_intent,Some(intent.clone()));
-        let cleanup=pse_runtime::workflow::WorkflowError::ArtifactTransferUnsettled {analysis:Some("committed-analysis".into()),artifact:Box::new(intent.clone()),owner_kind:"audit".into(),owner:"exact-random-staging-owner".into(),read:Some("exact-read-grant".into()),source:Box::new(original.into())};
-        let report=DiagnosticReport::observe(&cleanup);
-        assert_eq!(report.analysis_key.as_deref(),Some("committed-analysis"));
-        assert_eq!(report.artifact_key.as_deref(),Some("original-artifact"));
-        assert_eq!(report.artifact_intent,Some(intent));
-        assert_eq!(report.artifact_owner.as_deref(),Some("exact-random-staging-owner"));
-        assert_eq!(report.artifact_read_key.as_deref(),Some("exact-read-grant"));
-        assert!(report.causes.len()>=2);
-    }
-    #[test]
     fn schema_report_preserves_registry_diagnostic_code_and_envelope() {
         let error = pse_schema::SchemaError::UnknownReference {
             context: "result relation".into(),

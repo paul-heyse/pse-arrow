@@ -24,7 +24,7 @@ from scripts import surreal_server as server
 
 import pse
 from pse._build import compiled_features
-from pse.contracts.documents import ObservationText
+from pse.contracts.documents import ObservationText, SensitivityRequest
 from pse.contracts.enums import (
     DiagnosticCode,
     FailureClass,
@@ -294,7 +294,14 @@ def test_canonical_result_selection_and_progress_reopen(
     runtime = canonical_substrate.runtime(inspection_settings)
     assert runtime.durable
     package, case = _package(runtime)
-    prepared = package.prepare_solve(case, _settings())
+    parameter = next(
+        member.id for member in package.inspect(case, _settings()).members
+        if member.lineage.path == "a" or member.lineage.path.endswith(".a")
+    )
+    settings = msgspec.structs.replace(
+        _settings(), sensitivity=SensitivityRequest(parameters=(parameter,))
+    )
+    prepared = package.prepare_solve(case, settings)
     controls = pse.AnalysisControls(roots=(), direction="downstream")
     dependencies = prepared.dependency_analysis(controls)
     dependency_rows = pa.table(dependencies.edges()).to_pylist()
@@ -372,6 +379,40 @@ def test_canonical_result_selection_and_progress_reopen(
         row["kind"] == "input_provenance"
         for row in pa.table(provenance.edges()).to_pylist()
     )
+    # A selection refusal after copied scientific admission retains its exact
+    # outstanding staging owner/read identity, without inventing an analysis.
+    with pytest.raises(pse.InspectionError) as graph_transfer:
+        reopened.result_analysis(
+            run, attempt,
+            pse.AnalysisControls(roots=("missing-scientific-object",), direction="downstream"),
+        )
+    transfer_report = graph_transfer.value.report
+    assert transfer_report.analysis_key is None
+    assert transfer_report.artifact_key is not None
+    assert isinstance(transfer_report.artifact_intent, bytes)
+    assert transfer_report.artifact_owner_kind == "audit"
+    assert transfer_report.artifact_owner is not None
+    assert transfer_report.artifact_read_key is not None
+    transfer_settlement = reopened.recover_artifact_intent(transfer_report.artifact_intent)
+    assert transfer_settlement.key == transfer_report.artifact_key
+    transfer_settlement.release("audit", transfer_report.artifact_owner)
+    assert not transfer_settlement.collect()
+
+    # Invalid initial owner activation happens after actual staging. Its original
+    # strict recovery document settles the inactive occurrence without a reader.
+    with pytest.raises(pse.InspectionError) as inactive_transfer:
+        reopened.promote_scientific_artifact(
+            run, attempt, "final-state", owner_kind="user", owner=""
+        )
+    inactive_report = inactive_transfer.value.report
+    assert inactive_report.artifact_key is not None
+    assert isinstance(inactive_report.artifact_intent, bytes)
+    inactive_settlement = reopened.recover_artifact_intent(inactive_report.artifact_intent)
+    assert inactive_settlement.key == inactive_report.artifact_key
+    with pytest.raises(pse.InspectionError):
+        reopened.scientific_artifact(inactive_settlement.key)
+    assert not inactive_settlement.collect(), "original finite creation window stays pending"
+
     artifact = reopened.promote_scientific_artifact(
         run, attempt, "final-state", owner_kind="user", owner="python-final-state"
     )
