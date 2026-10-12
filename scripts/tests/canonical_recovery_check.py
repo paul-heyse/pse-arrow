@@ -632,15 +632,12 @@ def journey(
                         check=True,
                     )
                     server.stop(restored, restored_config)
-                    preserved = directory / "preserved"
                     initializer = science_command(
-                        restored, preserved / "inputs", receipt, "rebuild"
+                        restored, inputs, receipt, "rebuild"
                     )
-                    server.rebuild(restored, inputs, preserved, initializer)
+                    server.rebuild(restored, initializer)
                     if not (
-                        server.input_inventory(inputs)
-                        == input_hashes
-                        == server.input_inventory(preserved / "inputs")
+                        science.input_inventory(inputs) == input_hashes
                     ):
                         raise server.SupervisorError(
                             "Scientific authored/physical inputs changed during rebuild"
@@ -654,7 +651,7 @@ def journey(
                     subprocess.run(
                         science_command(
                             restored,
-                            preserved / "inputs",
+                            inputs,
                             receipt.with_suffix(".rebuilt.json"),
                             "verify-rebuild",
                         ),

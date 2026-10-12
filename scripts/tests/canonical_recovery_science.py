@@ -35,6 +35,21 @@ PRIMITIVES = (
 )
 
 
+def input_inventory(source: Path) -> dict[str, str]:
+    """Bind this fixture's explicit scientific sources without modifying them."""
+    if any(path.is_symlink() for path in (source, *source.parents)) or not source.is_dir():
+        raise server.SupervisorError("Scientific inputs must be external real files")
+    files = {}
+    for path in sorted(source.rglob("*")):
+        if path.is_symlink() or (not path.is_file() and not path.is_dir()):
+            raise server.SupervisorError("Scientific inputs must be external real files")
+        if path.is_file():
+            files[str(path.relative_to(source))] = server.file_digest(path)
+    if not files:
+        raise server.SupervisorError("Explicit scientific input inventory is required")
+    return files
+
+
 def prepare_inputs(destination: Path) -> dict[str, str]:
     root = Path(__file__).resolve().parents[2]
     fixtures = root / "tests/fixtures/packages"
@@ -46,7 +61,7 @@ def prepare_inputs(destination: Path) -> dict[str, str]:
         manifest.replace("dependencies = []", PRIMITIVES)
     )
     (model / "models/length.pse").write_text(SOURCE)
-    return server.input_inventory(destination)
+    return input_inventory(destination)
 
 
 def documents(directory: Path) -> dict[str, str]:
@@ -193,7 +208,7 @@ def run(state: Path, inputs: Path, receipt: Path, phase: str) -> None:
             "source": package.knowledge().source_revision.to_prefixed(),
             "case": case.to_hex(),
             "interpretation": server.SUBSTRATE_INTERPRETATION,
-            "inputs": server.input_inventory(inputs),
+            "inputs": input_inventory(inputs),
         }
         if phase != "seed":
             saved = server.read_json(receipt)

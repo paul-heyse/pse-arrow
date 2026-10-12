@@ -10,7 +10,7 @@ other backend journeys have drained. Never select an existing state directory::
 
 Requires the pinned native SurrealDB CLI and a current target/debug/xtask built
 with canonical-tools. This control installs the production canonical schema,
-preserves explicit authored input hashes, and exercises native restore/rebuild,
+leaves external authored input bytes untouched, and exercises native restore/rebuild,
 account/catalog authority and interrupted-initializer recovery. It retains its
 private acceptance.json and diagnostic files, then normally stops its profiles.
 Scientific model reconstruction and delayed creation API replay are separate.
@@ -93,9 +93,6 @@ def main() -> int:
     if args.initializer_fail is not None:
         # Genuine production schema initialization under the live scoped authority,
         # followed by an explicit caller failure. No mocked CLI/backend completion.
-        preserved = Path(os.environ["PSE_PRESERVED_INPUTS"])
-        if not list(preserved.rglob("*.pse")):
-            raise RuntimeError("explicit preserved authored input missing")
         initialize(
             args.initializer_fail, stale_nonce=os.environ["PSE_CANONICAL_INITIALIZER"]
         )
@@ -124,7 +121,7 @@ def main() -> int:
         root / "packages/reference/process/models/heat-exchanger.pse",
         authored / "heat-exchanger.pse",
     )
-    input_hashes = server.input_inventory(authored)
+    input_hashes = {"heat-exchanger.pse": server.file_digest(authored / "heat-exchanger.pse")}
     profiles = [source, restored]
     old_authority = "eff33-original-creation-authority"
 
@@ -345,7 +342,7 @@ def main() -> int:
             str(restored),
         ]
         refuses(
-            lambda: server.rebuild(restored, authored, run / "preserved", fail_command),
+            lambda: server.rebuild(restored, fail_command),
             "genuine initializer caller failure retains pending rebuild",
         )
         pending_config = server.config_for(restored)
@@ -356,10 +353,8 @@ def main() -> int:
             "failed initializer leaves durable closed initializing phase",
         )
         checked(
-            server.input_inventory(authored)
-            == input_hashes
-            == server.input_inventory(run / "preserved/inputs"),
-            "explicit authored input hashes preserved through initializer failure",
+            server.file_digest(authored / "heat-exchanger.pse") == input_hashes["heat-exchanger.pse"],
+            "external authored input untouched through initializer failure",
         )
         failed_target = (pending_config["namespace"], pending_config["database"])
         initialized = server.read_json(run / "initializer-before-injected-failure.json")
@@ -416,8 +411,8 @@ def main() -> int:
                 "recovery disposes exact retired database " + str(database),
             )
         checked(
-            server.input_inventory(run / "preserved/inputs") == input_hashes,
-            "preserved authored input inventory unchanged after recovery",
+            server.file_digest(authored / "heat-exchanger.pse") == input_hashes["heat-exchanger.pse"],
+            "external authored input unchanged after regeneration",
         )
 
         # Unknown owner remains in a separate stopped disposable physical service.
@@ -436,8 +431,6 @@ def main() -> int:
         refuses(
             lambda: server.rebuild(
                 source,
-                authored,
-                run / "refused-preserved",
                 [str(xtask), "canonical-init", str(source)],
             ),
             "nonempty unknown physical owner refuses global credential rotation",
@@ -477,7 +470,7 @@ def main() -> int:
                 except Exception as error:
                     drain_errors.append(type(error).__name__ + ": " + str(error))
         report["limits"] = [
-            "Initializer installs production current schema; preserved .pse input is not compiled/reimported into a scientific model.",
+            "Initializer installs production current schema; external .pse input is not compiled/reimported into a scientific model.",
             "Old authority checks cover actual namespace disposal, ROOT authentication and guard incarnation; end-to-end delayed analysis-creation API replay remains separate.",
             "Failure injection is a real child exit after successful production initialization; SIGKILL/fsync power-loss recovery remains covered by targeted phase controls only.",
         ]

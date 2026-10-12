@@ -5765,65 +5765,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             server.private_offline_state(self.state, config)
         stop.assert_not_called()
 
-    def test_explicit_inputs_preserve_bytes_hashes_and_owner_permissions(self) -> None:
-        source = self.root / "authored"
-        source.mkdir(mode=0o755)
-        (source / "relations.json").write_bytes(b"authored relation authority")
-        before = source.stat().st_mode
-        preserved = server.preserve_inputs(source, self.root / "preserved", self.state)
-        self.assertEqual(source.stat().st_mode, before)
-        self.assertEqual(
-            server.input_inventory(source), server.input_inventory(preserved)
-        )
-        self.assertEqual(
-            server.read_json(preserved.parent / "inputs.json")["files"],
-            server.input_inventory(source),
-        )
-        self.assertEqual(preserved.parent.stat().st_mode & 0o777, 0o700)
-
-    def test_explicit_inputs_refuse_empty_symlink_alias_and_state_overlap(self) -> None:
-        source = self.root / "authored"
-        source.mkdir()
-        with self.assertRaisesRegex(server.SupervisorError, "inventory"):
-            server.preserve_inputs(source, self.root / "empty-copy", self.state)
-        (source / "input").write_text("external authority")
-        alias = self.root / "alias"
-        alias.symlink_to(source)
-        for selected, destination in (
-            (alias, self.root / "copy"),
-            (source, self.state),
-            (source, self.root),
-            (source, source / "copy"),
-        ):
-            with (
-                self.subTest(selected=selected, destination=destination),
-                self.assertRaises(server.SupervisorError),
-            ):
-                server.preserve_inputs(selected, destination, self.state)
-        (source / "linked").symlink_to(source / "input")
-        with self.assertRaisesRegex(server.SupervisorError, "real files"):
-            server.preserve_inputs(source, self.root / "copy", self.state)
-
-    def test_input_change_during_copy_refuses_before_native_work(self) -> None:
-        source = self.root / "authored"
-        source.mkdir()
-        (source / "input").write_text("original")
-        copy = shutil.copytree
-
-        def changed(source_path: Path, destination: Path) -> Path:
-            result = copy(source_path, destination)
-            (source / "added").write_text("concurrent input")
-            return result
-
-        with (
-            patch.object(server.shutil, "copytree", side_effect=changed),
-            self.assertRaisesRegex(
-                server.SupervisorError, "changed during preservation"
-            ),
-        ):
-            server.preserve_inputs(source, self.root / "preserved", self.state)
-
-    def test_rebuild_preserves_inputs_before_accounts_and_disposes_only_after_validation(
+    def test_rebuild_mints_authority_and_disposes_only_after_current_validation(
         self,
     ) -> None:
         prior = self.initialized()
@@ -5847,9 +5789,6 @@ class SurrealSupervisorTests(unittest.TestCase):
                 ),
                 (prior["namespace"], prior["database"]),
             )
-            self.assertEqual(
-                (self.root / "preserved/inputs/input").read_text(), "external authority"
-            )
             config = server.config_for(self.state)
             self.assertTrue(config["derived_rebuild_pending"])
             self.assertFalse(config["accepting_writes"])
@@ -5865,9 +5804,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertEqual(config["admission"], "validation_required")
             environment = options["env"]
             self.assertIsInstance(environment, dict)
-            self.assertEqual(
-                environment["PSE_PRESERVED_INPUTS"], str(self.root / "preserved/inputs")
-            )
+            self.assertNotIn("PSE_PRESERVED_INPUTS", environment)
             self.assertTrue((self.state / "lifecycle-owner.json").exists())
             self.assertEqual(
                 environment["PSE_CANONICAL_INITIALIZER"],
@@ -5917,9 +5854,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "database_present", return_value=True),
             patch.object(server, "discard_database", side_effect=discard),
         ):
-            server.rebuild(
-                self.state, source, self.root / "preserved", ["current-initializer"]
-            )
+            server.rebuild(self.state, ["current-initializer"])
         self.assertEqual(
             events, ["accounts", "start", "initialize", "validate", "stop", "dispose"]
         )
@@ -5930,7 +5865,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertEqual(config["interpretation"], server.SUBSTRATE_INTERPRETATION)
         self.assertEqual((source / "input").read_text(), "external authority")
 
-    def test_rebuild_failure_or_preserved_input_mutation_retains_old_database(
+    def test_rebuild_current_marker_failure_retains_old_database(
         self,
     ) -> None:
         config = self.initialized()
@@ -5940,12 +5875,6 @@ class SurrealSupervisorTests(unittest.TestCase):
         source.mkdir()
         (source / "input").write_text("external authority")
 
-        def mutate(
-            _arguments: list[str], **_options: object
-        ) -> subprocess.CompletedProcess[str]:
-            (self.root / "preserved/inputs/input").write_text("mutated")
-            return subprocess.CompletedProcess([], 0)
-
         with (
             patch.object(server, "private_offline_state"),
             patch.object(server, "active", return_value=False),
@@ -5953,12 +5882,12 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "rotate_database_accounts"),
             patch.object(server, "start"),
             patch.object(server, "stop") as stop,
-            patch.object(server.subprocess, "run", side_effect=mutate),
-            patch.object(server, "validate_interpretation"),
+            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)),
+            patch.object(server, "validate_interpretation", side_effect=server.SupervisorError("current marker differs")),
             patch.object(server, "discard_database") as discard,
-            self.assertRaisesRegex(server.SupervisorError, "inputs changed"),
+            self.assertRaisesRegex(server.SupervisorError, "current marker differs"),
         ):
-            server.rebuild(self.state, source, self.root / "preserved", ["initializer"])
+            server.rebuild(self.state, ["initializer"])
         stop.assert_called_once()
         discard.assert_not_called()
         config = server.config_for(self.state)
@@ -5975,7 +5904,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             with self.assertRaises(server.SupervisorError):
                 operation()
 
-    def test_initializer_failure_retains_input_authority_and_never_disposes_old_database(
+    def test_initializer_failure_never_disposes_old_database(
         self,
     ) -> None:
         config = self.initialized()
@@ -6000,16 +5929,14 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "discard_database") as discard,
             self.assertRaisesRegex(server.SupervisorError, "initializer failed"),
         ):
-            server.rebuild(self.state, source, self.root / "preserved", ["initializer"])
+            server.rebuild(self.state, ["initializer"])
         stop.assert_called_once()
         validate.assert_not_called()
         discard.assert_not_called()
         config = server.config_for(self.state)
         self.assertTrue(config["derived_rebuild_pending"])
         self.assertFalse(config["accepting_writes"])
-        self.assertEqual(
-            (self.root / "preserved/inputs/input").read_text(), "external authority"
-        )
+        self.assertEqual((source / "input").read_text(), "external authority")
 
     def test_bounded_analysis_cleanup_preserves_other_roots_and_guard_floor(
         self,
@@ -6624,17 +6551,6 @@ class SurrealSupervisorTests(unittest.TestCase):
             "previous_username": before["username"],
             "next_username": after["username"],
         }
-        if kind == "rebuild":
-            source = self.root / "authored"
-            source.mkdir()
-            (source / "input").write_text("preserved authority")
-            preserved = server.preserve_inputs(
-                source, self.root / "preserved", self.state
-            )
-            pending.update(
-                inputs=str(preserved),
-                inputs_digest=server.file_digest(preserved.parent / "inputs.json"),
-            )
         config["derived_rebuild_pending"] = pending
         server.write_json(self.state / "config.json", config)
         server.write_json(
@@ -7120,7 +7036,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertFalse(recovered["accepting_writes"])
         self.assertEqual(recovered["admission"], "quiesced")
 
-    def test_recovery_refuses_unknown_phase_changed_inventory_and_missing_initializer(
+    def test_recovery_refuses_unknown_phase_and_missing_initializer(
         self,
     ) -> None:
         config, _before, _after = self.maintenance_fixture("rebuild", "initializing")
@@ -7132,14 +7048,6 @@ class SurrealSupervisorTests(unittest.TestCase):
             ),
         ):
             server.recover_maintenance(self.state, [])
-        credentials.assert_not_called()
-        (self.root / "preserved/inputs/input").write_text("changed")
-        with (
-            patch.object(server, "private_offline_state"),
-            patch.object(server, "recover_credentials") as credentials,
-            self.assertRaisesRegex(server.SupervisorError, "inputs differ"),
-        ):
-            server.recover_maintenance(self.state, ["initializer"])
         credentials.assert_not_called()
         server.object_mapping(config["derived_rebuild_pending"])["phase"] = "unknown"
         server.write_json(self.state / "config.json", config)
@@ -7172,14 +7080,11 @@ class SurrealSupervisorTests(unittest.TestCase):
             state: Path,
             selected: dict[str, object],
             command: list[str],
-            preserved: Path,
-            _inventory: dict[str, object],
         ) -> None:
             self.assertEqual(command, ["current-initializer"])
             self.assertNotEqual(
                 (selected["namespace"], selected["database"]), prior_target
             )
-            self.assertEqual((preserved / "input").read_text(), "preserved authority")
             self.assertFalse(selected["accepting_writes"])
             events.append(("initialize", selected["namespace"], selected["database"]))
             server.maintenance_phase(state, selected, "validated")

@@ -5957,8 +5957,6 @@ def finish_maintenance(
     state: Path, config: dict[str, object], credentials: dict[str, object]
 ) -> None:
     pending = object_mapping(config["derived_rebuild_pending"])
-    if pending["kind"] == "rebuild":
-        verified_preserved_inputs(config)
     require_private_catalog(state, config, credentials)
     maintenance_phase(state, config, "disposing")
     old = {**config, "namespace": pending["namespace"], "database": pending["database"]}
@@ -6086,83 +6084,10 @@ def copy_current_database(
         write_json(state / "config.json", target)
 
 
-def input_inventory(source: Path) -> dict[str, str]:
-    """Read explicit inputs without changing their owner's paths or permissions."""
-    if (
-        any(path.is_symlink() for path in (source, *source.parents))
-        or not source.is_dir()
-    ):
-        raise SupervisorError("Preserved authored inputs must be external real files")
-    files = {}
-    for path in sorted(source.rglob("*")):
-        if path.is_symlink() or (not path.is_file() and not path.is_dir()):
-            raise SupervisorError(
-                "Preserved authored inputs must be external real files"
-            )
-        if path.is_file():
-            files[str(path.relative_to(source))] = file_digest(path)
-    if not files:
-        raise SupervisorError("Explicit authored/external input inventory is required")
-    return files
-
-
-def preserve_inputs(source: Path, destination: Path, state: Path) -> Path:
-    inventory = input_inventory(source.absolute())
-    if any(
-        path.is_symlink()
-        for path in (destination.absolute(), *destination.absolute().parents)
-    ):
-        raise SupervisorError("Preserved input destination must not traverse symlinks")
-    source = lexical_absolute(source)
-    destination = lexical_absolute(destination)
-    if source == state or state in source.parents or source in state.parents:
-        raise SupervisorError("Preserved authored inputs must be external real files")
-    if (
-        destination in (source, state)
-        or source in destination.parents
-        or destination in source.parents
-        or state in destination.parents
-        or destination in state.parents
-    ):
-        raise SupervisorError(
-            "Preserved input destination must be external and disjoint"
-        )
-    destination = checked_directory(destination, empty=True)
-    preserved = destination / "inputs"
-    shutil.copytree(source, preserved)
-    if input_inventory(preserved) != inventory or input_inventory(source) != inventory:
-        raise SupervisorError("Authored/external inputs changed during preservation")
-    # The manifest may authorize disposal only after the copied bytes and names
-    # are durable; do not change permissions or metadata on the input authority.
-    for path in sorted(preserved.rglob("*")):
-        if path.is_file():
-            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-            try:
-                os.fsync(descriptor)
-            finally:
-                os.close(descriptor)
-    directories = [preserved, *(path for path in preserved.rglob("*") if path.is_dir())]
-    for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
-        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-    write_json(destination / "inputs.json", {"owner": OWNER, "files": inventory})
-    descriptor = os.open(
-        destination.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    )
-    try:
-        os.fsync(descriptor)
-    finally:
-        os.close(descriptor)
-    return preserved
-
-
 def rebuild(
-    state: Path, source: Path, destination: Path, initializer: list[str]
+    state: Path, initializer: list[str]
 ) -> dict[str, object]:
-    """Explicit current reconstruction, requiring externally preserved input authority."""
+    """Regenerate owned design-phase state from current sources, without retaining old data."""
     if not initializer:
         raise SupervisorError("Fresh rebuild requires a current initializer command")
     with lifecycle_reservation(state):
@@ -6172,8 +6097,6 @@ def rebuild(
             raise SupervisorError(
                 "Incomplete rebuild remains closed; explicit owner recovery is required"
             )
-        preserved = preserve_inputs(source, destination, state)
-        inventory = read_json(preserved.parent / "inputs.json")
         selected = fresh_owned_database_identity(state, old)
         initializer_owner = read_json(state / "lifecycle-owner.json")
         credentials = fresh_credentials()
@@ -6184,11 +6107,9 @@ def rebuild(
             derived_rebuild_pending={
                 "namespace": old["namespace"],
                 "database": old["database"],
-                "inputs": str(preserved),
                 "initializer": initializer_owner,
                 "kind": "rebuild",
                 "phase": "accounts",
-                "inputs_digest": file_digest(preserved.parent / "inputs.json"),
                 "target_namespace": selected["namespace"],
                 "target_database": selected["database"],
                 "previous_username": prior["username"],
@@ -6197,7 +6118,7 @@ def rebuild(
         )
         write_json(state / "config.json", selected)
         rotate_database_accounts(state, selected, prior, credentials)
-        initialize_rebuild(state, selected, initializer, preserved, inventory)
+        initialize_rebuild(state, selected, initializer)
         finish_maintenance(state, selected, credentials)
         return public_status(state, selected)
 
@@ -6206,8 +6127,6 @@ def initialize_rebuild(
     state: Path,
     selected: dict[str, object],
     initializer: list[str],
-    preserved: Path,
-    inventory: dict[str, object],
 ) -> None:
     drain_maintenance_listener(state)
     selected["service_supervisor"] = config_for(state)["service_supervisor"]
@@ -6226,7 +6145,6 @@ def initialize_rebuild(
             env={
                 **os.environ,
                 "PSE_SURREAL_STATE": str(state),
-                "PSE_PRESERVED_INPUTS": str(preserved),
                 "PSE_CANONICAL_INITIALIZER": str(initializer_owner["nonce"]),
             },
             stdout=subprocess.DEVNULL,
@@ -6235,17 +6153,14 @@ def initialize_rebuild(
         )
         if result.returncode:
             raise SupervisorError(
-                "Current initializer failed; preserved inputs retained and admission closed"
+                "Current initializer failed; admission closed and exact target retained"
             )
         validate_interpretation(state, selected, SUBSTRATE_INTERPRETATION)
         if (
-            inventory.get("owner") != OWNER
-            or input_inventory(preserved) != inventory.get("files")
-            or read_json(preserved.parent / "inputs.json") != inventory
+            read_json(state / "lifecycle-owner.json") != initializer_owner
+            or not reservation_live(initializer_owner)
         ):
-            raise SupervisorError(
-                "Preserved authored inputs changed; old database retained"
-            )
+            raise SupervisorError("Initializer owner changed; admission remains closed")
         maintenance_phase(state, selected, "validated")
     finally:
         selected["accepting_writes"] = False
@@ -6322,30 +6237,6 @@ def recover_credentials(
     return candidate, True
 
 
-def verified_preserved_inputs(
-    config: dict[str, object],
-) -> tuple[Path, dict[str, object]]:
-    pending = object_mapping(config["derived_rebuild_pending"])
-    preserved = Path(str(pending.get("inputs", "")))
-    manifest = preserved.parent / "inputs.json"
-    if (
-        not preserved.is_absolute()
-        or manifest.is_symlink()
-        or file_digest(manifest) != pending.get("inputs_digest")
-    ):
-        raise SupervisorError(
-            "Preserved input inventory differs; admission remains closed"
-        )
-    inventory = read_json(manifest)
-    if inventory.get("owner") != OWNER or input_inventory(preserved) != inventory.get(
-        "files"
-    ):
-        raise SupervisorError(
-            "Preserved authored inputs differ; admission remains closed"
-        )
-    return preserved, inventory
-
-
 def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object]:
     with lifecycle_reservation(state):
         config = config_for(state)
@@ -6400,10 +6291,7 @@ def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object
             raise SupervisorError(
                 "Maintenance source/target identity differs; admission remains closed"
             )
-        preserved = None
-        inventory = None
         if kind == "rebuild":
-            preserved, inventory = verified_preserved_inputs(config)
             if phase in {"accounts", "initializing"} and not initializer:
                 raise SupervisorError(
                     "Interrupted initializer requires explicit current initializer command"
@@ -6422,9 +6310,7 @@ def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object
             )
             selected["derived_rebuild_pending"] = pending
             config = selected
-            if preserved is None or inventory is None:
-                raise SupervisorError("Missing preserved initializer inputs")
-            initialize_rebuild(state, config, initializer, preserved, inventory)
+            initialize_rebuild(state, config, initializer)
         elif kind == "current-restore" and phase in {"cleanup", "copy"}:
             if rotated:
                 raise SupervisorError("Unexpected account rotation before current copy")
@@ -7408,16 +7294,11 @@ def _dispatch(args: argparse.Namespace) -> int:
     elif args.command == "setup":
         output = setup(args)
     elif args.command == "rebuild":
-        if args.source is None or args.destination is None:
+        if args.source is not None or args.destination is not None:
             raise SupervisorError(
-                "rebuild requires --source authored-inputs and --destination preserved-inputs"
+                "rebuild regenerates current state; preservation source/destination are unsupported"
             )
-        output = rebuild(
-            args.state.absolute(),
-            args.source.absolute(),
-            args.destination.absolute(),
-            args.initializer_command or [],
-        )
+        output = rebuild(args.state.absolute(), args.initializer_command or [])
     elif args.command == "recover-maintenance":
         output = recover_maintenance(
             args.state.absolute(), args.initializer_command or []

@@ -238,7 +238,7 @@ class ScientificRecoveryControls(unittest.TestCase):
             output_directory=Path("evidence"),
         )
 
-    def test_preserved_inventory_contains_actual_authored_and_physical_inputs(
+    def test_explicit_inventory_contains_actual_authored_and_physical_inputs(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -250,9 +250,9 @@ class ScientificRecoveryControls(unittest.TestCase):
             self.assertEqual(
                 science.documents(inputs / "model")["models/length.pse"], science.SOURCE
             )
-            self.assertEqual(server.input_inventory(inputs), inventory)
+            self.assertEqual(science.input_inventory(inputs), inventory)
             (inputs / "model/models/length.pse").write_text(science.SOURCE + "\n")
-            self.assertNotEqual(server.input_inventory(inputs), inventory)
+            self.assertNotEqual(science.input_inventory(inputs), inventory)
 
     def test_science_child_uses_explicit_phase_inputs_and_exact_receipt(self) -> None:
         command = recovery.science_command(

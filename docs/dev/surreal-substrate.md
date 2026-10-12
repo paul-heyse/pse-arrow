@@ -334,28 +334,30 @@ creates an account or missing database to make recovery succeed.
 
 ## Explicit design-phase reconstruction and recovery
 
-For an isolated, stopped and authentically drained profile, `rebuild --state PATH --source
-AUTHORED-INPUT-DIRECTORY --destination NEW-PRESERVED-DIRECTORY --initializer-command COMMAND ...`
-preserves an exact file inventory and executes the current initializer against a fresh
-namespace/database. The initializer receives `PSE_PRESERVED_INPUTS` and the live lifecycle
-nonce. Ordinary canonical handles remain closed; the initializer's authority expires with
-its owner. Only after current initialization and preserved hashes are acknowledged is the
-exact replaced database removed. This is explicit disposal of derived internal state, never
-an automatic opening migration or a reset of authored/external inputs.
+For an isolated, stopped and authentically drained profile, `rebuild --state PATH
+--initializer-command COMMAND ...` regenerates the selected design-phase state from
+current authoritative sources and fixtures in a fresh namespace/database. No old data
+or exported authored-input inventory is required. External source files are untouched.
+The initializer receives the live `PSE_CANONICAL_INITIALIZER` lifecycle nonce. Ordinary
+canonical handles remain closed; initializer authority expires with its exact owner.
+Only after current initialization and interpretation validation is the exact replaced
+database removed. Fresh database/store identities and credentials fence old capabilities.
 
 Generated endpoint enforcement changes the schema digest even when the interpretation
 version stays unchanged. Ordinary opening refuses an old digest. Adopt the current schema
-through explicit preserving reconstruction/current restore and semantic validation; neither
-supervisor readmission nor successful server startup alone upgrades canonical schema.
+through explicit regeneration or supported current-version restore and semantic validation;
+neither supervisor readmission nor successful server startup upgrades canonical schema.
 Memberships, analysis edges/inputs, problem runs and run sources enforce existing endpoints.
 Study dependency ingestion permits valid references to predecessors in later pages. Native
 import bypasses endpoint admission, so post-restore integrity checks remain required.
 
 Interrupted rebuild or restore remains closed. `recover-maintenance --state PATH` resumes
-its durable phase after verifying exact identities and preserved inputs; an interrupted
-rebuild initializer also requires `--initializer-command COMMAND ...`. Recovery observes
-account/database effects before repeating uncertain actions. Unknown content or changed
-backup/input inventories refuse recovery without disposing of their sources.
+its durable phase after verifying exact identities; an interrupted rebuild initializer also
+requires `--initializer-command COMMAND ...`. Recovery drains the preceding owner and
+regenerates an unacknowledged initializer target with fresh authority. Unknown phases,
+borrowers or changed current-version backup inventories refuse recovery. Current-version
+restore retains its backup and exact export/copy ownership contract; it is independent of
+fresh design-phase regeneration.
 
 ## Targeted fixture controls
 
@@ -381,7 +383,7 @@ owned fixture retirement requires service, process and scope drain plus a read-o
 ledger observation showing no live/restored service references. A remaining reference or
 unavailable observation retains the fixture and prevents positive evidence publication.
 
-The directory must be new. This control checks preserved authored file hashes, current
+The directory must be new. This control checks untouched external authored file hashes, current
 schema initialization, full analysis removal, fresh database/account authority, closed
 validation and interrupted-initializer recovery. Its final report includes actual drain
 errors; it does not compile the preserved authored model or establish scientific parity.
