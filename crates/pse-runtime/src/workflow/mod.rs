@@ -19,7 +19,9 @@ pub use result_export::{ResultCursor, ResultOrder, StrategyEventExport};
 mod analyses;
 pub use analyses::{AnalysisControls, AnalysisDirection, AnalysisHandle};
 mod retention;
-pub use retention::ResultReclamationPage;
+pub use retention::{
+    HistoryObligation, HistoryOwner, HistoryPurpose, HistoryReclamationPage, ResultReclamationPage,
+};
 mod diagnostic_documents;
 pub use diagnostic_documents::{
     DiagnosticAnnotationDocument, DiagnosticCauseDocument, DiagnosticContextDocument,

@@ -5,9 +5,68 @@
 
 use super::{Runtime, WorkflowError};
 use pse_columnar::CancellationToken;
+pub use pse_operations::canonical_history::{
+    HistoryObligation, HistoryOwner, HistoryPurpose, HistoryReclamationPage,
+};
 pub use pse_operations::canonical_result_retention::ResultReclamationPage;
 
 impl Runtime {
+    /// Retain exact audit or unsettled-effect detail independently from payloads.
+    pub async fn retain_history_obligation(
+        &self,
+        obligation: &HistoryObligation,
+    ) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity
+            .scope(async {
+                self.operations()?.store().retain_history_obligation(obligation).await?;
+                Ok(())
+            })
+            .await
+    }
+
+    /// Release only the exact attributed obligation; other owners still protect detail.
+    pub async fn release_history_obligation(
+        &self,
+        obligation: &HistoryObligation,
+    ) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity
+            .scope(async {
+                self.operations()?.store().release_history_obligation(obligation).await?;
+                Ok(())
+            })
+            .await
+    }
+
+    /// Explicitly release detailed history after its payload and obligations settle.
+    /// This is irreversible and preserves permanent replay and owner identities.
+    pub async fn release_history(&self, owner: &HistoryOwner) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity
+            .scope(async {
+                self.operations()?.store().release_history(owner).await?;
+                Ok(())
+            })
+            .await
+    }
+
+    /// Collect one bounded page after explicit history release. Repetition resumes
+    /// the same owner; study collection includes its already settled member detail.
+    pub async fn reclaim_history_page(
+        &self,
+        owner: &HistoryOwner,
+        cancel: &CancellationToken,
+    ) -> Result<HistoryReclamationPage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity
+            .scope(async {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                Ok(self.operations()?.store().reclaim_history_page(owner).await?)
+            })
+            .await
+    }
+
     /// Withdraw a terminal study's obligation to retain its point and summary
     /// results. This preserves scientific occurrence receipts; each run remains
     /// retained until explicitly retired, and live readers still protect it.

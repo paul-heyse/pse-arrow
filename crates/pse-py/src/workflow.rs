@@ -751,6 +751,31 @@ impl NativeRuntime {
             owner: self.owner.clone(),
         })
     }
+    fn retain_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
+        let obligation: native::HistoryObligation =
+            documents::decode(py, "history obligation", obligation, 128 * 1024)?;
+        blocking(py, &self.owner, self.inner.retain_history_obligation(&obligation), || {})
+    }
+    fn release_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
+        let obligation: native::HistoryObligation =
+            documents::decode(py, "history obligation", obligation, 128 * 1024)?;
+        blocking(py, &self.owner, self.inner.release_history_obligation(&obligation), || {})
+    }
+    fn release_history(&self, py: Python<'_>, owner: &[u8]) -> PyResult<()> {
+        let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
+        blocking(py, &self.owner, self.inner.release_history(&owner), || {})
+    }
+    fn reclaim_history_page(&self, py: Python<'_>, owner: &[u8]) -> PyResult<Vec<u8>> {
+        let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let page = blocking(
+            py,
+            &self.owner,
+            self.inner.reclaim_history_page(&owner, &cancel),
+            || cancel.cancel(),
+        )?;
+        documents::encode(py, &page)
+    }
     fn forget_study_results(&self, py: Python<'_>, study: &str) -> PyResult<()> {
         blocking(
             py,

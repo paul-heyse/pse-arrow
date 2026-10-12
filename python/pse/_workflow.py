@@ -29,6 +29,9 @@ from pse.contracts import runtime as result_contracts
 from pse.contracts.documents import (
     AnalysisControls,
     ConicRequest,
+    HistoryObligation,
+    HistoryOwner,
+    HistoryReclamationPage,
     ResourceReport,
     ResultReclamationPage,
     RunControls,
@@ -138,6 +141,25 @@ class Runtime:
         """Persist reported sensitivity evidence and exact result provenance."""
         return Analysis(
             self._handle.result_analysis(run, attempt, codec.encode_json(controls))
+        )
+
+    def retain_history_obligation(self, obligation: HistoryObligation) -> None:
+        """Protect exact audit or unsettled-effect detail independently of payloads."""
+        self._handle.retain_history_obligation(codec.encode_json(obligation))
+
+    def release_history_obligation(self, obligation: HistoryObligation) -> None:
+        """Release only this exact attributed obligation; other owners still protect it."""
+        self._handle.release_history_obligation(codec.encode_json(obligation))
+
+    def release_history(self, owner: HistoryOwner) -> None:
+        """Irreversibly release settled detail separately from payload retirement."""
+        self._handle.release_history(codec.encode_json(owner))
+
+    def reclaim_history_page(self, owner: HistoryOwner) -> HistoryReclamationPage:
+        """Collect one bounded history page while preserving permanent replay fences."""
+        return codec.decode_json(
+            self._handle.reclaim_history_page(codec.encode_json(owner)),
+            HistoryReclamationPage,
         )
 
     def forget_study_results(self, study: str) -> None:
