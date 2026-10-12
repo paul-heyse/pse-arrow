@@ -42,11 +42,6 @@ canonical-tools = [
   "dep:pse-runtime",
   "dep:pse-engine",
 ]
-canonical-activation-fixtures = [
-  "canonical-tools",
-  "pse-operations/test-support",
-  "pse-runtime/canonical-tests",
-]
 canonical-tests = ["package-fixtures", "pse-runtime/canonical-tests"]
 thermodynamic-oracles = [
   "dep:feos",
@@ -129,11 +124,6 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 [[bin]]
 name = "pse-canonical-recovery"
 path = "src/bin/pse-canonical-recovery.rs"
-required-features = ["canonical-tools"]
-
-[[bin]]
-name = "pse-preparation-activation"
-path = "src/bin/pse-preparation-activation.rs"
 required-features = ["canonical-tools"]
 
 [[bin]]

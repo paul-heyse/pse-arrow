@@ -9,9 +9,7 @@ pub use controls::{
 };
 mod completion;
 mod connected_results;
-mod historical_results;
 pub mod result_blocks;
-pub use historical_results::HistoricalResultRebuilder;
 mod result_export;
 mod result_projection;
 pub use connected_results::CanonicalResultReader;

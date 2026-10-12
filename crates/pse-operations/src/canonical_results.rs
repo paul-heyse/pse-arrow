@@ -862,64 +862,9 @@ impl CanonicalStore {
             || !attempt.outcome.as_deref().is_some_and(|class| {
                 matches!(class, "succeeded" | "failed" | "partial" | "cancelled")
             })
-            || !crate::canonical::historical_product_interpretation_supported(&run.interpretation)
+            || run.interpretation != wire::INTERPRETATION
         {
             return Err(invalid("attempt is not an admitted terminal selection"));
-        }
-        if run.interpretation != wire::INTERPRETATION {
-            let mut response = bounded_query(
-                self.db
-                    .query(
-                        "SELECT * FROM ONLY type::record('canonical_historical_results',$attempt);",
-                    )
-                    .bind(("attempt", attempt.key.clone())),
-            )
-            .await?;
-            let admission = response
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_historical_results)
-                .transpose()?
-                .ok_or_else(|| {
-                    invalid("historical result has no activated complete read admission")
-                })?;
-            if admission.key != attempt.key
-                || admission.attempt != attempt.key
-                || admission.run != run.key
-                || admission.revision != run.revision
-                || admission.sequence != run.source_sequence
-                || admission.generation != attempt.generation
-                || Some(admission.manifest.as_str()) != attempt.closed_manifest.as_deref()
-                || Some(admission.outcome.as_str()) != attempt.outcome.as_deref()
-                || admission.interpretation != run.interpretation
-                || admission.issuing_store != self.issuing_store()?
-                || admission.migration.is_empty()
-                || admission.snapshot.len() != 64
-                || admission.source_digest.len() != 64
-            {
-                return Err(invalid(
-                    "historical result read admission differs from its exact original attempt",
-                ));
-            }
-            let mut response = bounded_query(
-                self.db
-                    .query(
-                        "SELECT * FROM ONLY type::record('canonical_result_manifests',$manifest);",
-                    )
-                    .bind(("manifest", admission.manifest)),
-            )
-            .await?;
-            let manifest = response
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_result_manifests)
-                .transpose()?
-                .ok_or_else(|| invalid("historical admitted manifest absent"))?;
-            if manifest.digest != admission.manifest_digest
-                || manifest.attempt != attempt.key
-                || manifest.generation != attempt.generation
-            {
-                return Err(invalid("historical admitted manifest differs"));
-            }
-            crate::canonical_execution::decode_result_descriptors(&manifest)?;
         }
         let revision = self
             .revision(&run.revision)

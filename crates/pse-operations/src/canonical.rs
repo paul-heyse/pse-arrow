@@ -1114,7 +1114,7 @@ impl CanonicalStore {
                 });
             };
             if !marker.contains_key("issuing_store") {
-                return Err(CanonicalError::Configuration("canonical store requires explicit offline preparation activation; issuing_store is absent".into()));
+                return Err(CanonicalError::Configuration("canonical store has no issuing-store identity; regenerate the selected owned store".into()));
             }
             let marker = wire::decode_canonical_interpretations(marker)?;
             if uuid::Uuid::parse_str(&marker.issuing_store).is_err() {
@@ -1515,7 +1515,6 @@ impl CanonicalStore {
                 descriptor: descriptor.key,
                 producer: product.producer.clone(),
                 interpretation: product.interpretation.clone(),
-                historical_blob: None,
             },
         )
     }
@@ -1958,13 +1957,6 @@ IF $result_pin!=NONE {
     IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'result protection retired or manifest unavailable'; };
 };"#;
 
-// Historical decoding preserves the original substrate meaning. This predicate
-// does not admit a product for current compilation or replay; those receivers
-// still require the current interpretation and fresh complete premises.
-pub(crate) fn historical_product_interpretation_supported(interpretation: &str) -> bool {
-    interpretation == wire::INTERPRETATION || interpretation == "pse.substrate.v3"
-}
-
 pub(crate) fn descriptor_for_product(
     product: &pse_model::generated::runtime::canonical_products::Row,
     issuing_store: &str,
@@ -1972,10 +1964,10 @@ pub(crate) fn descriptor_for_product(
     let blob = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
     let receipt = blob.receipt.as_ref().ok_or_else(|| {
         CanonicalError::Configuration(
-            "historical combined products require explicit offline activation".into(),
+            "current product requires a selection receipt".into(),
         )
     })?;
-    if !historical_product_interpretation_supported(&product.interpretation)
+    if product.interpretation != wire::INTERPRETATION
         || blob.producer != product.producer
         || !product.dependencies.is_empty()
     {
@@ -2039,7 +2031,7 @@ pub(crate) fn decode_product_association(
         || association.content != blob.version
         || association.receipt != receipt.version
         || association.producer != blob.producer
-        || !historical_product_interpretation_supported(&association.interpretation)
+        || association.interpretation != wire::INTERPRETATION
         || !association.dependencies.is_empty()
         || uuid::Uuid::parse_str(&association.issuing_store).is_err()
     {

@@ -162,25 +162,6 @@ struct Dependencies {
     premises: Vec<Premise>,
 }
 
-/// Decode only the known historical receipt vocabulary without upgrading it.
-/// Current selection and replay still require the current interpretation.
-pub(crate) fn validate_historical_dependency_encoding(
-    bytes: &[u8],
-    original_interpretation: &str,
-) -> Result<(), CanonicalError> {
-    let dependencies: Dependencies = serde_json::from_slice(bytes).map_err(|error| {
-        CanonicalError::Configuration(format!("historical dependency receipt: {error}"))
-    })?;
-    if !crate::canonical::historical_product_interpretation_supported(original_interpretation)
-        || dependencies.interpretation != original_interpretation
-    {
-        return Err(CanonicalError::Configuration(
-            "historical dependency interpretation differs".into(),
-        ));
-    }
-    Ok(())
-}
-
 /// Immutable complete selection premises. This carries no protection or write authority;
 /// every reuse rechecks its meaning under a newly acquired protected revision.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -2811,14 +2792,10 @@ mod canonical_server_unit {
         .unwrap();
         let first_key = store.publish_description(&selected, &first).await.unwrap();
         let second_key = store.publish_description(&selected, &second).await.unwrap();
-        let mut result=crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_body_contents; SELECT * FROM canonical_selection_receipts; SELECT * FROM canonical_product_associations; SELECT * FROM canonical_products;")).await.unwrap();
+        let mut result=crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_body_contents; SELECT * FROM canonical_selection_receipts; SELECT * FROM canonical_product_associations;")).await.unwrap();
         assert_eq!(result.take::<Vec<Object>>(0).unwrap().len(), 2);
         assert_eq!(result.take::<Vec<Object>>(1).unwrap().len(), 1);
         assert_eq!(result.take::<Vec<Object>>(2).unwrap().len(), 2);
-        assert!(
-            result.take::<Vec<Object>>(3).unwrap().is_empty(),
-            "ordinary publication never writes the historical archive"
-        );
         assert_eq!(
             store.acknowledge_description(&first).await.unwrap(),
             Some(first_key.clone())
