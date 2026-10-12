@@ -481,7 +481,8 @@ remains in Plan37 until the integrated journeys pass.
 
 The bounded actual persistent journey is
 `scripts/tests/surrealkit_persistent_fixture_check.py`. Under the coordinator's
-exclusive allocation, pass a new `--directory` below this checkout's `build/`, the
+exclusive allocation, invoke it through `scripts/pse-env --resource-class exclusive
+--native= --` (no solver capabilities) and pass a new `--directory` below this checkout's `build/`, the
 verified beta executable as `--binary`, and the current compiled canonical-tools
 xtask as `--canonical-binary`. It registers pinned evidence before creating private
 profiles. It exercises independent start/completion settlement, exact activation

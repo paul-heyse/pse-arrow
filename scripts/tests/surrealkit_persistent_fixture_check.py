@@ -2,7 +2,8 @@
 # Copyright (c) 2026 Paul Heyse
 """Bounded actual C2/C3 lifecycle controls on newly owned private profiles.
 
-Run under the coordinator's admitted exclusive allocation with the final current
+Run with `scripts/pse-env --resource-class exclusive --native= --` under the
+coordinator's admitted allocation with the final current
 canonical-tools binary. --directory must be a new directory below this checkout's
 build/. Every profile and diagnostic is retained, including the intentionally
 unsettled process-death profile. No TTL, acknowledgement, service configuration or
@@ -25,6 +26,7 @@ from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import host_admission, native_operation
 from scripts import surreal_rollout_producer as producer
 from scripts import surreal_server as server
 from scripts import surrealkit_maintenance as maintenance
@@ -299,13 +301,16 @@ def main() -> int:
     directory = args.directory.absolute()
     if directory.exists() or directory != directory.resolve(strict=False) or not directory.is_relative_to(ROOT / "build") or any(path.is_symlink() for path in (directory, *directory.parents)):
         raise SystemExit("Requires a new nonsymlinked owned build directory")
+    allocation = host_admission.inherit(os.environ)
+    if allocation is None or not allocation.profile.exclusive or native_operation.scope_owner() is None:
+        raise SystemExit("Requires an authenticated exclusive native operation; use pse-env --resource-class exclusive --native= --")
     binary, canonical = args.binary.resolve(strict=True), args.canonical_binary.resolve(strict=True)
     directory.mkdir(parents=True, mode=0o700)
     resource = resources.register_report(directory)
     fixture = Fixture(directory, binary, canonical, args.port)
     fixture.report["resource"] = resource
     fixture.checkpoint()
-    with resources.borrow_report(directory):
+    with resources.borrow(resource):
         try:
             fixture.run()
         except BaseException as error:

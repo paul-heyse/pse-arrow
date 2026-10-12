@@ -41,6 +41,17 @@ class PersistentFixtureTests(unittest.TestCase):
                     fixture.main()
                 register.assert_not_called()
 
+    def test_missing_native_owner_refused_before_creating_any_owned_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = root / "build/fresh"
+            arguments = ["fixture", "--directory", str(destination), "--binary", "/missing-beta", "--canonical-binary", "/missing-xtask"]
+            with patch.object(fixture, "ROOT", root), patch.object(sys, "argv", arguments), patch.object(fixture.host_admission, "inherit", return_value=None), patch.object(fixture.resources, "register_report") as register:
+                with self.assertRaisesRegex(SystemExit, "exclusive native operation"):
+                    fixture.main()
+                register.assert_not_called()
+                self.assertFalse(destination.exists())
+
     def test_destination_outside_owned_build_refused(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             arguments = ["fixture", "--directory", str(Path(directory) / "fresh"), "--binary", "/missing-beta", "--canonical-binary", "/missing-xtask"]
