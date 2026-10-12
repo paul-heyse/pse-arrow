@@ -1769,7 +1769,10 @@ def run_child_scope(
     def settle_scope() -> None:
         # run still owns non-raising signal handling here. A first signal may
         # establish cancellation; repeated signals cannot unwind this drain.
-        deadline: float | None = None
+        # Reaping can precede the manager's terminal transition. Join that
+        # transition under one cleanup clock, never extending cancellation.
+        normal_deadline = time.monotonic() + 10
+        cancellation_deadline: float | None = None
         previous_mask: set[signal.Signals] | None = None
         try:
             while True:
@@ -1777,7 +1780,7 @@ def run_child_scope(
                     observation["owned_drain"] = "unresolved"
                 record = _record(handoff)
                 clocks = [
-                    deadline,
+                    cancellation_deadline,
                     process_observation.get("cancellation_deadline"),
                     record.get("cancel_deadline"),
                 ]
@@ -1792,10 +1795,17 @@ def run_child_scope(
                     for value in clocks
                     if value is not None
                 ]
-                deadline = min(selected_clocks) if selected_clocks else None
-                if deadline is not None and previous_mask is None:
-                    # Only an already authenticated cancellation clock permits
-                    # waiting. Defer repeats through its physical drain witness.
+                cancellation_deadline = (
+                    min(selected_clocks) if selected_clocks else None
+                )
+                deadline = (
+                    min(normal_deadline, cancellation_deadline)
+                    if cancellation_deadline is not None
+                    else normal_deadline
+                )
+                if cancellation_deadline is not None and previous_mask is None:
+                    # Keep the first signal observable during normal cleanup;
+                    # defer repeats only after its original clock is recorded.
                     previous_mask = signal.pthread_sigmask(
                         signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM}
                     )
@@ -1808,14 +1818,14 @@ def run_child_scope(
                 if completion.complete:
                     return
                 if (
-                    deadline is None
+                    cancellation_deadline is None
                     and completion.phase in {DrainPhase.POPULATED, DrainPhase.ACTIVE}
                     and process_observation.get("cancellation_deadline") is not None
                 ):
                     # A first signal arrived during the observation. Read that
                     # owner's original clock before deciding whether to join.
                     continue
-                if deadline is None or completion.phase not in {
+                if completion.phase not in {
                     DrainPhase.POPULATED,
                     DrainPhase.ACTIVE,
                 }:

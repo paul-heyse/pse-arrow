@@ -1670,8 +1670,13 @@ class NativeOperationTests(unittest.TestCase):
             patch.object(operation, "run", side_effect=completed) as run,
             patch.object(operation, "_record", return_value={"scope": selected}),
             patch.object(
-                operation, "drained", return_value=drain_fixture(False)
+                operation,
+                "drained",
+                return_value=operation.DrainObservation(
+                    selected, operation.DrainPhase.UNAVAILABLE, "missing unit proof"
+                ),
             ) as drain,
+            patch.object(operation.time, "monotonic", return_value=100.0),
             self.assertRaisesRegex(ValueError, "selected workload remains charged"),
         ):
             operation.run_child_scope(
@@ -1684,7 +1689,155 @@ class NativeOperationTests(unittest.TestCase):
         self.assertNotIn(operation.MARKER, run.call_args.args[1])
         self.assertEqual(run.call_args.args[1]["PSE_NATIVE_HANDOFF"], "/owned/handoff")
         allocation.release.assert_not_called()
-        self.assertIsNone(drain.call_args.kwargs["deadline"])
+        self.assertEqual(drain.call_args.kwargs["deadline"], 110.0)
+
+    def test_selected_normal_cleanup_joins_empty_active_unit_until_terminal(
+        self,
+    ) -> None:
+        allocation = MagicMock(spec=host_admission.Allocation)
+        allocation.nonce = "c" * 32
+        allocation.profile = host_admission.select("light")
+        selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+        observation: dict[str, object] = {}
+        elapsed = [100.0]
+
+        def completed(
+            _command: list[str],
+            _environment: dict[str, str],
+            *,
+            on_reaped: Callable[[], None],
+            **_options: object,
+        ) -> int:
+            # Time spent running the workload does not consume its cleanup join.
+            elapsed[0] = 200.0
+            observation["child_status"] = 0
+            on_reaped()
+            return 0
+
+        def advance(delay: float) -> None:
+            self.assertEqual(observation["owned_drain"], "unresolved")
+            elapsed[0] += delay
+
+        unit = {
+            "LoadState": "loaded",
+            "InvocationID": selected["invocation"],
+            "ControlGroup": selected["group"],
+        }
+        with (
+            patch.object(host_admission, "inherit", return_value=allocation),
+            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(
+                operation, "prepare_handoff", return_value=Path("/owned/handoff")
+            ),
+            patch.object(operation, "run", side_effect=completed),
+            patch.object(operation, "_record", return_value={"scope": selected}),
+            patch.object(operation, "populated", return_value=False),
+            patch.object(
+                operation,
+                "unit_observation",
+                side_effect=[
+                    {**unit, "ActiveState": "active"},
+                    {**unit, "ActiveState": "inactive"},
+                ],
+            ) as manager,
+            patch.object(operation, "drained", wraps=operation.drained) as drain,
+            patch.object(operation.time, "monotonic", side_effect=lambda: elapsed[0]),
+            patch.object(operation.time, "sleep", side_effect=advance) as pause,
+            patch.object(operation.signal, "pthread_sigmask") as mask,
+        ):
+            code = operation.run_child_scope(
+                ["controlled-wrapper"], {}, observation=observation
+            )
+        self.assertEqual(code, 0)
+        self.assertEqual(observation["owned_drain"], "complete")
+        self.assertEqual(observation["scope"], selected)
+        self.assertNotIn("cancellation_deadline", observation)
+        self.assertEqual(drain.call_count, 2)
+        self.assertEqual(manager.call_count, 2)
+        self.assertTrue(
+            all(call.kwargs["deadline"] == 210.0 for call in drain.call_args_list)
+        )
+        pause.assert_called_once_with(0.02)
+        mask.assert_not_called()
+        allocation.release.assert_not_called()
+
+    def test_selected_normal_cleanup_clock_is_not_renewed_or_extended_by_cancellation(
+        self,
+    ) -> None:
+        selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+        for phase in (operation.DrainPhase.ACTIVE, operation.DrainPhase.POPULATED):
+            for cancellation in (None, 100.025, 120.0):
+                with self.subTest(phase=phase, cancellation=cancellation):
+                    allocation = MagicMock(spec=host_admission.Allocation)
+                    allocation.nonce = "c" * 32
+                    allocation.profile = host_admission.select("light")
+                    observation: dict[str, object] = {}
+                    elapsed = [100.0]
+                    deadline = (
+                        110.0 if cancellation is None else min(110.0, cancellation)
+                    )
+
+                    def completed(
+                        _command: list[str],
+                        _environment: dict[str, str],
+                        *,
+                        on_reaped: Callable[[], None],
+                        **_options: object,
+                    ) -> int:
+                        observation["child_status"] = 0
+                        if cancellation is not None:
+                            observation["cancellation_deadline"] = cancellation
+                        on_reaped()
+                        return 0
+
+                    def advance(delay: float) -> None:
+                        elapsed[0] += delay
+
+                    with (
+                        patch.object(host_admission, "inherit", return_value=allocation),
+                        patch.object(
+                            operation, "scope_owner", return_value={"unit": "parent"}
+                        ),
+                        patch.object(
+                            operation,
+                            "prepare_handoff",
+                            return_value=Path("/owned/handoff"),
+                        ),
+                        patch.object(operation, "run", side_effect=completed),
+                        patch.object(
+                            operation, "_record", return_value={"scope": selected}
+                        ),
+                        patch.object(
+                            operation,
+                            "drained",
+                            return_value=operation.DrainObservation(
+                                selected, phase, "owned unit still draining"
+                            ),
+                        ) as drain,
+                        patch.object(
+                            operation.time,
+                            "monotonic",
+                            side_effect=lambda: elapsed[0],
+                        ),
+                        patch.object(operation.time, "sleep", side_effect=advance),
+                        self.assertRaises(operation.DeadlineExpiredError),
+                    ):
+                        operation.run_child_scope(
+                            ["controlled-wrapper"], {}, observation=observation
+                        )
+                    self.assertEqual(elapsed[0], deadline)
+                    self.assertGreater(drain.call_count, 1)
+                    self.assertTrue(
+                        all(
+                            call.kwargs["deadline"] == deadline
+                            for call in drain.call_args_list
+                        )
+                    )
+                    self.assertEqual(observation["owned_drain"], "unresolved")
+                    self.assertEqual(
+                        observation.get("cancellation_deadline"), cancellation
+                    )
+                    allocation.release.assert_not_called()
 
     def test_selected_scope_cleanup_joins_physical_reaping_with_late_signals(
         self,
@@ -1762,13 +1915,14 @@ class NativeOperationTests(unittest.TestCase):
                         def physical_drain(
                             _record: Mapping[str, object], *, deadline: float | None
                         ) -> operation.DrainObservation:
-                            expected = (
-                                None
-                                if order == "first-signal-during-drain"
+                            if (
+                                order == "first-signal-during-drain"
                                 and not observations
-                                else original
-                            )
-                            self.assertEqual(deadline, expected)
+                            ):
+                                self.assertIsNotNone(deadline)
+                                self.assertGreater(deadline, original)
+                            else:
+                                self.assertEqual(deadline, original)
                             alive = opaque.poll() is None
                             if not observations:
                                 observations.append((deadline, alive))
@@ -1830,9 +1984,7 @@ class NativeOperationTests(unittest.TestCase):
                         self.assertEqual(observation["cancellation_deadline"], original)
                         self.assertEqual(observation["owned_drain"], "complete")
                         self.assertEqual(observation["scope"], selected)
-                        first_clock = (
-                            None if order == "first-signal-during-drain" else original
-                        )
+                        first_clock = observations[0][0]
                         self.assertEqual(
                             observations, [(first_clock, True), (original, False)]
                         )
@@ -1987,7 +2139,8 @@ class NativeOperationTests(unittest.TestCase):
                 def unknown(
                     _record: Mapping[str, object], *, deadline: float | None
                 ) -> operation.DrainObservation:
-                    self.assertIsNone(deadline)
+                    self.assertIsNotNone(deadline)
+                    self.assertGreater(deadline, original)
                     observation["cancellation_deadline"] = original
                     return operation.DrainObservation(
                         selected, phase, "authority unavailable"
