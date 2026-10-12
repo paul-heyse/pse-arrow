@@ -144,7 +144,7 @@ register crates.
 | `pse-vocabulary` | The ten platform vocabularies the registry is written in (namespace, authority, snapshot class, column role and the rest), re-exported by the generator; depends on `pse-diagnostics` and serde ([ADR-0117](../../adr/0117-platform-vocabulary-crate.md)) |
 | `pse-quantity` | Dimensions, units, quantity kinds/types, bases, reference states, conversions, physical operation and function vocabulary ([§8](physical-semantics.md#section-8)) |
 | `pse-modeling` | Pure checking and specialization of generic declarations, interfaces, sets, functions, contributions and annotations |
-| `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings and generated canonical protocol rows |
+| `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings, pure production study policy and generated canonical protocol rows |
 | `pse-authoring` | Modeling language and shared expression grammar, spans and parse budgets, identity assignment, exact package resolution |
 | `pse-admission` | Owned source documents, native parsing/loading/editing, generated adapters and physical inventories over the actual bound engine; no Runtime, mathematics, compiler, operations or native-backend dependency |
 | `pse-kernels` | Generic external-function contracts, typed shapes, derivative/smoothness declarations and attempt-local workers ([§9](physical-semantics.md#section-9)) |

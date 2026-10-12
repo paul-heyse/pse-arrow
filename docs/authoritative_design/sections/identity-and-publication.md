@@ -739,6 +739,25 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0181](../../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md) (proposed; Plan 37 RC04 target).
+
+**Caller, activity and physical lifetime.** Logical runtime release is idempotent and
+closes that caller's admission; aliases share the caller identity, independently created
+runtimes do not. Admitted activities retain continuation authority through heartbeat,
+progress drain, publication, cancellation and exact settlement or explicit recovery
+transfer. An idle alias is not an activity. Direct operations and activation cannot bypass
+the shared physical gate. A protected reader transfers activity ownership to its tracked
+release before appearing drained. Ordinary release neither clears shared caches nor
+disconnects drivers.
+
+The deployment/fixture owner atomically refuses physical shutdown while actual activities
+or readers remain, leaving their RPCs usable. Otherwise Open becomes Closing before new
+admission is excluded and both ordinary/activation drivers drain without holding the gate.
+Interrupted or partial teardown remains Closing with authentic continuation/recovery
+ownership; completed close is terminal. A new validated owner is required to reopen.
+Local client drain, native join and remote effect settlement remain separate obligations.
+
+
 > Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
 
 > Decision: [ADR-0177](../../adr/0177-exact-conflicts-and-settled-retirement.md), [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendments; Plan 36).

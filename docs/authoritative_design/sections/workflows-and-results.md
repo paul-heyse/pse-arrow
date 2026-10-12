@@ -660,7 +660,7 @@ owner receives numerical coordinates. Their operation-owned destination paths ar
 by that owner and checked against the persisted canonical member identities; replay does not
 convert the admitted values again.
 
-**One pure policy.** `pse-model::study` owns the semantic facts; `pse-operations::study_policy`
+**One pure policy.** `pse-model::study` owns the semantic facts; `pse-model::study_policy`
 consumes them without database, artifact or native solver effects. Ordering edges wait for a
 terminal predecessor, including failure. Usable-result edges require E's aggregate scientific
 permission. Continuation defaults to a usable compatible predecessor seed; seed-only permission
@@ -1037,6 +1037,8 @@ a withheld input withholds it as `upstream_withheld`, naming that input and its 
 only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
+
+> Decision: [ADR-0181](../../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md) (proposed; Plan 37 target). Runtime `close` releases logical caller admission. Already admitted work retains independent continuation authority; explicit cache clearing and deployment-owned physical shutdown are separate operations (§20.6).
 
 > Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
 

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 156
+revision: 157
 date: 2026-10-12
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 157 | 2026-10-12 | Proposed ADR-0181 / Plan 37 D0: logical caller release, continuation activities and authoritative two-driver shutdown (§20.6/§21); pure production study policy in pse-model (§3/§19). | Maintainer-authorized Plan 37 bounded foundations; independent B1 target review accepted; visible `.design-edit`; targeted implementation and assembled qualification remain distinct. |
 | 156 | 2026-10-12 | Proposed ADR-0177 / Plan 36 P-B1 clarification: pure active-attempt root removal keeps exact-root/reclaim registration and the run's retained source, without announcing a new source dependency (§20.4). | Maintainer-authorized Plan 36 execution; explicit design-edit environment; revealing held-transaction conflict reproduced; both-order preservation and assembled acceptance remain open. |
 | 155 | 2026-10-11 | Proposed ADR-0180 / Plan 36 P-G0: bounded populated-history activation, original-IPC typed row rebuild, exact historical read admissions and independent current-only server write fences (§20.6). | Maintainer-authorized accepted-target execution; visible `.design-edit`; no production activation or deletion; implementation and disposable-fixture acceptance remain open. |
 | 154 | 2026-10-11 | Proposed ADR-0180 / Plan 36 P-B4–P-B6: explicit result demand, typed original-row locators, complete empty/close coverage, actual append/close/seal acknowledgments, narrow protected completion and bounded horizon/telemetry owners (§19.2/§19.3/§20.6/§21). | Maintainer-authorized accepted-target execution; visible `.design-edit`; narrow completion source is written, coordinated declarations/consumers and bounded target review remain open. |
