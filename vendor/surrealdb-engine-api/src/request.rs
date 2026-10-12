@@ -1,7 +1,7 @@
 //! Local request lifetime. These fields never become RPC session state.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicUsize, Ordering};
 use std::time::Instant;
 
 use surrealdb_types::{ConnectionError, Error};
@@ -96,6 +96,34 @@ mod lifecycle_tests {
     }
 
     #[tokio::test]
+    async fn joined_driver_drain_waits_for_both_leaves_without_waiting_for_caller_hold() {
+        let first = Arc::new(vec![0u8; 2048]);
+        let second = Arc::new(vec![1u8; 2048]);
+        let first_weak = Arc::downgrade(&first);
+        let second_weak = Arc::downgrade(&second);
+        let first_context =
+            RequestContext::new(Instant::now() + std::time::Duration::from_secs(30))
+                .with_payload_owner(first);
+        // A native hold acquired before composition must still be joined.
+        let first_driver = first_context.payload_owner().unwrap().retain_driver();
+        let context = first_context.with_payload_owner(second);
+        let driver = context.payload_owner().unwrap().retain_driver();
+        let caller = context.payload_owner().unwrap().retain();
+        let retired = context.clone();
+        context.release_payload_after_drain();
+        let mut drained = Box::pin(context.payload_driver_drained());
+        assert!(futures::poll!(&mut drained).is_pending());
+        drop(driver);
+        assert!(futures::poll!(&mut drained).is_pending());
+        drop(first_driver);
+        drained.await;
+        assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
+        drop(caller);
+        assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none());
+        retired.release_payload_after_drain();
+    }
+
+    #[tokio::test]
     async fn expired_original_clock_never_becomes_a_new_wait() {
         let context = RequestContext::new(Instant::now() - std::time::Duration::from_secs(1));
         context.interrupted().await;
@@ -124,72 +152,152 @@ struct Lifecycle {
 #[derive(Debug, Clone)]
 pub struct RequestContext(Arc<Lifecycle>, Option<PayloadOwnership>);
 
-/// Shared local allocation drain cell. Retired correlation metadata keeps this
-/// cell, never an independently retained immutable allocation grant.
+/// Shared local allocation drain state. Joined metadata keeps only clearable
+/// allocation leaves, never an independently retained immutable grant.
 #[derive(Debug, Clone)]
-pub struct PayloadOwnership(Arc<std::sync::Mutex<Option<PayloadContents>>>);
+pub struct PayloadOwnership(Arc<PayloadContents>);
 
-/// Actual allocation holds for live response bytes, independent of the
-/// clearable correlation cell. Keep this lexical owner after those bytes;
-/// never store it in retired request metadata.
+/// Actual allocation holds for live response bytes. Native driver snapshots
+/// additionally witness physical response handling; caller holds do not block
+/// that join and keep the delivered values charged while it waits.
 #[derive(Debug, Default)]
-pub struct PayloadRetention(Vec<Arc<dyn std::fmt::Debug + Send + Sync>>);
+pub struct PayloadRetention(Vec<PayloadHold>);
+
+#[derive(Debug)]
+struct PayloadHold {
+    // Fields drop in order: release actual bytes before publishing driver drain.
+    _owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    _driver: Option<DriverRetention>,
+}
+
+#[derive(Debug)]
+struct DriverRetention(PayloadOwnership);
+impl Drop for DriverRetention {
+    fn drop(&mut self) {
+        if let PayloadContents::Allocation(allocation) = self.0.0.as_ref() {
+            allocation.drivers.fetch_sub(1, Ordering::AcqRel);
+            allocation.wake.notify_waiters();
+        }
+    }
+}
+
+#[derive(Debug)]
+struct PayloadAllocation {
+    owner: std::sync::Mutex<Option<Arc<dyn std::fmt::Debug + Send + Sync>>>,
+    drivers: AtomicUsize,
+    released: AtomicBool,
+    wake: Notify,
+}
 
 #[derive(Debug)]
 enum PayloadContents {
-    Allocation(Arc<dyn std::fmt::Debug + Send + Sync>),
+    Allocation(PayloadAllocation),
     Joined(PayloadOwnership, PayloadOwnership),
 }
 impl PayloadOwnership {
     fn new(owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Self {
-        Self(Arc::new(std::sync::Mutex::new(Some(
-            PayloadContents::Allocation(owner),
-        ))))
+        Self(Arc::new(PayloadContents::Allocation(PayloadAllocation {
+            owner: std::sync::Mutex::new(Some(owner)),
+            drivers: AtomicUsize::new(0),
+            released: AtomicBool::new(false),
+            wake: Notify::new(),
+        })))
     }
     fn join(self, other: Self) -> Self {
         if Arc::ptr_eq(&self.0, &other.0) {
             return self;
         }
-        Self(Arc::new(std::sync::Mutex::new(Some(
-            PayloadContents::Joined(self, other),
-        ))))
+        Self(Arc::new(PayloadContents::Joined(self, other)))
     }
-    /// Snapshot the actual grants before response decoding or cell completion.
-    /// The serial driver owns the corresponding pending request at this point.
+    /// Keep actual caller-owned decoded values charged through receive and drain.
     pub fn retain(&self) -> PayloadRetention {
+        self.retain_kind(false)
+    }
+    /// Native driver-only hold, released after frame/decoded send ownership drains.
+    pub fn retain_driver(&self) -> PayloadRetention {
+        self.retain_kind(true)
+    }
+    fn retain_kind(&self, driver: bool) -> PayloadRetention {
         let mut retained = PayloadRetention::default();
-        self.retain_into(&mut retained);
+        self.retain_into(&mut retained, driver);
         retained
     }
-    fn retain_into(&self, retained: &mut PayloadRetention) {
-        let contents = self
-            .0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        match contents.as_ref() {
-            Some(PayloadContents::Allocation(owner)) => retained.0.push(Arc::clone(owner)),
-            Some(PayloadContents::Joined(first, second)) => {
-                first.retain_into(retained);
-                second.retain_into(retained);
+    fn retain_into(&self, retained: &mut PayloadRetention, driver: bool) {
+        match self.0.as_ref() {
+            PayloadContents::Allocation(allocation) => {
+                let owner = allocation
+                    .owner
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if let Some(owner) = owner.as_ref() {
+                    // The slot lock orders snapshot admission against release.
+                    // Once release takes the slot, no new driver hold can appear.
+                    let guard = driver.then(|| {
+                        allocation.drivers.fetch_add(1, Ordering::AcqRel);
+                        DriverRetention(self.clone())
+                    });
+                    retained.0.push(PayloadHold {
+                        _owner: Arc::clone(owner),
+                        _driver: guard,
+                    });
+                }
             }
-            None => {}
+            PayloadContents::Joined(first, second) => {
+                first.retain_into(retained, driver);
+                second.retain_into(retained, driver);
+            }
         }
     }
     /// Driver-only: all actual command/message/socket copies must have drained.
     /// Lifecycle completion, cancellation and metadata retirement do not prove it.
     pub fn release_after_drain(&self) {
-        let contents = self
-            .0
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take();
-        match contents {
-            Some(PayloadContents::Allocation(owner)) => drop(owner),
-            Some(PayloadContents::Joined(first, second)) => {
+        match self.0.as_ref() {
+            PayloadContents::Allocation(allocation) => {
+                let owner = allocation
+                    .owner
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
+                if let Some(owner) = owner {
+                    // A concurrent idempotent release must not publish this
+                    // witness while the first release is still dropping bytes.
+                    drop(owner);
+                    allocation.released.store(true, Ordering::Release);
+                    allocation.wake.notify_waiters();
+                }
+            }
+            PayloadContents::Joined(first, second) => {
                 first.release_after_drain();
                 second.release_after_drain();
             }
-            None => {}
+        }
+    }
+    fn leaves(&self, leaves: &mut Vec<PayloadOwnership>) {
+        match self.0.as_ref() {
+            PayloadContents::Allocation(_) => leaves.push(self.clone()),
+            PayloadContents::Joined(first, second) => {
+                first.leaves(leaves);
+                second.leaves(leaves);
+            }
+        }
+    }
+    async fn driver_drained(&self) {
+        let mut leaves = Vec::new();
+        self.leaves(&mut leaves);
+        for leaf in leaves {
+            if let PayloadContents::Allocation(allocation) = leaf.0.as_ref() {
+                loop {
+                    let wake = allocation.wake.notified();
+                    tokio::pin!(wake);
+                    wake.as_mut().enable();
+                    if allocation.released.load(Ordering::Acquire)
+                        && allocation.drivers.load(Ordering::Acquire) == 0
+                    {
+                        break;
+                    }
+                    wake.await;
+                }
+            }
         }
     }
 }
@@ -301,6 +409,14 @@ impl RequestContext {
     pub fn release_payload_after_drain(&self) {
         if let Some(owner) = &self.1 {
             owner.release_after_drain();
+        }
+    }
+
+    /// Join physical native response handling, independently of the caller's
+    /// decoded-value hold. The caller supplies this context's original clock.
+    pub async fn payload_driver_drained(&self) {
+        if let Some(owner) = &self.1 {
+            owner.driver_drained().await;
         }
     }
 

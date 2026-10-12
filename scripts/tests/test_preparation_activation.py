@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,52 @@ from unittest.mock import patch
 
 from scripts import preparation_activation as activation
 from scripts import surreal_server as server
+from scripts.tests import preparation_activation_check as journey
+
+
+class PrivateRetryCounterTests(unittest.TestCase):
+    def test_collection_is_distinct_from_failed_reset_or_replacement(self) -> None:
+        unit = "pse-surreal-owned.service"
+        absent = subprocess.CompletedProcess([], 0, "", "")
+        loaded = subprocess.CompletedProcess(
+            [], 0, f"{unit} loaded failed failed owned fixture\n", ""
+        )
+        collected = subprocess.CompletedProcess(
+            [],
+            1,
+            "",
+            f"Failed to reset failed state of unit {unit}: Unit {unit} not loaded.\n",
+        )
+        denied = subprocess.CompletedProcess([], 1, "", "Permission denied")
+        malformed = subprocess.CompletedProcess(
+            [], 0, "foreign.service loaded inactive dead foreign\n", ""
+        )
+        for responses, refuses, resets in [
+            ([absent], False, 0),
+            ([loaded, absent], False, 1),
+            ([loaded, collected, absent], False, 1),
+            ([loaded, denied], True, 1),
+            ([loaded, collected, loaded], True, 1),
+            ([subprocess.CompletedProcess([], 1, "", "bus unavailable")], True, 0),
+            ([malformed], True, 0),
+        ]:
+            with (
+                self.subTest(responses=responses),
+                patch.object(server, "unit_name", return_value=unit),
+                patch.object(server, "systemctl", side_effect=responses) as control,
+            ):
+                if refuses:
+                    with self.assertRaises(server.SupervisorError):
+                        journey.reset_private_retry_counter(Path("/private/owned"))
+                else:
+                    journey.reset_private_retry_counter(Path("/private/owned"))
+                self.assertEqual(
+                    sum(
+                        call.args[0] == "reset-failed"
+                        for call in control.call_args_list
+                    ),
+                    resets,
+                )
 
 
 class PreparationActivationTests(unittest.TestCase):
@@ -60,7 +107,9 @@ class PreparationActivationTests(unittest.TestCase):
                 backup / "backup.json",
                 {"files": {"payload": server.file_digest(source)}},
             )
-            binding = {"backup_digest": server.file_digest(backup / "backup.json")}
+            binding: dict[str, object] = {
+                "backup_digest": server.file_digest(backup / "backup.json")
+            }
             activation.verify_backup(archive, binding)
             source.write_bytes(b"changed")
             with self.assertRaisesRegex(server.SupervisorError, "backup bytes"):
@@ -208,7 +257,7 @@ class PreparationActivationTests(unittest.TestCase):
             }
             physical = activation.physical_binding(archive, config, bridge)
             bridge_identity = activation.bridge_file_identity(bridge)
-            binding = {
+            binding: dict[str, object] = {
                 "backup_digest": server.file_digest(backup / "backup.json"),
                 "physical": physical,
             }

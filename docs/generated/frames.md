@@ -247,6 +247,7 @@ Derived in: pse-runtime.
 | `CompletedEnvironmentV1` | `pse.completed.environment.v1` | The environment a completed step actually ran in. |
 | `CompletedRequestV2` | `pse.completed.request.v2` | A completed step's request lineage. |
 | `DurableHorizonRequestV1` | `pse.durable.horizon_request.v1` | A durable rolling horizon's request: its plant, loop and stage templates (Plan 22 Y5c). |
+| `DurableHorizonRequestV2` | `pse.durable.horizon_request.v2` | Horizon request with explicit output demand; V1 remains historical identity. |
 | `DurableJobRequestV2` | `pse.durable.job_request.v2` | A durable job request. |
 | `DurableJobRequestV3` | `pse.durable.job_request.v3` | Canonical role-typed operational job request, with explicit nonfinite framing. |
 | `DurableJobRequestV4` | `pse.durable.job_request.v4` | Operational job with current automatic composition interpretation. |

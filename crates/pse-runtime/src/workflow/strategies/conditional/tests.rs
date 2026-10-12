@@ -982,6 +982,49 @@ async fn conditional_retention_control(ambiguous: bool) {
     };
     let unknowns = BTreeSet::from([symbol("y"), symbol("w")]);
     let rows = BTreeSet::from([row("local"), row("aux")]);
+    // Transport allowances do not tighten the local equations' engineering
+    // defaults. Request both residual and coordinate accuracy: KINSOL's step
+    // stopping scale comes from the unknowns, independently of row accuracy.
+    let mut analysis = analysis;
+    use pse_model::generated::enums::{NumericalCoordinates, NumericalSource, NumericalTarget};
+    let targets = rows
+        .iter()
+        .map(|target| (target, NumericalTarget::Row))
+        .chain(
+            unknowns
+                .iter()
+                .map(|target| (target, NumericalTarget::Variable)),
+        );
+    for (requirement_id, (target, target_kind)) in
+        [id(90), id(91), id(92), id(93)].into_iter().zip(targets)
+    {
+        analysis
+            .numerical
+            .declarations
+            .push(pse_math::numerics::SourcedRequirement {
+                source: NumericalSource::Model,
+                declaration: pse_model::numerics::NumericalRequirement {
+                    requirement_id,
+                    model_id: Some(root.as_id().into()),
+                    case_id: None,
+                    instance_id: None,
+                    fit_id: None,
+                    target_id: *target,
+                    target_kind,
+                    nominal: Some(1.0),
+                    scaling_factor: None,
+                    absolute_tolerance: Some(1e-10),
+                    shared_engineering_allowance: None,
+                    engineering_rule_id: None,
+                    relative_tolerance: None,
+                    unit_id: None,
+                    coordinates: NumericalCoordinates::Physical,
+                    priority: 0,
+                    required: true,
+                    provenance: "conditional original-row retention control".into(),
+                },
+            });
+    }
     let coordinate = |port: &pse_modeling::specialize::MaterialPort, name: &str| {
         *port
             .coordinates
@@ -1125,7 +1168,11 @@ async fn conditional_retention_control(ambiguous: bool) {
         } else {
             expected
         };
-        assert!((outputs[&outlet] - expected).abs() < 1e-7);
+        assert!(
+            (outputs[&outlet] - expected).abs() < 1e-7,
+            "conditional output for input {input}, ambiguous={ambiguous}: actual {}, expected {expected}",
+            outputs[&outlet]
+        );
         assert!((outputs[&auxiliary_outlet] - 5.0).abs() < 1e-7);
         let retained = unit.conditional.as_ref().unwrap();
         assert_eq!(retained.calls, attempt + 1);

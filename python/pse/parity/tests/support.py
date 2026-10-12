@@ -173,8 +173,10 @@ dependencies = [
 doc = "Parity comparison models."
 """
     return context.runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/parity.pse": text}]
-        + list(context.reference_documents),
+        [
+            {"package.toml": manifest, "models/parity.pse": text},
+            *context.reference_documents,
+        ],
         physical,
     )
 

@@ -111,6 +111,7 @@
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_guards` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_guards" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_historical_results` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_historical_results" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_memberships` | `foreign_key:problem` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."problem" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_problems" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `foreign_key:version` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."version" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_version_manifests" t WHERE s."__pse_value" = t."key")` |

@@ -241,3 +241,101 @@ Generator capability routes are registry bootstrap, physical admission, full pro
 
 **Tested**, zero-failure target: `scripts/pse-env -- .venv/bin/python -m unittest scripts.tests.test_test_resources -q` ran 50 controls, all passed. Five selected supervisor recovery/readiness controls also passed. The isolated late-registration control accepted a pinned incomplete resource after finalization; it did not infer Pass. The abstract metadata model passed ten crash/order cases. Exact commands, unit-graph counts, the corrected probe harness limitation and remaining actual-file/native/whole-product checks are recorded in the evidence. No production target or scientific fixture was changed by this investigation.
 
+## Implementation checkpoint, 2026-10-12
+
+The latest enclosing setup run exposed two cancellation-cleanup races despite
+passing isolated controls. The selected native workload now retains its non-raising
+signal owner through its cleanup callback, joining authenticated physical drain
+under the original process/handoff/parent clock. Only populated or active owners
+may be observed again; unavailable or mismatched authority refuses immediately,
+and ordinary cleanup without a cancellation clock gains no new waiting budget.
+The pending-registration fixture injects its signal into the exact masked thread;
+the production registration protocol is unchanged. All 65 native-operation controls
+pass, including pipe-gated descendant reaping, first and repeated signals, expiry,
+unknown ownership and spawn failure. Independent review additionally corrected the
+measurement boundary: the child timestamp is captured at successful wait return,
+before drain, and published afterward. All 37 measurement controls pass. Enclosing
+setup and assembled acceptance remain open; no allowance was widened.
+
+An enclosing retry also exposed recipe-fixture import leakage under a caller's
+checkout `PYTHONPATH`: namespace-only temporary scripts could resolve production
+command modules instead of the intended harmless argument recorder. Temporary
+fixtures now provide a regular package and the complete current ADR recipe wrapper.
+All nine recipe transport controls pass with that adversarial inherited path. The
+accidental disposable proposed ADR was archived outside the checkout and removed;
+accepted records and concurrent work were preserved. The interrupted suite remains
+failed; its observed cap exhaustion does not justify widening fixture allowances.
+The assessment argument fixture received the same package isolation correction.
+The complete setup suite now passes 940 controls with the inherited checkout path,
+including actual owner interruption and exact terminal/drain composition.
+
+A final independent readback identified a reaped-launcher numeric process-group fallback.
+Cancellation now uses that fallback only while the launcher remains unreaped; afterward
+only its authenticated scope may be stopped and joined. The revealing control requires
+the real scoped stop/drain for matching ownership and refusal for a changed invocation,
+with no numeric fallback in either case. Active-launcher fallback controls still pass.
+The refreshed full 940-control setup run includes this repair and completes successfully.
+
+Selected P-E1–P-E6 source changes are integrated: per-record metadata and frozen
+invocation membership, direct dispatch with exact terminal/drain ownership, direct
+responsibility tests, lower admission and generator roots, Runtime-owned surrogates,
+workspace fallback retirement, explicit launch widths and feature-scoped native inputs.
+The actual lower-root graph contains 422 units across eight selected roots and excludes
+Runtime, mathematics, compiler, Operations, native backend/sys and Python. Its 40
+all-target tests pass. The miniature same-unit build-input probe also passes; it is
+not a whole-build speed measurement.
+
+The broad light tooling selection passed 454 of 455 controls; the remaining assertion
+used obsolete permission wording and its repaired focused control passes. This is
+composite evidence, not a rerun of all 455. Actual interruption/terminal controls retain
+their scope and authenticated acknowledgment requirements. Failed Runtime campaigns
+remain failed; exact registered fixture recovery preserved outcomes, pins and databases.
+A test-support lifetime repair now joins tracked automatic protection release at final
+lexical fixture drop, with a gated acknowledgment control and three neighbors passing.
+Production asynchronous cleanup is unchanged. Process death alone remains insufficient
+drain evidence.
+
+Documentation publication, aggregate codegen/bindgen comparison and governance pass.
+The affected hygiene recipes, native lint and all 398 feature combinations plus the
+separate no-default check now pass; the original failed composite remains failed. Production metadata migration, pooling,
+host-lane borrowing and broader provenance reuse remain unselected or excluded.
+
+The assembled ordinary-native attempt exposed a terminal projection clock covering the
+whole frozen membership rather than each bounded metadata operation. Frozen test outcomes
+remain unchanged; their partial projection is not enclosing completion. The repair's
+91 affected resource controls and authentic resumption now pass: all 788 members are
+projected, the original 208-member prefix remains unchanged, and frozen failures and
+unobserved drain remain unchanged. Full tooling setup passes after the typed metadata
+repair as well as the explicit worker/artifact fixtures, supervisor private-file permissions
+and report freshness before real signal injection. The subsequent exact-integer clock
+regression and all 101 controls in its two consumer modules pass without competing
+activation admission. No ResourceWarning was observed in the full setup run; the earlier unattributed observation
+has no recovered selector or diagnostic and is not claimed fixed.
+
+
+A revealing native cancellation retry exposed an incorrect storage-only drain projection:
+it retained unrelated execution ACK guards while omitting their named units. The
+projection now includes only storage-named guards, preserving malformed-scope refusal
+and the parent's complete guards. The regression also requires a pending storage guard
+to retain its affiliation. Host/supervisor controls and source review pass, and normal
+authenticated reconciliation releases the failed run's drained allocation. Its test
+failure remains unchanged; no deletion or terminal-outcome fabrication occurred.
+
+A later assembled run exposed a separate reclaim clock mismatch: metadata settlement
+retained its five-second wait across a database removal with an existing ninety-second
+allowance. Default reclaim now selects that finite operation clock once and shares it
+across claim, effect and settlement; a supplied absolute clock is retained exactly.
+Directory deferral and authentic eligibility remain unchanged. The deterministic
+six-second-effect and expired-caller-clock controls pass with all 149 affected resource
+and assessment controls. This does not preempt synchronous filesystem removal or prove
+disposal when the original clock expired. Prior failed cleanup records remain pinned.
+The actual producer fixture now uses the Rust/build input closure, preserving relevant
+execution and cleanup drift detection while excluding unrelated concurrent review prose.
+Independent retirement readback found no selected production second path among the
+removed dispatcher, unrelated exit sweep, workspace fallback, relocated surrogate,
+bound-context or admitted-seed mechanisms. The inert build-review catalog entry for
+the removed workspace-hack crate was deleted; reviews for surviving owners are retained.
+
+## Maintainer stop handoff, 2026-10-12
+
+Execution stopped after the requested immediate wrap-up. The [coordinator’s stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12) owns current evidence boundaries, worktree reconciliation and the remaining execution route. The passing full setup and feature checks retain their recorded source scopes. Worktree cleanup is complete; current-source scope-end checks and assembled acceptance remain with P-G1.

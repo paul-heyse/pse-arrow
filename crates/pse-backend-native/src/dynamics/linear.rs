@@ -186,6 +186,8 @@ pub(super) struct Klu {
     symbolic: *mut klu::klu_l_symbolic,
     numeric: *mut klu::klu_l_numeric,
     failure: LinearSolverError,
+    #[cfg(test)]
+    full_factors: usize,
 }
 impl Default for Klu {
     fn default() -> Self {
@@ -201,10 +203,66 @@ impl Default for Klu {
             symbolic: std::ptr::null_mut(),
             numeric: std::ptr::null_mut(),
             failure: LinearSolverError::LinearSolverNotSetup,
+            #[cfg(test)]
+            full_factors: 0,
         }
     }
 }
 impl Klu {
+    /// Reuse numeric storage only while KLU's own conditioning diagnostics accept it.
+    /// This is the bundled SUNDIALS 7.1.1 KLU setup policy, with failed diagnostics
+    /// also routed to a fresh factor rather than leaving a partly updated factor live.
+    fn refactor(&mut self, matrix: &mut M) -> bool {
+        if self.numeric.is_null() {
+            return false;
+        }
+        let threshold = f64::EPSILON.powf(2.0 / 3.0);
+        // SAFETY: full CSC identity was checked before this call. The owned numeric,
+        // symbolic and common objects are live and exclusively accessed for the update.
+        let refactored = unsafe {
+            klu::klu_l_refactor(
+                self.columns.as_mut_ptr(),
+                self.rows.as_mut_ptr(),
+                matrix.inner_mut().val_mut().as_mut_ptr(),
+                self.symbolic,
+                self.numeric,
+                self.common.get(),
+            )
+        };
+        if refactored != 1 {
+            return false;
+        }
+        // SAFETY: the successful refactor retained the live symbolic and numeric objects;
+        // the boxed common object remains exclusively accessed by this solver.
+        if unsafe { klu::klu_l_rcond(self.symbolic, self.numeric, self.common.get()) } != 1 {
+            return false;
+        }
+        // SAFETY: KLU initialized this field in the successful rcond call above.
+        let rcond = unsafe { (*self.common.get()).rcond };
+        if !rcond.is_finite() || rcond < 0.0 {
+            return false;
+        }
+        if rcond < threshold {
+            // SAFETY: the checked CSC pattern and its owned values still match the live
+            // symbolic and numeric factors, and common is exclusively accessed.
+            let estimated = unsafe {
+                klu::klu_l_condest(
+                    self.columns.as_mut_ptr(),
+                    matrix.inner_mut().val_mut().as_mut_ptr(),
+                    self.symbolic,
+                    self.numeric,
+                    self.common.get(),
+                )
+            };
+            if estimated != 1 {
+                return false;
+            }
+            // SAFETY: KLU initialized this field in the successful condest call above.
+            let condition = unsafe { (*self.common.get()).condest };
+            return condition.is_finite() && condition > 0.0 && condition <= 1.0 / threshold;
+        }
+        true
+    }
     fn free_numeric(&mut self) {
         if !self.numeric.is_null() {
             // SAFETY: the numeric object was created with this common object and is freed once.
@@ -276,14 +334,36 @@ impl LinearSolver<M> for Klu {
         }
     }
     fn set_linearisation<C: LinearOp<T = f64, V = V, M = M, C = FaerContext>>(&mut self, op: &C) {
-        self.free_numeric();
         let Some(mut matrix) = self.matrix.take() else {
             return;
         };
-        op.matrix_inplace(&mut matrix);
-        if matrix.inner().symbolic().row_idx().len() != self.rows.len() {
+        let same_pattern = op.sparsity().is_some_and(|pattern| {
+            let current = matrix.inner().symbolic();
+            pattern.nrows() == current.nrows()
+                && pattern.ncols() == current.ncols()
+                && pattern.col_ptr() == current.col_ptr()
+                && pattern.row_idx() == current.row_idx()
+        });
+        if !same_pattern {
+            self.free_numeric();
             self.failure = LinearSolverError::Other("Newton matrix pattern changed".into());
         } else {
+            op.matrix_inplace(&mut matrix);
+            if matrix.inner().val().iter().any(|value| !value.is_finite()) {
+                self.free_numeric();
+                self.failure = LinearSolverError::LuSolveFailed;
+                self.matrix = Some(matrix);
+                return;
+            }
+            if self.refactor(&mut matrix) {
+                self.matrix = Some(matrix);
+                return;
+            }
+            self.free_numeric();
+            #[cfg(test)]
+            {
+                self.full_factors += 1;
+            }
             // SAFETY: the values follow the analyzed pattern, whose copies outlive the call;
             // the symbolic object and the boxed common object are live.
             self.numeric = unsafe {
@@ -481,5 +561,86 @@ mod tests {
             assert!(solve::<FaerLu>(singular).is_err(), "faer {singular:?}");
             assert!(solve::<Klu>(singular).is_err(), "KLU {singular:?}");
         }
+    }
+
+    #[test]
+    fn klu_refactor_reuses_storage_and_fresh_factor_recovers_changed_pivots() {
+        let context = FaerContext { par: Par::Seq };
+        let triplets = [(0, 0), (1, 0), (0, 1), (1, 1)]
+            .into_iter()
+            .map(|(r, c)| faer::sparse::Triplet::new(r, c, 0.0))
+            .collect::<Vec<_>>();
+        let mut op = Fixed(
+            faer::sparse::SparseColMat::try_new_from_triplets(2, 2, &triplets).unwrap(),
+            context,
+        );
+        let mut solver = Klu::default();
+        solver.set_sparsity(&op);
+        op.0.val_mut().copy_from_slice(&[2., 0., 0., 4.]);
+        solver.set_linearisation(&op);
+        let original = solver.numeric;
+        op.0.val_mut().copy_from_slice(&[4., 0., 0., 2.]);
+        solver.set_linearisation(&op);
+        assert_eq!(
+            solver.numeric, original,
+            "accepted refactor retains the numeric owner"
+        );
+        assert_eq!(solver.full_factors, 1);
+        // A zero diagonal in the old ordering requires fresh pivot selection; the
+        // new matrix is perfectly regular and its authored x gives an independent RHS.
+        for (index, values) in [[0., 2., 3., 0.], [1e-15, 0., 0., 1.], [2., 1., 3., 4.]]
+            .into_iter()
+            .enumerate()
+        {
+            op.0.val_mut().copy_from_slice(&values);
+            solver.set_linearisation(&op);
+            if index < 2 {
+                assert_eq!(
+                    solver.full_factors,
+                    index + 2,
+                    "changed pivot/condest rejection must fresh-factor"
+                );
+            }
+            let rhs = [values[0] * 2. - values[2], values[1] * 2. - values[3]];
+            let mut x = V::from_vec(rhs.to_vec(), context);
+            solver.solve_in_place(&mut x).unwrap();
+            assert!((x.as_slice()[0] - 2.).abs() < 1e-12);
+            assert!((x.as_slice()[1] + 1.).abs() < 1e-12);
+        }
+        for invalid in [[1.; 4], [f64::NAN, 0., 0., 1.], [1., 0., 0., f64::INFINITY]] {
+            op.0.val_mut().copy_from_slice(&invalid);
+            solver.set_linearisation(&op);
+            let mut x = V::from_vec(vec![1., 2.], context);
+            assert!(solver.solve_in_place(&mut x).is_err());
+        }
+        op.0.val_mut().copy_from_slice(&[2., 0., 0., 4.]);
+        solver.set_linearisation(&op);
+        let mut x = V::from_vec(vec![2., 8.], context);
+        solver.solve_in_place(&mut x).unwrap();
+        assert_eq!(x.as_slice(), &[1., 2.]);
+        // Equal nnz does not establish pattern identity: both off-diagonal entries
+        // differ from the analyzed diagonal pattern.
+        op.0 = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 1.),
+                faer::sparse::Triplet::new(1, 1, 1.),
+            ],
+        )
+        .unwrap();
+        solver.set_sparsity(&op);
+        solver.set_linearisation(&op);
+        op.0 = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(1, 0, 1.),
+                faer::sparse::Triplet::new(0, 1, 1.),
+            ],
+        )
+        .unwrap();
+        solver.set_linearisation(&op);
+        assert!(solver.solve_in_place(&mut x).is_err());
     }
 }

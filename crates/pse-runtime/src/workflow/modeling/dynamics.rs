@@ -114,7 +114,8 @@ pub struct ModelingSimulation {
 }
 #[derive(Clone, Debug)]
 struct SimulationMode {
-    original: Arc<super::engagement::OriginalPreparationInputs>,
+    #[cfg(feature = "solver-diffsol")]
+    original: Arc<engagement::OriginalPreparationInputs>,
     name: String,
     model: ModelingPreparation,
     numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
@@ -310,19 +311,23 @@ impl ModelingTrajectory {
         )?;
         // The opaque fallback covers the entire diagnostic entry, including
         // metadata; known worker extents add the actual diagnostic/sample arrays.
-        let bytes = workers.map_or(Ok(capacity), |bytes| {
-            bytes
-                .checked_add(diagnostics)
-                .and_then(|bytes| bytes.checked_add(samples))
-                .ok_or_else(|| contract("dynamic diagnostic worker extent"))
-        })?;
+        let bound = workers
+            .map(|bytes| {
+                bytes
+                    .checked_add(diagnostics)
+                    .and_then(|bytes| bytes.checked_add(samples))
+                    .ok_or_else(|| contract("dynamic diagnostic worker extent"))
+            })
+            .transpose()?;
+        let construction = crate::math::ConstructionEstimate::from_bound(bound, capacity);
+        let bytes = construction.bytes();
         if bytes > capacity {
             return Err(crate::math::MathRuntimeError::Limit(
                 "dynamic diagnostic construction capacity",
             )
             .into());
         }
-        let handle = self.inner.prepared.runtime.shared.math().submit(1, bytes, move |flag, _| {
+        let handle = self.inner.prepared.runtime.shared.math().submit_construction(1, construction, crate::math::Submission::ephemeral(), move |flag, _| {
             let execution = pse_backend_native::solve::Execution::new(flag.clone(), &controls);
             let scope = execution.scope()?;
             let mut outcomes = Vec::new();
@@ -462,9 +467,10 @@ impl ModelingSimulation {
         self.key
     }
     /// Exact per-mode preparation requests captured by the actual constructor.
+    #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) fn original_preparations(
         &self,
-    ) -> impl Iterator<Item = &super::engagement::OriginalPreparationInputs> {
+    ) -> impl Iterator<Item = &engagement::OriginalPreparationInputs> {
         self.modes.iter().map(|mode| mode.original.as_ref())
     }
     /// The initial mode's immutable mathematical view.
@@ -1107,7 +1113,7 @@ impl ModelingPackage {
     async fn prepare_simulation_mode(
         &self,
         model: ModelingPreparation,
-        original: Arc<super::engagement::OriginalPreparationInputs>,
+        #[cfg(feature = "solver-diffsol")] original: Arc<engagement::OriginalPreparationInputs>,
         instance: InstanceId,
         case: ModelingCaseBindings,
         compiler: Profile,
@@ -2270,16 +2276,44 @@ impl ModelingPackage {
             cells
                 .checked_mul(64)
                 .and_then(|n| n.checked_add(4 << 20))
+                .and_then(|n| {
+                    n.checked_add(
+                        profile
+                            .native_scatter_bytes(&contract, native::DynamicDemand::Base)
+                            .ok()?,
+                    )
+                })
                 .ok_or_else(|| contract_error("dynamic result extent"))?,
             |n, p| {
                 n.checked_add(p.case.assembly.numeric_worker_bytes())
+                    .and_then(|n| {
+                        n.checked_add(
+                            crate::workflow::dynamics::DynamicProgram::function_buffer_bound(
+                                p,
+                                &coordinates,
+                            )?,
+                        )
+                    })
                     .ok_or_else(|| contract_error("dynamic worker extent"))
             },
         )?;
+        let guard_bytes = guard
+            .as_ref()
+            .map_or(Some(0), |g| {
+                g.case
+                    .assembly
+                    .numeric_worker_bytes()
+                    .checked_add(g.checks.len().checked_mul(256)?)?
+                    .checked_add(g.rows.len().checked_mul(128)?)?
+                    .checked_add(
+                        crate::workflow::dynamics::DynamicProgram::binding_buffer_bound(
+                            &g.case.assembly,
+                        )?,
+                    )
+            })
+            .ok_or_else(|| contract_error("dynamic guard extent"))?;
         let bytes = bytes
-            .checked_add(guard.as_ref().map_or(0, |g| {
-                g.case.assembly.numeric_worker_bytes() + g.checks.len() * 256 + g.rows.len() * 128
-            }))
+            .checked_add(guard_bytes)
             .ok_or_else(|| contract_error("dynamic guard extent"))?;
         let maximum_checks = product
             .admitted
@@ -2401,6 +2435,7 @@ impl ModelingPackage {
             solved: model.solved(),
             quantities: self.quantities.clone(),
             modes: vec![SimulationMode {
+                #[cfg(feature = "solver-diffsol")]
                 original,
                 name: mode_names[mode].clone(),
                 model,
@@ -5590,6 +5625,131 @@ mod tests {
             a.jacobian.as_ref().unwrap(),
             recovered.jacobian.as_ref().unwrap()
         ));
+        // Once native consumers release the previous derivative, the same charged
+        // CSC payload is refilled. A live alias instead keeps its exact old values.
+        let mut reuse = prepared
+            .worker(pse_kernels::ExecutionScope::new(
+                Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                None,
+            ))
+            .unwrap();
+        let first = reuse
+            .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
+            .unwrap();
+        let identity = first.jacobian.as_ref().unwrap().allocation_identity();
+        let buffers = reuse.buffer_identity(0, Function::Output);
+        drop(first);
+        let next = reuse
+            .evaluate(0, Function::Output, 0., &[0.2], prepared.parameters(), true)
+            .unwrap();
+        assert_eq!(
+            identity,
+            next.jacobian.as_ref().unwrap().allocation_identity()
+        );
+        assert_eq!(buffers, reuse.buffer_identity(0, Function::Output));
+        let saved = next.jacobian.as_ref().unwrap().val().to_vec();
+        let later = reuse
+            .evaluate(0, Function::Output, 0., &[0.3], prepared.parameters(), true)
+            .unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(
+            next.jacobian.as_ref().unwrap(),
+            later.jacobian.as_ref().unwrap()
+        ));
+        assert_eq!(next.jacobian.as_ref().unwrap().val(), saved);
+        let evaluated = reuse.evaluation_count(0, Function::Output);
+        let signed_zero = reuse
+            .evaluate(
+                0,
+                Function::Output,
+                -0.0,
+                &[0.3],
+                prepared.parameters(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(reuse.evaluation_count(0, Function::Output), evaluated + 1);
+        assert_eq!(signed_zero.values, later.values);
+        // A flat cache-key collision must never bypass declared axis dimensions.
+        let wrong_parameters = std::iter::once(0.3)
+            .chain(prepared.parameters().iter().copied())
+            .collect::<Vec<_>>();
+        assert!(
+            reuse
+                .evaluate(0, Function::Output, 0., &[], &wrong_parameters, true)
+                .is_err()
+        );
+        assert!(
+            reuse
+                .evaluate(
+                    0,
+                    Function::Output,
+                    0.,
+                    &[f64::MAX],
+                    prepared.parameters(),
+                    true
+                )
+                .is_err()
+        );
+        // Source assembly axes can differ from the native parameter axes. Both
+        // dense input gathers and derivative destinations follow semantic IDs.
+        let original_initial = reuse
+            .evaluate(
+                0,
+                Function::Initial,
+                0.,
+                &[0.1],
+                prepared.parameters(),
+                true,
+            )
+            .unwrap();
+        let mut permuted = prepared.program();
+        permuted.contract.parameters.reverse();
+        permuted.coordinates.parameters.reverse();
+        permuted.layout = Arc::new(
+            crate::workflow::dynamics::DynamicLayout::new(
+                &permuted.programs,
+                &permuted.coordinates,
+                1_000_000,
+            )
+            .unwrap(),
+        );
+        let mut permuted = permuted
+            .worker(
+                pse_kernels::ExecutionScope::new(
+                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    None,
+                ),
+                prepared.snapshot_allocator(),
+            )
+            .unwrap();
+        let reversed = prepared
+            .parameters()
+            .iter()
+            .rev()
+            .copied()
+            .collect::<Vec<_>>();
+        let permuted_initial = permuted
+            .evaluate(0, Function::Initial, 0., &[0.1], &reversed, true)
+            .unwrap();
+        assert_eq!(original_initial.values, permuted_initial.values);
+        let original_jacobian = original_initial.jacobian.as_ref().unwrap();
+        let permuted_jacobian = permuted_initial.jacobian.as_ref().unwrap();
+        for col in 0..original_jacobian.ncols() {
+            let target = if col == 0 {
+                0
+            } else {
+                original_jacobian.ncols() - col
+            };
+            assert!(
+                original_jacobian
+                    .row_idx_of_col(col)
+                    .eq(permuted_jacobian.row_idx_of_col(target))
+            );
+            assert_eq!(
+                original_jacobian.val()[original_jacobian.col_range(col)],
+                permuted_jacobian.val()[permuted_jacobian.col_range(target)]
+            );
+        }
 
         let named = |name: &str| {
             prepared

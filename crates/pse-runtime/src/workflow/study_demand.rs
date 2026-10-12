@@ -12,7 +12,7 @@ use super::{WorkflowError, contract};
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum StudyOutputDemand {
     /// Retain the complete original occurrence report and its public relations.
-    Full,
+    Full {},
     /// Retain mandatory summaries and only the explicitly bounded selected detail.
     Compact {
         /// Selected detail for usable occurrences, including requested KPI relations.
@@ -56,23 +56,35 @@ pub struct StudyDetailDemand {
 pub enum StudyMemberDemand {
     /// One algebraic variable at its original absolute solve step.
     Variable {
+        /// Original absolute solve step.
         step: i64,
+        /// Authored variable identity.
         symbol_id: pse_ids::SemanticId,
     },
     /// One algebraic constraint at its original absolute solve step.
     Constraint {
+        /// Original absolute solve step.
         step: i64,
+        /// Authored constraint identity.
         row_id: pse_ids::SemanticId,
     },
     /// One fitted parameter.
-    FitParameter { parameter_id: pse_ids::SemanticId },
+    FitParameter {
+        /// Authored fitted parameter identity.
+        parameter_id: pse_ids::SemanticId,
+    },
     /// One observation in its original experiment.
     FitObservation {
+        /// Original experiment instance identity.
         experiment_id: pse_model::generated::identities::InstanceId,
+        /// Authored observation identity within that experiment.
         observation_id: pse_ids::SemanticId,
     },
     /// The original samples of one trajectory symbol.
-    Trajectory { symbol_id: pse_ids::SemanticId },
+    Trajectory {
+        /// Authored trajectory symbol identity.
+        symbol_id: pse_ids::SemanticId,
+    },
 }
 impl StudyMemberDemand {
     fn relation_name(&self) -> &'static str {
@@ -137,7 +149,7 @@ impl StudyMemberDemand {
 impl StudyOutputDemand {
     pub(super) fn validate(&self, runtime: &super::Runtime) -> Result<(), WorkflowError> {
         match self {
-            Self::Full => Ok(()),
+            Self::Full {} => Ok(()),
             Self::Compact {
                 detail,
                 failed_detail,
@@ -150,7 +162,7 @@ impl StudyOutputDemand {
 
     pub(super) fn detail(&self, usable: bool) -> Option<&StudyDetailDemand> {
         match self {
-            Self::Full => None,
+            Self::Full {} => None,
             Self::Compact {
                 detail,
                 failed_detail,
@@ -551,10 +563,10 @@ mod tests {
         );
         let run_id = pse_operations::mint_id();
         let symbol_id = pse_ids::SemanticId::from_bytes([7; 16]);
-        let nan = f64::from_bits(0x7ff8_0000_0000_0042);
+        let precise = f64::from_bits(1.0_f64.to_bits() + 1);
         let mut builder =
             solve_variables::Builder::with_registry(registry, 3, &validation).unwrap();
-        for (step, value) in [(0, Some(1.0)), (7, Some(-0.0)), (8, Some(nan))] {
+        for (step, value) in [(0, Some(1.0)), (7, Some(-0.0)), (8, Some(precise))] {
             builder
                 .push(solve_variables::Row {
                     run_id,
@@ -615,7 +627,10 @@ mod tests {
             view.row(0).unwrap().value.unwrap().to_bits(),
             (-0.0_f64).to_bits()
         );
-        assert_eq!(view.row(1).unwrap().value.unwrap().to_bits(), nan.to_bits());
+        assert_eq!(
+            view.row(1).unwrap().value.unwrap().to_bits(),
+            precise.to_bits()
+        );
         assert_eq!(batch.batch().schema(), original_batches[0].batch().schema());
         let mut allowance = DetailAllowance::new(&demand);
         allowance.accept(&batch).unwrap();
@@ -683,6 +698,16 @@ mod tests {
     }
     #[test]
     fn study_output_requires_explicit_complete_success_and_failure_contracts() {
+        let full = StudyOutputDemand::Full {};
+        assert_eq!(
+            serde_json::to_value(&full).unwrap(),
+            serde_json::json!({"kind":"full"})
+        );
+        assert_eq!(
+            serde_json::from_value::<StudyOutputDemand>(serde_json::json!({"kind":"full"}))
+                .unwrap(),
+            full
+        );
         assert!(serde_json::from_str::<StudyOutputDemand>(r#"{}"#).is_err());
         assert!(
             serde_json::from_str::<StudyOutputDemand>(
@@ -707,6 +732,6 @@ mod tests {
                 .unwrap();
         assert_eq!(demand, decoded);
         assert_eq!(decoded.detail(false).unwrap().maximum_rows, 0);
-        assert!(StudyOutputDemand::Full.detail(true).is_none());
+        assert!(StudyOutputDemand::Full {}.detail(true).is_none());
     }
 }

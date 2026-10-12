@@ -1169,13 +1169,95 @@ fn refusal(
     WorkflowError::Boundary(Box::new(diagnostic))
 }
 
+/// One explicit worker/case lane owns its selected permissions across adjacent
+/// points. It is returned only after native drain and explicitly closed by its owner.
+pub(in crate::workflow) struct StudyPreparationLane {
+    current: Option<PreparedLaneInputs>,
+}
+struct PreparedLaneInputs {
+    original: ModelingPackage,
+    package: ModelingPackage,
+    key: (ContentHash, Vec<String>, Vec<SemanticId>),
+    admission: Option<DeclaredStudyAdmission>,
+    scope: Arc<super::modeling::engagement::HeldPreparationScope>,
+}
+impl StudyPreparationLane {
+    pub(in crate::workflow) fn new() -> Self {
+        Self { current: None }
+    }
+    pub(in crate::workflow) async fn prepare(
+        &mut self,
+        package: &ModelingPackage,
+        operation: &StudyOperation,
+        binding: &super::AdmittedBinding,
+        cancel: &CancelSource,
+    ) -> Result<PreparedStudyOperation, WorkflowError> {
+        let key = DeclaredStudyAdmission::binding_key(operation, binding)?;
+        let same = self.current.as_ref().is_some_and(|current| {
+            current.key == key
+                && current.scope.is_open()
+                && super::modeling::engagement::same_source(&current.original, package)
+        });
+        if !same {
+            self.close().await?;
+            let scope = super::modeling::engagement::HeldPreparationScope::new();
+            self.current = Some(PreparedLaneInputs {
+                original: package.clone(),
+                package: scope.package(package),
+                key,
+                admission: None,
+                scope,
+            });
+        }
+        let current = self
+            .current
+            .as_mut()
+            .ok_or_else(|| super::contract("study lane inputs absent"))?;
+        let result = async {
+            current.scope.renew().await?;
+            current
+                .package
+                .prepare_bound_operation_with_admission(
+                    operation,
+                    binding,
+                    &mut current.admission,
+                    cancel,
+                )
+                .await
+        }
+        .await;
+        match result {
+            Ok(prepared) => {
+                current.scope.freeze()?;
+                Ok(prepared)
+            }
+            Err(error) => {
+                self.close().await?;
+                Err(error)
+            }
+        }
+    }
+    pub(in crate::workflow) fn scope(
+        &self,
+    ) -> Option<Arc<super::modeling::engagement::HeldPreparationScope>> {
+        self.current.as_ref().map(|current| current.scope.clone())
+    }
+    pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
+        if let Some(current) = &self.current {
+            current.scope.close().await?;
+        }
+        self.current = None;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod study_operation_unit {
     use super::*;
 
     fn operation(operation: OperationRequest) -> StudyOperation {
         StudyOperation {
-            output: crate::workflow::StudyOutputDemand::Full,
+            output: crate::workflow::StudyOutputDemand::Full {},
             version: Version,
             source: OperationSource {
                 revision: ContentHash::from_bytes([3; 32]).into(),
@@ -1366,85 +1448,3 @@ mod study_operation_unit {
 #[cfg(all(test, feature = "native-solvers"))]
 #[path = "study_operation_admission_tests.rs"]
 mod study_operation_admission_tests;
-
-/// One explicit worker/case lane owns its selected permissions across adjacent
-/// points. It is returned only after native drain and explicitly closed by its owner.
-pub(in crate::workflow) struct StudyPreparationLane {
-    current: Option<PreparedLaneInputs>,
-}
-struct PreparedLaneInputs {
-    original: ModelingPackage,
-    package: ModelingPackage,
-    key: (ContentHash, Vec<String>, Vec<SemanticId>),
-    admission: Option<DeclaredStudyAdmission>,
-    scope: Arc<super::modeling::engagement::HeldPreparationScope>,
-}
-impl StudyPreparationLane {
-    pub(in crate::workflow) fn new() -> Self {
-        Self { current: None }
-    }
-    pub(in crate::workflow) async fn prepare(
-        &mut self,
-        package: &ModelingPackage,
-        operation: &StudyOperation,
-        binding: &super::AdmittedBinding,
-        cancel: &CancelSource,
-    ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        let key = DeclaredStudyAdmission::binding_key(operation, binding)?;
-        let same = self.current.as_ref().is_some_and(|current| {
-            current.key == key
-                && current.scope.is_open()
-                && super::modeling::engagement::same_source(&current.original, package)
-        });
-        if !same {
-            self.close().await?;
-            let scope = super::modeling::engagement::HeldPreparationScope::new();
-            self.current = Some(PreparedLaneInputs {
-                original: package.clone(),
-                package: scope.package(package),
-                key,
-                admission: None,
-                scope,
-            });
-        }
-        let current = self
-            .current
-            .as_mut()
-            .ok_or_else(|| super::contract("study lane inputs absent"))?;
-        let result = async {
-            current.scope.renew().await?;
-            current
-                .package
-                .prepare_bound_operation_with_admission(
-                    operation,
-                    binding,
-                    &mut current.admission,
-                    cancel,
-                )
-                .await
-        }
-        .await;
-        match result {
-            Ok(prepared) => {
-                current.scope.freeze()?;
-                Ok(prepared)
-            }
-            Err(error) => {
-                self.close().await?;
-                Err(error)
-            }
-        }
-    }
-    pub(in crate::workflow) fn scope(
-        &self,
-    ) -> Option<Arc<super::modeling::engagement::HeldPreparationScope>> {
-        self.current.as_ref().map(|current| current.scope.clone())
-    }
-    pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
-        if let Some(current) = &self.current {
-            current.scope.close().await?;
-        }
-        self.current = None;
-        Ok(())
-    }
-}

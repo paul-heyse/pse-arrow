@@ -164,6 +164,361 @@ fn study(revision: &Revision, key: &str, run: &str) -> crate::canonical_studies:
 }
 
 #[tokio::test]
+async fn exact_terminal_seal_and_unrelated_source_creator_commute_both_orders() {
+    for creator_first in [false, true] {
+        let (store, options, revision) = fixture().await;
+        store
+            .begin_run(&RunRequest {
+                key: "sealing".into(),
+                revision: revision.clone(),
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        let fence = store
+            .claim_run("sealing", "claim-sealing", "owner", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "close-sealing")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        let request = serde_json::to_vec(&(
+            fence.run(),
+            fence.attempt(),
+            fence.generation(),
+            &manifest.row().key,
+            &manifest.row().digest,
+            TerminalClass::Partial,
+            crate::canonical_execution::result_payload_digest(&[42]),
+            None::<&str>,
+            SeedEligibility::Unavailable,
+        ))
+        .unwrap();
+        let sealing = held(&options).await;
+        sealing.query("RETURN fn::pse_execution_v1::seal_ack($expiry,$run,$attempt,$authority,'seal-sealing',$request,$manifest,$digest,'partial',$completion,false,NONE);")
+            .bind(("expiry", expiry()))
+            .bind(("run", fence.run().to_owned()))
+            .bind(("attempt", fence.attempt().to_owned()))
+            .bind(("authority", canonical_codec::encode_uint(fence.generation()).unwrap()))
+            .bind(("request", surrealdb::types::Bytes::from(request)))
+            .bind(("manifest", manifest.row().key.clone()))
+            .bind(("digest", manifest.row().digest.clone()))
+            .bind(("completion", surrealdb::types::Bytes::from(vec![42])))
+            .await.unwrap().check().unwrap();
+        let creator = held(&options).await;
+        creator
+            .query(body(RETAIN))
+            .bind(("pse_rpc_expires_at", expiry()))
+            .bind(("problem", revision.problem.clone()))
+            .bind(("revision", revision.key.clone()))
+            .bind(("root", "history:unrelated"))
+            .bind(("owner_kind", "history"))
+            .bind(("owner", "unrelated"))
+            .bind(("interpretation", wire::INTERPRETATION))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        // Removing this attempt's root adds no new retention requirement. A
+        // genuine creator elsewhere in the same problem must remain independent.
+        if creator_first {
+            creator.commit().await.unwrap();
+            sealing.commit().await.unwrap();
+        } else {
+            sealing.commit().await.unwrap();
+            creator.commit().await.unwrap();
+        }
+        let terminal = store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(terminal.terminal);
+        assert_eq!(terminal.outcome.as_deref(), Some("partial"));
+        assert_eq!(terminal.completion.as_ref().unwrap().as_slice(), &[42]);
+        let run = store.canonical_run(fence.run()).await.unwrap().unwrap();
+        assert_eq!(run.terminal_attempt.as_deref(), Some(fence.attempt()));
+        let mut roots = bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_roots',$active); SELECT * FROM ONLY type::record('canonical_roots','history:unrelated');")
+            .bind(("active", format!("active_attempt:{}",fence.attempt())))).await.unwrap();
+        assert!(roots.take::<Option<Object>>(0).unwrap().is_none());
+        assert!(roots.take::<Option<Object>>(1).unwrap().is_some());
+        unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    "seal-sealing",
+                    TerminalClass::Partial,
+                    &[42],
+                    SeedEligibility::Unavailable,
+                )
+                .await
+        }
+        .unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn exact_terminal_root_release_and_source_collection_preserve_run_both_orders() {
+    for collector_first in [false, true] {
+        let (store, options, first) = fixture().await;
+        let edit = |version: &str| crate::canonical::ObjectEdit {
+            logical: "x".into(),
+            scope: "root".into(),
+            name: "x".into(),
+            version: Some(crate::canonical::ObjectVersion {
+                key: version.into(),
+                logical: "x".into(),
+                kind: "test".into(),
+                payload: vec![1].into(),
+                interpretation: wire::INTERPRETATION.into(),
+            }),
+            references: vec![],
+        };
+        let old = store
+            .edit("source", Some(&first.key), "second", &[edit("v1")])
+            .await
+            .unwrap();
+        store
+            .edit("source", Some(&old.key), "third", &[edit("v2")])
+            .await
+            .unwrap();
+        store
+            .begin_run(&RunRequest {
+                key: "sealing".into(),
+                revision: old.clone(),
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        store.forget_history(&old).await.unwrap();
+        let fence = store
+            .claim_run("sealing", "claim-sealing", "owner", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let closed = store
+            .close_result_ingestion(&fence, "close-sealing")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        let request = serde_json::to_vec(&(
+            fence.run(),
+            fence.attempt(),
+            fence.generation(),
+            &manifest.row().key,
+            &manifest.row().digest,
+            TerminalClass::Partial,
+            crate::canonical_execution::result_payload_digest(&[42]),
+            None::<&str>,
+            SeedEligibility::Unavailable,
+        ))
+        .unwrap();
+        let sealing = held(&options).await;
+        sealing.query("RETURN fn::pse_execution_v1::seal_ack($expiry,$run,$attempt,$authority,'seal-sealing',$request,$manifest,$digest,'partial',$completion,false,NONE);")
+            .bind(("expiry",expiry())).bind(("run",fence.run().to_owned()))
+            .bind(("attempt",fence.attempt().to_owned()))
+            .bind(("authority",canonical_codec::encode_uint(fence.generation()).unwrap()))
+            .bind(("request",surrealdb::types::Bytes::from(request)))
+            .bind(("manifest",manifest.row().key.clone())).bind(("digest",manifest.row().digest.clone()))
+            .bind(("completion",surrealdb::types::Bytes::from(vec![42])))
+            .await.unwrap().check().unwrap();
+        let mut candidates = bounded_query(store.db.query("SELECT key FROM canonical_memberships WHERE problem=$problem AND to_sequence!=NONE LIMIT 1;")
+            .bind(("problem",old.problem.clone()))).await.unwrap();
+        let mut row = candidates.take::<Vec<Object>>(0).unwrap().remove(0);
+        let candidate =
+            canonical_codec::decode_string(canonical_codec::required(&mut row, "key").unwrap())
+                .unwrap();
+        let collector = held(&options).await;
+        let mut response = collector
+            .query(body(&RECLAIM.replace(
+                "/* DELETE_VERSION */",
+                crate::canonical_staging::DELETE_VERSION,
+            )))
+            .bind(("pse_rpc_expires_at", expiry()))
+            .bind(("problem", old.problem.clone()))
+            .bind(("candidate", candidate))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        let result = response
+            .take::<Option<Object>>(response.num_statements() - 1)
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.get("membership"), Some(&Value::Bool(false)));
+        assert_eq!(result.get("version"), Some(&Value::Bool(false)));
+        if collector_first {
+            collector.commit().await.unwrap();
+            conflict(sealing.commit().await.unwrap_err());
+        } else {
+            sealing.commit().await.unwrap();
+            collector.commit().await.unwrap();
+        }
+        // A definite conflict rebuilds the same seal, never another scientific
+        // attempt. A completed seal's same-identity replay is also unchanged.
+        unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    "seal-sealing",
+                    TerminalClass::Partial,
+                    &[42],
+                    SeedEligibility::Unavailable,
+                )
+                .await
+        }
+        .unwrap();
+        let page = store.reclaim_page(&old.problem, "").await.unwrap();
+        assert!(page.examined > 0);
+        assert_eq!((page.memberships, page.versions), (0, 0));
+        let pin = store.protect(old, Duration::from_secs(60)).await.unwrap();
+        let members = store.membership_page(&pin, None, "").await.unwrap();
+        assert_eq!(members.len(), 1);
+        assert_eq!(members[0].version, "v1");
+        store.release(&pin).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[tokio::test]
+async fn exact_scoped_head_page_and_source_activation_both_commit_orders() {
+    for reader_first in [false, true] {
+        let (store, options, first) = fixture().await;
+        let edit = |name: &str, scope: &str, version: &str| crate::canonical::ObjectEdit {
+            logical: name.into(),
+            scope: scope.into(),
+            name: name.into(),
+            version: Some(crate::canonical::ObjectVersion {
+                key: version.into(),
+                logical: name.into(),
+                kind: "test".into(),
+                payload: vec![1].into(),
+                interpretation: wire::INTERPRETATION.into(),
+            }),
+            references: vec![],
+        };
+        let revision = store
+            .edit(
+                "source",
+                Some(&first.key),
+                "second",
+                &[edit("x", "root", "v1")],
+            )
+            .await
+            .unwrap();
+        let pin = store
+            .protect(revision.clone(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        // The writer changes only another scope. This page's membership rows
+        // remain untouched: the registered head is the shared changing premise.
+        let stage = match store
+            .stage_edits(
+                "source",
+                Some(&revision.key),
+                "third",
+                &[edit("y", "other", "v2")],
+            )
+            .await
+            .unwrap()
+        {
+            crate::canonical_staging::StageOutcome::Closed(stage) => Some(stage),
+            crate::canonical_staging::StageOutcome::Acknowledged(_) => None,
+        }
+        .expect("fresh operation must close a stage");
+        let reader = held(&options).await;
+        let mut response = reader
+            .query(body(&crate::canonical_selection::test_membership_page_sql()))
+            .bind(("pse_rpc_expires_at", expiry()))
+            .bind(("problem", revision.problem.clone()))
+            .bind(("revision", revision.key.clone()))
+            .bind((
+                "sequence",
+                canonical_codec::encode_uint(revision.sequence).unwrap(),
+            ))
+            .bind(("protection", pin.key().to_owned()))
+            .bind(("scope", "root"))
+            .bind(("after", ""))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        let page: Vec<Object> = response
+            .take(response.num_statements().saturating_sub(1))
+            .unwrap();
+        assert_eq!(page.len(), 1);
+        assert_eq!(
+            wire::decode_canonical_memberships(page.into_iter().next().unwrap())
+                .unwrap()
+                .version,
+            "v1"
+        );
+        let writer = held(&options).await;
+        writer
+            .query(body(&crate::canonical::test_source_edit_sql()))
+            .bind(("pse_rpc_expires_at", expiry()))
+            .bind(("problem", stage.problem.clone()))
+            .bind(("expected", stage.expected.clone()))
+            .bind(("operation", stage.operation.clone()))
+            .bind(("interpretation", wire::INTERPRETATION))
+            .bind((
+                "request",
+                surrealdb::types::Bytes::from(stage.request.clone()),
+            ))
+            .bind(("request_digest", stage.request_digest.clone()))
+            .bind((
+                "generation",
+                canonical_codec::encode_uint(stage.generation).unwrap(),
+            ))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        if reader_first {
+            reader.commit().await.unwrap();
+            writer.commit().await.unwrap();
+        } else {
+            writer.commit().await.unwrap();
+            conflict(reader.commit().await.unwrap_err());
+        }
+        // Rebuild the actual page under a fresh transaction after the conflict:
+        // the original selection uses historical intervals, never the new head.
+        let historical = store.membership_page(&pin, Some("root"), "").await.unwrap();
+        assert_eq!(historical.len(), 1);
+        assert_eq!(historical[0].version, "v1");
+        assert!(
+            store
+                .membership_page(&pin, Some("other"), "")
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        let current = store.revision("third").await.unwrap().unwrap();
+        let fresh = store
+            .protect(current, Duration::from_secs(60))
+            .await
+            .unwrap();
+        let new_scope = store
+            .membership_page(&fresh, Some("other"), "")
+            .await
+            .unwrap();
+        assert_eq!(new_scope.len(), 1);
+        assert_eq!(new_scope[0].version, "v2");
+        store.release(&pin).await.unwrap();
+        store.release(&fresh).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+}
+
+#[tokio::test]
 async fn exact_source_root_and_pin_creation_reclaim_both_orders() {
     for pin in [false, true] {
         for creator_first in [false, true] {

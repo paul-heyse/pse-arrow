@@ -757,6 +757,18 @@ impl RouteChannelEngine {
             } else {
                 receive.await
             };
+            if let Some(context) = &context
+                && context.payload_owner().is_some()
+            {
+                // A reply may wake this executor before the native response
+                // handler releases its lexical snapshots. Keep receiver's
+                // caller hold alive while joining only driver holds, under
+                // the same cancellation and original absolute deadline.
+                tokio::select! { biased;
+                    _ = context.interrupted() => return Err(context.interruption_error()),
+                    () = context.payload_driver_drained() => {},
+                }
+            }
             outcome.map_err(|_| {
                 Error::connection(
                     "The engine dropped the request without answering".to_string(),
@@ -1151,6 +1163,88 @@ mod tests {
         assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
         let restored = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
         drop(restored);
+    }
+
+    #[tokio::test]
+    async fn response_waits_for_gated_native_drain_and_preserves_original_clock() {
+        enum Completion {
+            Success,
+            Cancel,
+            Expire,
+        }
+        for completion in [Completion::Success, Completion::Cancel, Completion::Expire] {
+            let (sender, routes) = async_channel::bounded(1);
+            let engine = RouteChannelEngine::new(sender);
+            let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let caller_owner = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
+            let budget = if matches!(completion, Completion::Expire) {
+                std::time::Duration::from_millis(100)
+            } else {
+                std::time::Duration::from_secs(30)
+            };
+            let context = RequestContext::new(std::time::Instant::now() + budget)
+                .with_payload_owner(caller_owner.clone());
+            let original_deadline = context.deadline();
+            let mut request = Box::pin(engine.results(
+                Command::Health,
+                EngineContext::new(Uuid::nil()).with_request_context(Some(context.clone())),
+            ));
+            let route = tokio::select! {
+                route = routes.recv() => route.unwrap(),
+                result = &mut request => panic!("request ended before enqueue: {result:?}"),
+            };
+            context.mark_dispatched();
+            // Model the native response handler's lexical allocation snapshot.
+            // The gate is this explicit guard, never a scheduler delay.
+            let driver = context.payload_owner().unwrap().retain_driver();
+            drop(route.request);
+            context.mark_completed();
+            context.release_payload_after_drain();
+            route
+                .response
+                .try_send(Ok(vec![QueryResult {
+                    time: std::time::Duration::ZERO,
+                    result: Ok(Value::String("original decoded output".into())),
+                    query_type: surrealdb_rpc::QueryType::Other,
+                }]))
+                .unwrap();
+            assert!(
+                futures::poll!(&mut request).is_pending(),
+                "reply delivery must not expose success before native drain"
+            );
+            assert_eq!(context.deadline(), original_deadline);
+            if !matches!(completion, Completion::Success) {
+                if matches!(completion, Completion::Cancel) {
+                    context.cancel();
+                }
+                // Expiry awaits the original request timer while the driver
+                // gate stays held; no sleep, reset or second timeout is used.
+                let error = request.await.unwrap_err();
+                assert!(error.to_string().contains("Request interrupted"));
+                assert_eq!(context.deadline(), original_deadline);
+                if matches!(completion, Completion::Expire) {
+                    assert!(std::time::Instant::now() >= original_deadline);
+                }
+                assert!(ChargedBytes::reserve(&reserved, 4096, 4096).is_none());
+                drop(caller_owner);
+                assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+                drop(driver);
+            } else {
+                drop(driver);
+                let output = request.await.unwrap();
+                assert_eq!(output.len(), 1);
+                assert_eq!(
+                    output[0].result,
+                    Ok(Value::String("original decoded output".into()))
+                );
+                assert!(ChargedBytes::reserve(&reserved, 4096, 4096).is_none());
+                drop(output);
+                drop(caller_owner);
+            }
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+            let restored = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
+            drop(restored);
+        }
     }
 
     #[test]

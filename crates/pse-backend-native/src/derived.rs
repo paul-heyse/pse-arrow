@@ -1420,7 +1420,7 @@ mod tests {
             maximum_regimes: 1,
             time_limit: Duration::from_secs(5),
             cancel: cancel.clone(),
-            verifier: Some(Arc::new(crate::root_isolation::Ibex)),
+            verifier: Some(Arc::new(crate::root_isolation::Ibex::default())),
         };
         let normalization = Normalization::identity(2, 2);
         let original = Arc::new(
@@ -1820,7 +1820,7 @@ mod tests {
             maximum_regimes: 1,
             time_limit: Duration::from_secs(5),
             cancel: cancel.clone(),
-            verifier: Some(Arc::new(crate::root_isolation::Ibex)),
+            verifier: Some(Arc::new(crate::root_isolation::Ibex::default())),
         };
         let normalization = Normalization::identity(2, 2);
         let original = Arc::new(

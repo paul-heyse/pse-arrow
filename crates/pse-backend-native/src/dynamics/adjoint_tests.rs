@@ -341,6 +341,102 @@ fn idas_adjoint_gradient_equals_forward_and_differences() {
     adjoint_equals_forward_and_differences(Method::Idas);
 }
 
+/// Many restart/checkpoint segments, including sample-free segments and exact change
+/// times. Independent Diffsol forward derivatives check both the reverse sample
+/// ownership and the second-order jump tangents; finite differences check the Hessian.
+#[cfg(feature = "idas")]
+#[test]
+fn idas_many_changes_preserve_reverse_jump_gradient_and_hessian() {
+    let times = (1..=8).map(|i| i as f64 * 0.2).collect::<Vec<_>>();
+    let parameters = std::iter::once(0.8)
+        .chain((0..=8).map(|i| 0.5 + (i % 3) as f64 * 0.7))
+        .collect::<Vec<_>>();
+    let directions = [0, 3, parameters.len() - 1];
+    for dae in [false, true] {
+        let mut p = reactor_profile(Method::Idas, DiffsolMethod::Bdf, dae, true);
+        p.schedule[0].times = times.clone();
+        p.samples = vec![0., 0.1, times[0], times[2], times[5], times[7], 1.8, 2.];
+        let result = hessian(
+            &mut Reactor::new(dae),
+            &p,
+            &parameters,
+            &directions,
+            &mut |report: &Report| Ok(weights(report.samples.len())),
+            Arc::default(),
+            256 << 20,
+        )
+        .unwrap();
+        assert_eq!(
+            result.report.termination,
+            Termination::Completed,
+            "{:?}",
+            result.report.error
+        );
+        let actual_gradient = result.gradient.unwrap();
+        let actual_hessian = result.hessian.unwrap();
+        let mut reference = p.clone();
+        reference.method = Method::Diffsol;
+        reference.sensitivity = DynamicSensitivity::Forward;
+        let gradient_at = |parameters: &[f64]| {
+            let report = integrate(
+                &mut Reactor::new(dae),
+                &reference,
+                parameters,
+                Arc::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                report.termination,
+                Termination::Completed,
+                "{:?}",
+                report.error
+            );
+            let weights = weights(report.samples.len());
+            (0..parameters.len())
+                .map(|j| {
+                    report
+                        .samples
+                        .iter()
+                        .enumerate()
+                        .map(|(i, sample)| {
+                            (0..2)
+                                .map(|o| {
+                                    weights[i * 2 + o]
+                                        * sample.output_sensitivities[o * parameters.len() + j]
+                                })
+                                .sum::<f64>()
+                        })
+                        .sum::<f64>()
+                })
+                .collect::<Vec<_>>()
+        };
+        let expected = gradient_at(&parameters);
+        for (actual, expected) in actual_gradient.iter().zip(&expected) {
+            assert!(
+                (actual - expected).abs() <= 1e-6 * (1.0 + expected.abs()),
+                "dae={dae}: {actual} vs {expected}"
+            );
+        }
+        for (column, &j) in directions.iter().enumerate() {
+            let step = 1e-4 * (1.0 + parameters[j].abs());
+            let mut plus = parameters.clone();
+            let mut minus = parameters.clone();
+            plus[j] += step;
+            minus[j] -= step;
+            let (plus, minus) = (gradient_at(&plus), gradient_at(&minus));
+            for (row, &i) in directions.iter().enumerate() {
+                let expected = (plus[i] - minus[i]) / (2. * step);
+                assert!(
+                    (actual_hessian[(row, column)] - expected).abs()
+                        <= 1e-4 * (1.0 + expected.abs()),
+                    "dae={dae}: H[{row},{column}]={} vs {expected}",
+                    actual_hessian[(row, column)]
+                );
+            }
+        }
+    }
+}
+
 /// A backward pass that starts where the forward state is nearly steady: Diffsol's own
 /// adjoint start state would probe a step of 0.01·|y|/|y'| back from the stop, far outside
 /// the segment's checkpoints (a Diffsol error found by shooting at an optimum). The feed

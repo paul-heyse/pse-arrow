@@ -254,6 +254,69 @@ class HostAdmissionTests(unittest.TestCase):
         observer = {**record, "units": {}, "released": True}
         self.assertTrue(host.drained(observer))
 
+    def test_stopped_borrowed_storage_keeps_execution_ack_guard_on_parent(self) -> None:
+        owner, service, unit = self.storage_process_fixture(borrowed=True)
+        exclusive = host.Allocation(
+            owner.directory, owner.nonce, host.select("exclusive"), owner.deadline
+        )
+        execution = "execution.scope"
+        guard: dict[str, object] = {"scope": {"unit": execution}, "phase": "registered"}
+        with host.allocation_metadata(self.directory) as ledger:
+            record = ledger["owners"][owner.nonce]
+            record["units"][execution] = {}
+            record["terminal_guards"] = {"f" * 32: guard}
+            binding = dict(record["units"][unit])
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch["binding"] = binding
+        surreal_server.write_json(service / "service-launch.json", launch)
+        with (
+            patch.object(host, "inherit", return_value=exclusive),
+            patch.object(
+                host.operation, "start_identity", side_effect=FileNotFoundError
+            ),
+            patch.object(host, "group_identity", return_value=None),
+            patch.object(
+                host.operation,
+                "unit_observation",
+                return_value={"LoadState": "not-found"},
+            ),
+        ):
+            surreal_server.release_stopped_service(service, {"instance_id": "original"})
+            with host.allocation_metadata(self.directory) as ledger:
+                retained = dict(ledger["owners"][owner.nonce])
+                self.assertEqual(retained["borrowed_services"], [])
+                self.assertEqual(retained["terminal_guards"], {"f" * 32: guard})
+            self.assertFalse(
+                host.drained(retained, allocation=self.directory / owner.nonce)
+            )
+            storage_guard: dict[str, object] = {
+                "scope": {
+                    "unit": unit,
+                    "group": binding["group"],
+                    "invocation": binding["invocation"],
+                },
+                "binding": binding,
+            }
+            with host.allocation_metadata(self.directory) as ledger:
+                record = ledger["owners"][owner.nonce]
+                record["borrowed_services"] = [str(service)]
+                record["terminal_guards"] = {"e" * 32: storage_guard}
+            with (
+                patch.object(
+                    host.operation, "terminal_guard_complete", return_value=False
+                ),
+                self.assertRaisesRegex(
+                    surreal_server.SupervisorError, "lifetime is undrained"
+                ),
+            ):
+                surreal_server.release_stopped_service(
+                    service, {"instance_id": "original"}
+                )
+            with host.allocation_metadata(self.directory) as ledger:
+                self.assertEqual(
+                    ledger["owners"][owner.nonce]["borrowed_services"], [str(service)]
+                )
+
     def test_unbound_not_found_storage_without_child_can_be_reclaimed(self) -> None:
         owner, service, unit = self.storage_process_fixture()
         (service / "server-process.json").unlink()
@@ -1698,9 +1761,13 @@ class HostAdmissionTests(unittest.TestCase):
     def test_verified_ack_is_durable_in_existing_guard_before_evidence_retirement(
         self,
     ) -> None:
-        from scripts import native_operation as operation
-        from scripts import resource_store
-        from scripts import test_resources as resources
+        from scripts import (  # noqa: PLC0415 -- reciprocal terminal owners
+            native_operation as operation,
+        )
+        from scripts import resource_store  # noqa: PLC0415 -- terminal control
+        from scripts import (  # noqa: PLC0415 -- reciprocal terminal owners
+            test_resources as resources,
+        )
 
         owner = host.acquire(host.select("light"), directory=self.directory)
         scope = {
@@ -1763,7 +1830,12 @@ class HostAdmissionTests(unittest.TestCase):
             self.assertTrue(host.drained(snapshot))
             for changes in (
                 {"scope": {}},
-                {"binding": {**guard["binding"], "invocation": "f" * 32}},
+                {
+                    "binding": {
+                        **surreal_server.object_mapping(guard["binding"]),
+                        "invocation": "f" * 32,
+                    }
+                },
             ):
                 corrupted = {
                     **snapshot,

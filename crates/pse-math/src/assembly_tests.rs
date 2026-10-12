@@ -2606,6 +2606,97 @@ fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
 }
 
 #[test]
+fn assembly_reuses_exact_compact_artifacts_after_original_source_expires() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let registry = standard_registry().unwrap();
+    let (original, _) = fixture(false, false);
+    let programs = original.programs().to_vec();
+    let (current, mut values) = fixture(false, false);
+    let key = current.demands()[0].body;
+    assert_ne!(
+        original.bodies()[&key].allocation_identity(),
+        current.bodies()[&key].allocation_identity()
+    );
+    assert!(programs.iter().all(|program| {
+        program
+            .prepared_support()
+            .matches_body(current.bodies()[&key].as_ref())
+    }));
+    drop(original);
+    assert!(programs.iter().all(|program| {
+        !program
+            .prepared_support()
+            .matches_body(current.bodies()[&key].as_ref())
+    }));
+    for (program, expected) in programs.iter().zip(current.supports()) {
+        assert_eq!(program.prepared_support(), expected.as_ref());
+    }
+    let current_plan = Arc::new(CasePlan::clone(&current));
+    let reassembled = Arc::new(current_plan.assemble(programs.clone()).unwrap());
+    let mut worker = reassembled.worker(BTreeMap::new(), cancel.clone());
+    assert_eq!(worker.objective(&values).unwrap(), 6.0);
+    assert_eq!(worker.gradient(&values).unwrap(), [3.0, 2.0]);
+    assert_eq!(worker.constraints(&values).unwrap(), [25.0, 0.0]);
+    assert_eq!(
+        worker
+            .hessian(&values, 1.0, &[0.0, 0.0])
+            .unwrap()
+            .to_dense()[(1, 0)],
+        1.0
+    );
+    values.scalars.insert(id(1), 4.0);
+    assert_eq!(worker.objective(&values).unwrap(), 12.0);
+    assert_eq!(worker.gradient(&values).unwrap(), [3.0, 4.0]);
+    assert_eq!(worker.constraints(&values).unwrap(), [35.0, 0.0]);
+
+    // Equal demand maps and derivative incidence are insufficient: an altered
+    // selected value program must refuse even under the same supplied body key.
+    let quantity = ids::quantity("neutral");
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder.input(0, quantity, IndexSet::new(), id(20)).unwrap();
+    let b = builder.input(1, quantity, IndexSet::new(), id(21)).unwrap();
+    let product = builder
+        .binary(Binary::Mul, a.clone(), b.clone(), None, id(22))
+        .unwrap();
+    let sum = builder
+        .binary(Binary::Add, a.clone(), b, None, id(23))
+        .unwrap();
+    let changed_product = builder
+        .binary(Binary::Add, product, a, None, id(24))
+        .unwrap();
+    let changed = Arc::new(
+        CasePlan::prepare(
+            Arc::new(current.structure().clone()),
+            BTreeMap::from([(
+                key,
+                Arc::new(builder.prepare(&[changed_product, sum]).unwrap()),
+            )]),
+            &registry,
+            DerivativeOrder::Second,
+            AssemblyLimits::default(),
+            &cancel,
+        )
+        .unwrap(),
+    );
+    assert_eq!(changed.demands(), current.demands());
+    for (old, changed) in current.supports().iter().zip(changed.supports()) {
+        assert_eq!(old.support(), changed.support());
+    }
+    assert!(matches!(
+        changed.assemble(programs),
+        Err(crate::MathError::Contract(detail))
+            if detail == "artifact does not match selected admitted demand"
+    ));
+}
+
+#[test]
 fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
     for alias in [false, true] {
         let (assembly, values) = fixture(alias, true);
@@ -2620,6 +2711,27 @@ fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
         let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
         let before = bound.input_identity();
         let expected = worker.objective(bound.trial(&[]).unwrap()).unwrap();
+        let source = bound
+            .input_ids()
+            .iter()
+            .map(|id| values.scalars[id])
+            .collect::<Vec<_>>();
+        let map = (0..source.len()).rev().collect::<Vec<_>>();
+        let reversed = source.iter().rev().copied().collect::<Vec<_>>();
+        bound.refill_mapped(&reversed, &map).unwrap();
+        assert_eq!(bound.input_identity(), before);
+        assert!(
+            bound
+                .refill_mapped(&source, &vec![usize::MAX; map.len()])
+                .is_err()
+        );
+        assert!(bound.refill_mapped(&source, &[]).is_err());
+        assert!(
+            bound
+                .refill_mapped(&vec![f64::NAN; source.len()], &map)
+                .is_err()
+        );
+        assert_eq!(bound.input_identity(), before);
         assert!(bound.refill(&[(id(1), 7.0), (id(1), 8.0)]).is_err());
         assert!(bound.refill(&[(id(1), 7.0), (id(250), 8.0)]).is_err());
         assert!(bound.refill(&[(id(1), f64::NAN)]).is_err());

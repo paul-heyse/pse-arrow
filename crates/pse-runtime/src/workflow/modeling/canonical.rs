@@ -3075,6 +3075,9 @@ mod tests {
         let cancel = crate::CancelSource::new();
         let selected = package.selected_source(root, &cancel).await.unwrap();
         let versions = vec![selected.versions[&logical(root)].clone()];
+        // Measure live and transient owners exactly. Optional retained products
+        // may yield under pressure; the selected source's escaped owners remain.
+        runtime.shared.math().clear_program_cache();
         let before = runtime.shared.pool().reserved();
         let available = runtime.shared.budget().memory_limit_bytes.get() - before;
         let hold = runtime

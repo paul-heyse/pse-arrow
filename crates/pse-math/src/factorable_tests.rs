@@ -631,6 +631,107 @@ fn relaxed_rows_enclose_evaluator() {
     );
     assert_eq!(bounded.rows[0].fidelity, Fidelity::Relaxed);
     assert!(bounded.missing_bounds().is_empty());
+    let changed = FactorableRequest {
+        envelopes: BTreeMap::from([(cube.key(), vec![(-2.0, 8.0)])]),
+        ..Default::default()
+    };
+    let changed = project(&assembly, &changed);
+    assert_eq!(
+        (changed.auxiliaries[0].lower, changed.auxiliaries[0].upper),
+        (-2.0, 8.0)
+    );
+    assert_ne!(changed.key, bounded.key);
+}
+
+#[test]
+fn authored_topology_reuse_refreshes_zero_coefficients_and_guard_admission() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 2);
+    let input = inputs(&mut b, 2);
+    let row = op(&mut b, Binary::Mul, &input[0], &input[1]);
+    let body = b.prepare(&[row]).unwrap();
+    let full = case(&registry, body, &[(-2.0, 2.0), (-2.0, 2.0)], &[]);
+    let mut variables = full.structure().variables().to_vec();
+    variables[1].fixed = true;
+    let structure = Arc::new(
+        CaseStructure::new(
+            variables,
+            vec![],
+            full.structure().instances().to_vec(),
+            full.structure().rows().to_vec(),
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        structure,
+        full.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let clone = plan.clone();
+    assert!(std::ptr::eq(
+        plan.projection_topology(),
+        clone.projection_topology()
+    ));
+    let zero = CaseValues {
+        scalars: BTreeMap::from([(id(2), 0.0)]),
+    };
+    let nonzero = CaseValues {
+        scalars: BTreeMap::from([(id(2), -1.0)]),
+    };
+    let at_zero = plan.presolve_facts(&zero, 100_000, &cancel).unwrap();
+    let at_nonzero = clone.presolve_facts(&nonzero, 100_000, &cancel).unwrap();
+    assert!(at_zero.affine[0].as_ref().unwrap().entries.is_empty());
+    assert_eq!(at_nonzero.affine[0].as_ref().unwrap().entries[&0], -1.0);
+    assert_ne!(at_zero.key, at_nonzero.key);
+    assert!(!at_zero.matches(&plan, &nonzero));
+    assert_eq!(at_zero.row_sources, at_nonzero.row_sources);
+    // The same immutable layout must not erase a fixed-value domain guard.
+    let mut b = builder(&registry, 2);
+    let input = inputs(&mut b, 2);
+    let logarithm = unary(&mut b, Function::Log, &input[1]);
+    let row = op(&mut b, Binary::Add, &input[0], &logarithm);
+    let body = b.prepare(&[row]).unwrap();
+    let guarded = case(&registry, body, &[(-2.0, 2.0), (-2.0, 2.0)], &[]);
+    let mut variables = guarded.structure().variables().to_vec();
+    variables[1].fixed = true;
+    let structure = Arc::new(
+        CaseStructure::new(
+            variables,
+            vec![],
+            guarded.structure().instances().to_vec(),
+            guarded.structure().rows().to_vec(),
+            None,
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let guarded = CasePlan::prepare(
+        structure,
+        guarded.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let positive = CaseValues {
+        scalars: BTreeMap::from([(id(2), 1.0)]),
+    };
+    let admitted = guarded
+        .presolve_domain_facts(&positive, 100_000, &cancel)
+        .unwrap();
+    let rejected = guarded
+        .presolve_domain_facts(&nonzero, 100_000, &cancel)
+        .unwrap();
+    assert_eq!(admitted.obligations[&id(9)], ObligationStatus::Discharged);
+    assert_eq!(rejected.obligations[&id(9)], ObligationStatus::Violated);
 }
 
 #[test]

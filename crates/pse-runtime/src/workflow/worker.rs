@@ -205,8 +205,13 @@ where
         let initial = settings
             .maximum_actions
             .map_or(width, |limit| width.min(limit - count));
+        let mut failure = None;
         for lane in 0..initial {
-            let owner = available.pop().expect("bounded available worker lane");
+            let Some(owner) = available.pop() else {
+                failure = Some(contract("worker lane owner absent before issuance"));
+                drain.cancel();
+                break;
+            };
             let recovery = lane == 0
                 && take_recovery(
                     &mut last_recovery,
@@ -216,7 +221,6 @@ where
             pending.push(work(owner, recovery, drain.clone()));
         }
         let mut progressed = false;
-        let mut failure = None;
         while !pending.is_empty() {
             let result = tokio::select! {
                 result = pending.next() => result,
@@ -259,9 +263,13 @@ where
                         .is_some_and(|issued| issued < limit)
                 })
             {
-                let owner = available
-                    .pop()
-                    .expect("completed worker lane returned before refill");
+                let Some(owner) = available.pop() else {
+                    failure.get_or_insert_with(|| {
+                        contract("worker lane owner absent after completion")
+                    });
+                    drain.cancel();
+                    break;
+                };
                 let recovery = take_recovery(
                     &mut last_recovery,
                     tokio::time::Instant::now(),
@@ -450,7 +458,7 @@ mod lane_tests {
         let mut visited = Vec::new();
         for _ in 0..4 {
             runtime
-                .recover_next_study(&position, &cancel)
+                .recover_next_study(&position, None, &cancel)
                 .await
                 .unwrap();
             visited.push(position.lock().await.clone().unwrap());
@@ -472,6 +480,155 @@ mod lane_tests {
                 "z-later-recovery"
             ]
         );
+    }
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn periodic_recovery_preserves_local_cancelled_owner_until_turn_release() {
+        use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
+        use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let store = runtime.canonical_store();
+        let revision = store
+            .edit("local-recovery", None, "source", &[])
+            .await
+            .unwrap();
+        let request = |key: &str| RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        let occurrence = NewOccurrence {
+            policy: PointPolicy {
+                key: OccurrenceKey(0),
+                dependencies: vec![],
+                start: StartPolicy::Fresh,
+                seed_need: SeedNeed::NotNeeded,
+                attempt_limit: 1,
+            },
+            descriptor: vec![42],
+            run: request("local-recovery-point"),
+        };
+        store
+            .create_study(
+                "local-recovery-study",
+                &request("local-recovery-parent"),
+                &[],
+                &[occurrence],
+                &|| false,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let key =
+            pse_operations::canonical_studies::point_key("local-recovery-study", OccurrenceKey(0));
+        let group = CandidateGroup::default();
+        let owner = group.acquire(&key).unwrap();
+        let scope = store.study_scope(&key).await.unwrap();
+        let claim = store
+            .claim_study_point(
+                &scope,
+                None,
+                "local-recovery-claim",
+                "owner",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        store.cancel_study("local-recovery-study").await.unwrap();
+        let position = tokio::sync::Mutex::new(None);
+        let cancel = crate::CancelSource::new();
+        let action = runtime
+            .recover_next_study(&position, Some(&group), &cancel)
+            .await
+            .unwrap();
+        assert!(!matches!(action, Some(Processed::Settled { .. })));
+        let before = store
+            .canonical_attempt(claim.fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!before.terminal && !before.closed);
+        let run = store
+            .canonical_run(claim.fence.run())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(run.current_generation, claim.fence.generation());
+        assert!(
+            store
+                .canonical_study_point(&key)
+                .await
+                .unwrap()
+                .unwrap()
+                .assigned
+        );
+        // A different worker has no local turn information. Cancellation still
+        // does not authorize it to fence the unexpired native owner.
+        let independent_group = CandidateGroup::default();
+        *position.lock().await = None;
+        let action = runtime
+            .recover_next_study(&position, Some(&independent_group), &cancel)
+            .await
+            .unwrap();
+        assert!(!matches!(action, Some(Processed::Settled { .. })));
+        assert!(
+            !store
+                .canonical_attempt(claim.fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .closed
+        );
+        assert_eq!(
+            store
+                .canonical_run(claim.fence.run())
+                .await
+                .unwrap()
+                .unwrap()
+                .current_generation,
+            claim.fence.generation()
+        );
+        // Expiry permits independent crash recovery, but this worker still knows
+        // its own native lane has not joined and must retain that exact turn.
+        pse_operations::testing::expire_acknowledged_attempt(store, &claim.fence)
+            .await
+            .unwrap();
+        *position.lock().await = None;
+        let action = runtime
+            .recover_next_study(&position, Some(&group), &cancel)
+            .await
+            .unwrap();
+        assert!(!matches!(action, Some(Processed::Settled { .. })));
+        assert!(
+            !store
+                .canonical_attempt(claim.fence.attempt())
+                .await
+                .unwrap()
+                .unwrap()
+                .closed
+        );
+        // The real worker drops this turn only after its issued native owner and
+        // finish/observation have joined. A departed owner then permits recovery.
+        drop(owner);
+        *position.lock().await = None;
+        assert!(
+            matches!(runtime.recover_next_study(&position, Some(&group), &cancel).await.unwrap(),
+            Some(Processed::Settled { point }) if point == key)
+        );
+        let terminal = store
+            .canonical_attempt(claim.fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(terminal.terminal);
+        assert_eq!(terminal.outcome.as_deref(), Some("cancelled"));
+        let point = store.canonical_study_point(&key).await.unwrap().unwrap();
+        assert!(point.settled && !point.assigned);
+        let facts = pse_operations::canonical_studies::point_facts(&point).unwrap();
+        assert!(!facts.native_started && !facts.scientific.usable);
     }
     #[tokio::test]
     async fn worker_refill_respects_total_action_limit() {
@@ -1086,8 +1243,19 @@ impl Runtime {
             }
             Err(error) => return Err(error.into()),
         }
-        if recovery && !cancel.token().is_cancelled() {
-            if let Some(action) = self.recover_next_study(recovery_position, cancel).await? {
+        let mut recovery_maintenance = None;
+        if recovery
+            && !cancel.token().is_cancelled()
+            && let Some(action) = self
+                .recover_next_study(recovery_position, group, cancel)
+                .await?
+        {
+            if matches!(action, Processed::Maintenance { .. }) {
+                // Bounded repair can leave notifications for discovery to
+                // advance. Returning here would repeatedly verify that same
+                // pending queue without ever dispatching an eligible point.
+                recovery_maintenance = Some(action);
+            } else {
                 return Ok((action, None));
             }
         }
@@ -1098,7 +1266,7 @@ impl Runtime {
             }
             let studies = operations.store().study_page(after.as_deref()).await?;
             if studies.is_empty() {
-                return Ok((Processed::Idle, None));
+                return Ok((recovery_maintenance.unwrap_or(Processed::Idle), None));
             }
             for study in studies {
                 after = Some(study.key.clone());
@@ -1361,6 +1529,7 @@ impl Runtime {
     async fn recover_next_study(
         &self,
         position: &tokio::sync::Mutex<Option<String>>,
+        group: Option<&CandidateGroup>,
         cancel: &crate::CancelSource,
     ) -> Result<Option<Processed>, WorkflowError> {
         let store = operations(self)?.store();
@@ -1385,6 +1554,16 @@ impl Runtime {
             if cancel.token().is_cancelled() {
                 break;
             }
+            // A local lane retains this turn through native drain and terminal
+            // observation. Cancellation closes new entry, but maintenance must
+            // not revoke that same owner's finish fence while it is draining.
+            let _turn = match group {
+                Some(group) => match group.acquire(&point.key) {
+                    Some(turn) => Some(turn),
+                    None => continue,
+                },
+                None => None,
+            };
             if self.recover_study_point(&point.key).await? {
                 return Ok(Some(Processed::Settled { point: point.key }));
             }
@@ -1462,10 +1641,10 @@ impl Runtime {
         .await;
         let mut close_failure = None;
         for lane in &mut owners {
-            if let Err(error) = lane.close().await {
-                if close_failure.is_none() {
-                    close_failure = Some(error);
-                }
+            if let Err(error) = lane.close().await
+                && close_failure.is_none()
+            {
+                close_failure = Some(error);
             }
         }
         if let Some(error) = close_failure {

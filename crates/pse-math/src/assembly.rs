@@ -90,6 +90,7 @@ pub struct CasePlan {
     structure: Arc<CaseStructure>,
     bodies: BTreeMap<ContentHash, Arc<PreparedBody>>,
     columns: Arc<Vec<SemanticId>>,
+    projection: Arc<crate::factorable::ProjectionTopology>,
     rows: Arc<BTreeMap<SemanticId, GlobalRow>>,
     row_bindings: Arc<BTreeMap<SemanticId, Vec<usize>>>,
     instances: Arc<Vec<Instance>>,
@@ -248,6 +249,11 @@ impl CasePlan {
         let mut components = vec![
             ("coordinate-universe", coordinate_id, coordinate_bytes),
             (
+                "projection-topology",
+                Arc::as_ptr(&self.projection) as usize,
+                self.projection.retained_bytes(),
+            ),
+            (
                 "structure",
                 Arc::as_ptr(&self.structure) as usize,
                 structure_bytes,
@@ -338,6 +344,7 @@ impl CasePlan {
         vec![
             Arc::as_ptr(&self.structure) as usize,
             Arc::as_ptr(&self.columns) as usize,
+            Arc::as_ptr(&self.projection) as usize,
             Arc::as_ptr(&self.rows) as usize,
             Arc::as_ptr(&self.instances) as usize,
             Arc::as_ptr(&self.jacobian) as usize,
@@ -632,11 +639,12 @@ impl CasePlan {
                         let shared = shared_supports.get(&shared_key).ok_or_else(|| {
                             MathError::Contract("missing selected support".into())
                         })?;
-                        supports[request] = Arc::new(
-                            shared
-                                .select_outputs(&demand.outputs, cancel)?
-                                .at_order(demand.order)?,
-                        );
+                        let support = if demand.outputs == all_outputs {
+                            shared.clone()
+                        } else {
+                            shared.select_outputs(&demand.outputs, cancel)?
+                        };
+                        supports[request] = Arc::new(support.at_order(demand.order)?);
                     }
                     request
                 } else {
@@ -686,6 +694,9 @@ impl CasePlan {
             }
         }
         Ok(Self {
+            projection: Arc::new(crate::factorable::ProjectionTopology::new(
+                &structure, &columns,
+            )?),
             row_bindings: Arc::new(row_bindings),
             structure,
             bodies,
@@ -1188,6 +1199,9 @@ impl CasePlan {
     pub fn columns(&self) -> &[SemanticId] {
         &self.columns
     }
+    pub(crate) fn projection_topology(&self) -> &crate::factorable::ProjectionTopology {
+        &self.projection
+    }
     /// Compiled derivative ceiling.
     pub fn available_order(&self) -> DerivativeOrder {
         self.available
@@ -1350,13 +1364,16 @@ impl CasePlan {
         if programs.len() != self.requests.len() {
             return Err(MathError::Contract("artifact demand count".into()));
         }
-        for (request, program) in self.requests.iter().zip(&programs) {
+        for (index, (request, program)) in self.requests.iter().zip(&programs).enumerate() {
             let support = program.prepared_support();
             if support.outputs() != request.outputs
                 || support.coordinates() != request.coordinates
                 || program.compiled_order() != request.order
                 || program.is_directional() != request.directional
-                || !support.matches_body(self.bodies[&request.body].as_ref())
+                // Cached compact programs can outlive their weak original body.
+                // Compare the complete selected mathematics admitted by this plan;
+                // its original bodies remain authoritative for independent checks.
+                || support != self.supports[index].as_ref()
             {
                 return Err(MathError::Contract(
                     "artifact does not match selected admitted demand".into(),
@@ -1423,6 +1440,20 @@ impl CasePlan {
                         .len()
                         .checked_mul(size_of::<f64>() + size_of::<u64>())?,
                 )
+            })
+            .and_then(|bytes| {
+                self.instances.iter().try_fold(bytes, |bytes, instance| {
+                    if instance.groups[Demand::Directional].is_some() {
+                        bytes.checked_add(
+                            instance
+                                .coordinates
+                                .len()
+                                .checked_mul(size_of::<f64>() + size_of::<u64>())?,
+                        )
+                    } else {
+                        Some(bytes)
+                    }
+                })
             })
             .and_then(|bytes| bytes.checked_add(fixed.len().checked_mul(size_of::<f64>())?))
             .ok_or(MathError::Limit("case input buffers"))?;
@@ -1633,6 +1664,25 @@ pub struct BoundValues {
     fixed: Vec<f64>,
 }
 impl BoundValues {
+    /// Refill this operation's fixed frame through a precompiled dense read map.
+    /// Validation completes before any retained input changes; repeated source slots
+    /// remain legal aliases of distinct declared inputs.
+    pub fn refill_mapped(&mut self, source: &[f64], reads: &[usize]) -> Result<(), MathError> {
+        if reads.len() != self.fixed.len() {
+            return Err(MathError::Contract("compact read-map extent".into()));
+        }
+        for (id, &read) in self.assembly.fixed.iter().zip(reads) {
+            let value = source
+                .get(read)
+                .copied()
+                .ok_or_else(|| MathError::Contract("compact read-map source".into()))?;
+            self.assembly.structure.validate_scalar(*id, value)?;
+        }
+        for (value, &read) in self.fixed.iter_mut().zip(reads) {
+            *value = source[read];
+        }
+        Ok(())
+    }
     /// Exact semantic inputs retained in this operation's compact fixed frame.
     pub fn input_ids(&self) -> &[SemanticId] {
         &self.assembly.fixed
@@ -1797,7 +1847,13 @@ impl CaseAssembly {
                                         0
                                     }
                             ],
+                            direction: if demand == Demand::Directional {
+                                vec![0.; i.coordinates.len()]
+                            } else {
+                                Vec::new()
+                            },
                             cache: None,
+                            result: TrialEvaluation::default(),
                         }
                     })
                 })
@@ -1864,7 +1920,9 @@ impl CaseAssembly {
 struct GroupCache {
     inputs: Vec<f64>,
     bits: Vec<u64>,
-    cache: Option<(DerivativeOrder, TrialEvaluation)>,
+    direction: Vec<f64>,
+    cache: Option<DerivativeOrder>,
+    result: TrialEvaluation,
 }
 /// Isolated attempt scratch. Failed evaluation clears the failed cache and never publishes output.
 #[derive(Debug)]
@@ -1912,8 +1970,10 @@ impl CaseScratch {
         for groups in &mut self.groups {
             for group in groups.values_mut().flatten() {
                 group.cache = None;
+                group.result.clear();
                 group.inputs.fill(f64::NAN);
                 group.bits.fill(0);
+                group.direction.fill(f64::NAN);
             }
         }
         for worker in &mut self.workers {
@@ -1988,6 +2048,7 @@ impl CaseWorker {
         for groups in &mut self.groups {
             for group in groups.values_mut().flatten() {
                 group.cache = None;
+                group.result.clear();
             }
         }
     }
@@ -2029,9 +2090,10 @@ impl CaseWorker {
                 .ok_or_else(|| MathError::Contract("missing compiled bindings".into()))?;
             if let Err(cause) = values.fill(bindings, &mut worker.inputs) {
                 worker.cache = None;
+                worker.result.clear();
                 return Err(context(cause));
             }
-            if worker.cache.as_ref().is_some_and(|(o, _)| *o >= order)
+            if worker.cache.is_some_and(|o| o >= order)
                 && worker
                     .bits
                     .iter()
@@ -2044,11 +2106,17 @@ impl CaseWorker {
             for (bits, value) in worker.bits.iter_mut().zip(&worker.inputs) {
                 *bits = value.to_bits();
             }
-            let result = self.workers[group.request]
-                .evaluate_trial(&worker.inputs, order, &mut self.providers, &self.cancel)
+            self.workers[group.request]
+                .evaluate_trial_into(
+                    &worker.inputs,
+                    order,
+                    &mut self.providers,
+                    &self.cancel,
+                    &mut worker.result,
+                )
                 .map_err(context)?;
             self.scope.check().map_err(crate::error::scope_error)?;
-            worker.cache = Some((order, result));
+            worker.cache = Some(order);
         }
         self.scope.check().map_err(crate::error::scope_error)?;
         Ok(())
@@ -2068,9 +2136,9 @@ impl CaseWorker {
             .map_err(|_| MathError::Contract("missing demand output".into()))?;
         let result = self.groups[instance][demand]
             .as_ref()
-            .and_then(|g| g.cache.as_ref())
+            .filter(|g| g.cache.is_some())
             .ok_or_else(|| MathError::Contract("unevaluated demand".into()))?;
-        Ok((&result.1, row))
+        Ok((&result.result, row))
     }
     /// Read evidence from the exact last demanded programs; this never evaluates an
     /// inactive branch or an unrelated output just to create observations.
@@ -2078,7 +2146,8 @@ impl CaseWorker {
         let mut observations = Vec::new();
         for (instance, groups) in self.groups.iter().enumerate() {
             for group in groups.values().flatten() {
-                if let Some((_, evaluation)) = &group.cache {
+                if group.cache.is_some() {
+                    let evaluation = &group.result;
                     for observation in evaluation
                         .applicability
                         .iter()
@@ -2301,7 +2370,7 @@ impl CaseWorker {
                 .as_ref()
                 .ok_or_else(|| MathError::Contract("missing directional bindings".into()))?;
             values.fill(bindings, &mut cache.inputs).map_err(context)?;
-            let mut formal_direction = vec![0.0; local.coordinates.len()];
+            let formal_direction = &mut cache.direction;
             for (axis, (&formal, &column)) in
                 local.coordinates.iter().zip(&local.columns).enumerate()
             {
@@ -2313,32 +2382,32 @@ impl CaseWorker {
                 && cache
                     .bits
                     .iter()
-                    .zip(cache.inputs.iter().chain(&formal_direction))
+                    .zip(cache.inputs.iter().chain(formal_direction.iter()))
                     .all(|(bits, value)| *bits == value.to_bits());
             if !same {
                 cache.cache = None;
                 for (bits, value) in cache
                     .bits
                     .iter_mut()
-                    .zip(cache.inputs.iter().chain(&formal_direction))
+                    .zip(cache.inputs.iter().chain(formal_direction.iter()))
                 {
                     *bits = value.to_bits();
                 }
-                let evaluation = self.workers[group.request]
-                    .evaluate_directional_trial(
+                self.workers[group.request]
+                    .evaluate_directional_trial_into(
                         &cache.inputs,
-                        &formal_direction,
+                        formal_direction,
                         &mut self.providers,
                         &self.cancel,
+                        &mut cache.result,
                     )
                     .map_err(context)?;
-                cache.cache = Some((DerivativeOrder::First, evaluation));
+                cache.cache = Some(DerivativeOrder::First);
             }
-            let evaluation = &cache
-                .cache
-                .as_ref()
-                .ok_or_else(|| MathError::Contract("unevaluated directional group".into()))?
-                .1;
+            if cache.cache.is_none() {
+                return Err(MathError::Contract("unevaluated directional group".into()));
+            }
+            let evaluation = &cache.result;
             for contribution in &binding.contributions {
                 if let Target::Row(row) = contribution.target {
                     let local_row = group

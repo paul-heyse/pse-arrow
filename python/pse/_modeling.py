@@ -747,7 +747,8 @@ class ModelingPackage:
         """Reload complete ordered document inventories against this exact parent.
 
         The returned revision keeps this problem and its admitted physical context.
-        Omitted documents are removed; unrelated fits supplied through IR stay inherited.
+        Omitted documents are removed; unrelated fits supplied through IR
+        stay inherited.
         """
         return ModelingPackage(
             self._handle.reload_from_parent([dict(bundle) for bundle in documents])

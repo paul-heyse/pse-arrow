@@ -4,8 +4,11 @@
 
 import asyncio
 import contextlib
+import dis
 import gc
 import json
+import sys
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -65,6 +68,88 @@ def identity(n: int) -> SemanticId:
 def declaration(n: int) -> DeclarationId:
     """The identity an authored `@id` gives a case or fixture declaration."""
     return DeclarationId(identity(n))
+
+
+@pytest.mark.component
+def test_runtime_startup_allows_python_thread_progress_inside_native_constructor(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert sys.implementation.name == "cpython"
+    assert sys.version_info[:3] == (
+        3,
+        14,
+        7,
+    ), "the constructor frame witness requires the pinned CPython 3.14.7 interpreter"
+    # Accept progress only while the public wrapper is executing its actual
+    # native constructor call. An event set before calling Runtime, or thread
+    # activity observed only after return, would not establish this boundary.
+    # A warmed CALL_KW_NON_PY can hand off the GIL after Vectorcall returns while
+    # f_lasti still names that call. A fresh code object retains the same globals,
+    # defaults and behavior but resets specialization. In the pinned interpreter,
+    # generic CALL_KW has no post-return periodic check; require it to stay generic.
+    constructor = pse.Runtime.__init__.__code__.replace()
+    monkeypatch.setattr(pse.Runtime.__init__, "__code__", constructor)
+    instructions = iter(dis.get_instructions(constructor, adaptive=True))
+    native_load = next(
+        instruction
+        for instruction in instructions
+        if instruction.opname.startswith("LOAD_GLOBAL")
+        and instruction.argval == "_NativeRuntime"
+    )
+    native_call = next(
+        instruction
+        for instruction in instructions
+        if instruction.opname.startswith("CALL")
+    )
+    assert native_call.offset > native_load.offset
+    assert native_call.opname == "CALL_KW"
+    caller = threading.get_ident()
+    ready = threading.Event()
+    stop = threading.Event()
+    progress: list[tuple[int, int]] = []
+
+    def observe_constructor() -> None:
+        ready.set()
+        for _ in range(6000):
+            if stop.wait(0.001):
+                return
+            frame = sys._current_frames().get(caller)
+            while frame is not None:
+                if frame.f_code is constructor and frame.f_lasti == native_call.offset:
+                    # This work and its witness execute in Python while the caller
+                    # remains inside the native call, rather than in a C-only peer.
+                    progress.append(
+                        (threading.get_ident(), sum(value for value in range(1024)))
+                    )
+                    return
+                frame = frame.f_back
+
+    observer = threading.Thread(target=observe_constructor)
+    observer.start()
+    try:
+        assert ready.wait(5), "the observer must be ready before Runtime startup"
+        runtime = canonical_substrate.runtime(inspection_settings)
+        assert runtime.durable
+    finally:
+        stop.set()
+        observer.join(5)
+    assert not observer.is_alive()
+    completed_call = next(
+        instruction
+        for instruction in dis.get_instructions(constructor, adaptive=True)
+        if instruction.offset == native_call.offset
+    )
+    assert completed_call.opname == "CALL_KW", (
+        "a specialized native call cannot establish the entered-constructor witness"
+    )
+    assert progress == [(observer.ident, 523776)]
+    assert observer.ident != caller
+    # The constructor also detaches for deployment acquisition and connection.
+    # This control proves concurrency at that real boundary, not the particular
+    # hashing phase. Source places startup observation in blocking(); its native
+    # cancellation/charge controls independently establish settlement ownership.
 
 
 @pytest.mark.integration
@@ -1084,22 +1169,44 @@ def test_parsed_reload_noop_accepts_text_and_bytes_on_exact_package_handle(
 def test_parsed_reload_complete_order_and_removal_match_independent_fresh_ingress(
     runtime: pse.Runtime, physical: pse.PhysicalContext
 ) -> None:
+    def inventory(
+        current: pse.ModelingPackage,
+    ) -> dict[DeclarationId, a.AuthoredModelingDeclarationsRow]:
+        rows = current.declarations()
+        keyed = {row.declaration_id: row for row in rows}
+        assert len(keyed) == len(rows), "declaration identities must be unique"
+        return keyed
+
     sources = package_documents("package reload {param a:Scalar=1;}")
     package = runtime.modeling_from_documents([sources], physical)
     original = package.declarations()
+    original_source = package.knowledge().source_revision
     expanded = dict(sources)
     expanded["models/a.pse"] = "package earlier {param b:Scalar=2;}"
     changed = package.reload_from_parent([expanded])
     fresh = runtime.modeling_from_documents([expanded], physical)
     assert changed.canonical_problem == package.canonical_problem
     assert changed.canonical_revision != package.canonical_revision
-    assert changed.declarations() == fresh.declarations()
-    assert changed.declarations()[0].name == "earlier"
+    # Public inventories follow membership keys, not parsed document order.
+    # Compare every authored field by identity; V4 separately witnesses the exact
+    # ordered source frame, document content and admitted physical context.
+    assert inventory(changed) == inventory(fresh)
+    changed_source = changed.knowledge().source_revision
+    assert changed_source == fresh.knowledge().source_revision
+    assert changed_source != original_source
+    assert any(
+        row.name == "earlier" and row.parent_id is None
+        for row in changed.declarations()
+    )
     assert package.declarations() == original
+    assert package.knowledge().source_revision == original_source
     restored = changed.reload_from_parent([sources])
     assert restored.canonical_problem == package.canonical_problem
-    assert restored.declarations() == original
+    assert inventory(restored) == inventory(package)
+    assert restored.knowledge().source_revision == original_source
     assert all(row.name != "earlier" for row in restored.declarations())
+    assert inventory(changed) == inventory(fresh), "expanded history remains immutable"
+    assert changed.knowledge().source_revision == changed_source
 
 
 @pytest.mark.component

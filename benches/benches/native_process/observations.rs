@@ -8,7 +8,6 @@ use serde_json::{Value, json};
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, BTreeSet},
-    sync::Arc,
 };
 
 #[derive(Default)]
@@ -95,11 +94,11 @@ impl Observations {
         &mut self,
         result: &ModelingResult,
         step: usize,
-        pool: Arc<dyn pse_columnar::MemoryPool>,
+        service: &pse_runtime::math::MathService,
     ) {
         self.results = self.results.checked_add(1).unwrap();
         if let Some(trace) = &result.strategy {
-            self.strategy(trace, result.run_id, step, pool);
+            self.strategy(trace, result.run_id, step, service);
         } else {
             self.unobserved_strategy();
         }
@@ -112,11 +111,11 @@ impl Observations {
         trace: &pse_runtime::math::solves::StrategyTrace,
         run: pse_model::generated::identities::RunId,
         step: usize,
-        pool: Arc<dyn pse_columnar::MemoryPool>,
+        service: &pse_runtime::math::MathService,
     ) {
         self.rows(
             trace
-                .rows(run, step, pool, 0..trace.event_count())
+                .rows(run, step, service, 0..trace.event_count())
                 .unwrap()
                 .map(Result::unwrap),
         );
@@ -191,17 +190,17 @@ impl Observations {
     pub(super) fn run(
         &mut self,
         result: &pse_runtime::workflow::RunResult,
-        pool: Arc<dyn pse_columnar::MemoryPool>,
+        service: &pse_runtime::math::MathService,
     ) {
         match result.report().unwrap() {
             pse_runtime::workflow::RunReport::Modeling(reports) => {
                 for (step, report) in reports.iter().enumerate() {
-                    self.modeling(report, step, pool.clone());
+                    self.modeling(report, step, service);
                 }
             }
             pse_runtime::workflow::RunReport::Fit(report) => {
                 if let Some(trace) = &report.strategy {
-                    self.strategy(trace, result.run_id, 0, pool);
+                    self.strategy(trace, result.run_id, 0, service);
                 } else {
                     self.unobserved_strategy();
                 }

@@ -274,9 +274,11 @@ impl MathService {
                     )?)
                 })
                 .ok_or(MathRuntimeError::Limit("inner analysis extent"))?;
+        let mut opaque_analysis = false;
         for item in &inner {
             let Some(bound) = item.admitted.requirements_allocation_bound()? else {
                 analysis = self.policy.worker_bytes;
+                opaque_analysis = true;
                 break;
             };
             analysis = analysis
@@ -294,8 +296,28 @@ impl MathService {
             #[cfg(not(feature = "solver-kinsol"))]
             let solver: Arc<dyn pse_math::implicit::InnerSolver> = Arc::new(MissingInnerSolver);
             #[cfg(feature = "solver-root-isolation")]
-            let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> =
-                Some(Arc::new(pse_backend_native::root_isolation::Ibex));
+            let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> = Some({
+                let service = Arc::downgrade(self);
+                Arc::new(
+                    pse_backend_native::root_isolation::Ibex::with_transport_allocator(
+                        move |bytes| {
+                            let service = service.upgrade().ok_or_else(|| {
+                                pse_math::MathError::Contract(
+                                    "proof transport allocation owner expired".into(),
+                                )
+                            })?;
+                            service
+                                .reserve("math:proof-transport", bytes)
+                                .map(|owner| -> Arc<dyn pse_math::AllocationOwner> { owner })
+                                .map_err(|error| {
+                                    pse_math::MathError::Contract(format!(
+                                        "proof transport allocation: {error}"
+                                    ))
+                                })
+                        },
+                    ),
+                )
+            });
             #[cfg(not(feature = "solver-root-isolation"))]
             let verifier: Option<Arc<dyn pse_math::implicit::SelectionVerifier>> = None;
             // Capability and dependency analysis can construct affine/accelerator
@@ -306,9 +328,13 @@ impl MathService {
                 (inner, solver, verifier, accelerators, provider_demands, demand),
                 _analysis_owner,
             ) = self
-                .job_retained_scoped(
+                .job_retained_construction(
                     1,
-                    analysis,
+                    if opaque_analysis {
+                        super::jobs::ConstructionEstimate::Opaque(analysis)
+                    } else {
+                        super::jobs::ConstructionEstimate::Known(analysis)
+                    },
                     control.clone(),
                     driver.deadline(),
                     move |flag| {
@@ -342,6 +368,7 @@ impl MathService {
                         }
                         resolved.reverse();
                         let mut demand = 0usize;
+                        let mut opaque = false;
                         for (item, requirements) in inner.iter().zip(resolved) {
                             let Some(construction) =
                                 item.admitted.reconstruction_allocation_bound(
@@ -352,6 +379,7 @@ impl MathService {
                             else {
                                 // Unknown control/provider populations retain conservative admission.
                                 demand = worker_bytes;
+                                opaque = true;
                                 break;
                             };
                             demand = demand
@@ -376,7 +404,11 @@ impl MathService {
                                 verifier,
                                 accelerators,
                                 provider_demands,
-                                demand,
+                                if opaque {
+                                    super::jobs::ConstructionEstimate::Opaque(demand)
+                                } else {
+                                    super::jobs::ConstructionEstimate::Known(demand)
+                                },
                             ),
                             retained,
                         ))
@@ -385,51 +417,58 @@ impl MathService {
                 .await?;
             // Opaque native Rational/optimizer construction retains the separate
             // foreign allowance; the known payload follows actual scientific demand.
-            self.job_retained_scoped(1, demand, control.clone(), driver.deadline(), move |flag| {
-                let mut factories = Vec::new();
-                let mut retained = 0usize;
-                for item in inner {
-                    let source_key = item.admitted.descriptor.spec().key();
-                    let requested_output = provider_demands
-                        .get(&source_key)
-                        .copied()
-                        .unwrap_or(pse_kernels::DerivativeOrder::Value);
-                    #[cfg(not(feature = "solver-kinsol"))]
-                    if item.admitted.algorithm == pse_compiler::workspace::ImplicitAlgorithm::Native
-                    {
-                        return Err(MathRuntimeError::Infrastructure(
-                            "nested realization requires the KINSOL capability".into(),
-                        ));
+            self.job_retained_construction(
+                1,
+                demand,
+                control.clone(),
+                driver.deadline(),
+                move |flag| {
+                    let mut factories = Vec::new();
+                    let mut retained = 0usize;
+                    for item in inner {
+                        let source_key = item.admitted.descriptor.spec().key();
+                        let requested_output = provider_demands
+                            .get(&source_key)
+                            .copied()
+                            .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                        #[cfg(not(feature = "solver-kinsol"))]
+                        if item.admitted.algorithm
+                            == pse_compiler::workspace::ImplicitAlgorithm::Native
+                        {
+                            return Err(MathRuntimeError::Infrastructure(
+                                "nested realization requires the KINSOL capability".into(),
+                            ));
+                        }
+                        let factory = item.admitted.reconstruction_factory(
+                            item.configurations,
+                            pse_compiler::workspace::ImplicitCapabilities {
+                                solver: solver.clone(),
+                                verifier: verifier.clone(),
+                                accelerators: &accelerators,
+                            },
+                            requested_output,
+                            flag.clone(),
+                            profile.evaluation,
+                        )?;
+                        retained = retained
+                            .checked_add(factory.retained_bytes()?)
+                            .ok_or(MathRuntimeError::Limit("inner program extent"))?;
+                        let dependencies = item
+                            .admitted
+                            .bodies()
+                            .flat_map(|b| b.math().providers())
+                            .map(pse_kernels::ProviderSpec::key)
+                            .collect::<Vec<_>>();
+                        let descriptor = item
+                            .admitted
+                            .descriptor
+                            .restrict_order(requested_output)
+                            .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                        factories.push((source_key, descriptor, factory, dependencies));
                     }
-                    let factory = item.admitted.reconstruction_factory(
-                        item.configurations,
-                        pse_compiler::workspace::ImplicitCapabilities {
-                            solver: solver.clone(),
-                            verifier: verifier.clone(),
-                            accelerators: &accelerators,
-                        },
-                        requested_output,
-                        flag.clone(),
-                        profile.evaluation,
-                    )?;
-                    retained = retained
-                        .checked_add(factory.retained_bytes()?)
-                        .ok_or(MathRuntimeError::Limit("inner program extent"))?;
-                    let dependencies = item
-                        .admitted
-                        .bodies()
-                        .flat_map(|b| b.math().providers())
-                        .map(pse_kernels::ProviderSpec::key)
-                        .collect::<Vec<_>>();
-                    let descriptor = item
-                        .admitted
-                        .descriptor
-                        .restrict_order(requested_output)
-                        .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
-                    factories.push((source_key, descriptor, factory, dependencies));
-                }
-                Ok((factories, retained))
-            })
+                    Ok((factories, retained))
+                },
+            )
             .await
         };
         tokio::pin!(operation);
@@ -780,14 +819,18 @@ impl MathService {
         };
         drop(lease);
         let compiled = prepared.prepared.clone();
-        let demand = compiled
-            .rebind_allocation_bound(&values)?
-            .unwrap_or(self.policy.worker_bytes);
+        let construction = super::jobs::ConstructionEstimate::from_bound(
+            compiled.rebind_allocation_bound(&values)?,
+            self.policy.worker_bytes,
+        );
+        let demand = construction.bytes();
         if demand > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("rebind construction capacity"));
         }
         let control = FlightCancellation::default();
-        let entry = self.admit_entry(1, demand, &control, deadline, Some(cutoff))?;
+        let entry = self
+            .admit_entry(1, demand, &control, deadline, Some(cutoff))?
+            .with_construction(construction);
         let operation =
             self.job_retained_on_entry(1, demand, control.clone(), deadline, entry, move |flag| {
                 let rebound = compiled.rebind(&values, &flag)?;

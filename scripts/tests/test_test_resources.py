@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from scripts import surreal_server
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Callable, Generator, Mapping, Sequence
 from unittest.mock import patch
 
 from scripts import test_resources as resources
@@ -154,7 +154,13 @@ class TestResourceTests(unittest.TestCase):
         registration = resources.resource_store.FileStore.register
 
         def gated(
-            store: resources.resource_store.FileStore, *args: object, **options: object
+            store: resources.resource_store.FileStore,
+            identity: Sequence[str],
+            facts: dict,
+            *,
+            invocation: str | None,
+            declaration: Mapping[str, object] | None = None,
+            deadline: float | None = None,
         ) -> str:
             descriptor = os.open(self.state / ".supervisor.lock", os.O_RDWR)
             try:
@@ -162,7 +168,14 @@ class TestResourceTests(unittest.TestCase):
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             finally:
                 os.close(descriptor)
-            return registration(store, *args, **options)
+            return registration(
+                store,
+                identity,
+                facts,
+                invocation=invocation,
+                declaration=declaration,
+                deadline=deadline,
+            )
 
         with (
             patch.object(resources.resource_store.FileStore, "register", gated),
@@ -218,6 +231,74 @@ class TestResourceTests(unittest.TestCase):
         )
         return resource
 
+    def test_reclaim_one_removal_clock_covers_slow_effect_and_metadata_settlement(
+        self,
+    ) -> None:
+        resource = self.passed_resource()
+        now = [100.0]
+
+        def remove(
+            record: resources.ResourceRecord, *, deadline: float | None = None
+        ) -> None:
+            self.assertEqual(record["cleanup"], "removing")
+            self.assertEqual(
+                deadline, 190.0, "retain the existing finite removal allowance"
+            )
+            assert deadline is not None
+            now[0] += 6.0
+            self.assertEqual(resources.host.remaining(deadline, 90), 84.0)
+
+        with (
+            patch.object(resources.time, "monotonic", side_effect=lambda: now[0]),
+            patch.object(
+                resources, "resource_update", wraps=resources.resource_update
+            ) as updates,
+            patch.object(resources, "remove_owned", side_effect=remove) as removal,
+        ):
+            self.assertEqual(resources.reclaim(resource), "removed")
+            removal.assert_called_once()
+            self.assertEqual(
+                [call.kwargs["deadline"] for call in updates.call_args_list],
+                [190.0, 190.0],
+                "claim and final settlement consume the same effect clock",
+            )
+        entry = resources.storage().lookup(resource)
+        self.assertEqual(entry.phase, "disposed")
+        self.assertEqual(resources.reclaim(resource), "removed")
+
+    def test_reclaim_preserves_explicit_deadline_through_effect_and_settlement(
+        self,
+    ) -> None:
+        resource = self.passed_resource()
+        now = [100.0]
+        original_deadline = 105.0
+
+        def remove(
+            record: resources.ResourceRecord, *, deadline: float | None = None
+        ) -> None:
+            self.assertEqual(record["cleanup"], "removing")
+            self.assertIs(deadline, original_deadline)
+            now[0] += 6.0
+
+        with (
+            patch.object(resources.time, "monotonic", side_effect=lambda: now[0]),
+            patch.object(
+                resources, "resource_update", wraps=resources.resource_update
+            ) as updates,
+            patch.object(resources, "remove_owned", side_effect=remove) as removal,
+            self.assertRaisesRegex(resources.host.AdmissionError, "deadline exhausted"),
+        ):
+            resources.reclaim(resource, deadline=original_deadline)
+        removal.assert_called_once()
+        self.assertEqual(len(updates.call_args_list), 2)
+        for call in updates.call_args_list:
+            self.assertIs(call.kwargs["deadline"], original_deadline)
+        record = resources.resource_status(resource)
+        self.assertEqual(record["cleanup"], "removing")
+        self.assertTrue(
+            record["pin"], "an expired original clock cannot acknowledge disposal"
+        )
+
     def test_cleanup_claim_refuses_lifecycle_without_marking_removing(self) -> None:
 
         resource = self.passed_resource()
@@ -258,9 +339,14 @@ class TestResourceTests(unittest.TestCase):
 
         @contextlib.contextmanager
         def reference_arrives(
-            state: Path, **options: object
+            state: Path,
+            *,
+            deadline: float | None = None,
+            wait_for_lifecycle: bool = True,
         ) -> Generator[None, None, None]:
-            with admission(state, **options):
+            with admission(
+                state, deadline=deadline, wait_for_lifecycle=wait_for_lifecycle
+            ):
                 resources.retain_reference(resource, "new-consumer", "f" * 64)
                 yield
 
@@ -282,7 +368,10 @@ class TestResourceTests(unittest.TestCase):
 
         resource = self.passed_resource()
 
-        def remove(record: resources.ResourceRecord) -> None:
+        def remove(
+            record: resources.ResourceRecord, *, deadline: float | None = None
+        ) -> None:
+            self.assertIsNotNone(deadline)
             self.assertTrue(record["drained"])
             self.assertEqual(resources.resource_status(resource)["cleanup"], "removing")
             self.assertTrue(resources.borrower_alive(record["cleaner"]))
@@ -498,11 +587,13 @@ class TestResourceTests(unittest.TestCase):
             resources.resource_status(resource)["creation_borrower"], before
         )
         self.assertEqual(resources.reclaim(resource), "fixture borrowers not drained")
-        with patch.object(resources, "borrower_alive", return_value=False):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(resources, "borrower_alive", return_value=False),
+            self.assertRaisesRegex(
                 surreal_server.SupervisorError, "accepted fixture creation"
-            ):
-                surreal_server.require_borrowers_drained(self.state)
+            ),
+        ):
+            surreal_server.require_borrowers_drained(self.state)
         with self.assertRaisesRegex(resources.ResourceError, "frozen"):
             resources.register(
                 {
@@ -576,7 +667,7 @@ class TestResourceTests(unittest.TestCase):
                 "test": "test_module.py::test_assert_after_exit",
             }
         )
-        saved = resources.resource_store.FileStore._save
+        saved = resources.resource_store.FileStore._save  # noqa: SLF001 -- inject projection publication failure
         projected = []
 
         def fail_second(
@@ -589,15 +680,17 @@ class TestResourceTests(unittest.TestCase):
                 projected.append(entry.resource)
             saved(store, entry)
 
-        with patch.object(resources.resource_store.FileStore, "_save", new=fail_second):
-            with self.assertRaisesRegex(OSError, "projection interrupted"):
-                resources.finalize(
-                    self.invocation,
-                    {"test_module.py::test_assert_after_exit": "pass"},
-                    complete=True,
-                    terminal_owner="runner",
-                    terminal={"workload_exit": 0},
-                )
+        with (
+            patch.object(resources.resource_store.FileStore, "_save", new=fail_second),
+            self.assertRaisesRegex(OSError, "projection interrupted"),
+        ):
+            resources.finalize(
+                self.invocation,
+                {"test_module.py::test_assert_after_exit": "pass"},
+                complete=True,
+                terminal_owner="runner",
+                terminal={"workload_exit": 0},
+            )
         self.assertEqual(len(projected), 1)
         resources.pin(projected[0], True)
         resources.resume_projection(self.invocation, terminal_owner="runner")
@@ -614,23 +707,281 @@ class TestResourceTests(unittest.TestCase):
                 terminal={"workload_exit": 1},
             )
 
+    def projection_members(self, count: int) -> tuple[Path, list[str]]:
+        path = resources.invocation(
+            "python",
+            [{"name": f"projection.py::point_{index}"} for index in range(count)],
+        )
+        with patch.dict(os.environ, {resources.MARKER: str(path)}):
+            members = [
+                resources.register(
+                    {
+                        "state": str(self.state),
+                        "database": f"canonical_test_projection_{index}_{path.stem}",
+                        "test": f"projection.py::point_{index}",
+                    }
+                )
+                for index in range(count)
+            ]
+        return path, members
+
+    def test_finite_projection_operations_preserve_mixed_retention_beyond_one_clock(
+        self,
+    ) -> None:
+        path, members = self.projection_members(8)
+        outcomes = {
+            f"projection.py::point_{index}": ("pass", "failure", "incomplete")[
+                index % 3
+            ]
+            for index in range(len(members))
+        }
+        resources.record_drain(members[0])
+        resources.record_drain(members[6])
+        resources.pin(members[3], True)
+        now = [100.0]
+        saved = resources.resource_store.FileStore._save  # noqa: SLF001 -- observe exact durable projection work
+
+        def save(
+            store: resources.resource_store.FileStore,
+            entry: resources.resource_store.Entry,
+        ) -> None:
+            saved(store, entry)
+            now[0] += 2
+
+        with (
+            resources.borrow(members[6]) as borrower,
+            patch.object(
+                resources.resource_store.time, "monotonic", side_effect=lambda: now[0]
+            ),
+            patch.object(resources.resource_store.FileStore, "_save", new=save),
+        ):
+            eligible = resources.finalize(
+                path, outcomes, complete=True, terminal_owner="runner"
+            )
+            self.assertGreater(now[0] - 100, 5)
+            self.assertEqual(set(eligible), {members[0], members[6]})
+            for index, resource in enumerate(members):
+                record = resources.resource_status(resource)
+                self.assertEqual(
+                    record["disposition"], outcomes[f"projection.py::point_{index}"]
+                )
+                self.assertEqual(record["pin"], index % 3 != 0 or index == 3)
+                if index not in {0, 6}:
+                    self.assertIn("creation_borrower", record)
+                    self.assertFalse(record["drained"])
+            self.assertIn(borrower, resources.resource_status(members[6])["borrows"])
+            with patch.object(resources, "remove_owned") as remove:
+                self.assertEqual(
+                    resources.reclaim(members[6]),
+                    "protected reference or active borrow",
+                )
+                remove.assert_not_called()
+        state = resources.resource_store.read(
+            resources.storage().path("invocation-state", path.stem)
+        )
+        self.assertEqual(state["projection"], "complete")
+        self.assertEqual(state["terminal"]["outcomes"], outcomes)
+
+    def test_resume_settles_long_completed_prefix_without_replacing_it(self) -> None:
+        path, members = self.projection_members(14)
+        saved = resources.resource_store.FileStore._save  # noqa: SLF001 -- interrupt exact projection publication
+        last = max(members)
+
+        def fail_last(
+            store: resources.resource_store.FileStore,
+            entry: resources.resource_store.Entry,
+        ) -> None:
+            if entry.resource == last:
+                raise OSError("last projection interrupted")
+            saved(store, entry)
+
+        with (
+            patch.object(resources.resource_store.FileStore, "_save", new=fail_last),
+            self.assertRaisesRegex(OSError, "last projection interrupted"),
+        ):
+            resources.finalize(
+                path,
+                {
+                    f"projection.py::point_{index}": "pass"
+                    for index in range(len(members))
+                },
+                complete=True,
+                terminal_owner="runner",
+            )
+        prefix = [resource for resource in members if resource != last]
+        resources.pin(prefix[0], True)
+        store = resources.storage()
+        before = {
+            resource: (
+                store.path("resources", resource).stat().st_ino,
+                store.path("resources", resource).stat().st_mtime_ns,
+            )
+            for resource in prefix
+        }
+        settled = resources.resource_store.FileStore._settle_unchanged  # noqa: SLF001 -- observe resumed durability settlement
+        now = [100.0]
+
+        def settle(
+            selected: resources.resource_store.FileStore,
+            entry: resources.resource_store.Entry,
+            deadline: float,
+        ) -> bool:
+            result = settled(selected, entry, deadline)
+            now[0] += 0.6
+            return result
+
+        with (
+            patch.object(
+                resources.resource_store.time, "monotonic", side_effect=lambda: now[0]
+            ),
+            patch.object(
+                resources.resource_store.FileStore, "_settle_unchanged", new=settle
+            ),
+            patch.object(
+                resources.resource_store.FileStore,
+                "_save",
+                autospec=True,
+                side_effect=saved,
+            ) as writes,
+        ):
+            resources.resume_projection(path, terminal_owner="runner")
+        self.assertGreater(now[0] - 100, 5)
+        self.assertEqual(
+            [call.args[1].resource for call in writes.call_args_list], [last]
+        )
+        for resource in prefix:
+            stat = store.path("resources", resource).stat()
+            self.assertEqual((stat.st_ino, stat.st_mtime_ns), before[resource])
+        self.assertTrue(resources.resource_status(prefix[0])["pin"])
+        self.assertEqual(resources.resource_status(last)["disposition"], "pass")
+
+    def test_projection_keeps_explicit_and_newly_observed_deadlines(self) -> None:
+        for dynamic in (False, True):
+            with self.subTest(dynamic=dynamic):
+                self.assert_projection_deadline_case(dynamic)
+
+    def assert_projection_deadline_case(self, dynamic: bool) -> None:
+        path, members = self.projection_members(5)
+        now = [100.0]
+        observed: list[float | None] = [None]
+        saved = resources.resource_store.FileStore._save  # noqa: SLF001 -- account for controlled projection work
+
+        def save(
+            store: resources.resource_store.FileStore,
+            entry: resources.resource_store.Entry,
+        ) -> None:
+            saved(store, entry)
+            now[0] += 3
+
+        def frozen() -> None:
+            if dynamic:
+                observed[0] = 105.0
+
+        def deadline() -> float | None:
+            for family, key in [
+                ("invocations", path.stem),
+                *[("resources", resource) for resource in members],
+            ]:
+                descriptor = os.open(
+                    resources.storage().root / "locks" / family / key,
+                    os.O_RDONLY | os.O_NOFOLLOW,
+                )
+                try:
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                finally:
+                    os.close(descriptor)
+            # A later owner observation cannot renew the first clock.
+            return observed[0] if now[0] <= 100 else 200.0
+
+        with (
+            patch.object(
+                resources.resource_store.time, "monotonic", side_effect=lambda: now[0]
+            ),
+            patch.object(resources.resource_store.FileStore, "_save", new=save),
+            self.assertRaisesRegex(resources.host.AdmissionError, "deadline exhausted"),
+        ):
+            resources.finalize(
+                path,
+                {
+                    f"projection.py::point_{index}": "pass"
+                    for index in range(len(members))
+                },
+                complete=True,
+                terminal_owner="runner",
+                deadline=None if dynamic else 105.0,
+                deadline_supplier=deadline if dynamic else None,
+                on_frozen=frozen,
+            )
+        state = resources.resource_store.read(
+            resources.storage().path("invocation-state", path.stem)
+        )
+        self.assertEqual(state["phase"], "frozen")
+        self.assertNotIn("projection", state)
+        projected = sum(
+            "terminal_identity" in resources.resource_status(resource)
+            for resource in members
+        )
+        self.assertGreater(projected, 0)
+        self.assertLess(projected, len(members))
+
+    def test_projection_resume_refuses_missing_or_contradictory_authority(self) -> None:
+        for contradiction in ("missing", "identity", "disposition"):
+            with self.subTest(contradiction=contradiction):
+                path, members = self.projection_members(1)
+                resources.finalize(
+                    path,
+                    {"projection.py::point_0": "pass"},
+                    complete=True,
+                    terminal_owner="runner",
+                )
+                authority = resources.storage().path("resources", members[0])
+                if contradiction == "missing":
+                    authority.unlink()
+                else:
+                    record = resources.resource_store.read(authority)
+                    record["facts"][
+                        "terminal_identity"
+                        if contradiction == "identity"
+                        else "disposition"
+                    ] = "b" * 64 if contradiction == "identity" else "failure"
+                    resources.resource_store.publish(authority, record)
+                with self.assertRaises((FileNotFoundError, resources.ResourceError)):
+                    resources.resume_projection(path, terminal_owner="runner")
+
     def test_collection_between_terminal_read_and_freeze_refuses_stale_composition(
         self,
     ) -> None:
         path = resources.invocation("python", [])
         freeze = resources.resource_store.FileStore.freeze
 
-        def collect_then_freeze(store, nonce, terminal, **options):
+        def collect_then_freeze(
+            store: resources.resource_store.FileStore,
+            nonce: str,
+            terminal: dict,
+            *,
+            declaration: Mapping[str, object] | None = None,
+            deadline: float | None = None,
+            on_frozen: Callable[[], None] | None = None,
+        ) -> list[str]:
             resources.publish_python_collection(path, ["collected.py::test_case"])
-            return freeze(store, nonce, terminal, **options)
+            return freeze(
+                store,
+                nonce,
+                terminal,
+                declaration=declaration,
+                deadline=deadline,
+                on_frozen=on_frozen,
+            )
 
-        with patch.object(
-            resources.resource_store.FileStore, "freeze", new=collect_then_freeze
-        ):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(
+                resources.resource_store.FileStore, "freeze", new=collect_then_freeze
+            ),
+            self.assertRaisesRegex(
                 resources.ResourceError, "terminal selection authority"
-            ):
-                resources.finalize(path, {}, complete=False, terminal_owner="runner")
+            ),
+        ):
+            resources.finalize(path, {}, complete=False, terminal_owner="runner")
         nonce = resources.read_invocation(path)["nonce"]
         state = resources.resource_store.read(
             resources.storage().path("invocation-state", nonce)
@@ -651,11 +1002,13 @@ class TestResourceTests(unittest.TestCase):
         self.assertTrue(
             store.path("identities", resources.resource_store.digest(identity)).exists()
         )
-        with patch.object(resources, "remove_owned") as remove:
-            with self.assertRaisesRegex(
+        with (
+            patch.object(resources, "remove_owned") as remove,
+            self.assertRaisesRegex(
                 resources.ResourceError, "disposal remains unproved"
-            ):
-                resources.reclaim(resource)
+            ),
+        ):
+            resources.reclaim(resource)
         remove.assert_not_called()
 
     def test_closed_service_defers_cleanup_until_same_generation_reopens(self) -> None:
@@ -698,10 +1051,15 @@ class TestResourceTests(unittest.TestCase):
 
         @contextlib.contextmanager
         def close_before_admission(
-            state: Path, **options: object
+            state: Path,
+            *,
+            deadline: float | None = None,
+            wait_for_lifecycle: bool = True,
         ) -> Generator[None, None, None]:
             self.config.update(admission="quiesced", accepting_writes=False)
-            with admission(state, **options):
+            with admission(
+                state, deadline=deadline, wait_for_lifecycle=wait_for_lifecycle
+            ):
                 yield
 
         with (
@@ -798,7 +1156,10 @@ class TestResourceTests(unittest.TestCase):
         release = threading.Event()
         results = []
 
-        def removal(_record: resources.ResourceRecord) -> None:
+        def removal(
+            _record: resources.ResourceRecord, *, deadline: float | None = None
+        ) -> None:
+            self.assertIsNotNone(deadline)
             entered.set()
             self.assertTrue(release.wait(2))
 

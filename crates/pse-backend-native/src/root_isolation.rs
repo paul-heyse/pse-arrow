@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Request-local IBEX validated covering; numerical proposals supply no proof authority.
-use pse_ids::ContentHash;
+use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     MathError,
@@ -36,6 +36,10 @@ const MAX_ARITHMETIC_OUTPUTS: usize = 512;
 const MAX_SECOND_INPUTS: usize = 32;
 const MAX_SECOND_OUTPUTS: usize = 128;
 const MAX_HESSIAN_ENTRIES: usize = 32_768;
+// Canonical rational identity uses decimal strings. One decimal digit needs no more
+// than one significant binary bit; this bounds their aggregate temporary storage
+// before conversion; the conservative scratch extent is separately admitted.
+const MAX_IDENTITY_BITS: u64 = MAX_EDGES as u64;
 // IBEX 2.9.1 has process-global random/contractor state. All calls through this adapter
 // share this lock; it owns no retained session or cached evidence.
 static IBEX: Mutex<()> = Mutex::new(());
@@ -116,10 +120,32 @@ fn acquire_library<'a>(
 }
 
 /// The single supported native validated mathematics implementation.
-#[derive(Debug, Default)]
-pub struct Ibex;
-#[repr(C)]
 #[derive(Default)]
+pub struct Ibex {
+    transport: Option<TransportRetention>,
+}
+type TransportAllocator =
+    dyn Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, MathError> + Send + Sync;
+struct TransportRetention {
+    allocate: Arc<TransportAllocator>,
+    last: Mutex<Option<TransportBundle>>,
+}
+struct TransportBundle {
+    scope: ContentHash,
+    entries: std::collections::BTreeMap<
+        SemanticId,
+        (ContentHash, pse_math::SharedAllocation<Transport>),
+    >,
+}
+impl std::fmt::Debug for Ibex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Ibex")
+            .field("retained_transport", &self.transport.is_some())
+            .finish()
+    }
+}
+#[repr(C)]
+#[derive(Debug, Default)]
 struct NativeNode {
     op: u32,
     a: u32,
@@ -131,6 +157,7 @@ struct NativeNode {
     upper: f64,
 }
 #[repr(C)]
+#[derive(Debug)]
 struct NativeGuard {
     node: u32,
     kind: u32,
@@ -464,6 +491,7 @@ fn obligation(
     }
     Ok(())
 }
+#[derive(Debug)]
 struct Transport {
     nodes: Vec<NativeNode>,
     edges: Vec<u32>,
@@ -477,17 +505,105 @@ struct ArithmeticRequest<'a> {
     upper: &'a [f64],
     order: DerivativeOrder,
 }
-fn encode(
+#[derive(Clone, Copy)]
+struct SourceInventory {
+    extent: usize,
+    identity_scratch: usize,
+}
+/// No hashing, decimal conversion, transport allocation or foreign call precedes this
+/// finite source inventory. Unconsumed derivative declarations are also identity inputs.
+fn source_inventory(
     program: &RootIsolationProgram,
     order: DerivativeOrder,
-) -> Result<Transport, SelectionProofRefusal> {
+) -> Result<SourceInventory, SelectionProofRefusal> {
     if program.inputs == 0
         || program.inputs > MAX_INPUTS
         || program.nodes.is_empty()
         || program.nodes.len() > MAX_NODES
+        || program.residuals.len() > MAX_ARITHMETIC_OUTPUTS
+        || program.eligibility.len() > MAX_GUARDS
+        || program.obligations.len() > MAX_GUARDS
+        || program.derivative_obligations.len() > MAX_GUARDS
     {
         return Err(SelectionProofRefusal::Resource);
     }
+    let mut edges = 0usize;
+    let mut identity_bits = 0u64;
+    for node in &program.nodes {
+        if let Node::Sum(children) | Node::Product(children) = node {
+            edges = edges
+                .checked_add(children.len())
+                .filter(|n| *n <= MAX_EDGES)
+                .ok_or(SelectionProofRefusal::Resource)?;
+        }
+        if let Node::Const(Constant::Rational(r))
+        | Node::Pow {
+            exponent: Constant::Rational(r),
+            ..
+        } = node
+        {
+            identity_bits = identity_bits
+                .checked_add(r.numerator_ref().significant_bits())
+                .and_then(|n| n.checked_add(r.denominator_ref().significant_bits()))
+                .filter(|n| *n <= MAX_IDENTITY_BITS)
+                .ok_or(SelectionProofRefusal::Resource)?;
+        }
+    }
+    let mut source_guards = program.eligibility.len();
+    for value in program.obligations.iter().chain(
+        program
+            .derivative_obligations
+            .iter()
+            .map(|(_, value)| value),
+    ) {
+        source_guards = source_guards
+            .checked_add(value.constraints.len())
+            .and_then(|n| n.checked_add(usize::from(value.argument.is_some())))
+            .filter(|n| *n <= MAX_GUARDS)
+            .ok_or(SelectionProofRefusal::Resource)?;
+    }
+    let guards = arithmetic_guard_ceiling(program, order)
+        .filter(|n| *n <= MAX_GUARDS)
+        .ok_or(SelectionProofRefusal::Resource)?;
+    let extent = program
+        .nodes
+        .len()
+        .checked_mul(size_of::<NativeNode>() + size_of::<usize>())
+        .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
+        .and_then(|n| n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?))
+        .and_then(|n| n.checked_add(program.residuals.len().checked_mul(size_of::<u32>())?))
+        .and_then(|n| n.checked_add(size_of::<Transport>() + 4096))
+        .ok_or(SelectionProofRefusal::Resource)?;
+    // Decimal digits never exceed binary significant bits plus a sign and a zero
+    // digit per integer. Four copies cover conversion capacity and its work buffers;
+    // the fixed allowance covers bounded hash framing and allocator metadata.
+    let identity_scratch = (identity_bits as usize)
+        .checked_add(
+            program
+                .nodes
+                .len()
+                .checked_mul(4)
+                .ok_or(SelectionProofRefusal::Resource)?,
+        )
+        .and_then(|n| n.checked_mul(4))
+        .and_then(|n| n.checked_add(4096))
+        .ok_or(SelectionProofRefusal::Resource)?;
+    Ok(SourceInventory {
+        extent,
+        identity_scratch,
+    })
+}
+struct PreparedSources {
+    scope: ContentHash,
+    keys: Vec<ContentHash>,
+    inventories: Vec<SourceInventory>,
+    _preparation_owner: Option<Arc<dyn pse_math::AllocationOwner>>,
+}
+fn encode(
+    program: &RootIsolationProgram,
+    order: DerivativeOrder,
+) -> Result<Transport, SelectionProofRefusal> {
+    source_inventory(program, order)?;
     let mut transport = Transport {
         nodes: Vec::with_capacity(program.nodes.len()),
         edges: Vec::new(),
@@ -659,6 +775,233 @@ fn encode(
     Ok(transport)
 }
 impl Ibex {
+    /// A provider-owned, separately charged current-selection Rust transport bundle. Native
+    /// Function/System objects and all point, bound and stop inputs remain local.
+    pub fn with_transport_allocator(
+        allocate: impl Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, MathError>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            transport: Some(TransportRetention {
+                allocate: Arc::new(allocate),
+                last: Mutex::new(None),
+            }),
+        }
+    }
+    fn prepare_sources(
+        &self,
+        request: &SelectionProofRequest<'_>,
+        order: DerivativeOrder,
+        scales: &[&[f64]],
+        checkpoint: &mut impl FnMut() -> Result<bool, MathError>,
+    ) -> Result<Result<PreparedSources, SelectionProofRefusal>, MathError> {
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        if request.alternatives.len() > MAX_ALTERNATIVES
+            || request.parameters.len() > MAX_INPUTS
+            || request.candidate.len() > MAX_INPUTS
+            || scales.len() > 2
+            || scales.iter().any(|values| values.len() > MAX_INPUTS)
+        {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        if request.winner >= request.alternatives.len() {
+            return Err(MathError::Contract("IBEX winning alternative".into()));
+        }
+        // Inventory every source before hashing any source. The bounded vectors below
+        // coexist with canonical decimal identity scratch in the admitted workspace.
+        let mut inventories = Vec::with_capacity(request.alternatives.len());
+        for alternative in request.alternatives {
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            if alternative.unknowns.len() > MAX_INPUTS {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            match source_inventory(alternative.program, order) {
+                Ok(inventory) => inventories.push(inventory),
+                Err(reason) => return Ok(Err(reason)),
+            }
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+        }
+        let scratch = inventories
+            .iter()
+            .map(|inventory| inventory.identity_scratch)
+            .max()
+            .unwrap_or(0)
+            + request.alternatives.len()
+                * (size_of::<SourceInventory>() + size_of::<ContentHash>() + 128);
+        // Retained providers admit preparation separately before the first decimal
+        // conversion. Legacy one-shot users include this extent in workspace_bytes.
+        let preparation_owner = match &self.transport {
+            Some(retained) => match (retained.allocate)(scratch) {
+                Ok(owner) => Some(owner),
+                Err(_) => return Ok(Err(SelectionProofRefusal::Resource)),
+            },
+            None => None,
+        };
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        let verifier = self.identity();
+        let mut scope = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        scope
+            .str("ibex-rust-transport-selection-v2")
+            .hash(&verifier)
+            .id(&request.selection)
+            .u64(order as u64)
+            .u64(scales.len() as u64)
+            .u64(request.alternatives.len() as u64);
+        let mut keys = Vec::with_capacity(request.alternatives.len());
+        for alternative in request.alternatives {
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            // Exactly one complete program identity per source in this request.
+            let source = alternative.program.identity();
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+            hash.str("ibex-rust-source-transport-v1")
+                .hash(&verifier)
+                .id(&request.selection)
+                .id(&alternative.id)
+                .hash(&alternative.residual_identity)
+                .hash(&source)
+                .u64(order as u64)
+                .u64(scales.len() as u64);
+            hash.u64(alternative.unknowns.len() as u64);
+            for unknown in alternative.unknowns {
+                hash.id(&unknown.id);
+            }
+            for scale in scales {
+                hash.u64(scale.len() as u64);
+                for value in *scale {
+                    hash.u64(value.to_bits());
+                }
+            }
+            let key = hash.finish_hash();
+            scope.hash(&key);
+            keys.push(key);
+        }
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        Ok(Ok(PreparedSources {
+            scope: scope.finish_hash(),
+            keys,
+            inventories,
+            _preparation_owner: preparation_owner,
+        }))
+    }
+    fn selection_transports(
+        &self,
+        request: &SelectionProofRequest<'_>,
+        selected: &[usize],
+        order: DerivativeOrder,
+        prepared: PreparedSources,
+        mut checkpoint: impl FnMut() -> Result<bool, MathError>,
+    ) -> Result<Result<Vec<pse_math::SharedAllocation<Transport>>, SelectionProofRefusal>, MathError>
+    {
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        if selected.len() > request.alternatives.len()
+            || selected.iter().any(|i| *i >= prepared.keys.len())
+        {
+            return Ok(Err(SelectionProofRefusal::Unsupported));
+        }
+        let mut result = Vec::with_capacity(selected.len());
+        let mut last = match &self.transport {
+            Some(retained) => match retained.last.lock() {
+                Ok(last) => Some(last),
+                Err(_) => return Ok(Err(SelectionProofRefusal::Unsupported)),
+            },
+            None => None,
+        };
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        // Publish only a completed batch. On stop/refusal every new encoding and lease
+        // drops; no partially prepared selection becomes a retained cache bundle.
+        let mut bundle = last
+            .as_mut()
+            .and_then(|last| last.take())
+            .filter(|bundle| bundle.scope == prepared.scope)
+            .unwrap_or_else(|| TransportBundle {
+                scope: prepared.scope,
+                entries: std::collections::BTreeMap::new(),
+            });
+        for &index in selected {
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            let alternative = &request.alternatives[index];
+            let key = prepared.keys[index];
+            if let Some((previous, transport)) = bundle.entries.get(&alternative.id)
+                && *previous == key
+            {
+                result.push(transport.clone());
+                continue;
+            }
+            bundle.entries.remove(&alternative.id);
+            if bundle.entries.len() >= request.alternatives.len() {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            let owner = match &self.transport {
+                Some(retained) => match (retained.allocate)(prepared.inventories[index].extent) {
+                    Ok(owner) => Some(owner),
+                    Err(_) => return Ok(Err(SelectionProofRefusal::Resource)),
+                },
+                None => None,
+            };
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            let encoded = match encode(alternative.program, order) {
+                Ok(encoded) => encoded,
+                Err(reason) => return Ok(Err(reason)),
+            };
+            if !checkpoint()? {
+                return Ok(Err(SelectionProofRefusal::Resource));
+            }
+            let mut transport = pse_math::SharedAllocation::from(Arc::new(encoded));
+            if let Some(owner) = owner {
+                transport = transport.with_owner(owner);
+            }
+            if self.transport.is_some() {
+                bundle
+                    .entries
+                    .insert(alternative.id, (key, transport.clone()));
+            }
+            result.push(transport);
+        }
+        if !checkpoint()? {
+            return Ok(Err(SelectionProofRefusal::Resource));
+        }
+        if let Some(last) = &mut last {
+            **last = Some(bundle);
+        }
+        Ok(Ok(result))
+    }
+    fn selection_transport(
+        &self,
+        request: &SelectionProofRequest<'_>,
+        order: DerivativeOrder,
+        prepared: PreparedSources,
+        checkpoint: impl FnMut() -> Result<bool, MathError>,
+    ) -> Result<Result<pse_math::SharedAllocation<Transport>, SelectionProofRefusal>, MathError>
+    {
+        Ok(self
+            .selection_transports(request, &[request.winner], order, prepared, checkpoint)?
+            .and_then(|mut transports| transports.pop().ok_or(SelectionProofRefusal::Unsupported)))
+    }
     /// Checked, conservative transient admission extent for point transport, complete
     /// interval DAG/guard copies, rectangular AD and output buffers. Source projection
     /// bytes remain owned by the caller. The caller's byte ceiling is enforced before
@@ -682,6 +1025,7 @@ impl Ibex {
         order: DerivativeOrder,
     ) -> Result<usize, MathError> {
         let graph = &program.graph;
+        source_inventory(graph, order).map_err(|_| MathError::Limit("IBEX source inventory"))?;
         let edges = graph.nodes.iter().try_fold(0usize, |n, node| {
             n.checked_add(match node {
                 Node::Sum(v) | Node::Product(v) => v.len(),
@@ -998,6 +1342,9 @@ impl Ibex {
         if cancel.load(Ordering::Acquire) {
             return Ok(PointArithmeticEvidence::Interrupted { work: empty_work });
         }
+        if source_inventory(&program.graph, order).is_err() {
+            return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
+        }
         if lower.len() != program.graph.inputs
             || upper.len() != lower.len()
             || lower
@@ -1180,6 +1527,17 @@ impl SelectionVerifier for Ibex {
         max_cells: u64,
     ) -> Result<usize, MathError> {
         let max_cells = max_cells.min(MAX_CELLS);
+        if programs.len() > MAX_ALTERNATIVES {
+            return Err(MathError::Limit("IBEX source alternatives"));
+        }
+        let mut identity_scratch = 0;
+        for program in programs {
+            let inventory = source_inventory(program, DerivativeOrder::Second)
+                .map_err(|_| MathError::Limit("IBEX source inventory"))?;
+            identity_scratch = identity_scratch.max(inventory.identity_scratch);
+        }
+        identity_scratch +=
+            programs.len() * (size_of::<SourceInventory>() + size_of::<ContentHash>() + 128);
         // All Rust transports coexist; native graphs and coverings are sequential.
         // Source DAGs already belong to the factory and are not charged twice.
         let checked = || {
@@ -1236,7 +1594,8 @@ impl SelectionVerifier for Ibex {
             }
             transports
                 .checked_add(native)?
-                .checked_add(16 * 1024 * 1024)
+                .checked_add(16 * 1024 * 1024)?
+                .checked_add(identity_scratch)
         };
         checked().ok_or_else(|| MathError::Contract("IBEX workspace extent overflow".into()))
     }
@@ -1246,20 +1605,39 @@ impl SelectionVerifier for Ibex {
         request: &SelectionProofRequest<'_>,
         chart: &SelectionChart,
     ) -> Result<SelectionEvidence, MathError> {
-        chart.validate_scope(request, self.identity())?;
-        if chart.order >= request.order {
-            return Ok(SelectionEvidence::Unique(chart.clone()));
-        }
         let started = Instant::now();
-        let checkpoint = || {
+        let mut checkpoint = || {
             if request.cancel.load(Ordering::Acquire) {
                 Err(MathError::Cancelled)
             } else {
                 Ok(started.elapsed() < request.time_limit)
             }
         };
+        let prepared = match self.prepare_sources(
+            request,
+            request.order.max(DerivativeOrder::First),
+            &[],
+            &mut checkpoint,
+        )? {
+            Ok(prepared) => prepared,
+            Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
+        };
+        chart.validate_scope(request, self.identity())?;
+        if !checkpoint()? {
+            return Ok(SelectionEvidence::Incomplete(
+                SelectionProofRefusal::Resource,
+            ));
+        }
+        if chart.order >= request.order {
+            return Ok(SelectionEvidence::Unique(chart.clone()));
+        }
         let winner = &request.alternatives[request.winner];
-        let transport = match encode(winner.program, request.order.max(DerivativeOrder::First)) {
+        let transport = match self.selection_transport(
+            request,
+            request.order.max(DerivativeOrder::First),
+            prepared,
+            checkpoint,
+        )? {
             Ok(transport) => transport,
             Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
         };
@@ -1354,18 +1732,32 @@ impl SelectionVerifier for Ibex {
         previous: &SelectionChart,
         next: &SelectionChart,
     ) -> Result<bool, MathError> {
-        previous.validate_scope(request, self.identity())?;
-        next.validate_scope(request, self.identity())?;
         let started = Instant::now();
-        let checkpoint = || {
+        let mut checkpoint = || {
             if request.cancel.load(Ordering::Acquire) {
                 Err(MathError::Cancelled)
             } else {
                 Ok(started.elapsed() < request.time_limit)
             }
         };
+        let prepared = match self.prepare_sources(
+            request,
+            request.order.max(DerivativeOrder::First),
+            &[],
+            &mut checkpoint,
+        )? {
+            Ok(prepared) => prepared,
+            Err(_) => return Ok(false),
+        };
+        previous.validate_scope(request, self.identity())?;
+        next.validate_scope(request, self.identity())?;
         let winner = &request.alternatives[request.winner];
-        let transport = match encode(winner.program, request.order.max(DerivativeOrder::First)) {
+        let transport = match self.selection_transport(
+            request,
+            request.order.max(DerivativeOrder::First),
+            prepared,
+            checkpoint,
+        )? {
             Ok(t) => t,
             Err(_) => return Ok(false),
         };
@@ -1454,6 +1846,32 @@ impl SelectionVerifier for Ibex {
         row_scales: &[f64],
         max_cells: u64,
     ) -> Result<RootPointEvidence, MathError> {
+        let started = Instant::now();
+        let mut checkpoint = || {
+            if request.cancel.load(Ordering::Acquire) {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(started.elapsed() < request.time_limit)
+            }
+        };
+        let prepared = match self.prepare_sources(
+            request,
+            DerivativeOrder::First,
+            &[unknown_scales, row_scales],
+            &mut checkpoint,
+        ) {
+            Err(MathError::Cancelled) => {
+                return Ok(RootPointEvidence::Interrupted { proof_cells: 0 });
+            }
+            Err(error) => return Err(error),
+            Ok(Err(reason)) => {
+                return Ok(RootPointEvidence::Incomplete {
+                    reason,
+                    proof_cells: 0,
+                });
+            }
+            Ok(Ok(prepared)) => prepared,
+        };
         chart.validate(request, self.identity())?;
         let winner = &request.alternatives[request.winner];
         let n = winner.unknowns.len();
@@ -1473,7 +1891,6 @@ impl SelectionVerifier for Ibex {
                 "IBEX fixed-point physical normalization".into(),
             ));
         }
-        let started = Instant::now();
         if request.cancel.load(Ordering::Acquire) {
             return Ok(RootPointEvidence::Interrupted { proof_cells: 0 });
         }
@@ -1483,7 +1900,15 @@ impl SelectionVerifier for Ibex {
                 proof_cells: 0,
             });
         }
-        let transport = match encode(winner.program, DerivativeOrder::First) {
+        let prepared_transport =
+            match self.selection_transport(request, DerivativeOrder::First, prepared, checkpoint) {
+                Err(MathError::Cancelled) => {
+                    return Ok(RootPointEvidence::Interrupted { proof_cells: 0 });
+                }
+                Err(error) => return Err(error),
+                Ok(transport) => transport,
+            };
+        let transport = match prepared_transport {
             Ok(t) => t,
             Err(reason) => {
                 return Ok(RootPointEvidence::Incomplete {
@@ -1633,6 +2058,24 @@ impl SelectionVerifier for Ibex {
         direction: &[f64],
         max_cells: u64,
     ) -> Result<RootActionEvidence, MathError> {
+        let started = Instant::now();
+        let mut checkpoint = || {
+            if request.cancel.load(Ordering::Acquire) {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(started.elapsed() < request.time_limit)
+            }
+        };
+        let prepared =
+            match self.prepare_sources(request, DerivativeOrder::First, &[], &mut checkpoint)? {
+                Ok(prepared) => prepared,
+                Err(reason) => {
+                    return Ok(RootActionEvidence::Incomplete {
+                        reason,
+                        proof_cells: 0,
+                    });
+                }
+            };
         chart.validate(request, self.identity())?;
         if request.order < DerivativeOrder::First
             || direction.len() != request.parameters.len()
@@ -1642,14 +2085,6 @@ impl SelectionVerifier for Ibex {
                 "IBEX selected action direction/order".into(),
             ));
         }
-        let started = Instant::now();
-        let checkpoint = || {
-            if request.cancel.load(Ordering::Acquire) {
-                Err(MathError::Cancelled)
-            } else {
-                Ok(started.elapsed() < request.time_limit)
-            }
-        };
         if max_cells == 0 || !checkpoint()? {
             return Ok(RootActionEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
@@ -1657,7 +2092,12 @@ impl SelectionVerifier for Ibex {
             });
         }
         let winner = &request.alternatives[request.winner];
-        let transport = match encode(winner.program, DerivativeOrder::First) {
+        let transport = match self.selection_transport(
+            request,
+            DerivativeOrder::First,
+            prepared,
+            checkpoint,
+        )? {
             Ok(t) => t,
             Err(reason) => {
                 return Ok(RootActionEvidence::Incomplete {
@@ -1779,6 +2219,24 @@ impl SelectionVerifier for Ibex {
         directions: Option<&[ProofInterval]>,
         max_cells: u64,
     ) -> Result<RootNeighborhoodEvidence, MathError> {
+        let started = Instant::now();
+        let mut checkpoint = || {
+            if request.cancel.load(Ordering::Acquire) {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(started.elapsed() < request.time_limit)
+            }
+        };
+        let prepared =
+            match self.prepare_sources(request, DerivativeOrder::First, &[], &mut checkpoint)? {
+                Ok(prepared) => prepared,
+                Err(reason) => {
+                    return Ok(RootNeighborhoodEvidence::Incomplete {
+                        reason,
+                        proof_cells: 0,
+                    });
+                }
+            };
         chart.validate(request, self.identity())?;
         if request.order < DerivativeOrder::First
             || parameters.len() != request.parameters.len()
@@ -1799,14 +2257,6 @@ impl SelectionVerifier for Ibex {
                 proof_cells: 0,
             });
         }
-        let started = Instant::now();
-        let checkpoint = || {
-            if request.cancel.load(Ordering::Acquire) {
-                Err(MathError::Cancelled)
-            } else {
-                Ok(started.elapsed() < request.time_limit)
-            }
-        };
         if max_cells == 0 || !checkpoint()? {
             return Ok(RootNeighborhoodEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
@@ -1814,7 +2264,12 @@ impl SelectionVerifier for Ibex {
             });
         }
         let winner = &request.alternatives[request.winner];
-        let transport = match encode(winner.program, DerivativeOrder::First) {
+        let transport = match self.selection_transport(
+            request,
+            DerivativeOrder::First,
+            prepared,
+            checkpoint,
+        )? {
             Ok(t) => t,
             Err(reason) => {
                 return Ok(RootNeighborhoodEvidence::Incomplete {
@@ -1965,30 +2420,44 @@ impl SelectionVerifier for Ibex {
         chain: &ChartChainRequest<'_>,
         max_cells: u64,
     ) -> Result<ChartChainEvidence, MathError> {
-        let max_cells = max_cells.min(MAX_CELLS);
-        chain.validate(self.identity())?;
-        // Endpoint exclusion evidence does not certify intermediate competitors.
-        if chain.coverage == ChartChainCoverage::SelectedFunction {
-            return Ok(ChartChainEvidence::Incomplete(
-                SelectionProofRefusal::Coverage,
-            ));
-        }
         let request = chain.endpoint;
         let started = Instant::now();
-        let checkpoint = || {
+        let mut checkpoint = || {
             if request.cancel.load(Ordering::Acquire) {
                 Err(MathError::Cancelled)
             } else {
                 Ok(started.elapsed() < request.time_limit)
             }
         };
+        let prepared = match self.prepare_sources(
+            request,
+            request.order.max(DerivativeOrder::First),
+            &[],
+            &mut checkpoint,
+        )? {
+            Ok(prepared) => prepared,
+            Err(reason) => return Ok(ChartChainEvidence::Incomplete(reason)),
+        };
+        chain.validate(self.identity())?;
+        let max_cells = max_cells.min(MAX_CELLS);
+        // Endpoint exclusion evidence does not certify intermediate competitors.
+        if chain.coverage == ChartChainCoverage::SelectedFunction {
+            return Ok(ChartChainEvidence::Incomplete(
+                SelectionProofRefusal::Coverage,
+            ));
+        }
         if !checkpoint()? {
             return Ok(ChartChainEvidence::Incomplete(
                 SelectionProofRefusal::Resource,
             ));
         }
         let winner = &request.alternatives[request.winner];
-        let transport = match encode(winner.program, request.order.max(DerivativeOrder::First)) {
+        let transport = match self.selection_transport(
+            request,
+            request.order.max(DerivativeOrder::First),
+            prepared,
+            checkpoint,
+        )? {
             Ok(value) => value,
             Err(reason) => return Ok(ChartChainEvidence::Incomplete(reason)),
         };
@@ -2129,13 +2598,8 @@ impl SelectionVerifier for Ibex {
         max_cells: u64,
     ) -> Result<SelectionEvidence, MathError> {
         let max_cells = max_cells.min(MAX_CELLS);
-        if max_cells < 2 {
-            return Ok(SelectionEvidence::Incomplete(
-                SelectionProofRefusal::Resource,
-            ));
-        }
         let started = Instant::now();
-        let checkpoint = || {
+        let mut checkpoint = || {
             if request.cancel.load(Ordering::Relaxed) {
                 Err(MathError::Cancelled)
             } else {
@@ -2147,6 +2611,20 @@ impl SelectionVerifier for Ibex {
                 SelectionProofRefusal::Resource,
             ));
         }
+        if max_cells < 2 {
+            return Ok(SelectionEvidence::Incomplete(
+                SelectionProofRefusal::Resource,
+            ));
+        }
+        let prepared = match self.prepare_sources(
+            request,
+            request.order.max(DerivativeOrder::First),
+            &[],
+            &mut checkpoint,
+        )? {
+            Ok(prepared) => prepared,
+            Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
+        };
         let Some(winner) = request.alternatives.get(request.winner) else {
             return Err(MathError::Contract("IBEX winning alternative".into()));
         };
@@ -2171,7 +2649,17 @@ impl SelectionVerifier for Ibex {
         {
             return Err(MathError::Contract("IBEX coordinate layout".into()));
         }
-        let mut transports = Vec::with_capacity(request.alternatives.len());
+        let selected = (0..request.alternatives.len()).collect::<Vec<_>>();
+        let transports = match self.selection_transports(
+            request,
+            &selected,
+            request.order.max(DerivativeOrder::First),
+            prepared,
+            checkpoint,
+        )? {
+            Ok(transports) => transports,
+            Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
+        };
         let mut bounds = Vec::with_capacity(request.alternatives.len());
         for alternative in request.alternatives {
             if !checkpoint()? {
@@ -2179,14 +2667,6 @@ impl SelectionVerifier for Ibex {
                     SelectionProofRefusal::Resource,
                 ));
             }
-            let transport = match encode(
-                alternative.program,
-                request.order.max(DerivativeOrder::First),
-            ) {
-                Ok(value) => value,
-                Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
-            };
-            transports.push(transport);
             bounds.push((
                 alternative
                     .unknowns
@@ -2585,15 +3065,18 @@ mod tests {
         }
     }
     fn point_arithmetic(program: &PointArithmeticProgram, x: f64) -> PointArithmeticEvidence {
-        let bytes = Ibex.point_arithmetic_workspace_bytes(program).unwrap();
-        Ibex.enclose_point_arithmetic(
-            program,
-            &[x],
-            Duration::from_secs(10),
-            &Arc::new(AtomicBool::new(false)),
-            bytes,
-        )
-        .unwrap()
+        let bytes = Ibex::default()
+            .point_arithmetic_workspace_bytes(program)
+            .unwrap();
+        Ibex::default()
+            .enclose_point_arithmetic(
+                program,
+                &[x],
+                Duration::from_secs(10),
+                &Arc::new(AtomicBool::new(false)),
+                bytes,
+            )
+            .unwrap()
     }
     #[test]
     fn native_point_arithmetic_encloses_catastrophic_cancellation_residual() {
@@ -2652,7 +3135,7 @@ mod tests {
             upper: 2.0,
         }];
         for order in [DerivativeOrder::Value, DerivativeOrder::First] {
-            let bytes = Ibex
+            let bytes = Ibex::default()
                 .point_arithmetic_workspace_bytes_for_order(&program, order)
                 .unwrap();
             let PointArithmeticEvidence::Enclosed {
@@ -2660,7 +3143,7 @@ mod tests {
                 jacobian,
                 work,
                 hessian,
-            } = Ibex
+            } = Ibex::default()
                 .enclose_arithmetic_box_with_execution(&program, &region, order, bytes, &execution)
                 .unwrap()
             else {
@@ -2681,7 +3164,8 @@ mod tests {
             }
         }
         assert!(matches!(
-            Ibex.enclose_arithmetic_box_values_with_execution(&program, &region, 0, &execution)
+            Ibex::default()
+                .enclose_arithmetic_box_values_with_execution(&program, &region, 0, &execution)
                 .unwrap(),
             PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
@@ -2709,7 +3193,7 @@ mod tests {
             pse_kernels::ExecutionScope::new(flag, None),
         )
         .unwrap();
-        let bytes = Ibex
+        let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)
             .unwrap();
         for (region, minimum, maximum) in [
@@ -2767,7 +3251,7 @@ mod tests {
                 jacobian,
                 hessian,
                 work,
-            } = Ibex
+            } = Ibex::default()
                 .enclose_arithmetic_box_values_with_execution(
                     &program,
                     &[region],
@@ -2795,14 +3279,15 @@ mod tests {
         }
         for order in [DerivativeOrder::First, DerivativeOrder::Second] {
             assert!(matches!(
-                Ibex.enclose_point_arithmetic_order_with_execution(
-                    &program,
-                    &[1.0],
-                    order,
-                    bytes,
-                    &execution
-                )
-                .unwrap(),
+                Ibex::default()
+                    .enclose_point_arithmetic_order_with_execution(
+                        &program,
+                        &[1.0],
+                        order,
+                        bytes,
+                        &execution
+                    )
+                    .unwrap(),
                 PointArithmeticEvidence::Incomplete {
                     reason: SelectionProofRefusal::Unsupported,
                     work: PointArithmeticWork {
@@ -2839,11 +3324,12 @@ mod tests {
             lower: 0.0,
             upper: 1.0,
         }];
-        let bytes = Ibex
+        let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::First)
             .unwrap();
         assert!(matches!(
-            Ibex.enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution)
+            Ibex::default()
+                .enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution)
                 .unwrap(),
             PointArithmeticEvidence::Enclosed {
                 work: PointArithmeticWork {
@@ -2854,30 +3340,32 @@ mod tests {
             }
         ));
         assert!(matches!(
-            Ibex.enclose_arithmetic_box_with_execution(
-                &program,
-                &region,
-                DerivativeOrder::First,
-                bytes,
-                &execution
-            )
-            .unwrap(),
+            Ibex::default()
+                .enclose_arithmetic_box_with_execution(
+                    &program,
+                    &region,
+                    DerivativeOrder::First,
+                    bytes,
+                    &execution
+                )
+                .unwrap(),
             PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Boundary,
                 ..
             }
         ));
         assert!(matches!(
-            Ibex.enclose_arithmetic_box_values_with_execution(
-                &program,
-                &[ProofInterval {
-                    lower: -1.0,
-                    upper: 1.0
-                }],
-                bytes,
-                &execution
-            )
-            .unwrap(),
+            Ibex::default()
+                .enclose_arithmetic_box_values_with_execution(
+                    &program,
+                    &[ProofInterval {
+                        lower: -1.0,
+                        upper: 1.0
+                    }],
+                    bytes,
+                    &execution
+                )
+                .unwrap(),
             PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Boundary,
                 ..
@@ -2960,14 +3448,15 @@ mod tests {
         );
         let cancelled = Arc::new(AtomicBool::new(true));
         assert_eq!(
-            Ibex.enclose_point_arithmetic(
-                &program,
-                &[0.0],
-                Duration::from_secs(10),
-                &cancelled,
-                usize::MAX
-            )
-            .unwrap(),
+            Ibex::default()
+                .enclose_point_arithmetic(
+                    &program,
+                    &[0.0],
+                    Duration::from_secs(10),
+                    &cancelled,
+                    usize::MAX
+                )
+                .unwrap(),
             PointArithmeticEvidence::Interrupted {
                 work: PointArithmeticWork::default()
             }
@@ -2975,7 +3464,8 @@ mod tests {
         cancelled.store(false, Ordering::Release);
         for (duration, bytes) in [(Duration::ZERO, usize::MAX), (Duration::from_secs(10), 0)] {
             assert_eq!(
-                Ibex.enclose_point_arithmetic(&program, &[0.0], duration, &cancelled, bytes)
+                Ibex::default()
+                    .enclose_point_arithmetic(&program, &[0.0], duration, &cancelled, bytes)
                     .unwrap(),
                 PointArithmeticEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
@@ -2991,14 +3481,16 @@ mod tests {
             vec![Node::Var(0), Node::Const(Constant::Float(0.0))],
             vec![0],
         );
-        let bytes = Ibex.point_arithmetic_workspace_bytes(&program).unwrap();
+        let bytes = Ibex::default()
+            .point_arithmetic_workspace_bytes(&program)
+            .unwrap();
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancel.clone();
         let (started_tx, started_rx) = std::sync::mpsc::channel();
         let (result_tx, result_rx) = std::sync::mpsc::channel();
         let worker = std::thread::spawn(move || {
             started_tx.send(()).unwrap();
-            let result = Ibex.enclose_point_arithmetic(
+            let result = Ibex::default().enclose_point_arithmetic(
                 &program,
                 &[0.0],
                 Duration::from_secs(10),
@@ -3045,9 +3537,12 @@ mod tests {
             vec![Node::Aux(0), Node::Const(Constant::Float(0.0))],
             vec![0],
         );
-        let bytes = Ibex.point_arithmetic_workspace_bytes(&unsupported).unwrap();
+        let bytes = Ibex::default()
+            .point_arithmetic_workspace_bytes(&unsupported)
+            .unwrap();
         assert!(matches!(
-            Ibex.enclose_point_arithmetic_with_execution(&unsupported, &[0.0], bytes, &execution)
+            Ibex::default()
+                .enclose_point_arithmetic_with_execution(&unsupported, &[0.0], bytes, &execution)
                 .unwrap(),
             PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Unsupported,
@@ -3058,28 +3553,33 @@ mod tests {
             vec![Node::Var(0), Node::Const(Constant::Float(0.0))],
             vec![0],
         );
-        let bytes = Ibex.point_arithmetic_workspace_bytes(&valid).unwrap();
+        let bytes = Ibex::default()
+            .point_arithmetic_workspace_bytes(&valid)
+            .unwrap();
         assert!(matches!(
-            Ibex.enclose_point_arithmetic_with_execution(&valid, &[0.5], bytes, &execution)
+            Ibex::default()
+                .enclose_point_arithmetic_with_execution(&valid, &[0.5], bytes, &execution)
                 .unwrap(),
             PointArithmeticEvidence::Enclosed { .. }
         ));
         assert!(
-            Ibex.enclose_point_arithmetic_with_execution(&valid, &[], bytes, &execution)
+            Ibex::default()
+                .enclose_point_arithmetic_with_execution(&valid, &[], bytes, &execution)
                 .is_err()
         );
-        let bytes = Ibex
+        let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes_for_order(&valid, DerivativeOrder::Second)
             .unwrap();
         assert!(matches!(
-            Ibex.enclose_point_arithmetic_order_with_execution(
-                &valid,
-                &[0.5],
-                DerivativeOrder::Second,
-                bytes,
-                &execution
-            )
-            .unwrap(),
+            Ibex::default()
+                .enclose_point_arithmetic_order_with_execution(
+                    &valid,
+                    &[0.5],
+                    DerivativeOrder::Second,
+                    bytes,
+                    &execution
+                )
+                .unwrap(),
             PointArithmeticEvidence::Enclosed {
                 hessian: Some(_),
                 ..
@@ -3112,17 +3612,18 @@ mod tests {
             Arc::new(AtomicBool::new(false)),
             &crate::solve::Controls::default(),
         );
-        let bytes = Ibex
+        let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes_for_order(program, DerivativeOrder::Second)
             .unwrap();
-        Ibex.enclose_point_arithmetic_order_with_execution(
-            program,
-            point,
-            DerivativeOrder::Second,
-            bytes,
-            &execution,
-        )
-        .unwrap()
+        Ibex::default()
+            .enclose_point_arithmetic_order_with_execution(
+                program,
+                point,
+                DerivativeOrder::Second,
+                bytes,
+                &execution,
+            )
+            .unwrap()
     }
     #[test]
     fn native_point_arithmetic_second_encloses_polynomial_and_objective_hessians() {
@@ -3258,18 +3759,20 @@ mod tests {
             );
             program.graph.inputs = width;
             assert!(
-                Ibex.point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)
+                Ibex::default()
+                    .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)
                     .is_err()
             );
             assert!(matches!(
-                Ibex.enclose_point_arithmetic_order_with_execution(
-                    &program,
-                    &vec![0.0; width],
-                    DerivativeOrder::Second,
-                    usize::MAX,
-                    &execution
-                )
-                .unwrap(),
+                Ibex::default()
+                    .enclose_point_arithmetic_order_with_execution(
+                        &program,
+                        &vec![0.0; width],
+                        DerivativeOrder::Second,
+                        usize::MAX,
+                        &execution
+                    )
+                    .unwrap(),
                 PointArithmeticEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
                     work: PointArithmeticWork {
@@ -3478,9 +3981,337 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[0.0], &[1.0], DerivativeOrder::Second);
         assert!(matches!(
-            Ibex.certify(&request).unwrap(),
+            Ibex::default().certify(&request).unwrap(),
             SelectionEvidence::Unique(_)
         ));
+    }
+    fn test_transport(
+        verifier: &Ibex,
+        request: &SelectionProofRequest<'_>,
+        alternative: &SelectionAlternative<'_>,
+        order: DerivativeOrder,
+        scales: &[&[f64]],
+    ) -> Result<pse_math::SharedAllocation<Transport>, SelectionProofRefusal> {
+        let alternatives = request
+            .alternatives
+            .iter()
+            .enumerate()
+            .map(|(index, original)| {
+                let value = if index == request.winner {
+                    alternative
+                } else {
+                    original
+                };
+                SelectionAlternative {
+                    id: value.id,
+                    program: value.program,
+                    residual_identity: value.residual_identity,
+                    unknowns: value.unknowns,
+                }
+            })
+            .collect::<Vec<_>>();
+        let request = SelectionProofRequest {
+            alternatives: &alternatives,
+            ..*request
+        };
+        let prepared = verifier
+            .prepare_sources(&request, order, scales, &mut || Ok(true))
+            .unwrap()?;
+        verifier
+            .selection_transport(&request, order, prepared, || Ok(true))
+            .unwrap()
+    }
+    #[test]
+    fn retained_rust_transport_reuses_only_complete_source_order_and_scale_identity() {
+        let allocations = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        #[derive(Debug)]
+        struct Lease(Arc<std::sync::atomic::AtomicUsize>);
+        impl Drop for Lease {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::AcqRel);
+            }
+        }
+        let count = allocations.clone();
+        let releases = dropped.clone();
+        let verifier = Ibex::with_transport_allocator(move |_| {
+            count.fetch_add(1, Ordering::AcqRel);
+            Ok(Arc::new(Lease(releases.clone())))
+        });
+        let fixture = Fixture::new(projected(false, false, None), &[(0.01, 4.0)]);
+        let alternatives = [fixture.alternative(0)];
+        let request = fixture.request(&alternatives, &[0.0], &[1.0], DerivativeOrder::First);
+        let original = test_transport(
+            &verifier,
+            &request,
+            &alternatives[0],
+            DerivativeOrder::First,
+            &[],
+        )
+        .unwrap();
+        let moved = fixture.request(&alternatives, &[1.0], &[2.0], DerivativeOrder::First);
+        let reused = test_transport(
+            &verifier,
+            &moved,
+            &alternatives[0],
+            DerivativeOrder::First,
+            &[],
+        )
+        .unwrap();
+        assert!(pse_math::SharedAllocation::ptr_eq(&original, &reused));
+        let mut bounds = fixture.unknowns.clone();
+        bounds[0].upper = 8.0;
+        let mut rebounded = fixture.alternative(0);
+        rebounded.unknowns = &bounds;
+        let rebounded =
+            test_transport(&verifier, &moved, &rebounded, DerivativeOrder::First, &[]).unwrap();
+        assert!(pse_math::SharedAllocation::ptr_eq(&original, &rebounded));
+        assert_eq!(allocations.load(Ordering::Acquire), 4);
+        assert_eq!(dropped.load(Ordering::Acquire), 3);
+        let scaled = test_transport(
+            &verifier,
+            &moved,
+            &alternatives[0],
+            DerivativeOrder::First,
+            &[&[2.0], &[1.0]],
+        )
+        .unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(&original, &scaled));
+        let second = test_transport(
+            &verifier,
+            &request,
+            &alternatives[0],
+            DerivativeOrder::Second,
+            &[],
+        )
+        .unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(&original, &second));
+        let mut changed = fixture.alternative(0);
+        changed.residual_identity = ContentHash::from_bytes([218; 32]);
+        let rebound =
+            test_transport(&verifier, &request, &changed, DerivativeOrder::Second, &[]).unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(&second, &rebound));
+        let mut program = (*fixture.program).clone();
+        program.derivative_obligations.clear();
+        program.eligibility.clear();
+        program
+            .nodes
+            .push(Node::Const(Constant::Rational(Rational::from(17))));
+        program.criterion[0] = program.nodes.len() - 1;
+        let program = Arc::new(program);
+        changed.program = &program;
+        let source =
+            test_transport(&verifier, &request, &changed, DerivativeOrder::Second, &[]).unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(&rebound, &source));
+        assert_eq!(dropped.load(Ordering::Acquire), 7);
+        drop(verifier);
+        assert_eq!(dropped.load(Ordering::Acquire), 7);
+        drop((original, reused, rebounded, scaled, second, rebound, source));
+        assert_eq!(
+            dropped.load(Ordering::Acquire),
+            allocations.load(Ordering::Acquire)
+        );
+        let refusing = Ibex::with_transport_allocator(|_| {
+            Err(MathError::Limit("proof transport owner expired"))
+        });
+        assert!(matches!(
+            test_transport(
+                &refusing,
+                &request,
+                &alternatives[0],
+                DerivativeOrder::First,
+                &[]
+            ),
+            Err(SelectionProofRefusal::Resource)
+        ));
+    }
+    #[test]
+    fn retained_rust_transport_reuses_every_alternative_in_repeated_covering() {
+        let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls = count.clone();
+        let verifier = Ibex::with_transport_allocator(move |_| {
+            calls.fetch_add(1, Ordering::AcqRel);
+            Ok(Arc::new(()))
+        });
+        let fixture = Fixture::new(projected(false, false, None), &[(0.01, 4.0)]);
+        let alternatives = [fixture.alternative(0), fixture.alternative(1)];
+        let request = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
+        // Two equal competing alternatives cannot establish a unique selection. The
+        // bounded original covering still consumes both exact Rust source encodings.
+        assert!(matches!(
+            verifier.certify_bounded(&request, 2).unwrap(),
+            SelectionEvidence::Incomplete(_)
+        ));
+        // One transient source-identity lease plus the two retained transports.
+        assert_eq!(count.load(Ordering::Acquire), 3);
+        assert!(matches!(
+            verifier.certify_bounded(&request, 2).unwrap(),
+            SelectionEvidence::Incomplete(_)
+        ));
+        // Repeated covering admits only fresh bounded identity scratch.
+        assert_eq!(count.load(Ordering::Acquire), 4);
+        let second = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::Second);
+        let _ = verifier.certify_bounded(&second, 2).unwrap();
+        assert_eq!(count.load(Ordering::Acquire), 7);
+    }
+    #[test]
+    fn proof_source_preflight_refuses_oversize_before_identity_or_admission() {
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = calls.clone();
+        let verifier = Ibex::with_transport_allocator(move |_| {
+            count.fetch_add(1, Ordering::AcqRel);
+            Ok(Arc::new(()))
+        });
+        let original = projected(false, false, None);
+        let mut programs = Vec::new();
+        let mut inputs = original.clone();
+        inputs.inputs = MAX_INPUTS + 1;
+        programs.push(inputs);
+        let mut nodes = original.clone();
+        nodes.nodes = vec![Node::Var(0); MAX_NODES + 1];
+        programs.push(nodes);
+        let mut edges = original.clone();
+        edges.nodes.push(Node::Sum(vec![0; MAX_EDGES + 1]));
+        programs.push(edges);
+        let mut guards = original.clone();
+        guards.eligibility = vec![
+            Constraint {
+                expression: 0,
+                lower: 0.0,
+                upper: 1.0,
+                strict: false,
+            };
+            MAX_GUARDS + 1
+        ];
+        programs.push(guards);
+        let mut rational = original.clone();
+        rational.nodes.push(Node::Const(Constant::Rational(
+            Rational::from(2).pow(MAX_IDENTITY_BITS + 1),
+        )));
+        programs.push(rational);
+        for program in programs {
+            assert!(matches!(
+                encode(&program, DerivativeOrder::First),
+                Err(SelectionProofRefusal::Resource)
+            ));
+            let fixture = Fixture::new(program, &[(0.01, 4.0)]);
+            let alternatives = [fixture.alternative(0)];
+            let request = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
+            assert!(matches!(
+                verifier.prepare_sources(&request, DerivativeOrder::First, &[], &mut || Ok(true)),
+                Ok(Err(SelectionProofRefusal::Resource))
+            ));
+            assert!(matches!(
+                verifier.certify_bounded(&request, 2).unwrap(),
+                SelectionEvidence::Incomplete(SelectionProofRefusal::Resource)
+            ));
+        }
+        assert_eq!(calls.load(Ordering::Acquire), 0);
+        assert!(
+            verifier
+                .transport
+                .as_ref()
+                .unwrap()
+                .last
+                .lock()
+                .unwrap()
+                .is_none()
+        );
+    }
+    #[test]
+    fn proof_preparation_observes_stops_and_never_publishes_partial_covering() {
+        let fixture = Fixture::new(projected(false, false, None), &[(0.01, 4.0)]);
+        let alternatives = [fixture.alternative(0), fixture.alternative(1)];
+        let request = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = calls.clone();
+        let cancel = fixture.cancel.clone();
+        let verifier = Ibex::with_transport_allocator(move |_| {
+            let call = count.fetch_add(1, Ordering::AcqRel) + 1;
+            // Preparation, first encoding, then stop during second admission.
+            if call == 3 {
+                cancel.store(true, Ordering::Release);
+            }
+            Ok(Arc::new(()))
+        });
+        assert!(matches!(
+            verifier.prepare_sources(&request, DerivativeOrder::First, &[], &mut || Ok(false)),
+            Ok(Err(SelectionProofRefusal::Resource))
+        ));
+        assert_eq!(calls.load(Ordering::Acquire), 0);
+        fixture.cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            verifier.certify_bounded(&request, 2),
+            Err(MathError::Cancelled)
+        ));
+        assert_eq!(calls.load(Ordering::Acquire), 0);
+        fixture.cancel.store(false, Ordering::Release);
+        let mut checkpoints = 0;
+        // Stop immediately after the first bounded source identity was calculated.
+        let prepared = verifier.prepare_sources(&request, DerivativeOrder::First, &[], &mut || {
+            checkpoints += 1;
+            if checkpoints == 8 {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(true)
+            }
+        });
+        assert!(matches!(prepared, Err(MathError::Cancelled)));
+        assert_eq!(calls.load(Ordering::Acquire), 1);
+        assert!(
+            verifier
+                .transport
+                .as_ref()
+                .unwrap()
+                .last
+                .lock()
+                .unwrap()
+                .is_none()
+        );
+        calls.store(0, Ordering::Release);
+        assert!(matches!(
+            verifier.certify_bounded(&request, 2),
+            Err(MathError::Cancelled)
+        ));
+        assert_eq!(calls.load(Ordering::Acquire), 3);
+        assert!(
+            verifier
+                .transport
+                .as_ref()
+                .unwrap()
+                .last
+                .lock()
+                .unwrap()
+                .is_none()
+        );
+        fixture.cancel.store(false, Ordering::Release);
+        calls.store(10, Ordering::Release);
+        let prepared = verifier
+            .prepare_sources(&request, DerivativeOrder::First, &[], &mut || Ok(true))
+            .unwrap()
+            .unwrap();
+        assert_eq!(prepared.keys.len(), alternatives.len());
+        let transports = verifier
+            .selection_transports(&request, &[0, 1], DerivativeOrder::First, prepared, || {
+                Ok(true)
+            })
+            .unwrap()
+            .unwrap();
+        assert_eq!(transports.len(), alternatives.len());
+        assert_eq!(
+            verifier
+                .transport
+                .as_ref()
+                .unwrap()
+                .last
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .entries
+                .len(),
+            alternatives.len()
+        );
     }
     struct Fixture {
         program: Arc<RootIsolationProgram>,
@@ -3558,9 +4389,10 @@ mod tests {
         );
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[], &[3.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify_bounded(&request, 64).unwrap());
+        let chart = unique(Ibex::default().certify_bounded(&request, 64).unwrap());
         assert!(matches!(
-            Ibex.refine_point(&request, &chart, &[1.0], &[1.0], 64)
+            Ibex::default()
+                .refine_point(&request, &chart, &[1.0], &[1.0], 64)
                 .unwrap(),
             RootPointEvidence::Enclosed { .. }
         ));
@@ -3569,10 +4401,10 @@ mod tests {
     #[test]
     fn actual_ibex_initial_chart_and_workspace_consume_declared_cell_ceiling() {
         let program = Arc::new(projected(false, false, None));
-        let bounded = Ibex
+        let bounded = Ibex::default()
             .bounded_workspace_bytes(std::slice::from_ref(&program), 256)
             .unwrap();
-        let complete = Ibex
+        let complete = Ibex::default()
             .workspace_bytes(std::slice::from_ref(&program))
             .unwrap();
         assert!(bounded < 64 * 1024 * 1024);
@@ -3581,11 +4413,13 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(!matches!(
-            Ibex.certify_bounded(&request, 0).unwrap(),
+            Ibex::default().certify_bounded(&request, 0).unwrap(),
             SelectionEvidence::Unique(_)
         ));
-        let chart = unique(Ibex.certify_bounded(&request, 256).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify_bounded(&request, 256).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
     }
 
     #[test]
@@ -3593,8 +4427,11 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        let (intervals, cells) = match Ibex.enclose_action(&request, &chart, &[2.0]).unwrap() {
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        let (intervals, cells) = match Ibex::default()
+            .enclose_action(&request, &chart, &[2.0])
+            .unwrap()
+        {
             RootActionEvidence::Enclosed {
                 intervals,
                 proof_cells,
@@ -3607,25 +4444,35 @@ mod tests {
         let mut expired = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         expired.time_limit = Duration::ZERO;
         assert_eq!(
-            Ibex.enclose_action(&expired, &chart, &[2.0]).unwrap(),
+            Ibex::default()
+                .enclose_action(&expired, &chart, &[2.0])
+                .unwrap(),
             RootActionEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
                 proof_cells: 0
             }
         );
-        assert!(Ibex.enclose_action(&request, &chart, &[f64::NAN]).is_err());
+        assert!(
+            Ibex::default()
+                .enclose_action(&request, &chart, &[f64::NAN])
+                .is_err()
+        );
         let candidate = [5.0_f64.sqrt()];
         let changed = fixture.request(&alternatives, &[5.0], &candidate, DerivativeOrder::First);
-        assert!(Ibex.enclose_action(&changed, &chart, &[2.0]).is_err());
+        assert!(
+            Ibex::default()
+                .enclose_action(&changed, &chart, &[2.0])
+                .is_err()
+        );
     }
     #[test]
     fn actual_ibex_fixed_parameter_root_contracts_without_changing_uniform_chart() {
         let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
+        let chart = unique(Ibex::default().certify(&request).unwrap());
         let retained = chart.clone();
-        let (intervals, bound, cells) = match Ibex
+        let (intervals, bound, cells) = match Ibex::default()
             .refine_point(&request, &chart, &[2.0], &[8.0], 2)
             .unwrap()
         {
@@ -3660,7 +4507,7 @@ mod tests {
         let displaced = fixture.request(&alternatives, &[4.0], &candidate, DerivativeOrder::First);
         let RootPointEvidence::Enclosed {
             inverse_norm_upper, ..
-        } = Ibex
+        } = Ibex::default()
             .refine_point(&displaced, &chart, &[2.0], &[8.0], 2)
             .unwrap()
         else {
@@ -3677,7 +4524,7 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
+        let chart = unique(Ibex::default().certify(&request).unwrap());
         let radius = (4.0 - chart.parameters[0].lower).min(chart.parameters[0].upper - 4.0) * 0.25;
         assert!(radius > 0.0);
         let parameters = [ProofInterval {
@@ -3692,7 +4539,7 @@ mod tests {
             points,
             actions: Some(actions),
             proof_cells,
-        } = Ibex
+        } = Ibex::default()
             .enclose_neighborhood(&request, &chart, &parameters, Some(&directions), 4)
             .unwrap()
         else {
@@ -3710,7 +4557,8 @@ mod tests {
             upper: 4.0,
         }];
         assert!(matches!(
-            Ibex.enclose_neighborhood(&request, &chart, &outside, None, 4)
+            Ibex::default()
+                .enclose_neighborhood(&request, &chart, &outside, None, 4)
                 .unwrap(),
             RootNeighborhoodEvidence::Incomplete {
                 reason: SelectionProofRefusal::Coverage,
@@ -3718,7 +4566,8 @@ mod tests {
             }
         ));
         assert!(matches!(
-            Ibex.enclose_neighborhood(&request, &chart, &parameters, None, 0)
+            Ibex::default()
+                .enclose_neighborhood(&request, &chart, &parameters, None, 0)
                 .unwrap(),
             RootNeighborhoodEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
@@ -3731,10 +4580,11 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
+        let chart = unique(Ibex::default().certify(&request).unwrap());
         for cap in [0, 1] {
             assert_eq!(
-                Ibex.refine_point(&request, &chart, &[1.0], &[1.0], cap)
+                Ibex::default()
+                    .refine_point(&request, &chart, &[1.0], &[1.0], cap)
                     .unwrap(),
                 RootPointEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
@@ -3742,7 +4592,8 @@ mod tests {
                 }
             );
             assert_eq!(
-                Ibex.enclose_action_bounded(&request, &chart, &[2.0], cap)
+                Ibex::default()
+                    .enclose_action_bounded(&request, &chart, &[2.0], cap)
                     .unwrap(),
                 RootActionEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
@@ -3753,25 +4604,33 @@ mod tests {
         let mut expired = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         expired.time_limit = Duration::ZERO;
         assert_eq!(
-            Ibex.refine_point(&expired, &chart, &[1.0], &[1.0], 2)
+            Ibex::default()
+                .refine_point(&expired, &chart, &[1.0], &[1.0], 2)
                 .unwrap(),
             RootPointEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
                 proof_cells: 0
             }
         );
-        assert!(Ibex.refine_point(&request, &chart, &[], &[1.0], 2).is_err());
         assert!(
-            Ibex.refine_point(&request, &chart, &[0.0], &[1.0], 2)
+            Ibex::default()
+                .refine_point(&request, &chart, &[], &[1.0], 2)
                 .is_err()
         );
         assert!(
-            Ibex.refine_point(&request, &chart, &[1.0], &[f64::NAN], 2)
+            Ibex::default()
+                .refine_point(&request, &chart, &[0.0], &[1.0], 2)
+                .is_err()
+        );
+        assert!(
+            Ibex::default()
+                .refine_point(&request, &chart, &[1.0], &[f64::NAN], 2)
                 .is_err()
         );
         fixture.cancel.store(true, Ordering::Release);
         assert_eq!(
-            Ibex.refine_point(&request, &chart, &[1.0], &[1.0], 2)
+            Ibex::default()
+                .refine_point(&request, &chart, &[1.0], &[1.0], 2)
                 .unwrap(),
             RootPointEvidence::Interrupted { proof_cells: 0 }
         );
@@ -3779,7 +4638,8 @@ mod tests {
         let candidate = [5.0_f64.sqrt()];
         let changed = fixture.request(&alternatives, &[5.0], &candidate, DerivativeOrder::First);
         assert!(
-            Ibex.refine_point(&changed, &chart, &[1.0], &[1.0], 2)
+            Ibex::default()
+                .refine_point(&changed, &chart, &[1.0], &[1.0], 2)
                 .is_err()
         );
     }
@@ -3788,12 +4648,12 @@ mod tests {
         let fixture = Fixture::new(projected(true, false, None), &[(0.01, 3.0), (0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0, 2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
+        let chart = unique(Ibex::default().certify(&request).unwrap());
         let RootPointEvidence::Enclosed {
             intervals,
             inverse_norm_upper,
             proof_cells,
-        } = Ibex
+        } = Ibex::default()
             .refine_point(&request, &chart, &[2.0, 4.0], &[8.0, 3.0], 2)
             .unwrap()
         else {
@@ -3813,7 +4673,7 @@ mod tests {
         let RootActionEvidence::Enclosed {
             intervals,
             proof_cells,
-        } = Ibex
+        } = Ibex::default()
             .enclose_action_bounded(&request, &chart, &[2.0], 2)
             .unwrap()
         else {
@@ -3835,8 +4695,8 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[0.0], &[0.0], DerivativeOrder::First);
         let endpoint = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
-        let previous = unique(Ibex.certify(&origin).unwrap());
-        let next = unique(Ibex.certify(&endpoint).unwrap());
+        let previous = unique(Ibex::default().certify(&origin).unwrap());
+        let next = unique(Ibex::default().certify(&endpoint).unwrap());
         assert!(previous.parameters[0].upper < next.parameters[0].lower);
         let chain = ChartChainRequest {
             endpoint: &endpoint,
@@ -3845,7 +4705,7 @@ mod tests {
             origin: origin.parameters,
             coverage: ChartChainCoverage::RootSheet,
         };
-        let proof = match Ibex.connect_chain(&chain).unwrap() {
+        let proof = match Ibex::default().connect_chain(&chain).unwrap() {
             ChartChainEvidence::Connected(p) => p,
             other => panic!("{other:?}"),
         };
@@ -3853,13 +4713,14 @@ mod tests {
         assert!(proof.charts > 0);
         assert_eq!(proof.connections, proof.charts + 1);
         assert!(proof.proof_cells >= proof.charts + proof.connections);
-        assert!(proof.proof_cells <= Ibex.chart_chain_cell_limit());
+        assert!(proof.proof_cells <= Ibex::default().chart_chain_cell_limit());
         assert_eq!(
-            Ibex.connect_chain(&ChartChainRequest {
-                coverage: ChartChainCoverage::SelectedFunction,
-                ..chain
-            })
-            .unwrap(),
+            Ibex::default()
+                .connect_chain(&ChartChainRequest {
+                    coverage: ChartChainCoverage::SelectedFunction,
+                    ..chain
+                })
+                .unwrap(),
             ChartChainEvidence::Incomplete(SelectionProofRefusal::Coverage)
         );
     }
@@ -3869,7 +4730,7 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.01, 3.0)]);
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&origin).unwrap());
+        let chart = unique(Ibex::default().certify(&origin).unwrap());
         let retained = chart.clone();
         for parameter in [4.0_f64 - 4e-6, 4.0_f64 + 4e-6] {
             let parameters = [parameter];
@@ -3880,14 +4741,16 @@ mod tests {
                 &candidate,
                 DerivativeOrder::First,
             );
-            chart.validate(&request, Ibex.identity()).unwrap();
+            chart
+                .validate(&request, Ibex::default().identity())
+                .unwrap();
             // Reuse the same selected chart; only the demanded fixed-point
             // enclosure is produced. No second competitive covering is invoked.
             let RootPointEvidence::Enclosed {
                 intervals,
                 proof_cells,
                 ..
-            } = Ibex
+            } = Ibex::default()
                 .refine_point(&request, &chart, &[1.0], &[1.0], 2)
                 .unwrap()
             else {
@@ -3914,7 +4777,11 @@ mod tests {
             &[2.0],
             DerivativeOrder::First,
         );
-        assert!(chart.validate(&changed, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&changed, Ibex::default().identity())
+                .is_err()
+        );
     }
 
     #[test]
@@ -3931,14 +4798,18 @@ mod tests {
         );
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[1e-6], &[-1.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&origin).unwrap());
+        let chart = unique(Ibex::default().certify(&origin).unwrap());
         // Scores p*x switch the selected root at p=0. A wider proposal must
         // narrow or refuse; the returned certificate cannot cross that switch.
         assert!(chart.parameters[0].lower > 0.0);
         assert!(chart.uniqueness[0].upper < 0.0);
         let opposite = fixture.request(&alternatives, &[-1e-6], &[1.0], DerivativeOrder::First);
-        assert!(chart.validate(&opposite, Ibex.identity()).is_err());
-        let other = unique(Ibex.certify(&opposite).unwrap());
+        assert!(
+            chart
+                .validate(&opposite, Ibex::default().identity())
+                .is_err()
+        );
+        let other = unique(Ibex::default().certify(&opposite).unwrap());
         assert!(other.parameters[0].upper < 0.0);
         assert!(other.uniqueness[0].lower > 0.0);
     }
@@ -4002,7 +4873,7 @@ mod tests {
             &[1e-8, 1e5, 0.0],
             DerivativeOrder::First,
         );
-        let chart = unique(Ibex.certify(&origin).unwrap());
+        let chart = unique(Ibex::default().certify(&origin).unwrap());
         // The useful input box requires order-one movement of the large root,
         // while the small component must stay on its original positive log domain.
         for parameter in [1.0_f64 - 1e-6, 1.0_f64 + 1e-6] {
@@ -4014,7 +4885,9 @@ mod tests {
                 &candidate,
                 DerivativeOrder::First,
             );
-            chart.validate(&neighboring, Ibex.identity()).unwrap();
+            chart
+                .validate(&neighboring, Ibex::default().identity())
+                .unwrap();
             assert!(chart.uniqueness[0].lower > 0.0);
             assert!(chart.uniqueness[1].contains(candidate[1]));
         }
@@ -4024,9 +4897,13 @@ mod tests {
             &[1e-8, 1e5, 0.0],
             DerivativeOrder::First,
         );
-        assert!(chart.validate(&invalid, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&invalid, Ibex::default().identity())
+                .is_err()
+        );
         assert!(matches!(
-            Ibex.certify(&invalid).unwrap(),
+            Ibex::default().certify(&invalid).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Boundary)
         ));
     }
@@ -4036,11 +4913,11 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
         let endpoint = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let previous = unique(Ibex.certify(&origin).unwrap());
-        let next = unique(Ibex.certify(&endpoint).unwrap());
+        let previous = unique(Ibex::default().certify(&origin).unwrap());
+        let next = unique(Ibex::default().certify(&endpoint).unwrap());
         assert!(previous.existence[0].upper < next.existence[0].lower);
         assert!(previous.parameters[0].upper < next.parameters[0].lower);
-        let proof = match Ibex
+        let proof = match Ibex::default()
             .connect_chain(&ChartChainRequest {
                 endpoint: &endpoint,
                 previous: &previous,
@@ -4057,7 +4934,7 @@ mod tests {
         assert!(proof.charts > 0);
         assert_eq!(proof.connections, proof.charts + 1);
         assert!(proof.proof_cells >= proof.charts + proof.connections);
-        assert!(proof.proof_cells <= Ibex.chart_chain_cell_limit());
+        assert!(proof.proof_cells <= Ibex::default().chart_chain_cell_limit());
     }
     #[test]
     fn native_finite_chart_chain_refuses_disconnected_same_regime_selected_roots() {
@@ -4074,8 +4951,8 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[-1.0], &[1.0], DerivativeOrder::First);
         let mut endpoint = fixture.request(&alternatives, &[1.0], &[-1.0], DerivativeOrder::First);
-        let previous = unique(Ibex.certify(&origin).unwrap());
-        let next = unique(Ibex.certify(&endpoint).unwrap());
+        let previous = unique(Ibex::default().certify(&origin).unwrap());
+        let next = unique(Ibex::default().certify(&endpoint).unwrap());
         endpoint.time_limit = Duration::from_millis(100);
         let chain = ChartChainRequest {
             endpoint: &endpoint,
@@ -4084,13 +4961,13 @@ mod tests {
             origin: origin.parameters,
             coverage: ChartChainCoverage::RootSheet,
         };
-        let evidence = Ibex.connect_chain(&chain).unwrap();
+        let evidence = Ibex::default().connect_chain(&chain).unwrap();
         assert!(matches!(
             evidence,
             ChartChainEvidence::Incomplete(_) | ChartChainEvidence::Refused { .. }
         ));
         assert!(evidence.work().proof_cells > 0);
-        assert!(evidence.work().proof_cells <= Ibex.chart_chain_cell_limit());
+        assert!(evidence.work().proof_cells <= Ibex::default().chart_chain_cell_limit());
     }
 
     #[test]
@@ -4246,8 +5123,8 @@ mod tests {
             &candidate,
             DerivativeOrder::First,
         );
-        let previous = unique(Ibex.certify(&origin).unwrap());
-        let next = unique(Ibex.certify(&endpoint).unwrap());
+        let previous = unique(Ibex::default().certify(&origin).unwrap());
+        let next = unique(Ibex::default().certify(&endpoint).unwrap());
         assert!(previous.parameters[2].upper < next.parameters[2].lower);
         for (i, (a, b)) in previous.existence.iter().zip(&next.existence).enumerate() {
             assert!(
@@ -4263,7 +5140,7 @@ mod tests {
         assert_eq!(previous.existence[0].upper, 0.0);
         let retained_previous = previous.clone();
         let retained_next = next.clone();
-        let proof = match Ibex
+        let proof = match Ibex::default()
             .connect_chain(&ChartChainRequest {
                 endpoint: &endpoint,
                 previous: &previous,
@@ -4280,7 +5157,7 @@ mod tests {
         assert!(proof.charts > 0);
         assert_eq!(proof.connections, proof.charts + 1);
         assert!(proof.proof_cells >= proof.charts + proof.connections);
-        assert!(proof.proof_cells <= Ibex.chart_chain_cell_limit());
+        assert!(proof.proof_cells <= Ibex::default().chart_chain_cell_limit());
         for (chart, retained) in [(&previous, &retained_previous), (&next, &retained_next)] {
             assert_eq!(chart.parameters, retained.parameters);
             assert_eq!(chart.existence, retained.existence);
@@ -4300,8 +5177,8 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let origin = fixture.request(&alternatives, &[0.0], &[0.0], DerivativeOrder::First);
         let mut endpoint = fixture.request(&alternatives, &[1.0], &[1.0], DerivativeOrder::First);
-        let previous = unique(Ibex.certify(&origin).unwrap());
-        let next = unique(Ibex.certify(&endpoint).unwrap());
+        let previous = unique(Ibex::default().certify(&origin).unwrap());
+        let next = unique(Ibex::default().certify(&endpoint).unwrap());
         endpoint.time_limit = Duration::ZERO;
         let chain = ChartChainRequest {
             endpoint: &endpoint,
@@ -4311,12 +5188,12 @@ mod tests {
             coverage: ChartChainCoverage::RootSheet,
         };
         assert_eq!(
-            Ibex.connect_chain(&chain).unwrap(),
+            Ibex::default().connect_chain(&chain).unwrap(),
             ChartChainEvidence::Incomplete(SelectionProofRefusal::Resource)
         );
         fixture.cancel.store(true, Ordering::Release);
         assert!(matches!(
-            Ibex.connect_chain(&chain),
+            Ibex::default().connect_chain(&chain),
             Err(MathError::Cancelled)
         ));
         fixture.cancel.store(false, Ordering::Release);
@@ -4333,11 +5210,12 @@ mod tests {
             DerivativeOrder::First,
         );
         assert!(
-            Ibex.connect_chain(&ChartChainRequest {
-                endpoint: &changed_request,
-                ..chain
-            })
-            .is_err()
+            Ibex::default()
+                .connect_chain(&ChartChainRequest {
+                    endpoint: &changed_request,
+                    ..chain
+                })
+                .is_err()
         );
     }
     #[test]
@@ -4345,7 +5223,7 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(-2.5, 2.5)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let evidence = Ibex.certify(&request).unwrap();
+        let evidence = Ibex::default().certify(&request).unwrap();
         assert!(
             matches!(
                 evidence,
@@ -4362,8 +5240,10 @@ mod tests {
         assert_eq!(fixture.program.residuals.len(), 2);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[2.0, 2.0], DerivativeOrder::Second);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
         assert_eq!(chart.order, DerivativeOrder::Second);
         assert!(chart.parameters[0].interior_contains(4.0));
         for interval in chart.existence {
@@ -4420,15 +5300,17 @@ mod tests {
             &[10_000.0, 0.5],
             DerivativeOrder::Second,
         );
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
         assert!(chart.parameters[0].interior_contains(1.0));
         assert!(chart.existence[0].contains(10_000.0));
         assert!(chart.existence[1].contains(0.5));
         let mut expired = request;
         expired.time_limit = Duration::ZERO;
         assert!(matches!(
-            Ibex.certify(&expired).unwrap(),
+            Ibex::default().certify(&expired).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Resource)
         ));
     }
@@ -4439,8 +5321,10 @@ mod tests {
         assert!(!fixture.program.obligations.is_empty());
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[0.0], &[1.0], DerivativeOrder::Second);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
         assert!(chart.uniqueness[0].lower > 0.0);
         assert!(chart.existence[0].contains(1.0));
     }
@@ -4456,7 +5340,7 @@ mod tests {
                 .iter()
                 .any(|constraint| constraint.strict)
         );
-        let evidence = Ibex
+        let evidence = Ibex::default()
             .certify(&fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First))
             .unwrap();
         // Parameters on either side of 4 move the positive root across x>2.
@@ -4470,7 +5354,7 @@ mod tests {
     fn projected_physical_face_refuses_first_derivatives() {
         let fixture = Fixture::new(projected(false, false, None), &[(0.5, 2.0)]);
         let alternatives = [fixture.alternative(0)];
-        let evidence = Ibex
+        let evidence = Ibex::default()
             .certify(&fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First))
             .unwrap();
         assert!(
@@ -4484,11 +5368,15 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.5, 4.0)]);
         let alternatives = [fixture.alternative(0)];
         let first_request = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let first = unique(Ibex.certify(&first_request).unwrap());
+        let first = unique(Ibex::default().certify(&first_request).unwrap());
         let changed_request =
             fixture.request(&alternatives, &[9.0], &[3.0], DerivativeOrder::First);
-        assert!(first.validate(&changed_request, Ibex.identity()).is_err());
-        let changed = unique(Ibex.certify(&changed_request).unwrap());
+        assert!(
+            first
+                .validate(&changed_request, Ibex::default().identity())
+                .is_err()
+        );
+        let changed = unique(Ibex::default().certify(&changed_request).unwrap());
         assert!(changed.existence[0].contains(3.0));
         assert!(!changed.parameters[0].contains(4.0));
         let mut changed_alternatives = [fixture.alternative(0)];
@@ -4499,18 +5387,26 @@ mod tests {
             &[2.0],
             DerivativeOrder::First,
         );
-        assert!(first.validate(&changed_identity, Ibex.identity()).is_err());
+        assert!(
+            first
+                .validate(&changed_identity, Ibex::default().identity())
+                .is_err()
+        );
     }
     #[test]
     fn retained_chart_promotes_guard_order_without_repeating_competitive_covering() {
         let fixture = Fixture::new(projected(false, false, None), &[(0.5, 4.0)]);
         let alternatives = [fixture.alternative(0)];
         let first = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&first).unwrap());
+        let chart = unique(Ibex::default().certify(&first).unwrap());
         let second = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::Second);
-        assert!(chart.validate_scope(&second, Ibex.identity()).is_ok());
-        assert!(chart.validate(&second, Ibex.identity()).is_err());
-        let promoted = unique(Ibex.promote(&second, &chart).unwrap());
+        assert!(
+            chart
+                .validate_scope(&second, Ibex::default().identity())
+                .is_ok()
+        );
+        assert!(chart.validate(&second, Ibex::default().identity()).is_err());
+        let promoted = unique(Ibex::default().promote(&second, &chart).unwrap());
         assert_eq!(promoted.order, DerivativeOrder::Second);
         assert_eq!(promoted.parameters, chart.parameters);
         assert_eq!(promoted.existence, chart.existence);
@@ -4534,10 +5430,10 @@ mod tests {
         let guarded = Fixture::new(program, &[(0.5, 4.0)]);
         let alternatives = [guarded.alternative(0)];
         let first = guarded.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&first).unwrap());
+        let chart = unique(Ibex::default().certify(&first).unwrap());
         let second = guarded.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::Second);
         assert!(matches!(
-            Ibex.promote(&second, &chart).unwrap(),
+            Ibex::default().promote(&second, &chart).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Boundary)
         ));
         assert_eq!(chart.order, DerivativeOrder::First);
@@ -4547,7 +5443,7 @@ mod tests {
         let fixture = Fixture::new(projected(false, false, None), &[(0.5, 4.0)]);
         let alternatives = [fixture.alternative(0)];
         let first = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let a = unique(Ibex.certify(&first).unwrap());
+        let a = unique(Ibex::default().certify(&first).unwrap());
         let p = 4.0f64 + 1e-9;
         let moved_parameters = [p];
         let moved_root = [p.sqrt()];
@@ -4557,7 +5453,7 @@ mod tests {
             &moved_root,
             DerivativeOrder::First,
         );
-        let b = unique(Ibex.certify(&moved).unwrap());
+        let b = unique(Ibex::default().certify(&moved).unwrap());
         let common = 4.0f64 + 0.5e-9;
         let common_parameters = [common];
         let common_root = [common.sqrt()];
@@ -4567,7 +5463,7 @@ mod tests {
             &common_root,
             DerivativeOrder::First,
         );
-        assert!(Ibex.connect(&request, &a, &b).unwrap());
+        assert!(Ibex::default().connect(&request, &a, &b).unwrap());
     }
 
     #[test]
@@ -4582,8 +5478,10 @@ mod tests {
             // compete with the regular winner's score of zero.
             let alternatives = [winner.alternative(0), rival.alternative(1)];
             let request = winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::Second);
-            let chart = unique(Ibex.certify(&request).unwrap());
-            chart.validate(&request, Ibex.identity()).unwrap();
+            let chart = unique(Ibex::default().certify(&request).unwrap());
+            chart
+                .validate(&request, Ibex::default().identity())
+                .unwrap();
             assert_eq!(chart.alternatives.len(), 2);
             assert_eq!(chart.winner, 0);
             assert_eq!(chart.order, DerivativeOrder::Second);
@@ -4607,7 +5505,7 @@ mod tests {
             );
             let alternatives = [winner.alternative(0), rival.alternative(1)];
             let request = winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-            let evidence = Ibex.certify(&request).unwrap();
+            let evidence = Ibex::default().certify(&request).unwrap();
             // A retained covering cell refuses proof; it does not establish Multiple.
             assert!(
                 matches!(
@@ -4628,7 +5526,7 @@ mod tests {
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[0.0], DerivativeOrder::First);
         assert!(matches!(
-            Ibex.certify(&request).unwrap(),
+            Ibex::default().certify(&request).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Chart)
         ));
     }
@@ -4643,7 +5541,7 @@ mod tests {
         let alternatives = [winner.alternative(0), rival.alternative(1)];
         let request = winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(matches!(
-            Ibex.certify(&request).unwrap(),
+            Ibex::default().certify(&request).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Unsupported)
         ));
     }
@@ -4656,15 +5554,21 @@ mod tests {
         );
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[4.0], &[-2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
         assert!(chart.existence[0].contains(-2.0));
         let wrong_winner = fixture.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(matches!(
-            Ibex.certify(&wrong_winner).unwrap(),
+            Ibex::default().certify(&wrong_winner).unwrap(),
             SelectionEvidence::Incomplete(SelectionProofRefusal::Coverage)
         ));
-        assert!(chart.validate(&wrong_winner, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&wrong_winner, Ibex::default().identity())
+                .is_err()
+        );
     }
 
     #[test]
@@ -4699,10 +5603,12 @@ mod tests {
         let fixture = Fixture::new(program, &[(0.5, 2.5)]);
         let alternatives = [fixture.alternative(0)];
         let request = fixture.request(&alternatives, &[], &[2.0], DerivativeOrder::Second);
-        let chart = unique(Ibex.certify(&request).unwrap());
+        let chart = unique(Ibex::default().certify(&request).unwrap());
         assert!(chart.parameters.is_empty());
         assert!(chart.existence[0].contains(2.0));
-        chart.validate(&request, Ibex.identity()).unwrap();
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
     }
 
     #[test]
@@ -4714,19 +5620,33 @@ mod tests {
         );
         let alternatives = [winner.alternative(0), rival.alternative(1)];
         let request = winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
 
         let mut changed_selection =
             winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         changed_selection.selection = pse_ids::named_id(source(), "another-selection");
-        assert!(chart.validate(&changed_selection, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&changed_selection, Ibex::default().identity())
+                .is_err()
+        );
         let mut changed_winner =
             winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         changed_winner.winner = 1;
-        assert!(chart.validate(&changed_winner, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&changed_winner, Ibex::default().identity())
+                .is_err()
+        );
         let higher_order = winner.request(&alternatives, &[4.0], &[2.0], DerivativeOrder::Second);
-        assert!(chart.validate(&higher_order, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&higher_order, Ibex::default().identity())
+                .is_err()
+        );
         assert!(
             chart
                 .validate(&request, ContentHash::from_bytes([0; 32]))
@@ -4735,10 +5655,18 @@ mod tests {
 
         let reversed = [rival.alternative(1), winner.alternative(0)];
         let reversed_request = winner.request(&reversed, &[4.0], &[2.0], DerivativeOrder::First);
-        assert!(chart.validate(&reversed_request, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&reversed_request, Ibex::default().identity())
+                .is_err()
+        );
         let omitted = [winner.alternative(0)];
         let omitted_request = winner.request(&omitted, &[4.0], &[2.0], DerivativeOrder::First);
-        assert!(chart.validate(&omitted_request, Ibex.identity()).is_err());
+        assert!(
+            chart
+                .validate(&omitted_request, Ibex::default().identity())
+                .is_err()
+        );
 
         let mut changed_id = [winner.alternative(0), rival.alternative(1)];
         changed_id[1].id = pse_ids::named_id(source(), "another-rival");
@@ -4746,7 +5674,7 @@ mod tests {
             winner.request(&changed_id, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(
             chart
-                .validate(&changed_id_request, Ibex.identity())
+                .validate(&changed_id_request, Ibex::default().identity())
                 .is_err()
         );
         let mut changed_residual = [winner.alternative(0), rival.alternative(1)];
@@ -4755,7 +5683,7 @@ mod tests {
             winner.request(&changed_residual, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(
             chart
-                .validate(&changed_residual_request, Ibex.identity())
+                .validate(&changed_residual_request, Ibex::default().identity())
                 .is_err()
         );
 
@@ -4772,7 +5700,7 @@ mod tests {
                 winner.request(&changed_source, &[4.0], &[2.0], DerivativeOrder::First);
             assert!(
                 chart
-                    .validate(&changed_source_request, Ibex.identity())
+                    .validate(&changed_source_request, Ibex::default().identity())
                     .is_err()
             );
         }
@@ -4784,7 +5712,7 @@ mod tests {
             winner.request(&bounds_alternatives, &[4.0], &[2.0], DerivativeOrder::First);
         assert!(
             chart
-                .validate(&changed_bounds_request, Ibex.identity())
+                .validate(&changed_bounds_request, Ibex::default().identity())
                 .is_err()
         );
         let mut changed_coordinates = rival.unknowns.clone();
@@ -4799,7 +5727,7 @@ mod tests {
         );
         assert!(
             chart
-                .validate(&changed_coordinates_request, Ibex.identity())
+                .validate(&changed_coordinates_request, Ibex::default().identity())
                 .is_err()
         );
     }
@@ -4812,9 +5740,14 @@ mod tests {
         let fixture = Fixture::new(projected(false, true, None), &[(0.001, 4.0)]);
         let alternatives = [fixture.alternative(0), rival.alternative(1)];
         let request = fixture.request(&alternatives, &[-4.0], &candidate, DerivativeOrder::First);
-        let chart = unique(Ibex.certify(&request).unwrap());
-        chart.validate(&request, Ibex.identity()).unwrap();
+        let chart = unique(Ibex::default().certify(&request).unwrap());
+        chart
+            .validate(&request, Ibex::default().identity())
+            .unwrap();
         fixture.cancel.store(true, Ordering::Relaxed);
-        assert!(matches!(Ibex.certify(&request), Err(MathError::Cancelled)));
+        assert!(matches!(
+            Ibex::default().certify(&request),
+            Err(MathError::Cancelled)
+        ));
     }
 }

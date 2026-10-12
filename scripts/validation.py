@@ -45,6 +45,7 @@ from scripts.validation_scope import (
     Gate,
     comprehensive,
     expand,
+    functional_gates,
     input_identity,
 )
 
@@ -1239,7 +1240,7 @@ def main(argv: list[str] | None = None) -> int:
             "native covers ordinary scopes; combine it only with managed-primary"
         )
     gates = (
-        [FUNCTIONAL_SCOPES[name] for name in dict.fromkeys(args.functional_scope)]
+        functional_gates(args.functional_scope)
         if args.functional_scope
         else expand((args.group,))
         if args.group

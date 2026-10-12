@@ -149,8 +149,8 @@ impl PreparedSolve {
             let Some(objective) = program.objective else {
                 return Ok(());
             };
-            let bytes =
-                Ibex.point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)?;
+            let bytes = Ibex::default()
+                .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)?;
             let _workspace = budget
                 .charge(bytes)
                 .map_err(MathRuntimeError::into_problem)?;
@@ -164,7 +164,7 @@ impl PreparedSolve {
                     upper: *v,
                 })
                 .collect::<Vec<_>>();
-            let enclosed = Ibex.enclose_arithmetic_box_values_with_execution(
+            let enclosed = Ibex::default().enclose_arithmetic_box_values_with_execution(
                 &program, &region, bytes, &execution,
             )?;
             let intervals = match enclosed {

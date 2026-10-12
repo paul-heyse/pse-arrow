@@ -642,7 +642,9 @@ impl ModelingPackage {
                         .get(&row.document_id)
                         .ok_or_else(|| contract("data supplier package absent"))?;
                     let id = pse_ids::named_id(*package, path);
-                    if !inventory.documents.contains_key(&id) {
+                    if let std::collections::btree_map::Entry::Vacant(entry) =
+                        inventory.documents.entry(id)
+                    {
                         let logical = format!("data:{id}");
                         let metadata = parent
                             .documents
@@ -681,7 +683,7 @@ impl ModelingPackage {
                                 "data supplier differs from authenticated ingress frame",
                             ));
                         }
-                        inventory.documents.insert(id, document);
+                        entry.insert(document);
                         parent._leases.push(lease);
                     }
                 }
@@ -972,7 +974,7 @@ mod tests {
         let mut document = before
             .documents
             .values()
-            .find(|row| row.source_text.is_some())
+            .find(|row| row.path == "models/bank.pse" && row.source_text.is_some())
             .unwrap()
             .clone();
         let document_id = document.document_id;

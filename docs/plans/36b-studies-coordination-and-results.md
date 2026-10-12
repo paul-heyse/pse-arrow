@@ -59,7 +59,7 @@ SurrealDB 3.3 RocksDB `FOR UPDATE` registers a snapshot key for commit-time conf
 
 Use the following complete source-retention protocol. Creator transactions register/check a source reclaim fence and reclaimed intervals, register their exact root/pin key including absence, create the durable root/pin and write a creator fence. A collector registers the creator fence **before** scanning roots/pins, registers affected exact pin/root authorities, then publishes reclaimed intervals/removes source payload and writes the reclaim fence atomically. Creator commits first: its creator-fence write invalidates the collector's earlier scan. Collector commits first: its reclaim-fence write invalidates the creator; a rebuilt transaction refuses reclaimed intervals. This two-way registration prevents creation phantoms in both orders. New root/pin creation may still contend at a source creator domain; that is a real shared effect, amortized by owned study/preparation engagements, not every result append.
 
-An existing protection renewal registers its exact pin and reclaim authority, checks original identity/live expiry/released state, then updates only its pin. Collector registers that pin before deciding deletion. Renewal first invalidates stale collection; collection first invalidates stale renewal through the reclaim fence. An expired/released pin never revives. Continued protected reads register/check the live pin plus reclaim authority, without bumping a common lifecycle counter. Root release/product/stage activation/source revision creation and analysis roots must use the corresponding creation/reclaim protocol; preserve named absence, membership and immutable revision premises and analysis authority incarnation/closed-through floors.
+An existing protection renewal registers its exact pin and reclaim authority, checks original identity/live expiry/released state, then updates only its pin. Collector registers that pin before deciding deletion. Renewal first invalidates stale collection; collection first invalidates stale renewal through the reclaim fence. An expired/released pin never revives. Continued protected reads register/check the live pin plus reclaim authority, without bumping a common lifecycle counter. Product/stage activation/source revision creation and analysis roots must use the corresponding creation/reclaim protocol; preserve named absence, membership and immutable revision premises and analysis authority incarnation/closed-through floors. Pure active-attempt root removal registers exact root/reclaim authority without writing the creator fence: no new dependency is introduced, and the run root retains that source. Collector-first still invalidates stale release; a collector observing the removed root can conservatively retain.
 
 Give result pin creation and retirement their own analogous run/attempt/manifest protocol: creator registers exact retirement authority including absence, installs exact result protection and writes a result-creator fence; retirement registers that fence before scanning live readers and study/analysis obligations, then writes monotone retirement authority. Creator first invalidates retirement's stale scan; retirement first invalidates the read admission, which then refuses. Existing result renewal checks the exact live pin, manifest and retirement authority. Analysis creation/input-edge installation must participate so retirement cannot miss a newly retained borrower. Source roots held by a run remain separately protected.
 
@@ -236,3 +236,88 @@ E/L2 opportunities: repeated payload digests, own-writer IPC preflight and byte 
 
 Package order is authority decisions → P-B1 protocol/P-B3 admission foundation in parallel → preparation engagement and P-B2 ready consumers → P-B4 demand/locators → P-B5 ack producer/consumer integration → P-B6 streaming and telemetry; P-B7 grant/replay settlement can design alongside P-B1 but collection waits on it. P-B8 completeness can ship independently by attaching its terminal witness to the existing authoritative seal. P-B5 must later preserve that witness. Admitted-object transport consumes only the slim completion-read slice, not the complete acknowledgment/publication redesign. Targeted compile/unit controls accompany each implementation package; regeneration accompanies declaration changes. Integrated canonical/native/Python studies, horizon and interruption journeys, performance observations and static/manual checks belong to the root's final qualification package. Success remains scoped; no source inspection or focused pass closes whole-product/scientific acceptance.
 
+## Implementation checkpoint, 2026-10-12
+
+P-B1–P-B8 now have integrated producers and consumers: exact conflict/retirement fences,
+rotating ready discovery and refill, distinct population/resident/active admission,
+typed locators and compact/full demand, acknowledgment-based finish, bounded horizon
+roles, ordinary sampled telemetry, settled grant collection and admitted seed transport.
+General staged sequences retain history for their explicit historical-start consumers;
+bounded horizons use their separate role/window owners.
+
+Functional controls exposed and corrected three admission defects: prepaid constructor
+allowances were double charged; tentative growth could repeatedly wake its own active-job
+waiter; and continuation screening requested another population slot outside its retained
+lane. Known construction bounds and opaque prepaid guards now remain distinct. The
+original deadline/cancellation and pre-allocation growth checks remain. Independent source
+review and affected controls pass. The single-population continuation journey requests
+explicit variable/row accuracy and independently checks original residuals and predicted
+start provenance. Recovery maintenance also yields to study discovery instead of starving it.
+
+The scientific Python sweep prepares at most one structural view per actual lane and
+accounts exactly for all 1,000 point preparations; two concurrent mutable lane owners
+are intentional. Its corrected control passes in the actual 49-test native Python journey. Managed success,
+cancellation, compact/empty demand and actual sixteen-owner journeys remain P-G1
+qualification obligations. No production content has been reclaimed by these fixtures.
+
+Cancellation during queued publication now preserves its exact original refusal across
+the later cleanup flush: completion intent cannot survive a failed group without its
+authentic ACKs. The real cancelled-study regression and original SCIP/completion controls
+pass together. Response delivery now joins native payload snapshots before returning to
+an unknown cold producer, while the caller's decoded-output charge remains held. The
+queue's immediate zero-drain oracle and subsequent cold-producer control now pass
+against the actual native SDK path.
+The compact continuation ownership fixture now explicitly selects POUNCE NLP with
+Optimize intent and disabled presolve, because POUNCE-convex does not export a native
+seed. An unbound declared-composition override correctly refused and was removed.
+All original scientific, identity, seed and task-departure assertions now pass.
+
+Managed Rust acceptance passed the actual sixteen-owner study, cancellation and
+reopened continuation journeys. Its publication/reader journey reached successful
+retirement after checking exact current/history rows, analysis retention and all sixteen
+native publications, then exposed an eight-page fixture bound for a nine-page collector
+protocol. Two attempts each require a batch, result-set, append-receipt and generation
+page, followed by the completion page. The corrected bound derives from that fixture
+inventory; exact payload count, post-retirement refusal and escaped-buffer checks remain.
+Independent readback agrees; all four enclosing managed Rust journeys now pass.
+
+The managed Python rerun completed six tests before its durable 1,000-point sweep
+exposed a recovery race. Assigned-page discovery could outlive the original owner's
+terminal observation; recovery's fresh snapshot was already unassigned/settled, but
+recovery attempted another observation and stopped the worker. Recovery now rechecks
+fresh assignment/settlement before acting, including leaving retryable unassigned
+points for normal claim policy. Independent source readback confirms the race and
+the guard's ownership boundary. Both revealing canonical controls now pass, including
+settled and retryable states and original-owner terminal projection. Rebuilt worker and
+extension acceptance remains pending. The interrupted client and exact receiver
+are drained through their actual owners; unfinished outcomes and retention pins remain.
+
+The rebuilt managed cancellation journey then exposed a distinct recovery race:
+background maintenance treated the cancellation bit as authority to fence a still-live
+native owner. Recovery now requires terminal readback or lease expiry, and respects
+the existing local candidate turn through native drain and terminal observation.
+Cancellation still closes new entry and reaches the original owner's typed cancellation
+path; it does not establish physical handoff to another worker. Revealing controls cover
+an independent worker, an expired but locally owned attempt, and recovery after local
+turn release. All four latest-source recovery/rotation/completion controls pass with
+enclosing cleanup; independent source readback found no material flaw. This simulated
+turn control is distinct from actual native cancellation/drain acceptance. All four
+managed Rust journeys now pass on the rebuilt worker with enclosing cleanup, including
+the revealing sixteen-owner cancellation journey. Managed Python acceptance on the rebuilt validated native extension was interrupted after the seal failure recorded below.
+
+The rebuilt managed Python sweep reached native execution, then exhausted the existing
+bounded definite-conflict retries while sealing an original result. The initiating
+failure was the seal transaction, not its later cleanup refusal. A held-transaction
+control reproduced an unnecessary conflict between terminal active-root removal and
+an unrelated source creator in the same problem. The proposed ADR-0177 contract now
+distinguishes pure removal from new dependency creation: release retains exact-root
+and reclaim registration, while the run root continues retaining the source. The
+generator removes only this release's shared creator notification. Actual creators keep
+their two-way reclamation fences. Regeneration and both-order release/collector and independent-creator controls are recorded at the coordinator’s stop checkpoint; rebuilt managed acceptance remains pending. The interrupted
+client/controller and exact receiver have drained through their actual owners;
+unfinished outcomes and retention pins remain unchanged.
+
+
+## Maintainer stop handoff, 2026-10-12
+
+Execution stopped after the requested immediate wrap-up. The [coordinator’s stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12) owns current evidence boundaries, worktree reconciliation and the remaining execution route. The generator correction and both-order seal/reclamation controls are recorded there. Actual managed Python sweep success and refreshed managed/native acceptance remain open; failed or incomplete outcomes retain their ownership and pins.

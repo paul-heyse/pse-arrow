@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 from unittest.mock import MagicMock, patch
 
 from scripts import (
@@ -47,6 +47,32 @@ def drain_fixture(complete: bool) -> operation.DrainObservation:
 
 
 class NativeOperationTests(unittest.TestCase):
+    def test_original_cancellation_clock_preserves_exact_numeric_authority(
+        self,
+    ) -> None:
+        integer = (1 << 53) + 3
+        clock = operation.original_cancellation_clock(integer)
+        self.assertIs(clock, integer)
+        self.assertEqual(clock, integer)
+        fractional = 105.25
+        self.assertIs(operation.original_cancellation_clock(fractional), fractional)
+        for invalid in (
+            True,
+            False,
+            float("nan"),
+            float("inf"),
+            -float("inf"),
+            None,
+            "105",
+        ):
+            with (
+                self.subTest(value=invalid),
+                self.assertRaisesRegex(
+                    ValueError, "invalid original cancellation clock"
+                ),
+            ):
+                operation.original_cancellation_clock(invalid)
+
     def setUp(self) -> None:
         # Each fixture supplies its own admission owner, including when this
         # suite runs inside a real assessment operation.
@@ -1116,6 +1142,11 @@ class NativeOperationTests(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.object(operation, "scope_owner", return_value=None),
+            patch.object(
+                operation,
+                "drained",
+                side_effect=lambda record: drain_fixture(record["scope"] is not None),
+            ),
         ):
             base = Path(directory)
             with operation.Operation(base) as parent:
@@ -1131,18 +1162,34 @@ class NativeOperationTests(unittest.TestCase):
                 }
                 record["generations"] = ["settled-child-only"]
                 operation.write_json(path, record)
-                with patch.object(
-                    operation,
-                    "drained",
-                    side_effect=lambda record: drain_fixture(
-                        record["scope"] is not None
-                    ),
-                ):
-                    self.assertEqual(operation.pinned_generations(base), set())
-                    self.assertTrue(path.exists())
-                    parent.path.unlink()
-                    self.assertEqual(operation.pinned_generations(base), set())
-                    self.assertFalse(path.exists())
+                self.assertEqual(operation.pinned_generations(base), set())
+                self.assertTrue(path.exists())
+                self.assertTrue(parent.path.exists())
+            # The authentic creator settles its cancellation fence before its
+            # retirement is observed. Deleting a live parent's record is loss
+            # of authority, not a successful collector transition.
+            self.assertTrue(json.loads(path.read_text())["cancelled"])
+            parent.path.unlink()
+            self.assertEqual(operation.pinned_generations(base), set())
+            self.assertFalse(path.exists())
+
+    def test_missing_live_creator_record_refuses_exit_and_restores_markers(
+        self,
+    ) -> None:
+        previous = {
+            key: os.environ.get(key)
+            for key in (operation.MARKER, "PSE_NATIVE_CACHE", "PSE_NATIVE_SETUP_PYTHON")
+        }
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation, "cancel_foreground_handoffs") as settle,
+            self.assertRaises(FileNotFoundError),
+            operation.Operation(Path(directory)) as parent,
+        ):
+            parent.path.unlink()
+        settle.assert_not_called()
+        self.assertEqual({key: os.environ.get(key) for key in previous}, previous)
 
     def test_record_exclusion_defers_cancellation_until_flock_is_released(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1381,7 +1428,7 @@ class NativeOperationTests(unittest.TestCase):
             base = Path(directory)
             environment = self.fixture_environment(base)
             environment["PSE_TEST_RESOURCE_STATE"] = str(base / "registry")
-            composer = "\n".join(
+            composer = "\n".join(  # noqa: FLY002 -- retain separate executable fault-injection statements
                 [
                     "import signal,sys,time; from pathlib import Path",
                     "from scripts import native_operation as n,test_resources as r",
@@ -1444,7 +1491,7 @@ class NativeOperationTests(unittest.TestCase):
                         (base / "registry/invocation-state" / path.name).read_text()
                     )
                     self.assertEqual(state["phase"], "open")
-                    record = operation._record(Path(selected["operation"]))
+                    record = operation._record(Path(selected["operation"]))  # noqa: SLF001 -- assert the exact durable private operation protocol
                     self.assertEqual(
                         record["selected_composers"][path.stem]["phase"], "registered"
                     )
@@ -1598,12 +1645,17 @@ class NativeOperationTests(unittest.TestCase):
             "invocation": "b" * 32,
         }
         observation = {}
-        original = time.monotonic() + 1
 
-        def completed(_command, _environment, **options):
-            options["observation"].update(
-                child_status=0, cancellation_deadline=original
-            )
+        def completed(
+            _command: list[str],
+            _environment: dict[str, str],
+            *,
+            observation: dict[str, object],
+            on_reaped: Callable[[], None],
+            **_options: object,
+        ) -> int:
+            observation.update(child_status=0)
+            on_reaped()
             return 0
 
         with (
@@ -1632,7 +1684,342 @@ class NativeOperationTests(unittest.TestCase):
         self.assertNotIn(operation.MARKER, run.call_args.args[1])
         self.assertEqual(run.call_args.args[1]["PSE_NATIVE_HANDOFF"], "/owned/handoff")
         allocation.release.assert_not_called()
-        self.assertEqual(drain.call_args.kwargs["deadline"], original)
+        self.assertIsNone(drain.call_args.kwargs["deadline"])
+
+    def test_selected_scope_cleanup_joins_physical_reaping_with_late_signals(
+        self,
+    ) -> None:
+        from scripts import (
+            host_admission as host,
+        )
+
+        for order in ("before-reap", "during-cleanup", "first-signal-during-drain"):
+            for signum in (signal.SIGINT, signal.SIGTERM):
+                with (
+                    self.subTest(order=order, signal=signum),
+                    tempfile.TemporaryDirectory() as directory,
+                ):
+                    base = Path(directory)
+                    opaque = subprocess.Popen(
+                        [
+                            sys.executable,
+                            "-c",
+                            "import sys; from pathlib import Path; Path(sys.argv[1]).write_text('{}'); sys.stdin.buffer.read(1)",
+                            str(base / "ready.json"),
+                        ],
+                        stdin=subprocess.PIPE,
+                    )
+                    wrapper = subprocess.Popen(
+                        [sys.executable, "-c", "import sys; sys.stdin.buffer.read(1)"],
+                        stdin=subprocess.PIPE,
+                    )
+                    wrapper_wait = wrapper.wait
+                    previous = signal.getsignal(signum)
+                    escaped: list[int] = []
+
+                    def outer_interrupt(received: int, _frame: object) -> None:
+                        escaped.append(received)
+                        raise KeyboardInterrupt
+
+                    signal.signal(signum, outer_interrupt)
+                    try:
+                        self.await_file(base / "ready.json", opaque)
+                        original = time.monotonic() + 5
+                        selected = {
+                            "unit": "pse-native-" + "a" * 32 + ".scope",
+                            "group": "/controlled-child",
+                            "invocation": "b" * 32,
+                        }
+                        allocation = MagicMock(spec=host.Allocation)
+                        allocation.nonce = "c" * 32
+                        allocation.profile = host.select("light")
+                        observation: dict[str, object] = {}
+                        records = 0
+                        wrapper_released = False
+                        observations: list[tuple[float | None, bool]] = []
+
+                        def wait(*, timeout: float) -> int:
+                            nonlocal wrapper_released
+                            if not wrapper_released:
+                                wrapper_released = True
+                                if order == "before-reap":
+                                    signal.pthread_kill(threading.get_ident(), signum)
+                                assert wrapper.stdin is not None
+                                wrapper.stdin.write(b"x")
+                                wrapper.stdin.flush()
+                            return wrapper_wait(timeout=timeout)
+
+                        def record(_path: Path) -> dict:
+                            nonlocal records
+                            records += 1
+                            if records == 1 and order == "during-cleanup":
+                                self.assertEqual(wrapper.poll(), 0)
+                                signal.pthread_kill(threading.get_ident(), signum)
+                            if order == "first-signal-during-drain":
+                                return {"scope": selected}
+                            return {"scope": selected, "cancel_deadline": original}
+
+                        def physical_drain(
+                            _record: Mapping[str, object], *, deadline: float | None
+                        ) -> operation.DrainObservation:
+                            expected = (
+                                None
+                                if order == "first-signal-during-drain"
+                                and not observations
+                                else original
+                            )
+                            self.assertEqual(deadline, expected)
+                            alive = opaque.poll() is None
+                            if not observations:
+                                observations.append((deadline, alive))
+                                self.assertTrue(
+                                    alive, "wrapper reap must not imply opaque drain"
+                                )
+                                # In the no-clock case this establishes the
+                                # first clock during cleanup. Otherwise this
+                                # repeat stays pending through the physical join.
+                                signal.pthread_kill(threading.get_ident(), signum)
+                                assert opaque.stdin is not None
+                                opaque.stdin.write(b"x")
+                                opaque.stdin.flush()
+                                return operation.DrainObservation(
+                                    selected,
+                                    operation.DrainPhase.POPULATED,
+                                    "actual gated child remains",
+                                )
+                            assert deadline is not None
+                            opaque.wait(timeout=operation.admission_remaining(deadline))
+                            observations.append((deadline, opaque.returncode is None))
+                            return operation.DrainObservation(
+                                selected,
+                                operation.DrainPhase.COMPLETE,
+                                "actual gated child reaped",
+                            )
+
+                        with (
+                            patch.object(host, "inherit", return_value=allocation),
+                            patch.object(
+                                operation,
+                                "scope_owner",
+                                return_value={"unit": "parent"},
+                            ),
+                            patch.object(
+                                operation,
+                                "prepare_handoff",
+                                return_value=Path("/owned/handoff"),
+                            ),
+                            patch.object(
+                                operation.subprocess, "Popen", return_value=wrapper
+                            ),
+                            patch.object(wrapper, "wait", side_effect=wait),
+                            patch.object(
+                                operation,
+                                "cancel_foreground",
+                                return_value=(original, signum),
+                            ) as cancel,
+                            patch.object(operation, "_record", side_effect=record),
+                            patch.object(
+                                operation, "drained", side_effect=physical_drain
+                            ),
+                        ):
+                            code = operation.run_child_scope(
+                                ["controlled-wrapper"], {}, observation=observation
+                            )
+                        self.assertEqual(code, 128 + signum)
+                        self.assertEqual(observation["forwarded_signal"], signum)
+                        self.assertEqual(observation["cancellation_deadline"], original)
+                        self.assertEqual(observation["owned_drain"], "complete")
+                        self.assertEqual(observation["scope"], selected)
+                        first_clock = (
+                            None if order == "first-signal-during-drain" else original
+                        )
+                        self.assertEqual(
+                            observations, [(first_clock, True), (original, False)]
+                        )
+                        self.assertEqual(opaque.returncode, 0)
+                        self.assertEqual(wrapper.returncode, 0)
+                        self.assertEqual(escaped, [])
+                        self.assertIs(signal.getsignal(signum), outer_interrupt)
+                        cancel.assert_called_once()
+                        allocation.release.assert_not_called()
+                    finally:
+                        signal.signal(signum, previous)
+                        for child in (opaque, wrapper):
+                            if child.poll() is None:
+                                child.kill()
+                            child.wait(timeout=5)
+                            if child.stdin is not None:
+                                child.stdin.close()
+
+    def test_selected_scope_join_preserves_original_expiry_and_refuses_unknown_owner(
+        self,
+    ) -> None:
+        from scripts import (
+            host_admission as host,
+        )
+
+        selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+        for phase in (
+            operation.DrainPhase.POPULATED,
+            operation.DrainPhase.MISMATCH,
+            operation.DrainPhase.UNAVAILABLE,
+        ):
+            with self.subTest(phase=phase):
+                elapsed = [100.0]
+                original = 100.025
+                allocation = MagicMock(spec=host.Allocation)
+                allocation.nonce = "c" * 32
+                allocation.profile = host.select("light")
+                observation: dict[str, object] = {}
+
+                def completed(
+                    _command: list[str],
+                    _environment: dict[str, str],
+                    *,
+                    on_reaped: Callable[[], None],
+                    **_options: object,
+                ) -> int:
+                    observation.update(child_status=0, cancellation_deadline=original)
+                    on_reaped()
+                    return 0
+
+                def advance(delay: float) -> None:
+                    elapsed[0] += delay
+
+                with (
+                    patch.object(host, "inherit", return_value=allocation),
+                    patch.object(
+                        operation, "scope_owner", return_value={"unit": "parent"}
+                    ),
+                    patch.object(
+                        operation,
+                        "prepare_handoff",
+                        return_value=Path("/owned/handoff"),
+                    ),
+                    patch.object(operation, "run", side_effect=completed),
+                    patch.object(
+                        operation, "_record", return_value={"scope": selected}
+                    ),
+                    patch.object(
+                        operation,
+                        "drained",
+                        return_value=operation.DrainObservation(
+                            selected, phase, "controlled refusal"
+                        ),
+                    ) as drain,
+                    patch.object(
+                        operation.time, "monotonic", side_effect=lambda: elapsed[0]
+                    ),
+                    patch.object(operation.time, "sleep", side_effect=advance) as pause,
+                    self.assertRaises(
+                        operation.DeadlineExpiredError
+                        if phase == operation.DrainPhase.POPULATED
+                        else ValueError
+                    ),
+                ):
+                    operation.run_child_scope(
+                        ["controlled-wrapper"], {}, observation=observation
+                    )
+                self.assertEqual(observation["owned_drain"], "unresolved")
+                self.assertEqual(observation["cancellation_deadline"], original)
+                self.assertTrue(
+                    all(
+                        call.kwargs["deadline"] == original
+                        for call in drain.call_args_list
+                    )
+                )
+                if phase == operation.DrainPhase.POPULATED:
+                    self.assertEqual(elapsed[0], original)
+                    self.assertGreater(drain.call_count, 1)
+                else:
+                    self.assertEqual(drain.call_count, 1)
+                    pause.assert_not_called()
+                allocation.release.assert_not_called()
+
+    def test_selected_cleanup_callback_runs_on_spawn_failure_without_claiming_reap(
+        self,
+    ) -> None:
+        before = {
+            name: signal.getsignal(name) for name in (signal.SIGINT, signal.SIGTERM)
+        }
+        failure = OSError("controlled spawn refusal")
+        cleanup_handlers = []
+
+        def cleanup() -> None:
+            cleanup_handlers.append({name: signal.getsignal(name) for name in before})
+
+        with (
+            patch.object(operation.subprocess, "Popen", side_effect=failure),
+            self.assertRaises(OSError) as caught,
+        ):
+            operation.run(["unlaunched"], {}, on_reaped=cleanup)
+        self.assertIs(caught.exception, failure)
+        self.assertEqual(len(cleanup_handlers), 1)
+        self.assertTrue(
+            all(cleanup_handlers[0][name] != before[name] for name in before)
+        )
+        self.assertEqual({name: signal.getsignal(name) for name in before}, before)
+
+    def test_late_clock_does_not_retry_unknown_selected_scope_authority(self) -> None:
+        from scripts import (
+            host_admission as host,
+        )
+
+        selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+        for phase in (operation.DrainPhase.MISMATCH, operation.DrainPhase.UNAVAILABLE):
+            with self.subTest(phase=phase):
+                allocation = MagicMock(spec=host.Allocation)
+                allocation.nonce = "c" * 32
+                allocation.profile = host.select("light")
+                observation: dict[str, object] = {}
+                original = time.monotonic() + 1
+
+                def completed(
+                    _command: list[str],
+                    _environment: dict[str, str],
+                    *,
+                    on_reaped: Callable[[], None],
+                    **_options: object,
+                ) -> int:
+                    on_reaped()
+                    return 0
+
+                def unknown(
+                    _record: Mapping[str, object], *, deadline: float | None
+                ) -> operation.DrainObservation:
+                    self.assertIsNone(deadline)
+                    observation["cancellation_deadline"] = original
+                    return operation.DrainObservation(
+                        selected, phase, "authority unavailable"
+                    )
+
+                with (
+                    patch.object(host, "inherit", return_value=allocation),
+                    patch.object(
+                        operation, "scope_owner", return_value={"unit": "parent"}
+                    ),
+                    patch.object(
+                        operation,
+                        "prepare_handoff",
+                        return_value=Path("/owned/handoff"),
+                    ),
+                    patch.object(operation, "run", side_effect=completed),
+                    patch.object(
+                        operation, "_record", return_value={"scope": selected}
+                    ),
+                    patch.object(operation, "drained", side_effect=unknown) as drain,
+                    patch.object(operation.time, "sleep") as pause,
+                    self.assertRaisesRegex(
+                        ValueError, "selected workload remains charged"
+                    ),
+                ):
+                    operation.run_child_scope(
+                        ["controlled-wrapper"], {}, observation=observation
+                    )
+                drain.assert_called_once()
+                pause.assert_not_called()
+                self.assertEqual(observation["owned_drain"], "unresolved")
+                self.assertEqual(observation["cancellation_deadline"], original)
 
     def test_composer_existing_clock_bounds_first_cancellation_lock(self) -> None:
         parent = Path("/owned/parent")
@@ -1662,7 +2049,7 @@ class NativeOperationTests(unittest.TestCase):
         wait_lock = threading.Lock()
         delivered = False
 
-        def wait(*, timeout):
+        def wait(*, timeout: float) -> int:
             nonlocal delivered
             if not wait_lock.acquire(timeout=timeout):
                 raise subprocess.TimeoutExpired("owned-child", timeout)
@@ -1693,6 +2080,7 @@ class NativeOperationTests(unittest.TestCase):
         parent, handoff = Path("/owned/parent"), Path("/owned/handoff")
         own = {"unit": "parent.scope", "group": "/parent", "invocation": "a" * 32}
         child = MagicMock()
+        child.returncode = None
         with (
             patch.object(operation, "owner_record", return_value=parent),
             patch.object(operation, "note_composer_cancellation"),
@@ -1727,6 +2115,7 @@ class NativeOperationTests(unittest.TestCase):
     ) -> None:
         deadline = time.monotonic() + 0.05
         child = MagicMock()
+        child.returncode = None
         with (
             patch.object(
                 operation,
@@ -1742,8 +2131,94 @@ class NativeOperationTests(unittest.TestCase):
         self.assertEqual(authority.call_args.kwargs["deadline"], deadline - 0.5)
         direct.assert_called_once_with(child.pid, signal.SIGTERM)
 
+    def test_reaped_launcher_cancellation_uses_only_authenticated_scope(self) -> None:
+        parent, handoff = Path("/owned/parent"), Path("/owned/handoff")
+        scope = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+        selected = {"scope": scope, "scope_inode": 17, "handoff": scope["unit"]}
+        original = time.monotonic() + 5
+        for changed in (False, True):
+            with self.subTest(changed=changed):
+                child = MagicMock(returncode=0)
+                with (
+                    patch.object(
+                        operation, "inherited_cancellation", return_value=None
+                    ),
+                    patch.object(operation, "owner_record", return_value=parent),
+                    patch.object(
+                        operation, "note_composer_cancellation", return_value=None
+                    ),
+                    patch.object(
+                        operation, "record_lock", return_value=contextlib.nullcontext()
+                    ),
+                    patch.object(
+                        operation,
+                        "_record",
+                        return_value={
+                            "scope": {"unit": "parent.scope"},
+                            "foreground_children": [str(handoff)],
+                            "cancel_deadline": original,
+                            "cancel_signal": signal.SIGTERM,
+                        },
+                    ),
+                    patch.object(
+                        operation, "fence_foreground_handoff", return_value=selected
+                    ) as fence,
+                    patch.object(
+                        operation,
+                        "drained",
+                        side_effect=[drain_fixture(False), drain_fixture(True)],
+                    ) as drain,
+                    patch.object(
+                        operation,
+                        "unit_observation",
+                        return_value={
+                            "LoadState": "loaded",
+                            "ControlGroup": scope["group"],
+                            "InvocationID": "replacement"
+                            if changed
+                            else scope["invocation"],
+                        },
+                    ),
+                    patch.object(host_admission, "group_identity", return_value=17),
+                    patch.object(operation.subprocess, "run") as stop,
+                    patch.object(operation.os, "killpg") as numeric,
+                ):
+                    if changed:
+                        with self.assertRaisesRegex(
+                            ValueError, "foreground cancellation incomplete"
+                        ):
+                            operation.cancel_foreground(
+                                child, signal.SIGTERM, handoff, deadline=original
+                            )
+                    else:
+                        self.assertEqual(
+                            operation.cancel_foreground(
+                                child, signal.SIGTERM, handoff, deadline=original
+                            ),
+                            (original, signal.SIGTERM),
+                        )
+                fence.assert_called_once()
+                numeric.assert_not_called()
+                if changed:
+                    stop.assert_not_called()
+                    self.assertEqual(drain.call_count, 1)
+                else:
+                    self.assertEqual(
+                        stop.call_args.args[0],
+                        ["systemctl", "--user", "stop", scope["unit"]],
+                    )
+                    self.assertEqual(drain.call_count, 2)
+                self.assertTrue(
+                    all(
+                        call.kwargs["deadline"] == original - 0.5
+                        for call in drain.call_args_list
+                    )
+                )
+
     def test_masked_registration_host_lock_refuses_by_one_finite_clock(self) -> None:
-        from scripts import test_resources as resources
+        from scripts import (  # noqa: PLC0415 -- fault injection loads the selected terminal owner
+            test_resources as resources,
+        )
 
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
@@ -1793,7 +2268,8 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertLess(time.monotonic() - started, 0.2)
                 self.assertEqual(signals, [signal.SIGTERM])
                 self.assertEqual(
-                    operation.composer_registrations(operation._record(parent.path)), {}
+                    operation.composer_registrations(operation._record(parent.path)),
+                    {},  # noqa: SLF001 -- assert the exact durable private operation protocol
                 )
                 with host_admission.allocation_metadata(allocation.directory) as ledger:
                     self.assertEqual(
@@ -1804,10 +2280,10 @@ class NativeOperationTests(unittest.TestCase):
     def test_composer_registration_cancel_fence_and_pending_sigterm_are_atomic(
         self,
     ) -> None:
-        from scripts import (  # noqa: PLC0415 -- selected terminal controls
+        from scripts import (  # noqa: PLC0415 -- terminal control
             test_resources as resources,
         )
-        from scripts import test_run
+        from scripts import test_run  # noqa: PLC0415 -- terminal control
 
         own = {
             "unit": "pse-native-" + "a" * 32 + ".scope",
@@ -1832,9 +2308,16 @@ class NativeOperationTests(unittest.TestCase):
                     path = resources.invocation("python", [])
                     register = operation.register_composer
 
-                    def transition(selected):
+                    def transition(
+                        selected: Path,
+                        register: Callable[
+                            [Path], tuple[Path, str, str] | None
+                        ] = register,
+                    ) -> tuple[Path, str, str] | None:
                         registration = register(selected)
-                        os.kill(os.getpid(), signal.SIGTERM)
+                        # This control requires SIGTERM pending on the masked
+                        # registration thread, even if the suite has helpers.
+                        signal.pthread_kill(threading.get_ident(), signal.SIGTERM)
                         return registration
 
                     if cancelled:
@@ -1864,7 +2347,7 @@ class NativeOperationTests(unittest.TestCase):
                     terminal = resources.storage().terminal(path.stem)[1]
                     self.assertFalse(terminal["complete"])
                     registered = operation.composer_registrations(
-                        operation._record(parent.path)
+                        operation._record(parent.path)  # noqa: SLF001 -- assert the exact durable private operation protocol
                     )
                     if cancelled:
                         self.assertEqual(registered, {})
@@ -1880,7 +2363,7 @@ class NativeOperationTests(unittest.TestCase):
     def test_unresolved_composer_ack_keeps_identity_and_still_attempts_own_scope_kill(
         self,
     ) -> None:
-        from scripts import (
+        from scripts import (  # noqa: PLC0415 -- fault injection loads the selected terminal owner
             test_resources as resources,
         )
 
@@ -1905,7 +2388,7 @@ class NativeOperationTests(unittest.TestCase):
                 operation.register_composer(path)
                 elapsed = [0.0]
 
-                def advance(delay):
+                def advance(delay: float) -> None:
                     elapsed[0] += delay
 
                 with (
@@ -1924,7 +2407,7 @@ class NativeOperationTests(unittest.TestCase):
                 forwarded.assert_called_once()
                 self.assertIn("--signal=SIGKILL", manager.call_args.args[0])
                 self.assertIn("acknowledgment unresolved", errors.getvalue())
-                record = operation._record(parent.path)
+                record = operation._record(parent.path)  # noqa: SLF001 -- assert the exact durable private operation protocol
                 self.assertTrue(record["cancelled"])
                 self.assertEqual(
                     record["selected_composers"][path.stem]["phase"], "registered"
@@ -1946,7 +2429,7 @@ class NativeOperationTests(unittest.TestCase):
             name: signal.getsignal(name) for name in (signal.SIGINT, signal.SIGTERM)
         }
 
-        def spawn(*_args, **_options):
+        def spawn(*_args: object, **_options: object) -> MagicMock:
             os.kill(os.getpid(), signal.SIGTERM)
             return child
 
@@ -1977,10 +2460,10 @@ class NativeOperationTests(unittest.TestCase):
     def test_composer_uses_original_handoff_signal_before_parent_copies_it(
         self,
     ) -> None:
-        from scripts import (  # noqa: PLC0415 -- terminal owner
+        from scripts import (  # noqa: PLC0415 -- terminal control
             test_resources as resources,
         )
-        from scripts import test_run
+        from scripts import test_run  # noqa: PLC0415 -- terminal control
 
         own = {
             "unit": "pse-native-" + "a" * 32 + ".scope",
@@ -2001,7 +2484,7 @@ class NativeOperationTests(unittest.TestCase):
                 path = resources.invocation("python", [])
                 deadline = time.monotonic() + 5
 
-                def stop(observation):
+                def stop(observation: dict[str, object]) -> int:
                     observation.update(
                         child_status=-signal.SIGKILL,
                         forwarded_signal=signal.SIGTERM,
@@ -2024,7 +2507,7 @@ class NativeOperationTests(unittest.TestCase):
                         ),
                         128 + signal.SIGINT,
                     )
-                self.assertNotIn("cancel_signal", operation._record(parent.path))
+                self.assertNotIn("cancel_signal", operation._record(parent.path))  # noqa: SLF001 -- assert the exact durable private operation protocol
                 terminal = json.loads(path.with_suffix(".terminal.json").read_text())
                 self.assertEqual(terminal["exit_code"], 128 + signal.SIGINT)
                 self.assertEqual(terminal["process"]["forwarded_signal"], signal.SIGINT)
@@ -2143,7 +2626,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 from scripts import native_operation as n
 base=Path(sys.argv[1]); p=n.current(); record=n._record(p)
 n.write_json(base/'worker-ready.json', {'scope':record['scope'],'operation':str(p),'original':(Path(sys.argv[2])/'lib/a').read_text()})
@@ -2155,7 +2638,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 from scripts import native_cache as c, native_operation as n, surreal_server as s, host_admission as h
 base=Path(sys.argv[1]); state=base/'disposable-state'
 def builder(stage, work):
@@ -2222,7 +2705,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 from scripts import native_cache as c, native_operation as n
 def builder(stage,work):
  (stage/'lib').mkdir(); (stage/'lib/a').write_text('original archive')
@@ -2284,7 +2767,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
 from scripts import native_operation as n
 base=Path(sys.argv[1]); descendant=subprocess.Popen([sys.executable,'-c',sys.argv[2]],start_new_session=True)
 record=n._record(n.current()); n.write_json(base/'cancel-ready.json',{'record':record,'descendant':descendant.pid,'group':n.process_group(descendant.pid)})

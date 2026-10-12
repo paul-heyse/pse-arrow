@@ -103,12 +103,12 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<Option<ArithmeticUncertain
     let _scratch_charge = budget
         .charge(scratch_bytes)
         .map_err(MathRuntimeError::into_problem)?;
-    let workspace = Ibex.point_arithmetic_workspace_bytes(&program)?;
+    let workspace = Ibex::default().point_arithmetic_workspace_bytes(&program)?;
     let _workspace_charge = budget
         .charge(workspace)
         .map_err(MathRuntimeError::into_problem)?;
-    let enclosure =
-        Ibex.enclose_point_arithmetic_with_execution(&program, point, workspace, execution)?;
+    let enclosure = Ibex::default()
+        .enclose_point_arithmetic_with_execution(&program, point, workspace, execution)?;
     execution.check()?;
     let (enclosed_values, enclosed_jacobian) = match enclosure {
         PointArithmeticEvidence::Enclosed {

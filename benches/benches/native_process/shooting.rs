@@ -257,7 +257,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
                     .rows(
                         result.run_id,
                         0,
-                        owner.runtime.pool(),
+                        owner.runtime.math(),
                         0..trace.event_count()
                     )
                     .unwrap()

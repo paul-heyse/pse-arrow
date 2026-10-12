@@ -21,9 +21,11 @@ asset_bundles = [
   "blueprint-rev4-2026-09-13",
   "canonical-selection-2026-10-06",
   "efficiency-principles-codebase-2026-10-09",
+  "efficiency-alignment-codebase-2026-10-11",
   "full-arrow-datafusion-2026-09-14",
   "graph-hash-followups-2026-10-09",
   "native-producer-inputs-2026-10-06",
+  "plan36-investigation-evidence",
   "unified-state-management-2026-10-10",
 ]
 entrypoints = [
@@ -161,6 +163,43 @@ files = [
   "restart-context-diagnostic.json",
   "restart-context-probe.rs",
   "temporary-integration.patch",
+]
+
+[[asset_bundles]]
+name = "efficiency-alignment-codebase-2026-10-11"
+root = "design_review/evidence/efficiency-alignment-codebase-2026-10-11"
+files = ["sha256-pass-time.py", "sha256-pass-time.txt"]
+
+[[asset_bundles]]
+name = "plan36-investigation-evidence"
+root = "plans/36-investigation-evidence"
+files = [
+  "boundary-probes/Cargo.lock",
+  "boundary-probes/Cargo.toml",
+  "boundary-probes/arrow-results.jsonl",
+  "boundary-probes/build-signals.py",
+  "boundary-probes/serde-without-feature.jsonl",
+  "boundary-probes/signal-proxy.c",
+  "boundary-probes/signal-results.jsonl",
+  "boundary-probes/signals.py",
+  "boundary-probes/src/main.rs",
+  "build-input-probe.py",
+  "build-input-results.json",
+  "coordination-probe/probe.py",
+  "coordination-probe/receipt.json",
+  "coordination-probe/server-output.txt",
+  "development-probe.py",
+  "numerical-probe/Cargo.lock",
+  "numerical-probe/Cargo.toml",
+  "numerical-probe/oracle-output.json",
+  "numerical-probe/oracle.py",
+  "numerical-probe/output.txt",
+  "numerical-probe/src/main.rs",
+  "preparation-controls.py",
+  "preparation-probe/Cargo.lock",
+  "preparation-probe/Cargo.toml",
+  "preparation-probe/src/main.rs",
+  "topology-results.json",
 ]
 
 [[asset_bundles]]

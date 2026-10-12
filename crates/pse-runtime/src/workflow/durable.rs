@@ -172,7 +172,7 @@ impl Operations {
                     .is_some_and(|a| a.permits_seed)
                 {
                     let solution = SolutionId::from_id(
-                        pse_ids::SemanticId::parse_hex(&seed.key)
+                        SemanticId::parse_hex(&seed.key)
                             .map_err(|error| contract(error.to_string()))?,
                     );
                     solutions.push((
@@ -265,7 +265,7 @@ impl Operations {
             return Err(contract("stored completion interpretation"));
         }
         if completion.version == 1 {
-            completion.progress = super::ProgressCoverage::Unknown;
+            completion.progress = super::ProgressCoverage::Unknown {};
         }
         Ok(Arc::new(pse_columnar::Leased::new(
             Arc::new(completion),
@@ -289,7 +289,13 @@ impl Operations {
     ) -> Result<DurableRecord, WorkflowError> {
         let prepared = async {
             let completion = serde_json::to_vec(receipt).map_err(|e| contract(e.to_string()))?;
-            let manifest = self.store.reconcile_closed_attempt(closed).await?;
+            let manifest = self
+                .store
+                .reconcile_closed_attempt(closed)
+                .await
+                .map_err(|error| {
+                    super::diagnostics::operation_context(error.into(), "durable.settle.reconcile")
+                })?;
             Ok::<_, WorkflowError>((manifest, completion))
         }
         .await;
@@ -320,9 +326,13 @@ impl Operations {
             self.store
                 .seal_attempt(&manifest, operation, class, &completion, seeds)
                 .await
-        }?;
+        }
+        .map_err(|error| {
+            super::diagnostics::operation_context(error.into(), "durable.settle.seal")
+        })?;
         self.record(closed.fence().run(), closed.fence().attempt())
             .await
+            .map_err(|error| super::diagnostics::operation_context(error, "durable.settle.record"))
     }
     /// Recover only explicitly selected expired/cancelled run authority. No numerical dispatch.
     #[allow(
@@ -378,7 +388,7 @@ impl Operations {
             completion: None,
             termination: outcome.detail,
             state: outcome.state,
-            progress: super::ProgressCoverage::Unknown,
+            progress: super::ProgressCoverage::Unknown {},
         };
         let receipt = CompletionReceipt {
             version: 1,
@@ -540,8 +550,8 @@ fn uncertain_progress_queue(progress: &super::ProgressCoverage) -> Option<u64> {
                 writer,
                 ProgressWriterOutcome::JoinFailed
                     | ProgressWriterOutcome::Failed(ProgressWriterFailure {
-                        stage: ProgressWriteStage::CanonicalAppend
-                            | ProgressWriteStage::Acknowledgment
+                        stage: ProgressWriteStage::CanonicalAppend {}
+                            | ProgressWriteStage::Acknowledgment {}
                     })
             ) =>
         {
@@ -646,6 +656,7 @@ pub(crate) struct DurableAttempt {
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
     horizon_seed_next: u64,
     horizon_prefix_failure: Option<Arc<WorkflowError>>,
     output: super::StudyOutputDemand,
@@ -669,9 +680,10 @@ impl DurableAttempt {
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Self {
             horizon_prefix: None,
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
-            output: super::StudyOutputDemand::Full,
+            output: super::StudyOutputDemand::Full {},
             operations: operations.clone(),
             attempt,
             run_id: None,
@@ -697,9 +709,10 @@ impl DurableAttempt {
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Self {
             horizon_prefix: None,
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
-            output: super::StudyOutputDemand::Full,
+            output: super::StudyOutputDemand::Full {},
             operations: operations.clone(),
             attempt,
             run_id: Some(run_id),
@@ -874,6 +887,7 @@ impl DurableAttempt {
     pub(crate) fn set_output(&mut self, output: super::StudyOutputDemand) {
         self.output = output;
     }
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
     pub(super) fn begin_horizon_prefix(
         &mut self,
         output: super::StudyOutputDemand,
@@ -893,17 +907,19 @@ impl DurableAttempt {
         self.horizon_prefix = Some(Default::default());
         Ok(())
     }
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
     pub(super) fn refuse_horizon_prefix(&mut self, error: Arc<WorkflowError>) {
         if self.horizon_prefix_failure.is_none() {
             self.horizon_prefix_failure = Some(error);
         }
     }
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
     pub(super) async fn publish_horizon_step(
         &mut self,
         result: &RunResult,
     ) -> Result<(), WorkflowError> {
         let fence = self.fence()?.clone();
-        let full = matches!(self.output, super::StudyOutputDemand::Full);
+        let full = matches!(self.output, super::StudyOutputDemand::Full {});
         let relations = if full {
             result.table_ids()
         } else {
@@ -976,7 +992,7 @@ impl DurableAttempt {
         .await?;
         // A zero-solve/refused horizon still closes each advertised mandatory
         // relation coherently. Relations already appended are never reopened.
-        let advertised = if matches!(self.output, super::StudyOutputDemand::Full) {
+        let advertised = if matches!(self.output, super::StudyOutputDemand::Full {}) {
             result.table_ids()
         } else {
             result.summary_table_ids()
@@ -1097,7 +1113,9 @@ impl DurableAttempt {
             if self.horizon_prefix.is_some() {
                 return self.finish_horizon_prefix(result).await;
             }
-            self.store_tables(result).await?;
+            self.store_tables(result).await.map_err(|error| {
+                super::diagnostics::operation_context(error, "durable.finish.tables")
+            })?;
             store_seeds(
                 &self.operations,
                 self.fence()?,
@@ -1107,6 +1125,7 @@ impl DurableAttempt {
                 &self.stream.export_gate,
             )
             .await
+            .map_err(|error| super::diagnostics::operation_context(error, "durable.finish.seeds"))
         }
         .await;
         let tables_complete = ingestion.is_ok();
@@ -1331,17 +1350,32 @@ impl DurableAttempt {
             .operations
             .store
             .canonical_attempt(fence.attempt())
-            .await?
+            .await
+            .map_err(|error| {
+                super::diagnostics::operation_context(error.into(), "durable.terminate.attempt")
+            })?
             .ok_or_else(|| contract("completion attempt absent"))?;
         if current.terminal {
             let _ = self.stop_heartbeat().await;
-            return self.operations.record(fence.run(), fence.attempt()).await;
+            return self
+                .operations
+                .record(fence.run(), fence.attempt())
+                .await
+                .map_err(|error| {
+                    super::diagnostics::operation_context(
+                        error,
+                        "durable.terminate.record_terminal",
+                    )
+                });
         }
         let current_run = self
             .operations
             .store
             .canonical_run(fence.run())
-            .await?
+            .await
+            .map_err(|error| {
+                super::diagnostics::operation_context(error.into(), "durable.terminate.run")
+            })?
             .ok_or_else(|| contract("completion run absent"))?;
         if current_run.cancelled {
             stored.state = AttemptState::Cancelled;
@@ -1366,7 +1400,9 @@ impl DurableAttempt {
                 owner.clone(),
             )
             .await
-            {
+            .map_err(|error| {
+                super::diagnostics::operation_context(error, "durable.terminate.completion")
+            }) {
                 Ok(receipt) => receipt,
                 Err(error) if self.cancelled_refusal(&error) => {
                     stored.state = AttemptState::Cancelled;
@@ -1386,12 +1422,24 @@ impl DurableAttempt {
                 self.operations
                     .store
                     .cancel_run(fence.run(), &format!("cancel:{}", fence.attempt()))
-                    .await?;
+                    .await
+                    .map_err(|error| {
+                        super::diagnostics::operation_context(
+                            error.into(),
+                            "durable.terminate.cancel",
+                        )
+                    })?;
             }
             self.operations
                 .store
                 .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
-                .await?
+                .await
+                .map_err(|error| {
+                    super::diagnostics::operation_context(
+                        error.into(),
+                        "durable.terminate.recover_cancelled",
+                    )
+                })?
         } else {
             if let super::ProgressCoverage::Sampled { acknowledged, .. } = &stored.progress
                 && *acknowledged != self.acknowledgments.rows(&fence, "__progress")?
@@ -1401,22 +1449,24 @@ impl DurableAttempt {
                 ));
             }
             let acknowledgments = self.acknowledgments.freeze(&fence)?;
-            let admission = match uncertain_progress_queue(&stored.progress) {
+            let (admission, admission_operation) = match uncertain_progress_queue(&stored.progress)
+            {
                 Some(queued) => match self
                     .operations
                     .store
                     .close_result_ingestion(&fence, &format!("close-readback:{}", fence.attempt()))
                     .await
                 {
-                    Ok(closed) => {
+                    Ok(closed) => (
                         self.operations
                             .store
                             .reconcile_progress_uncertainty(&closed, acknowledgments, queued)
-                            .await
-                    }
-                    Err(error) => Err(error),
+                            .await,
+                        "durable.terminate.reconcile_progress",
+                    ),
+                    Err(error) => (Err(error), "durable.terminate.close_progress"),
                 },
-                None => {
+                None => (
                     self.operations
                         .store
                         .close_acknowledged(
@@ -1424,8 +1474,9 @@ impl DurableAttempt {
                             &format!("close:{}", fence.attempt()),
                             acknowledgments,
                         )
-                        .await
-                }
+                        .await,
+                    "durable.terminate.close_acknowledged",
+                ),
             };
             match admission {
                 Ok(manifest) => {
@@ -1447,9 +1498,20 @@ impl DurableAttempt {
                             fence.run(),
                             &format!("recovery:{}", fence.attempt()),
                         )
-                        .await?
+                        .await
+                        .map_err(|error| {
+                            super::diagnostics::operation_context(
+                                error.into(),
+                                "durable.terminate.recover_after_close",
+                            )
+                        })?
                 }
-                Err(error) => return Err(error.into()),
+                Err(error) => {
+                    return Err(super::diagnostics::operation_context(
+                        error.into(),
+                        admission_operation,
+                    ));
+                }
             }
         };
         let class = match stored.state {
@@ -1469,14 +1531,19 @@ impl DurableAttempt {
             let completion =
                 serde_json::to_vec(&receipt).map_err(|error| contract(error.to_string()))?;
             if let Some(error) = self.stop_heartbeat().await {
+                if self.cancelled_refusal(&error) {
+                    return self
+                        .settle_cancelled_completion(&fence, stored, seeds)
+                        .await;
+                }
                 return Err(WorkflowError::Shared(error));
             }
-            // SAFETY: native work and all publication children joined; the original
-            // scientific assessments and exact actual ACK inventory are retained here.
             #[allow(
                 unsafe_code,
                 reason = "joined scientific owner admits original complete export"
             )]
+            // SAFETY: native work and all publication children joined; the original
+            // scientific assessments and exact actual ACK inventory are retained here.
             let sealed = unsafe {
                 self.operations
                     .store
@@ -1517,28 +1584,16 @@ impl DurableAttempt {
                     });
                 }
                 Err(error) if canonical_cancellation(&error, &fence) => {
-                    stored.state = AttemptState::Cancelled;
-                    let closed = self
-                        .operations
-                        .store
-                        .recover_closed_attempt(
-                            fence.run(),
-                            &format!("recovery:{}", fence.attempt()),
-                        )
-                        .await?;
                     return self
-                        .operations
-                        .settle(
-                            &closed,
-                            &format!("seal-cancel:{}", fence.attempt()),
-                            TerminalClass::Cancelled,
-                            &inline_completion(stored),
-                            seeds,
-                            None,
-                        )
+                        .settle_cancelled_completion(&fence, stored, seeds)
                         .await;
                 }
-                Err(error) => return Err(error.into()),
+                Err(error) => {
+                    return Err(super::diagnostics::operation_context(
+                        error.into(),
+                        "durable.terminate.seal_acknowledged",
+                    ));
+                }
             }
         }
         let heartbeat = self.heartbeat.take();
@@ -1558,25 +1613,40 @@ impl DurableAttempt {
             Err(error) if self.cancelled_refusal(&error) => {
                 // Cancellation after intentional close has an acknowledged refusal.
                 // Preserve the fully exported original assessments under recovery authority.
-                stored.state = AttemptState::Cancelled;
-                let closed = self
-                    .operations
-                    .store
-                    .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
-                    .await?;
-                self.operations
-                    .settle(
-                        &closed,
-                        &format!("seal-cancel:{}", fence.attempt()),
-                        TerminalClass::Cancelled,
-                        &inline_completion(stored),
-                        seeds,
-                        None,
-                    )
+                self.settle_cancelled_completion(&fence, stored, seeds)
                     .await
             }
             Err(error) => Err(error),
         }
+    }
+    async fn settle_cancelled_completion(
+        &self,
+        fence: &AttemptFence,
+        mut stored: StoredCompletion,
+        seeds: SeedEligibility,
+    ) -> Result<DurableRecord, WorkflowError> {
+        stored.state = AttemptState::Cancelled;
+        let closed = self
+            .operations
+            .store
+            .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
+            .await
+            .map_err(|error| {
+                super::diagnostics::operation_context(
+                    error.into(),
+                    "durable.settle_cancelled.recover",
+                )
+            })?;
+        self.operations
+            .settle(
+                &closed,
+                &format!("seal-cancel:{}", fence.attempt()),
+                TerminalClass::Cancelled,
+                &inline_completion(stored),
+                seeds,
+                None,
+            )
+            .await
     }
 }
 /// Version 1 of the typed detail of an attempt's termination, stored as the attempt's
@@ -1854,7 +1924,7 @@ impl Heartbeat {
             let mut interval = tokio::time::interval(operations.policy.heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
-                tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(WorkflowError::Canonical(error)));}cancel();break;}}}
+                tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{let error=super::diagnostics::operation_context(WorkflowError::Canonical(error),"durable.heartbeat.renew");if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(error));}cancel();break;}}}
             }
         });
         Self {
@@ -1946,7 +2016,7 @@ impl Tap {
     }
     fn coverage(&self, writer: super::ProgressWriterOutcome) -> super::ProgressCoverage {
         if self.counter_overflow.load(Ordering::Acquire) {
-            return super::ProgressCoverage::Unknown;
+            return super::ProgressCoverage::Unknown {};
         }
         let queued = self.queued.load(Ordering::Acquire);
         let acknowledged = self.acknowledged.load(Ordering::Acquire);
@@ -2045,16 +2115,19 @@ impl Streamer {
         let task = tokio::spawn(async move {
             let fence = writer_fence;
             while fence.get().is_none() {
-                tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim);}return Ok(());}}
+                tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim {});}return Ok(());}}
             }
-            let fence = fence.get().ok_or(super::ProgressWriteStage::Claim)?.clone();
+            let fence = fence
+                .get()
+                .ok_or(super::ProgressWriteStage::Claim {})?
+                .clone();
             let mut ordinal = 0_u64;
             while let Some(event) = receiver.recv().await {
                 let mut events = Vec::with_capacity(capacity);
                 events.push(event);
                 let deadline = std::time::Instant::now()
                     .checked_add(operations.policy.flush)
-                    .ok_or(super::ProgressWriteStage::Encoding)?;
+                    .ok_or(super::ProgressWriteStage::Encoding {})?;
                 while events.len() < capacity {
                     let remaining = deadline.saturating_duration_since(std::time::Instant::now());
                     let limit = capacity - events.len();
@@ -2074,13 +2147,13 @@ impl Streamer {
                     output
                         .bytes
                         .try_reserve_exact(RESULT_BATCH_BYTES)
-                        .map_err(|_| super::ProgressWriteStage::Allocation)?;
+                        .map_err(|_| super::ProgressWriteStage::Allocation {})?;
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
                             #[cfg(all(test, feature = "canonical-tests"))]
                             FinishExportGate::at(&writer_gate, FinishExportPhase::Progress)
                                 .await
-                                .map_err(|_| super::ProgressWriteStage::Publication)?;
+                                .map_err(|_| super::ProgressWriteStage::Publication {})?;
                             let acknowledged = operations
                                 .store
                                 .append_result_batch(
@@ -2093,24 +2166,24 @@ impl Streamer {
                                         writer_tap
                                             ._memory
                                             .clone()
-                                            .ok_or(super::ProgressWriteStage::Allocation)?,
+                                            .ok_or(super::ProgressWriteStage::Allocation {})?,
                                     )
-                                    .map_err(|_| super::ProgressWriteStage::Encoding)?,
+                                    .map_err(|_| super::ProgressWriteStage::Encoding {})?,
                                     (end - start) as u64,
                                 )
                                 .await
-                                .map_err(|_| super::ProgressWriteStage::CanonicalAppend)?;
+                                .map_err(|_| super::ProgressWriteStage::CanonicalAppend {})?;
                             if acknowledged.row_count != (end - start) as u64 {
-                                return Err(super::ProgressWriteStage::Acknowledgment);
+                                return Err(super::ProgressWriteStage::Acknowledgment {});
                             }
                             let rows = acknowledged.row_count;
                             writer_acknowledgments
                                 .append(&fence, acknowledged)
-                                .map_err(|_| super::ProgressWriteStage::Acknowledgment)?;
+                                .map_err(|_| super::ProgressWriteStage::Acknowledgment {})?;
                             let _ = writer_tap.count(&writer_tap.acknowledged, rows);
                             ordinal = ordinal
                                 .checked_add(1)
-                                .ok_or(super::ProgressWriteStage::Acknowledgment)?;
+                                .ok_or(super::ProgressWriteStage::Acknowledgment {})?;
                         }
                         Err(_) if output.full && end - start > 1 => {
                             let middle = start + (end - start) / 2;
@@ -2118,9 +2191,9 @@ impl Streamer {
                             ranges.push_front((start, middle));
                         }
                         Err(_) if output.full => {
-                            return Err(super::ProgressWriteStage::Encoding);
+                            return Err(super::ProgressWriteStage::Encoding {});
                         }
-                        Err(_) => return Err(super::ProgressWriteStage::Encoding),
+                        Err(_) => return Err(super::ProgressWriteStage::Encoding {}),
                     }
                 }
             }
@@ -2157,7 +2230,7 @@ impl Streamer {
                 .is_err()
         {
             self.outcome = super::ProgressWriterOutcome::Failed(super::ProgressWriterFailure {
-                stage: super::ProgressWriteStage::Acknowledgment,
+                stage: super::ProgressWriteStage::Acknowledgment {},
             });
         }
         self.tap.coverage(self.outcome)
@@ -2802,7 +2875,7 @@ impl Operations {
         let Some(row) = rows.into_iter().next() else {
             return Ok(None);
         };
-        let solution: SolutionId = pse_ids::SemanticId::parse_hex(&row.key)
+        let solution: SolutionId = SemanticId::parse_hex(&row.key)
             .map(SolutionId::from_id)
             .map_err(|e| contract(format!("seed identity: {e}")))?;
         self.admit_seed(solution, row).await.map(Some)
@@ -3188,7 +3261,7 @@ mod canonical_durable_codec {
             acknowledged: 0,
             unacknowledged: 1,
             writer: ProgressWriterOutcome::Failed(ProgressWriterFailure {
-                stage: ProgressWriteStage::CanonicalAppend,
+                stage: ProgressWriteStage::CanonicalAppend {},
             }),
         };
         let stored = StoredCompletion {
@@ -3536,7 +3609,11 @@ mod canonical_durable_codec {
                         .is_none()
                 );
             } else {
-                assert!(retained.terminal);
+                assert!(
+                    retained.terminal,
+                    "case {index}, phase {phase:?}: {:?}",
+                    record.attempt
+                );
                 assert_eq!(record.attempt.as_ref().unwrap().key, fence.attempt());
                 assert_eq!(
                     record.attempt.as_ref().unwrap().outcome.as_deref(),
@@ -3674,6 +3751,19 @@ mod canonical_durable_codec {
                 };
                 assert_eq!(projected.attempt.as_deref(), Some(fence.attempt()));
                 assert!(projected.settled && !projected.assigned);
+                // Recovery discovery may have retained this key before the
+                // normal terminal observation won. Its fresh snapshot must
+                // leave that exact admitted observation untouched.
+                assert!(!point_runtime.recover_study_point(&point.key).await.unwrap());
+                let unchanged = operations
+                    .store
+                    .canonical_study_point(&point.key)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(unchanged.revision, projected.revision);
+                assert_eq!(unchanged.facts, projected.facts);
+                assert_eq!(unchanged.outcome, projected.outcome);
                 let projected_facts =
                     pse_operations::canonical_studies::point_facts(&projected).unwrap();
                 assert_eq!(
@@ -3790,7 +3880,7 @@ mod canonical_durable_codec {
             completion: None,
             termination: outcome.detail,
             state: AttemptState::Cancelled,
-            progress: super::super::ProgressCoverage::Unknown,
+            progress: super::super::ProgressCoverage::Unknown {},
         };
         attempt.stream.finish().await;
         let record = attempt.terminate(stored.clone()).await.unwrap();
@@ -3839,7 +3929,7 @@ mod canonical_durable_codec {
                     false,
                 ),
                 state: AttemptState::Failed,
-                progress: super::super::ProgressCoverage::Unknown,
+                progress: super::super::ProgressCoverage::Unknown {},
             };
             let bytes = serde_json::to_vec(&original).unwrap();
             let receipt = if chunked {
@@ -3929,7 +4019,7 @@ mod canonical_durable_codec {
                 false,
             ),
             state: AttemptState::Failed,
-            progress: super::super::ProgressCoverage::Unknown,
+            progress: super::super::ProgressCoverage::Unknown {},
         };
         operations.store.cancel_study("cancel-study").await.unwrap();
         let refusal = operations
@@ -4041,7 +4131,7 @@ mod canonical_durable_codec {
                     false,
                 ),
                 state: AttemptState::Failed,
-                progress: super::super::ProgressCoverage::Unknown,
+                progress: super::super::ProgressCoverage::Unknown {},
             };
             let (stop, stopped) = tokio::sync::oneshot::channel();
             let failure = Arc::new(Mutex::new(None));
@@ -4100,7 +4190,17 @@ mod canonical_durable_codec {
             } else {
                 let record = settled.unwrap();
                 assert_eq!(record.attempt_id, attempt_id);
+                assert_eq!(
+                    record.attempt.as_ref().unwrap().generation,
+                    fence.generation()
+                );
+                assert!(record.attempt.as_ref().unwrap().terminal);
                 assert!(record.completion.as_ref().unwrap().completion.is_some());
+                assert_eq!(
+                    serde_json::to_value(&record.completion.as_ref().unwrap().completion).unwrap(),
+                    serde_json::to_value(&original.completion).unwrap(),
+                    "late cancellation preserves the fully exported original science"
+                );
                 assert_eq!(
                     record.completion.as_ref().unwrap().state,
                     if final_failure == 1 {
@@ -4184,7 +4284,7 @@ mod canonical_durable_codec {
         );
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt
-            .begin_horizon_prefix(super::super::StudyOutputDemand::Full, 1)
+            .begin_horizon_prefix(super::super::StudyOutputDemand::Full {}, 1)
             .unwrap();
         attempt.publish_horizon_step(&result).await.unwrap();
         let solution = attempt.solutions[0].1;
@@ -4329,7 +4429,7 @@ mod canonical_durable_codec {
                     &cancel,
                     &validation,
                 )
-                .map_err(|error| Arc::new(super::super::relation(error)))?;
+                .map_err(|error| Arc::new(relation(error)))?;
                 rows.push(solve_metrics::Row {
                     run_id: pse_operations::mint_id(),
                     step: 0,
@@ -4343,7 +4443,7 @@ mod canonical_durable_codec {
                     unavailable: None,
                 })
                 .await
-                .map_err(|error| Arc::new(super::super::relation(error)))?;
+                .map_err(|error| Arc::new(relation(error)))?;
                 Err(Arc::new(contract(
                     "deliberate producer failure after one acknowledged chunk",
                 )))
@@ -4568,7 +4668,7 @@ mod canonical_durable_codec {
                 unacknowledged: 1,
                 writer: super::super::ProgressWriterOutcome::Failed(
                     super::super::ProgressWriterFailure {
-                        stage: super::super::ProgressWriteStage::CanonicalAppend
+                        stage: super::super::ProgressWriteStage::CanonicalAppend {}
                     }
                 )
             }
@@ -4858,7 +4958,7 @@ mod ordinary_progress_tests {
         assert_eq!(
             uncertain_progress_queue(&coverage(ProgressWriterOutcome::Failed(
                 ProgressWriterFailure {
-                    stage: ProgressWriteStage::CanonicalAppend
+                    stage: ProgressWriteStage::CanonicalAppend {}
                 }
             ))),
             Some(2)
@@ -4870,7 +4970,7 @@ mod ordinary_progress_tests {
         assert_eq!(
             uncertain_progress_queue(&coverage(ProgressWriterOutcome::Failed(
                 ProgressWriterFailure {
-                    stage: ProgressWriteStage::Encoding
+                    stage: ProgressWriteStage::Encoding {}
                 }
             ))),
             None
@@ -4886,7 +4986,10 @@ mod ordinary_progress_tests {
             }),
             None
         );
-        assert_eq!(uncertain_progress_queue(&ProgressCoverage::Unknown), None);
+        assert_eq!(
+            uncertain_progress_queue(&ProgressCoverage::Unknown {}),
+            None
+        );
     }
     fn event() -> Event {
         Event {
@@ -5064,7 +5167,7 @@ mod ordinary_progress_tests {
         tap.observe(&event());
         assert_eq!(
             tap.coverage(ProgressWriterOutcome::Complete),
-            ProgressCoverage::Unknown
+            ProgressCoverage::Unknown {}
         );
     }
     #[test]
@@ -5082,12 +5185,12 @@ mod ordinary_progress_tests {
                 false,
             ),
             state: AttemptState::Failed,
-            progress: ProgressCoverage::Unknown,
+            progress: ProgressCoverage::Unknown {},
         };
         let mut historical = serde_json::to_value(stored).unwrap();
         historical.as_object_mut().unwrap().remove("progress");
         let decoded: StoredCompletion = serde_json::from_value(historical).unwrap();
-        assert_eq!(decoded.progress, ProgressCoverage::Unknown);
+        assert_eq!(decoded.progress, ProgressCoverage::Unknown {});
     }
 }
 

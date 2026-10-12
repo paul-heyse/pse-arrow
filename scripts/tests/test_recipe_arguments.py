@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import subprocess
 import sys
 import tempfile
@@ -146,6 +145,9 @@ class RecipeArgumentTests(unittest.TestCase):
         (root / "justfile").write_text((ROOT / "justfile").read_text())
         (root / ".python-version").write_text((ROOT / ".python-version").read_text())
         (root / "scripts").mkdir()
+        # A regular fixture package must win even when the caller's PYTHONPATH
+        # contains the production checkout's regular scripts package.
+        (root / "scripts/__init__.py").write_text("")
         (root / "scripts/pse-env").write_text(
             'printf "%s\\n" "$@" >> wrapper.txt\n'
             'while [[ "$1" != -- ]]; do shift; done\nshift\nexec "$@"\n'
@@ -269,7 +271,11 @@ class RecipeArgumentTests(unittest.TestCase):
             env = self.fixture(root)
             (root / "scripts/pse-env").write_text("exit 125\n")
             for module in (ROOT / "scripts").glob("*.py"):
-                if module.name not in {"activity.py", "solver-images.py"}:
+                if module.name not in {
+                    "__init__.py",
+                    "activity.py",
+                    "solver-images.py",
+                }:
                     (root / "scripts" / module.name).symlink_to(module)
             (root / "scripts/activity.py").write_text(
                 (ROOT / "scripts/activity.py").read_text()
@@ -299,7 +305,7 @@ class RecipeArgumentTests(unittest.TestCase):
             (root / ".venv/bin").mkdir(parents=True)
             (root / ".venv/bin/python").symlink_to(sys.executable)
             for module in (ROOT / "scripts").glob("*.py"):
-                if module.name != "solver-images.py":
+                if module.name not in {"__init__.py", "solver-images.py"}:
                     (root / "scripts" / module.name).symlink_to(module)
             run = root / "run with spaces"
             run.mkdir()
@@ -333,7 +339,6 @@ class RecipeArgumentTests(unittest.TestCase):
             self.assertFalse((root / "injected").exists())
 
     def test_adr_arguments_reach_script_unchanged(self) -> None:
-        source = (ROOT / "justfile").read_text()
         title = 'Scope with "quotes", $HOME, `pwd`, and $(touch injected)'
         for recipe, arguments, expected in [
             (
@@ -351,16 +356,8 @@ class RecipeArgumentTests(unittest.TestCase):
                 self.subTest(recipe=recipe),
                 tempfile.TemporaryDirectory() as directory,
             ):
-                match = re.search(
-                    rf"(?m)^\[positional-arguments\]\n{recipe}[^\n]*:\n(?:[ \t]+[^\n]*\n)+",
-                    source,
-                )
-                self.assertIsNotNone(match)
-                if match is None:
-                    raise AssertionError(f"missing positional recipe {recipe}")
                 root = Path(directory)
-                (root / "justfile").write_text(match.group())
-                (root / "scripts").mkdir()
+                environment = self.fixture(root)
                 (root / "scripts/adr.py").write_text(
                     "import json, pathlib, sys\n"
                     "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
@@ -368,6 +365,7 @@ class RecipeArgumentTests(unittest.TestCase):
                 subprocess.run(
                     ["just", recipe, *arguments],
                     cwd=root,
+                    env=environment,
                     check=True,
                     capture_output=True,
                     text=True,

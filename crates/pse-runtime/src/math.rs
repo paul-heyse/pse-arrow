@@ -25,7 +25,7 @@ use datafusion::execution::{
     cache::default_cache::DefaultCache,
     memory_pool::{MemoryConsumer, MemoryPool},
 };
-pub(crate) use jobs::{PopulationScope, Submission};
+pub(crate) use jobs::{ConstructionEstimate, PopulationScope, Submission};
 pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
@@ -608,7 +608,7 @@ pub(crate) fn attempt_providers(
         .iter()
         .map(|(key, registration)| {
             registration
-                .worker_scoped(scope.clone())
+                .worker_scoped(scope.nested())
                 .map(|worker| (*key, worker))
         })
         .collect()

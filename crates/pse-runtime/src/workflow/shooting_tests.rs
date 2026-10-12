@@ -14,6 +14,16 @@ use std::time::Instant;
 /// the control `u` scheduled on [0, 1) and [1, 2], the integral cost `∫ (x − 1)² dt/1 s`
 /// and the reported terminal miss `(x − 1.5)²`.
 async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
+    tracking_with_integration_accuracy(
+        method,
+        pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction,
+    )
+    .await
+}
+async fn tracking_with_integration_accuracy(
+    method: Method,
+    allowance: f64,
+) -> crate::workflow::ModelingSimulation {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -37,7 +47,6 @@ async fn tracking(method: Method) -> crate::workflow::ModelingSimulation {
         .modeling_package(rows, physical)
         .await
         .unwrap();
-    let allowance = pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
     let profile = native::dynamics::Profile {
         method,
         end: 2.,
@@ -798,7 +807,9 @@ fn assert_shooting_sample_projection(
 #[tokio::test]
 async fn multiple_shooting_continuity_closes() {
     for method in methods() {
-        let simulation = tracking(method).await;
+        // Value and sensitivity integrations must agree well inside the unchanged
+        // physical continuity budget, including IDAS's sensitivity error control.
+        let simulation = tracking_with_integration_accuracy(method, 1e-8).await;
         for controlled in [false, true] {
             let case = format!("{method:?} controlled={controlled}");
             let problem = Arc::new(
@@ -826,8 +837,14 @@ async fn multiple_shooting_continuity_closes() {
             let report = report_of(&result);
             assert!(
                 result.usable(),
-                "{:?}; complete {}; error {:?}; checks {:?}",
+                "{case}: {:?}; native quality {:?}; fresh quality {:?}; continuity {:?}; complete {}; error {:?}; checks {:?}",
                 result.assessments(),
+                report
+                    .solve
+                    .as_ref()
+                    .and_then(|solve| solve.quality.as_ref()),
+                report.quality,
+                report.continuity,
                 report.checks_complete,
                 report.validation_error,
                 report.checks

@@ -706,7 +706,7 @@ async fn submit_single(
     let handle = local
         .start_study(
             StudyPlan {
-                output: pse_runtime::workflow::StudyOutputDemand::Full,
+                output: pse_runtime::workflow::StudyOutputDemand::Full {},
                 sources: PackageSources {
                     physical,
                     modeling: vec![modeling],
@@ -834,7 +834,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
         let handle = local
             .start_study(
                 StudyPlan {
-                    output: pse_runtime::workflow::StudyOutputDemand::Full,
+                    output: pse_runtime::workflow::StudyOutputDemand::Full {},
                     sources: PackageSources {
                         physical: physical.clone(),
                         modeling: vec![modeling.clone()],
@@ -1369,7 +1369,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     let handle = local
         .start_study(
             StudyPlan {
-                output: pse_runtime::workflow::StudyOutputDemand::Full,
+                output: pse_runtime::workflow::StudyOutputDemand::Full {},
                 sources: PackageSources {
                     physical,
                     modeling: vec![modeling],

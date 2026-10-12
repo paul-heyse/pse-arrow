@@ -764,7 +764,7 @@ where
                 .request_context
                 .and_then(|context| context.payload_owner())
         })
-        .map(|owner| owner.retain())
+        .map(|owner| owner.retain_driver())
         .collect();
     // Struct/tuple fields drop in declaration order even if never polled.
     let owned = (message, retained);

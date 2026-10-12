@@ -63,7 +63,7 @@ async fn plant() -> (ModelingPackage, DeclarationId) {
         .unwrap()
         .declaration_id;
     let mut physical = super::super::tests::physical();
-    physical.preconditions = std::sync::Arc::new(
+    physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap(),
     );
@@ -113,7 +113,7 @@ async fn control_operation() -> (ModelingPackage, StudyOperation) {
     });
     let preparation = point(operation.clone()).preparation;
     let operation = StudyOperation {
-        output: crate::workflow::StudyOutputDemand::Full,
+        output: crate::workflow::StudyOutputDemand::Full {},
         version: Version,
         source: OperationSource::of(&package),
         preparation,
@@ -411,7 +411,7 @@ async fn scoped_study_admission_preserves_individual_point_bindings() {
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &points,
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -463,7 +463,7 @@ async fn scoped_study_admission_transitions_from_declared_case_to_horizon() {
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &[declared, horizon],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -569,7 +569,7 @@ async fn admitted_simulation_descriptor_reconstructs_the_existing_owner() {
                 case,
                 profile: None,
             }))],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -614,7 +614,7 @@ async fn admitted_fit_descriptor_reconstructs_the_existing_owner() {
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &[point(request)],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -641,7 +641,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &[point(OperationRequest::Horizon(Box::new(request.clone())))],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -666,7 +666,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &[point(OperationRequest::Horizon(Box::new(equivalent)))],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -690,7 +690,7 @@ async fn admitted_horizon_normalizes_inputs_once_and_refuses_wrong_physical_mean
                 identity: ContentHash::from_bytes([0; 32]),
             },
             &[point(OperationRequest::Horizon(Box::new(wrong)))],
-            &crate::workflow::StudyOutputDemand::Full,
+            &crate::workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -744,7 +744,7 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
         }],
     });
     let mut operation = StudyOperation {
-        output: crate::workflow::StudyOutputDemand::Full,
+        output: crate::workflow::StudyOutputDemand::Full {},
         version: Version,
         source: OperationSource::of(&package),
         preparation: point(OperationRequest::Horizon(Box::new(request.clone()))).preparation,

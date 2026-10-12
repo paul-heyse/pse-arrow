@@ -558,7 +558,7 @@ def metadata(
         yield record
         remaining(deadline, 1)
         if durable:
-            from scripts import (
+            from scripts import (  # noqa: PLC0415 -- resource store imports the admission owner
                 resource_store,
             )
 
@@ -857,7 +857,8 @@ def drained(
         scope = guard.get("scope") if isinstance(guard, dict) else None
         binding = units.get(scope.get("unit")) if isinstance(scope, dict) else None
         if (
-            not isinstance(binding, dict)
+            not isinstance(scope, dict)
+            or not isinstance(binding, dict)
             or type(binding.get("inode")) is not int
             or binding != guard.get("binding")
             or any(
@@ -951,7 +952,7 @@ def drain_borrowed_services(
         "released": True,
     }
     options = {"deadline": deadline} if deadline is not None else {}
-    if not drained(other, **options):
+    if not drained(other, deadline=deadline):
         return
     for value in services:
         state = Path(value)

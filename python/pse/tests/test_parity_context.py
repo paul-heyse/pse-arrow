@@ -30,7 +30,8 @@ class RuntimeProbe:
     ) -> pse.PhysicalContext:
         self.physical_calls.append(dict(documents))
         if self.refuse:
-            raise RuntimeError("source admission refused")
+            message = "source admission refused"
+            raise RuntimeError(message)
         return cast("pse.PhysicalContext", object())
 
     def modeling_from_documents(

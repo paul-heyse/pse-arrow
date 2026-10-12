@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Explicit, preservation-only preparation cutover under the real supervisor.
@@ -62,7 +61,7 @@ def borrowers(state: Path) -> dict[str, object]:
     for key, record in test_resources.resource_status().items():
         if not isinstance(record, dict):
             raise server.SupervisorError("Unresolved activation borrower inventory")
-        target = Path(str(record.get("state", "")))
+        target = Path(record.get("state", ""))
         if target == state or state / ".receivers" in target.parents:
             selected[key] = dict(record)
     contexts = state / ".contexts"
@@ -273,6 +272,7 @@ def execute(
             raise server.SupervisorError("Unknown activation history retained")
         binding_path = archive / "operation.json"
         intent_path = archive / "intent.json"
+        intent: dict[str, object]
         if intent_path.exists():
             intent = server.read_json(intent_path)
             if intent.get("migration") != migration or intent.get(
@@ -426,15 +426,21 @@ def execute(
                         authorize_native(child, request, operation_digest)
                     elif request.get("event") == "complete":
                         completed = request
-                    elif request.get("event") == "failed" and isinstance(
-                        request.get("reason"), str
-                    ):
-                        failure = request["reason"][-4096:]
+                    elif request.get("event") == "failed":
+                        reason = request.get("reason")
+                        if not isinstance(reason, str):
+                            raise server.SupervisorError(
+                                "Invalid native activation failure reason"
+                            )
+                        failure_detail: str = reason[-4096:]
                         for name, secret in server.read_json(
                             state / "credentials.json"
                         ).items():
                             if "password" in name and isinstance(secret, str):
-                                failure = failure.replace(secret, "[REDACTED]")
+                                failure_detail = failure_detail.replace(
+                                    secret, "[REDACTED]"
+                                )
+                        failure = failure_detail
                     else:
                         raise server.SupervisorError(
                             "Unknown native activation control request"

@@ -480,18 +480,17 @@ pub(super) fn return_scratch(
     // A teardown after lane retirement or on another thread destroys storage. The
     // recycler never creates a new lane, task registration or permission source.
     let _ = SCRATCH_LANE.try_with(|slot| {
-        if let Ok(mut slot) = slot.try_borrow_mut() {
-            if let Some(lane) = slot
+        if let Ok(mut slot) = slot.try_borrow_mut()
+            && let Some(lane) = slot
                 .as_mut()
                 .filter(|lane| lane.enabled && Arc::ptr_eq(&lane.identity, &origin.lane))
-            {
-                lane.pending = Some(ScratchEntry {
-                    origin,
-                    case,
-                    scratch,
-                    charge,
-                });
-            }
+        {
+            lane.pending = Some(ScratchEntry {
+                origin,
+                case,
+                scratch,
+                charge,
+            });
         }
     });
 }
@@ -1125,6 +1124,10 @@ impl NativeSession {
         .await
     }
     /// Resolve the existing full strategy on this session's dispatch lane.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the step protocol keeps predecessor, attempt, progress, storage, cancellation and original assessment authorities explicit"
+    )]
     pub(crate) async fn step<T: Send + 'static>(
         &self,
         step: super::solves::PreparedSolve,

@@ -956,7 +956,6 @@ def main() -> int:
         if report is None:
             raise ValueError("native Python execution requires a JUnit destination")
         report.parent.mkdir(parents=True, exist_ok=True)
-        started = time.time()
         provenance = Path(path) if path else report.with_suffix(".native.json")
         env = dict(os.environ)
         artifact = python_extension.capture(env, native=True)

@@ -1909,7 +1909,13 @@ impl PreparedBody {
             programs[requested] = Some(program);
             order_construction.record("success", true);
         }
-        let evidence_bytes = applicability_extent(&stages).saturating_mul(4);
+        let evidence_bytes = applicability_extent(&stages)
+            .saturating_mul(4)
+            .checked_add(
+                applicability_capture_extent(&stages)
+                    .ok_or(MathError::Limit("applicability capture storage"))?,
+            )
+            .ok_or(MathError::Limit("applicability capture storage"))?;
         let scratch_bytes = used
             .checked_mul(size_of::<f64>())
             .and_then(|b| b.checked_add(evidence_bytes))
@@ -2234,15 +2240,31 @@ impl ApplicabilityWitness {
     }
 }
 /// Operation-local result. Second partials retain the evaluator's triangular layout.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TrialEvaluation {
     pub applicability: Vec<ApplicabilityWitness>,
+    spare_witnesses: Vec<ApplicabilityWitness>,
     pub values: Vec<f64>,
     pub jacobian: Vec<f64>,
     second: Vec<f64>,
     coordinates: usize,
 }
 impl TrialEvaluation {
+    pub(crate) fn clear(&mut self) {
+        for mut witness in self.applicability.drain(..) {
+            witness.inputs.fill(f64::NAN);
+            witness.inputs.clear();
+            witness.predicates.clear();
+            self.spare_witnesses.push(witness);
+        }
+        self.values.fill(f64::NAN);
+        self.values.clear();
+        self.jacobian.fill(f64::NAN);
+        self.jacobian.clear();
+        self.second.fill(f64::NAN);
+        self.second.clear();
+        self.coordinates = 0;
+    }
     pub(crate) fn second(&self, row: usize, i: usize, j: usize) -> f64 {
         let (i, j) = (i.min(j), i.max(j));
         let n = self.coordinates;
@@ -2360,12 +2382,29 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
+        let mut result = TrialEvaluation::default();
+        self.evaluate_trial_into(inputs, order, providers, cancelled, &mut result)?;
+        Ok(result)
+    }
+    pub(crate) fn evaluate_trial_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+        result: &mut TrialEvaluation,
+    ) -> Result<(), MathError> {
+        result.clear();
         if self.body.directional {
             return Err(MathError::Contract(
                 "directional artifact requires a runtime direction".into(),
             ));
         }
-        self.evaluate_seeded(inputs, order, None, providers, cancelled)
+        let evaluated = self.evaluate_seeded(inputs, order, None, providers, cancelled, result);
+        if evaluated.is_err() {
+            result.clear();
+        }
+        evaluated
     }
     /// Evaluate DF(x)v from seeds in requested derivative-coordinate order, without assembling
     /// output-by-coordinate partials. Returned jacobian contains one action per output.
@@ -2386,6 +2425,19 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<TrialEvaluation, MathError> {
+        let mut result = TrialEvaluation::default();
+        self.evaluate_directional_trial_into(inputs, direction, providers, cancelled, &mut result)?;
+        Ok(result)
+    }
+    pub(crate) fn evaluate_directional_trial_into(
+        &mut self,
+        inputs: &[f64],
+        direction: &[f64],
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+        result: &mut TrialEvaluation,
+    ) -> Result<(), MathError> {
+        result.clear();
         if !self.body.directional
             || direction.len() != self.body.coordinate_offsets.len()
             || direction.iter().any(|v| !v.is_finite())
@@ -2394,13 +2446,18 @@ impl Worker {
                 "finite requested-coordinate direction and directional artifact required".into(),
             ));
         }
-        self.evaluate_seeded(
+        let evaluated = self.evaluate_seeded(
             inputs,
             DerivativeOrder::First,
             Some(direction),
             providers,
             cancelled,
-        )
+            result,
+        );
+        if evaluated.is_err() {
+            result.clear();
+        }
+        evaluated
     }
     fn evaluate_seeded(
         &mut self,
@@ -2409,7 +2466,9 @@ impl Worker {
         direction: Option<&[f64]>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
-    ) -> Result<TrialEvaluation, MathError> {
+        result: &mut TrialEvaluation,
+    ) -> Result<(), MathError> {
+        result.clear();
         self.check_scope()?;
         if inputs.len() != self.body.inputs || inputs.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract(
@@ -2450,31 +2509,38 @@ impl Worker {
             cancelled,
             max_result_bytes: self.body.limits.scratch_bytes,
         };
-        let mut applicability = Vec::new();
         evaluate_stages(
             program,
             frame,
             layout,
             providers,
             &context,
-            &mut applicability,
+            &mut result.applicability,
+            &mut result.spare_witnesses,
         )?;
         context.check().map_err(|cause| MathError::Provider {
             source_id: SemanticId::NIL,
             provider: SemanticId::NIL,
             cause,
         })?;
-        let mut result = TrialEvaluation {
-            applicability,
-            values: Vec::with_capacity(self.body.outputs.len()),
-            jacobian: vec![],
-            second: vec![],
-            coordinates: n,
-        };
+        result.coordinates = n;
+        // Complete result extent belongs to the admitted operation cache; grow only
+        // the actually demanded order, and retain it for the next trial.
+        result
+            .values
+            .try_reserve_exact(self.body.outputs.len())
+            .map_err(|_| MathError::Limit("trial value storage"))?;
+        if order >= DerivativeOrder::First {
+            result
+                .jacobian
+                .try_reserve_exact(self.body.outputs.len() * n)
+                .map_err(|_| MathError::Limit("trial first storage"))?;
+        }
         if order >= DerivativeOrder::Second {
             result
                 .second
-                .reserve(self.body.outputs.len() * layout.pairs.len());
+                .try_reserve_exact(self.body.outputs.len() * layout.pairs.len())
+                .map_err(|_| MathError::Limit("trial second storage"))?;
         }
         for &slot in self.body.outputs.iter() {
             let jet = &frame[slot * width..(slot + 1) * width];
@@ -2495,7 +2561,7 @@ impl Worker {
             }
         }
         self.check_scope()?;
-        Ok(result)
+        Ok(())
     }
 
     fn prepare_order(&mut self, order: DerivativeOrder) -> Result<(), MathError> {
@@ -3457,6 +3523,7 @@ fn evaluate_stages(
     providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
     context: &EvaluationContext<'_>,
     observations: &mut Vec<ApplicabilityWitness>,
+    spare_witnesses: &mut Vec<ApplicabilityWitness>,
 ) -> Result<(), MathError> {
     let width = layout.width();
     for stage in stages {
@@ -3485,6 +3552,7 @@ fn evaluate_stages(
                     providers,
                     context,
                     observations,
+                    spare_witnesses,
                 )?;
                 if predicates
                     .iter()
@@ -3495,13 +3563,33 @@ fn evaluate_stages(
                         "nonfinite applicability capture".into(),
                     ));
                 }
-                let predicates = predicates
+                let mut witness = spare_witnesses
                     .iter()
-                    .map(|slot| local[*slot] > 0.)
-                    .collect::<Vec<_>>();
-                let inputs = inputs.iter().map(|slot| local[*slot]).collect::<Vec<_>>();
-                if !plan.admits(&predicates) {
-                    let mut assessment = plan.assess(&predicates, &inputs);
+                    .position(|w| Arc::ptr_eq(&w.plan, plan))
+                    .map(|index| spare_witnesses.swap_remove(index))
+                    .unwrap_or_else(|| ApplicabilityWitness {
+                        plan: Arc::clone(plan),
+                        predicates: Vec::new(),
+                        inputs: Vec::new(),
+                    });
+                witness.predicates.clear();
+                witness.inputs.clear();
+                witness
+                    .predicates
+                    .try_reserve_exact(predicates.len())
+                    .map_err(|_| MathError::Limit("applicability predicate storage"))?;
+                witness
+                    .inputs
+                    .try_reserve_exact(inputs.len())
+                    .map_err(|_| MathError::Limit("applicability input storage"))?;
+                witness
+                    .predicates
+                    .extend(predicates.iter().map(|slot| local[*slot] > 0.));
+                witness
+                    .inputs
+                    .extend(inputs.iter().map(|slot| local[*slot]));
+                if !plan.admits(&witness.predicates) {
+                    let mut assessment = plan.assess(&witness.predicates, &witness.inputs);
                     let mut prior = observations
                         .iter()
                         .flat_map(ApplicabilityWitness::hydrate)
@@ -3512,13 +3600,13 @@ fn evaluate_stages(
                     for index in &mut assessment.refused {
                         *index += offset;
                     }
+                    witness.inputs.fill(f64::NAN);
+                    witness.inputs.clear();
+                    witness.predicates.clear();
+                    spare_witnesses.push(witness);
                     return Err(MathError::Applicability(Box::new(assessment)));
                 }
-                observations.push(ApplicabilityWitness {
-                    plan: Arc::clone(plan),
-                    predicates,
-                    inputs,
-                });
+                observations.push(witness);
                 frame[*token * width..(*token + 1) * width].fill(0.);
             }
             CompiledStage::Domain {
@@ -3541,6 +3629,7 @@ fn evaluate_stages(
                     providers,
                     context,
                     observations,
+                    spare_witnesses,
                 )?;
                 if !Condition::Positive.permits(local[*argument]) {
                     return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
@@ -3631,6 +3720,7 @@ fn evaluate_stages(
                     providers,
                     context,
                     observations,
+                    spare_witnesses,
                 )?;
             }
             CompiledStage::Provider {
@@ -4566,6 +4656,27 @@ fn analyze(
     Ok(())
 }
 
+fn applicability_capture_extent(stages: &[Stage]) -> Option<usize> {
+    stages.iter().try_fold(0usize, |sum, stage| {
+        sum.checked_add(match stage {
+            Stage::Applicability {
+                stages,
+                predicates,
+                inputs,
+                ..
+            } => (2 * size_of::<ApplicabilityWitness>())
+                .checked_add(predicates.len().checked_mul(2 * size_of::<bool>())?)?
+                .checked_add(inputs.len().checked_mul(2 * size_of::<f64>())?)?
+                .checked_add(applicability_capture_extent(stages)?)?,
+            Stage::Domain { stages, .. } => applicability_capture_extent(stages)?,
+            Stage::Branch {
+                then, otherwise, ..
+            } => applicability_capture_extent(then)?
+                .checked_add(applicability_capture_extent(otherwise)?)?,
+            _ => 0,
+        })
+    })
+}
 fn applicability_extent(stages: &[Stage]) -> usize {
     stages.iter().fold(0usize, |sum, stage| {
         sum.saturating_add(match stage {
@@ -4846,6 +4957,111 @@ mod compact_tests {
         assert_eq!(value.values, public.values);
         assert!(value.second.is_empty());
         assert!(worker.frame[extent..].iter().all(|v| *v == 12345.0));
+    }
+
+    #[test]
+    fn trial_buffers_reuse_requested_extents_and_clear_refused_results() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = analytic_body(4096)
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let mut worker = program.worker();
+        let mut result = TrialEvaluation::default();
+        let mut providers = BTreeMap::new();
+        worker
+            .evaluate_trial_into(
+                &[2., 3., 1.],
+                DerivativeOrder::Value,
+                &mut providers,
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        assert_eq!(
+            (result.jacobian.capacity(), result.second.capacity()),
+            (0, 0)
+        );
+        worker
+            .evaluate_trial_into(
+                &[2., 3., 1.],
+                DerivativeOrder::Second,
+                &mut providers,
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        let storage = (
+            result.values.as_ptr(),
+            result.jacobian.as_ptr(),
+            result.second.as_ptr(),
+        );
+        let capacity = (
+            result.values.capacity(),
+            result.jacobian.capacity(),
+            result.second.capacity(),
+        );
+        let escaped = result.clone().into_evaluation();
+        worker
+            .evaluate_trial_into(
+                &[4., 5., 1.],
+                DerivativeOrder::Second,
+                &mut providers,
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        assert_eq!(
+            storage,
+            (
+                result.values.as_ptr(),
+                result.jacobian.as_ptr(),
+                result.second.as_ptr()
+            )
+        );
+        assert_ne!(result.values, escaped.values);
+        assert!(
+            worker
+                .evaluate_trial_into(
+                    &[f64::NAN, 5., 1.],
+                    DerivativeOrder::Second,
+                    &mut providers,
+                    &cancel,
+                    &mut result
+                )
+                .is_err()
+        );
+        assert!(
+            result.values.is_empty()
+                && result.jacobian.is_empty()
+                && result.second.is_empty()
+                && result.applicability.is_empty()
+        );
+        assert_eq!(
+            capacity,
+            (
+                result.values.capacity(),
+                result.jacobian.capacity(),
+                result.second.capacity()
+            )
+        );
+        worker
+            .evaluate_trial_into(
+                &[2., 3., 1.],
+                DerivativeOrder::Value,
+                &mut providers,
+                &cancel,
+                &mut result,
+            )
+            .unwrap();
+        assert_eq!(result.values, escaped.values);
+        assert!(result.jacobian.is_empty() && result.second.is_empty());
+        assert_eq!(storage.0, result.values.as_ptr());
     }
 
     #[test]
@@ -5593,7 +5809,7 @@ mod compact_tests {
                 .values,
             [9.]
         );
-        let trial = worker
+        let mut trial = worker
             .evaluate_trial(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
@@ -5605,6 +5821,62 @@ mod compact_tests {
         let hydrated = trial.applicability[0].hydrate();
         assert_eq!(hydrated.len(), 1);
         assert_eq!(hydrated[0].inputs[0].value, 1.0);
+        let captured = (
+            trial.applicability[0].predicates.as_ptr(),
+            trial.applicability[0].inputs.as_ptr(),
+        );
+        worker
+            .evaluate_trial_into(
+                &[-2., 3., 2.],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+                &mut trial,
+            )
+            .unwrap();
+        assert_eq!(
+            captured,
+            (
+                trial.applicability[0].predicates.as_ptr(),
+                trial.applicability[0].inputs.as_ptr()
+            )
+        );
+        assert_eq!(trial.applicability[0].hydrate()[0].inputs[0].value, 2.0);
+        assert_eq!(hydrated[0].inputs[0].value, 1.0);
+        assert!(
+            worker
+                .evaluate_trial_into(
+                    &[2., 3., -1.],
+                    DerivativeOrder::Value,
+                    &mut BTreeMap::new(),
+                    &Arc::new(AtomicBool::new(false)),
+                    &mut trial
+                )
+                .is_err()
+        );
+        assert!(trial.applicability.is_empty());
+        assert!(
+            trial
+                .spare_witnesses
+                .iter()
+                .all(|w| w.inputs.is_empty() && w.predicates.is_empty())
+        );
+        worker
+            .evaluate_trial_into(
+                &[2., 3., 1.],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+                &mut trial,
+            )
+            .unwrap();
+        assert_eq!(
+            captured,
+            (
+                trial.applicability[0].predicates.as_ptr(),
+                trial.applicability[0].inputs.as_ptr()
+            )
+        );
         let slots = worker.body.slots;
         for stage in worker.programs[DerivativeOrder::Value].as_ref().unwrap() {
             if let CompiledStage::Domain { frame, .. }

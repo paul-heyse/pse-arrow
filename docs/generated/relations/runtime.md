@@ -266,6 +266,29 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `analysis_creation_closed_through` | `UInt64` | true | `payload` | — | — |
 | `protection_closed_through` | `UInt64` | true | `payload` | — | — |
 
+## `canonical_historical_results`
+
+Exact offline admission of an original sealed terminal historical attempt; current protection and retirement remain required and no current execution or seed eligibility is minted.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `sequence` | `UInt64` | false | `payload` | — | — |
+| `generation` | `UInt64` | false | `payload` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+| `manifest_digest` | `Utf8` | false | `payload` | — | — |
+| `outcome` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `migration` | `Utf8` | false | `payload` | — | — |
+| `snapshot` | `Utf8` | false | `payload` | — | — |
+| `source_digest` | `Utf8` | false | `payload` | — | — |
+
 ## `canonical_interpretations`
 
 Installed schema, codec and structural operation interpretation.

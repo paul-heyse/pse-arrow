@@ -239,6 +239,20 @@ impl ModelingPackage {
                 "duplicate fit parameter, experiment or observation binding",
             ));
         }
+        // Resolve ownership before observation paths drive selective preparation.
+        // An unbound observation must not disappear from that demand and cause an
+        // unrelated empty-layout failure before its actual boundary refusal.
+        if d.observations.iter().any(|observation| {
+            !d.experiments
+                .iter()
+                .any(|experiment| experiment.experiment_id == observation.experiment_id)
+        }) || profile.simulations.keys().any(|id| {
+            !d.experiments.iter().any(|experiment| {
+                experiment.experiment_id == *id && experiment.route == Route::Integrated
+            })
+        }) {
+            return Err(contract("fit observation or dynamic profile ownership"));
+        }
         // A supplied Hessian (exact or Gauss–Newton) needs second-order steady models for
         // the constraint curvature. Only the exact Hessian also needs the residual
         // curvature, which a transient experiment takes from IDAS forward-over-adjoint
@@ -897,14 +911,7 @@ impl ModelingPackage {
                 "the predictions' propagated covariance exceeds the fit's max_cells",
             ));
         }
-        if measurements.len() != d.observations.len()
-            || !measurements.iter().any(|o| o.included)
-            || profile.simulations.keys().any(|id| {
-                !d.experiments
-                    .iter()
-                    .any(|e| e.experiment_id == *id && e.route == Route::Integrated)
-            })
-        {
+        if measurements.len() != d.observations.len() || !measurements.iter().any(|o| o.included) {
             return Err(contract("fit observation or dynamic profile ownership"));
         }
         let prepared = PreparedExperiments {

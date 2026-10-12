@@ -237,7 +237,7 @@ fn process(c: &mut Criterion) {
             mark(&mut phases,"cancellation_to_join",stop);
             let RunReport::Modeling(report)=result.report().unwrap() else {panic!("wrong report")};
             assert!(matches!(&report[0].outcome,pse_runtime::math::solves::Outcome::Native(r) if r.termination.category==Termination::Cancelled),"{report:?}");
-            for (step,report) in report.iter().enumerate() {observations.modeling(report,step,owner.runtime.pool());}
+            for (step,report) in report.iter().enumerate() {observations.modeling(report,step,owner.runtime.math());}
             drop(result);
         } else {
             let result=executor.block_on(handle.wait()).unwrap();
@@ -245,7 +245,7 @@ fn process(c: &mut Criterion) {
             let begin=Instant::now();
             let report=authored_success(&result);
             let RunReport::Modeling(reports)=result.report().unwrap() else {panic!("wrong report")};
-            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step,owner.runtime.pool());}
+            for (step,report) in reports.iter().enumerate() {observations.modeling(report,step,owner.runtime.math());}
             if let pse_runtime::math::solves::Outcome::Native(report)=&report.outcome {
                 for (name,value) in &report.metrics {
                     if (name.ends_with(".seconds") || name.starts_with("timing.")) && let Metric::Real(value)=value {

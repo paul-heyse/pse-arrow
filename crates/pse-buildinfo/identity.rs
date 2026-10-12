@@ -1259,6 +1259,8 @@ impl CurrentEnvironmentSnapshot {
         #[cfg(target_os = "linux")]
         {
             Ok(Self {
+                // SAFETY: this method's caller excludes every libc environment
+                // writer for the complete bounded traversal.
                 values: unsafe { current_environment(checkpoint)? },
             })
         }
@@ -1304,7 +1306,9 @@ unsafe fn current_environment(
         checkpoint()?;
         // SAFETY: preceding non-null entries establish that this is still within
         // libc's stable NUL-terminated vector; the count is independently bounded.
-        let entry = unsafe { *base.add(index) };
+        let slot = unsafe { base.add(index) };
+        // SAFETY: the slot above is within the stable libc environment vector.
+        let entry = unsafe { *slot };
         if entry.is_null() {
             return Ok(result);
         }
@@ -1314,11 +1318,13 @@ unsafe fn current_environment(
             if length >= remaining {
                 return Err(std::io::Error::other("runtime environment byte limit"));
             }
-            if length % 4096 == 0 {
+            if length.is_multiple_of(4096) {
                 checkpoint()?;
             }
             // SAFETY: the root lends the stable valid C string through its NUL.
-            if unsafe { *entry.add(length) } == 0 {
+            let byte = unsafe { entry.add(length) };
+            // SAFETY: the byte above is within the borrowed C string through its NUL.
+            if unsafe { *byte } == 0 {
                 break;
             }
             length += 1;
@@ -1796,11 +1802,11 @@ mod foundation_unit {
                 "original deadline",
             ))
         };
-        // SAFETY: the original clock refuses before any borrowed environment read.
         #[allow(
             unsafe_code,
             reason = "expired operation control never reaches borrowed environment"
         )]
+        // SAFETY: the original clock refuses before any borrowed environment read.
         let error = unsafe {
             super::LocalRuntimeObservation::capture_scoped(
                 super::LocalRuntimeRole::Worker,
@@ -1982,66 +1988,78 @@ mod foundation_unit {
     fn local_runtime_observation_binds_actual_anchor_role_and_loaded_bytes_without_checkout() {
         // SAFETY: this control does not mutate the process environment or admit
         // external callbacks during any actual capture or verification below.
-        unsafe {
-            let environment =
-                super::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(())).unwrap();
-            fn anchor() {}
-            let anchor = anchor as *const () as usize;
-            let observation = super::LocalRuntimeObservation::capture(
+        let environment =
+            unsafe { super::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(())) }.unwrap();
+        fn anchor() {}
+        let anchor = anchor as *const () as usize;
+        // SAFETY: the controlled process excludes environment writers throughout this capture.
+        let observation = unsafe {
+            super::LocalRuntimeObservation::capture(
                 super::LocalRuntimeRole::Worker,
                 anchor,
                 &environment,
             )
-            .unwrap();
-            assert_eq!(observation.artifact, observation.executable);
-            assert!(
-                observation
-                    .loaded
-                    .iter()
-                    .any(|file| file.canonical == observation.artifact.canonical)
-            );
-            assert_eq!(
-                observation.identity().unwrap(),
+        }
+        .unwrap();
+        assert_eq!(observation.artifact, observation.executable);
+        assert!(
+            observation
+                .loaded
+                .iter()
+                .any(|file| file.canonical == observation.artifact.canonical)
+        );
+        assert_eq!(
+            observation.identity().unwrap(),
+            // SAFETY: the same controlled environment exclusion remains in force.
+            unsafe {
                 super::LocalRuntimeObservation::capture(
                     super::LocalRuntimeRole::Worker,
                     anchor,
-                    &environment
+                    &environment,
                 )
-                .unwrap()
-                .identity()
-                .unwrap()
-            );
-            observation.verify(anchor, &environment).unwrap();
-            assert!(
+            }
+            .unwrap()
+            .identity()
+            .unwrap()
+        );
+        // SAFETY: this verification uses the same controlled environment exclusion.
+        unsafe { observation.verify(anchor, &environment) }.unwrap();
+        assert!(
+            // SAFETY: the same controlled environment exclusion remains in force.
+            unsafe {
                 super::LocalRuntimeObservation::capture(
                     super::LocalRuntimeRole::Worker,
                     0,
-                    &environment
+                    &environment,
                 )
-                .is_err()
-            );
-            let mut changed = observation.clone();
-            changed.role = super::LocalRuntimeRole::Python;
-            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-            changed = observation.clone();
-            changed.loaded[0].sha256 = "0".repeat(64);
-            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-            assert!(changed.verify(anchor, &environment).is_err());
-            changed = observation.clone();
-            changed.kernel_release.push(b'!');
-            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-            assert!(changed.verify(anchor, &environment).is_err());
-            changed = observation.clone();
-            changed.kernel_version.push(b'!');
-            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-            assert!(changed.verify(anchor, &environment).is_err());
-            changed = observation.clone();
-            changed
-                .current_environment
-                .insert("LD_PRELOAD".into(), "different".into());
-            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-            assert!(changed.verify(anchor, &environment).is_err());
-        }
+            }
+            .is_err()
+        );
+        let mut changed = observation.clone();
+        changed.role = super::LocalRuntimeRole::Python;
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        changed = observation.clone();
+        changed.loaded[0].sha256 = "0".repeat(64);
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        // SAFETY: only owned observation metadata changed; environment exclusion is unchanged.
+        assert!(unsafe { changed.verify(anchor, &environment) }.is_err());
+        changed = observation.clone();
+        changed.kernel_release.push(b'!');
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        // SAFETY: only owned observation metadata changed; environment exclusion is unchanged.
+        assert!(unsafe { changed.verify(anchor, &environment) }.is_err());
+        changed = observation.clone();
+        changed.kernel_version.push(b'!');
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        // SAFETY: only owned observation metadata changed; environment exclusion is unchanged.
+        assert!(unsafe { changed.verify(anchor, &environment) }.is_err());
+        changed = observation.clone();
+        changed
+            .current_environment
+            .insert("LD_PRELOAD".into(), "different".into());
+        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+        // SAFETY: only owned observation metadata changed; environment exclusion is unchanged.
+        assert!(unsafe { changed.verify(anchor, &environment) }.is_err());
     }
     #[test]
     fn scientific_producer_payload_refuses_identity_substitution_and_preserves_projection() {

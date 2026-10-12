@@ -839,10 +839,13 @@ impl Execution {
             .as_ref()
             .and_then(pse_kernels::ExecutionScope::deadline)
             .map_or(deadline, |enclosing| deadline.min(enclosing));
-        Ok(pse_kernels::ExecutionScope::new(
-            self.cancel.clone(),
-            Some(deadline),
-        ))
+        Ok(
+            pse_kernels::ExecutionScope::new(self.cancel.clone(), Some(deadline))
+                .with_admitted_threads(self.enclosing_scope.as_ref().map_or(
+                    std::num::NonZeroUsize::MIN,
+                    pse_kernels::ExecutionScope::admitted_threads,
+                )),
+        )
     }
     /// Stop reason; cancellation and deadline remain distinguishable.
     pub fn stopped(&self) -> Option<Termination> {
@@ -2471,12 +2474,18 @@ mod numerical_tests {
     fn within_caps_original_deadline_and_rejects_late_exit() {
         let cancel = Arc::new(AtomicBool::new(false));
         let original_deadline = Instant::now() + Duration::from_millis(100);
-        let original = pse_kernels::ExecutionScope::new(cancel.clone(), Some(original_deadline));
+        let original = pse_kernels::ExecutionScope::new(cancel.clone(), Some(original_deadline))
+            .with_admitted_threads(std::num::NonZeroUsize::new(3).unwrap());
         let execution =
             Execution::within(cancel.clone(), &Controls::default(), original.clone()).unwrap();
         assert_eq!(
             execution.scope().unwrap().deadline(),
             Some(original_deadline)
+        );
+        assert_eq!(execution.scope().unwrap().admitted_threads().get(), 3);
+        assert_eq!(
+            execution.scope().unwrap().nested().admitted_threads().get(),
+            1
         );
         assert!(Arc::ptr_eq(
             execution.scope().unwrap().cancellation(),

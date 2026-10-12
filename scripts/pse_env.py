@@ -709,7 +709,7 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                     raise BoundaryError(
                         "Native placement lost its fresh allocation registration"
                     )
-            from scripts import (
+            from scripts import (  # noqa: PLC0415 -- cache and environment owners import each other
                 native_cache as cache,
             )
 
@@ -730,22 +730,41 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
                         observation=observation,
                         foreground=handoff,
                     )
-                    raw_status = observation.get("child_status")
+                    observed_status = observation.get("child_status")
+                    if observed_status is not None and (
+                        not isinstance(observed_status, int)
+                        or isinstance(observed_status, bool)
+                    ):
+                        raise BoundaryError("Native child status is not an integer")
+                    raw_status = observed_status
                     return child_status
                 finally:
-                    child = operation._record(handoff)
+                    child = operation._record(handoff)  # noqa: SLF001 -- authenticated foreground handoff protocol
                     clocks = [
                         child.get("cancel_deadline"),
                         observation.get("cancellation_deadline"),
-                        operation._record(observer.path).get("cancel_deadline"),
+                        operation._record(observer.path).get("cancel_deadline"),  # noqa: SLF001 -- exact enclosing cancellation owner
                     ]
-                    clocks = [value for value in clocks if value is not None]
-                    cancellation_deadline = min(clocks) if clocks else None
+                    selected_clocks: list[float] = []
+                    for value in clocks:
+                        if value is None:
+                            continue
+                        try:
+                            selected_clocks.append(
+                                operation.original_cancellation_clock(value)
+                            )
+                        except ValueError as error:
+                            raise BoundaryError(
+                                "Invalid original cancellation clock"
+                            ) from error
+                    cancellation_deadline = (
+                        min(selected_clocks) if selected_clocks else None
+                    )
                     if cancellation_deadline is not None:
                         with operation.record_lock(
                             observer.path, deadline=cancellation_deadline
                         ):
-                            registered = operation._record(observer.path)
+                            registered = operation._record(observer.path)  # noqa: SLF001 -- publish the original clock on its authenticated owner
                             registered["cancel_deadline"] = cancellation_deadline
                             operation.write_json(observer.path, registered)
                     completion = operation.drained(
@@ -767,6 +786,7 @@ def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
     finally:
         outcome = f"child_exit={child_status!r}; raw_child_status={raw_status!r}"
         identity = env.get(host.MARKER, "<acquired allocation identity unavailable>")
+        released = False
         try:
             released = allocation.release(
                 **(

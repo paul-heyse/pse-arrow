@@ -87,12 +87,7 @@ async fn admitted(
     };
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &crate::workflow::StudyOutputDemand::Full,
-            &cancel,
-        )
+        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     (
@@ -107,7 +102,7 @@ async fn admitted(
 fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     let case = pse_model::generated::identities::DeclarationId::from_bytes([4; 16]);
     let request = StudyRequest {
-        output: crate::workflow::StudyOutputDemand::Full,
+        output: StudyOutputDemand::Full {},
         version: pse_model::document::Version,
         points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
     };
@@ -149,7 +144,7 @@ fn study_definition_historical_readmission_codec_unit() {
         modeling_revision: "fixture-revision".into(),
         points: vec![StudyPointDefinition {
             operation: StudyOperation {
-                output: crate::workflow::StudyOutputDemand::Full,
+                output: StudyOutputDemand::Full {},
                 version: pse_model::document::Version,
                 source: OperationSource {
                     revision: hash.into(),
@@ -360,6 +355,9 @@ async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_lat
     );
     drop(owner);
     assert_eq!(pool.reserved(), before);
+    // Evict idle reusable storage before saturating the pool; otherwise pressure
+    // recovery can legitimately free it and admit the terminal inventory.
+    runtime.shared.math().clear_program_cache();
     let filler = MemoryConsumer::new("test:terminal-inventory-pressure").register(&pool);
     filler
         .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
@@ -428,7 +426,7 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     let handle = runtime
         .start_study(
             StudyPlan {
-                output: crate::workflow::StudyOutputDemand::Full,
+                output: StudyOutputDemand::Full {},
                 sources,
                 points: authored.unwrap(),
             },
@@ -525,60 +523,87 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
-    let runtime = durable_runtime();
-    let (sources, mut definition) = admitted(&runtime, |_, _, fixed| {
-        vec![point(fixed, 5, vec![], StartPolicy::Fresh)]
-    })
-    .await;
-    definition.points[0].policy.attempt_limit = 1;
-    let handle = runtime
-        .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let key = pse_operations::canonical_studies::point_key(
-        &handle.study_id().to_string(),
-        OccurrenceKey(5),
-    );
-    let scope = runtime.canonical_store().study_scope(&key).await.unwrap();
-    let claim = runtime
-        .canonical_store()
-        .claim_study_point(
-            &scope,
-            None,
-            "expired-fixture",
-            "departed-worker",
-            Duration::from_secs(60),
+    for attempt_limit in [1, 2] {
+        let runtime = durable_runtime();
+        let (sources, mut definition) = admitted(&runtime, |_, _, fixed| {
+            vec![point(fixed, 5, vec![], StartPolicy::Fresh)]
+        })
+        .await;
+        definition.points[0].policy.attempt_limit = attempt_limit;
+        let handle = runtime
+            .start_defined_study(sources.physical, definition, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let key = pse_operations::canonical_studies::point_key(
+            &handle.study_id().to_string(),
+            OccurrenceKey(5),
+        );
+        let scope = runtime.canonical_store().study_scope(&key).await.unwrap();
+        let claim = runtime
+            .canonical_store()
+            .claim_study_point(
+                &scope,
+                None,
+                "expired-fixture",
+                "departed-worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        pse_operations::testing::expire_acknowledged_attempt(
+            runtime.canonical_store(),
+            &claim.fence,
         )
         .await
         .unwrap();
-    pse_operations::testing::expire_acknowledged_attempt(runtime.canonical_store(), &claim.fence)
-        .await
-        .unwrap();
-    let point = runtime
-        .canonical_store()
-        .canonical_study_point(&key)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(runtime.recover_study_point(&point.key).await.unwrap());
-    let actual = runtime
-        .canonical_store()
-        .canonical_attempt(claim.fence.attempt())
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(actual.terminal);
-    assert_eq!(actual.outcome.as_deref(), Some("failed"));
-    let after = runtime
-        .canonical_store()
-        .canonical_study_point(&key)
-        .await
-        .unwrap()
-        .unwrap();
-    assert!(after.settled);
-    let facts = pse_operations::canonical_studies::point_facts(&after).unwrap();
-    assert!(!facts.native_started && !facts.scientific.usable);
-    assert_eq!(facts.attempt_count, 1);
+        let point = runtime
+            .canonical_store()
+            .canonical_study_point(&key)
+            .await
+            .unwrap()
+            .unwrap();
+        let assigned_hint = runtime
+            .canonical_store()
+            .study_assigned_page(&point.study, None)
+            .await
+            .unwrap();
+        assert!(assigned_hint.iter().any(|hint| hint.key == point.key));
+        assert!(runtime.recover_study_point(&point.key).await.unwrap());
+        let actual = runtime
+            .canonical_store()
+            .canonical_attempt(claim.fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(actual.terminal);
+        assert_eq!(actual.outcome.as_deref(), Some("failed"));
+        let after = runtime
+            .canonical_store()
+            .canonical_study_point(&key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!after.assigned);
+        assert_eq!(after.settled, attempt_limit == 1);
+        let facts = pse_operations::canonical_studies::point_facts(&after).unwrap();
+        assert!(!facts.native_started && !facts.scientific.usable);
+        assert_eq!(facts.attempt_count, 1);
+        // A delayed assigned-page hint must not project this attempt twice, whether
+        // normal policy has concluded it or may claim a genuinely new retry next.
+        assert!(!runtime.recover_study_point(&point.key).await.unwrap());
+        let unchanged = runtime
+            .canonical_store()
+            .canonical_study_point(&key)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(unchanged.revision, after.revision);
+        assert_eq!(unchanged.attempt, after.attempt);
+        assert_eq!(unchanged.facts, after.facts);
+        assert_eq!(unchanged.outcome, after.outcome);
+        assert_eq!(unchanged.assigned, after.assigned);
+        assert_eq!(unchanged.settled, after.settled);
+    }
 }
 
 #[tokio::test]
@@ -651,6 +676,13 @@ async fn related_case_study_uses_secant_then_original_correction() {
 }
 
 async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinition) {
+    related_definition_with_primal_accuracy(runtime, None).await
+}
+
+async fn related_definition_with_primal_accuracy(
+    runtime: &Runtime,
+    primal_absolute_tolerance: Option<f64>,
+) -> (ModelingPackage, StudyDefinition) {
     let (physical, modeling) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let package = runtime
@@ -678,6 +710,91 @@ async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinit
         .quantity_type(scalar)
         .unwrap()
         .canonical_unit;
+    let requirements = if let Some(absolute) = primal_absolute_tolerance {
+        let before_views = runtime.shared.math().preparations().views;
+        let model = package
+            .prepare(
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Default::default(),
+                Default::default(),
+                &cancel,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            runtime.shared.math().preparations().views,
+            before_views,
+            "identity inspection must not prewarm the study's structural solver view"
+        );
+        [
+            ("x", pse_model::generated::enums::NumericalTarget::Variable),
+            ("square", pse_model::generated::enums::NumericalTarget::Row),
+        ]
+        .into_iter()
+        .map(|(path, target_kind)| {
+            let targets = if target_kind == pse_model::generated::enums::NumericalTarget::Variable {
+                model
+                    .compiled()
+                    .model
+                    .symbols
+                    .values()
+                    .filter(|symbol| {
+                        symbol.role
+                            == pse_model::generated::enums::ModelingDeclarationKind::Variable
+                            && symbol.lineage.path.rsplit('.').next() == Some(path)
+                    })
+                    .map(|symbol| symbol.id)
+                    .collect::<Vec<_>>()
+            } else {
+                assert_eq!(
+                    target_kind,
+                    pse_model::generated::enums::NumericalTarget::Row,
+                    "fixture requests only original variable and equation accuracy"
+                );
+                model
+                    .compiled()
+                    .model
+                    .equations
+                    .iter()
+                    .filter(|equation| equation.lineage.path.rsplit('.').next() == Some(path))
+                    .map(|equation| equation.id)
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(
+                targets.len(),
+                1,
+                "unique actual {target_kind:?} lineage required for {path}"
+            );
+            let target = targets[0];
+            pse_model::numerics::NumericalRequirement {
+                requirement_id: pse_ids::named_id(
+                    root.as_id(),
+                    &format!("one-slot-accuracy:{path}"),
+                ),
+                model_id: Some(root),
+                case_id: None,
+                instance_id: None,
+                fit_id: None,
+                target_id: target,
+                target_kind,
+                nominal: None,
+                scaling_factor: None,
+                absolute_tolerance: Some(absolute),
+                relative_tolerance: Some(0.),
+                shared_engineering_allowance: None,
+                engineering_rule_id: None,
+                unit_id: Some(unit.as_id()),
+                coordinates: pse_model::generated::enums::NumericalCoordinates::Physical,
+                priority: 0,
+                required: true,
+                provenance: "one-slot original square/root accuracy".into(),
+            }
+        })
+        .collect::<Vec<_>>()
+    } else {
+        Vec::new()
+    };
     let mut points = Vec::new();
     for (index, value) in [4., 4.04, 4.08].into_iter().enumerate() {
         let start = if index == 0 {
@@ -695,6 +812,14 @@ async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinit
             panic!("case expected");
         };
         operation.settings.intent = pse_backend_native::solve::SolveIntent::Root;
+        // Freeze explicit target-unit primal accuracy before study admission.
+        // A relative engineering fraction alone retains the canonical fallback
+        // when this fixture supplies no characteristic engineering scale.
+        operation
+            .settings
+            .numerics
+            .requirements
+            .extend(requirements.iter().cloned());
         operation.settings.controls.start =
             pse_backend_native::solve::StartPolicy::PreviousAccepted;
         operation
@@ -713,12 +838,7 @@ async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinit
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &crate::workflow::StudyOutputDemand::Full,
-            &cancel,
-        )
+        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     (package, definition)
@@ -826,11 +946,21 @@ async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt() 
         .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
-    loop {
-        if matches!(runtime.work_once().await.unwrap(), Processed::Idle) {
-            break;
-        }
-    }
+    assert!(
+        matches!(
+            runtime.work_once().await.unwrap(),
+            Processed::Settled { .. }
+        ),
+        "pending readiness repair cannot preempt an eligible effect-free refusal"
+    );
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Finalized { .. }
+    ));
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Idle
+    ));
     let status = handle.status().await.unwrap();
     let point = &status.points[0];
     assert!(point.settled);
@@ -1435,12 +1565,7 @@ async fn parallel_study_definition(
         })
         .collect::<Vec<_>>();
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &crate::workflow::StudyOutputDemand::Full,
-            &cancel,
-        )
+        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     (package, definition)
@@ -1888,35 +2013,110 @@ async fn durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drai
 
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
-async fn ephemeral_study_single_population_slot_refuses_before_preparation_or_native_entry() {
+async fn ephemeral_study_single_population_slot_lends_preparation_and_completes() {
     let runtime = study_runtime_with_population(1, 1);
-    let (package, definition) = related_definition(&runtime).await;
+    let (package, definition) =
+        related_definition_with_primal_accuracy(&runtime, Some(1e-12)).await;
     let entered = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let observer = entered.clone();
-    let (result, preparations) = crate::math::counted(crate::math::observed_native_entry(
-        Arc::new(move |_| {
-            observer.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        }),
-        package.study(&definition, 3, &crate::CancelSource::new()),
-    ))
-    .await;
-    assert!(matches!(
-        result,
-        Err(WorkflowError::Math(MathRuntimeError::Limit(
-            "study preparation and native sequence population",
-        )))
-    ));
-    assert_eq!(entered.load(std::sync::atomic::Ordering::Relaxed), 0);
-    assert_eq!(
-        (
-            preparations.views,
-            preparations.observations,
-            preparations.rebuilt,
-            preparations.shared
-        ),
-        (0, 0, 0, 0),
-        "population refusal precedes operation preparation"
+    let (result, preparations) = tokio::time::timeout(
+        Duration::from_secs(60),
+        crate::math::counted(crate::math::observed_native_entry(
+            Arc::new(move |_| {
+                observer.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            }),
+            package.study(&definition, 3, &crate::CancelSource::new()),
+        )),
+    )
+    .await
+    .expect("one population lane must lend preparation without deadlock");
+    let report = result.unwrap();
+    assert_eq!(report.outcomes.len(), definition.points.len());
+    assert!(
+        report
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.scientific.usable),
+        "{:?}",
+        report.outcomes
     );
+    assert!(entered.load(std::sync::atomic::Ordering::Relaxed) > 0);
+    assert!(
+        preparations.views > 0,
+        "the single lane performs actual preparation before native execution"
+    );
+    for (index, parameter) in [4_f64, 4.04, 4.08].into_iter().enumerate() {
+        let RunReport::Modeling(results) =
+            report.results[index].as_ref().unwrap().report().unwrap()
+        else {
+            panic!("the continuation must return its actual modeling result");
+        };
+        assert_eq!(results.len(), 1);
+        let result = &results[0];
+        let x = result
+            .prepared
+            .model
+            .model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .find(|symbol| symbol.lineage.path == "x" || symbol.lineage.path.ends_with(".x"))
+            .unwrap()
+            .id;
+        let value = result.values.scalars[&x];
+        let targets = result
+            .prepared
+            .solve
+            .numerics()
+            .targets
+            .iter()
+            .filter(|target| {
+                target.id == x || target.kind == pse_model::generated::enums::NumericalTarget::Row
+            })
+            .map(|target| {
+                (
+                    target.id,
+                    target.kind,
+                    target.absolute,
+                    target.relative,
+                    target.budget,
+                )
+            })
+            .collect::<Vec<_>>();
+        eprintln!(
+            "one-slot-continuation index={index} parameter={parameter:.17} value={value:.17} targets={targets:?}"
+        );
+        assert_eq!(targets.len(), 2);
+        assert!(
+            targets.iter().all(|target| target.4 <= 1e-10),
+            "explicit original-space budgets must support the independent oracle: index={index} targets={targets:?}"
+        );
+        assert!(
+            (value - parameter.sqrt()).abs() < 1e-8,
+            "one-slot positive root: index={index} parameter={parameter:.17} value={value:.17}"
+        );
+        assert!(
+            (value * value - parameter).abs() < 1e-8,
+            "original square residual: index={index} parameter={parameter:.17} value={value:.17}"
+        );
+        if index > 0 {
+            assert!(matches!(report.outcomes[index].start,
+                Some(StartProvenance::Continuation { predecessor, .. })
+                    if predecessor == definition.points[index - 1].policy.key));
+        }
+        if index == 2 {
+            assert_eq!(
+                result.prepared.solve.entry_origin(false),
+                pse_model::strategy::StartOrigin::Predicted
+            );
+            assert_eq!(
+                result.strategy.as_ref().unwrap().starts[0],
+                pse_model::strategy::StartOrigin::Predicted,
+                "the single retained population must lend the actual secant screening step"
+            );
+        }
+    }
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -2732,7 +2932,11 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         assert!(retired, "reader release did not permit bounded retirement");
         let mut reclaimed = 0;
         let mut complete = false;
-        for _ in 0..8 {
+        // Each transport attempt needs separate bounded pages for its batch,
+        // result set, append receipt and generation advance. Completion is a
+        // final page after both immutable attempt generations are traversed.
+        let maximum_pages = attempts.len() * 4 + 1;
+        for _ in 0..maximum_pages {
             let page = store.reclaim_result_page(&transport_run).await.unwrap();
             reclaimed += page.batches;
             if page.complete {
@@ -2740,7 +2944,10 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                 break;
             }
         }
-        assert!(complete);
+        assert!(
+            complete,
+            "transport reclamation exceeded {maximum_pages} pages"
+        );
         assert_eq!(reclaimed, 2);
         assert!(
             runtime
@@ -2936,12 +3143,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(
-            &physical,
-            &points,
-            &crate::workflow::StudyOutputDemand::Full,
-            &cancel,
-        )
+        .admit_study_sources(&physical, &points, &StudyOutputDemand::Full {}, &cancel)
         .await
         .unwrap();
     let study = package.study(&definition, 8, &cancel).await.unwrap();
@@ -3013,7 +3215,7 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
         .admit_study_sources(
             &physical,
             &[fixed_point],
-            &crate::workflow::StudyOutputDemand::Full,
+            &StudyOutputDemand::Full {},
             &cancel,
         )
         .await
@@ -3069,7 +3271,7 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
         .admit_study_sources(
             &physical,
             &[requested],
-            &crate::workflow::StudyOutputDemand::Full,
+            &StudyOutputDemand::Full {},
             &cancel,
         )
         .await

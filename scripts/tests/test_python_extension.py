@@ -23,7 +23,7 @@ class PythonExtensionTests(unittest.TestCase):
             package.mkdir(parents=True)
             binary = package / "_native.so"
             binary.write_bytes(b"actual extension bytes")
-            report = {
+            report: dict[str, object] = {
                 "package": str(package / "__init__.py"),
                 "native": str(binary),
                 "features": ["force-validate"],

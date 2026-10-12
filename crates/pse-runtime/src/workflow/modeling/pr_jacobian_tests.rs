@@ -4,7 +4,6 @@
 use super::*;
 use crate::math::WorkerBudget;
 use pse_backend_native::solve::{Controls, Execution, SolveIntent};
-use pse_columnar::flight::FlightCancellation;
 use pse_kernels::{
     DerivativeOrder, EvaluationContext, ExecutionScope, Provider, ProviderError, ProviderFactory,
     ProviderKey, ProviderRequest, ProviderSpec, ProviderValues, Registration,
@@ -109,7 +108,7 @@ async fn package(
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
     let runtime = Runtime::from_shared(
         shared.clone(),
-        sessions.bind_model(registry.clone()).unwrap(),
+        sessions.bind_model(registry.clone())?,
         crate::workflow::tests::canonical_deployment(),
     )?;
     let token = pse_columnar::CancellationToken::new();
@@ -1052,181 +1051,370 @@ async fn original_pr_case_derivatives_satisfy_production_basis_conditions() -> T
     let budget = WorkerBudget::new(worker_allowance);
     let job_service = service.clone();
     let original_providers = resolved.providers;
-    let sample = service.job(1, worker_allowance, FlightCancellation::default(), move |flag| {
-        // Cancelling the async waiter does not join the native worker. Its clone
-        // keeps the pre-admitted diagnostic storage owned until worker teardown;
-        // the waiter's original owner also covers the returned Sample buffers.
-        let diagnostic_owner = job_diagnostic_owner;
-        let execution = Execution::new(flag.clone(), &controls);
-        let scope = execution.scope()?;
-        let checkpoint = || scope.check().map_err(pse_backend_native::ProblemError::Provider);
-        let observations: Observations = Arc::new(Mutex::new(BTreeMap::new()));
-        let mut providers = original_providers.clone();
-        for root in &roots {
-            let original = original_providers[&root.key].clone();
-            // Registration already frames a declared envelope into its configuration
-            // key. These actual implicit factories declare none, so delegation is exact.
-            assert!(original.envelope().is_none());
-            let observed = Registration::bind(original.descriptor(), Arc::new(ObservedFactory {
-                original: original.clone(), observations: observations.clone(), scope: scope.clone(), source_key: root.key,
-            })).map_err(pse_backend_native::ProblemError::Provider)?;
-            assert_eq!(observed.spec(), original.spec());
-            assert_eq!(observed.configuration_key(), original.configuration_key());
-            providers.insert(root.key, observed);
-        }
-        let mut owned = job_service.worker(executable, &providers, scope.clone(), &budget)?;
-        let worker = owned.worker();
-        let worker_bytes = worker.assembly().numeric_worker_bytes();
-        let matrix = worker.jacobian(&base).inspect_err(|error| eprintln!("original PR Jacobian: {error}"))?;
-        let mut analytic = vec![0.; DIMENSION*DIMENSION];
-        for column in 0..DIMENSION {
-            for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
-                analytic[row*DIMENSION+column] = *value;
+    // This is the complete prepaid opaque worker envelope, not an already
+    // consumed exact constructor extent. Primitive compiler reports consume the
+    // same finite envelope; they must not add a second charge to its full ceiling.
+    let handle = service.submit_construction(
+        1,
+        crate::math::ConstructionEstimate::Opaque(worker_allowance),
+        crate::math::Submission::ephemeral(),
+        move |flag, _| {
+            // Cancelling the async waiter does not join the native worker. Its clone
+            // keeps the pre-admitted diagnostic storage owned until worker teardown;
+            // the waiter's original owner also covers the returned Sample buffers.
+            let diagnostic_owner = job_diagnostic_owner;
+            let execution = Execution::new(flag.clone(), &controls);
+            let scope = execution.scope()?;
+            let checkpoint = || {
+                scope
+                    .check()
+                    .map_err(pse_backend_native::ProblemError::Provider)
+            };
+            let observations: Observations = Arc::new(Mutex::new(BTreeMap::new()));
+            let mut providers = original_providers.clone();
+            for root in &roots {
+                let original = original_providers[&root.key].clone();
+                // Registration already frames a declared envelope into its configuration
+                // key. These actual implicit factories declare none, so delegation is exact.
+                assert!(original.envelope().is_none());
+                let observed = Registration::bind(
+                    original.descriptor(),
+                    Arc::new(ObservedFactory {
+                        original: original.clone(),
+                        observations: observations.clone(),
+                        scope: scope.clone(),
+                        source_key: root.key,
+                    }),
+                )
+                .map_err(pse_backend_native::ProblemError::Provider)?;
+                assert_eq!(observed.spec(), original.spec());
+                assert_eq!(observed.configuration_key(), original.configuration_key());
+                providers.insert(root.key, observed);
             }
-        }
-        let evidence = analyze_matrix::<GlobalRow, GlobalCol>(matrix.as_ref(),
-            &normalization.rows.iter().map(|v|1./v).collect::<Vec<_>>(),
-            &normalization.variables.iter().map(|v|1./v).collect::<Vec<_>>(),
-            MatrixPolicy { dense_entries: 3*DIMENSION*DIMENSION, findings: DIMENSION*DIMENSION,
-                // Rank interpretation is separate from physical convergence accuracy.
-                parallel_tolerance: 1e-8, rank_absolute: 1e-12, rank_relative: 1e-8, singular_vector: 0.1 }, &flag)?;
-        checkpoint()?;
-        let initial = worker.constraints(&base)?;
-        assert_eq!(initial.len(), DIMENSION);
-        let all_weights = normalization.rows.iter().enumerate()
-            .map(|(row,nominal)| (1.+(row+1) as f64/(DIMENSION+1) as f64)/nominal).collect::<Vec<_>>();
-        let root_weights = all_weights.iter().enumerate().map(|(row,w)|
-            if links.iter().any(|link|link.row == row) { *w } else { 0. }).collect::<Vec<_>>();
-        let mut hessians = Vec::new();
-        for weights in [&all_weights, &root_weights] {
-            checkpoint()?;
-            let matrix = worker.hessian(&base, 0., weights).inspect_err(|error| eprintln!("original PR Hessian: {error}"))?;
-            let mut full = vec![0.; DIMENSION*DIMENSION];
+            let mut owned = job_service.worker(executable, &providers, scope.clone(), &budget)?;
+            let worker = owned.worker();
+            let worker_bytes = worker.assembly().numeric_worker_bytes();
+            let matrix = worker
+                .jacobian(&base)
+                .inspect_err(|error| eprintln!("original PR Jacobian: {error}"))?;
+            let mut analytic = vec![0.; DIMENSION * DIMENSION];
             for column in 0..DIMENSION {
-                for (row,value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
-                    full[row*DIMENSION+column] = *value;
-                    full[column*DIMENSION+row] = *value;
+                for (row, value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column)) {
+                    analytic[row * DIMENSION + column] = *value;
                 }
             }
-            assert!(full.iter().all(|v|v.is_finite()));
-            hessians.push(full);
-        }
-        let jets = observations.lock().map_err(|_| pse_math::MathError::Contract("PR observation lock poisoned".into()))?.clone();
-        assert_eq!(jets.len(), 2);
-        let mut root_evidence = Vec::new();
-        let mut compiled_bytes = 0;
-        let mut material_response = None;
-        for (index, root) in roots.iter().enumerate() {
+            let evidence = analyze_matrix::<GlobalRow, GlobalCol>(
+                matrix.as_ref(),
+                &normalization
+                    .rows
+                    .iter()
+                    .map(|v| 1. / v)
+                    .collect::<Vec<_>>(),
+                &normalization
+                    .variables
+                    .iter()
+                    .map(|v| 1. / v)
+                    .collect::<Vec<_>>(),
+                MatrixPolicy {
+                    dense_entries: 3 * DIMENSION * DIMENSION,
+                    findings: DIMENSION * DIMENSION,
+                    // Rank interpretation is separate from physical convergence accuracy.
+                    parallel_tolerance: 1e-8,
+                    rank_absolute: 1e-12,
+                    rank_relative: 1e-8,
+                    singular_vector: 0.1,
+                },
+                &flag,
+            )?;
             checkpoint()?;
-            let jet = &jets[&root.key];
-            assert_eq!(jet.inputs, root.spec.inputs.iter().map(|p|base.scalars[&p.id]).collect::<Vec<_>>());
-            let (residual, eligibility) = primitive(root, &scope, compiler.optimization, compiler.evaluation)
-                .inspect_err(|error| eprintln!("independent PR primitive {:?}: {error}", root.key))?;
-            let bytes = residual.retained_bytes()+residual.worker_bytes()+eligibility.retained_bytes()+eligibility.worker_bytes();
-            compiled_bytes += bytes;
-            let raw_matrices = 3 * DIMENSION * DIMENSION * size_of::<f64>();
-            assert!(compiled_bytes + raw_matrices <= diagnostic_bytes,
-                "primitive storage and raw matrices retain their single admitted owner");
-            let options = production_options(root, &jet.inputs, &scope)?;
-            let actual = qualified_point(root, &residual, &eligibility, &jet.inputs,
-                &jet.values.values, &options, DerivativeOrder::Second, &scope)?;
-            root_evidence.push(root_conditions(root, jet, &actual, &options, backward_budget));
-            if index == 0 {
-                // One material physical composition change, keeping total composition
-                // fixed, replaces hundreds of sub-budget perturbed nested evaluations.
-                let axes = &composition_axes[index];
-                let input_budget = axes.iter().map(|&axis| crate::workflow::tests::engineering_target(
-                    &numerics, pse_relations::generated::enums::NumericalTarget::Variable,
-                    root.spec.inputs[axis].id).budget).fold(f64::INFINITY, f64::min);
-                let step = 10.*input_budget;
-                let mut changed = jet.inputs.clone();
-                changed[axes[0]] += step;
-                changed[axes[1]] -= step;
-                for &axis in axes {
-                    let (lower,upper) = bounds[&root.spec.inputs[axis].id];
-                    assert!(changed[axis] >= lower && changed[axis] <= upper);
-                    assert!(changed[axis] > 0. && changed[axis] < 1.);
-                }
-                let mut supplier = original_providers[&root.key].worker_scoped(scope.clone())
-                    .map_err(pse_backend_native::ProblemError::Provider)?;
-                let request = ProviderRequest::all(&root.spec, DerivativeOrder::Value);
-                let context = EvaluationContext { cancelled: &flag, max_result_bytes: diagnostic_bytes };
-                let changed_values = supplier.evaluate(&changed, &request, &context)
-                    .map_err(pse_backend_native::ProblemError::Provider)?;
-                changed_values.validate(&root.spec, &request)
-                    .map_err(pse_backend_native::ProblemError::Provider)?;
-                let changed_options = production_options(root, &changed, &scope)?;
-                qualified_point(root, &residual, &eligibility, &changed, &changed_values.values,
-                    &changed_options, DerivativeOrder::Value, &scope)?;
-                let delta = changed.iter().zip(&jet.inputs).map(|(a,b)|a-b).collect::<Vec<_>>();
-                let observed = changed_values.values.iter().zip(&jet.values.values).map(|(a,b)|a-b).collect::<Vec<_>>();
-                let predicted = (0..root.unknowns.len()).map(|y| delta.iter().enumerate()
-                    .map(|(a,d)|jet.values.jacobian[y*delta.len()+a]*d).sum::<f64>()).collect::<Vec<_>>();
-                let allowances = options.variable_tolerance.iter().zip(&changed_options.variable_tolerance)
-                    .map(|(a,b)|a+b).collect::<Vec<_>>();
-                assert!(observed[root.fraction].abs() > allowances[root.fraction],
-                    "composition response must be resolved beyond production accuracy");
-                // Empirical response at this step; this is neither a certified Taylor
-                // remainder nor a claim that a First action enclosure certifies Second.
-                for y in 0..root.unknowns.len() {
-                    assert!((observed[y]-predicted[y]).abs() <= allowances[y],
-                        "material PR response {} exceeds actual physical production budgets", root.unknowns[y]);
-                }
-                material_response = Some(MaterialResponse { provider: root.spec.id,
-                    input_delta: delta, observed, predicted, allowances });
-            }
-        }
-        let mut expected_hessian = vec![0.; DIMENSION*DIMENSION];
-        let mut absolute_hessian_terms = expected_hessian.clone();
-        for link in &links {
-            let root = roots.iter().find(|root|root.spec.id == link.provider).unwrap();
-            let jet = &jets[&root.key];
-            let n = root.spec.inputs.len();
-            let lhs = base.scalars[&column_ids[link.identity_column]];
-            let rhs = jet.values.values[link.output];
-            assert!(backward_error(initial[link.row], lhs-rhs, lhs.abs()+rhs.abs()) <= backward_budget);
-            for column in 0..DIMENSION {
-                let mut expected: f64 = if column == link.identity_column { 1. } else { 0. };
-                let mut magnitude = expected.abs();
-                for (axis,&input_column) in link.input_columns.iter().enumerate() {
-                    if column == input_column {
-                        let term = jet.values.jacobian[link.output*n+axis];
-                        expected -= term;
-                        magnitude += term.abs();
+            let initial = worker.constraints(&base)?;
+            assert_eq!(initial.len(), DIMENSION);
+            let all_weights = normalization
+                .rows
+                .iter()
+                .enumerate()
+                .map(|(row, nominal)| (1. + (row + 1) as f64 / (DIMENSION + 1) as f64) / nominal)
+                .collect::<Vec<_>>();
+            let root_weights = all_weights
+                .iter()
+                .enumerate()
+                .map(|(row, w)| {
+                    if links.iter().any(|link| link.row == row) {
+                        *w
+                    } else {
+                        0.
+                    }
+                })
+                .collect::<Vec<_>>();
+            let mut hessians = Vec::new();
+            for weights in [&all_weights, &root_weights] {
+                checkpoint()?;
+                let matrix = worker
+                    .hessian(&base, 0., weights)
+                    .inspect_err(|error| eprintln!("original PR Hessian: {error}"))?;
+                let mut full = vec![0.; DIMENSION * DIMENSION];
+                for column in 0..DIMENSION {
+                    for (row, value) in matrix.row_idx_of_col(column).zip(matrix.val_of_col(column))
+                    {
+                        full[row * DIMENSION + column] = *value;
+                        full[column * DIMENSION + row] = *value;
                     }
                 }
-                assert!(backward_error(analytic[link.row*DIMENSION+column], expected, magnitude) <= backward_budget,
-                    "original PR link Jacobian row {} column {}", row_ids[link.row], column_ids[column]);
+                assert!(full.iter().all(|v| v.is_finite()));
+                hessians.push(full);
             }
-            for (a,&column_a) in link.input_columns.iter().enumerate() {
-                for (b,&column_b) in link.input_columns.iter().enumerate() {
-                    let term = -root_weights[link.row]*jet.values.hessians[link.output*n*n+a*n+b];
-                    let entry = column_a*DIMENSION+column_b;
-                    expected_hessian[entry] += term;
-                    absolute_hessian_terms[entry] += term.abs();
+            let jets = observations
+                .lock()
+                .map_err(|_| pse_math::MathError::Contract("PR observation lock poisoned".into()))?
+                .clone();
+            assert_eq!(jets.len(), 2);
+            let mut root_evidence = Vec::new();
+            let mut compiled_bytes = 0;
+            let mut material_response = None;
+            for (index, root) in roots.iter().enumerate() {
+                checkpoint()?;
+                let jet = &jets[&root.key];
+                assert_eq!(
+                    jet.inputs,
+                    root.spec
+                        .inputs
+                        .iter()
+                        .map(|p| base.scalars[&p.id])
+                        .collect::<Vec<_>>()
+                );
+                let (residual, eligibility) =
+                    primitive(root, &scope, compiler.optimization, compiler.evaluation)
+                        .inspect_err(|error| {
+                            eprintln!("independent PR primitive {:?}: {error}", root.key)
+                        })?;
+                let bytes = residual.retained_bytes()
+                    + residual.worker_bytes()
+                    + eligibility.retained_bytes()
+                    + eligibility.worker_bytes();
+                compiled_bytes += bytes;
+                let raw_matrices = 3 * DIMENSION * DIMENSION * size_of::<f64>();
+                assert!(
+                    compiled_bytes + raw_matrices <= diagnostic_bytes,
+                    "primitive storage and raw matrices retain their single admitted owner"
+                );
+                let options = production_options(root, &jet.inputs, &scope)?;
+                let actual = qualified_point(
+                    root,
+                    &residual,
+                    &eligibility,
+                    &jet.inputs,
+                    &jet.values.values,
+                    &options,
+                    DerivativeOrder::Second,
+                    &scope,
+                )?;
+                root_evidence.push(root_conditions(
+                    root,
+                    jet,
+                    &actual,
+                    &options,
+                    backward_budget,
+                ));
+                if index == 0 {
+                    // One material physical composition change, keeping total composition
+                    // fixed, replaces hundreds of sub-budget perturbed nested evaluations.
+                    let axes = &composition_axes[index];
+                    let input_budget = axes
+                        .iter()
+                        .map(|&axis| {
+                            crate::workflow::tests::engineering_target(
+                                &numerics,
+                                pse_relations::generated::enums::NumericalTarget::Variable,
+                                root.spec.inputs[axis].id,
+                            )
+                            .budget
+                        })
+                        .fold(f64::INFINITY, f64::min);
+                    let step = 10. * input_budget;
+                    let mut changed = jet.inputs.clone();
+                    changed[axes[0]] += step;
+                    changed[axes[1]] -= step;
+                    for &axis in axes {
+                        let (lower, upper) = bounds[&root.spec.inputs[axis].id];
+                        assert!(changed[axis] >= lower && changed[axis] <= upper);
+                        assert!(changed[axis] > 0. && changed[axis] < 1.);
+                    }
+                    let mut supplier = original_providers[&root.key]
+                        .worker_scoped(scope.clone())
+                        .map_err(pse_backend_native::ProblemError::Provider)?;
+                    let request = ProviderRequest::all(&root.spec, DerivativeOrder::Value);
+                    let context = EvaluationContext {
+                        cancelled: &flag,
+                        max_result_bytes: diagnostic_bytes,
+                    };
+                    let changed_values = supplier
+                        .evaluate(&changed, &request, &context)
+                        .map_err(pse_backend_native::ProblemError::Provider)?;
+                    changed_values
+                        .validate(&root.spec, &request)
+                        .map_err(pse_backend_native::ProblemError::Provider)?;
+                    let changed_options = production_options(root, &changed, &scope)?;
+                    qualified_point(
+                        root,
+                        &residual,
+                        &eligibility,
+                        &changed,
+                        &changed_values.values,
+                        &changed_options,
+                        DerivativeOrder::Value,
+                        &scope,
+                    )?;
+                    let delta = changed
+                        .iter()
+                        .zip(&jet.inputs)
+                        .map(|(a, b)| a - b)
+                        .collect::<Vec<_>>();
+                    let observed = changed_values
+                        .values
+                        .iter()
+                        .zip(&jet.values.values)
+                        .map(|(a, b)| a - b)
+                        .collect::<Vec<_>>();
+                    let predicted = (0..root.unknowns.len())
+                        .map(|y| {
+                            delta
+                                .iter()
+                                .enumerate()
+                                .map(|(a, d)| jet.values.jacobian[y * delta.len() + a] * d)
+                                .sum::<f64>()
+                        })
+                        .collect::<Vec<_>>();
+                    let allowances = options
+                        .variable_tolerance
+                        .iter()
+                        .zip(&changed_options.variable_tolerance)
+                        .map(|(a, b)| a + b)
+                        .collect::<Vec<_>>();
+                    assert!(
+                        observed[root.fraction].abs() > allowances[root.fraction],
+                        "composition response must be resolved beyond production accuracy"
+                    );
+                    // Empirical response at this step; this is neither a certified Taylor
+                    // remainder nor a claim that a First action enclosure certifies Second.
+                    for y in 0..root.unknowns.len() {
+                        assert!(
+                            (observed[y] - predicted[y]).abs() <= allowances[y],
+                            "material PR response {} exceeds actual physical production budgets",
+                            root.unknowns[y]
+                        );
+                    }
+                    material_response = Some(MaterialResponse {
+                        provider: root.spec.id,
+                        input_delta: delta,
+                        observed,
+                        predicted,
+                        allowances,
+                    });
                 }
             }
-        }
-        for entry in 0..expected_hessian.len() {
-            assert!(backward_error(hessians[1][entry], expected_hessian[entry], absolute_hessian_terms[entry]) <= backward_budget,
-                "original PR selected-root weighted Hessian entry {entry}");
-        }
-        checkpoint()?;
-        Ok(Sample {
-            _allocation: diagnostic_owner,
-            fixture,
-            rows: row_members.into_iter().enumerate().map(|(i,member)| Coordinate {
-                member, initial: initial[i], nominal: normalization.rows[i] }).collect(),
-            columns: column_members.into_iter().enumerate().map(|(i,member)| Coordinate {
-                initial: base.scalars[&member.id], member, nominal: normalization.variables[i] }).collect(),
-            analytic, all_original_weighted_hessian: hessians.remove(0),
-            selected_root_weighted_hessian: hessians.remove(0), selected_root_weights: root_weights,
-            selected_root_links: links, roots: root_evidence, material_response: material_response.unwrap(),
-            linear_backward_error: backward_budget, supplier_action_accuracy: numerics.policy.supplier_action_accuracy, rank: evidence.rank, rank_cutoff: evidence.cutoff,
-            singular_values: evidence.modes.into_iter().map(|m|m.value).collect(),
-            worker_bytes, elapsed_seconds: execution.started.elapsed().as_secs_f64(),
-        })
-    }).await?;
+            let mut expected_hessian = vec![0.; DIMENSION * DIMENSION];
+            let mut absolute_hessian_terms = expected_hessian.clone();
+            for link in &links {
+                let root = roots
+                    .iter()
+                    .find(|root| root.spec.id == link.provider)
+                    .unwrap();
+                let jet = &jets[&root.key];
+                let n = root.spec.inputs.len();
+                let lhs = base.scalars[&column_ids[link.identity_column]];
+                let rhs = jet.values.values[link.output];
+                assert!(
+                    backward_error(initial[link.row], lhs - rhs, lhs.abs() + rhs.abs())
+                        <= backward_budget
+                );
+                for column in 0..DIMENSION {
+                    let mut expected: f64 = if column == link.identity_column {
+                        1.
+                    } else {
+                        0.
+                    };
+                    let mut magnitude = expected.abs();
+                    for (axis, &input_column) in link.input_columns.iter().enumerate() {
+                        if column == input_column {
+                            let term = jet.values.jacobian[link.output * n + axis];
+                            expected -= term;
+                            magnitude += term.abs();
+                        }
+                    }
+                    assert!(
+                        backward_error(
+                            analytic[link.row * DIMENSION + column],
+                            expected,
+                            magnitude
+                        ) <= backward_budget,
+                        "original PR link Jacobian row {} column {}",
+                        row_ids[link.row],
+                        column_ids[column]
+                    );
+                }
+                for (a, &column_a) in link.input_columns.iter().enumerate() {
+                    for (b, &column_b) in link.input_columns.iter().enumerate() {
+                        let term = -root_weights[link.row]
+                            * jet.values.hessians[link.output * n * n + a * n + b];
+                        let entry = column_a * DIMENSION + column_b;
+                        expected_hessian[entry] += term;
+                        absolute_hessian_terms[entry] += term.abs();
+                    }
+                }
+            }
+            for entry in 0..expected_hessian.len() {
+                assert!(
+                    backward_error(
+                        hessians[1][entry],
+                        expected_hessian[entry],
+                        absolute_hessian_terms[entry]
+                    ) <= backward_budget,
+                    "original PR selected-root weighted Hessian entry {entry}"
+                );
+            }
+            checkpoint()?;
+            Ok((
+                Sample {
+                    _allocation: diagnostic_owner,
+                    fixture,
+                    rows: row_members
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, member)| Coordinate {
+                            member,
+                            initial: initial[i],
+                            nominal: normalization.rows[i],
+                        })
+                        .collect(),
+                    columns: column_members
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, member)| Coordinate {
+                            initial: base.scalars[&member.id],
+                            member,
+                            nominal: normalization.variables[i],
+                        })
+                        .collect(),
+                    analytic,
+                    all_original_weighted_hessian: hessians.remove(0),
+                    selected_root_weighted_hessian: hessians.remove(0),
+                    selected_root_weights: root_weights,
+                    selected_root_links: links,
+                    roots: root_evidence,
+                    material_response: material_response.unwrap(),
+                    linear_backward_error: backward_budget,
+                    supplier_action_accuracy: numerics.policy.supplier_action_accuracy,
+                    rank: evidence.rank,
+                    rank_cutoff: evidence.cutoff,
+                    singular_values: evidence.modes.into_iter().map(|m| m.value).collect(),
+                    worker_bytes,
+                    elapsed_seconds: execution.started.elapsed().as_secs_f64(),
+                },
+                0,
+            ))
+        },
+    )?;
+    let (sample, _empty_retained_owner) = handle.finish().await?;
     let mut artifact = tempfile::Builder::new()
         .prefix("pse-original-pr-production-basis-")
         .suffix(".json")

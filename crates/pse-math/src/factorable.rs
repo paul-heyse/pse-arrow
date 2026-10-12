@@ -1428,59 +1428,10 @@ impl CasePlan {
         if limit == 0 {
             return fail(MathError::Limit(EXTENT));
         }
-        let columns: BTreeMap<_, _> = self
-            .columns()
-            .iter()
-            .enumerate()
-            .map(|(i, id)| (*id, i))
-            .collect();
-        let declared: BTreeMap<_, _> = self
-            .structure()
-            .variables()
-            .iter()
-            .map(|v| (v.port.id, v))
-            .collect();
-        let variables = self
-            .columns()
-            .iter()
-            .map(|id| {
-                let Some(v) = declared.get(id) else {
-                    if self
-                        .structure()
-                        .parameters()
-                        .iter()
-                        .any(|parameter| parameter.id == *id)
-                    {
-                        return Ok(ProjectedVariable {
-                            id: *id,
-                            domain: ModelingVariableDomain::Continuous,
-                            lower: f64::NEG_INFINITY,
-                            upper: f64::INFINITY,
-                            active_lower: None,
-                        });
-                    }
-                    return Err(MathError::Contract("column without a declaration".into()));
-                };
-                Ok(ProjectedVariable {
-                    id: *id,
-                    domain: v.domain,
-                    lower: if v.domain.is_semi() {
-                        0.0_f64.min(v.lower.unwrap_or(0.0))
-                    } else {
-                        v.lower.unwrap_or(f64::NEG_INFINITY)
-                    },
-                    upper: v.upper.unwrap_or(f64::INFINITY),
-                    active_lower: v.lower.filter(|_| v.domain.is_semi()),
-                })
-            })
-            .collect::<Result<Vec<_>, MathError>>()?;
-        let rows: BTreeMap<_, _> = self
-            .structure()
-            .rows()
-            .iter()
-            .enumerate()
-            .map(|(i, r)| (r.id, i))
-            .collect();
+        let topology = self.projection_topology();
+        let columns = &topology.columns;
+        let rows = &topology.rows;
+        let variables = topology.variables.clone();
         let slots = self
             .bodies()
             .values()
@@ -1497,15 +1448,15 @@ impl CasePlan {
         let mut objective_terms = vec![];
         let mut objective_unavailable = false;
         let mut consumed = BTreeMap::new();
-        for b in self.structure().instances() {
+        for (binding_index, b) in self.structure().instances().iter().enumerate() {
             builder.check()?;
             let body = self
                 .bodies()
                 .get(&b.body)
                 .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
             let mut inputs = Vec::with_capacity(b.slots.len());
-            for s in b.slots.iter() {
-                inputs.push(if let Some(&column) = columns.get(&s.source()) {
+            for (s, &read) in b.slots.iter().zip(&topology.reads[binding_index]) {
+                inputs.push(if let Some(column) = read {
                     Input::Column(column, s.scale(), s.offset())
                 } else {
                     let v = *values
@@ -1523,14 +1474,8 @@ impl CasePlan {
                     }
                 });
             }
-            let outputs: Vec<usize> = b
-                .contributions
-                .iter()
-                .map(|c| c.output)
-                .collect::<BTreeSet<_>>()
-                .into_iter()
-                .collect();
-            let projected = builder.instance(b.instance, body, &inputs, &outputs)?;
+            let projected =
+                builder.instance(b.instance, body, &inputs, &topology.outputs[binding_index])?;
             for c in &b.contributions {
                 let term = match projected.get(&c.output) {
                     Some(&node) => Some(builder.scaled(node, c.scale)?),
@@ -1573,7 +1518,7 @@ impl CasePlan {
             }),
             None => None,
         };
-        let native = project_native(self, &columns, &rows, values, &mut consumed)?;
+        let native = project_native(self, columns, rows, values, &mut consumed)?;
         let structure_key = self.structure().key();
         let mut h = FramedHasher::new(pse_ids::Frame::MathFactorableV2);
         h.hash(&structure_key)
@@ -1940,6 +1885,128 @@ impl CasePlan {
     }
 }
 
+/// Pure authored indices shared by every numerical rebind of one exact CasePlan.
+/// No substituted nodes, class decisions, guard outcomes or enclosure values live here.
+#[derive(Debug)]
+pub(crate) struct ProjectionTopology {
+    pub(crate) columns: BTreeMap<SemanticId, usize>,
+    pub(crate) rows: BTreeMap<SemanticId, usize>,
+    variables: Vec<ProjectedVariable>,
+    pub(crate) row_sources: Vec<Vec<(SemanticId, usize)>>,
+    reads: Vec<Vec<Option<usize>>>,
+    outputs: Vec<Vec<usize>>,
+}
+impl ProjectionTopology {
+    pub(crate) fn new(
+        structure: &crate::binding::CaseStructure,
+        coordinates: &[SemanticId],
+    ) -> Result<Self, MathError> {
+        let columns = coordinates
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (*id, i))
+            .collect::<BTreeMap<_, _>>();
+        let declared = structure
+            .variables()
+            .iter()
+            .map(|v| (v.port.id, v))
+            .collect::<BTreeMap<_, _>>();
+        let variables = coordinates
+            .iter()
+            .map(|id| {
+                let Some(v) = declared.get(id) else {
+                    if structure.parameters().iter().any(|p| p.id == *id) {
+                        return Ok(ProjectedVariable {
+                            id: *id,
+                            domain: ModelingVariableDomain::Continuous,
+                            lower: f64::NEG_INFINITY,
+                            upper: f64::INFINITY,
+                            active_lower: None,
+                        });
+                    }
+                    return Err(MathError::Contract("column without a declaration".into()));
+                };
+                Ok(ProjectedVariable {
+                    id: *id,
+                    domain: v.domain,
+                    lower: if v.domain.is_semi() {
+                        0.0_f64.min(v.lower.unwrap_or(0.0))
+                    } else {
+                        v.lower.unwrap_or(f64::NEG_INFINITY)
+                    },
+                    upper: v.upper.unwrap_or(f64::INFINITY),
+                    active_lower: v.lower.filter(|_| v.domain.is_semi()),
+                })
+            })
+            .collect::<Result<Vec<_>, MathError>>()?;
+        let rows = structure
+            .rows()
+            .iter()
+            .enumerate()
+            .map(|(i, row)| (row.id, i))
+            .collect::<BTreeMap<_, _>>();
+        let mut row_sources = vec![vec![]; rows.len()];
+        for binding in structure.instances() {
+            for contribution in &binding.contributions {
+                if let Target::Row(row) = contribution.target {
+                    row_sources[rows[&row]].push((binding.instance, contribution.output));
+                }
+            }
+        }
+        Ok(Self {
+            rows,
+            variables,
+            row_sources,
+            reads: structure
+                .instances()
+                .iter()
+                .map(|b| {
+                    b.slots
+                        .iter()
+                        .map(|s| columns.get(&s.source()).copied())
+                        .collect()
+                })
+                .collect(),
+            outputs: structure
+                .instances()
+                .iter()
+                .map(|b| {
+                    b.contributions
+                        .iter()
+                        .map(|c| c.output)
+                        .collect::<BTreeSet<_>>()
+                        .into_iter()
+                        .collect()
+                })
+                .collect(),
+            columns,
+        })
+    }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + (self.columns.len() + self.rows.len())
+                * (size_of::<SemanticId>() + size_of::<usize>() + 96)
+            + self.variables.capacity() * size_of::<ProjectedVariable>()
+            + self.row_sources.capacity() * size_of::<Vec<(SemanticId, usize)>>()
+            + self
+                .row_sources
+                .iter()
+                .map(|r| r.capacity() * size_of::<(SemanticId, usize)>())
+                .sum::<usize>()
+            + self.reads.capacity() * size_of::<Vec<Option<usize>>>()
+            + self.outputs.capacity() * size_of::<Vec<usize>>()
+            + self
+                .reads
+                .iter()
+                .map(|r| r.capacity() * size_of::<Option<usize>>())
+                .sum::<usize>()
+            + self
+                .outputs
+                .iter()
+                .map(|r| r.capacity() * size_of::<usize>())
+                .sum::<usize>()
+    }
+}
 /// Native constraints over program coordinates; a fixed operand's value is consumed.
 fn project_native(
     plan: &CasePlan,

@@ -135,3 +135,11 @@ pse.math.replay-authority.v1
 pse.numerical.policy.v3
 pse.numerical.resolved.v2
 pse.producer.v1
+
+# Plan 36: explicit horizon output demand (ADR-0180); historical V1 stays frozen.
+pse.durable.horizon_request.v2
+
+# Plan 36 P-A4: distinct immutable body, complete receipt and descriptor meanings.
+pse.canonical-body-content.v1
+pse.canonical-selection-receipt.v1
+pse.canonical-product-descriptor.v1

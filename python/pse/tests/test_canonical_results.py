@@ -20,8 +20,10 @@ from types import FrameType
 import msgspec
 import pyarrow as pa
 import pytest
+from scripts import surreal_server as server
 
 import pse
+from pse._build import compiled_features
 from pse.contracts.documents import ObservationText
 from pse.contracts.enums import (
     DiagnosticCode,
@@ -782,10 +784,6 @@ def _assert_owned_delayed_canonical_sigint(
     public pool's named reservation proves entry into the canonical pull; receipt
     on the stopped server's actual socket proves dispatch before cancellation.
     """
-    from scripts import surreal_server as server
-
-    from pse._build import compiled_features
-
     features = compiled_features()
     assert "force-validate" in features, "install the actual correctness extension"
     state = state.resolve(strict=True)
@@ -819,7 +817,7 @@ def _assert_owned_delayed_canonical_sigint(
         inodes: set[str] = set()
         for descriptor in Path(f"/proc/{pid}/fd").iterdir():
             try:
-                target = os.readlink(descriptor)
+                target = str(descriptor.readlink())
             except FileNotFoundError:
                 continue
             if target.startswith("socket:[") and target.endswith("]"):
@@ -894,7 +892,8 @@ def _assert_owned_delayed_canonical_sigint(
                         "entered canonical pull did not cancel and join while delayed"
                     )
                     assert reserved(consumer) >= before + read_bytes, (
-                        "late dispatched response lost its actual grant before the server resumed"
+                        "late dispatched response lost its actual grant "
+                        "before the server resumed"
                     )
                 else:
                     # The ordinary header bridge has no cancellation callback;
@@ -937,7 +936,8 @@ def _assert_owned_delayed_canonical_sigint(
         with pytest.raises(KeyboardInterrupt):
             signal.raise_signal(signal.SIGINT)
         first = stream.next_batch()
-        assert first is not None and first.num_rows > 0
+        assert first is not None
+        assert first.num_rows > 0
         assert first.schema == schema
         expected = first.to_pylist()
         with pytest.raises(pse.InspectionError, match="already consumed"):
@@ -956,7 +956,8 @@ def _assert_owned_delayed_canonical_sigint(
             if task.joinpath("comm").exists()
         ), "the original Python-owned native pull must already be joined"
         failure = stream.failure
-        assert failure is not None and failure.code == DiagnosticCode.RUNTIME_CANCELLED
+        assert failure is not None
+        assert failure.code == DiagnosticCode.RUNTIME_CANCELLED
         with pytest.raises(pse.InspectionError) as repeated:
             stream.next_batch()
         assert repeated.value.report.code == failure.code
@@ -968,10 +969,14 @@ def _assert_owned_delayed_canonical_sigint(
             assert reserved(consumer) <= before, (
                 "original response reservation survived actual transport drain"
             )
-        assert first.schema == schema and first.to_pylist() == expected
+        assert first.schema == schema
+        assert first.to_pylist() == expected
         return {
             "event": "complete",
-            "entry": "public canonical:result-block reservation and stopped-server socket receipt",
+            "entry": (
+                "public canonical:result-block reservation "
+                "and stopped-server socket receipt"
+            ),
             "controlled_pull_joined_while_delayed": True,
             "response_grant_retained_until_server_resume": True,
             "response_grant_released_after_transport_drain": True,

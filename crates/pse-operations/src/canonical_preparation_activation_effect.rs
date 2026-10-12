@@ -30,6 +30,7 @@ use surrealdb::{
 mod history;
 #[cfg(feature = "test-support")]
 mod history_fixture;
+/// Produces a private historical result batch, block and outputs for activation fixtures.
 #[cfg(feature = "test-support")]
 pub type FixtureProducer<'a> = dyn Fn(
         bool,
@@ -150,16 +151,15 @@ impl Supervisor {
         Ok(())
     }
     fn check_snapshot(&self) -> Result<(), CanonicalError> {
-        if let Some((path, digest)) = &self.snapshot {
-            if derive_hash(
+        if let Some((path, digest)) = &self.snapshot
+            && derive_hash(
                 Frame::CanonicalSchemaV1,
                 &[&read_bytes(path, SNAPSHOT_LIMIT)?],
             )
             .to_hex()
                 != *digest
-            {
-                return Err(invalid("retained original native snapshot changed"));
-            }
+        {
+            return Err(invalid("retained original native snapshot changed"));
         }
         Ok(())
     }

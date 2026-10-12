@@ -152,6 +152,11 @@ impl<T> AsRef<T> for SharedAllocation<T> {
     }
 }
 impl<T> SharedAllocation<T> {
+    /// Exclusively reuse a payload only after every published alias has drained.
+    /// Its existing accounting owner remains attached throughout mutation.
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        std::sync::Arc::get_mut(&mut self.value)
+    }
     /// Share a child allocation already covered by this admission's owner without
     /// allocating another owner wrapper or exposing the parent's raw Arc.
     pub fn share_child<U>(&self, value: std::sync::Arc<U>) -> SharedAllocation<U> {

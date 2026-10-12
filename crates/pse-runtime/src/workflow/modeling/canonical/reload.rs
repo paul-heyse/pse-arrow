@@ -377,12 +377,11 @@ async fn cold_owner(
                 .version
                 .as_ref()
                 .is_none_or(|version| member.version != version.key)
-        }) {
-            if parent.frame.origins.is_none() {
-                return Err(contract(
-                    "older ingress frame has ambiguous fit document ownership",
-                ));
-            }
+        }) && parent.frame.origins.is_none()
+        {
+            return Err(contract(
+                "older ingress frame has ambiguous fit document ownership",
+            ));
         }
     }
     Ok(parsed)
@@ -811,12 +810,65 @@ mod tests {
         assert!(selected.rows.iter().any(|row| row.name == "b"));
         assert!(!selected.rows.iter().any(|row| row.name == "a"));
         selected.read.finish().await.unwrap();
-        let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:x==missing;}}");
+        // Reference admission is selected, as on independent initial ingress.
+        let unresolved =
+            sources("package minimal_named {def Root {var x:Scalar; eq e:x==missing;}}");
+        let unresolved = result
+            .reload_from_parent(&[unresolved], &cancel)
+            .await
+            .unwrap();
         assert!(
-            result
-                .reload_from_parent(&[invalid], &cancel)
+            unresolved
+                .checked_selection(&[root], &cancel)
                 .await
                 .is_err()
+        );
+        // Malformed syntax must still refuse the reload atomically.
+        let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:;}}");
+        let store = runtime.canonical_store();
+        let before = pse_operations::testing::source_problem_head(
+            store,
+            &unresolved.revision.canonical.problem,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(before.head, unresolved.revision.canonical.key);
+        let error = unresolved
+            .reload_from_parent(&[invalid], &cancel)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                WorkflowError::Authoring(pse_admission::authoring_driver::DriverError::Authoring(
+                    pse_authoring::AuthoringError::Syntax { .. }
+                ))
+            ),
+            "malformed reload refuses at the parser rather than parent CAS: {error}"
+        );
+        let after = pse_operations::testing::source_problem_head(
+            store,
+            &unresolved.revision.canonical.problem,
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(after.head, before.head);
+        assert_eq!(after.sequence, before.sequence);
+        assert_eq!(
+            parent(&result)
+                .await
+                .rows
+                .iter()
+                .find(|row| row.name == "e")
+                .unwrap()
+                .value
+                .equation
+                .as_ref()
+                .unwrap()
+                .expression,
+            "x==b"
         );
         assert_eq!(
             parent(&package)
@@ -1017,17 +1069,9 @@ mod tests {
         let id: FitId = SemanticId::parse_hex(fit).unwrap().into();
         let old = parent(&original).await;
         assert!(old.members.contains_key(&format!("fit:{id}")));
-        let exact_owner = runtime
-            .package_from_sources(
-                &[inventory.clone()],
-                crate::workflow::tests::physical(),
-                &cancel,
-            )
-            .await
-            .unwrap();
         let mut removed_inventory = inventory.clone();
         removed_inventory.remove("cases/fit.yaml");
-        let removed = exact_owner
+        let removed = original
             .reload_from_parent(&[removed_inventory], &cancel)
             .await
             .unwrap();
@@ -1038,7 +1082,13 @@ mod tests {
                 .contains_key(&format!("fit:{id}")),
             "only the exact loader-owned fit is deleted with its document"
         );
-        let mut ir = original.fit_declaration(id).await.unwrap();
+        // Restore the loader-owned document on the current head before replacing
+        // its fit through IR. Historical packages cannot authorize a later edit.
+        let current = removed
+            .reload_from_parent(&[inventory.clone()], &cancel)
+            .await
+            .unwrap();
+        let mut ir = current.fit_declaration(id).await.unwrap();
         ir.parameters.push(
             pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem {
                 symbol_id: SemanticId::from_bytes([55; 16]),
@@ -1049,10 +1099,10 @@ mod tests {
                 scale: 1.0,
             },
         );
-        let replaced = original
+        let replaced = current
             .with_delta(
                 crate::workflow::SourceDelta {
-                    parent: original.revision.canonical.key.clone(),
+                    parent: current.revision.canonical.key.clone(),
                     fits: crate::workflow::SourceFitDelta {
                         replacements: vec![ir],
                         ..Default::default()
@@ -1064,16 +1114,18 @@ mod tests {
             .await
             .unwrap();
         inventory.remove("cases/fit.yaml");
+        let preserved = replaced
+            .reload_from_parent(&[inventory], &cancel)
+            .await
+            .unwrap();
+        // Independent initial ingress also advances this problem's head, so it
+        // follows the complete parent-relative mutation chain above.
         let owned = runtime
             .package_from_sources(
                 &[sources("package minimal_named {param a:Scalar=1;}")],
                 crate::workflow::tests::physical(),
                 &cancel,
             )
-            .await
-            .unwrap();
-        let preserved = replaced
-            .reload_from_parent(&[inventory], &cancel)
             .await
             .unwrap();
         let actual = parent(&preserved).await;

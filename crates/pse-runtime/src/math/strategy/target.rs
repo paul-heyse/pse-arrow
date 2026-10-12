@@ -14,6 +14,9 @@ use pse_model::{
 };
 use std::{collections::BTreeSet, sync::Arc};
 
+type ProfileProjection<'a> =
+    dyn Fn(&super::super::solves::SolverProfile) -> Result<ContentHash, ProblemError> + 'a;
+
 /// Frozen identities and actual entry origin from the scientific producer.
 pub(crate) struct Source<'a> {
     pub(crate) original: ContentHash,
@@ -21,9 +24,7 @@ pub(crate) struct Source<'a> {
     pub(crate) profile: ContentHash,
     /// Source-owned operation policy projected onto each actually offered solver profile.
     /// Borrowed only for this callable invocation; absent uses the ordinary solver key.
-    pub(crate) profile_projection: Option<
-        &'a dyn Fn(&super::super::solves::SolverProfile) -> Result<ContentHash, ProblemError>,
-    >,
+    pub(crate) profile_projection: Option<&'a ProfileProjection<'a>>,
     pub(crate) backend: Option<Backend>,
     pub(crate) solver: Option<&'a super::super::solves::SolverProfile>,
     pub(crate) controls: &'a Controls,

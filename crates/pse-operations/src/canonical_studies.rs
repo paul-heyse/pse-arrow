@@ -967,17 +967,17 @@ impl CanonicalStore {
             "RETURN fn::pse_study_v1::readiness_scan_advance($pse_rpc_expires_at,$study,$revision,$mode,$after,$done);"
         ).bind(("study",cursor.study.clone())).bind(("revision",codec::encode_uint(cursor.revision)?))
             .bind(("mode",mode.to_owned())).bind(("after",after.clone())).bind(("done",done)))).await?;
-        Ok(response
+        response
             .take::<Option<bool>>(0)?
-            .ok_or(CanonicalError::IncompleteResponse)?)
+            .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_pending(&self, study: &str) -> Result<bool, CanonicalError> {
         let mut response=bounded_query(self.db.query(
             "LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0);"
         ).bind(("study",study.to_owned()))).await?;
-        Ok(response
+        response
             .take::<Option<bool>>(3)?
-            .ok_or(CanonicalError::IncompleteResponse)?)
+            .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_scan_page(
         &self,

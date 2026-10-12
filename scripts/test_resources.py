@@ -20,6 +20,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast, overload
@@ -37,6 +38,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER = "PSE_TEST_INVOCATION"
 IDENTIFIER = re.compile(r"[a-f0-9]{32}")
 DATABASE = re.compile(r"canonical_test_(?:[a-z0-9_]{1,48}_)?[a-f0-9]{32}")
+CLEANUP_TIMEOUT_SECONDS = 90
 
 
 class ProcessIdentity(TypedDict):
@@ -174,17 +176,17 @@ def resource_update(
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
             identity = [
-                str(record["state"]),
-                str(record["database"]),
-                str(record["kind"]),
+                record["state"],
+                record["database"],
+                record["kind"],
             ]
             if identity != entry.identity:
                 raise ResourceError("Resource facts contradict logical identity")
             yield record
             if [
-                str(record["state"]),
-                str(record["database"]),
-                str(record["kind"]),
+                record["state"],
+                record["database"],
+                record["kind"],
             ] != identity:
                 raise ResourceError("Resource update cannot replace logical identity")
             entry.phase = resource_phase(record)
@@ -513,9 +515,17 @@ def finalize(
     terminal_owner: str,
     terminal: Mapping[str, object] | None = None,
     deadline: float | None = None,
+    deadline_supplier: Callable[[], float | None] | None = None,
     on_frozen: Callable[[], None] | None = None,
 ) -> list[str]:
-    deadline = resource_store.clock(deadline)
+    def current_deadline() -> float | None:
+        nonlocal deadline
+        if deadline_supplier is not None:
+            supplied = deadline_supplier()
+            if supplied is not None:
+                deadline = supplied if deadline is None else min(deadline, supplied)
+        return deadline
+
     declaration = read_invocation(path)
     if declaration["terminal_owner"] != terminal_owner:
         raise ResourceError(
@@ -542,13 +552,20 @@ def finalize(
         declaration["nonce"],
         frozen,
         declaration=declaration,
-        deadline=deadline,
+        deadline=current_deadline(),
         **({"on_frozen": on_frozen} if on_frozen is not None else {}),
     )
     identity = resource_store.digest(frozen)
     eligible = []
+    # Frozen membership is finite. Without an external absolute clock, each
+    # exact metadata operation retains its own ordinary bounded wait. A supplied
+    # or newly observed cancellation deadline applies to the entire remainder.
     for resource in members:
-        with storage().edit(resource, deadline=deadline) as entry:
+        with storage().edit(
+            resource,
+            deadline=current_deadline(),
+            settle_if_unchanged=True,
+        ) as entry:
             record = entry_facts(entry)
             if record.get("invocation") != declaration["nonce"]:
                 raise ResourceError(
@@ -559,12 +576,14 @@ def finalize(
                 raise ResourceError(
                     "Resource already projected another terminal identity"
                 )
+            disposition = (
+                outcomes.get(record.get("test") or "", "incomplete")
+                if complete
+                else "incomplete"
+            )
+            if prior is not None and record["disposition"] != disposition:
+                raise ResourceError("Resource disposition contradicts frozen terminal")
             if prior is None:
-                disposition = (
-                    outcomes.get(record.get("test") or "", "incomplete")
-                    if complete
-                    else "incomplete"
-                )
                 record.update(
                     disposition=disposition,
                     pin=disposition != "pass" or bool(record.get("manual_pin")),
@@ -578,16 +597,25 @@ def finalize(
                 and not record.get("creation_borrower")
             ):
                 eligible.append(resource)
-    with storage().invocation_edit(declaration["nonce"], deadline=deadline) as state:
+    with storage().invocation_edit(
+        declaration["nonce"], deadline=current_deadline()
+    ) as state:
         state["projection"] = "complete"
     return eligible
 
 
 def resume_projection(
-    path: Path, *, terminal_owner: str, deadline: float | None = None
+    path: Path,
+    *,
+    terminal_owner: str,
+    deadline: float | None = None,
+    deadline_supplier: Callable[[], float | None] | None = None,
 ) -> list[str]:
     """Project the authentic frozen composition without collecting a newer report."""
-    deadline = resource_store.clock(deadline)
+    if deadline_supplier is not None:
+        supplied = deadline_supplier()
+        if supplied is not None:
+            deadline = supplied if deadline is None else min(deadline, supplied)
     declaration = read_invocation(path)
     _identity, frozen = storage().terminal(declaration["nonce"], deadline=deadline)
     return finalize(
@@ -597,6 +625,7 @@ def resume_projection(
         terminal_owner=terminal_owner,
         terminal=frozen["evidence"],
         deadline=deadline,
+        deadline_supplier=deadline_supplier,
     )
 
 
@@ -1298,7 +1327,11 @@ def remove_database(
         capture_output=True,
         text=True,
         check=False,
-        timeout=90 if deadline is None else host.remaining(deadline, 90),
+        timeout=(
+            CLEANUP_TIMEOUT_SECONDS
+            if deadline is None
+            else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS)
+        ),
     )
     try:
         completed = cli_json(result.stdout, namespace=str(config["namespace"])) == [
@@ -1326,7 +1359,11 @@ def cleanup_reason(
 
 def reclaim(resource: str, *, deadline: float | None = None) -> str:
     bounded = deadline is not None
-    deadline = resource_store.clock(deadline)
+    # The existing removal allowance covers its claim, effect and settlement.
+    # Preserve a supplied original clock rather than renewing it after removal.
+    deadline = (
+        time.monotonic() + CLEANUP_TIMEOUT_SECONDS if deadline is None else deadline
+    )
     if not IDENTIFIER.fullmatch(resource):
         raise ResourceError("Release/reclaim selects an exact resource identity")
     try:
@@ -1421,7 +1458,7 @@ def reclaim(resource: str, *, deadline: float | None = None) -> str:
             }
             selected = record.copy()
     try:
-        remove_owned(selected, **({"deadline": deadline} if bounded else {}))
+        remove_owned(selected, deadline=deadline)
     except Exception as error:
         with resource_update(resource, deadline=deadline) as record:
             record.update(cleanup="retained", pin=True, cleanup_error=str(error))

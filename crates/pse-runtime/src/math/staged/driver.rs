@@ -1093,7 +1093,12 @@ impl<D: Dispatch> StepDriver<'_, D> {
         self.dispatcher.run_task(threads, backends, Some(deadline), task_scope.clone(), cancel, move |retained, flag, budget| {
             enum RungOutcome { Original(Box<math::solves::ScopedOutcome>), Derived(Box<math::solves::DerivedAttempt>), Path(Box<math::solves::paths::PathOutcome>), Surrogate(Box<math::surrogate::SurrogatePhaseOutcome>) }
             let _allowance = allowance;
-            let enclosing = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+            // run_task has acquired this exact active team before entering the
+            // closure. Nested provider workers reset the capability to one thread.
+            let admitted_threads=std::num::NonZeroUsize::new(threads)
+                .ok_or_else(||ProblemError::Contract("zero admitted native team".into()))?;
+            let enclosing = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline))
+                .with_admitted_threads(admitted_threads);
             let admission=shared_admission.unwrap_or_else(||math::strategy::admission::TaskAdmission::new_for(declaration.limits,enclosing.clone(),&service,declared_foreign>0));
             if !admission.matches_scope(&enclosing) { return Err(ProblemError::Contract("bound operation differs from its task admission scope".into()).into()); }
             admission.retain_storage_allowance(_allowance.clone())?;
@@ -1433,6 +1438,7 @@ impl<'a> LocalOperation<'a> {
             scopes: Default::default(),
         })
     }
+    #[cfg(any(feature = "solver-kinsol", all(test, feature = "solver-ipopt")))]
     pub(crate) fn run_ready<T>(
         &self,
         work: impl Future<Output = Result<T, MathRuntimeError>>,
@@ -1443,18 +1449,36 @@ impl<'a> LocalOperation<'a> {
             "local strategy attempted to escape its synchronous owner".into(),
         ))?
     }
+    #[cfg(any(feature = "solver-kinsol", all(test, feature = "solver-ipopt")))]
     pub(crate) fn execution(&self) -> &pse_backend_native::solve::Execution {
         &self.execution
     }
+    #[cfg(feature = "solver-kinsol")]
     pub(crate) fn construct<T>(
         &self,
         bytes: usize,
         work: impl FnOnce(Arc<pse_columnar::AllocationLease>) -> Result<T, MathRuntimeError>,
     ) -> Result<T, MathRuntimeError> {
+        self.construct_estimated(math::jobs::ConstructionEstimate::Known(bytes), work)
+    }
+    #[cfg(feature = "solver-kinsol")]
+    pub(crate) fn construct_estimated<T>(
+        &self,
+        construction: math::jobs::ConstructionEstimate,
+        work: impl FnOnce(Arc<pse_columnar::AllocationLease>) -> Result<T, MathRuntimeError>,
+    ) -> Result<T, MathRuntimeError> {
+        let bytes = construction.bytes();
         if bytes > self.service.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("local constructor worker capacity"));
         }
-        self.reserved(bytes, work)
+        let runtime = self.context.borrow().runtime.clone();
+        let _entered = runtime.enter();
+        self.service.quiescent_phase_owned_construction(
+            1,
+            construction,
+            &self.execution,
+            |reservation| work(pse_columnar::AllocationLease::new(reservation.split(bytes))),
+        )?
     }
     fn reserved<T>(
         &self,
@@ -1500,6 +1524,11 @@ impl<'a> LocalOperation<'a> {
             )),
         }
     }
+    #[cfg(feature = "solver-kinsol")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the local step uses the same explicit predecessor, progress, allocation, cancellation and original assessment protocol as the staged dispatcher"
+    )]
     pub(crate) async fn step<T: Send + 'static>(
         &self,
         step: math::solves::PreparedSolve,

@@ -7,16 +7,19 @@ use pse_backend_native::{
     dynamics::{self as native, Function, Oracle},
 };
 use pse_ids::{FramedHasher, SemanticId};
-use pse_math::{assembly::CaseWorker, binding::CaseValues};
+use pse_math::{
+    assembly::{BoundValues, CaseWorker},
+    binding::CaseValues,
+};
 use std::{collections::BTreeMap, sync::Arc};
 /// Dynamic controls use the concrete native profile; values are validated at preparation.
 pub type SimulationProfile = native::Profile;
+type AllocateSnapshot =
+    dyn Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> + Send + Sync;
 /// Reserve each owned derivative snapshot before its matrix is cloned. The
 /// resulting owner follows all aliases, independently of the worker lifetime.
 #[derive(Clone)]
-pub(crate) struct SnapshotAllocator(
-    Arc<dyn Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> + Send + Sync>,
-);
+pub(crate) struct SnapshotAllocator(Arc<AllocateSnapshot>);
 impl std::fmt::Debug for SnapshotAllocator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("SnapshotAllocator")
@@ -73,6 +76,7 @@ pub(crate) struct GuardProgram {
 struct GuardWorker {
     program: GuardProgram,
     worker: CaseWorker,
+    binding: FrameBinding,
 }
 /// One range obligation observed at a point: the checked value and its endpoints.
 struct Observed {
@@ -87,14 +91,12 @@ impl GuardWorker {
         &self,
         check: &RangeCheck,
         rows: &[f64],
-        values: &CaseValues,
+        values: &DynamicFrame,
     ) -> Result<Observed, ProblemError> {
         let read = |v: &RangeValue| -> Result<f64, ProblemError> {
             match v {
                 RangeValue::Input(id) => values
-                    .scalars
-                    .get(id)
-                    .copied()
+                    .get(*id)
                     .ok_or_else(|| ProblemError::Internal("dynamic range input absent".into())),
                 RangeValue::Output(id) => self
                     .program
@@ -123,8 +125,9 @@ impl GuardWorker {
             upper,
         })
     }
-    fn validate(&mut self, values: &CaseValues) -> Result<(), ProblemError> {
-        let rows = self.worker.constraints(values)?;
+    fn validate(&mut self, values: &DynamicFrame) -> Result<(), ProblemError> {
+        self.binding.refill(values)?;
+        let rows = self.worker.constraints(self.binding.trial()?)?;
         for check in &self.program.checks {
             let Observed {
                 value,
@@ -148,9 +151,10 @@ impl GuardWorker {
     /// intersection of every obligation on it.
     fn ranges(
         &mut self,
-        values: &CaseValues,
+        values: &DynamicFrame,
     ) -> Result<BTreeMap<SemanticId, (f64, f64)>, ProblemError> {
-        let rows = self.worker.constraints(values)?;
+        self.binding.refill(values)?;
+        let rows = self.worker.constraints(self.binding.trial()?)?;
         let mut ranges = BTreeMap::new();
         for check in &self.program.checks {
             let observed = self.observe(check, &rows, values)?;
@@ -240,6 +244,24 @@ impl DynamicProgram {
     /// Source-issued fresh whole-program worker storage, before even cloning
     /// the owning DynamicProgram. Provider factories without a population
     /// contract retain a conservative caller-owned entry.
+    pub(crate) fn binding_buffer_bound(
+        assembly: &pse_math::assembly::CaseAssembly,
+    ) -> Option<usize> {
+        FrameBinding::allocation_bound(assembly)
+    }
+    pub(crate) fn function_buffer_bound(
+        program: &FunctionProgram,
+        coordinates: &DynamicCoordinates,
+    ) -> Option<usize> {
+        FrameBinding::allocation_bound(&program.case.assembly)?
+            .checked_add(program.rows.len().checked_mul(size_of::<f64>())?)?
+            .checked_add(
+                1usize
+                    .checked_add(coordinates.state.len())?
+                    .checked_add(coordinates.parameters.len())?
+                    .checked_mul(size_of::<u64>())?,
+            )
+    }
     pub(crate) fn worker_allocation_bound<'a>(
         contract: &native::Contract,
         programs: &[FunctionProgram],
@@ -280,14 +302,16 @@ impl DynamicProgram {
                 .checked_add(programs.len().checked_mul(size_of::<FunctionProgram>())?)?
                 .checked_add(allowances)?;
             let buffers = programs.iter().try_fold(layout.worker_bytes(), |n, p| {
-                n.checked_add(p.case.assembly.numeric_worker_bytes())
+                n.checked_add(p.case.assembly.numeric_worker_bytes())?
+                    .checked_add(Self::function_buffer_bound(p, coordinates)?)
             })?;
             let buffers = modes.clone().try_fold(buffers, |n, m| {
-                n.checked_add(
-                    m.guard
-                        .as_ref()
-                        .map_or(0, |g| g.case.assembly.numeric_worker_bytes()),
-                )
+                n.checked_add(m.guard.as_ref().map_or(Some(0), |g| {
+                    g.case
+                        .assembly
+                        .numeric_worker_bytes()
+                        .checked_add(FrameBinding::allocation_bound(&g.case.assembly)?)
+                })?)
             })?;
             // program() and worker() each clone mode/contract/coordinate metadata;
             // compiled program owners and immutable layout stay shared.
@@ -344,8 +368,10 @@ pub(crate) struct DynamicLayout {
 #[derive(Debug)]
 struct FunctionLayout {
     jacobian: pse_math::sparse::AssemblyMatrix,
-    refill: Vec<(usize, pse_math::index::Addend, f64)>,
+    refill: Vec<(usize, usize, f64)>,
     pairs: Vec<native::SupportEntry>,
+    /// Assembly column to native state/parameter axis, compiled by semantic identity.
+    columns: Vec<usize>,
 }
 impl DynamicLayout {
     pub(crate) fn new(
@@ -370,6 +396,23 @@ impl DynamicLayout {
         let mut functions = BTreeMap::new();
         for program in programs.iter() {
             let source = program.case.assembly.jacobian_pattern();
+            let axes = coordinates
+                .state
+                .iter()
+                .chain(&coordinates.parameters)
+                .map(|c| c.id)
+                .collect::<Vec<_>>();
+            let columns = program
+                .case
+                .assembly
+                .columns()
+                .iter()
+                .map(|id| {
+                    axes.iter().position(|axis| axis == id).ok_or_else(|| {
+                        ProblemError::Contract("dynamic derivative coordinate identity".into())
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
             if source.ncols() != chain.len()
                 || program.rows.len() != program.scales.len()
                 || program.rows.len() != program.offsets.len()
@@ -390,8 +433,9 @@ impl DynamicLayout {
             // function's rows and the state followed by the parameters.
             let mut pairs = Vec::new();
             let mut refill = Vec::new();
-            for (c, scale) in chain.iter().enumerate() {
-                for k in source.col_range(c) {
+            for (source_col, &c) in columns.iter().enumerate() {
+                let scale = chain[c];
+                for k in source.col_range(source_col) {
                     for (row, &original) in program.rows.iter().enumerate() {
                         if !program.constants.contains_key(&row) && source.row_idx()[k] == original
                         {
@@ -414,6 +458,12 @@ impl DynamicLayout {
                 &pairs,
                 max_cells,
             )?;
+            let refill = refill
+                .into_iter()
+                .map(|(source, target, scale)| {
+                    Ok((source, jacobian.contribution_index(target)?, scale))
+                })
+                .collect::<Result<Vec<_>, pse_math::MathError>>()?;
             if functions
                 .insert(
                     (program.mode, program.function),
@@ -421,6 +471,7 @@ impl DynamicLayout {
                         jacobian,
                         refill,
                         pairs,
+                        columns,
                     }),
                 )
                 .is_some()
@@ -439,8 +490,9 @@ impl DynamicLayout {
                 .map(|f| {
                     size_of::<FunctionLayout>()
                         + f.jacobian.retained_bytes()
-                        + f.refill.capacity() * size_of::<(usize, pse_math::index::Addend, f64)>()
+                        + f.refill.capacity() * size_of::<(usize, usize, f64)>()
                         + f.pairs.capacity() * size_of::<native::SupportEntry>()
+                        + f.columns.capacity() * size_of::<usize>()
                         + 128
                 })
                 .sum::<usize>()
@@ -448,11 +500,29 @@ impl DynamicLayout {
     pub(crate) fn worker_bytes(&self) -> usize {
         self.functions
             .values()
-            .map(|f| f.jacobian.retained_bytes())
+            .map(|_| size_of::<Option<pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>>>())
             .sum()
     }
 }
 impl DynamicWorker {
+    #[cfg(test)]
+    pub(crate) fn evaluation_count(&self, mode: usize, function: Function) -> usize {
+        self.functions[&(mode, function)].evaluations
+    }
+    #[cfg(test)]
+    pub(crate) fn buffer_identity(
+        &self,
+        mode: usize,
+        function: Function,
+    ) -> (usize, usize, usize, usize) {
+        let worker = &self.functions[&(mode, function)];
+        (
+            worker.values.as_ptr() as usize,
+            worker.values.capacity(),
+            worker.key.as_ptr() as usize,
+            worker.key.capacity(),
+        )
+    }
     fn new(
         contract: native::Contract,
         programs: &[FunctionProgram],
@@ -466,6 +536,10 @@ impl DynamicWorker {
         if modes.len() != contract.events.len() {
             return Err(ProblemError::Internal("dynamic mode extent".into()));
         }
+        let frames = modes
+            .iter()
+            .map(|mode| DynamicFrame::new(&mode.values, &coordinates))
+            .collect::<Result<Vec<_>, _>>()?;
         let mut functions = BTreeMap::new();
         for program in programs {
             let mode = modes
@@ -484,8 +558,13 @@ impl DynamicWorker {
                         .case
                         .assembly
                         .worker_scoped(provider_workers(&mode.providers, &scope)?, scope.clone()),
-                    jacobian: function_layout.jacobian.clone(),
+                    binding: FrameBinding::new(&program.case.assembly, &frames[program.mode])?,
+                    jacobian: None,
                     layout: function_layout,
+                    values: Vec::with_capacity(program.rows.len()),
+                    key: Vec::with_capacity(
+                        1 + coordinates.state.len() + coordinates.parameters.len(),
+                    ),
                     cache: None,
                     #[cfg(test)]
                     evaluations: 0,
@@ -494,13 +573,15 @@ impl DynamicWorker {
         }
         let modes = modes
             .iter()
-            .map(|mode| {
+            .zip(frames)
+            .map(|(mode, frame)| {
                 let guard = mode
                     .guard
                     .as_ref()
                     .map(|g| {
                         Ok::<_, ProblemError>(GuardWorker {
                             program: g.clone(),
+                            binding: FrameBinding::new(&g.case.assembly, &frame)?,
                             worker: g.case.assembly.worker_scoped(
                                 provider_workers(&mode.providers, &scope)?,
                                 scope.clone(),
@@ -508,10 +589,7 @@ impl DynamicWorker {
                         })
                     })
                     .transpose()?;
-                Ok::<_, ProblemError>(ModeWorker {
-                    values: mode.values.clone(),
-                    guard,
-                })
+                Ok::<_, ProblemError>(ModeWorker { frame, guard })
             })
             .collect::<Result<_, _>>()?;
         Ok(DynamicWorker {
@@ -529,17 +607,126 @@ impl DynamicWorker {
 struct FunctionWorker {
     program: FunctionProgram,
     worker: CaseWorker,
-    jacobian: pse_math::sparse::AssemblyMatrix,
+    binding: FrameBinding,
+    jacobian: Option<pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>>,
     layout: Arc<FunctionLayout>,
     // Mode/function and provider/build identity are fixed by this worker. Every
     // varying time/state/parameter bit participates, including signed zero.
-    cache: Option<(Vec<u64>, native::Evaluation)>,
+    values: Vec<f64>,
+    key: Vec<u64>,
+    cache: Option<bool>,
     #[cfg(test)]
     evaluations: usize,
 }
+/// Attempt-owned dense physical values; the semantic index is compiled once.
+#[derive(Debug)]
+struct DynamicFrame {
+    index: BTreeMap<SemanticId, usize>,
+    values: Vec<f64>,
+    dynamic: Vec<usize>,
+    scratch: Vec<f64>,
+}
+impl DynamicFrame {
+    fn new(values: &CaseValues, coordinates: &DynamicCoordinates) -> Result<Self, ProblemError> {
+        if !coordinates.time_scale.is_finite()
+            || coordinates.time_scale <= 0.0
+            || !coordinates.time_origin.is_finite()
+            || coordinates
+                .state
+                .iter()
+                .chain(&coordinates.parameters)
+                .any(|c| !c.scale.is_finite() || c.scale <= 0.0 || !c.offset.is_finite())
+        {
+            return Err(ProblemError::Contract(
+                "dynamic coordinate conversion".into(),
+            ));
+        }
+        let mut scalars = values.scalars.clone();
+        let ids = std::iter::once(coordinates.time)
+            .chain(
+                coordinates
+                    .state
+                    .iter()
+                    .chain(&coordinates.parameters)
+                    .map(|c| c.id),
+            )
+            .collect::<Vec<_>>();
+        for (i, id) in ids.iter().enumerate() {
+            if ids[..i].contains(id) {
+                return Err(ProblemError::Contract(
+                    "duplicate dynamic coordinate".into(),
+                ));
+            }
+            scalars.entry(*id).or_insert(0.0);
+        }
+        let index = scalars
+            .keys()
+            .enumerate()
+            .map(|(i, id)| (*id, i))
+            .collect::<BTreeMap<_, _>>();
+        let dynamic = ids.iter().map(|id| index[id]).collect();
+        Ok(Self {
+            index,
+            values: scalars.values().copied().collect(),
+            dynamic,
+            scratch: vec![0.0; ids.len()],
+        })
+    }
+    fn get(&self, id: SemanticId) -> Option<f64> {
+        self.index.get(&id).map(|i| self.values[*i])
+    }
+}
+/// Immutable gathers plus attempt-owned compact fixed and coordinate frames.
+#[derive(Debug)]
+struct FrameBinding {
+    values: BoundValues,
+    fixed: Vec<usize>,
+    columns: Vec<usize>,
+    trial: Vec<f64>,
+}
+impl FrameBinding {
+    fn allocation_bound(assembly: &pse_math::assembly::CaseAssembly) -> Option<usize> {
+        assembly
+            .input_ids()
+            .len()
+            .checked_add(assembly.columns().len())?
+            .checked_mul(size_of::<usize>() + size_of::<f64>())?
+            .checked_add(size_of::<Self>())
+    }
+    fn new(
+        assembly: &Arc<pse_math::assembly::CaseAssembly>,
+        frame: &DynamicFrame,
+    ) -> Result<Self, ProblemError> {
+        let reads = |ids: &[SemanticId]| {
+            ids.iter()
+                .map(|id| {
+                    frame.index.get(id).copied().ok_or_else(|| {
+                        ProblemError::Contract("missing dynamic compact input".into())
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+        };
+        Ok(Self {
+            values: assembly.bind_inputs(|id| frame.get(id))?,
+            fixed: reads(assembly.input_ids())?,
+            columns: reads(assembly.columns())?,
+            trial: vec![0.0; assembly.columns().len()],
+        })
+    }
+    fn refill(&mut self, frame: &DynamicFrame) -> Result<(), ProblemError> {
+        self.values.refill_mapped(&frame.values, &self.fixed)?;
+        for (value, &read) in self.trial.iter_mut().zip(&self.columns) {
+            *value = frame.values[read];
+        }
+        Ok(())
+    }
+    fn trial(&self) -> Result<pse_math::assembly::EvalInputs<'_>, ProblemError> {
+        Ok(self.values.trial(&self.trial)?)
+    }
+}
 #[derive(Debug)]
 struct ModeWorker {
-    values: CaseValues,
+    frame: DynamicFrame,
     guard: Option<GuardWorker>,
 }
 #[derive(Debug)]
@@ -559,11 +746,8 @@ impl DynamicWorker {
         for (key, f) in &self.functions {
             let g = &other.functions[key];
             assert!(Arc::ptr_eq(&f.layout, &g.layout));
-            if !f.jacobian.matrix().val().is_empty() {
-                assert_ne!(
-                    f.jacobian.matrix().val().as_ptr(),
-                    g.jacobian.matrix().val().as_ptr()
-                );
+            if !f.binding.trial.is_empty() {
+                assert_ne!(f.binding.trial.as_ptr(), g.binding.trial.as_ptr());
             }
         }
     }
@@ -582,7 +766,7 @@ impl DynamicWorker {
         if role != Function::Initial
             && let Some(guard) = &mut context.guard
         {
-            guard.validate(&context.values)?;
+            guard.validate(&context.frame)?;
         }
         Ok(())
     }
@@ -599,7 +783,7 @@ impl DynamicWorker {
         self.assign(mode, time, state, parameters)?;
         let context = &mut self.modes[mode];
         let ranges = match &mut context.guard {
-            Some(guard) => guard.ranges(&context.values)?,
+            Some(guard) => guard.ranges(&context.frame)?,
             None => BTreeMap::new(),
         };
         self.coordinates
@@ -652,17 +836,24 @@ impl DynamicWorker {
             .modes
             .get_mut(mode)
             .ok_or_else(|| ProblemError::Internal("dynamic mode absent".into()))?;
-        context
-            .values
-            .scalars
-            .insert(d.time, (time - d.time_origin) / d.time_scale);
-        for (c, x) in d
+        // Stage every affine conversion before publishing any value to a consumer.
+        context.frame.scratch[0] = (time - d.time_origin) / d.time_scale;
+        for (i, (c, x)) in d
             .state
             .iter()
             .zip(state)
             .chain(d.parameters.iter().zip(parameters))
+            .enumerate()
         {
-            context.values.scalars.insert(c.id, x * c.scale + c.offset);
+            context.frame.scratch[i + 1] = x * c.scale + c.offset;
+        }
+        if context.frame.scratch.iter().any(|v| !v.is_finite()) {
+            return Err(ProblemError::Contract(
+                "nonfinite dynamic affine binding".into(),
+            ));
+        }
+        for (&slot, &value) in context.frame.dynamic.iter().zip(&context.frame.scratch) {
+            context.frame.values[slot] = value;
         }
         Ok(())
     }
@@ -693,6 +884,15 @@ impl Oracle for DynamicWorker {
     ) -> Result<native::Evaluation, ProblemError> {
         let result = (|| {
             self.scope.check().map_err(ProblemError::Provider)?;
+            if state.len() != self.coordinates.state.len()
+                || parameters.len() != self.coordinates.parameters.len()
+                || !time.is_finite()
+                || state.iter().chain(parameters).any(|v| !v.is_finite())
+            {
+                return Err(ProblemError::Contract(
+                    "dynamic binding dimensions or values".into(),
+                ));
+            }
             let role = function;
             let Some(function) = self.functions.get(&(mode, function)) else {
                 if function == Function::Roots && mode < self.contract.events.len() {
@@ -709,15 +909,18 @@ impl Oracle for DynamicWorker {
                 .chain(state.iter().copied())
                 .chain(parameters.iter().copied())
                 .map(f64::to_bits);
-            if let Some((key, evaluation)) = &function.cache
-                && (!derivatives || evaluation.jacobian.is_some())
-                && key.iter().copied().eq(bits.clone())
+            if let Some(has_derivatives) = function.cache
+                && (!derivatives || has_derivatives)
+                && function.key.iter().copied().eq(bits.clone())
             {
-                let mut result = evaluation.clone();
-                if !derivatives {
-                    result.jacobian = None;
-                }
-                return Ok(result);
+                return Ok(native::Evaluation {
+                    values: function.values.clone(),
+                    jacobian: if derivatives {
+                        function.jacobian.clone()
+                    } else {
+                        None
+                    },
+                });
             }
             self.bind(mode, role, time, state, parameters)?;
             let function = self.functions.get_mut(&(mode, role)).ok_or_else(|| {
@@ -730,58 +933,94 @@ impl Oracle for DynamicWorker {
             }
             let context = &self.modes[mode];
             let p = &function.program;
-            let rows = function.worker.constraints(&context.values)?;
-            let values = p
-                .rows
-                .iter()
-                .enumerate()
-                .map(|(i, &r)| {
+            function.binding.refill(&context.frame)?;
+            let rows = function.worker.constraints(function.binding.trial()?)?;
+            function.values.clear();
+            for (i, &r) in p.rows.iter().enumerate() {
+                function.values.push(
                     p.constants
                         .get(&i)
                         .copied()
-                        .unwrap_or_else(|| rows[r] * p.scales[i] + p.offsets[i])
-                })
-                .collect::<Vec<_>>();
-            if values.iter().any(|v| !v.is_finite()) {
+                        .unwrap_or_else(|| rows[r] * p.scales[i] + p.offsets[i]),
+                );
+            }
+            if function.values.iter().any(|v| !v.is_finite()) {
                 return Err(ProblemError::numerical("nonfinite dynamic values"));
             }
             let jacobian = if derivatives {
-                let source = function.worker.jacobian(&context.values)?;
-                function.jacobian.clear();
-                for &(local, target, scale) in &function.layout.refill {
-                    function.jacobian.add(target, source.val()[local] * scale)?;
-                }
+                let source = function.worker.jacobian(function.binding.trial()?)?;
+                // Escaped snapshots stay immutable. The common drained callback path
+                // reuses its charged allocation, including CSC storage, without a clone.
                 if function
                     .jacobian
-                    .matrix()
-                    .val()
-                    .iter()
-                    .any(|v| !v.is_finite())
+                    .as_mut()
+                    .and_then(|j| j.get_mut())
+                    .is_none()
                 {
-                    return Err(ProblemError::numerical("nonfinite dynamic partials"));
-                }
-                let bytes = function
-                    .jacobian
-                    .retained_bytes()
-                    .checked_add(size_of::<usize>() * 2)
-                    .ok_or_else(|| ProblemError::memory("dynamic derivative snapshot extent"))?;
-                let owner = self.snapshots.reserve(bytes)?;
-                Some(
-                    pse_math::SharedAllocation::from(Arc::new(function.jacobian.matrix().clone()))
+                    let bytes = function
+                        .layout
+                        .jacobian
+                        .retained_bytes()
+                        .checked_add(size_of::<usize>() * 2)
+                        .ok_or_else(|| {
+                            ProblemError::memory("dynamic derivative snapshot extent")
+                        })?;
+                    let owner = self.snapshots.reserve(bytes)?;
+                    function.jacobian = Some(
+                        pse_math::SharedAllocation::from(Arc::new(
+                            function.layout.jacobian.matrix().clone(),
+                        ))
                         .with_owner(owner),
-                )
+                    );
+                }
+                let snapshot = function
+                    .jacobian
+                    .as_mut()
+                    .ok_or_else(|| ProblemError::internal("dynamic derivative snapshot absent"))?;
+                let matrix = snapshot.get_mut().ok_or_else(|| {
+                    ProblemError::internal("dynamic derivative snapshot still borrowed")
+                })?;
+                matrix.val_mut().fill(0.0);
+                for &(local, target, scale) in &function.layout.refill {
+                    let value = matrix.val()[target] + source.val()[local] * scale;
+                    if !value.is_finite() {
+                        return Err(ProblemError::numerical("nonfinite dynamic partials"));
+                    }
+                    matrix.val_mut()[target] = value;
+                }
+                Some(snapshot.clone())
             } else {
                 None
             };
-            let result = native::Evaluation { values, jacobian };
+            // The native Oracle contract returns an owned result. Keep the attempt
+            // scratch and copy only at that escaping boundary.
+            let result = native::Evaluation {
+                values: function.values.clone(),
+                jacobian,
+            };
             self.scope.check().map_err(ProblemError::Provider)?;
-            function.cache = Some((bits.collect(), result.clone()));
+            function.key.clear();
+            function.key.extend(
+                std::iter::once(time)
+                    .chain(state.iter().copied())
+                    .chain(parameters.iter().copied())
+                    .map(f64::to_bits),
+            );
+            function.cache = Some(derivatives);
             Ok(result)
         })();
         if result.is_err() {
             for function in self.functions.values_mut() {
                 function.cache = None;
+                function.key.clear();
+                function.values.fill(f64::NAN);
+                function.values.clear();
                 function.worker.invalidate_trial();
+            }
+            for mode in &mut self.modes {
+                if let Some(guard) = &mut mode.guard {
+                    guard.worker.invalidate_trial();
+                }
             }
         }
         result
@@ -822,9 +1061,10 @@ impl Oracle for DynamicWorker {
                 multipliers[row] += weights[i] * p.scales[i];
             }
         }
+        worker.binding.refill(&self.modes[mode].frame)?;
         let h = worker
             .worker
-            .hessian(&self.modes[mode].values, 0.0, &multipliers)?;
+            .hessian(worker.binding.trial()?, 0.0, &multipliers)?;
         if h.ncols() != chain.len() || h.nrows() != chain.len() {
             return Err(ProblemError::Internal(
                 "dynamic Hessian coordinate extent".into(),
@@ -834,10 +1074,18 @@ impl Oracle for DynamicWorker {
         for col in 0..h.ncols() {
             for k in h.col_range(col) {
                 let row = h.row_idx()[k];
+                let native_row = worker.layout.columns[row];
+                let native_col = worker.layout.columns[col];
+                let value = h.val()[k] * chain[native_row] * chain[native_col];
+                if !value.is_finite() {
+                    return Err(ProblemError::numerical(
+                        "nonfinite dynamic Hessian conversion",
+                    ));
+                }
                 triplets.push(faer::sparse::Triplet::new(
-                    row.max(col),
-                    row.min(col),
-                    h.val()[k] * chain[row] * chain[col],
+                    native_row.max(native_col),
+                    native_row.min(native_col),
+                    value,
                 ));
             }
         }

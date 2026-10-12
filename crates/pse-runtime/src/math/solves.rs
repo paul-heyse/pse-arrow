@@ -2481,18 +2481,25 @@ impl MathService {
         ) {
             let source = prepared.prepared.clone();
             let bound_values = values.clone();
-            let demand = source
-                .class_allocation_bound(&bound_values)?
-                .unwrap_or(self.policy.workspace_bytes);
-            if demand > self.policy.worker_bytes {
+            let construction = super::jobs::ConstructionEstimate::from_bound(
+                source.class_allocation_bound(&bound_values)?,
+                self.policy.workspace_bytes,
+            );
+            if construction.bytes() > self.policy.worker_bytes {
                 return Err(MathRuntimeError::Limit("class construction capacity"));
             }
             let product = self
-                .job_retained(1, demand, FlightCancellation::default(), move |flag| {
-                    let product = source.prepare_class(&bound_values, &flag)?;
-                    let bytes = product.retained_bytes();
-                    Ok((product, bytes))
-                })
+                .job_retained_construction(
+                    1,
+                    construction,
+                    FlightCancellation::default(),
+                    None,
+                    move |flag| {
+                        let product = source.prepare_class(&bound_values, &flag)?;
+                        let bytes = product.retained_bytes();
+                        Ok((product, bytes))
+                    },
+                )
                 .await?;
             self.own_preparation(product)?
         } else {
@@ -2526,18 +2533,25 @@ impl MathService {
             && result.prepared.presolve.affine.iter().any(Option::is_none)
         {
             let source = result.prepared.clone();
-            let demand = source
-                .class_allocation_bound(&values)?
-                .unwrap_or(self.policy.workspace_bytes);
-            if demand > self.policy.worker_bytes {
+            let construction = super::jobs::ConstructionEstimate::from_bound(
+                source.class_allocation_bound(&values)?,
+                self.policy.workspace_bytes,
+            );
+            if construction.bytes() > self.policy.worker_bytes {
                 return Err(MathRuntimeError::Limit("affine row construction capacity"));
             }
             let product = self
-                .job_retained(1, demand, FlightCancellation::default(), move |flag| {
-                    let product = source.prepare_affine_rows(&values, &flag)?;
-                    let bytes = product.retained_bytes();
-                    Ok((product, bytes))
-                })
+                .job_retained_construction(
+                    1,
+                    construction,
+                    FlightCancellation::default(),
+                    None,
+                    move |flag| {
+                        let product = source.prepare_affine_rows(&values, &flag)?;
+                        let bytes = product.retained_bytes();
+                        Ok((product, bytes))
+                    },
+                )
                 .await?;
             result = self.own_preparation(product)?;
         }
@@ -2864,24 +2878,31 @@ impl MathService {
                         envelopes,
                         ..Default::default()
                     };
-                    let demand = plan
-                        .factorable_allocation_bound(&request, limit)?
-                        .unwrap_or(self.policy.worker_bytes);
-                    if demand > self.policy.worker_bytes {
+                    let construction = super::jobs::ConstructionEstimate::from_bound(
+                        plan.factorable_allocation_bound(&request, limit)?,
+                        self.policy.worker_bytes,
+                    );
+                    if construction.bytes() > self.policy.worker_bytes {
                         return Err(MathRuntimeError::Limit("factorable construction capacity"));
                     }
                     let program = self
-                        .job(1, demand, FlightCancellation::default(), move |flag| {
-                            let program = plan
-                                .factorable_program(&values, &request, limit, &flag)
-                                .map_err(|e| match e {
-                                    pse_math::factorable::FactorableError::Math(e) => {
-                                        ProblemError::Math(e)
-                                    }
-                                    other => ProblemError::Unsupported(other.to_string()),
-                                })?;
-                            Ok(program)
-                        })
+                        .job_construction(
+                            1,
+                            construction,
+                            FlightCancellation::default(),
+                            None,
+                            move |flag| {
+                                let program = plan
+                                    .factorable_program(&values, &request, limit, &flag)
+                                    .map_err(|e| match e {
+                                        pse_math::factorable::FactorableError::Math(e) => {
+                                            ProblemError::Math(e)
+                                        }
+                                        other => ProblemError::Unsupported(other.to_string()),
+                                    })?;
+                                Ok(program)
+                            },
+                        )
                         .await?;
                     let owner = self.reserve("math:factorable-program", program.bytes())?;
 
@@ -2996,10 +3017,11 @@ impl MathService {
                     let intent = profile.intent;
                     let fact = f.convexity.clone();
                     let ((lowered, proof), owner) = self
-                        .job_retained(
+                        .job_retained_construction(
                             1,
-                            self.policy.worker_bytes,
+                            super::jobs::ConstructionEstimate::Opaque(self.policy.worker_bytes),
                             FlightCancellation::default(),
+                            None,
                             move |flag| {
                                 let program = plan
                                     .factorable_program(
@@ -3303,6 +3325,10 @@ impl MathService {
     }
     /// Bind a block profile on its admitted owner; compiled programs are already ready.
     #[cfg(feature = "solver-kinsol")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "conditional binding keeps the prepared program, exact values, providers, solver profile, numerical policy, selected route and original snapshot explicit"
+    )]
     pub(super) fn prepare_conditional_bound(
         self: &Arc<Self>,
         prepared: Preparation,
@@ -4010,10 +4036,11 @@ impl MathService {
         let limit = self.policy.worker_bytes / 256;
         let tolerance = step.accuracy.stationarity.max(1e-9);
         let time_limit = step.profile.controls.time_limit;
-        self.job(
+        self.job_construction(
             1,
-            self.policy.worker_bytes,
+            super::jobs::ConstructionEstimate::Opaque(self.policy.worker_bytes),
             FlightCancellation::default(),
+            None,
             move |flag| {
                 let program = plan
                     .factorable_program(

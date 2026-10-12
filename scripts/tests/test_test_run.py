@@ -13,11 +13,15 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+from scripts import native_operation, test_run
 from scripts import resource_store as files
 from scripts import test_resources as resources
-from scripts import test_run
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 class TerminalComposerTests(unittest.TestCase):
@@ -62,7 +66,9 @@ class TerminalComposerTests(unittest.TestCase):
         for error in (OSError("spawn failed"), KeyboardInterrupt()):
             path = resources.invocation("python", [])
 
-            def launch(_observation: dict[str, object]) -> int:
+            def launch(
+                _observation: dict[str, object], error: BaseException = error
+            ) -> int:
                 raise error
 
             with (
@@ -182,72 +188,253 @@ class TerminalComposerTests(unittest.TestCase):
     def test_signal_during_terminal_freeze_preserves_precommit_interruption_and_postcommit_truth(
         self,
     ) -> None:
-        from scripts import native_operation
-
         for phase in ("before-freeze", "after-freeze"):
             with self.subTest(phase=phase):
-                path = resources.invocation(
-                    "python", [{"name": "control.py::test_case"}]
+                self.assert_signal_freeze_case(phase)
+
+    def assert_signal_freeze_case(self, phase: str) -> None:
+        path = resources.invocation("python", [{"name": "control.py::test_case"}])
+        report = path.with_suffix(".xml")
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("PSE_NATIVE_")
+        }
+        original = test_run.finish
+        fired = False
+
+        def launch(observation: dict[str, object]) -> int:
+            report.write_text(
+                '<testsuites><testsuite><testcase classname="control.py" name="test_case"/></testsuite></testsuites>'
+            )
+            # This in-process fixture writes immediately after the
+            # composer's wall-clock start. Use an actual post-write
+            # timestamp instead of the kernel's cached inode time.
+            written = time.time_ns()
+            os.utime(report, ns=(written, written))
+            observation.update(child_status=0, owned_drain="complete")
+            return 0
+
+        def finish(
+            selected_path: Path,
+            check: dict[str, object],
+            terminal_owner: str,
+            *,
+            deadline: float | None = None,
+            deadline_supplier: Callable[[], float | None] | None = None,
+            on_frozen: Callable[[], None] | None = None,
+            deferred: list[str] | None = None,
+        ) -> bool:
+            nonlocal fired
+            if not fired:
+                started = check["started"]
+                if not isinstance(started, (int, float)):
+                    raise TypeError("Composer start must be a wall-clock timestamp")
+                self.assertGreaterEqual(
+                    report.stat().st_mtime,
+                    started,
+                    {"phase": phase, "check": check},
                 )
-                report = path.with_suffix(".xml")
-                environment = {
-                    key: value
-                    for key, value in os.environ.items()
-                    if not key.startswith("PSE_NATIVE_")
-                }
-                original = test_run.finish
-                fired = False
+                self.assertEqual(check["report_errors"], [], check)
+                self.assertEqual(check["exit_code"], 0, check)
+                fired = True
+                if phase == "before-freeze":
+                    os.kill(os.getpid(), signal.SIGTERM)
+                else:
+                    if on_frozen is None:
+                        raise TypeError("Freeze control requires its commit callback")
+                    callback = on_frozen
 
-                def launch(observation: dict[str, object]) -> int:
-                    report.write_text(
-                        '<testsuites><testsuite><testcase classname="control.py" name="test_case"/></testsuite></testsuites>'
-                    )
-                    observation.update(child_status=0, owned_drain="complete")
-                    return 0
+                    def committed() -> None:
+                        callback()
+                        os.kill(os.getpid(), signal.SIGTERM)
 
-                def finish(*args, **kwargs):
-                    nonlocal fired
-                    if not fired:
-                        fired = True
-                        if phase == "before-freeze":
-                            os.kill(os.getpid(), signal.SIGTERM)
-                        else:
-                            callback = kwargs["on_frozen"]
+                    on_frozen = committed
+            return original(
+                selected_path,
+                check,
+                terminal_owner,
+                deadline=deadline,
+                deadline_supplier=deadline_supplier,
+                on_frozen=on_frozen,
+                deferred=deferred,
+            )
 
-                            def committed() -> None:
-                                callback()
-                                os.kill(os.getpid(), signal.SIGTERM)
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(test_run, "finish", side_effect=finish),
+        ):
+            code = test_run.execute_selected(
+                path,
+                ["phase-control"],
+                environment,
+                report,
+                selected=[{"class": "control.py", "name": "test_case"}],
+                launch=launch,
+            )
+        evidence = files.read(path.with_suffix(".terminal.json"))
+        terminal = resources.storage().terminal(path.stem)[1]
+        diagnostics = {
+            "phase": phase,
+            "report_mtime_ns": report.stat().st_mtime_ns,
+            "evidence": evidence,
+            "terminal": terminal,
+        }
+        self.assertTrue(fired, diagnostics)
+        self.assertEqual(code, 143 if phase == "before-freeze" else 0)
+        self.assertEqual(evidence["exit_code"], code)
+        self.assertEqual(terminal["evidence"]["workload_exit"], code)
+        self.assertEqual(terminal["complete"], phase == "after-freeze", diagnostics)
+        self.assertEqual(
+            evidence["status"],
+            "passed" if phase == "after-freeze" else "failed",
+        )
 
-                            kwargs["on_frozen"] = committed
-                    return original(*args, **kwargs)
+    def test_projection_deadlines_and_postfreeze_signal_never_acknowledge_partial_work(
+        self,
+    ) -> None:
+        for phase in ("original-clock", "after-freeze", "before-ack"):
+            with self.subTest(phase=phase):
+                self.assert_projection_deadline_case(phase)
 
-                with (
-                    patch.dict(os.environ, environment, clear=True),
-                    patch.object(native_operation, "scope_owner", return_value=None),
-                    patch.object(test_run, "finish", side_effect=finish),
-                ):
-                    code = test_run.execute_selected(
-                        path,
-                        ["phase-control"],
-                        environment,
-                        report,
-                        selected=[{"class": "control.py", "name": "test_case"}],
-                        launch=launch,
-                    )
-                evidence = files.read(path.with_suffix(".terminal.json"))
-                terminal = resources.storage().terminal(path.stem)[1]
-                self.assertEqual(code, 143 if phase == "before-freeze" else 0)
-                self.assertEqual(evidence["exit_code"], code)
-                self.assertEqual(terminal["evidence"]["workload_exit"], code)
-                self.assertEqual(terminal["complete"], phase == "after-freeze")
-                self.assertEqual(
-                    evidence["status"],
-                    "passed" if phase == "after-freeze" else "failed",
+    def assert_projection_deadline_case(self, phase: str) -> None:
+        path = resources.invocation("python", [{"name": "control.py::test_case"}])
+        report = path.with_suffix(".xml")
+        store = resources.storage()
+        members = [
+            store.register(
+                [str(self.root), f"{path.stem}_{index}", "evidence"],
+                {
+                    "invocation": path.stem,
+                    "test": "control.py::test_case",
+                    "state": str(self.root),
+                    "database": f"{path.stem}_{index}",
+                    "kind": "evidence",
+                    "cleanup": "retained",
+                    "disposition": "incomplete",
+                    "pin": True,
+                    "drained": True,
+                    "references": {},
+                    "borrows": {},
+                    "units": [],
+                },
+                invocation=path.stem,
+            )
+            for index in range(5)
+        ]
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith("PSE_NATIVE_")
+        }
+        now = [100.0]
+        original_finish = test_run.finish
+        original_save = files.FileStore._save  # noqa: SLF001 -- inject elapsed projection work
+        original_publish = files.publish
+
+        def launch(observation: dict[str, object]) -> int:
+            report.write_text(
+                '<testsuites><testsuite><testcase classname="control.py" name="test_case"/></testsuite></testsuites>'
+            )
+            written = time.time_ns()
+            os.utime(report, ns=(written, written))
+            observation.update(child_status=0, owned_drain="complete")
+            if phase == "original-clock":
+                observation["cancellation_deadline"] = 105.0
+            return 0
+
+        def finish(
+            selected_path: Path,
+            check: dict[str, object],
+            terminal_owner: str,
+            *,
+            deadline: float | None = None,
+            deadline_supplier: Callable[[], float | None] | None = None,
+            on_frozen: Callable[[], None] | None = None,
+            deferred: list[str] | None = None,
+        ) -> bool:
+            if on_frozen is None:
+                raise TypeError("Freeze control requires its commit callback")
+            callback = on_frozen
+
+            def frozen() -> None:
+                callback()
+                if phase == "after-freeze":
+                    os.kill(os.getpid(), signal.SIGTERM)
+
+            return original_finish(
+                selected_path,
+                check,
+                terminal_owner,
+                deadline=deadline,
+                deadline_supplier=deadline_supplier,
+                on_frozen=frozen,
+                deferred=deferred,
+            )
+
+        def save(selected: files.FileStore, entry: files.Entry) -> None:
+            original_save(selected, entry)
+            if phase != "before-ack":
+                now[0] += 3 if phase == "original-clock" else 6
+
+        def publish(destination: Path, value: Mapping[str, object]) -> None:
+            original_publish(destination, value)
+            if phase == "before-ack" and destination == path.with_suffix(
+                ".terminal.json"
+            ):
+                os.kill(os.getpid(), signal.SIGTERM)
+                now[0] += 11
+
+        with (
+            patch.dict(os.environ, environment, clear=True),
+            patch.object(files.time, "monotonic", side_effect=lambda: now[0]),
+            patch.object(native_operation, "scope_owner", return_value=None),
+            patch.object(
+                native_operation, "note_composer_cancellation"
+            ) as cancellation,
+            patch.object(native_operation, "acknowledge_composer") as acknowledge,
+            patch.object(test_run, "finish", side_effect=finish),
+            patch.object(files.FileStore, "_save", new=save),
+            patch.object(files, "publish", side_effect=publish),
+        ):
+            code = test_run.execute_selected(
+                path,
+                ["projection-control"],
+                environment,
+                report,
+                selected=[{"class": "control.py", "name": "test_case"}],
+                launch=launch,
+            )
+        acknowledge.assert_not_called()
+        if phase != "original-clock":
+            cancellation.assert_called_once()
+            self.assertEqual(cancellation.call_args.args, (signal.SIGTERM, 110.0))
+        self.assertEqual(code, 0)
+        state = files.read(store.path("invocation-state", path.stem))
+        self.assertTrue(state["terminal"]["complete"])
+        self.assertEqual(state["terminal"]["evidence"]["workload_exit"], 0)
+        self.assertEqual(state["terminal"]["evidence"]["report_errors"], [])
+        evidence = files.read(path.with_suffix(".terminal.json"))
+        if phase == "before-ack":
+            self.assertEqual(state["projection"], "complete")
+            self.assertEqual(evidence["status"], "passed")
+        else:
+            self.assertNotIn("projection", state)
+            projected = sum(
+                "terminal_identity" in store.lookup(resource).facts
+                for resource in members
+            )
+            self.assertGreater(projected, 0)
+            self.assertLess(projected, len(members))
+            self.assertEqual(evidence["status"], "failed")
+            self.assertTrue(
+                any(
+                    "deadline exhausted" in error for error in evidence["report_errors"]
                 )
+            )
 
     def test_non_native_ignored_sigterm_escalates_within_original_clock(self) -> None:
-        from scripts import native_operation
-
         environment = {
             key: value
             for key, value in os.environ.items()
@@ -277,8 +464,6 @@ class TerminalComposerTests(unittest.TestCase):
     def test_non_native_forwarded_signal_survives_child_passing_report_and_zero_exit(
         self,
     ) -> None:
-        from scripts import native_operation
-
         environment = {
             key: value
             for key, value in os.environ.items()

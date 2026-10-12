@@ -431,6 +431,10 @@ impl<'a> ResultAppendQueue<'a> {
         self.items.push(item);
         Ok(())
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one exact append carries its independent table position, payload, block indexes, outputs and original deadline"
+    )]
     async fn append_individual(
         &mut self,
         name: &str,
@@ -463,6 +467,10 @@ impl<'a> ResultAppendQueue<'a> {
         self.acknowledgments.append(self.fence, ack)
     }
     pub(super) async fn flush(&mut self) -> Result<(), WorkflowError> {
+        // Producer exhaustion belongs to this drained group. If append or ACK
+        // validation fails, a later cleanup flush must not complete these sets
+        // without their receipts and replace the original refusal.
+        let complete = std::mem::take(&mut self.complete);
         if !self.items.is_empty() {
             let items = std::mem::take(&mut self.items);
             let deadline = self
@@ -483,7 +491,7 @@ impl<'a> ResultAppendQueue<'a> {
             }
             self.extent = 4096;
         }
-        for name in std::mem::take(&mut self.complete) {
+        for name in complete {
             self.acknowledgments.complete(self.fence, &name)?;
         }
         Ok(())
@@ -726,6 +734,10 @@ pub(super) struct ResultStreamPosition {
 
 /// Append an exhausted original producer without closing the relation. Horizon
 /// prefixes remain private until their one final coherent attempt close.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "prefix publication keeps store fencing, source cursor, allocation, ACK state, stream position and detail allowance explicit"
+)]
 pub(super) async fn append_result_table_prefix(
     store: &CanonicalStore,
     fence: &AttemptFence,
@@ -1164,7 +1176,7 @@ mod result_projection_unit {
         let fence = store
             .claim_run(
                 "actual-projection-run",
-                "claim",
+                "actual-projection-claim",
                 "worker",
                 std::time::Duration::from_secs(60),
             )
@@ -1218,7 +1230,7 @@ mod result_projection_unit {
         let fence = store
             .claim_run(
                 "cold-projection-run",
-                "claim",
+                "cold-projection-claim",
                 "worker",
                 std::time::Duration::from_secs(60),
             )
@@ -1287,6 +1299,218 @@ mod result_projection_unit {
             Some(1)
         );
         drop(queue);
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn canonical_append_queue_cancelled_flush_preserves_refusal_and_incomplete_coverage() {
+        use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
+        use pse_operations::canonical_studies::{NewOccurrence, point_key};
+        use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+        let runtime = super::super::durable_tests::durable_runtime();
+        let super::super::Durability::Durable(operations) = runtime.durability() else {
+            unreachable!()
+        };
+        let store = operations.store();
+        let revision = store
+            .edit("cancelled-append-queue-fixture", None, "source", &[])
+            .await
+            .unwrap();
+        let request = |key: &str| pse_operations::canonical_execution::RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        let study = "cancelled-append-queue-study";
+        let occurrence = OccurrenceKey(0);
+        store
+            .create_study(
+                study,
+                &request("cancelled-append-queue-summary"),
+                &[9],
+                &[NewOccurrence {
+                    policy: PointPolicy {
+                        key: occurrence,
+                        dependencies: vec![],
+                        start: StartPolicy::Fresh,
+                        seed_need: SeedNeed::NotNeeded,
+                        attempt_limit: 1,
+                    },
+                    descriptor: vec![42],
+                    run: request("cancelled-append-queue-run"),
+                }],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let scope = store
+            .study_scope(&point_key(study, occurrence))
+            .await
+            .unwrap();
+        let fence = store
+            .claim_study_point(
+                &scope,
+                None,
+                "cancelled-append-queue-claim",
+                "worker",
+                std::time::Duration::from_secs(60),
+            )
+            .await
+            .unwrap()
+            .fence;
+        let validation = runtime.validation_context();
+        let mut metrics =
+            solve_metrics::Builder::with_registry(runtime.registry(), 1, &validation).unwrap();
+        metrics
+            .push(solve_metrics::Row {
+                run_id: pse_operations::mint_id(),
+                step: 0,
+                namespace: "independent".into(),
+                name: "small".into(),
+                kind: NativeMetricKind::Real,
+                real: Some(-0.0),
+                integer: None,
+                boolean: None,
+                text: None,
+                unavailable: None,
+            })
+            .unwrap();
+        let metrics = metrics.finish().unwrap();
+        let mut parameters =
+            fit_parameters::Builder::with_registry(runtime.registry(), 1, &validation).unwrap();
+        parameters
+            .push(fit_parameters::Row {
+                run_id: pse_operations::mint_id(),
+                parameter_id: SemanticId::from_bytes([5; 16]),
+                fixed: false,
+                value: Some(2.0),
+                unit_id: SemanticId::NIL,
+                scale: 1.0,
+                at_bound: None,
+            })
+            .unwrap();
+        let parameters = parameters.finish().unwrap();
+        let empty = solve_constraints::Builder::with_registry(runtime.registry(), 0, &validation)
+            .unwrap()
+            .finish()
+            .unwrap();
+        let acks = super::super::durable::PublicationAcks::new(&operations.pool);
+        let before = operations.pool.reserved();
+        let mut queue = ResultAppendQueue::new(store, &fence, &operations.pool, &acks);
+        let idle = operations.pool.reserved();
+        assert!(idle > before, "queue control is admitted before allocation");
+        for (id, table) in [
+            (solve_metrics::RELATION_ID, metrics),
+            (fit_parameters::RELATION_ID, parameters),
+        ] {
+            let original = [table];
+            let cursor = super::super::ResultCursor::from_retained(
+                original[0].batch().schema(),
+                id,
+                &original,
+            )
+            .unwrap();
+            assert!(cursor.owns_checked_buffers());
+            store_result_table_queued(&mut queue, id, cursor, None)
+                .await
+                .unwrap();
+            assert!(
+                acks.complete(&fence, &id.to_string()).is_err(),
+                "issuing a queue item grants no ACK coverage"
+            );
+            assert_eq!(
+                pse_operations::testing::pending_result_batch_rows(
+                    store,
+                    &fence,
+                    &id.to_string(),
+                    0
+                )
+                .await
+                .unwrap(),
+                None,
+                "queueing produces no server append effects"
+            );
+        }
+        assert_eq!(queue.requests, 0);
+        assert_eq!(queue.items.len(), 2);
+        assert!(
+            operations.pool.reserved() > idle,
+            "owned encoded items stay charged while queued"
+        );
+        store.cancel_study(study).await.unwrap();
+        // An empty relation first drains the completed nonempty relations, just
+        // as the production typed export does when it reaches empty membership.
+        let error = store_result_table_queued(
+            &mut queue,
+            solve_constraints::RELATION_ID,
+            super::super::ResultCursor::from_checked(empty),
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                WorkflowError::Canonical(
+                    pse_operations::canonical::CanonicalError::StudyCancellation {
+                        run,
+                        attempt,
+                        generation,
+                        ..
+                    }
+                ) if run == fence.run()
+                    && attempt == fence.attempt()
+                    && *generation == fence.generation()
+            ),
+            "the actual append refusal must name the original fence: {error:?}"
+        );
+        assert!(queue.items.is_empty() && queue.complete.is_empty());
+        assert_eq!(
+            operations.pool.reserved(),
+            idle,
+            "the failed actual append joins and releases every owned payload"
+        );
+        // The production wrapper drains once more before returning its original
+        // error. This used to manufacture IncompleteResponse from missing ACKs.
+        queue.flush().await.unwrap();
+        for id in [
+            solve_metrics::RELATION_ID,
+            fit_parameters::RELATION_ID,
+            solve_constraints::RELATION_ID,
+        ] {
+            assert!(
+                acks.complete(&fence, &id.to_string()).is_err(),
+                "neither failed flush nor cleanup grants completion coverage"
+            );
+            assert_eq!(
+                pse_operations::testing::pending_result_batch_rows(
+                    store,
+                    &fence,
+                    &id.to_string(),
+                    0
+                )
+                .await
+                .unwrap(),
+                None,
+                "cancelled group appends no partial table payloads"
+            );
+        }
+        drop(queue);
+        assert_eq!(operations.pool.reserved(), before);
+        let frozen = acks.freeze(&fence).unwrap();
+        assert!(
+            matches!(
+                store
+                    .close_acknowledged(&fence, "cancelled-queue-incomplete-close", frozen)
+                    .await,
+                Err(pse_operations::canonical::CanonicalError::IncompleteResponse)
+            ),
+            "authentic incomplete coverage still refuses manifest close"
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
 
@@ -1803,14 +2027,16 @@ mod result_projection_unit {
         let validation = validation();
         let mut builder = fit_parameters::Builder::with_registry(registry, 6, &validation).unwrap();
         let parameter = SemanticId::from_bytes([1; 16]);
-        let nan = f64::from_bits(0x7ff8_0000_0000_0042);
+        // Scientific relations admit finite values only. Preserve an arbitrary
+        // admitted IEEE payload as well as both zero signs through projection.
+        let precise = f64::from_bits(0x4008_0000_0000_0042);
         for value in [
             Some(-0.0),
             Some(0.0),
             None,
             Some(2.0),
-            Some(nan),
-            Some(f64::INFINITY),
+            Some(precise),
+            Some(f64::MAX),
         ] {
             builder
                 .push(fit_parameters::Row {
@@ -1849,7 +2075,7 @@ mod result_projection_unit {
         );
         assert_eq!(
             selected(&scalar_predicate(&table, "value", None, None, Some(false)).unwrap()),
-            vec![0, 1, 3]
+            vec![0, 1, 3, 4, 5]
         );
         assert_eq!(
             selected(&scalar_predicate(&table, "scale", Some(2.0), Some(2.0), None).unwrap()),
@@ -1873,7 +2099,8 @@ mod result_projection_unit {
             .as_any()
             .downcast_ref::<Float64Array>()
             .unwrap();
-        assert_eq!(original.value(4).to_bits(), nan.to_bits());
+        assert_eq!(original.value(4).to_bits(), precise.to_bits());
+        assert_eq!(original.value(5).to_bits(), f64::MAX.to_bits());
         assert!(original.is_null(2));
         assert!(scalar_predicate(&table, "fixed", None, None, None).is_err());
         assert!(scalar_predicate(&table, "value", Some(f64::NAN), None, None).is_err());
@@ -1921,7 +2148,8 @@ mod result_projection_unit {
         let validation = validation();
         let run_id = pse_operations::mint_id();
         let owner = SemanticId::from_bytes([7; 16]);
-        let step = 9_007_199_254_740_993;
+        // Actual scientific steps have the registry's bounded ordinal domain.
+        let step = i64::from(u32::MAX);
         let mut variables =
             solve_variables::Builder::with_registry(registry, 1, &validation).unwrap();
         variables
@@ -1953,6 +2181,22 @@ mod result_projection_unit {
         assert_eq!(locator.owner, owner);
         assert_eq!(locator.step, Some(step));
         assert_eq!(locator.partition, format!("step:{step}"));
+        // The locator transport itself retains exact native integers beyond
+        // f64's integral range, independently of the scientific step domain.
+        let large_step = 9_007_199_254_740_993;
+        let wide_locator = RowLocator {
+            step: Some(large_step),
+            partition: format!("step:{large_step}"),
+            ..locator.clone()
+        };
+        pse_operations::canonical_results::validate_result_row(&wide_locator).unwrap();
+        let encoded =
+            pse_operations::generated::surreal::encode_canonical_result_rows(&wide_locator)
+                .unwrap();
+        let decoded =
+            pse_operations::generated::surreal::decode_canonical_result_rows(encoded).unwrap();
+        assert_eq!(decoded, wide_locator);
+        assert_eq!(decoded.step, Some(large_step));
         assert_eq!(
             scalar_rows_at(&variables, "attempt", "set", "block", 0, 1, 0)
                 .unwrap()

@@ -268,6 +268,7 @@ impl Staged {
     }
     /// A horizon owns its bounded role predecessors explicitly. Execute through
     /// the same original-assessment backend without retaining general history.
+    #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) async fn run_unrecorded(
         &mut self,
         prepared: ModelingSolvePreparation,

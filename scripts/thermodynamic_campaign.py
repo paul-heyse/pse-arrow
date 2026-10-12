@@ -57,6 +57,7 @@ def measure(output: Path, selected: str) -> None:
         SolveSettings,
         StartPolicyFresh,
         StudyCompilerProfile,
+        StudyOutputDemandFull,
         StudyPoint,
         StudyPointPolicy,
         StudyRequest,
@@ -220,6 +221,7 @@ def measure(output: Path, selected: str) -> None:
             started = time.perf_counter()
             definition = package.admit_study(
                 StudyRequest(
+                    output=StudyOutputDemandFull(),
                     points=tuple(
                         StudyPoint(
                             operation=OperationRequestDeclaredCase(
@@ -239,7 +241,7 @@ def measure(output: Path, selected: str) -> None:
                             ),
                         )
                         for index, overlay in enumerate(overlays)
-                    )
+                    ),
                 )
             )
             study = package.study(
@@ -252,6 +254,9 @@ def measure(output: Path, selected: str) -> None:
             with (output / f"{name}.jsonl").open("w") as stream:
                 for index in range(study.count):
                     result = study.result(index)
+                    if result is not None and not isinstance(result, pse.StoredResult):
+                        message = "full campaign output requires a retained result"
+                        raise TypeError(message)
                     completion = None if result is None else result.completion
                     native_success = (
                         completion is not None

@@ -144,6 +144,7 @@ class Plan30LifecycleTests(unittest.TestCase):
         (directory / "scripts").mkdir(parents=True)
         (directory / "bin").mkdir()
         (directory / "scripts/surreal_server.py").write_bytes(b"supervisor")
+        (directory / "scripts/surreal_server.py").chmod(0o600)
         (directory / "scripts/sccache").write_bytes(b"wrapper")
         (directory / "scripts/sccache").chmod(0o700)
         (directory / "bin/pse-worker").write_bytes(b"worker")
@@ -1062,10 +1063,12 @@ class Plan30LifecycleTests(unittest.TestCase):
             patch.object(server, "_ensure_primary") as admit,
         ):
             owner = server.read_json(self.state / "lifecycle-owner.json")
-            with pytest.raises(
-                server.SupervisorError, match="original admission clock"
-            ):
+            with pytest.raises(server.DeadlineExpiredError) as expired:
                 server.ensure_primary(self.state, database="case")
+            assert str(expired.value) in {
+                "Managed startup exceeded its original admission clock",
+                f"Metadata exclusion deadline expired; selected={self.state}; admission refused",
+            }
             join.assert_called_once_with(
                 self.state,
                 self.state / "lifecycle-owner.json",

@@ -2051,7 +2051,7 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
             )
             .unwrap()
             .unwrap();
-        let bytes = Ibex
+        let bytes = Ibex::default()
             .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)
             .unwrap();
         let region = point
@@ -2066,7 +2066,7 @@ fn exact_optimal_objective_transport_requires_original_affine_source() {
             jacobian,
             hessian,
             work,
-        } = Ibex
+        } = Ibex::default()
             .enclose_arithmetic_box_values_with_execution(&program, &region, bytes, &execution)
             .unwrap()
         else {

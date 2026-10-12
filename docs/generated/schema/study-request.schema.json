@@ -4584,10 +4584,12 @@
               "type": "string"
             },
             "step": {
+              "description": "Original absolute solve step.",
               "format": "int64",
               "type": "integer"
             },
             "symbol_id": {
+              "description": "Authored variable identity.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             }
@@ -4608,10 +4610,12 @@
               "type": "string"
             },
             "row_id": {
+              "description": "Authored constraint identity.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             },
             "step": {
+              "description": "Original absolute solve step.",
               "format": "int64",
               "type": "integer"
             }
@@ -4632,6 +4636,7 @@
               "type": "string"
             },
             "parameter_id": {
+              "description": "Authored fitted parameter identity.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             }
@@ -4647,6 +4652,7 @@
           "description": "One observation in its original experiment.",
           "properties": {
             "experiment_id": {
+              "description": "Original experiment instance identity.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             },
@@ -4655,6 +4661,7 @@
               "type": "string"
             },
             "observation_id": {
+              "description": "Authored observation identity within that experiment.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             }
@@ -4675,6 +4682,7 @@
               "type": "string"
             },
             "symbol_id": {
+              "description": "Authored trajectory symbol identity.",
               "pattern": "^[0-9a-fA-F]{32}$",
               "type": "string"
             }

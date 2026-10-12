@@ -20,6 +20,8 @@ The user accepted all twenty recommendations in this document as written on **20
 
 Source baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`, inspected 2026-10-11. Concurrent minor validation edits were preserved. The judgments below are **Interface-checked** from static source and exact library contracts; planned remedies and controls are **Proposed**. No new product test or performance campaign ran during authoring. Historical measurements and the audit's single cancellation control remain attributed to their original conditions.
 
+Execution is stopped at the maintainer’s request on **2026-10-12**, after immediate repair, worktree reconciliation and handoff. The [stop checkpoint](#maintainer-stop-checkpoint-2026-10-12) owns the current state and remaining route; earlier running/pending notes below are historical. Plan 36 remains in progress.
+
 ## Purpose and reading route
 
 The target is the process simulator in the profile's Functional target and blueprint §0/§0.2: interactive value edit → re-solve without rebuilding structure; sweeps, sensitivities, optimization and fitting; recycles/tears; dynamics from the same definitions; unit/property/solver extension; and compiling/testing one responsibility with its actual dependencies. Core 3.4, Efficient Architecture 1.0 H1–H28 under AP-07/G9, Process Simulator 1.5 and the selected pse-arrow binding judge the design. Current ADRs, policies, plans and pins describe the subject and its amendment routes.
@@ -101,7 +103,7 @@ The public unused `hashing_may_use_pool` option is a later investigation in 36d:
 | Packet | Required input | Delivery and acceptance | Status |
 |---|---|---|---|
 | P-G0 | Accepted per-item choices; concrete contract written in the owning companion | Route superseding/proposed ADRs, blueprint revisions and boundary/schema decisions before dependent implementation. Verify that each adopted amendment says the selected contract and records its preservation constraints. | In progress |
-| P-G1 | Relevant local packages implemented, consumers migrated, investigations dispositioned | Assemble the target journeys below, scoped scientific/integration evidence, applicable hygiene/manual checks and final disposition; publish enduring contracts through their owners. | Scheduled |
+| P-G1 | Relevant local packages implemented, consumers migrated, investigations dispositioned | Assemble the target journeys below, scoped scientific/integration evidence, applicable hygiene/manual checks and final disposition; publish enduring contracts through their owners. | In progress |
 
 P-G0 is a continuing coordinator responsibility, not one all-series approval barrier. A docs-truth correction, explicit JSON feature or direct command route can proceed after its own applicable contract is ready. ADR acceptance does not establish implementation acceptance. During a later authorized implementation, use one integration owner for shared contracts/manifests/registry generation and short bounded executor scopes.
 
@@ -186,7 +188,7 @@ A bounded investigation ends with evidence answering its named question, an impl
 
 ### Probe reconciliation and purpose
 
-Original local Pn labels are qualified by inquiry letter. These are routes to evidence, not a mandate to rerun all original probes. Unsafe/inconclusive setups are replaced by controls below. Quantified benefit claims require controlled observations; static structural corrections do not.
+Original local probe labels are qualified by inquiry letter. These are routes to evidence, not a mandate to rerun all original probes. Unsafe/inconclusive setups are replaced by controls below. Quantified benefit claims require controlled observations; static structural corrections do not.
 
 | Source probe | Selected use / settling condition and owner |
 |---|---|
@@ -416,7 +418,259 @@ pass; Runtime shared-grant and installed Python cancellation acceptance remain
 open. Both interactive extension variants have built and reported their actual
 compiled features; correctness capture refuses their lack of force-validation.
 The two validated artifacts and the remaining Runtime/native/Python controls
-still precede assembled qualification. Disk exhaustion interrupted a helper
-edit; exact semantic source recovery and authenticated fixture shutdown are
-complete. Further builds await capacity recovery; the proposed incremental-cache
-disposal is separate from the previously authorized two test-record disposals.
+still precede assembled qualification. Disk capacity has been restored and cold
+builds have resumed. The fresh whole-history backup/restore and preserved-history
+continuation now pass their public-reader and authority-rotation controls; the
+earlier enclosing journey retains its failed cleanup outcome.
+
+Completion continuation, **2026-10-12**: the current Runtime campaign exposed double charging of prepaid constructor
+envelopes and a readiness-recovery loop that could starve study discovery. Both
+repairs are implemented; the constructor repair has independent source review,
+and affected functional controls require rerunning. That campaign also retained
+fixture creation borrowers after test-process exit, so its enclosing allocation
+release failed. Authenticated recovery drained its exact registered receivers
+without changing outcomes, retention pins or databases; normal admission
+reconciliation then released the owning allocation. A test-fixture lifetime repair
+now makes final lexical teardown join the tracked automatic protection release;
+its gated acknowledgment control and neighboring lifetime/timeout controls pass.
+Production asynchronous cleanup remains unchanged. Subsequent Runtime retries
+now complete their owned drain. They also exposed active-admission self-wakeup
+starvation and continuation screening outside the retained lane's population
+scope; both production repairs have independent source review and their affected
+functional controls pass. The two stronger assembled controls now pass:
+the source-edit journey distinguishes retained semantic compilation from new
+numerical check workspaces, and the one-slot continuation oracle requests
+explicit row/variable accuracy rather than relying on unscaled fallback budgets.
+The instrumented edit journey also passes with receiving-process syscall and
+before/after-first-native map observations; tracing excludes separately placed
+workers/services and establishes no speedup or universal latency claim.
+Ordinary and native interactive extensions both report their actual installed
+features, reject correctness dispatch, and pass direct integer/millisecond
+boundary controls. Native-only horizon state is scoped to the actual
+DiffSol driver while preserving ordinary inspection and canonical serialization.
+Process exit and a passing test body do not establish fixture drain or enclosing
+acceptance. All four installed Python modes now pass their direct boundary controls;
+both validated builds regenerate their actual stubs without compiler warnings.
+The real entered-pull SIGINT control passes against the exact preserved private
+history fixture, retaining the response grant until transport drain and escaped
+arrays after close. The ordinary bridge control passes too. Selected native
+Python initially completed with 45 passing and three failing controls. The binding
+identity getter now preserves its exact digest while returning the algorithm-tagged
+form required by the typed Python consumer. The reload control compares complete
+declarations by identity and uses V4 to witness source order; membership enumeration
+does not promise ingress order. The sweep control now checks one structural view per
+execution lane and exact preparation accounting across all 1,000 scientific points.
+These repairs retain parent/history and original scientific assertions. The rebuilt
+native validated extension passes its direct boundary controls; affected Python
+reruns remain pending. The first full native Rust assessment completed with failures; managed-primary
+journeys and scope-end qualification remain open. R36-01–R36-03 remain unselected;
+no production migration or history deletion has been performed.
+
+The assembled native run exposed additional boundary defects: redundant full-output
+support projection during derivative upgrades; a valid cached compact program rejected
+after its weak original source expired; default backend settings counted through an
+unsupported serialization; acknowledged completion cancellation bypassing exact-fence
+recovery; and internally tagged unit variants accepting unknown document fields. These
+have bounded repairs and independent source review, with revealing regressions retained
+or strengthened. Their reruns and enclosing qualification remain pending. The functional
+assessment route now composes its actual producer-fixture prerequisite; its full tooling
+test module passes. Fixture corrections preserve original scientific, memory, ordering,
+empty-result and lifetime obligations rather than admitting invalid rows or widening
+production limits. A queued-memory control now waits for actual release notification,
+not elapsed time. None of these source repairs closes P-G1 by itself.
+
+The first assembled ordinary-native attempt also exposed incomplete terminal-resource
+projection: its frozen outcomes are preserved, but one five-second clock covered the
+entire finite membership and expired after a prefix. Projection completion and test
+success remain distinct. The bounded repair retains caller/cancellation clocks, uses
+ordinary per-operation metadata bounds when no caller clock exists, and settles an
+already projected prefix without rewriting unchanged authority. Its regression controls,
+independent readback and authentic resume precede the next assembled attempt. The current
+worker and validated native extension rebuilds pass; scope-end Rust repairs still require
+their affected artifacts to be rebuilt. The fresh enclosing historical-activation journey
+now passes with all 78 frozen script/configuration inputs unchanged, including actual
+historical readers, backup/restore and authenticated shutdown. Tooling setup and documentation publication
+have passing scoped results; later source changes still require their affected checks.
+
+Scope-end reconciliation corrected retired Python scalar-cell consumers, invalid tagged
+declaration fixtures and explicit full-result consumers, while retaining every-arm transport,
+concurrency and scientific assertions. Python lint and type checks pass, as do the affected
+codec controls. The full setup rerun passes after typed metadata and signal-owner repairs.
+An independent readback caught integer-to-float deadline rounding; the helper now retains
+the admitted numeric value exactly, with an exact-integer regression. Rust hygiene repairs
+preserve admitted inline lane ownership and replace unavailable-lane panics with typed
+refusal after all issued work drains. Their compile, affected functional and enclosing
+qualification remain in progress; neither source presence nor a partial result closes P-G1.
+
+The authentic terminal projection resume completed all 788 frozen members while retaining
+the original 208-member prefix files and all frozen outcomes. It did not turn the failed
+assessment into a pass or invent missing drain evidence. Governance, generated-output
+comparisons, doctests and both ordinary Clippy feature modes now pass. The native lint and full feature powerset checks now pass, as do the rebuilt worker
+and validated native extension with its actual installed boundary controls. Ordinary-native,
+Python and managed-primary acceptance remain open. All 101 clock-consumer
+controls now pass with the completed activation's light-slot allocation released.
+
+The cancellation publication repair preserves the original refusal: a failed append group
+discards its completion intents, so a second cleanup flush cannot claim coverage without
+ACKs and replace exact cancellation with an incomplete-response error. The original
+cross-process SCIP control, both durable completion controls and the new real-study
+cancelled-flush regression pass together with enclosing cleanup. Arbitrary incomplete
+responses remain infrastructure failures.
+A separate host-release defect is repaired: a storage-only drain projection now selects
+only its own ACK guards while the parent retains and checks every execution guard.
+Affected host/supervisor controls and independent readback pass; actual failed-run drain
+now completes without changing the failed test outcome or releasing unproved resources.
+
+The next ordinary-native assessment completed its test bodies with 3,455 passes and five
+failures. Three fixture corrections preserve full candidate admission, additive historical
+frame identities and actual native-seed ownership; the two direct compiler/identity
+controls pass. A real response-handler lifetime race also remained: ACK delivery could
+wake a caller before the native snapshot released its payload grant. The SDK now joins
+only native holds under the original request clock while the receiver retains decoded
+output; all engine API and native WebSocket controls pass, with independent source
+readback. The immediate queue-drain and subsequent cold-producer assertions remain.
+The fifth failure occurred during private two-worker setup's release-metadata fetch,
+before worker execution; the actual two-worker retry now passes. The repaired
+queue-drain, cancellation and durable-completion controls also pass with enclosing
+cleanup. The continuation fixture now uses the exported-seed POUNCE NLP route
+without an unbound declared-composition request; its original scientific and
+ownership assertions pass. No numerical tolerance or production permission changed.
+
+The assessment's resource reconciliation additionally exposed a five-second metadata
+clock retained across a separately allowed ninety-second database removal. Reclaim now
+uses one existing finite removal allowance for claim, effect and settlement, preserving
+any supplied original clock. Failed reconciliation stays recorded and unproved resources
+stay pinned. Concurrent review prose changed only the producer prerequisite's overly
+broad tooling scope; its declared Rust/build input closure now excludes that unrelated
+prose while retaining product, toolchain, execution and cleanup inputs. Affected tooling
+controls, rebuilt worker/extension, native repairs, Python and managed journeys precede
+the next assembled attempt. P-G1 remains open.
+
+The subsequent full setup run exposed two genuine cancellation-cleanup race orders:
+a repeated owner signal could escape after the signal handler was restored but before
+physical observation, and launcher reaping could precede descendant drain. Isolated
+controls passing did not settle those races. Their repair keeps the non-raising
+signal owner through authenticated physical join, preserves the original clock and
+refuses unavailable or mismatched ownership. The pending-signal fixture uses exact
+thread-directed injection to test its claimed masked-thread boundary. Independent
+readback also preserved child-wait timing separately from physical drain. A subsequent
+enclosing attempt exposed temporary recipe packages resolving production modules under
+an inherited checkout path; those fixtures now isolate their actual recorders and the
+exact accidental disposable ADR was removed. All 940 setup controls now pass, without
+widening allowances. The actual installed native validated extension retains its verified
+digest and passes its direct boundary controls. All 49 selected actual native Python tests
+now pass, including constructor thread progress, typed binding, parent-preserving reload
+and exact 1,000-point preparation accounting. Managed Rust passed three of four journeys;
+its publication/reader journey exposed an eight-page fixture bound for a nine-page
+retirement protocol. The inventory-derived correction preserves all lifetime and payload
+oracles and has independent readback; all four managed Rust journeys now pass.
+Managed Python completed six tests before the durable 1,000-point sweep stopped its
+worker on a stale recovery hint. Recovery's fresh point was already observed, but it
+attempted another observation. The fresh assigned/settled guard and settled/retryable
+regressions pass with enclosing cleanup. The interrupted client and exact receiver have drained;
+unfinished outcomes remain unproved and pinned. Rebuilt managed Python, refreshed
+activation, assembled native and final hygiene acceptance remain open.
+
+Rebuilt managed cancellation also exposed background recovery fencing a still-live
+cancelled owner before its own drain and settlement. The correction requires terminal
+readback or lease expiry and preserves the existing local candidate turn until that
+owner joins. All four latest-source recovery/rotation/completion controls pass with
+enclosing cleanup, and independent readback found no material flaw. All four rebuilt
+managed Rust journeys pass with enclosing cleanup, including actual sixteen-owner
+cancellation/drain. Rebuilt managed Python acceptance was interrupted after its worker failed during sealing, as recorded below. P-G1 remains open; earlier passing journeys retain their
+original source and artifact scope.
+
+Managed Python then exposed repeated definite seal conflicts during the durable sweep.
+The existing bounded retry owner was already rebuilding the exact transaction; terminal
+active-root removal unnecessarily notified the shared problem-wide source-creator
+guard. A held-transaction regression reproduces that false conflict. Proposed ADR-0177
+and blueprint §20.4 now clarify removal's exact-root/reclaim registration and retained
+run-source dependency before the generator correction. Actual root creators retain
+their both-order reclamation protocol. Regeneration and the revealing preservation controls are recorded at the stop checkpoint below; rebuilt acceptance remains pending. Failed/interrupted outcomes remain
+unproved and pinned after authenticated drain.
+
+## Maintainer stop checkpoint, 2026-10-12
+
+The maintainer requested finishing immediate tasks, reconciling and removing worktrees,
+updating the owning documents and stopping. The prepared next acceptance queue was
+**not_run**. No further product or scientific campaign is running under this handoff.
+The six plans retain `in-progress`; P-G1 and the original finding dispositions are not
+promoted by this checkpoint.
+
+**Implemented:** the terminal-seal generator now removes the owned active-attempt root
+under the existing reclaim/exact-root registrations without writing the shared
+source-creator fence. The retained run root still protects the source; actual creators
+keep their paired reclamation protocol. Proposed ADR-0177 and blueprint §20.4/revision156
+record that clarification before the generated change. `just codegen` regenerated all
+outputs successfully. Independent bounded readback found no material flaw. The revealing
+tests needed an SDK optional-result type correction and an actual row read rather than
+a record-ID comparison; neither correction weakened the transaction or lifetime oracles.
+
+**Tested:** the immediate four-control native canonical selection passes all four bodies
+against zero permitted failures (226 excluded, local profile, explicit validated closure).
+The four bodies completed in 29.553s; enclosing execution and authenticated cleanup exited 0. The log is `/tmp/pse36-completion-r22rcl9o/seal-independent26.log`.
+The command was:
+
+```sh
+env PSE_TEST_RESOURCE_STATE=/tmp/pse36-completion-r22rcl9o/seal-independent26-registry \
+  PSE_SURREAL_STATE=/tmp/pse36-completion-r22rcl9o/ordinary-canonical-state \
+  scripts/pse-env --resource-class exclusive --store \
+  --native=solver,klu,isolation,uno,petsc -- \
+  just native-test --profile local -p pse-operations --lib \
+  -E 'test(exact_terminal_seal_and_unrelated_source_creator_commute_both_orders) | test(exact_terminal_root_release_and_source_collection_preserve_run_both_orders) | test(exact_source_root_and_pin_creation_reclaim_both_orders) | test(exact_result_pin_creation_retirement_both_orders)'
+```
+
+The controls establish both commit orders for independent source creation/seal, active-root
+release/source collection with retained run protection, source root/pin creation/reclaim
+and result pin creation/retirement, including same-operation seal replay or rebuild.
+They do not establish that every possible seal conflict is removed or that the actual
+1,000-point managed Python sweep now succeeds. The previous managed Python attempt
+completed six tests before worker failure, then was interrupted and authentically drained;
+it is not a nine-test pass. Its incomplete outcomes and retention pins remain unchanged.
+The rebuilt worker, extension and four passing managed Rust journeys precede this latest
+seal change and retain that earlier artifact scope.
+
+All five auxiliary worktrees were reconciled and removed: `p28a-description-20261008`,
+`p28j-compiler-20261008`, `plan35-composition`, `plan35-lifecycle` and `plan35-lookup`.
+Their committed heads were already ancestors of main. Independent bounded readbacks
+found their dirty contributions integrated or superseded; obsolete alternative mechanisms
+were not transplanted into newer source. Full semantic equivalence of every historical
+Plan 28 hunk was not asserted. Before removal, all 12,464 regular-file/symlink entries,
+staged/unstaged binary diffs, untracked/ignored contents and branch/head/status metadata
+were preserved and verified in the local restorable snapshots at
+`/home/paul/.local/share/pse-arrow/worktree-closeout/20261012T164932Z/`.
+The manifest and closeout record live there; branches were retained. No observable
+process use of these worktrees was found; inaccessible process surfaces do not establish
+a universal host drain claim. Only the main checkout remains registered.
+
+The remaining acceptance route, when work resumes, is:
+
+1. Rebuild the actual managed worker and validated native extension from the latest source;
+   repeat their direct installed-boundary controls and producer/activation bridge.
+2. Run all four managed Rust and all nine managed Python journeys, including the revealing
+   durable 1,000-point sweep and actual cancellation/drain. Investigate failures without
+   changing clocks, ownership or scientific oracles to make them pass.
+3. Refresh/freeze the activation's actual inputs and run its enclosing preservation journey,
+   then run the assembled ordinary-native assessment. The earlier 3,455-pass/five-failure
+   assessment stays failed despite later focused repairs.
+4. Complete affected scope-end hygiene and manual native/governance/docs checks, then
+   reconcile original findings and packet acceptance from the actual combined evidence.
+   Earlier 940-control setup, 49-test native Python and 398-configuration feature results
+   retain their recorded source and artifact scopes.
+
+F20's sparse numerical-rank/fill limit and F28's host-policy investigation remain open.
+R36-01, R36-02 and R36-03 remain unselected. No production-history deletion, earlier-plan
+reconciliation, ADR status change, whole-product qualification or Plan 36 closure occurred.
+**Tested:** root `just turn-end` passes ADR-index regeneration and formatting against the
+zero-failure baseline, using the explicit private registry
+`PSE_TEST_RESOURCE_STATE=/tmp/pse36-completion-r22rcl9o/stop-turn-end-registry`.
+Its enclosing report is
+`build/assessment/20261012T165401.965686Z-turn-end-2233435-28161b/summary.md`.
+The first invocation refused report registration before either step because the default
+resource registry requires explicit fenced migration recovery; that registry was left
+untouched. The isolated rerun exercised the same checkout and steps without bypassing
+that safeguard. Broader hygiene/manual checks were not restarted for this stop handoff.
+All subagents have finished; no owned worker, native-test controller or acceptance queue
+remains running. Shared parked services and unresolved retained evidence remain owned
+by their existing lifecycles. Main contains the preserved uncommitted changes; no commit,
+push or new acceptance queue was issued during this wrap-up.

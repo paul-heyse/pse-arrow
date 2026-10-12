@@ -604,17 +604,17 @@ impl ModelingPackage {
         }
         let mut close_failure = None;
         for completion in completed {
-            if let Err(error) = completion.close().await {
-                if close_failure.is_none() {
-                    close_failure = Some(error);
-                }
+            if let Err(error) = completion.close().await
+                && close_failure.is_none()
+            {
+                close_failure = Some(error);
             }
         }
         while let Some(completion) = pending.next().await {
-            if let Err(error) = completion.close().await {
-                if close_failure.is_none() {
-                    close_failure = Some(error);
-                }
+            if let Err(error) = completion.close().await
+                && close_failure.is_none()
+            {
+                close_failure = Some(error);
             }
         }
         for (_, mut preparation) in ready {
@@ -624,10 +624,10 @@ impl ModelingPackage {
             }
         }
         for lane in &mut available {
-            if let Err(error) = lane.close().await {
-                if close_failure.is_none() {
-                    close_failure = Some(error);
-                }
+            if let Err(error) = lane.close().await
+                && close_failure.is_none()
+            {
+                close_failure = Some(error);
             }
         }
         for (_, staged) in retained {
@@ -667,6 +667,10 @@ struct ExecutedPoint {
     start: StartProvenance,
     result: Result<Arc<RunResult>, WorkflowError>,
 }
+#[allow(
+    clippy::large_enum_variant,
+    reason = "the admitted preparation lane stays inline with its completion owner; boxing solely for layout would add an unaccounted allocation"
+)]
 enum LaneCompletion {
     Prepared {
         lane: super::study_operations::StudyPreparationLane,
@@ -697,10 +701,10 @@ impl LaneCompletion {
             }
             Self::Executed { lanes, .. } => {
                 for lane in lanes {
-                    if let Err(error) = lane.close().await {
-                        if failure.is_none() {
-                            failure = Some(error);
-                        }
+                    if let Err(error) = lane.close().await
+                        && failure.is_none()
+                    {
+                        failure = Some(error);
                     }
                 }
             }
@@ -794,8 +798,15 @@ async fn execute_lane_inner(
             ) = (&member.start, &mut member.preparation.operation)
             {
                 let older = member.older.as_deref();
-                continuation_start(package, target, member.previous.as_deref(), older, cancel)
-                    .await?;
+                // Prediction and original-space screening are preparation on the
+                // retained quiescent lane, and borrow its existing population until
+                // all directly awaited screening work has completed and joined.
+                let prepare =
+                    continuation_start(package, target, member.previous.as_deref(), older, cancel);
+                match staged.as_mut() {
+                    Some(staged) => staged.prepare(prepare).await??,
+                    None => prepare.await?,
+                }
             }
             match member.preparation.operation {
                 PreparedStudyOperation::DeclaredCase(case) => {
@@ -937,6 +948,10 @@ fn record_preparation_failure(
     }
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "recording one point updates separate scientific facts, outcomes, result ownership and continuation retention under the original cancellation authority"
+)]
 async fn record_execution(
     point: ExecutedPoint,
     definition: &StudyDefinition,
@@ -1615,6 +1630,49 @@ mod occurrence_execution_tests {
         quantity_name: &str,
         unit_symbol: &str,
     ) -> (ModelingPackage, StudyDefinition) {
+        fixture_source_with_presolve(
+            values,
+            source,
+            backend,
+            threads,
+            quantity_name,
+            unit_symbol,
+            crate::math::settings::SolveSettings::default().presolve,
+        )
+        .await
+    }
+    async fn fixture_source_with_presolve(
+        values: &[f64],
+        source: &str,
+        backend: Backend,
+        threads: usize,
+        quantity_name: &str,
+        unit_symbol: &str,
+        presolve: pse_backend_native::presolve::PolicyKind,
+    ) -> (ModelingPackage, StudyDefinition) {
+        let settings = crate::math::settings::SolveSettings {
+            backend: Some(backend),
+            presolve,
+            intent: if backend == Backend::PounceConvex {
+                pse_backend_native::solve::SolveIntent::Optimize
+            } else {
+                pse_backend_native::solve::SolveIntent::Root
+            },
+            controls: pse_backend_native::solve::Controls {
+                threads,
+                ..crate::workflow::tests::profile().controls
+            },
+            ..Default::default()
+        };
+        fixture_source_with_settings(values, source, quantity_name, unit_symbol, settings).await
+    }
+    async fn fixture_source_with_settings(
+        values: &[f64],
+        source: &str,
+        quantity_name: &str,
+        unit_symbol: &str,
+        settings: crate::math::settings::SolveSettings,
+    ) -> (ModelingPackage, StudyDefinition) {
         let runtime = runtime_with(1 << 30, 1 << 20, 8 << 30);
         let rows = pse_authoring::language::parse(
             source,
@@ -1650,19 +1708,7 @@ mod occurrence_execution_tests {
                 operation: OperationRequest::DeclaredCase(CaseOperation {
                     case: root,
                     route: pse_model::generated::enums::ModelingAnalysisRoute::Steady,
-                    settings: crate::math::settings::SolveSettings {
-                        backend: Some(backend),
-                        intent: if backend == Backend::PounceConvex {
-                            pse_backend_native::solve::SolveIntent::Optimize
-                        } else {
-                            pse_backend_native::solve::SolveIntent::Root
-                        },
-                        controls: pse_backend_native::solve::Controls {
-                            threads,
-                            ..crate::workflow::tests::profile().controls
-                        },
-                        ..Default::default()
-                    },
+                    settings: settings.clone(),
                 }),
                 preparation: PreparationSettings {
                     compiler: compiler_profile(),
@@ -1693,7 +1739,7 @@ mod occurrence_execution_tests {
                     identity: ContentHash::from_bytes([0; 32]),
                 },
                 &points,
-                &crate::workflow::StudyOutputDemand::Full,
+                &crate::workflow::StudyOutputDemand::Full {},
                 &crate::CancelSource::new(),
             )
             .await
@@ -1787,7 +1833,7 @@ mod occurrence_execution_tests {
         let original = serde_json::to_value(run.completion().unwrap()).unwrap();
         let weak = Arc::downgrade(&run);
         drop(report);
-        let full = retain_occurrence(run, &super::super::StudyOutputDemand::Full, true)
+        let full = retain_occurrence(run, &super::super::StudyOutputDemand::Full {}, true)
             .await
             .unwrap();
         assert!(
@@ -1837,8 +1883,12 @@ mod occurrence_execution_tests {
         // An issued lane clone remains owned through authentic native join, even
         // after all graph consumers have reported terminal observations.
         let inflight = state.values[0].clone();
-        for index in 1..5 {
-            let point = &policies.points[index];
+        assert_eq!(
+            policies.points.len(),
+            5,
+            "fixture requires all four seed consumers"
+        );
+        for (index, point) in policies.points.iter().enumerate().skip(1) {
             state.terminal(
                 index,
                 point,
@@ -1912,8 +1962,13 @@ mod occurrence_execution_tests {
     #[tokio::test]
     async fn compact_continuation_ignores_failed_older_and_keeps_accepted_parent_seed() {
         let (package, mut definition) = fixture(&[-5., 1., 2.]).await;
-        for index in 1..3 {
-            definition.points[index].policy.start = StartPolicy::Continuation(SeedEdge {
+        assert_eq!(
+            definition.points.len(),
+            3,
+            "fixture requires both continuation successors"
+        );
+        for (index, point) in definition.points.iter_mut().enumerate().skip(1) {
+            point.policy.start = StartPolicy::Continuation(SeedEdge {
                 predecessor: OccurrenceKey(index as u32 - 1),
                 role: SeedRole::PrimalSolution,
                 permission: ContinuationPermission::RequireUsable,
@@ -2243,8 +2298,27 @@ mod occurrence_execution_tests {
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn compact_native_continuation_sample_survives_report_departure_without_old_task() {
-        let (package, definition) =
-            fixture_source(&[0.25], POUNCE_OCCURRENCE_SOURCE, Backend::PounceConvex, 1).await;
+        // This control needs an exported native-coordinate seed. POUNCE NLP
+        // publishes one; POUNCE-convex retains only its internal batch starts.
+        // Keep this actual native path distinct from derived reconstruction.
+        let settings = crate::math::settings::SolveSettings {
+            backend: Some(Backend::Pounce),
+            intent: pse_backend_native::solve::SolveIntent::Optimize,
+            presolve: pse_backend_native::presolve::PolicyKind::Off,
+            controls: pse_backend_native::solve::Controls {
+                threads: 1,
+                ..crate::workflow::tests::profile().controls
+            },
+            ..Default::default()
+        };
+        let (package, definition) = fixture_source_with_settings(
+            &[0.25],
+            POUNCE_OCCURRENCE_SOURCE,
+            "Scalar",
+            "1",
+            settings,
+        )
+        .await;
         let mut report = package
             .study(&definition, 1, &crate::CancelSource::new())
             .await
@@ -2252,7 +2326,24 @@ mod occurrence_execution_tests {
         let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
             panic!("full expected");
         };
-        assert!(run.usable());
+        let RunReport::Modeling(points) = run.report().unwrap() else {
+            panic!("native continuation requires a modeling report");
+        };
+        let crate::math::solves::Outcome::Native(native) = &points[0].outcome else {
+            panic!(
+                "native continuation requires the original native outcome: {:?}",
+                points[0].outcome
+            );
+        };
+        assert!(
+            run.usable(),
+            "native continuation must be scientifically usable: {native:?}"
+        );
+        assert_eq!(native.backend, Backend::Pounce);
+        assert!(
+            native.warm_start.is_some(),
+            "native-coordinate seed must be published"
+        );
         let weak = Arc::downgrade(&run);
         let metadata = package
             .runtime

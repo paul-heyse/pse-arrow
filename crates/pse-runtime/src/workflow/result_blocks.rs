@@ -896,10 +896,10 @@ fn decode_admitted(mut bytes: Buffer) -> Result<RecordBatch, ResultBlockError> {
     let mut decoder = StreamDecoder::new();
     let mut batch = None;
     while !bytes.is_empty() {
-        if let Some(decoded) = decoder.decode(&mut bytes)? {
-            if batch.replace(decoded).is_some() {
-                return Err(ResultBlockError::Invalid("one decoded batch required"));
-            }
+        if let Some(decoded) = decoder.decode(&mut bytes)?
+            && batch.replace(decoded).is_some()
+        {
+            return Err(ResultBlockError::Invalid("one decoded batch required"));
         }
     }
     decoder.finish()?;
@@ -1030,7 +1030,9 @@ mod canonical_result_blocks_unit {
                     .collect::<Vec<_>>(),
             )),
             (0..columns)
-                .map(|_| Arc::new(NullArray::new(MAX_ROWS)) as datafusion::arrow::array::ArrayRef)
+                .map(|_| -> datafusion::arrow::array::ArrayRef {
+                    Arc::new(NullArray::new(MAX_ROWS))
+                })
                 .collect(),
         )
         .unwrap();

@@ -9,8 +9,10 @@ use std::collections::{BTreeMap, BTreeSet};
 struct Block {
     rows: Vec<usize>,
     columns: Vec<usize>,
-    // Each local sparse column maps a local row to the original coefficient ordinal.
-    coefficients: Vec<Vec<(usize, usize)>>,
+    // Canonical local CSC entries map to original coefficient ordinals. Explicit zeros
+    // remain stored, so numeric zero crossings cannot change the retained pattern.
+    coefficients: Vec<usize>,
+    matrix: feral::SparseColMatrix,
     factor: Option<feral::SparseLu>,
 }
 /// Immutable semantic projection plus mutable factors owned by one KINSOL session.
@@ -181,23 +183,38 @@ impl Blocks {
                 .enumerate()
                 .map(|(local, original)| (*original, local))
                 .collect();
-            let coefficients = column_slots
-                .iter()
-                .map(|&column| {
-                    pattern
-                        .col_range(column)
-                        .filter_map(|index| {
-                            local_rows
-                                .get(&pattern.row_idx()[index])
-                                .map(|&row| (row, index))
-                        })
-                        .collect()
-                })
-                .collect();
+            let mut col_ptr = Vec::with_capacity(column_slots.len() + 1);
+            let mut row_idx = Vec::new();
+            let mut coefficients = Vec::new();
+            col_ptr.push(0);
+            for &column in &column_slots {
+                let mut entries = pattern
+                    .col_range(column)
+                    .filter_map(|index| {
+                        local_rows
+                            .get(&pattern.row_idx()[index])
+                            .map(|&row| (row, index))
+                    })
+                    .collect::<Vec<_>>();
+                entries.sort_unstable_by_key(|&(row, _)| row);
+                for (row, index) in entries {
+                    row_idx.push(row);
+                    coefficients.push(index);
+                }
+                col_ptr.push(row_idx.len());
+            }
+            let matrix = feral::SparseColMatrix {
+                m: row_slots.len(),
+                col_ptr,
+                row_idx,
+                values: vec![0.0; coefficients.len()],
+            };
+            matrix.validate().map_err(crate::conditioning::native)?;
             blocks.push(Block {
                 rows: row_slots,
                 columns: column_slots,
                 coefficients,
+                matrix,
                 factor: None,
             });
         }
@@ -247,36 +264,22 @@ impl Blocks {
         let result = (|| {
             for block in &mut self.blocks {
                 execution.check()?;
-                let columns = block
-                    .coefficients
-                    .iter()
-                    .map(|column| {
-                        column
-                            .iter()
-                            .map(|&(row, index)| {
-                                values
-                                    .get(index)
-                                    .copied()
-                                    .filter(|value| value.is_finite())
-                                    .map(|value| (row, value))
-                                    .ok_or_else(|| {
-                                        ProblemError::numerical(
-                                            "block factor nonfinite Jacobian coefficient",
-                                        )
-                                    })
-                            })
-                            .collect::<Result<Vec<_>, _>>()
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let matrix =
-                    feral::SparseColMatrix::from_sparse_columns(block.rows.len(), &columns)
-                        .map_err(crate::conditioning::native)?;
+                for (slot, &index) in block.matrix.values.iter_mut().zip(&block.coefficients) {
+                    *slot = values
+                        .get(index)
+                        .copied()
+                        .filter(|value| value.is_finite())
+                        .ok_or_else(|| {
+                            ProblemError::numerical("block factor nonfinite Jacobian coefficient")
+                        })?;
+                }
                 self.factor_calls = self
                     .factor_calls
                     .checked_add(1)
                     .ok_or_else(|| ProblemError::Internal("block factor count overflow".into()))?;
-                let factor = feral::SparseLu::factor_markowitz(&matrix, feral::LuParams::default())
-                    .map_err(crate::conditioning::native)?;
+                let factor =
+                    feral::SparseLu::factor_markowitz(&block.matrix, feral::LuParams::default())
+                        .map_err(crate::conditioning::native)?;
                 self.factors_completed =
                     self.factors_completed.checked_add(1).ok_or_else(|| {
                         ProblemError::Internal("block successful factor count overflow".into())
@@ -455,6 +458,57 @@ mod tests {
         let mut execution = crate::solver_tests::execution();
         execution.memory = Some(128 << 20);
         execution
+    }
+    #[test]
+    fn fixed_csc_refill_preserves_storage_zero_crossings_and_invalidates_failed_setup() {
+        let function = Function::Equations(Box::new(Coupled::new(Arc::default(), false, false)));
+        let execution = execution();
+        let mut blocks = Blocks::admit(&function, &execution, linear()).unwrap();
+        let storage = blocks
+            .blocks
+            .iter()
+            .map(|b| {
+                (
+                    b.matrix.col_ptr.as_ptr(),
+                    b.matrix.row_idx.as_ptr(),
+                    b.matrix.values.as_ptr(),
+                )
+            })
+            .collect::<Vec<_>>();
+        // The first entry crosses zero and Markowitz selects pivots afresh each time.
+        for first in [0.0, 2.0, -1.0] {
+            blocks
+                .setup(&[first, 3., 2., 1., 4., 5.], &execution)
+                .unwrap();
+            // Independent block RHS for x = [2,-1,3]. The third row deliberately
+            // excludes the true off-block coupling, as the right preconditioner must.
+            let x = blocks
+                .solve(&[first * 2. - 2., 5., 15.], &execution)
+                .unwrap();
+            for (actual, expected) in x.iter().zip([2., -1., 3.]) {
+                assert!((actual - expected).abs() < 1e-12);
+            }
+            for (block, pointers) in blocks.blocks.iter().zip(&storage) {
+                assert_eq!(
+                    (
+                        block.matrix.col_ptr.as_ptr(),
+                        block.matrix.row_idx.as_ptr(),
+                        block.matrix.values.as_ptr()
+                    ),
+                    *pointers
+                );
+            }
+        }
+        // Failure in a later block must also discard earlier newly completed factors.
+        assert!(
+            blocks
+                .setup(&[2., 3., 2., 1., 4., f64::NAN], &execution)
+                .is_err()
+        );
+        assert!(blocks.blocks.iter().all(|block| block.factor.is_none()));
+        assert!(blocks.solve(&[1.; 3], &execution).is_err());
+        blocks.setup(&[0., 3., 2., 1., 4., 5.], &execution).unwrap();
+        assert!(blocks.solve(&[2., 1., 14.], &execution).is_ok());
     }
     #[test]
     fn library_btf_factor_action_keeps_coupling_in_true_product_and_refuses_unowned_storage() {

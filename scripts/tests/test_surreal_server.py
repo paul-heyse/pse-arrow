@@ -21,7 +21,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from scripts import host_admission as host
 from scripts import surreal_server as server
@@ -204,12 +204,15 @@ class SurrealSupervisorTests(unittest.TestCase):
                 original, candidate, self.state, restored, primary=True
             )
         worker.write_bytes(saved)
-        for artifact, mode in ((worker, 0o750), (worker.parent, 0o750)):
+        for artifact, mode, diagnostic in (
+            (worker, 0o750, "execution mode or private ownership"),
+            (worker.parent, 0o750, "permissions"),
+        ):
             with self.subTest(artifact=artifact):
                 before = artifact.stat().st_mode & 0o777
                 artifact.chmod(mode)
                 try:
-                    with self.assertRaisesRegex(server.SupervisorError, "permissions"):
+                    with self.assertRaisesRegex(server.SupervisorError, diagnostic):
                         recovery.receiver_equivalence(
                             original, candidate, self.state, restored, primary=True
                         )
@@ -1805,6 +1808,213 @@ class SurrealSupervisorTests(unittest.TestCase):
             self.assertTrue(server.ensure_primary(self.state)["ready"])
             launch.assert_not_called()
 
+    def test_primary_generation_verification_is_shared_only_within_admission(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        captures = []
+
+        def admitted(*_args: object) -> dict[str, object]:
+            self.assertTrue((self.state / "primary-admission.json").exists())
+            before = digest.call_count
+            server.checked_primary(config)
+            count = digest.call_count - before
+            self.assertGreater(count, 0)
+            server.checked_primary(config)
+            self.assertEqual(digest.call_count - before, count)
+            captures.append(count)
+            return {"ready": True}
+
+        with (
+            patch.object(server, "file_digest", wraps=server.file_digest) as digest,
+            patch.object(server, "_ensure_primary", side_effect=admitted),
+        ):
+            server.ensure_primary(self.state)
+            server.ensure_primary(self.state)
+        self.assertEqual(captures[0], captures[1])
+        self.assertIsNone(getattr(server._STARTUP, "verification", None))  # noqa: SLF001 -- owner evidence must not survive admission
+
+    def test_primary_shared_generation_invalidates_changed_bytes_path_link_and_mode(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        receiver = server.checked_primary(config)
+        worker = Path(receiver["worker_executable"])
+        original = worker.read_bytes()
+        original_mode = worker.stat().st_mode
+        manifest = worker.parents[1] / "generation.json"
+
+        for mutation in (
+            "same-inode-restored-mtime",
+            "mode",
+            "widened-mode",
+            "manifest-mode",
+            "link",
+            "path",
+        ):
+
+            def admitted(*_args: object, mutation: str = mutation) -> dict[str, object]:
+                server.checked_primary(config)
+                selected = json.loads(json.dumps(config))
+                before = worker.stat()
+                try:
+                    if mutation == "same-inode-restored-mtime":
+                        worker.write_bytes(b"x" * len(original))
+                        os.utime(worker, ns=(before.st_atime_ns, before.st_mtime_ns))
+                        self.assertEqual(worker.stat().st_ino, before.st_ino)
+                        self.assertEqual(worker.stat().st_mtime_ns, before.st_mtime_ns)
+                    elif mutation == "mode":
+                        worker.chmod(0o600)
+                    elif mutation == "widened-mode":
+                        worker.chmod(0o755)
+                    elif mutation == "manifest-mode":
+                        manifest.chmod(0o644)
+                    elif mutation == "link":
+                        other = self.root / "unowned-worker"
+                        other.write_bytes(original)
+                        other.chmod(0o700)
+                        worker.unlink()
+                        worker.symlink_to(other)
+                    else:
+                        selected["primary_receiver"]["worker_executable"] = str(
+                            self.root / "unowned-worker"
+                        )
+                    with self.assertRaises(server.SupervisorError):
+                        server.checked_primary(selected)
+                finally:
+                    if worker.is_symlink():
+                        worker.unlink()
+                    worker.write_bytes(original)
+                    worker.chmod(original_mode)
+                    manifest.chmod(0o600)
+                return {"ready": True}
+
+            with (
+                self.subTest(mutation=mutation),
+                patch.object(server, "_ensure_primary", side_effect=admitted),
+            ):
+                server.ensure_primary(self.state)
+
+    def test_primary_new_process_and_association_require_full_generation_capture(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        observation = {
+            "ActiveState": "active",
+            "ControlGroup": "/owned",
+            "MainPID": str(os.getpid()),
+        }
+        marker = {
+            "pid": os.getpid(),
+            "canonical_database": "selected",
+            "nonce": "original",
+        }
+        server.write_json(self.state / "primary-receiver.json", marker)
+        server.write_json(self.state / "primary-launch.json", {"nonce": "original"})
+
+        def admitted(*_args: object) -> dict[str, object]:
+            server.checked_primary(config)
+            qualified = digest.call_count
+            server.primary_ready(self.state, config, observation, "selected")
+            initial = digest.call_count
+            self.assertGreater(initial, 0)
+            self.assertEqual(initial, qualified)
+            server.primary_ready(self.state, config, observation, "selected")
+            self.assertEqual(digest.call_count, initial)
+            marker["nonce"] = "new-process"
+            server.write_json(self.state / "primary-receiver.json", marker)
+            server.write_json(
+                self.state / "primary-launch.json", {"nonce": "new-process"}
+            )
+            server.primary_ready(self.state, config, observation, "selected")
+            self.assertGreater(digest.call_count, initial)
+            previous = digest.call_count
+            server.primary_ready(self.state, config, observation, "other-database")
+            self.assertGreater(digest.call_count, previous)
+            previous = digest.call_count
+            with patch.object(
+                server.native_operation, "start_identity", return_value="new-start"
+            ):
+                server.primary_ready(self.state, config, observation, "other-database")
+            self.assertGreater(digest.call_count, previous)
+            previous = digest.call_count
+            (self.state / "primary-receiver.json").unlink()
+            server.primary_ready(self.state, config, observation, "selected")
+            self.assertGreater(digest.call_count, previous)
+            self.assertEqual(process.call_count, 6)
+            return {"ready": True}
+
+        with (
+            patch.object(server, "file_digest", wraps=server.file_digest) as digest,
+            patch.object(
+                server, "_primary_process", return_value=os.getpid()
+            ) as process,
+            patch.object(server, "_ensure_primary", side_effect=admitted),
+        ):
+            server.ensure_primary(self.state)
+
+    def test_generation_stream_capture_stops_on_original_clock_without_sealing(
+        self,
+    ) -> None:
+        config = self.reference_fixture()
+        generation = Path(
+            server.primary_association(config)["supervisor_script"]
+        ).parents[1]
+        owner = server.PrimaryVerification()
+        expired = server.DeadlineExpiredError("original control clock")
+        with (
+            patch.object(server._STARTUP, "deadline", 100, create=True),  # noqa: SLF001 -- inject the original admission clock
+            patch.object(server._STARTUP, "verification", owner, create=True),  # noqa: SLF001 -- inspect unsealed cancelled evidence
+            patch.object(server, "remaining", side_effect=expired),
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.verify_generation(generation)
+        self.assertEqual(owner.generations, {})
+
+        large = self.root / "chunked-content"
+        large.write_bytes(b"x" * (3 * server.MIB))
+        with (
+            patch.object(server._STARTUP, "deadline", 100, create=True),  # noqa: SLF001 -- every chunk consumes the same clock
+            patch.object(server, "remaining", side_effect=[1, 1, expired]) as clock,
+            self.assertRaises(server.DeadlineExpiredError),
+        ):
+            server.file_digest(large)
+        self.assertEqual(clock.call_args_list, [call(100)] * 3)
+
+    def test_generation_capture_never_seals_partial_or_changed_inventory(self) -> None:
+        config = self.reference_fixture()
+        worker = Path(server.primary_association(config)["worker_executable"])
+        generation = worker.parents[1]
+        digest = server.file_digest
+        for failure in ("cancel", "mutation"):
+            owner = server.PrimaryVerification()
+            calls: list[Path] = []
+
+            def capture(
+                path: Path, failure: str = failure, calls: list[Path] = calls
+            ) -> str:
+                result = digest(path)
+                calls.append(path)
+                if failure == "cancel" and len(calls) == 2:
+                    raise server.DeadlineExpiredError("original clock during capture")
+                if failure == "mutation" and path == worker:
+                    information = worker.stat()
+                    worker.write_bytes(b"x" * information.st_size)
+                    os.utime(
+                        worker, ns=(information.st_atime_ns, information.st_mtime_ns)
+                    )
+                return result
+
+            with (
+                self.subTest(failure=failure),
+                patch.object(server._STARTUP, "verification", owner, create=True),  # noqa: SLF001 -- incomplete evidence must remain private and unsealed
+                patch.object(server, "file_digest", side_effect=capture),
+                self.assertRaises(server.SupervisorError),
+            ):
+                server.verify_generation(generation)
+            self.assertGreaterEqual(len(calls), 2)
+            self.assertEqual(owner.generations, {})
+
     def test_unmatched_live_primary_is_refused(self) -> None:
         self.reference_fixture()
         observation = {
@@ -1949,7 +2159,9 @@ class SurrealSupervisorTests(unittest.TestCase):
         }
 
         @contextlib.contextmanager
-        def metadata(_directory: Path) -> Generator[dict[str, object], None, None]:
+        def metadata(
+            _directory: Path, **_options: object
+        ) -> Generator[dict[str, object], None, None]:
             yield ledger
 
         def manager(
@@ -2217,6 +2429,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 def metadata(
                     _directory: Path,
                     captured: dict[str, object] = ledger,
+                    **_options: object,
                 ) -> Generator[dict[str, object], None, None]:
                     yield captured
 
@@ -2248,14 +2461,19 @@ class SurrealSupervisorTests(unittest.TestCase):
         self,
     ) -> None:
         with self.observer_control_fixture() as (state, manager, drained):
-            metadata = host.allocation_metadata.side_effect
-            calls = []
+            metadata_control = host.allocation_metadata
+            assert isinstance(metadata_control, MagicMock)
+            metadata = metadata_control.side_effect
+            assert callable(metadata)
+            calls: list[float | None] = []
 
-            def bounded_metadata(directory: Path, **options):
-                calls.append(options.get("deadline"))
+            def bounded_metadata(
+                directory: Path, *, deadline: float | None = None, **_options: object
+            ) -> contextlib.AbstractContextManager[dict[str, object]]:
+                calls.append(deadline)
                 return metadata(directory)
 
-            clock = [None]
+            clock: list[float | None] = [None]
             with patch.object(
                 host, "allocation_metadata", side_effect=bounded_metadata
             ):
@@ -5833,13 +6051,83 @@ class SurrealSupervisorTests(unittest.TestCase):
         self.assertIn("canonical_analysis_edges", deletes[0])
         self.assertIn("canonical_analysis_nodes", deletes[2])
         self.assertIn("'execution-run:'+$row.run", deletes[3])
+        self.assertIn("FOR UPDATE;", deletes[3])
+        self.assertNotIn("IF $guard=NONE", deletes[3])
         self.assertIn("owner_kind='analysis'", deletes[4])
         self.assertIn("'retention:'+$row.problem", deletes[4])
+        self.assertIn("IF $guard=NONE", deletes[4])
         self.assertIn("string::starts_with(key,'analysis:')", deletes[-1])
         self.assertIn("incarnation=<string>rand::uuid::v4()", bodies[-2])
         self.assertNotIn("analysis_creation_closed_through", " ".join(bodies))
         self.assertNotIn("DELETE canonical_revisions", " ".join(bodies))
         self.assertNotIn("DELETE canonical_protections", " ".join(bodies))
+
+    def test_analysis_cleanup_registers_absent_run_guard_but_requires_source_authority(
+        self,
+    ) -> None:
+        config = self.initialized()
+        credentials = server.read_json(self.state / "credentials.json")
+        bodies: list[str] = []
+        input_pages = 0
+
+        def native_result(
+            _state: Path,
+            _config: dict[str, object],
+            _credentials: dict[str, object],
+            body: str,
+        ) -> tuple[str, subprocess.CompletedProcess[str]]:
+            nonlocal input_pages
+            bodies.append(body)
+            nonce = "exact-cleanup-ack"
+            value: object = 0
+            if "FROM canonical_analysis_inputs " in body:
+                input_pages += 1
+                self.assertIn(
+                    "SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE;",
+                    body,
+                )
+                self.assertNotIn("IF $guard=NONE", body)
+                self.assertNotIn("CREATE", body)
+                self.assertNotIn("UPSERT", body)
+                self.assertNotIn("UPDATE ONLY", body)
+                value = 1 if input_pages == 1 else 0
+            elif "FROM canonical_roots " in body:
+                self.assertIn("IF $guard=NONE", body)
+                self.assertIn("THROW 'source authority missing'", body)
+                # The native CLI exits zero even when this guarded transaction
+                # aborts. Its missing acknowledgment must still fence cleanup.
+                return nonce, subprocess.CompletedProcess(
+                    [],
+                    0,
+                    json.dumps(
+                        [
+                            None,
+                            "An error occurred: source authority missing",
+                            "Cannot COMMIT: the transaction was aborted due to a prior error",
+                        ]
+                    ),
+                    "",
+                )
+            elif "LET $value=true;" in body:
+                value = True
+            return nonce, subprocess.CompletedProcess(
+                [],
+                0,
+                json.dumps([None, {"maintenance": nonce, "value": value}, None]),
+                "",
+            )
+
+        with (
+            patch.object(server, "maintenance_sql", side_effect=native_result),
+            self.assertRaisesRegex(server.SupervisorError, "acknowledgment"),
+        ):
+            server.remove_analysis_state(self.state, config, credentials)
+        self.assertEqual(input_pages, 2)
+        self.assertIn("FROM canonical_roots ", bodies[-1])
+        self.assertFalse(any("incarnation=<string>" in body for body in bodies))
+        failure = server.read_json(self.state / "maintenance-cli-failure.json")
+        self.assertEqual(failure["returncode"], 0)
+        self.assertIn("source authority missing", str(failure["stdout"]))
 
     def test_cleanup_refuses_live_protection_and_invalid_page_acknowledgment(
         self,

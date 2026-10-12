@@ -896,7 +896,7 @@ mod canonical_connected_results_server_unit {
                 effect: pse_model::study::EffectState::Absent,
             },
             state: pse_model::generated::enums::AttemptState::Partial,
-            progress: super::super::ProgressCoverage::Unknown,
+            progress: super::super::ProgressCoverage::Unknown {},
         };
         let bytes = serde_json::to_vec(&original).unwrap();
         acknowledgments
@@ -1613,7 +1613,7 @@ mod canonical_connected_results_server_unit {
                 effect: pse_model::study::EffectState::Absent,
             },
             state: pse_model::generated::enums::AttemptState::Failed,
-            progress: super::super::ProgressCoverage::Unknown,
+            progress: super::super::ProgressCoverage::Unknown {},
         };
         let completion = serde_json::to_vec(&serde_json::json!({ "version": 1, "batch_count": 0, "payload_bytes": 0, "digest": "", "inline": completion })).unwrap();
         // SAFETY: finite generated rows are explicitly classified as a partial fixture, not usable success.

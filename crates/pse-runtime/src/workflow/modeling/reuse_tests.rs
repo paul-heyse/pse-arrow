@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Allocation and retention controls through the admitted ModelingPackage production route.
+#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[path = "reuse_journey_tests.rs"]
+mod reuse_journey_tests;
+
 use super::*;
 use std::{collections::BTreeSet, sync::Arc};
 fn declarations(source: &str) -> Vec<Declaration> {
@@ -957,7 +961,7 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
         .modeling_revision(
             first.canonical_revision().clone(),
             physical,
-            BTreeMap::from([("law".into(), provider_b)]),
+            BTreeMap::from([("law".into(), provider_b.clone())]),
         )
         .await
         .unwrap();
@@ -972,7 +976,62 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
         .unwrap();
     let b = changed.checked_selection(&[root], &cancel).await.unwrap();
     assert_ne!(a.admission.request, b.admission.request);
-    assert!(!a.admission.revision.same_admission(&b.admission.revision));
+    assert!(!Arc::ptr_eq(&a.admission, &b.admission));
+    assert!(
+        a.admission.revision.same_admission(&b.admission.revision),
+        "equal descriptors retain the same checked topology independently of native configuration"
+    );
+    let math = runtime.shared.math();
+    let instance = pse_modeling::specialize::root_instance(root);
+    assert_ne!(
+        math.basis_key(
+            &a.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default()
+        )
+        .unwrap(),
+        math.basis_key(
+            &b.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default()
+        )
+        .unwrap(),
+        "the complete staged request still separates configured preparation bases"
+    );
+    assert_eq!(
+        first.registrations()[&spec.key()].configuration_key(),
+        provider_a.configuration_key()
+    );
+    assert_eq!(
+        changed.registrations()[&spec.key()].configuration_key(),
+        provider_b.configuration_key()
+    );
+    for (package, expected) in [(&first, &provider_a), (&changed, &provider_b)] {
+        let model = prepared(package).await;
+        let registrations = package
+            .inner_registrations(
+                model,
+                &pse_compiler::workspace::ModelingCaseBindings::default(),
+                &crate::math::solves::NumericalInputs::default(),
+                &pse_model::numerics::NumericalPolicy::default(),
+                &pse_backend_native::solve::Controls::default(),
+                DerivativeOrder::First,
+                pse_compiler::workspace::Profile::default(),
+                &cancel,
+                implicit::ProviderDemand::Observations(None),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            registrations[&spec.key()].configuration_key(),
+            expected.configuration_key(),
+            "native provider handoff retains the package's actual configured factory"
+        );
+    }
     runtime
         .canonical
         .store()
@@ -1436,24 +1495,24 @@ async fn ordinary_preparation_exact_basis_hit_rebinds_current_attribution_and_se
     let observed = observations.clone();
     let configuration = effective.clone();
     fn anchor() {}
+    let observe = Arc::new(move || {
+        observed.fetch_add(1, Ordering::SeqCst);
+        // SAFETY: this native test root has no libc environment writers.
+        let environment = unsafe {
+            pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(()))
+        }?;
+        crate::math::portable::RuntimeConfigurationObservation::new(
+            configuration.lock().unwrap().clone(),
+            environment,
+        )
+    });
     // SAFETY: this actual test binary is the controlled root of immutable mathematics;
     // the observer below supplies its actual owned configuration and imports no code.
     let producer = unsafe {
         ReplayAdmission::observe_local(
             ExpectedProducerTarget::WORKER,
             anchor as *const () as usize,
-            Arc::new(move || {
-                observed.fetch_add(1, Ordering::SeqCst);
-                // SAFETY: this native test root has no libc environment writers.
-                let environment =
-                    pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(
-                        &|| Ok(()),
-                    )?;
-                crate::math::portable::RuntimeConfigurationObservation::new(
-                    configuration.lock().unwrap().clone(),
-                    environment,
-                )
-            }),
+            observe,
         )
     }
     .unwrap();

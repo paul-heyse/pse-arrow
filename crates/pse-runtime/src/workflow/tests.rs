@@ -83,7 +83,14 @@ pub(crate) fn runtime_with(
     )
 }
 pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
-    let shared = shared_runtime_on(memory, math);
+    runtime_on_threads(memory, math, 2)
+}
+pub(crate) fn runtime_on_threads(
+    memory: usize,
+    math: crate::math::MathPolicy,
+    pool_threads: usize,
+) -> Runtime {
+    let shared = shared_runtime_on_threads(memory, math, pool_threads);
     let registry = pse_schema::shared_registry().unwrap();
     let sessions = Arc::new(
         shared
@@ -100,6 +107,13 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
     .unwrap()
 }
 fn shared_runtime_on(memory: usize, math: crate::math::MathPolicy) -> Arc<SharedRuntime> {
+    shared_runtime_on_threads(memory, math, 2)
+}
+fn shared_runtime_on_threads(
+    memory: usize,
+    math: crate::math::MathPolicy,
+    pool_threads: usize,
+) -> Arc<SharedRuntime> {
     let n = |v| NonZeroUsize::new(v).unwrap();
     SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: n(memory),
@@ -107,7 +121,7 @@ fn shared_runtime_on(memory: usize, math: crate::math::MathPolicy) -> Arc<Shared
         max_temp_dir_bytes: 1 << 30,
         top_consumers: n(5),
         threads: pse_engine::ThreadBudget {
-            pool_threads: n(2),
+            pool_threads: n(pool_threads),
             target_partitions: n(1),
         },
         execution: Default::default(),

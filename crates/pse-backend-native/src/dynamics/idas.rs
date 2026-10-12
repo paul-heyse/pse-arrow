@@ -19,6 +19,7 @@ use crate::{
     solve::{Assurance, Backend, Execution, NativeTermination, Preconditioner, Progress},
 };
 use std::{
+    collections::HashMap,
     ffi::{c_long, c_void},
     marker::PhantomData,
     rc::Rc,
@@ -55,6 +56,7 @@ struct Context<'a> {
     rows_b: Vec<ffi::sunindextype>,
     /// Forward union-entry destinations in the adjoint pattern.
     transpose_slots: Vec<usize>,
+    partial_slots: PartialSlots,
     diagonal_slots: Vec<usize>,
     diagonal_slots_b: Vec<usize>,
     newton_values: Vec<f64>,
@@ -64,6 +66,9 @@ struct Context<'a> {
     /// empty on the other routes.
     columns_bs: Vec<ffi::sunindextype>,
     rows_bs: Vec<ffi::sunindextype>,
+    partial_slots_bs: Vec<[usize; 2]>,
+    diagonal_slots_bs: Vec<[usize; 2]>,
+    coupling_slots_bs: Vec<usize>,
     /// Residual rows grouped so that no two rows of a group depend on a common state: one
     /// weighted Hessian per group yields their coupling columns (a Curtis–Powell–Reid
     /// colouring of the coupling block).
@@ -460,35 +465,39 @@ fn slot(
         .ok()
         .map(|k| range.start + k)
 }
-/// Merge actual state-column partials into the admitted all-mode union. A source
-/// may contain any subset; noncanonical row order keeps the existing lookup rule.
+/// Prepared sparse destinations for actual state partials. The oracle may return
+/// a subset or noncanonical rows; neither changes the admitted union destinations.
+struct PartialSlots {
+    states: usize,
+    destinations: HashMap<(usize, usize), usize>,
+}
+impl PartialSlots {
+    fn new(columns: &[ffi::sunindextype], rows: &[ffi::sunindextype]) -> Self {
+        let states = columns.len() - 1;
+        let destinations = (0..states)
+            .flat_map(|col| {
+                (columns[col] as usize..columns[col + 1] as usize)
+                    .map(move |k| ((col, rows[k] as usize), k))
+            })
+            .collect();
+        Self {
+            states,
+            destinations,
+        }
+    }
+    fn get(&self, col: usize, row: usize) -> Option<usize> {
+        self.destinations.get(&(col, row)).copied()
+    }
+}
 fn scatter_partials(
     source: faer::sparse::SparseColMatRef<'_, usize, f64>,
-    n: usize,
-    columns: &[ffi::sunindextype],
-    rows: &[ffi::sunindextype],
+    slots: &PartialSlots,
     transpose: Option<&[usize]>,
     values: &mut [f64],
 ) -> bool {
-    for col in 0..n {
-        let start = columns[col] as usize;
-        let end = columns[col + 1] as usize;
-        let mut cursor = start;
-        let mut previous = None;
-        let mut canonical = true;
+    for col in 0..slots.states {
         for k in source.col_range(col) {
-            let row = source.row_idx()[k];
-            canonical &= previous.is_none_or(|previous| previous <= row);
-            previous = Some(row);
-            let target = if canonical {
-                while cursor < end && rows[cursor] < row as ffi::sunindextype {
-                    cursor += 1;
-                }
-                (cursor < end && rows[cursor] == row as ffi::sunindextype).then_some(cursor)
-            } else {
-                slot(columns, rows, col, row)
-            };
-            let Some(target) = target else {
+            let Some(target) = slots.get(col, source.row_idx()[k]) else {
                 return false;
             };
             if let Some(transpose) = transpose {
@@ -587,9 +596,7 @@ unsafe extern "C" fn jacobian(
         }
         if !scatter_partials(
             j.as_ref().as_ref(),
-            n,
-            &c.columns,
-            &c.rows,
+            &c.partial_slots,
             None,
             &mut c.newton_values,
         ) {
@@ -923,9 +930,7 @@ unsafe extern "C" fn jacobian_b(
         }
         if !scatter_partials(
             j.as_ref().as_ref(),
-            n,
-            &c.columns,
-            &c.rows,
+            &c.partial_slots,
             Some(&c.transpose_slots),
             &mut c.newton_values_b,
         ) {
@@ -1091,23 +1096,17 @@ unsafe extern "C" fn jacobian_bs(
         };
         let mut values = vec![0.0; c.rows_bs.len()];
         let symbolic = j.symbolic();
-        for block in [0, n] {
-            for col in 0..n {
-                if c.contract.differential[col]
-                    && let Some(k) = slot(&c.columns_bs, &c.rows_bs, block + col, block + col)
-                {
-                    values[k] += cj;
+        for col in 0..n {
+            if c.contract.differential[col] {
+                for target in c.diagonal_slots_bs[col] {
+                    values[target] += cj;
                 }
-                // Forward entry (row, col) is adjoint entry (col, row) in each block.
-                for k in symbolic.col_range(col) {
-                    let Some(target) = slot(
-                        &c.columns_bs,
-                        &c.rows_bs,
-                        block + symbolic.row_idx()[k],
-                        block + col,
-                    ) else {
-                        return outside(c);
-                    };
+            }
+            for k in symbolic.col_range(col) {
+                let Some(union) = c.partial_slots.get(col, symbolic.row_idx()[k]) else {
+                    return outside(c);
+                };
+                for target in c.partial_slots_bs[union] {
                     values[target] += j.val()[k];
                 }
             }
@@ -1129,9 +1128,7 @@ unsafe extern "C" fn jacobian_bs(
             for row in color {
                 for k in c.columns_b[row] as usize..c.columns_b[row + 1] as usize {
                     let state = c.rows_b[k] as usize;
-                    let Some(target) = slot(&c.columns_bs, &c.rows_bs, row, n + state) else {
-                        return outside(c);
-                    };
+                    let target = c.coupling_slots_bs[k];
                     values[target] += v[state];
                 }
             }
@@ -1359,6 +1356,14 @@ impl<'a> Session<'a> {
     ) -> Result<(Self, Evaluation), ProblemError> {
         let c = oracle.contract().clone();
         let n = c.states.len();
+        execution.check()?;
+        if let Some(allowance) = execution.memory
+            && scatter_storage_bound(n, false).is_none_or(|bytes| bytes > allowance)
+        {
+            return Err(ProblemError::memory(
+                "IDAS prepared scatter exceeds foreign allowance",
+            ));
+        }
         let map = config.map;
         let mut pattern: Vec<(usize, usize)> = (0..n).map(|i| (i, i)).collect();
         for mode in 0..c.events.len() {
@@ -1396,6 +1401,7 @@ impl<'a> Session<'a> {
                     .ok_or_else(|| ProblemError::internal("IDAS transpose entry absent"))
             })
             .collect::<Result<_, _>>()?;
+        let partial_slots = PartialSlots::new(&columns, &rows);
         let newton_values = vec![0.0; rows.len()];
         let newton_values_b = vec![0.0; rows_b.len()];
         let mut s = Self {
@@ -1428,12 +1434,16 @@ impl<'a> Session<'a> {
                 columns_b,
                 rows_b,
                 transpose_slots,
+                partial_slots,
                 diagonal_slots,
                 diagonal_slots_b,
                 newton_values,
                 newton_values_b,
                 columns_bs: Vec::new(),
                 rows_bs: Vec::new(),
+                partial_slots_bs: Vec::new(),
+                diagonal_slots_bs: Vec::new(),
+                coupling_slots_bs: Vec::new(),
                 colors: Vec::new(),
                 inverse_diagonal: vec![1.0; n],
             }),
@@ -1619,6 +1629,13 @@ impl<'a> Session<'a> {
         let mut sensitivities = Vec::new();
         let mut rates = Vec::new();
         if !directions.is_empty() {
+            if let Some(allowance) = self.callback.callback.execution.memory
+                && scatter_storage_bound(n, true).is_none_or(|bytes| bytes > allowance)
+            {
+                return Err(ProblemError::memory(
+                    "IDAS second-order scatter exceeds foreign allowance",
+                ));
+            }
             // The transposed pattern of `∂f/∂yᵀ` on both diagonal blocks of the 2n Newton
             // matrix and on the coupling block `∂(∇²(λᵀf)·d)_x/∂λ` below them: column j of
             // the coupling holds `(∇²f_j·d)_x`, nonzero only where f_j depends on the state.
@@ -1652,6 +1669,33 @@ impl<'a> Session<'a> {
             }
             self.callback.colors = colors;
             (self.callback.columns_bs, self.callback.rows_bs) = csc(2 * n, &pairs)?;
+            let c = &mut self.callback;
+            let columns_bs = &c.columns_bs;
+            let rows_bs = &c.rows_bs;
+            let target = |col, row| {
+                slot(columns_bs, rows_bs, col, row)
+                    .ok_or_else(|| ProblemError::internal("IDAS second-order scatter entry absent"))
+            };
+            c.partial_slots_bs = (0..n)
+                .flat_map(|col| {
+                    (c.columns[col] as usize..c.columns[col + 1] as usize).map(move |k| (col, k))
+                })
+                .map(|(col, k)| {
+                    let row = c.rows[k] as usize;
+                    Ok([target(row, col)?, target(n + row, n + col)?])
+                })
+                .collect::<Result<_, ProblemError>>()?;
+            c.diagonal_slots_bs = (0..n)
+                .map(|i| Ok([target(i, i)?, target(n + i, n + i)?]))
+                .collect::<Result<_, ProblemError>>()?;
+            c.coupling_slots_bs = (0..n)
+                .flat_map(|row| {
+                    (c.columns_b[row] as usize..c.columns_b[row + 1] as usize)
+                        .map(move |k| (row, k))
+                })
+                .map(|(row, k)| target(row, n + c.rows_b[k] as usize))
+                .collect::<Result<_, _>>()?;
+
             for _ in 0..width {
                 sensitivities.push(self.vector(&zeros)?);
                 rates.push(self.vector(&zeros)?);
@@ -2473,6 +2517,7 @@ impl Session<'_> {
         };
         let mut carried: Option<Vec<Vec<f64>>> = None;
         let mut totals = vec![vec![0.0; quadratures]; count];
+        let mut remaining_samples = r.samples.len();
         for (k, start) in starts.iter().enumerate().rev() {
             let stop = boundaries.get(k).copied().unwrap_or(p.end);
             self.callback.map = p.columns_at(np, start.time);
@@ -2483,13 +2528,14 @@ impl Session<'_> {
             }
             // The segment's samples, latest first; a sample at a change time observes the
             // later segment.
-            let mut observed = (0..r.samples.len())
-                .rev()
-                .filter(|i| {
-                    let t = r.samples[*i].time;
-                    t >= start.time && (t < stop || (last && t <= stop))
-                })
-                .peekable();
+            let end = remaining_samples;
+            while remaining_samples > 0 && r.samples[remaining_samples - 1].time >= start.time {
+                remaining_samples -= 1;
+            }
+            let mut observed = (remaining_samples..end).rev().peekable();
+            if end > remaining_samples && r.samples[end - 1].time > stop {
+                return Err(ProblemError::internal("adjoint sample outside its segment"));
+            }
             let mut states = carried
                 .take()
                 .unwrap_or_else(|| vec![vec![0.0; size]; count]);
@@ -3233,6 +3279,12 @@ pub(super) fn initialize_consistent(
         .ok_or_else(|| {
             ProblemError::memory("consistent initialization workspace shape overflow")
         })?;
+    let bytes = bytes
+        .checked_add(
+            scatter_storage_bound(n, false)
+                .ok_or_else(|| ProblemError::memory("IDAS prepared scatter extent overflow"))?,
+        )
+        .ok_or_else(|| ProblemError::memory("consistent initialization scatter extent overflow"))?;
     if bytes > allowance {
         return Err(ProblemError::memory(
             "consistent initialization workspace exceeds foreign allowance",
@@ -3649,24 +3701,28 @@ mod initialization_tests {
             ],
         )
         .unwrap();
+        let slots = PartialSlots::new(&columns, &rows);
+        let destinations_capacity = slots.destinations.capacity();
+        let occupied = slots.destinations.capacity()
+            * (size_of::<((usize, usize), usize)>() + size_of::<usize>());
+        assert!(scatter_storage_bound(3, false).unwrap() >= occupied);
+        assert!(scatter_storage_bound(usize::MAX, true).is_none());
+        assert!(scatter_storage_bound(3, true).unwrap() > scatter_storage_bound(3, false).unwrap());
         let mut forward = vec![0.; rows.len()];
         let mut backward = vec![0.; rows_b.len()];
         assert!(scatter_partials(
             source.as_ref(),
-            3,
-            &columns,
-            &rows,
+            &slots,
             None,
             &mut forward
         ));
         assert!(scatter_partials(
             source.as_ref(),
-            3,
-            &columns,
-            &rows,
+            &slots,
             Some(&destinations),
             &mut backward
         ));
+        assert_eq!(slots.destinations.capacity(), destinations_capacity);
         assert_eq!(forward, [0., -4., -7., 0., 3., 0.]);
         for &(col, row) in &pattern {
             assert_eq!(
@@ -3682,9 +3738,7 @@ mod initialization_tests {
         .unwrap();
         assert!(!scatter_partials(
             outside.as_ref(),
-            3,
-            &columns,
-            &rows,
+            &slots,
             None,
             &mut forward
         ));

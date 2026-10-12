@@ -549,6 +549,28 @@ mod canonical_server_unit {
     }
 }
 
+/// Observe the exact current source head in an isolated fixture without changing it.
+pub async fn source_problem_head(
+    store: &crate::canonical::CanonicalStore,
+    problem: &str,
+) -> Result<
+    Option<pse_model::generated::runtime::canonical_problems::Row>,
+    crate::canonical::CanonicalError,
+> {
+    let mut response = crate::canonical::bounded_query(
+        store
+            .db
+            .query("SELECT * FROM ONLY type::record('canonical_problems', $problem);")
+            .bind(("problem", problem.to_owned())),
+    )
+    .await?;
+    response
+        .take::<Option<surrealdb::types::Object>>(0)?
+        .map(crate::generated::surreal::decode_canonical_problems)
+        .transpose()
+        .map_err(Into::into)
+}
+
 /// Inspect one exact unsealed batch in a registered fixture without admitting its prefix.
 pub async fn pending_result_batch_rows(
     store: &crate::canonical::CanonicalStore,

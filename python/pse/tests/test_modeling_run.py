@@ -9,6 +9,13 @@ import pyarrow as pa
 import pytest
 
 import pse
+from pse.contracts.documents import (
+    BindingAssignment,
+    BindingQuantity,
+    BindingTargetMember,
+    BindingTargetPath,
+    PointOverlay,
+)
 from pse.contracts.enums import (
     NativeBackend,
     NativeSolveIntent,
@@ -207,14 +214,6 @@ def test_typed_bound_solve_preserves_parent_and_returns_exact_admission(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
-    from pse.contracts.documents import (
-        BindingAssignment,
-        BindingQuantity,
-        BindingTargetMember,
-        BindingTargetPath,
-        PointOverlay,
-    )
-
     runtime = canonical_substrate.runtime(inspection_settings)
     root = Path(__file__).resolve().parents[3]
     primitives = root / "tests/fixtures/packages/physical-primitives"
@@ -295,6 +294,7 @@ def test_typed_bound_solve_preserves_parent_and_returns_exact_admission(
         row["value"] for row in reports if row["label"] == "solution"
     ) == pytest.approx(6.0)
     assert reopened.bound_source is None
+    assert reopened.binding_identity is None
     same_member = BindingAssignment(
         target=BindingTargetMember(value=admitted["p"].member),
         value=assignment("p", 4.0).value,

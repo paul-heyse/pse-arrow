@@ -84,6 +84,7 @@ overrideable = "overrideable"           # Accepted spelling variant in the physi
 restat = "restat"                       # Ninja's restat policy, preserved in the hashing reference.
 canonicalizations = "canonicalizations" # Plural: independent canonicalization executions.
 thr = "thr"                             # Thread-count column abbreviation in captured benchmark tables.
+clonable = "clonable"                   # Exact dyn-clonable package spelling in Cargo graph evidence.
 
 [default.extend-identifiers]
 # Header-defined PETSc ABI symbol, preserved exactly in Rust and C bindings.

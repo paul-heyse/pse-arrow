@@ -925,7 +925,12 @@ impl MathService {
             .ok_or(MathRuntimeError::Limit(
                 "declared root resident/scope allowance",
             ))?;
-        let entry = self.admit_entry(1, job_bytes, &control, Some(deadline), None)?;
+        let entry = self
+            .admit_entry(1, job_bytes, &control, Some(deadline), None)?
+            .with_construction(super::jobs::ConstructionEstimate::from_bound(
+                factory_bytes,
+                self.policy.worker_bytes,
+            ));
         let run_id = pse_operations::mint_id();
         let (tx, receiver) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
@@ -1447,12 +1452,18 @@ impl Blocks<'_, '_> {
         let bound = match bound_slot.as_ref() {
             Some(view) => {
                 let binding = view.compiled().rebind_binding_allocation_bound(values)?;
-                let demand = view
+                if binding > self.service.policy.worker_bytes {
+                    return Err(MathRuntimeError::Limit("local constructor worker capacity"));
+                }
+                let bound = view
                     .compiled()
                     .rebind_allocation_bound(values)?
-                    .unwrap_or(self.service.policy.worker_bytes)
-                    .max(binding);
-                self.local.construct(demand, |lease| {
+                    .map(|bytes| bytes.max(binding));
+                let construction = super::jobs::ConstructionEstimate::from_bound(
+                    bound,
+                    self.service.policy.worker_bytes,
+                );
+                self.local.construct_estimated(construction, |lease| {
                     self.service.rebind_local(
                         view,
                         values.clone(),
@@ -1462,11 +1473,11 @@ impl Blocks<'_, '_> {
                 })?
             }
             None => {
-                let demand = block
-                    .view
-                    .binding_allocation_bound(values)?
-                    .unwrap_or(self.service.policy.worker_bytes);
-                self.local.construct(demand, |lease| {
+                let construction = super::jobs::ConstructionEstimate::from_bound(
+                    block.view.binding_allocation_bound(values)?,
+                    self.service.policy.worker_bytes,
+                );
+                self.local.construct_estimated(construction, |lease| {
                     self.service.bind_block_local(
                         block,
                         self.prepared.quantities.clone(),
@@ -1986,6 +1997,15 @@ mod tests {
         called: Arc<AtomicBool>,
         resident_foreign_bytes: usize,
     ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
+        declared_submission_observed(service, duration, called, resident_foreign_bytes, || {})
+    }
+    fn declared_submission_observed(
+        service: &Arc<MathService>,
+        duration: std::time::Duration,
+        called: Arc<AtomicBool>,
+        resident_foreign_bytes: usize,
+        entered: impl FnOnce() + Send + 'static,
+    ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
         let contract = native::OracleContract {
             identity: pse_ids::ContentHash::from_bytes([72; 32]),
             variables: vec![native::Variable {
@@ -2049,8 +2069,9 @@ mod tests {
             resident_foreign_bytes,
             move |_, _| {
                 called.store(true, Ordering::Release);
+                entered();
                 Err(native::ProblemError::Internal(
-                    "queued declared root factory must not run".into(),
+                    "declared root fixture factory completed".into(),
                 ))
             },
         )
@@ -2069,6 +2090,9 @@ mod tests {
         let called = Arc::new(AtomicBool::new(false));
         let mut ordinary_extent = 0;
         for residency in [0, 8 << 20] {
+            let released = service.released.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
             let handle = declared_submission_with_residency(
                 &service,
                 std::time::Duration::from_secs(5),
@@ -2076,19 +2100,30 @@ mod tests {
                 residency,
             )
             .unwrap();
+            let stop = handle.cancellation();
+            let mut pending = Box::pin(handle.finish());
+            // Population admission retains its result owner while active admission
+            // releases tentative constructor/native memory before waiting for CPU.
+            tokio::time::timeout(std::time::Duration::from_secs(1), released)
+                .await
+                .expect("blocked declared root must release tentative active memory");
+            assert!(
+                futures_util::poll!(pending.as_mut()).is_pending(),
+                "blocked declared root must remain pending after its real admission attempt"
+            );
             let extent = service.pool.reserved() - baseline;
             if residency == 0 {
                 ordinary_extent = extent;
             } else {
-                assert_eq!(extent, ordinary_extent + residency);
+                assert_eq!(extent, ordinary_extent);
             }
-            // No active CPU can be obtained, but construction and all nested opaque
-            // residency are already reserved on this admitted population owner.
             assert_eq!(service.cpu.available_permits(), 0);
             assert!(!called.load(Ordering::Acquire));
-            handle.cancel();
+            stop.cancel();
             assert!(matches!(
-                handle.finish().await,
+                tokio::time::timeout(std::time::Duration::from_secs(1), pending)
+                    .await
+                    .expect("queued declared root cancellation must drain"),
                 Err(MathRuntimeError::Cancelled)
             ));
             assert_eq!(service.pool.reserved(), baseline);
@@ -2106,6 +2141,41 @@ mod tests {
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
         assert_eq!(service.pool.reserved(), baseline);
         drop(cpu);
+        // Once active admission succeeds, the factory observes the complete retained
+        // native residency before it may construct any nested unit. Hold that exact
+        // entry with a bounded fixture barrier so the measurement cannot race teardown.
+        let mut ordinary_extent = 0;
+        for residency in [0, 8 << 20] {
+            let (entered, observation) = tokio::sync::oneshot::channel();
+            let (release, released) = std::sync::mpsc::sync_channel(1);
+            let pool = service.pool.clone();
+            let handle = declared_submission_observed(
+                &service,
+                std::time::Duration::from_secs(15),
+                Arc::new(AtomicBool::new(false)),
+                residency,
+                move || {
+                    entered.send(pool.reserved()).unwrap();
+                    released
+                        .recv_timeout(std::time::Duration::from_secs(10))
+                        .unwrap();
+                },
+            )
+            .unwrap();
+            let extent = tokio::time::timeout(std::time::Duration::from_secs(10), observation)
+                .await
+                .expect("declared factory must enter within its unchanged clock")
+                .unwrap()
+                - baseline;
+            if residency == 0 {
+                ordinary_extent = extent;
+            } else {
+                assert_eq!(extent, ordinary_extent + residency);
+            }
+            release.send(()).unwrap();
+            assert!(handle.finish().await.is_err());
+            assert_eq!(service.pool.reserved(), baseline);
+        }
     }
     #[tokio::test]
     async fn declared_root_deadline_and_cancellation_cover_cpu_wait_without_dispatch() {
@@ -2451,11 +2521,14 @@ mod tests {
                 Controls::default(),
                 &driver,
                 move |local| {
+                    // Move the complete fixture owner, rather than leaving its
+                    // uncaptured _owner field alive until this test returns.
+                    let prepared = worker_prepared;
                     local.construct(demand, |lease| {
                         worker_service.bind_block_local(
-                            &worker_prepared.blocks[0],
-                            worker_prepared.quantities.clone(),
-                            worker_prepared.preconditions.clone(),
+                            &prepared.blocks[0],
+                            prepared.quantities.clone(),
+                            prepared.preconditions.clone(),
                             &worker_values,
                             &local.execution().cancel,
                             lease,
@@ -2484,11 +2557,12 @@ mod tests {
                 Controls::default(),
                 &driver,
                 move |local| {
+                    let prepared = worker_prepared;
                     local.construct(demand, |lease| {
                         worker_service.bind_block_local(
-                            &worker_prepared.blocks[0],
-                            worker_prepared.quantities.clone(),
-                            worker_prepared.preconditions.clone(),
+                            &prepared.blocks[0],
+                            prepared.quantities.clone(),
+                            prepared.preconditions.clone(),
                             &values,
                             &local.execution().cancel,
                             lease,
@@ -2802,23 +2876,41 @@ mod tests {
                 start: pse_model::strategy::StartOrigin::Specification,
                 replacement: false, support: Default::default(), reservation: None, prepared: true,
             };
-            let request = pse_model::strategy::CompositionRequest::default();
+            // The independently refused observation consumed the first execution;
+            // admit exactly one recovery, including that original execution.
+            let request = pse_model::strategy::CompositionRequest {
+                limits: Some(pse_model::strategy::WorkLimits {
+                    attempts: 2, evaluations: None, iterations: None,
+                    factorizations: None, proof_steps: None,
+                }),
+                ..Default::default()
+            };
             let starts = pse_model::strategy::StartRules {
                 policy: StartPolicy::NoPriorStart, recovery: Vec::new(),
             };
+            assert!(matches!(strategy::next_automatic(&Default::default(), &starts,
+                std::slice::from_ref(&recovery), &BTreeSet::new(), Some(&last),
+                pse_model::strategy::WorkObservation {
+                    attempts: 1, evaluations: Some(0), iterations: Some(0),
+                    factorizations: Some(0), proof_steps: Some(0),
+                }, false), strategy::AutoDecision::Stop { .. }),
+                "the default single execution cannot silently admit recovery");
             assert!(matches!(strategy::next_automatic(&request, &starts, &[recovery],
                 &BTreeSet::new(), Some(&last), pse_model::strategy::WorkObservation {
                     attempts: 1, evaluations: Some(0), iterations: Some(0),
                     factorizations: Some(0), proof_steps: Some(0),
                 }, false),
                 strategy::AutoDecision::Dispatch { candidate: 0 }));
-            let super::super::solves::Outcome::Native(mut refused) = outcome else { unreachable!() };
-            assessed.product.apply(&mut refused);
-            let mut untouched = values.clone();
-            assert!(commit_block(&mut untouched, &prepared.blocks[0].boundary, Some(&refused),
-                &numerics.policy).is_err());
-            assert_eq!(untouched.scalars, values.scalars,
-                "refused independent coordinates cannot become a successor input or stage commit");
+            assert!(matches!(outcome, super::super::solves::Outcome::Native(_)),
+                "the forged native observation must retain its original report");
+            if let super::super::solves::Outcome::Native(mut refused) = outcome {
+                assessed.product.apply(&mut refused);
+                let mut untouched = values.clone();
+                assert!(commit_block(&mut untouched, &prepared.blocks[0].boundary, Some(&refused),
+                    &numerics.policy).is_err());
+                assert_eq!(untouched.scalars, values.scalars,
+                    "refused independent coordinates cannot become a successor input or stage commit");
+            }
             let refreshed = assessor.assess(&super::super::solves::Outcome::Native(report.clone()),
                 Some(&run.scope), &budget);
             assert!(refreshed.original.satisfied());

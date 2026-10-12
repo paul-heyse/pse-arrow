@@ -23,6 +23,10 @@ pub(super) struct PreparedExperiments {
     pub physical_cells: usize,
 }
 impl PreparedExperiments {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "fit preparation transfers independent physical authority, source identity, allocation reservation and cancellation into the final problem"
+    )]
     pub(super) fn finish(
         self,
         runtime: super::super::Runtime,

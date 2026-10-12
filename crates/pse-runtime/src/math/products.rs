@@ -80,16 +80,17 @@ impl MathService {
             return Ok(prepared);
         }
         let source = prepared.prepared.clone();
-        let demand = source
-            .support_upgrade_allocation_bound(order)?
-            .unwrap_or(self.policy.workspace_bytes);
-        if demand > self.policy.worker_bytes {
+        let construction = ConstructionEstimate::from_bound(
+            source.support_upgrade_allocation_bound(order)?,
+            self.policy.workspace_bytes,
+        );
+        if construction.bytes() > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(
                 "support upgrade construction capacity",
             ));
         }
         let upgraded = self
-            .job_retained(1, demand, control, move |flag| {
+            .job_retained_construction(1, construction, control, None, move |flag| {
                 let product = source.prepare_order(order, &flag)?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
@@ -106,20 +107,27 @@ impl MathService {
             return Ok(prepared);
         }
         let source = prepared.prepared.clone();
-        let demand = source
-            .support_upgrade_allocation_bound(pse_kernels::DerivativeOrder::First)?
-            .unwrap_or(self.policy.workspace_bytes);
-        if demand > self.policy.worker_bytes {
+        let construction = ConstructionEstimate::from_bound(
+            source.support_upgrade_allocation_bound(pse_kernels::DerivativeOrder::First)?,
+            self.policy.workspace_bytes,
+        );
+        if construction.bytes() > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(
                 "directional support construction capacity",
             ));
         }
         let upgraded = self
-            .job_retained(1, demand, FlightCancellation::default(), move |flag| {
-                let product = source.prepare_directional_actions(&flag)?;
-                let bytes = product.retained_bytes();
-                Ok((product, bytes))
-            })
+            .job_retained_construction(
+                1,
+                construction,
+                FlightCancellation::default(),
+                None,
+                move |flag| {
+                    let product = source.prepare_directional_actions(&flag)?;
+                    let bytes = product.retained_bytes();
+                    Ok((product, bytes))
+                },
+            )
             .await?;
         self.own_preparation(upgraded)
     }

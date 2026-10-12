@@ -101,10 +101,6 @@ impl ParsedReload {
     /// Parse changed texts through the same loader, reusing exact previous grammar
     /// owners. Add/remove is determined by the supplied full document inventory.
     /// Data remains encoded until the parent-qualified Runtime edit consumes it.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one pure source reload with its exact parser/native/resource owners"
-    )]
     pub fn load(
         sources: &[std::collections::BTreeMap<String, Vec<u8>>],
         previous: &[DocumentBundle],

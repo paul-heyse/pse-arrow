@@ -159,19 +159,19 @@ impl MathService {
         let checked = second.clone();
         let check_scope = scope.clone();
         let control = FlightCancellation::default();
-        let demand = base
-            .assembly
-            .support_upgrade_allocation_bound(
+        let construction = super::super::jobs::ConstructionEstimate::from_bound(
+            base.assembly.support_upgrade_allocation_bound(
                 pse_math::jets::EvaluationLimits::default(),
                 DerivativeOrder::Second,
-            )?
-            .unwrap_or(self.policy.workspace_bytes);
-        if demand > self.policy.worker_bytes {
+            )?,
+            self.policy.workspace_bytes,
+        );
+        if construction.bytes() > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit(
                 "path curvature construction capacity",
             ));
         }
-        let operation=self.job_retained_scoped(1,demand,control.clone(),scope.deadline(),move |_| {
+        let operation=self.job_retained_construction(1,construction,control.clone(),scope.deadline(),move |_| {
             check_scope.check().map_err(ProblemError::Provider)?;
             if !checked.assembly.is_derivative_projection_of(&base.assembly,&quantities,check_scope.cancellation())? {return Err(ProblemError::Contract("path curvature differs from frozen original formulas, guards, quantities or physical maps".into()).into());}
             check_scope.check().map_err(ProblemError::Provider)?;
@@ -2903,18 +2903,24 @@ impl MathService {
             let actual=native::assembled::contract(&assembly);let n=coordinates.len();
             let unknowns=actual.variables[..n].iter().map(|v|pse_math::implicit::Unknown {id:v.id,lower:v.lower,upper:v.upper}).collect::<Vec<_>>();
             let control=FlightCancellation::default();let projection_scope=scope.clone();let limit=self.policy.worker_bytes/256;
-            let demand = assembly.factorable_allocation_bound(&pse_math::factorable::FactorableRequest::default(), limit)?
+            let bound = assembly.factorable_allocation_bound(&pse_math::factorable::FactorableRequest::default(), limit)?
                 .map(|bytes| n.checked_mul(4 * size_of::<pse_math::factorable::Node>() + 4 * size_of::<usize>()).and_then(|extra| bytes.checked_add(extra)).ok_or(MathRuntimeError::Limit("path isolation construction extent")))
-                .transpose()?.unwrap_or(self.policy.worker_bytes);
-            if demand > self.policy.worker_bytes { return Err(MathRuntimeError::Limit("path isolation construction capacity")); }
-            let projection=self.job_retained_scoped(1,demand,control.clone(),scope.deadline(),move |_| {
+                .transpose()?;
+            let construction = super::super::jobs::ConstructionEstimate::from_bound(bound, self.policy.worker_bytes);
+            if construction.bytes() > self.policy.worker_bytes { return Err(MathRuntimeError::Limit("path isolation construction capacity")); }
+            let projection=self.job_retained_construction(1,construction,control.clone(),scope.deadline(),move |_| {
                 projection_scope.check().map_err(ProblemError::Provider)?;
                 let (identity,program)=assembly.root_path_isolation_program(&values,parameter,interval,limit,projection_scope.cancellation()).map_err(|e|match e {pse_math::factorable::FactorableError::Math(cause)=>ProblemError::Math(cause),cause=>ProblemError::Math(pse_math::MathError::Typed {retained:size_of_val(&cause),cause:pse_model::diagnostic::DiagnosticCause::new(cause)})})?.ok_or_else(||ProblemError::Unsupported("compiled path source cannot furnish exact First guards and a finite complete root domain".into()))?;
                 projection_scope.check().map_err(ProblemError::Provider)?;let bytes=program.retained_bytes();Ok(((identity,Arc::new(program)),bytes))
             });
             tokio::pin!(projection);
             let ((identity,program),projection_owner)=tokio::select! {result=&mut projection=>result?,()=driver.cancelled()=>{scope.cancellation().store(true,Ordering::Release);control.cancel();let _=projection.await;return Err(MathRuntimeError::Cancelled);}};
-            let verifier:Arc<dyn SelectionVerifier>=Arc::new(native::root_isolation::Ibex);
+            let service=Arc::downgrade(self);
+            let verifier:Arc<dyn SelectionVerifier>=Arc::new(native::root_isolation::Ibex::with_transport_allocator(move |bytes| {
+                let service=service.upgrade().ok_or_else(||pse_math::MathError::Contract("proof transport allocation owner expired".into()))?;
+                service.reserve("math:proof-transport",bytes).map(|owner| -> Arc<dyn pse_math::AllocationOwner> { owner })
+                    .map_err(|error|pse_math::MathError::Contract(format!("proof transport allocation: {error}")))
+            }));
             let workspace=verifier.workspace_bytes(std::slice::from_ref(&program))?;
             if workspace>self.policy.workspace_bytes {return Err(MathRuntimeError::Limit("compiled path proof workspace allowance"));}
             let chart_bytes=n.checked_mul(256).and_then(|v|v.checked_add(size_of::<PathSelection>()+4096)).ok_or(MathRuntimeError::Limit("compiled path chart extent"))?;

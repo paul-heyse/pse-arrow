@@ -396,4 +396,35 @@ mod tests {
         .unwrap();
         assert_eq!(k.inertia.2, 1, "{:?}", k.inertia);
     }
+
+    #[test]
+    fn unchanged_kkt_pattern_refreshes_numeric_inertia_and_original_licq() {
+        // [I A^T; A 0] independently diagnoses original gradient rank. Explicit
+        // structural zeros keep exactly one CSC pattern as A loses and regains rank.
+        let mut matrix = feral::CscMatrix {
+            n: 4,
+            col_ptr: vec![0, 3, 6, 7, 8],
+            row_idx: vec![0, 2, 3, 1, 2, 3, 2, 3],
+            values: vec![1., 1., 0., 1., 0., 1., 0., 0.],
+        };
+        let (mut solver, inertia) = factor(&matrix).unwrap();
+        assert_eq!(inertia, (2, 2, 0));
+        assert_eq!(solver.symbolic_call_count(), 1);
+        matrix.values[2] = 2.;
+        matrix.values[5] = 0.;
+        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 1, 1));
+        assert_eq!(solver.symbolic_call_count(), 1);
+        assert!(solver.last_factor_stats().unwrap().pattern_reused);
+        matrix.values[5] = 1.;
+        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 2, 0));
+        assert_eq!(solver.symbolic_call_count(), 1);
+        // Equal order and nnz with a different row structure must reanalyse.
+        matrix.row_idx[2] = 2;
+        matrix.row_idx[1] = 1;
+        // This remains sorted lower-triangle CSC; new values remove dependence.
+        matrix.values[1] = 0.;
+        matrix.values[2] = 1.;
+        assert_eq!(factor_into(&mut solver, &matrix).unwrap(), (2, 2, 0));
+        assert_eq!(solver.symbolic_call_count(), 2);
+    }
 }

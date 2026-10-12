@@ -90,7 +90,7 @@ async fn cone(owner: &WorkflowRuntime, observations: &mut observations::Observat
         &result.strategy,
         pse_model::generated::identities::RunId::from_id(SemanticId::NIL),
         0,
-        owner.runtime.pool(),
+        owner.runtime.math(),
     );
     observations.native(report);
     near(report.candidate.as_ref().unwrap().primal[0], 2., 1e-6);
@@ -199,7 +199,7 @@ async fn recycle(owner: &WorkflowRuntime, observations: &mut observations::Obser
         .await
         .unwrap();
     let result = prepared.start().unwrap().finish().await.unwrap();
-    observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.pool());
+    observations.strategy(&result.strategy, result.run_id, 0, owner.runtime.math());
     observations.native(&result.report);
     near(
         result.report.candidate.as_ref().unwrap().primal[0],
@@ -266,7 +266,7 @@ async fn sparse_fit(
         .await
         .unwrap();
     let result = prepared.start().unwrap().wait().await.unwrap();
-    observations.run(&result, owner.runtime.pool());
+    observations.run(&result, owner.runtime.math());
     let RunReport::Fit(report) = result.report().unwrap() else {
         panic!("missing sparse fit")
     };
@@ -347,7 +347,7 @@ async fn run(
                 let coordinates = [symbol("x"), symbol("y")];
                 let result = prepared.start().unwrap().wait().await.unwrap();
                 authored_success(&result);
-                observations.run(&result, owner.runtime.pool());
+                observations.run(&result, owner.runtime.math());
                 for (id, expected) in coordinates.into_iter().zip(expected) {
                     near(variable(&result, id), expected, expected.abs() * 1e-7);
                 }
@@ -448,7 +448,7 @@ async fn run(
                 .await
                 .unwrap();
             let result = prepared.start().unwrap().wait().await.unwrap();
-            observations.run(&result, owner.runtime.pool());
+            observations.run(&result, owner.runtime.math());
             let RunReport::Fit(report) = result.report().unwrap() else {
                 panic!("missing fit")
             };

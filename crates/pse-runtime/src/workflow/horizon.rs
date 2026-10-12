@@ -258,10 +258,7 @@ pub struct HorizonOutcome {
     pub(in crate::workflow) summaries:
         std::collections::BTreeMap<SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>,
     pub(in crate::workflow) detail: Result<
-        std::collections::BTreeMap<
-            pse_ids::SemanticId,
-            Vec<pse_relations::columnar::FieldCheckedBatch>,
-        >,
+        std::collections::BTreeMap<SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>,
         std::sync::Arc<super::WorkflowError>,
     >,
 }

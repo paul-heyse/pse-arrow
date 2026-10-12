@@ -10,6 +10,7 @@ effects run outside every metadata lock. A deadline is absolute and never renewe
 from __future__ import annotations
 
 import contextlib
+import copy
 import fcntl
 import hashlib
 import json
@@ -18,13 +19,13 @@ import re
 import time
 import uuid
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from scripts import host_admission as host
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Mapping, Sequence
+    from pathlib import Path
 
 IDENTIFIER = re.compile(r"[a-f0-9]{32}")
 
@@ -86,7 +87,7 @@ def publish(path: Path, value: Mapping[str, object]) -> None:
             output.write(json.dumps(value, sort_keys=True) + "\n")
             output.flush()
             os.fsync(output.fileno())
-        os.replace(temporary, path)
+        temporary.replace(path)
         sync_directory(path.parent)
     finally:
         temporary.unlink(missing_ok=True)
@@ -227,15 +228,55 @@ class FileStore:
 
     @contextlib.contextmanager
     def edit(
-        self, resource: str, *, deadline: float | None = None
+        self,
+        resource: str,
+        *,
+        deadline: float | None = None,
+        settle_if_unchanged: bool = False,
     ) -> Generator[Entry, None, None]:
         deadline = clock(deadline)
         self.ensure(deadline)
         with self.lock("resources", resource, deadline):
             entry = self._entry(resource)
+            original = copy.deepcopy(entry) if settle_if_unchanged else None
             yield entry
             host.remaining(deadline, 1)
+            if (
+                settle_if_unchanged
+                and original == entry
+                and self._settle_unchanged(entry, deadline)
+            ):
+                return
             self._save(entry)
+
+    def _settle_unchanged(self, entry: Entry, deadline: float) -> bool:
+        """Settle a prior projection's durability without replacing its files."""
+        marker = self.path("active", entry.resource)
+        paths = []
+        if entry.phase == "active":
+            if not marker.exists() or read(marker) != {"resource": entry.resource}:
+                return False
+            paths.append(marker)
+        elif marker.exists():
+            return False
+        paths.append(self.path("resources", entry.resource))
+        for path in paths:
+            host.remaining(deadline, 1)
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                host.validate_private_file(os.fstat(descriptor), "resource metadata")
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+            sync_directory(path.parent)
+            sync_directory(path.parent.parent)
+        if entry.phase != "active" and marker.parent.exists():
+            # A previous departure may have unlinked the access marker before
+            # its directory fsync failed. Settle that absence as well.
+            host.remaining(deadline, 1)
+            sync_directory(marker.parent)
+        host.remaining(deadline, 1)
+        return True
 
     def lookup(self, resource: str, *, deadline: float | None = None) -> Entry:
         deadline = clock(deadline)
@@ -378,14 +419,19 @@ class FileStore:
                     if existing.get("identity") != list(identity):
                         raise StoreError("Logical identity hash collision")
                     raise StoreError("Fixture identity already registered")
+                member: dict | None = None
+                coordination = (
+                    self.path("invocation-state", invocation) if invocation else None
+                )
                 if state is not None:
+                    if coordination is None:
+                        raise StoreError("Invocation membership lacks its authority")
                     member = {
                         "phase": "pending",
                         "identity": list(identity),
                         "publication": "not-started",
                     }
                     state["members"][resource] = member
-                    coordination = self.path("invocation-state", invocation)
                     publish(coordination, state)
                     member["publication"] = "uncertain"
                     publish(coordination, state)
@@ -397,7 +443,11 @@ class FileStore:
                     publish(index, {"identity": list(identity), "resource": resource})
                     pending.unlink()
                     sync_directory(pending.parent)
-                    if state is not None:
+                    if member is not None and coordination is not None:
+                        if state is None:
+                            raise StoreError(
+                                "Registered invocation lacks its authority"
+                            )
                         member["phase"] = "registered"
                         member["publication"] = "durable"
                         publish(coordination, state)
@@ -438,39 +488,41 @@ class FileStore:
                 ):
                     raise StoreError("Unknown pending invocation member")
                 logical = member["identity"]
-                with self.lock("identities", digest(logical), deadline):
-                    with self.lock("resources", resource, deadline):
-                        path = self.path("resources", resource)
-                        if not path.exists():
-                            if member.get("publication") == "not-started":
-                                del state["members"][resource]
-                                continue
-                            raise StoreError(
-                                "Uncertain resource publication remains pinned"
-                            )
-                        entry = self._entry(resource)
-                        if (
-                            entry.identity != logical
-                            or entry.facts.get("invocation") != nonce
-                        ):
-                            raise StoreError(
-                                "Pending member contradicts resource authority"
-                            )
-                        index = self.path("identities", digest(logical))
-                        expected = {"identity": logical, "resource": resource}
-                        if index.exists() and read(index) != expected:
-                            raise StoreError(
-                                "Pending member has contradictory logical index"
-                            )
-                        publish(index, expected)
-                        pending = self.path("identity-pending", digest(logical))
-                        if pending.exists():
-                            if read(pending) != expected:
-                                raise StoreError("Pending logical identity conflicts")
-                            pending.unlink()
-                            sync_directory(pending.parent)
-                        self._save(entry)
-                        member.update(phase="registered", publication="durable")
+                with (
+                    self.lock("identities", digest(logical), deadline),
+                    self.lock("resources", resource, deadline),
+                ):
+                    path = self.path("resources", resource)
+                    if not path.exists():
+                        if member.get("publication") == "not-started":
+                            del state["members"][resource]
+                            continue
+                        raise StoreError(
+                            "Uncertain resource publication remains pinned"
+                        )
+                    entry = self._entry(resource)
+                    if (
+                        entry.identity != logical
+                        or entry.facts.get("invocation") != nonce
+                    ):
+                        raise StoreError(
+                            "Pending member contradicts resource authority"
+                        )
+                    index = self.path("identities", digest(logical))
+                    expected = {"identity": logical, "resource": resource}
+                    if index.exists() and read(index) != expected:
+                        raise StoreError(
+                            "Pending member has contradictory logical index"
+                        )
+                    publish(index, expected)
+                    pending = self.path("identity-pending", digest(logical))
+                    if pending.exists():
+                        if read(pending) != expected:
+                            raise StoreError("Pending logical identity conflicts")
+                        pending.unlink()
+                        sync_directory(pending.parent)
+                    self._save(entry)
+                    member.update(phase="registered", publication="durable")
             state.update(phase="frozen", terminal=terminal, terminal_identity=identity)
             publish(self.path("invocation-state", nonce), state)
             if on_frozen is not None:
@@ -572,10 +624,13 @@ class FileStore:
                     "snapshots": snapshots,
                 }
                 publish(manifest_path, manifest)
+            imported_records = manifest.get("records")
+            if not isinstance(imported_records, dict):
+                raise StoreError("Invalid staged migration records")
             for key, index in snapshots["reports"].items():
                 resource = index.get("resource")
                 state = index.get("state")
-                facts = manifest["records"].get(resource)
+                facts = imported_records.get(resource)
                 if (
                     not isinstance(state, str)
                     or hashlib.sha256(state.encode()).hexdigest() != key
@@ -586,7 +641,7 @@ class FileStore:
                     raise StoreError("Dangling or contradictory legacy report index")
             identities: dict[str, list[str]] = {}
             invocations: dict[str, dict] = {}
-            for resource, facts in manifest["records"].items():
+            for resource, facts in imported_records.items():
                 host.remaining(deadline, 1)
                 if not IDENTIFIER.fullmatch(resource) or not isinstance(facts, dict):
                     raise StoreError("Unknown legacy resource authority")

@@ -527,6 +527,7 @@ DEFINE INDEX product_association_archive ON canonical_product_associations FIELD
 DEFINE INDEX edge_source ON canonical_edges FIELDS source_version;
 DEFINE INDEX membership_pages ON canonical_memberships FIELDS problem, key;
 DEFINE INDEX membership_scope_pages ON canonical_memberships FIELDS problem, scope, key;
+DEFINE INDEX membership_scope_head_pages ON canonical_memberships FIELDS problem, scope, to_sequence, key;
 DEFINE INDEX membership_version ON canonical_memberships FIELDS version;
 DEFINE INDEX root_interval ON canonical_roots FIELDS problem, sequence;
 DEFINE INDEX protection_interval ON canonical_protections FIELDS problem, sequence;
@@ -1115,7 +1116,11 @@ DEFINE FUNCTION fn::pse_execution_v1::seal($rpc_expiry: int, $run: string, $atte
     IF $authority = $a.generation AND $a.expires_at <= time::micros() { THROW 'execution expired worker must recover before sealing'; };
     LET $saved = UPDATE ONLY type::record('canonical_attempts', $attempt) SET terminal = true, outcome = $outcome, completion = $completion, seed_manifest = IF $seed_eligible { $manifest } ELSE { NONE };
     UPDATE ONLY type::record('canonical_runs', $run) SET terminal_attempt = $attempt,terminal_class=$outcome;
-    fn::pse_execution_v1::source_creator($rpc_expiry,$r.problem,'active_attempt:'+$attempt);
+    // Removing this exact owned root adds no retention dependency. Keep the
+    // reclaim/exact-root fences without writing the shared creator generation.
+    // The run root remains until its separate terminal retirement owner releases it.
+    fn::pse_execution_v1::register($rpc_expiry,'retention:'+$r.problem);
+    SELECT * FROM ONLY type::record('canonical_roots','active_attempt:'+$attempt) FOR UPDATE;
     DELETE ONLY type::record('canonical_roots', 'active_attempt:' + $attempt);
     CREATE ONLY type::record('canonical_execution_operations', $operation) SET key = $operation, run = $run, attempt = $attempt, kind = 'seal', request = $request, result = $completion;
     LET $rpc_result = $saved;

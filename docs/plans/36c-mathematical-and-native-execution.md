@@ -255,3 +255,29 @@ B-P1/C-P1/H-P5 callback profiles, B-P2/L1-P4 construction/rebind, B-P3/L1-P3 cub
 
 Closing the numerical scope requires deletion of every replaced mechanism, explicit disposition of retained investigations, truthful rank/algorithm/support limits and the relevant independent original checks. Architecture fitness, scientific adequacy and measured performance remain separate outcomes. No implementation or speed is established by this plan.
 
+## Implementation checkpoint, 2026-10-12
+
+P-C1–P-C9's selected mechanisms are present: compact operation layouts, scalar-once
+compilation with lazy derivative workers, private cubic scratch and achieved-order memo
+validity, retained conditional/block execution, same-point sparse response actions,
+SCC-local tear rows with global decisions, indexed complete-premise policy products,
+quiescent coordinated isolation admission, compact surrogate advancement and demanded
+shooting order. The KLU refactor/fallback and IDAS reverse-cursor investigations have
+their selected implementations and original-space controls.
+
+Focused mathematics and backend controls pass. Conditional reuse now has explicit
+variable and row accuracy in its strict oracle fixture; tightening only residual budgets
+does not justify a tighter coordinate expectation. Full native assessment still must
+exercise branch/near-critical/degree-reduced roots, achieved-order upgrades, policy owner
+lifetime, numerical refactor fallback, reverse-jump derivatives and shooting/surrogate
+consumers. No callback-profile threshold or performance SLA is selected.
+
+F20 remains open: sparse factor sharing does not replace singular-value evidence or
+establish a fill-growth bound. Conservative quadratic admission and bounded dense
+spectrum remain explicit support limits. R36-01 and the SPQR method/binding/image
+proposal remain unselected; no sparse-QR result is relabeled as singular-value rank.
+
+
+## Maintainer stop handoff, 2026-10-12
+
+Execution stopped after the requested immediate wrap-up. The [coordinator’s stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12) owns current evidence boundaries, worktree reconciliation and the remaining execution route. Focused numerical controls retain their recorded scope. The latest assembled native assessment remains failed until its enclosing rerun; F20 and the unselected sparse-rank proposal remain unchanged.

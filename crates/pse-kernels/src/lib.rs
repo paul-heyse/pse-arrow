@@ -5,6 +5,7 @@
 use pse_ids::{ContentHash, SemanticId};
 use pse_quantity::{QuantityRegistry, QuantityTypeId, UnitId};
 use std::{
+    num::NonZeroUsize,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -86,11 +87,30 @@ impl ProviderRequest {
 pub struct ExecutionScope {
     cancel: Arc<AtomicBool>,
     deadline: Option<Instant>,
+    admitted_threads: NonZeroUsize,
 }
 impl ExecutionScope {
     /// Bind an execution's original deadline without starting or renewing its clock.
     pub fn new(cancel: Arc<AtomicBool>, deadline: Option<Instant>) -> Self {
-        Self { cancel, deadline }
+        Self {
+            cancel,
+            deadline,
+            admitted_threads: NonZeroUsize::MIN,
+        }
+    }
+    /// Bind the active operation's coordination-owned CPU allowance. This does not
+    /// acquire capacity; the caller must keep that admission live through evaluation.
+    pub fn with_admitted_threads(mut self, threads: NonZeroUsize) -> Self {
+        self.admitted_threads = threads;
+        self
+    }
+    /// Explicit operation capacity, defaulting to serial for direct invocations.
+    pub fn admitted_threads(&self) -> NonZeroUsize {
+        self.admitted_threads
+    }
+    /// A synchronous nested provider shares the original stop but owns no extra team.
+    pub fn nested(&self) -> Self {
+        Self::new(self.cancel.clone(), self.deadline)
     }
     /// Same cancellation owner shared by every nested operation.
     pub fn cancellation(&self) -> &Arc<AtomicBool> {

@@ -79,8 +79,8 @@ pub(super) fn original_point(
     let _program_charge = budget
         .charge(program.retained_bytes())
         .map_err(MathRuntimeError::into_problem)?;
-    let workspace =
-        Ibex.point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)?;
+    let workspace = Ibex::default()
+        .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)?;
     let _workspace_charge = budget
         .charge(workspace)
         .map_err(MathRuntimeError::into_problem)?;
@@ -119,7 +119,7 @@ pub(super) fn original_point(
     let charge = budget
         .charge(retained_bytes)
         .map_err(MathRuntimeError::into_problem)?;
-    let evidence = Ibex.enclose_point_arithmetic_order_with_execution(
+    let evidence = Ibex::default().enclose_point_arithmetic_order_with_execution(
         &program,
         point,
         DerivativeOrder::Second,

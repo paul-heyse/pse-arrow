@@ -15,6 +15,14 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [solver methods, selection logic and diagnostics review](reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md)
+assesses how the solve pipeline chooses mathematical methods across classes, blocks, recycles and
+dynamics, and how solver observations serve switching, diagnosis and measurement. It works from
+the maintainer's three-layer selection requirement. Its Revise verdict identifies thirteen findings
+and thirteen proposed rule impacts. The [supporting evidence](evidence/solver-methods-and-diagnostics-2026-10-12/README.md)
+holds library inventories at the pins, the method landscape and an independent assessment.
+Disposition awaits plan creation.
+
 [Plan 35](../plans/35-surrealdb-lifecycle-and-integration-remediation.md) owns the resolved
 SurrealDB lifecycle/integration findings, accepted RC01/RC02 and bounded capability decisions.
 Its [acceptance evidence](../plans/35-surrealdb-lifecycle-and-integration-remediation.md#acceptance-evidence)

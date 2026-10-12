@@ -8,6 +8,7 @@ from typing import get_type_hints
 import attrs
 import cattrs
 import pyarrow as pa
+import pyarrow.ipc
 import pytest
 
 from pse.codec import converter, structure_rows
@@ -121,41 +122,78 @@ def test_canonical_manifest_preserves_exact_descriptor_bytes_and_generation() ->
 
 
 @pytest.mark.unit
-def test_canonical_scalar_index_preserves_bits_and_refuses_nonfinite_projection() -> (
-    None
-):
+def test_canonical_batch_preserves_original_float_bits_and_null_validity() -> None:
+    # Scientific values now belong to the original IPC batch, not scalar cells.
+    bits = bytes.fromhex("910000000000f87f00000000000000800000000000000000")
+    values = pa.Array.from_buffers(
+        pa.float64(), 3, [pa.py_buffer(b"\x03"), pa.py_buffer(bits)]
+    )
+    table = pa.table({"original-field": values})
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    payload = sink.getvalue().to_pybytes()
     document = {
-        "key": "cell-key",
+        "key": "batch-key",
+        "attempt": "attempt-key",
+        "result_set": "result-set-key",
+        "ordinal": (1 << 64) - 1,
+        "digest": "original-payload-digest",
+        "payload": payload,
+        "row_count": 3,
+    }
+    row = structure_rows(
+        [document], runtime_contracts.RuntimeCanonicalResultBatchesRow
+    )[0]
+    assert row.payload == payload
+    assert converter().unstructure(row) == document
+    restored = pa.ipc.open_stream(row.payload).read_all().column(0).chunk(0)
+    assert restored.buffers()[1].to_pybytes() == bits
+    assert restored.is_null().to_pylist() == [False, False, True]
+    for invalid in (
+        document | {"ordinal": True},
+        document | {"ordinal": -1},
+        document | {"ordinal": 1 << 64},
+        document | {"bits": bits},
+    ):
+        with pytest.raises((ValueError, cattrs.BaseValidationError)):
+            structure_rows(
+                [invalid], runtime_contracts.RuntimeCanonicalResultBatchesRow
+            )
+
+
+@pytest.mark.unit
+def test_canonical_block_index_refuses_nonfinite_coordinate_bounds() -> None:
+    document = {
+        "key": "block-key",
         "result_set": "result-set-key",
         "batch": "batch-key",
         "output": "original-output",
         "partition": "0",
-        "row": 7,
-        "coordinate": "original-field",
-        "cell_kind": "float64",
-        "bits": bytes.fromhex("910000000000f87f"),
-        "projection": None,
+        "ordinal": 0,
+        "start": 7,
+        "end": 8,
+        "rows": 1,
+        "columns": 1,
+        "coordinate_min": None,
+        "coordinate_max": None,
+        "payload_bytes": 256,
+        "payload_digest": "original-payload-digest",
         "interpretation": "original-field-contract",
     }
-    row = structure_rows([document], runtime_contracts.RuntimeCanonicalResultCellsRow)[
+    row = structure_rows([document], runtime_contracts.RuntimeCanonicalResultBlocksRow)[
         0
     ]
-    assert row.bits == document["bits"]
-    assert row.projection is None
+    assert row.coordinate_min is None
+    assert row.coordinate_max is None
     assert converter().unstructure(row) == document
-    null_document = document | {"cell_kind": "null", "bits": None}
-    null = structure_rows(
-        [null_document], runtime_contracts.RuntimeCanonicalResultCellsRow
-    )[0]
-    assert null.bits is None
-    assert null.projection is None
-    assert null != row
-    for projection in (float("inf"), float("-inf"), float("nan")):
-        with pytest.raises((ValueError, cattrs.BaseValidationError)):
-            structure_rows(
-                [document | {"projection": projection}],
-                runtime_contracts.RuntimeCanonicalResultCellsRow,
-            )
+    for field in ("coordinate_min", "coordinate_max"):
+        for projection in (float("inf"), float("-inf"), float("nan")):
+            with pytest.raises((ValueError, cattrs.BaseValidationError)):
+                structure_rows(
+                    [document | {field: projection}],
+                    runtime_contracts.RuntimeCanonicalResultBlocksRow,
+                )
 
 
 @pytest.mark.unit

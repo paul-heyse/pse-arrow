@@ -85,15 +85,17 @@ impl MathService {
                         return Ok(v.0);
                     }
                     let cores = request.cores();
-                    let demand = request
-                        .construction_allocation_bound()?
-                        .unwrap_or(service.policy.worker_bytes);
+                    let construction = super::jobs::ConstructionEstimate::from_bound(
+                        request.construction_allocation_bound()?,
+                        service.policy.worker_bytes,
+                    );
+                    let demand = construction.bytes();
                     if demand > service.policy.worker_bytes {
                         return Err(MathRuntimeError::Limit("artifact construction capacity"));
                     }
                     let check = cancel.flag();
                     let (program, lease) = service
-                        .job_retained(cores, demand, cancel, move |flag| {
+                        .job_retained_construction(cores, construction, cancel, None, move |flag| {
                             let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
                             let retained = program.retained_bytes();
                             Ok((program, retained))

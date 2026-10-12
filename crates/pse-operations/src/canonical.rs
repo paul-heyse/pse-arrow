@@ -512,10 +512,9 @@ impl ProtectionOwner {
         if !self
             .released
             .swap(true, std::sync::atomic::Ordering::AcqRel)
+            && let Some(store) = &self.store
         {
-            if let Some(store) = &self.store {
-                store.result_read_drain.release().complete(Ok(()));
-            }
+            store.result_read_drain.release().complete(Ok(()));
         }
     }
 }
@@ -527,6 +526,17 @@ impl Drop for ProtectionOwner {
         if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
             let release = store.result_read_drain.release();
             let store = store.clone();
+            #[cfg(any(test, feature = "test-support"))]
+            let store = {
+                // The last lexical fixture borrower must join this tracked release
+                // before its test process can exit. Retaining the fixture in this
+                // detached task would postpone that join until after Drop returns.
+                // Its physical clients remain owned by FixtureLifetime throughout
+                // disconnect's ResultReadDrain join.
+                let mut cleanup = store;
+                cleanup.fixture_lifetime = None;
+                cleanup
+            };
             let revision = self.revision.clone();
             let key = self.key.clone();
             executor.spawn(async move {
@@ -1893,6 +1903,11 @@ IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { TH
 RETURN $rpc_result;
 "#;
 
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) fn test_source_edit_sql() -> String {
+    crate::canonical_staging::bounded_edit_sql(EDIT)
+}
+
 const EDIT: &str = r#"
 BEGIN;
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
@@ -2866,6 +2881,89 @@ mod canonical_server_unit {
             crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
             options,
         )
+    }
+    #[tokio::test]
+    async fn source_protection_last_fixture_drop_joins_automatic_release() {
+        let (store, options) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit("last-fixture-release", None, "source", &[])
+            .await
+            .unwrap();
+        let selection = store
+            .protect(revision, std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let key = selection.key().to_owned();
+        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        let drain = store.result_read_drain.clone();
+        let held = store
+            .problem_turns
+            .gate(&format!("pin:{key}"))
+            .unwrap()
+            .write_owned()
+            .await;
+        let observer = CanonicalStore::connect(&options).await.unwrap();
+        drop(store);
+        // Only the final protected reader owns the fixture now. Its cleanup RPC
+        // is deliberately paced before submission, on the real release path.
+        let (done, completed) = std::sync::mpsc::channel();
+        let dropping = std::thread::spawn(move || {
+            drop(selection);
+            done.send(()).unwrap();
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while drain.live() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+        assert!(
+            matches!(
+                completed.recv_timeout(std::time::Duration::from_millis(100)),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            ),
+            "last fixture Drop must join the outstanding automatic release"
+        );
+        let status =
+            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
+                .unwrap();
+        assert!(status.get("creation_borrower").is_some());
+        assert_ne!(status["drained"], serde_json::json!(true));
+        let mut response = bounded_query(
+            observer
+                .db
+                .query(
+                    "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                )
+                .bind(("key", key.clone())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(false));
+        drop(held);
+        completed
+            .recv_timeout(REQUEST_TIMEOUT + std::time::Duration::from_secs(60))
+            .unwrap();
+        dropping.join().unwrap();
+        let status =
+            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
+                .unwrap();
+        assert_eq!(status["drained"], serde_json::json!(true));
+        assert!(status.get("creation_borrower").is_none());
+        let mut response = bounded_query(
+            observer
+                .db
+                .query(
+                    "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                )
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
+        observer.disconnect().await.unwrap();
     }
     #[test]
     fn source_protection_cleanup_outlives_its_callers_executor() {

@@ -662,7 +662,99 @@ def _readmit_supervisor(state: Path) -> dict[str, object]:
     return public_status(state, config)
 
 
-def verify_generation(directory: Path) -> None:
+@dataclass(frozen=True)
+class GenerationVerification:
+    files: dict[str, str]
+    observation: tuple[tuple[object, ...], ...]
+
+
+@dataclass
+class PrimaryVerification:
+    # Only the primary-admission owner installs this object. Offline managed
+    # mutation refuses its live reservation in all_contexts_drained(). Observed
+    # metadata invalidates evidence; it never independently qualifies bytes.
+    generations: dict[Path, GenerationVerification] = field(default_factory=dict)
+    process: str | None = None
+    process_observed: bool = False
+
+
+def generation_observation(
+    directory: Path, names: Mapping[str, str]
+) -> tuple[tuple[object, ...], ...]:
+    observed: list[tuple[object, ...]] = []
+    for path in (directory, *directory.parents):
+        information = path.lstat()
+        if not stat.S_ISDIR(information.st_mode):
+            raise SupervisorError("Immutable generation must not traverse symlinks")
+        observed.append(
+            (
+                str(path),
+                information.st_dev,
+                information.st_ino,
+                information.st_mode,
+                information.st_uid,
+                information.st_gid,
+            )
+        )
+    for name in ("generation.json", *names):
+        path = directory / name
+        if not path.is_relative_to(directory) or ".." in Path(name).parts:
+            raise SupervisorError("Immutable supervisor/receiver closure changed")
+        for parent in path.parents:
+            if parent == directory:
+                break
+            information = parent.lstat()
+            if not stat.S_ISDIR(information.st_mode):
+                raise SupervisorError("Immutable generation must not traverse symlinks")
+            observed.append(
+                (
+                    str(parent),
+                    information.st_dev,
+                    information.st_ino,
+                    information.st_mode,
+                    information.st_uid,
+                    information.st_gid,
+                )
+            )
+        information = path.lstat()
+        if not stat.S_ISREG(information.st_mode):
+            raise SupervisorError("Immutable generation must not traverse symlinks")
+        if name == "generation.json" and (
+            information.st_uid != os.getuid()
+            or stat.S_IMODE(information.st_mode) != 0o600
+        ):
+            raise SupervisorError(
+                "Immutable generation manifest lost its private ownership"
+            )
+        observed.append(
+            (
+                str(path),
+                information.st_dev,
+                information.st_ino,
+                information.st_mode,
+                information.st_uid,
+                information.st_gid,
+                information.st_size,
+                information.st_mtime_ns,
+                information.st_ctime_ns,
+            )
+        )
+        deadline = getattr(_STARTUP, "deadline", None)
+        if deadline is not None:
+            remaining(deadline)
+    return tuple(observed)
+
+
+def verify_generation(directory: Path) -> GenerationVerification:
+    owner = getattr(_STARTUP, "verification", None)
+    retained = owner.generations.get(directory) if owner is not None else None
+    if (
+        retained is not None
+        and generation_observation(directory, retained.files) == retained.observation
+    ):
+        return retained
+    if owner is not None:
+        owner.generations.pop(directory, None)
     if any(path.is_symlink() for path in (directory, *directory.parents)):
         raise SupervisorError("Immutable generation must not traverse symlinks")
     manifest = directory / "generation.json"
@@ -681,6 +773,12 @@ def verify_generation(directory: Path) -> None:
     ).hexdigest()
     if identity != directory.name:
         raise SupervisorError("Immutable generation declaration changed")
+    if not all(
+        isinstance(name, str) and isinstance(expected, str)
+        for name, expected in files.items()
+    ):
+        raise SupervisorError("Immutable generation declaration changed")
+    before = generation_observation(directory, files)
     for name, expected in files.items():
         path = directory / name
         if not path.is_relative_to(directory) or ".." in Path(name).parts:
@@ -693,13 +791,21 @@ def verify_generation(directory: Path) -> None:
             raise SupervisorError("Immutable generation must not traverse symlinks")
         if file_digest(path) != expected:
             raise SupervisorError("Immutable supervisor/receiver closure changed")
-        if (
-            name in {"scripts/sccache", "bin/pse-worker"}
-            and path.stat().st_mode & 0o700 != 0o700
+        executable = name in {"scripts/sccache", "bin/pse-worker"}
+        information = path.stat()
+        if information.st_uid != os.getuid() or stat.S_IMODE(information.st_mode) != (
+            0o700 if executable else 0o600
         ):
             raise SupervisorError(
-                "Immutable executable closure lost its admitted execution mode"
+                "Immutable executable closure lost its admitted execution mode or private ownership"
             )
+    after = generation_observation(directory, files)
+    if before != after:
+        raise SupervisorError("Immutable generation changed during verification")
+    verified = GenerationVerification(dict(files), after)
+    if owner is not None:
+        owner.generations[directory] = verified
+    return verified
 
 
 def execution_resources(name: str) -> dict[str, object]:
@@ -1226,7 +1332,18 @@ def install(version: str | None, tool_root: Path) -> dict[str, str]:
 
 def file_digest(path: Path) -> str:
     with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
+        digest = hashlib.sha256()
+        while True:
+            deadline = getattr(_STARTUP, "deadline", None)
+            if deadline is not None:
+                remaining(deadline)
+            chunk = stream.read(MIB)
+            if not chunk:
+                break
+            digest.update(chunk)
+        if deadline is not None:
+            remaining(deadline)
+        return digest.hexdigest()
 
 
 def setup(args: argparse.Namespace) -> dict[str, object]:
@@ -2644,7 +2761,7 @@ def observer_control_reservation(
     }
     path = owner.directory / "observer-control-borrows.json"
     with host_admission.allocation_metadata(
-        owner.directory, **({"deadline": deadline} if deadline is not None else {})
+        owner.directory, deadline=deadline
     ) as ledger:
         current = ledger["owners"].get(owner.nonce)
         if current is None:
@@ -2685,7 +2802,7 @@ def observer_control_observation(
         "show",
         "--property=LoadState,ActiveState,ControlGroup,InvocationID,MemoryMax",
         scope.unit,
-        **({"deadline": deadline} if deadline is not None else {}),
+        deadline=deadline,
     )
     observed = dict(
         line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
@@ -2708,7 +2825,7 @@ def observer_allocation_drained(
 ) -> bool:
     """Use the existing registered kernel lifetime, never guess an empty launch."""
     with host_admission.allocation_metadata(
-        owner.directory, **({"deadline": deadline} if deadline is not None else {})
+        owner.directory, deadline=deadline
     ) as ledger:
         current = ledger["owners"].get(owner.nonce)
         if current is None:
@@ -2732,9 +2849,7 @@ def observer_allocation_drained(
         # compose and acknowledge the selected terminal. The enclosing host
         # owner still requires every terminal guard when releasing its charge.
         record.pop("terminal_guards", None)
-    return host_admission.drained(
-        record, **({"deadline": deadline} if deadline is not None else {})
-    )
+    return host_admission.drained(record, deadline=deadline)
 
 
 @contextlib.contextmanager
@@ -2752,7 +2867,7 @@ def observer_control_limit(
     if profile is not None and profile != "reference":
         caller = native_operation.process_group(os.getpid())
         with host_admission.allocation_metadata(
-            owner.directory, **({"deadline": deadline} if deadline is not None else {})
+            owner.directory, deadline=deadline
         ) as ledger:
             units = dict(object_mapping(ledger["owners"][owner.nonce].get("units")))
         for control, value in units.items():
@@ -2809,20 +2924,18 @@ def observer_control_limit(
         )
         if scope is not None and (
             never_launched
-            or observer_allocation_drained(
-                owner, unit, **({"deadline": deadline} if deadline is not None else {})
-            )
+            or observer_allocation_drained(owner, unit, deadline=deadline)
         ):
             observer_control_reservation(
                 owner,
                 scope,
                 "verify",
-                **({"deadline": deadline} if deadline is not None else {}),
+                deadline=deadline,
             )
             if captured:
-                current = observer_control_observation(
-                    scope, **({"deadline": deadline} if deadline is not None else {})
-                ).get("MemoryMax")
+                current = observer_control_observation(scope, deadline=deadline).get(
+                    "MemoryMax"
+                )
                 if current not in {str(scope.temporary_memory), str(scope.memory)}:
                     raise SupervisorError(
                         "Observer control cap changed before restoration"
@@ -2833,11 +2946,11 @@ def observer_control_limit(
                         "--runtime",
                         scope.unit,
                         f"MemoryMax={scope.memory}",
-                        **({"deadline": deadline} if deadline is not None else {}),
+                        deadline=deadline,
                     )
-                if observer_control_observation(
-                    scope, **({"deadline": deadline} if deadline is not None else {})
-                ).get("MemoryMax") != str(scope.memory):
+                if observer_control_observation(scope, deadline=deadline).get(
+                    "MemoryMax"
+                ) != str(scope.memory):
                     raise SupervisorError(
                         "Observer control cap restoration readback differs"
                     )
@@ -2845,7 +2958,7 @@ def observer_control_limit(
                 owner,
                 scope,
                 "release",
-                **({"deadline": deadline} if deadline is not None else {}),
+                deadline=deadline,
             )
 
 
@@ -2925,14 +3038,19 @@ def observer(
         clocks = [process_observation.get("cancellation_deadline")]
         for path in (handoff, parent_operation):
             if path is not None:
-                clocks.append(native_operation._record(path).get("cancel_deadline"))
-        clocks = [value for value in clocks if value is not None]
-        if any(
-            type(value) not in {int, float} or not math.isfinite(value)
-            for value in clocks
-        ):
-            raise SupervisorError("Observer original cancellation clock is invalid")
-        return min(clocks) if clocks else None
+                clocks.append(native_operation._record(path).get("cancel_deadline"))  # noqa: SLF001 -- exact observer and parent cancellation owners
+        selected_clocks: list[float] = []
+        for value in clocks:
+            if value is None:
+                continue
+            if (
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+            ):
+                raise SupervisorError("Observer original cancellation clock is invalid")
+            selected_clocks.append(value)
+        return min(selected_clocks) if selected_clocks else None
 
     try:
         with observer_control_limit(
@@ -2975,15 +3093,13 @@ def observer(
         process_observation["owned_drain"] = "unresolved"
         deadline = cancellation_deadline()
         drained = not attempted or observer_allocation_drained(
-            owner, unit, **({"deadline": deadline} if deadline is not None else {})
+            owner, unit, deadline=deadline
         )
         process_observation["owned_drain"] = (
             "not-started" if not attempted else "complete" if drained else "unresolved"
         )
         if drained:
-            with state_lock(
-                state, **({"deadline": deadline} if deadline is not None else {})
-            ):
+            with state_lock(state, deadline=deadline):
                 launch = read_json(state / "observer-launch.json")
                 if launch.get("unit") == unit:
                     (state / "observer-launch.json").unlink()
@@ -3012,8 +3128,8 @@ def primary_observation(state: Path) -> dict[str, str]:
     return fields
 
 
-def recorded_primary(config: dict[str, object]) -> dict[str, str]:
-    """Read the admitted association without opening its replacement artifacts."""
+def primary_association(config: dict[str, object]) -> dict[str, str]:
+    """Validate the exact configured paths, separately from content qualification."""
     receiver = config.get("primary_receiver")
     if not isinstance(receiver, dict) or not all(
         isinstance(value, str) for value in receiver.values()
@@ -3036,16 +3152,29 @@ def recorded_primary(config: dict[str, object]) -> dict[str, str]:
         for key in ("supervisor_executable", "supervisor_script", "worker_executable")
     ):
         raise SupervisorError("Primary receiver paths must be explicit and absolute")
-    verify_generation(Path(result["supervisor_script"]).parents[1])
     return result
 
 
+def recorded_primary(config: dict[str, object]) -> dict[str, str]:
+    """Read the admitted generation, without reopening a replaced executable."""
+    receiver = primary_association(config)
+    verify_generation(Path(receiver["supervisor_script"]).parents[1])
+    return receiver
+
+
 def checked_primary(config: dict[str, object]) -> dict[str, str]:
-    receiver = recorded_primary(config)
+    receiver = primary_association(config)
+    directory = Path(receiver["supervisor_script"]).parents[1]
+    verified = verify_generation(directory)
+    script = Path(receiver["supervisor_script"])
+    worker = Path(receiver["worker_executable"])
     if (
-        file_digest(Path(receiver["supervisor_script"]))
+        not script.is_relative_to(directory)
+        or not worker.is_relative_to(directory)
+        or verified.files.get(str(script.relative_to(directory)))
         != receiver["supervisor_sha256"]
-        or file_digest(Path(receiver["worker_executable"])) != receiver["worker_sha256"]
+        or verified.files.get(str(worker.relative_to(directory)))
+        != receiver["worker_sha256"]
     ):
         raise SupervisorError(
             "Primary receiver bytes changed; offline profile readmission is required"
@@ -3065,6 +3194,33 @@ def primary_ready(
         allocation.get("execution"), dict
     ):
         return False
+    owner = getattr(_STARTUP, "verification", None)
+    if owner is not None:
+        # Changing/unknown process or association is a fresh trust transition.
+        # Always retain _primary_process's actual executable/nonce/database and
+        # placement qualification; only unchanged immutable generation is shared.
+        process = None
+        try:
+            marker = read_json(state / "primary-receiver.json")
+            process = json.dumps(
+                {
+                    "state": str(state),
+                    "selection": startup_selection(config),
+                    "observation": observation,
+                    "marker": marker,
+                    "launch": read_json(state / "primary-launch.json"),
+                    "start": native_operation.start_identity(integer(marker["pid"])),
+                    "database": database,
+                    "qualification": str(qualification),
+                },
+                sort_keys=True,
+            )
+        except (OSError, KeyError, SupervisorError):
+            pass
+        if process is None or (owner.process_observed and process != owner.process):
+            owner.generations.clear()
+        owner.process = process
+        owner.process_observed = True
     return (
         _primary_process(
             state,
@@ -3364,11 +3520,14 @@ def ensure_primary(
                 break
         wait_reservation(state, reservation, owner["nonce"], deadline)
     _STARTUP.deadline = deadline if prior is None else min(deadline, prior)
+    prior_verification = getattr(_STARTUP, "verification", None)
+    _STARTUP.verification = PrimaryVerification()
     try:
         return _ensure_primary(
             state, observer_pid, database, _STARTUP.deadline, qualification
         )
     finally:
+        _STARTUP.verification = prior_verification
         with state_lock(state, cleanup=True):
             if reservation.exists():
                 selected = read_json(reservation)
@@ -4803,11 +4962,23 @@ def release_stopped_service(state: Path, config: dict[str, object]) -> None:
             binding = dict(record["units"].get(unit, {}))
             if not binding or binding != launch.get("binding"):
                 raise SupervisorError("Stopped borrowed storage binding changed")
+            # This projection observes storage only. Execution ACK guards stay
+            # on the enclosing allocation, whose release checks them separately.
+            guards = {}
+            for nonce, guard in record.get("terminal_guards", {}).items():
+                scope = guard.get("scope")
+                if not isinstance(scope, dict) or not isinstance(
+                    scope.get("unit"), str
+                ):
+                    raise SupervisorError("Invalid stopped storage terminal guard")
+                if scope["unit"] == unit:
+                    guards[nonce] = guard
             selected = {
                 **record,
                 "service": str(state),
                 "borrowed_services": [],
                 "units": {unit: binding},
+                "terminal_guards": guards,
                 "released": True,
             }
         # Kernel and recorded process proof occurs outside metadata exclusion.
@@ -5551,7 +5722,10 @@ def remove_analysis_state(
             if table == "canonical_roots":
                 guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.problem) FOR UPDATE; IF $guard=NONE { THROW 'source authority missing'; }; }; "
             if table == "canonical_analysis_inputs":
-                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE; IF $guard=NONE { THROW 'run authority missing'; }; }; "
+                # This touch-created conflict key may be absent from preserved
+                # history. Register that exact absence without inventing a run
+                # authority; source retention incarnations remain required below.
+                guards = "FOR $row IN $rows { LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$row.run) FOR UPDATE; }; "
             response = maintenance_query(
                 state,
                 config,

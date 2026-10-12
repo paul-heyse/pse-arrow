@@ -174,7 +174,7 @@ async fn definition(
         .admit_study_sources(
             &sources.physical,
             &points,
-            &pse_runtime::workflow::StudyOutputDemand::Full,
+            &workflow::StudyOutputDemand::Full {},
             &CancelSource::new(),
         )
         .await
@@ -253,7 +253,7 @@ fn ephemeral(
     values: &[f64],
     numerical: &mut observations::Observations,
     parallel: bool,
-    pool: std::sync::Arc<dyn pse_columnar::MemoryPool>,
+    service: &pse_runtime::math::MathService,
 ) -> Vec<Value> {
     assert_eq!(report.results.len(), values.len());
     let mut identities = BTreeSet::new();
@@ -264,7 +264,7 @@ fn ephemeral(
             panic!("explicit ephemeral adapter returned a retained canonical handle");
         };
         // Count original joined native reports, not reopened metric projections.
-        numerical.run(result, pool.clone());
+        numerical.run(result, service);
         let RunReport::Modeling(reports) = result.report().unwrap() else { panic!("root study report") };
         assert_eq!(reports.len(), 1);
         if let pse_runtime::math::solves::Outcome::Constant(completed) = &reports[0].outcome {
@@ -470,7 +470,7 @@ pub(super) fn measure(
                                 tokio::time::sleep(Duration::from_millis(10)).await;
                             },
                             workflow::Processed::Ran {record,..}=>worker_passes.push(json!({"seconds":seconds,"outcome":record.attempt.as_ref().unwrap().outcome,"solutions":record.solutions.len(),"preparations":support::counts(pass_before,owner.runtime.math().preparations())})),
-                            workflow::Processed::Settled{..}|workflow::Processed::Finalized{..}=>worker_passes.push(json!({"seconds":seconds,"preparations":support::counts(pass_before,owner.runtime.math().preparations())})),
+                            workflow::Processed::Maintenance{..}|workflow::Processed::Settled{..}|workflow::Processed::Finalized{..}=>worker_passes.push(json!({"seconds":seconds,"preparations":support::counts(pass_before,owner.runtime.math().preparations())})),
                         }
                         assert!(worker_passes.len()<=32,"unexpected study retry");
                         if handle.status().await.unwrap().state==StudyState::Concluded { terminal=true; break; }
@@ -507,7 +507,7 @@ pub(super) fn measure(
                     let elapsed=started.elapsed();
                     check(&report.outcomes, occurrences, independent);
                     let read=Instant::now();
-                    let metrics=ephemeral(&report,&values,&mut numerical,independent,owner.runtime.pool());
+                    let metrics=ephemeral(&report,&values,&mut numerical,independent,owner.runtime.math());
                     (elapsed,Duration::ZERO,json!({"views":0,"observations":0,"rebuilt":0,"shared":0}),serde_json::to_value(report.preparations).unwrap(),read.elapsed().as_secs_f64(),report.outcomes,metrics)
                 };
                 numerical.preparations(before,owner.runtime.math().preparations());

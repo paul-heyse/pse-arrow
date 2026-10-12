@@ -862,12 +862,16 @@ impl MathService {
         let control = FlightCancellation::default();
         let prepared = source.source.prepared.clone();
         let values = source.source.values.clone();
-        let demand = prepared
-            .compiled()
-            .initialization_allocation_bound()?
-            .unwrap_or(self.policy.workspace_bytes);
-        let operation =
-            self.job_retained_scoped(1, demand, control.clone(), scope.deadline(), move |abort| {
+        let construction = super::super::jobs::ConstructionEstimate::from_bound(
+            prepared.compiled().initialization_allocation_bound()?,
+            self.policy.workspace_bytes,
+        );
+        let operation = self.job_retained_construction(
+            1,
+            construction,
+            control.clone(),
+            scope.deadline(),
+            move |abort| {
                 if abort.load(std::sync::atomic::Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
@@ -885,7 +889,8 @@ impl MathService {
                     .ok_or(MathRuntimeError::Limit("PETSc compiled block products"))?;
                 worker_scope.check().map_err(ProblemError::from)?;
                 Ok((products, bytes))
-            });
+            },
+        );
         tokio::pin!(operation);
         let (products, lease) = tokio::select! {
             result = &mut operation => result?,
@@ -896,10 +901,11 @@ impl MathService {
         // it under the unchanged scope without pricing every block as a complete
         // parent projection or keeping validation storage after the check.
         for block in products.iter() {
-            let demand = block
-                .binding_allocation_bound(&values)?
-                .unwrap_or(self.policy.worker_bytes);
-            if demand > self.policy.worker_bytes {
+            let construction = super::super::jobs::ConstructionEstimate::from_bound(
+                block.binding_allocation_bound(&values)?,
+                self.policy.worker_bytes,
+            );
+            if construction.bytes() > self.policy.worker_bytes {
                 return Err(MathRuntimeError::Limit(
                     "PETSc block binding construction capacity",
                 ));
@@ -910,8 +916,12 @@ impl MathService {
             let bound_values = values.clone();
             let checked_scope = scope.clone();
             let control = FlightCancellation::default();
-            let validation =
-                self.job_scoped(1, demand, control.clone(), scope.deadline(), move |_| {
+            let validation = self.job_construction(
+                1,
+                construction,
+                control.clone(),
+                scope.deadline(),
+                move |_| {
                     checked_scope.check().map_err(ProblemError::from)?;
                     block.bind(
                         quantities,
@@ -921,7 +931,8 @@ impl MathService {
                     )?;
                     checked_scope.check().map_err(ProblemError::from)?;
                     Ok(())
-                });
+                },
+            );
             tokio::pin!(validation);
             tokio::select! {
                 result = &mut validation => result?,

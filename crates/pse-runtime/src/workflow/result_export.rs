@@ -831,14 +831,14 @@ mod tests {
         fn name(&self) -> &str {
             "row-copy-control"
         }
-        fn register(&self, consumer: &pse_columnar::MemoryConsumer) {
+        fn register(&self, consumer: &MemoryConsumer) {
             self.inner.register(consumer);
             if consumer.name() == "result:chunk-row-copy" {
                 self.registrations.fetch_add(1, Ordering::Relaxed);
                 assert_eq!(self.live.fetch_add(1, Ordering::Relaxed), 0);
             }
         }
-        fn unregister(&self, consumer: &pse_columnar::MemoryConsumer) {
+        fn unregister(&self, consumer: &MemoryConsumer) {
             self.inner.unregister(consumer);
             if consumer.name() == "result:chunk-row-copy" {
                 self.departures.fetch_add(1, Ordering::Relaxed);
@@ -959,7 +959,7 @@ mod tests {
             &request.cancel,
             &source.validation,
         );
-        let fill = pse_columnar::MemoryConsumer::new("row-copy-refusal-control").register(&pool);
+        let fill = MemoryConsumer::new("row-copy-refusal-control").register(&pool);
         fill.try_grow(1 << 20).unwrap();
         assert!(columns.push_ref(&row).await.is_err());
         assert_eq!(columns.count, 0);
@@ -1306,8 +1306,7 @@ mod tests {
             )
             .unwrap()
         };
-        let pressure =
-            pse_columnar::MemoryConsumer::new("test:native-export-pressure").register(&source.pool);
+        let pressure = MemoryConsumer::new("test:native-export-pressure").register(&source.pool);
         pressure.try_grow((8 << 20) - (64 << 10)).unwrap();
         let small = Arc::new("short".to_owned());
         assert!(

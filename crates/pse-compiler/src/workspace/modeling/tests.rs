@@ -153,15 +153,22 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     });
     let events = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let observed = Arc::clone(&events);
+    let document_admissions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let observed_documents = Arc::clone(&document_admissions);
     let mut workspace = CompilerWorkspace::with_events(
         crate::authored_transfer_tests::context(),
         WorkspaceLimits {
-            input_bytes: 5 << 20,
+            // Cover the full retained granular candidate, not just bulk rows.
+            // Oversized defaults alone precharge 17,920,000 bytes before expansion.
+            input_bytes: 16 << 20,
             ..WorkspaceLimits::default()
         },
         Some(Box::new(move |event| {
             if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
                 observed.fetch_add(1, Ordering::Relaxed);
+                if format!("{:?}", event.kind).contains("document_table") {
+                    observed_documents.fetch_add(1, Ordering::Relaxed);
+                }
             }
         })),
     )
@@ -171,24 +178,28 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
         .publish_modeling_with(oversized, PhysicalScope::default(), Arc::clone(&documents))
         .unwrap_err();
     assert!(error.to_string().contains("before expansion"), "{error}");
-    assert_eq!(events.load(Ordering::Relaxed), 0);
+    // Semantic phases establish the dataset plan before its expansion can be
+    // preflighted. The bulk row-admission query must never execute on refusal.
+    assert!(events.load(Ordering::Relaxed) > 0);
+    assert_eq!(document_admissions.load(Ordering::Relaxed), 0);
     assert!(workspace.modeling.is_none());
     let small = source(&text.replace("$DEFAULT", "small"));
-    workspace.db.cancel.store(true, Ordering::Relaxed);
     assert!(matches!(
-        workspace.publish_modeling_with(
+        workspace.publish_modeling_with_cancellable(
             small.clone(),
             PhysicalScope::default(),
-            Arc::clone(&documents)
+            Arc::clone(&documents),
+            Arc::new(AtomicBool::new(true)),
         ),
-        Err(CompileError::Modeling(
-            pse_modeling::ModelingError::Cancelled
-        ))
+        Err(CompileError::Cancelled)
     ));
-    assert_eq!(events.load(Ordering::Relaxed), 0);
-    workspace.db.cancel.store(false, Ordering::Relaxed);
+    assert!(workspace.modeling.is_none());
     let admitted = workspace
-        .publish_modeling_with(small, PhysicalScope::default(), documents)
+        .publish_modeling_with(
+            small.clone(),
+            PhysicalScope::default(),
+            Arc::clone(&documents),
+        )
         .unwrap();
     let kind = admitted.checked().entry("p.node").unwrap();
     let id = pse_modeling::entity::keyed_identity(
@@ -199,6 +210,25 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
         admitted.checked().record(id).unwrap().values["payload"],
         pse_modeling::specialize::Value::Text("small".into())
     );
+    // Refusal rotates the candidate lane, including its event observer. A fresh
+    // successful control proves that this observer identifies actual bulk work.
+    let observed_documents = Arc::clone(&document_admissions);
+    let mut control = CompilerWorkspace::with_events(
+        workspace.inputs.clone(),
+        workspace.limits,
+        Some(Box::new(move |event| {
+            if matches!(event.kind, salsa::EventKind::WillExecute { .. })
+                && format!("{:?}", event.kind).contains("document_table")
+            {
+                observed_documents.fetch_add(1, Ordering::Relaxed);
+            }
+        })),
+    )
+    .unwrap();
+    control
+        .publish_modeling_with(small, PhysicalScope::default(), documents)
+        .unwrap();
+    assert!(document_admissions.load(Ordering::Relaxed) > 0);
 }
 
 #[test]
@@ -460,6 +490,8 @@ fn kernel_publication_rejects_invalid_batch_atomically() {
     let (mut workspace, mut rows, names, root) =
         setup("package p { def Root { var x: Scalar; eq e: x == 2; } }");
     let old = admit(&mut workspace, root);
+    let head = workspace.modeling.as_ref().unwrap().revision.clone();
+    let generation = workspace.generation();
     rows.iter_mut()
         .find(|r| r.name == "e")
         .unwrap()
@@ -469,7 +501,19 @@ fn kernel_publication_rejects_invalid_batch_atomically() {
         .unwrap()
         .expression = "missing == 2".into();
     assert!(workspace.publish_modeling(rows, names).is_err());
-    assert!(Arc::ptr_eq(&old, &admit(&mut workspace, root)));
+    assert_eq!(workspace.generation(), generation + 1);
+    assert!(Arc::ptr_eq(
+        &head,
+        &workspace.modeling.as_ref().unwrap().revision
+    ));
+    assert!(workspace.selects_modeling_revision(&head));
+    // Failed candidate setters are discarded with their lane. The exact admitted
+    // head survives; its specialization is rebuilt with unchanged meaning.
+    let restored = admit(&mut workspace, root);
+    assert_eq!(old, restored);
+    let mut fresh = CompilerWorkspace::new(workspace.inputs.clone(), workspace.limits).unwrap();
+    fresh.publish_modeling_revision(head).unwrap();
+    assert_eq!(old, admit(&mut fresh, root));
 }
 #[test]
 fn kernel_admitted_revisions_reuse_checked_state_and_refuse_context_substitution() {

@@ -350,7 +350,7 @@ async fn covariance_withheld_without_responses() {
 
 /// On a linear model independent minimized weighted likelihoods establish the
 /// profile/Wald endpoint agreement at production accuracy. The interval root uses
-/// its default statistic control; two chains run at once.
+/// its default statistic control; serial and four-worker chains must agree.
 #[cfg_attr(
     not(feature = "native-solvers"),
     ignore = "needs the linked native solvers"
@@ -370,7 +370,20 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
             predictions: false,
         }),
     );
-    let package = package(declared(), [1.0; 4]).await;
+    // Keep the ordinary fixture's memory capacity and explicitly admit the four
+    // one-thread chains this control compares with serial execution.
+    let runtime = crate::workflow::tests::runtime_on_threads(
+        4 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 1 << 30,
+            workspace_bytes: 1 << 30,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+        4,
+    );
+    assert_eq!(runtime.shared.math().cores(), 4);
+    let package = package_on(runtime, false, declared(), [1.0; 4]).await;
     // The chains do not depend on how many run at once.
     let prepared = package
         .prepare_fit(
@@ -382,6 +395,7 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         )
         .await
         .unwrap();
+    assert_eq!(prepared.problem.profile.solver.controls.threads, 1);
     let chains = |workers| {
         let prepared = prepared.clone();
         async move {

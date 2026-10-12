@@ -182,10 +182,14 @@ class PseEnvTests(unittest.TestCase):
         observer.path = self.root / "observer"
         original = time.monotonic() + 1
 
-        def cancelled(_command, _environment, **options):
-            options["observation"].update(
-                child_status=-9, cancellation_deadline=original
-            )
+        def cancelled(
+            _command: list[str],
+            _environment: dict[str, str],
+            *,
+            observation: dict[str, object],
+            **_options: object,
+        ) -> int:
+            observation.update(child_status=-9, cancellation_deadline=original)
             return 143
 
         with (

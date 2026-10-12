@@ -50,6 +50,7 @@ def declared(name: str) -> Gate:
             "check",
             "clippy-default",
             "clippy-no-default",
+            "producer-fixture",
         }
         else "python-product"
         if name in {"native-python", "py-sync-native-correctness", "python-stubs"}
@@ -265,7 +266,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
         Gate(
             "producer-fixture",
             ("{output}/producer-fixture.json",),
-            input_scope="tooling",
+            input_scope="rust-product",
         ),
         *deployment_gates,
         Gate(
@@ -551,10 +552,34 @@ FUNCTIONAL_SCOPES = {
         "functional-preparation", "package(pse-runtime) | package(pse-compiler)"
     ),
     "admission": native_gate(
-        "functional-admission", "package(pse-authoring) | package(pse-runtime)"
+        "functional-admission",
+        "package(pse-authoring) | package(pse-admission) | package(pse-runtime)",
     ),
     "lifecycle": native_gate(
         "functional-lifecycle",
         "package(pse-runtime) | package(pse-operations) | package(pse-tests-lifecycle) | (package(pse-tests-conformance) & test(acceptance::connected_results_resource::))",
     ),
 }
+
+
+def functional_gates(names: list[str]) -> list[Gate]:
+    """Compose actual portable producer prerequisites before Runtime selections."""
+    selected = list(dict.fromkeys(names))
+    gates = [FUNCTIONAL_SCOPES[name] for name in selected]
+    if any(name != "managed-primary" for name in selected):
+        # Each ordinary scope selects Runtime, whose portable-body control consumes
+        # an actual tool-produced receipt. Managed-only selection does not.
+        return [
+            Gate(
+                "producer-fixture",
+                ("{output}/producer-fixture.json",),
+                input_scope="rust-product",
+            ),
+            *(
+                gate
+                if name == "managed-primary"
+                else replace(gate, dependencies=("producer-fixture",))
+                for name, gate in zip(selected, gates, strict=True)
+            ),
+        ]
+    return gates

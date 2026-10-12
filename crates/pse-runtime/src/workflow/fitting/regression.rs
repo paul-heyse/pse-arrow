@@ -55,6 +55,14 @@ pub(in crate::workflow) async fn package_with(
     sigma: [Option<f64>; 4],
     importance: [f64; 4],
 ) -> crate::workflow::ModelingPackage {
+    package_on(runtime(), offset, sigma, importance).await
+}
+pub(in crate::workflow) async fn package_on(
+    runtime: crate::workflow::Runtime,
+    offset: bool,
+    sigma: [Option<f64>; 4],
+    importance: [f64; 4],
+) -> crate::workflow::ModelingPackage {
     let mut physical = physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -104,7 +112,7 @@ pub(in crate::workflow) async fn package_with(
     data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":parameters,
         "experiments":[{"experiment_id":id(33),"case_id":root,"route":"steady","bindings":bindings}],
         "observations":observations})).unwrap());
-    runtime()
+    runtime
         .modeling_package(rows, physical)
         .await
         .unwrap()

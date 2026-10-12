@@ -45,6 +45,47 @@ fn membership_scope_predicate(scoped: bool, parameter: &str) -> String {
     }
 }
 
+// The writer increments this same head guard when publishing membership changes.
+// Register it before observing the head so either commit order conflicts/retries
+// under protected_query's original clock, or reads the exact historical interval.
+const MEMBERSHIP_HEAD_BEGIN: &str = r#"
+SELECT * FROM type::record('canonical_guards', 'head:' + $problem) FOR UPDATE;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+LET $selected_head = SELECT * FROM ONLY type::record('canonical_problems', $problem);"#;
+
+fn membership_page_query(scoped: bool, predicates: &str, limit: usize) -> String {
+    let historical = format!(
+        "SELECT * FROM canonical_memberships WHERE {predicates} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout"
+    );
+    if scoped {
+        // Keep the equality literal in the emitted query: an OR/optional predicate
+        // hides the (problem, scope, to_sequence, key) equality prefix from planning.
+        format!(
+            "IF $selected_head.head = $revision AND $selected_head.sequence = $sequence {{ SELECT * FROM canonical_memberships WHERE {predicates} AND to_sequence = NONE ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout }} ELSE {{ {historical} }}"
+        )
+    } else {
+        historical
+    }
+}
+
+fn membership_page_sql(scoped: bool) -> String {
+    let scope = membership_scope_predicate(scoped, "scope");
+    let head = if scoped { MEMBERSHIP_HEAD_BEGIN } else { "" };
+    let page = membership_page_query(
+        scoped,
+        &format!("problem = $problem{scope} AND key > $after"),
+        64,
+    );
+    format!(
+        "{PROTECTED_BEGIN}{head}\nLET $rpc_result = {page};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"
+    )
+}
+
+#[cfg(all(test, feature = "canonical-tests"))]
+pub(crate) fn test_membership_page_sql() -> String {
+    membership_page_sql(true)
+}
+
 // Materialize the target suppliers once per protected query, rather than once
 // per candidate membership. IN preserves existence semantics for repeated edges;
 // the current membership, kind, scope and page predicates still select authority.
@@ -1302,13 +1343,23 @@ impl CanonicalStore {
         }
         let limit = 64 / cursors.len();
         let mut sql = PROTECTED_BEGIN.to_owned();
+        if cursors.iter().any(|cursor| cursor.scope.is_some()) {
+            sql.push_str(MEMBERSHIP_HEAD_BEGIN);
+        }
         for (index, cursor) in cursors.iter().enumerate() {
             let scoped =
                 membership_scope_predicate(cursor.scope.is_some(), &format!("scope{index}"));
             let (suppliers, referenced) =
                 membership_reference_predicate(cursor.target.is_some(), &index.to_string());
             sql.push_str(&suppliers);
-            sql.push_str(&format!("\nLET $page{index} = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after{index} AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)){referenced} ORDER BY key LIMIT {limit} TIMEOUT $pse_rpc_timeout;"));
+            let page = membership_page_query(
+                cursor.scope.is_some(),
+                &format!(
+                    "problem = $problem{scoped} AND key > $after{index} AND ($kind{index} = NONE OR (out.kind = $kind{index} AND out.closed = true)){referenced}"
+                ),
+                limit,
+            );
+            sql.push_str(&format!("\nLET $page{index} = {page};"));
         }
         let pages = (0..cursors.len())
             .map(|index| format!("$page{index}"))
@@ -1478,7 +1529,19 @@ impl CanonicalStore {
     ) -> Result<Vec<Membership>, CanonicalError> {
         let scoped = membership_scope_predicate(scope.is_some(), "scope");
         let (suppliers, referenced) = membership_reference_predicate(target.is_some(), "");
-        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}{suppliers}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)){referenced} ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let head = if scope.is_some() {
+            MEMBERSHIP_HEAD_BEGIN
+        } else {
+            ""
+        };
+        let page = membership_page_query(
+            scope.is_some(),
+            &format!(
+                "problem = $problem{scoped} AND key > $after AND ($source_kind = NONE OR (out.kind = $source_kind AND out.closed = true)){referenced}"
+            ),
+            64,
+        );
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::selection_membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}{head}{suppliers}\nLET $rpc_result = {page};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("source_kind", source_kind.map(str::to_owned))).bind(("after", after.to_owned())).bind(("target_scope", target.map(|(scope,_)| scope.to_owned()))).bind(("target_name", target.map(|(_,name)| name.to_owned()))).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
@@ -1670,9 +1733,27 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
-        let scoped = membership_scope_predicate(scope.is_some(), "scope");
-        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::membership_page", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_memberships WHERE problem = $problem{scoped} AND key > $after AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY key LIMIT 64 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
-            .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("protection", selection.key().to_owned())).bind(("scope", scope.map(str::to_owned))).bind(("after", after.to_owned())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?)))).await?;
+        let mut response = self
+            .protected_query(
+                &selection.revision().problem,
+                crate::canonical::QueryEffect::Read,
+                "canonical_selection::membership_page",
+                || {
+                    Ok(self
+                        .db
+                        .query(membership_page_sql(scope.is_some()))
+                        .bind(("problem", selection.revision().problem.clone()))
+                        .bind(("revision", selection.revision().key.clone()))
+                        .bind(("protection", selection.key().to_owned()))
+                        .bind(("scope", scope.map(str::to_owned)))
+                        .bind(("after", after.to_owned()))
+                        .bind((
+                            "sequence",
+                            crate::canonical_codec::encode_uint(selection.revision().sequence)?,
+                        )))
+                },
+            )
+            .await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         rows.into_iter()
             .map(wire::decode_canonical_memberships)
@@ -2750,6 +2831,8 @@ mod canonical_server_unit {
             )
             .is_err()
         );
+        // A completed cursor still owns a protection follower until dropped.
+        drop(pages);
         selected.finish().await.unwrap();
         current.finish().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
@@ -2816,9 +2899,13 @@ mod canonical_server_unit {
             assert_eq!(window.counts.names, usize::from(accepted.is_some()));
             if let Some(index) = accepted {
                 window.merge_qualified(&mut current, index).unwrap();
+                // Candidate premise order is immaterial to qualification; the
+                // selected snapshot emits these name/logical keys in map order.
+                let mut expected = candidates[index].dependencies.clone();
+                expected.premises.sort();
                 assert_eq!(
                     current.snapshot_dependencies().unwrap().dependencies,
-                    candidates[index].dependencies
+                    expected
                 );
                 current.finish().await.unwrap();
                 current = read(&store, revision.clone()).await;
@@ -3468,6 +3555,113 @@ mod canonical_server_unit {
         product.dependencies = Vec::new().into();
         product
     }
+
+    #[tokio::test]
+    async fn scoped_head_pages_preserve_selected_revision_in_both_head_change_orders() {
+        for read_commits_first in [false, true] {
+            let store = fixture().await;
+            let edits = (0..70)
+                .map(|index| {
+                    edit(
+                        &format!("member-{index:03}"),
+                        &format!("v-{index}"),
+                        "definition",
+                        vec![],
+                    )
+                })
+                .collect::<Vec<_>>();
+            let revision = store.edit("p", None, "head-before", &edits).await.unwrap();
+            let mut selected = read(&store, revision.clone()).await;
+            let mut cursor = store.scope_pages(&mut selected, "p").unwrap();
+            let mut observed = Vec::new();
+            if read_commits_first {
+                observed.extend(
+                    store
+                        .next_membership_page(&mut selected, &mut cursor)
+                        .await
+                        .unwrap(),
+                );
+                assert_eq!(observed.len(), 64);
+            }
+            // Replace every member: historical pages must never pick a single
+            // new-head payload, including when a cursor already consumed a page.
+            let replacements = (0..70)
+                .map(|index| {
+                    edit(
+                        &format!("member-{index:03}"),
+                        &format!("new-v-{index}"),
+                        "definition",
+                        vec![],
+                    )
+                })
+                .collect::<Vec<_>>();
+            let current = store
+                .edit("p", Some(&revision.key), "head-after", &replacements)
+                .await
+                .unwrap();
+            loop {
+                let page = store
+                    .next_membership_page(&mut selected, &mut cursor)
+                    .await
+                    .unwrap();
+                if page.is_empty() {
+                    break;
+                }
+                observed.extend(page);
+            }
+            assert_eq!(observed.len(), 70);
+            assert!(
+                observed
+                    .iter()
+                    .all(|member| member.version.starts_with("v-"))
+            );
+            assert!(selected.dependency_bytes().is_ok());
+            let historical = store
+                .selection_membership_page(selected.selection(), Some("p"), None, None, "")
+                .await
+                .unwrap();
+            assert_eq!(historical.len(), 64);
+            assert!(
+                historical
+                    .iter()
+                    .all(|member| member.version.starts_with("v-"))
+            );
+            let fresh = read(&store, current).await;
+            let scoped = store
+                .membership_page(fresh.selection(), Some("p"), "")
+                .await
+                .unwrap();
+            let interval_oracle = store
+                .membership_page(fresh.selection(), None, "")
+                .await
+                .unwrap();
+            assert_eq!(
+                scoped
+                    .iter()
+                    .map(|row| (&row.key, &row.version))
+                    .collect::<Vec<_>>(),
+                interval_oracle
+                    .iter()
+                    .map(|row| (&row.key, &row.version))
+                    .collect::<Vec<_>>()
+            );
+            assert!(
+                scoped
+                    .iter()
+                    .all(|member| member.version.starts_with("new-v-"))
+            );
+            store.release(selected.selection()).await.unwrap();
+            assert!(
+                store
+                    .membership_page(selected.selection(), Some("p"), "")
+                    .await
+                    .is_err()
+            );
+            store.release(fresh.selection()).await.unwrap();
+            store.remove_isolated_fixture().await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn paged_selected_inventory_closes_only_after_protected_terminal_page() {
         let store = fixture().await;
@@ -5019,14 +5213,25 @@ mod canonical_server_unit {
             Some(key.clone()),
             "lost deduplication acknowledgment settles the existing exact rooted product after pin release"
         );
-        let mut mismatched_attempt = deduplicated_attempt.clone();
-        mismatched_attempt.payload = b"different-admitted-recipe".to_vec().into();
+        let mut mismatched_attempt = product(&current, b"different-admitted-recipe");
+        mismatched_attempt.key = deduplicated_attempt.key.clone();
+        mismatched_attempt.dependencies =
+            serde_json::to_vec(&current.dependencies()).unwrap().into();
+        let mismatched_attempt = stored_product(mismatched_attempt);
         assert_eq!(
             store
                 .product_acknowledged(&mismatched_attempt)
                 .await
                 .unwrap(),
             None
+        );
+        let mut malformed_attempt = deduplicated_attempt.clone();
+        malformed_attempt.payload = b"not-a-product-descriptor".to_vec().into();
+        assert!(
+            store
+                .product_acknowledged(&malformed_attempt)
+                .await
+                .is_err()
         );
         let owner = crate::canonical_retention::RetentionOwner::Product(key.clone());
         assert!(

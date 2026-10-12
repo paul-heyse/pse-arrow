@@ -492,7 +492,7 @@ mod foundation_unit {
         ]);
         let schema = pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap();
         let DataType::List(item) = schema.field(1).data_type() else {
-            unreachable!()
+            panic!("authored.list_gather fixture requires its declared list field")
         };
         let lists = ListArray::new(
             item.clone(),

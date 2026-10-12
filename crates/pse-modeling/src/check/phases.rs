@@ -140,10 +140,10 @@ impl Namespace {
         for row in p.declarations.values_mut() {
             row.source_start = 0;
             row.source_end = 0;
-            if let Some(binding) = &mut row.value.binding {
-                if let Some(expression) = &mut binding.expression {
-                    expression.clear();
-                }
+            if let Some(binding) = &mut row.value.binding
+                && let Some(expression) = &mut binding.expression
+            {
+                expression.clear();
             }
             if let Some(function) = &mut row.value.function {
                 if let Some(body) = &mut function.body {
@@ -655,11 +655,7 @@ impl MemberInput {
         types: Types,
         members: Members,
         inheritance: Inheritance,
-        candidate: Option<(
-            BTreeMap<String, DeclarationId>,
-            BTreeMap<String, DeclarationId>,
-            BTreeSet<DeclarationId>,
-        )>,
+        candidate: Option<EffectiveMemberCandidates>,
     ) -> Result<Self> {
         let row = &p.declarations[&id];
         let (own, inherited, contracts) =
@@ -738,12 +734,7 @@ impl MemberInput {
             + self
                 .members
                 .iter()
-                .map(|(_, m)| {
-                    m.iter()
-                        .map(|(name, _)| name.capacity() + 128)
-                        .sum::<usize>()
-                        + 128
-                })
+                .map(|(_, m)| m.keys().map(|name| name.capacity() + 128).sum::<usize>() + 128)
                 .sum::<usize>()
     }
     /// Admit effective inheritance, overrides, domains and signatures through the existing rules.
@@ -902,20 +893,19 @@ impl MemberProduct {
     }
 }
 
+type EffectiveMemberCandidates = (
+    BTreeMap<String, DeclarationId>,
+    BTreeMap<String, DeclarationId>,
+    BTreeSet<DeclarationId>,
+);
+
 /// Cycle-checked enclosing namespace and preliminary candidate memberships.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InventoryProduct {
     pub(super) package: CheckedPackage,
     pub(super) inheritance: Inheritance,
     pub(super) order: Vec<petgraph::graph::NodeIndex>,
-    pub(super) candidates: BTreeMap<
-        DeclarationId,
-        (
-            BTreeMap<String, DeclarationId>,
-            BTreeMap<String, DeclarationId>,
-            BTreeSet<DeclarationId>,
-        ),
-    >,
+    pub(super) candidates: BTreeMap<DeclarationId, EffectiveMemberCandidates>,
 }
 impl InventoryProduct {
     /// Known complete enclosing phase storage.

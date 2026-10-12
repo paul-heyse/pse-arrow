@@ -51,7 +51,7 @@ struct StudyPrediction {
     original: super::ModelingSolvePreparation,
     operation: pse_ids::ContentHash,
     binding_members: Vec<SemanticId>,
-    _binding_members_owner: std::sync::Arc<pse_columnar::AllocationLease>,
+    _binding_members_owner: Arc<pse_columnar::AllocationLease>,
 }
 
 /// Rebuild one related prediction source from the already checked structural view when
@@ -62,7 +62,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
     template: &super::ModelingSolvePreparation,
     binding: &AdmittedBinding,
     binding_members: &[SemanticId],
-    portable: std::sync::Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>,
+    portable: Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>,
     cancel: &crate::CancelSource,
 ) -> Result<Option<super::modeling::results::PredictionSample>, WorkflowError> {
     let product = template.model.model.compiled();
@@ -781,9 +781,10 @@ impl Runtime {
         let deadline = std::time::Instant::now()
             .checked_add(input.original.solve.time_limit())
             .ok_or_else(|| contract("prediction deadline extent"))?;
-        let scope = input.original.solve.task_scope().unwrap_or_else(|| {
-            pse_kernels::ExecutionScope::new(std::sync::Arc::default(), Some(deadline))
-        });
+        let scope =
+            input.original.solve.task_scope().unwrap_or_else(|| {
+                pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline))
+            });
         let original = self
             .native()
             .admit_proposal_task(input.original.solve.clone(), scope.clone())
@@ -810,7 +811,7 @@ impl Runtime {
                 )
                 .await
                 .map_err(|error| {
-                    pse_backend_native::square_response::Withheld::Cause(std::sync::Arc::new(
+                    pse_backend_native::square_response::Withheld::Cause(Arc::new(
                         error.into_problem(),
                     ))
                 });
@@ -857,7 +858,7 @@ impl Runtime {
         .map_err(crate::math::MathRuntimeError::from)?;
         execution.work_admission = original
             .task_admission()
-            .map(|owner| -> std::sync::Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
+            .map(|owner| -> Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
         let mut destination = input.original.clone();
         destination.solve = original;
         let branch = destination.solve.composition_request().branch;
@@ -989,23 +990,28 @@ impl Runtime {
     }
 
     /// Explicitly recover an assigned occurrence without invoking a numerical kernel.
-    /// Native expiration/cancellation authority closes the old writer before replay.
+    /// Expiration fences departed writers; cancellation alone is not native drain.
     #[allow(
         unsafe_code,
         reason = "owning recovery projects only admitted completion or truthful worker-loss facts"
     )]
     pub(crate) async fn recover_study_point(&self, key: &str) -> Result<bool, WorkflowError> {
-        let (point, actual, study, run) = self.canonical_store().recovery_snapshot(key).await?;
+        let (point, actual, study, _run) = self.canonical_store().recovery_snapshot(key).await?;
         let point = &point;
+        // Assigned-page discovery is only a hint. The original owner may have
+        // recorded this terminal attempt before this fresh snapshot, including
+        // a retryable observation that normal claim policy must handle next.
+        if !point.assigned || point.settled {
+            return Ok(false);
+        }
         let attempt_key = point
             .attempt
             .as_deref()
             .ok_or_else(|| contract("assigned study occurrence has no attempt"))?;
-        if !actual.terminal
-            && !study.cancelled
-            && !run.cancelled
-            && actual.expires_at > chrono::Utc::now().timestamp_micros()
-        {
+        // A live owner receives typed cancellation, drains, and settles its own
+        // original completion. An independent recovery worker cannot infer that
+        // physical handoff from the cancellation bit alone.
+        if !actual.terminal && actual.expires_at > chrono::Utc::now().timestamp_micros() {
             return Ok(false);
         }
         self.operations()?
@@ -1438,7 +1444,7 @@ pub struct StudyResults {
     /// Occurrence identity, execution and optional native attempt.
     pub points: Vec<(u32, String, Option<String>)>,
     #[serde(skip)]
-    _owner: Option<std::sync::Arc<dyn pse_columnar::PayloadOwner>>,
+    _owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
 }
 /// Explicit cancellation receipt; native process drain remains the worker's obligation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -1456,7 +1462,7 @@ pub struct StudyCancel {
 pub(in crate::workflow) struct TerminalStudyInventory {
     pub status: StudyStatus,
     pub facts: Vec<pse_model::study::PointFacts>,
-    pub owner: std::sync::Arc<dyn pse_columnar::PayloadOwner>,
+    pub owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
 
 #[cfg(test)]
@@ -1577,9 +1583,7 @@ impl StudyHandle {
         let bytes = count
             .checked_mul(size_of::<PointStatus>() + size_of::<pse_model::study::PointFacts>())
             .and_then(|bytes| {
-                bytes.checked_add(
-                    owner_count * size_of::<std::sync::Arc<pse_columnar::AllocationLease>>(),
-                )
+                bytes.checked_add(owner_count * size_of::<Arc<pse_columnar::AllocationLease>>())
             })
             .ok_or_else(|| contract("study point extent"))?;
         let base_owner = self
@@ -1682,7 +1686,7 @@ impl StudyHandle {
                 points,
             },
             facts,
-            owner: std::sync::Arc::new(owners),
+            owner: Arc::new(owners),
         }))
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
@@ -1704,7 +1708,7 @@ impl StudyHandle {
             .shared
             .math()
             .reserve("study:terminal-results", projection_bytes)?;
-        let owners: Vec<std::sync::Arc<dyn pse_columnar::PayloadOwner>> =
+        let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> =
             vec![inventory.owner, projection_owner];
         Ok(Some(StudyResults {
             run: status.run,
@@ -1714,7 +1718,7 @@ impl StudyHandle {
                 .into_iter()
                 .map(|point| (point.point_index, point.run, point.attempt))
                 .collect(),
-            _owner: Some(std::sync::Arc::new(owners)),
+            _owner: Some(Arc::new(owners)),
         }))
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.

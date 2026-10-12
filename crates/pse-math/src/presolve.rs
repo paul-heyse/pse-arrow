@@ -5,7 +5,7 @@
 use crate::{
     MathError,
     assembly::CasePlan,
-    binding::{CaseValues, Target},
+    binding::CaseValues,
     factorable::{
         Constraint, FactorableError, FactorableProgram, FactorableRequest, Node, NodeId,
         ObligationKind, ObligationScope, ProjectedObligation,
@@ -195,19 +195,9 @@ impl CasePlan {
         if limit == 0 {
             return Err(MathError::Limit("presolve tape extent"));
         }
-        let columns: BTreeMap<_, _> = self
-            .columns()
-            .iter()
-            .enumerate()
-            .map(|(i, id)| (*id, i))
-            .collect();
-        let rows: BTreeMap<_, _> = self
-            .structure()
-            .rows()
-            .iter()
-            .enumerate()
-            .map(|(i, r)| (r.id, i))
-            .collect();
+        let topology = self.projection_topology();
+        let columns = &topology.columns;
+        let rows = &topology.rows;
         let mut remaining = limit
             .checked_sub(rows.len())
             .ok_or(MathError::Limit("presolve rows"))?;
@@ -229,7 +219,7 @@ impl CasePlan {
             structure: self.structure().key(),
             values: program.values.clone(),
             affine: vec![None; rows.len()],
-            row_sources: vec![vec![]; rows.len()],
+            row_sources: topology.row_sources.clone(),
             tapes: Vec::with_capacity(rows.len()),
             complete: Vec::with_capacity(rows.len()),
             objective_linear: vec![false; columns.len()],
@@ -320,11 +310,6 @@ impl CasePlan {
         }
         for binding in self.structure().instances() {
             facts.has_guards |= self.bodies()[&binding.body].has_obligations();
-            for contribution in &binding.contributions {
-                if let Target::Row(row) = contribution.target {
-                    facts.row_sources[rows[&row]].push((binding.instance, contribution.output));
-                }
-            }
         }
         for tape in &facts.tapes {
             if tape.first_invalid_slot().is_some() {

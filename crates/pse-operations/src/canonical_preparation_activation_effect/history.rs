@@ -434,18 +434,17 @@ pub(super) fn derive(
             .as_ref()
             .map(decode_result_descriptors)
             .transpose()?;
-        if let Some(manifest) = &manifest {
-            if manifest.key != attempt.key
+        if let Some(manifest) = &manifest
+            && (manifest.key != attempt.key
                 || manifest.attempt != attempt.key
                 || manifest.generation != attempt.generation
                 || descriptors.as_ref().is_none_or(|items| {
                     items.len() != catalog.owned("canonical_result_sets", &attempt.key).len()
-                })
-            {
-                return Err(invalid(
-                    "historical manifest attempt/set population differs",
-                ));
-            }
+                }))
+        {
+            return Err(invalid(
+                "historical manifest attempt/set population differs",
+            ));
         }
         for set_key in catalog.owned("canonical_result_sets", &attempt.key) {
             let set =
@@ -659,6 +658,10 @@ fn expected_key(
     }
     Ok(())
 }
+#[allow(
+    clippy::too_many_arguments,
+    reason = "history comparison requires the exact catalog, extent, table, key and completeness boundary"
+)]
 async fn expected_derived(
     client: &mut OfflineClient,
     catalog: &mut Catalog,

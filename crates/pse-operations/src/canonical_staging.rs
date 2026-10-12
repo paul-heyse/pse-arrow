@@ -2346,11 +2346,12 @@ mod canonical_server_unit {
         (row.generation, row.expires_at, row.closed)
     }
 
-    async fn guard_generation(store: &CanonicalStore, key: &str) -> u64 {
+    async fn guard_generation(store: &CanonicalStore, key: &str) -> Option<u64> {
         let row: Option<Object> = store.db.select(("canonical_guards", key)).await.unwrap();
-        wire::decode_canonical_guards(row.unwrap())
+        row.map(wire::decode_canonical_guards)
+            .transpose()
             .unwrap()
-            .generation
+            .map(|row| row.generation)
     }
 
     #[tokio::test]
@@ -3042,13 +3043,35 @@ mod canonical_server_unit {
         peer.stage_plan(&fresh, &fresh_plan, &edits).await.unwrap();
 
         let old_retention_before = guard_generation(&store, "retention:old-guarded").await;
-        let old_stage_before = guard_generation(&store, "stage:old-guarded-stage").await;
-        let version_before = guard_generation(&store, "version:guarded-shared-version").await;
+        // Staging registers the retention guard's absence; activation or cleanup
+        // materializes it. Stage and version guards already have real generations.
+        assert_eq!(old_retention_before, None);
+        let old_stage_before = guard_generation(&store, "stage:old-guarded-stage")
+            .await
+            .unwrap();
+        let version_before = guard_generation(&store, "version:guarded-shared-version")
+            .await
+            .unwrap();
         let kept = store.reclaim_staging_page("old-guarded", "").await.unwrap();
         assert_eq!(kept.versions, 0);
-        assert!(guard_generation(&store, "retention:old-guarded").await > old_retention_before);
-        assert!(guard_generation(&store, "stage:old-guarded-stage").await > old_stage_before);
-        assert!(guard_generation(&store, "version:guarded-shared-version").await > version_before);
+        assert!(
+            guard_generation(&store, "retention:old-guarded")
+                .await
+                .unwrap()
+                > 0
+        );
+        assert!(
+            guard_generation(&store, "stage:old-guarded-stage")
+                .await
+                .unwrap()
+                > old_stage_before
+        );
+        assert!(
+            guard_generation(&store, "version:guarded-shared-version")
+                .await
+                .unwrap()
+                > version_before
+        );
         assert!(
             store
                 .object("guarded-shared-version")
@@ -3064,14 +3087,32 @@ mod canonical_server_unit {
             .and_then(checked)
             .unwrap();
         let new_retention_before = guard_generation(&peer, "retention:new-guarded").await;
-        let new_stage_before = guard_generation(&peer, "stage:new-guarded-stage").await;
-        let version_before_delete = guard_generation(&peer, "version:guarded-shared-version").await;
+        assert_eq!(new_retention_before, None);
+        let new_stage_before = guard_generation(&peer, "stage:new-guarded-stage")
+            .await
+            .unwrap();
+        let version_before_delete = guard_generation(&peer, "version:guarded-shared-version")
+            .await
+            .unwrap();
         let deleted = peer.reclaim_staging_page("new-guarded", "").await.unwrap();
         assert_eq!(deleted.versions, 1);
-        assert!(guard_generation(&peer, "retention:new-guarded").await > new_retention_before);
-        assert!(guard_generation(&peer, "stage:new-guarded-stage").await > new_stage_before);
         assert!(
-            guard_generation(&peer, "version:guarded-shared-version").await > version_before_delete
+            guard_generation(&peer, "retention:new-guarded")
+                .await
+                .unwrap()
+                > 0
+        );
+        assert!(
+            guard_generation(&peer, "stage:new-guarded-stage")
+                .await
+                .unwrap()
+                > new_stage_before
+        );
+        assert!(
+            guard_generation(&peer, "version:guarded-shared-version")
+                .await
+                .unwrap()
+                > version_before_delete
         );
         assert!(
             peer.object("guarded-shared-version")

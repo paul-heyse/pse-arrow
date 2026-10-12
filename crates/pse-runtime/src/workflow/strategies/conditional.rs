@@ -299,12 +299,12 @@ impl crate::math::solves::causal::CausalSupplier for AutomaticRecycle {
                 .hash(&prepared.contract.identity)
                 .hash(&prepared.profile_key)
                 .hash(&original.strategy_profile()?);
-            Ok(crate::math::solves::causal::PreparedCausal::new(
+            crate::math::solves::causal::PreparedCausal::new(
                 original,
                 scope,
                 key.finish_hash(),
                 Arc::new(prepared),
-            )?)
+            )
         })
     }
 }

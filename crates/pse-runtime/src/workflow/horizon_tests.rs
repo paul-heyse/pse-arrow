@@ -406,7 +406,7 @@ async fn nmpc_closed_loop_on_antiwindup() {
     let result = run(
         &runtime,
         Horizon {
-            output: crate::workflow::StudyOutputDemand::Full,
+            output: crate::workflow::StudyOutputDemand::Full {},
             plant,
             period: PERIOD,
             steps: STEPS,
@@ -526,7 +526,7 @@ async fn horizon_reuses_prepared_view() {
         let handle = runtime
             .start_horizon(
                 Horizon {
-                    output: crate::workflow::StudyOutputDemand::Full,
+                    output: crate::workflow::StudyOutputDemand::Full {},
                     plant,
                     period: PERIOD,
                     steps: STEPS,
@@ -647,7 +647,7 @@ async fn mhe_recovers_initial_state() {
     let result = run(
         &runtime,
         Horizon {
-            output: crate::workflow::StudyOutputDemand::Full,
+            output: crate::workflow::StudyOutputDemand::Full {},
             plant,
             period: PERIOD,
             steps: STEPS,
@@ -757,7 +757,7 @@ async fn horizon_records_one_durable_attempt() {
     let handle = runtime
         .start_horizon(
             Horizon {
-                output: crate::workflow::StudyOutputDemand::Full,
+                output: crate::workflow::StudyOutputDemand::Full {},
                 plant,
                 period: PERIOD,
                 steps: STEPS,
@@ -823,7 +823,7 @@ async fn horizon_refuses_inconsistent_loops() {
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., 4).await;
     let horizon = |controller: HorizonController, steps: usize, input: SemanticId| Horizon {
-        output: crate::workflow::StudyOutputDemand::Full,
+        output: crate::workflow::StudyOutputDemand::Full {},
         plant: plant.clone(),
         period: PERIOD,
         steps,
@@ -912,7 +912,7 @@ async fn antiwindup_with_start_policy(
     let result = run(
         &runtime,
         Horizon {
-            output: crate::workflow::StudyOutputDemand::Full,
+            output: crate::workflow::StudyOutputDemand::Full {},
             plant,
             period: PERIOD,
             steps,
@@ -2180,7 +2180,7 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
             runtime.clone(),
             crate::workflow::RunRequest::Modeling(vec![prepared.clone()]),
             None,
-            Ok(crate::workflow::RunReport::Modeling(vec![native.clone()])),
+            Ok(RunReport::Modeling(vec![native.clone()])),
         );
         original.modeling_origin = step;
         original = original.completed();

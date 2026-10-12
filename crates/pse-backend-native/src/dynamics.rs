@@ -1517,6 +1517,20 @@ impl Profile {
     fn segments(&self) -> usize {
         self.boundaries().len() + 1
     }
+    /// Conservative storage for prepared sparse IDAS scatter destinations. The
+    /// all-mode union is bounded by the square state shape before querying support;
+    /// second-order block maps are charged only for that requested demand.
+    pub fn native_scatter_bytes(
+        &self,
+        c: &Contract,
+        demand: DynamicDemand,
+    ) -> Result<usize, ProblemError> {
+        if self.method == Method::Diffsol {
+            return Ok(0);
+        }
+        scatter_storage_bound(c.states.len(), demand == DynamicDemand::ExactHessian)
+            .ok_or_else(|| ProblemError::memory("IDAS prepared scatter extent overflow"))
+    }
     /// The estimated bytes of the adjoint forward checkpoints and their replay buffers,
     /// charged against the caller's allowance before native work. The count is the smaller
     /// of `max_checkpoints` and what `max_steps` can store; each Diffsol checkpoint is a
@@ -1547,7 +1561,9 @@ impl Profile {
             })
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("adjoint checkpoint extent overflow"))?;
-        Ok(bytes)
+        bytes
+            .checked_add(self.native_scatter_bytes(c, DynamicDemand::Base)?)
+            .ok_or_else(|| ProblemError::memory("adjoint scatter extent overflow"))
     }
     /// The second-order route's admission (ADR-0110 item 4), before native work: the
     /// adjoint profile and its limits (checked by [`Profile::validate`]), IDAS, declared
@@ -1646,7 +1662,9 @@ impl Profile {
             .and_then(|b| b.checked_add(backward?))
             .and_then(|cells| cells.checked_mul(size_of::<f64>()))
             .ok_or_else(|| ProblemError::memory("second-order adjoint extent overflow"))?;
-        Ok(bytes)
+        bytes
+            .checked_add(self.native_scatter_bytes(c, DynamicDemand::ExactHessian)?)
+            .ok_or_else(|| ProblemError::memory("second-order scatter extent overflow"))
     }
     fn method_refusals(&self, c: &Contract) -> Vec<ProblemError> {
         let mut causes = Vec::new();
@@ -1906,6 +1924,23 @@ impl Profile {
             return Err(ProblemError::memory("dynamic result cell allowance"));
         }
         Ok(cells)
+    }
+}
+fn scatter_storage_bound(states: usize, second: bool) -> Option<usize> {
+    let entries = states.checked_mul(states)?;
+    // At most twice the occupied buckets, rounded up for the hash-table group,
+    // with a conservative aligned bucket/control allowance and table header.
+    let buckets = entries
+        .checked_mul(2)?
+        .max(16)
+        .checked_next_power_of_two()?;
+    let bytes = buckets.checked_mul(64)?.checked_add(128)?;
+    if second {
+        bytes
+            .checked_add(entries.checked_mul(3 * size_of::<usize>())?)?
+            .checked_add(states.checked_mul(2 * size_of::<usize>())?)
+    } else {
+        Some(bytes)
     }
 }
 /// Function value and raw partials with respect to state followed by parameters.

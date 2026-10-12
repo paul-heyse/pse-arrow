@@ -258,3 +258,38 @@ Clarabel was absent. This closes P-D5/F29 only, with no scientific or product-wi
 The corrected mistake was relying on transitive solver feature activation to express a
 JSON transport requirement. Deliberately retain the pinned dependency and existing
 finite-number boundary; this change does not introduce nonfinite JSON or alter hashing.
+
+## Implementation checkpoint, 2026-10-12
+
+P-D1–P-D7's selected boundary mechanisms are implemented: retained bound contexts,
+private structural admission carriage and lazy diagnostic selection, owned bounded IPC,
+lazy qualified file-cache capacity, explicit JSON feature ownership, truthful extension
+modes and Python-controlled pulls. The unselected public hashing-setting removal R36-02
+has not been installed. Rust SQL/invariant and physical inventory roles remain.
+
+All four actual installed extension modes pass their 13 direct integer/millisecond
+boundary controls; interactive binaries refuse validated correctness capture. Both
+validated builds generate their actual stubs without compiler warnings. The ordinary
+validated Python boundary/transfer/registry selection passes 66 tests. A later native
+getter repair preserves the full binding digest and supplies the `blake3:` prefix required
+by the typed consumer; the rebuilt native validated artifact passes the direct controls.
+Its bound-solve integration now passes in the actual 49-test native Python journey.
+
+The real entered-pull SIGINT control passes on the exact preserved private history:
+response protection remains until transport drain, close joins the controlled pull,
+and escaped Arrow arrays remain readable. The ordinary signal bridge passes too. These
+observations are not a universal cancellation SLA. Startup checkout/image observation
+uses the Python blocking boundary; its actual constructor thread-progress control passes
+in that native Python journey. Managed Python and enclosing native acceptance remain open.
+
+Native response snapshots now have an explicit drain witness separate from the receiver's
+decoded-value hold. Reply delivery joins those snapshots under the same absolute request
+deadline, including cancellation and expiry, before returning to the next producer. Joined
+owners retain observable drain state after allocation release without retaining grants in
+retired metadata. All eighteen engine API and twenty-seven native WebSocket controls pass;
+independent source readback found no material issue. These scoped results preserve the
+existing semaphore completion semantics and do not replace native/Python assembled acceptance.
+
+## Maintainer stop handoff, 2026-10-12
+
+Execution stopped after the requested immediate wrap-up. The [coordinator’s stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12) owns current evidence boundaries, worktree reconciliation and the remaining execution route. The actual installed validated extension precedes the latest generated seal change. Rebuilding it and repeating installed-boundary and managed/native journeys remain in the coordinator’s acceptance route.

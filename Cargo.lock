@@ -6104,6 +6104,7 @@ dependencies = [
  "pse-admission",
  "pse-authoring",
  "pse-backend-native",
+ "pse-buildinfo",
  "pse-codegen",
  "pse-columnar",
  "pse-compiler",

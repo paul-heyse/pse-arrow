@@ -292,21 +292,6 @@ impl ModelingResult {
         self.prediction_sample()?
             .secant_product(&older.prediction_sample()?, target)
     }
-    /// Use the same original-qualified proposal owner for retained and in-memory points.
-    pub(crate) fn available_prediction(
-        &self,
-        older: Option<&Self>,
-        target: &ModelingSolvePreparation,
-        branch: pse_model::strategy::BranchPolicy,
-        execution: &pse_backend_native::solve::Execution,
-    ) -> Result<crate::math::prediction::Proposal, WorkflowError> {
-        self.prediction_sample()?.available_prediction(
-            older.map(Self::prediction_sample).transpose()?.as_ref(),
-            target,
-            branch,
-            execution,
-        )
-    }
     pub(crate) fn portable_prediction(&self) -> Result<Option<PortablePrediction>, WorkflowError> {
         if !self.completion.decision.permits_use() {
             return Ok(None);

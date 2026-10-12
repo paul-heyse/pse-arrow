@@ -40,14 +40,14 @@ def capture(
             "cannot inspect compiled extension features; rebuild with just py-sync-correctness"
         ) from error
     if not isinstance(imported, dict):
-        raise ValueError("invalid compiled extension report")
+        raise TypeError("invalid compiled extension report")
     package, binary, features = (
         imported.get("package"),
         imported.get("native"),
         imported.get("features"),
     )
     if not isinstance(package, str) or not isinstance(binary, str):
-        raise ValueError("invalid compiled extension import paths")
+        raise TypeError("invalid compiled extension import paths")
     package_path, binary_path = Path(package).resolve(), Path(binary).resolve()
     expected = (ROOT / "python/pse").resolve()
     if package_path != expected / "__init__.py" or binary_path.parent != expected:

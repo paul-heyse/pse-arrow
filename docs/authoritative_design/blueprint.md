@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 155
-date: 2026-10-11
+revision: 156
+date: 2026-10-12
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 156 | 2026-10-12 | Proposed ADR-0177 / Plan 36 P-B1 clarification: pure active-attempt root removal keeps exact-root/reclaim registration and the run's retained source, without announcing a new source dependency (§20.4). | Maintainer-authorized Plan 36 execution; explicit design-edit environment; revealing held-transaction conflict reproduced; both-order preservation and assembled acceptance remain open. |
 | 155 | 2026-10-11 | Proposed ADR-0180 / Plan 36 P-G0: bounded populated-history activation, original-IPC typed row rebuild, exact historical read admissions and independent current-only server write fences (§20.6). | Maintainer-authorized accepted-target execution; visible `.design-edit`; no production activation or deletion; implementation and disposable-fixture acceptance remain open. |
 | 154 | 2026-10-11 | Proposed ADR-0180 / Plan 36 P-B4–P-B6: explicit result demand, typed original-row locators, complete empty/close coverage, actual append/close/seal acknowledgments, narrow protected completion and bounded horizon/telemetry owners (§19.2/§19.3/§20.6/§21). | Maintainer-authorized accepted-target execution; visible `.design-edit`; narrow completion source is written, coordinated declarations/consumers and bounded target review remain open. |
 | 153 | 2026-10-11 | Proposed ADR-0179 / Plan 36 P-C6: SCC-local tear ordering with globally shared group decisions/costs, self-loop and acyclic-policy preservation, conservative pre-admission construction bound (§17.4). | Maintainer-authorized accepted-target execution; visible `.design-edit`; five focused pure projection controls passed, native and assembled qualification remain open. |

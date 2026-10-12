@@ -156,6 +156,33 @@ impl Problem {
         body: Arc<CompiledBody>,
         max_entries: usize,
     ) -> Result<Self, MathError> {
+        Self::new_with_parallelism(
+            id,
+            identity,
+            unknowns,
+            rows,
+            inputs,
+            body,
+            max_entries,
+            Par::Seq,
+        )
+    }
+    /// Construct factor scratch under the same explicitly admitted parallelism used by
+    /// numeric factors and backsolves. Direct and nested construction default to Seq.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the explicit admitted team accompanies the existing complete implicit problem constructor"
+    )]
+    pub fn new_with_parallelism(
+        id: SemanticId,
+        identity: ContentHash,
+        unknowns: Vec<Unknown>,
+        rows: Vec<SemanticId>,
+        inputs: usize,
+        body: Arc<CompiledBody>,
+        max_entries: usize,
+        parallel: Par,
+    ) -> Result<Self, MathError> {
         let n = unknowns.len();
         let extent = n
             .checked_add(inputs)
@@ -208,9 +235,6 @@ impl Problem {
             .map_err(|e| MathError::Library(e.to_string()))?;
         let symbolic = lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
             .map_err(|e| MathError::Library(e.to_string()))?;
-        // Nested provider work runs inside the outer worker's admitted allowance.
-        // It cannot silently create a process-global Rayon team.
-        let parallel = Par::Seq;
         let rhs = match body.compiled_order() {
             DerivativeOrder::Value => 1,
             DerivativeOrder::First => inputs.max(1),
@@ -1017,9 +1041,14 @@ impl Factory {
         let providers = self
             .providers
             .iter()
-            .map(|(k, r)| r.worker_scoped(scope.clone()).map(|w| (*k, w)))
+            .map(|(k, r)| r.worker_scoped(scope.nested()).map(|w| (*k, w)))
             .collect::<Result<_, _>>()?;
-        let mut problem = Problem::new(
+        let parallel = if scope.admitted_threads().get() == 1 {
+            Par::Seq
+        } else {
+            Par::rayon(scope.admitted_threads().get())
+        };
+        let mut problem = Problem::new_with_parallelism(
             self.spec.id,
             self.spec.identity(),
             self.unknowns.clone(),
@@ -1027,6 +1056,7 @@ impl Factory {
             self.spec.inputs.len(),
             self.body.clone(),
             self.max_entries,
+            parallel,
         )
         .map_err(provider_error)?
         .with_requirements(self.requirements)
@@ -1678,6 +1708,28 @@ mod tests {
             max_entries: 100,
             providers: BTreeMap::new(),
         };
+        let admitted = pse_kernels::ExecutionScope::new(cancel.clone(), None)
+            .with_admitted_threads(std::num::NonZeroUsize::new(2).unwrap());
+        assert_eq!(
+            factory
+                .problem(admitted.clone())
+                .unwrap()
+                .factor
+                .lock()
+                .unwrap()
+                .parallel,
+            Par::rayon(2)
+        );
+        assert_eq!(
+            factory
+                .problem(admitted.nested())
+                .unwrap()
+                .factor
+                .lock()
+                .unwrap()
+                .parallel,
+            Par::Seq
+        );
         let mut provider = factory.create().unwrap();
         let context = EvaluationContext {
             cancelled: cancel.as_ref(),
@@ -1789,7 +1841,9 @@ mod tests {
                 )
                 .unwrap(),
         );
-        let mut problem = Problem::new(
+        // Explicit operation-local admission reaches scratch, numeric factorization
+        // and both IFT solve orders. Ordinary Problem::new remains serial.
+        let mut problem = Problem::new_with_parallelism(
             id,
             ContentHash::from_bytes([0; 32]),
             vec![Unknown {
@@ -1801,8 +1855,10 @@ mod tests {
             1,
             body,
             100,
+            Par::rayon(2),
         )
         .unwrap();
+        assert_eq!(problem.factor.lock().unwrap().parallel, Par::rayon(2));
         let options = Options {
             start: vec![1.0],
             variable_nominals: vec![2.0],

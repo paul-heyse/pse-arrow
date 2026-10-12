@@ -35,6 +35,14 @@ async fn wait_for_release<T>(runtime: &std::sync::Weak<T>, pool_released: impl F
     reason = "controlled benchmark composition independently observes its immutable native reconstruction context"
 )]
 fn local_admission() -> ReplayAdmission {
+    let configuration = Arc::new(|| {
+        // SAFETY: the controlled native benchmark excludes environment writers
+        // throughout reconstruction, including this complete bounded walk.
+        let environment = unsafe {
+            pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(()))
+        }?;
+        pse_runtime::math::portable::RuntimeConfigurationObservation::new(Vec::new(), environment)
+    });
     // SAFETY: this actual executable supplies its own code anchor. This case has
     // no provider/plugin callbacks, interpreter, JIT, mutable configuration or
     // direct executable-map mutation in mathematical reconstruction. WORKER names
@@ -43,7 +51,7 @@ fn local_admission() -> ReplayAdmission {
         ReplayAdmission::observe_local(
             ExpectedProducerTarget::WORKER,
             local_anchor as *const () as usize,
-            Arc::new(|| Ok(Vec::new())),
+            configuration,
         )
     }
     .expect("supported exact local native reconstruction admission")

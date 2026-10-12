@@ -158,6 +158,7 @@ pub struct RunResult {
     pub(super) modeling_origin: usize,
     pub(super) original_completion_captured: bool,
     pub(super) horizon_output: Option<Arc<super::HorizonOutcome>>,
+    #[cfg(feature = "solver-diffsol")]
     pub(super) horizon_owners: Vec<Arc<pse_columnar::AllocationLease>>,
     pub(super) horizon_tightenings: Option<Vec<pse_modeling::DomainTightening>>,
     pub(super) horizon_unmerged: Option<Box<RunResult>>,
@@ -196,6 +197,7 @@ impl RunResult {
             modeling_origin: 0,
             original_completion_captured: false,
             horizon_output: None,
+            #[cfg(feature = "solver-diffsol")]
             horizon_owners: Vec::new(),
             horizon_tightenings: None,
             horizon_unmerged: None,

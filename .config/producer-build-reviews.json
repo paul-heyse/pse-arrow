@@ -1,13 +1,5 @@
 {
   "build_scripts": {
-    "path+workspace://crates/pse-workspace-hack#0.0.1": {
-      "reviewed_source": "3ffa6789c65e0616b7b1922b20b2bb46740c32e64418373c541abb462f593240",
-      "rationale": "Reviewed complete build.rs: empty main used solely to enable host-side dependency feature unification. No I/O or ambient input. Reviewed current generated Cargo feature-unification manifest after retirement: the same empty main remains effect-free; selected helper compilation contexts are explicitly bound and all their executable owners are separately reviewed. Current 2026-10-07 runtime closure review: inspected the selected build or macro entry and changed helper context after host feature-unification contraction. The buildinfo entry now queries only the selected compiler release and PROFILE; backend/native bridge entries retain their existing guarded prefix/compiler contracts, workspace-hack remains empty, and Serde entries retain fixed cfg/template output. Current selected TOML edit/parser and winnow releases parse supplied bytes with debug disabled; no additional external input is admitted. Actual native/compiler/configuration and caller-input completeness remain separate required premises.",
-      "reviewed_closures": [
-        "70be5970cc8804ba464dc878dfb937180763a3a85409b13daa2f98077183e976",
-        "82dc8f42e0ba6cc7b208645120e3c2d2de1e62b1295053c29ba56c70da3a5bd9"
-      ]
-    },
     "registry+https://github.com/rust-lang/crates.io-index#ahash@0.8.12": {
       "reviewed_source": "f3efbbfa6f177bc109402d7fc176bab4af7e1aee8558f00a90bdfc82dfd1a513",
       "rationale": "Reviewed build.rs and reached version_check 0.9.5 / rustc_version 0.4.1 / autocfg 1.5.1 compiler helpers: derives cfg from selected compiler version or fixed Rust probes written under OUT_DIR. Captures ambient flags/wrappers; Cargo target/profile inputs and actual cfg outputs are captured separately. Compiler/wrapper/native closure is separately mandatory; no other external I/O. Selected helper closure review: reached fixed compiler probes/version queries through autocfg 1.5.1, version_check 0.9.5 or rustc_version 0.4.1 execute only the selected Rust compiler with fixed stdin/arguments; semver 1.0.28 parses the returned version string and cfg_aliases 0.2.2 maps fixed supplied cfg expressions. rustversion 1.0.23 uses its separately selected compiler probe/compiled version metadata. Exact compiler executable, loader, flags/wrappers and configuration remain mandatory native/config premises, never discharged by this owner grant. Contexts with other helper owners obtain no grant.",

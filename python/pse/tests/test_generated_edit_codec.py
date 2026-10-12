@@ -18,6 +18,18 @@ from pse.contracts.values import ContentHash, SemanticId
 
 def _sample(info: inspect.Type) -> object:
     if isinstance(info, inspect.StructType):
+        # These registry-owned sums require the payload selected by their kind.
+        # A generic sample of required fields would omit their optional arm.
+        if info.cls is documents.ModelingCellValue:
+            return documents.ModelingCellValue(
+                kind=enums.ModelingCellKind.BOOLEAN,
+                boolean=documents.ModelingCellValueBoolean(value=False),
+            )
+        if info.cls is documents.ModelingKeyCell:
+            return documents.ModelingKeyCell(
+                kind=enums.ModelingKeyCellKind.BOOLEAN,
+                boolean=documents.ModelingCellValueBoolean(value=False),
+            )
         return info.cls(
             **{
                 field.name: _sample(field.type)
@@ -45,16 +57,37 @@ def _sample(info: inspect.Type) -> object:
         return False
     if isinstance(info, inspect.NoneType):
         return None
-    raise AssertionError(f"Unhandled generated shape: {info}")
+    message = f"Unhandled generated shape: {info}"
+    raise AssertionError(message)
 
 
 def _row(
-    arm: str | None = None, info: inspect.Type | None = None
+    arm: str = "scope", info: inspect.Type | None = None
 ) -> authored.AuthoredModelingDeclarationsRow:
-    values: dict[str, object] = {"kind": enums.ModelingDeclarationKind.PACKAGE}
-    if arm is not None and info is not None:
-        values[arm] = _sample(info)
-    value = documents.AuthoredModelingDeclarationsFieldValue(**values)
+    # Several declaration kinds share one payload shape. Use a valid representative
+    # for each shape so transport controls also pass the generated tagged-value rule.
+    representatives = {
+        "scope": enums.ModelingDeclarationKind.PACKAGE,
+        "binding": enums.ModelingDeclarationKind.VARIABLE,
+        "ordered_set": enums.ModelingDeclarationKind.SOS1,
+        "cardinality": enums.ModelingDeclarationKind.ATLEAST,
+        "enumeration": enums.ModelingDeclarationKind.ENUM,
+        "guard": enums.ModelingDeclarationKind.WHEN,
+    }
+    kind = representatives.get(arm)
+    if kind is None:
+        kind = enums.ModelingDeclarationKind(arm)
+    if info is None:
+        assert arm == "scope"
+        sample: object = documents.AuthoredModelingDeclarationsFieldValueScope(
+            parameters=(), bases=(), type_parameters=(), facets=()
+        )
+    else:
+        sample = _sample(info)
+    values: dict[str, object] = {"kind": kind, arm: sample}
+    value = codec.decode_json(
+        codec.encode_json(values), documents.AuthoredModelingDeclarationsFieldValue
+    )
     document = documents.AuthoredModelingDeclarationsRow(
         declaration_id="1" * 32,
         document_id="2" * 32,
@@ -90,7 +123,7 @@ def test_every_declaration_arm_retains_strict_transport_bytes() -> None:
             for child in field.type.types
             if not isinstance(child, inspect.NoneType)
         )
-        rows.append(_row(field.name, arm))
+        rows.append(_row(field.encode_name, arm))
     assert len(rows) > 40
     for values in ((), tuple(rows), tuple(rows * 3)):
         assert _generated.encode_declarations(values) == _old(

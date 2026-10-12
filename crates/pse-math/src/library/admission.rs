@@ -192,14 +192,13 @@ fn reserve_export<T>(
     crate::construction::additional(extra)
 }
 
+type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization);
+
 /// Compilation-local exact scalar products. Options and ordered parameter symbols
 /// are part of identity; no mutable evaluator or control owner escapes compilation.
 #[derive(Default)]
 pub(crate) struct ScalarCache {
-    evaluators: std::collections::HashMap<
-        (Vec<Atom>, Vec<Atom>, Optimization),
-        ExpressionEvaluator<Complex<Rational>>,
-    >,
+    evaluators: std::collections::HashMap<ScalarProductKey, ExpressionEvaluator<Complex<Rational>>>,
 }
 impl ScalarCache {
     #[cfg(test)]

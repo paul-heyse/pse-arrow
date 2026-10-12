@@ -247,7 +247,7 @@ mod tests {
         crate::initialize().unwrap();
         let formal = crate::library::formal(0).unwrap();
         let symbolica::atom::AtomView::Var(x) = formal.as_view() else {
-            unreachable!()
+            panic!("implicit cubic fixture requires its declared root expression")
         };
         UnivariatePolynomial::from_coefficients(
             &Q,

@@ -192,11 +192,16 @@ impl MathService {
         };
         let compiled = source.prepared.prepared.clone();
         let control = FlightCancellation::default();
-        let demand = compiled
-            .initialization_allocation_bound()?
-            .unwrap_or(self.policy.workspace_bytes);
-        let job =
-            self.job_retained_scoped(1, demand, control.clone(), scope.deadline(), move |flag| {
+        let construction = super::super::jobs::ConstructionEstimate::from_bound(
+            compiled.initialization_allocation_bound()?,
+            self.policy.workspace_bytes,
+        );
+        let job = self.job_retained_construction(
+            1,
+            construction,
+            control.clone(),
+            scope.deadline(),
+            move |flag| {
                 let pse_compiler::workspace::Alternative::Available(blocks) =
                     compiled.automatic_blocks(&flag)?
                 else {
@@ -209,7 +214,8 @@ impl MathService {
                     .and_then(|bytes| bytes.checked_add(size_of::<PreparedBlocks>()))
                     .ok_or(MathRuntimeError::Limit("compiler block schedule extent"))?;
                 Ok((blocks, bytes))
-            });
+            },
+        );
         tokio::pin!(job);
         let (products, lease) = tokio::select! { result=&mut job=>result?, ()=driver.cancelled()=>{ control.cancel(); let _=job.await; return Err(MathRuntimeError::Cancelled); } };
         let owner = self.shared_product(
@@ -248,17 +254,18 @@ impl MathService {
             let preconditions = source.prepared.prepared.preconditions.clone();
             let values = source.values.clone();
             let control = FlightCancellation::default();
-            let demand = view
-                .binding_allocation_bound(&values)?
-                .unwrap_or(self.policy.worker_bytes);
-            if demand > self.policy.worker_bytes {
+            let construction = super::super::jobs::ConstructionEstimate::from_bound(
+                view.binding_allocation_bound(&values)?,
+                self.policy.worker_bytes,
+            );
+            if construction.bytes() > self.policy.worker_bytes {
                 return Err(MathRuntimeError::Limit(
                     "block binding construction capacity",
                 ));
             }
-            let binding = self.job_retained_scoped(
+            let binding = self.job_retained_construction(
                 1,
-                demand,
+                construction,
                 control.clone(),
                 scope.deadline(),
                 move |flag| {

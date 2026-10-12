@@ -1577,18 +1577,13 @@ impl ModelingPackage {
         numerical.declarations.extend(reconstruction_requirements);
         numerical.declarations.extend(conservation_requirements);
         numerical.declarations.extend(closure_requirements);
-        let resolved = self
-            .runtime
-            .native()
-            .policy_resolution_owner()
-            .resolve(
-                physical.clone(),
-                preconditions.clone(),
-                &targets,
-                &numerical.declarations,
-                &solver.numerics,
-            )
-            .map_err(crate::math::MathRuntimeError::from)?;
+        let resolved = self.runtime.native().policy_resolution_owner().resolve(
+            physical.clone(),
+            preconditions.clone(),
+            &targets,
+            &numerical.declarations,
+            &solver.numerics,
+        )?;
         // Free variables move to their nominal, except an equality-bound coordinate:
         // its sole admissible value must also characterize the physical row scales.
         // Fixed variables and sensitivity parameters keep their bound values.

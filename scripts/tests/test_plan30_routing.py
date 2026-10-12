@@ -48,6 +48,11 @@ class Plan30RoutingTests(unittest.TestCase):
         self.worker.chmod(0o700)
         self.binary = self.root / "unit-binary"
         self.binary.write_bytes(b"retained tests")
+        self.python_artifact: dict[str, object] = {
+            "binary": str(self.binary),
+            "sha256": hashlib.sha256(self.binary.read_bytes()).hexdigest(),
+            "features": ["force-validate"],
+        }
         self.provenance = self.root / "native.json"
         self.selection = self.root / "selected.json"
         self.invocation = self.root / "invocation.json"
@@ -490,11 +495,22 @@ class Plan30RoutingTests(unittest.TestCase):
                 "observer",
                 side_effect=AssertionError("unit entered scientific observer"),
             ),
+            patch.object(
+                python_tests.python_extension,
+                "capture",
+                return_value=self.python_artifact,
+            ) as capture,
             patch.object(python_tests, "run_python", return_value=0) as run,
         ):
             self.assertEqual(python_tests.main(), 0)
         self.assertEqual(
             run.call_args.args[0][-2:], ["-m", "(unit) and not managed_primary"]
+        )
+        capture.assert_called_once()
+        self.assertEqual(run.call_args.kwargs["artifact"], self.python_artifact)
+        self.assertEqual(
+            run.call_args.kwargs["env"]["PSE_NATIVE_EXPECTED_SHA256"],
+            self.python_artifact["sha256"],
         )
 
     def test_native_process_groups_preserve_parallel_pure_tests(self) -> None:
@@ -605,14 +621,14 @@ class Plan30RoutingTests(unittest.TestCase):
                 native_tests.rust_test_environment({"RUST_MIN_STACK": value})
 
     def test_ordinary_native_launchers_supply_completion_once(self) -> None:
-        for native_operation in (False, True):
+        for has_native_operation in (False, True):
             for caller_completion in ([], ["--no-fail-fast"]):
                 with self.subTest(
-                    native_operation=native_operation,
+                    has_native_operation=has_native_operation,
                     caller_completion=caller_completion,
                 ):
                     environment = {"PSE_NATIVE_PROVENANCE": str(self.provenance)}
-                    if native_operation:
+                    if has_native_operation:
                         environment["PSE_NATIVE_OPERATION"] = "/owned/operation"
                     with (
                         patch.dict(os.environ, environment, clear=True),
@@ -635,6 +651,9 @@ class Plan30RoutingTests(unittest.TestCase):
                                 [], 0, json.dumps(self.inventory)
                             ),
                         ),
+                        patch.object(
+                            native_tests, "worker_binary", return_value=self.worker
+                        ) as select,
                         patch.object(native_tests, "observe_deployed_artifacts"),
                         patch.object(
                             native_tests,
@@ -647,6 +666,14 @@ class Plan30RoutingTests(unittest.TestCase):
                     command = run.call_args.args[0]
                     self.assertEqual(command.count("--no-fail-fast"), 1)
                     self.assertNotIn("--workspace", command)
+                    if has_native_operation:
+                        select.assert_not_called()
+                    else:
+                        select.assert_called_once()
+                        self.assertEqual(
+                            run.call_args.kwargs["env"]["PSE_WORKER_BINARY"],
+                            str(self.worker),
+                        )
 
     def test_explicit_package_selection_supersedes_only_default_workspace(self) -> None:
         for selection in (
@@ -698,12 +725,24 @@ class Plan30RoutingTests(unittest.TestCase):
                         )
                         raise ValueError("admission failure")
 
+                    def capture(_environment: object) -> dict[str, object]:
+                        self.assertIs(_environment, os.environ)
+                        self.assertEqual(
+                            os.environ["PSE_WORKER_BINARY"], str(self.worker)
+                        )
+                        return self.python_artifact
+
                     with (
                         patch.dict(os.environ, environment, clear=True),
                         patch.object(sys, "argv", argv),
                         patch.object(
                             native_tests, "worker_binary", return_value=self.worker
                         ) as select,
+                        patch.object(
+                            python_tests.python_extension,
+                            "capture",
+                            side_effect=capture,
+                        ) as capture_extension,
                         patch.object(
                             surreal_server, "reference_state", side_effect=reference
                         ),
@@ -716,8 +755,15 @@ class Plan30RoutingTests(unittest.TestCase):
                             self.assertEqual(
                                 os.environ.get("PSE_WORKER_BINARY"), ambient
                             )
+                            self.assertNotIn("PSE_NATIVE_EXPECTED_BINARY", os.environ)
+                            self.assertNotIn("PSE_NATIVE_EXPECTED_SHA256", os.environ)
+                            self.assertNotIn("PSE_NATIVE_EXPECTED_FEATURES", os.environ)
                     select.assert_called_once()
                     observer.assert_not_called()
+                    if module is python_tests:
+                        capture_extension.assert_called_once()
+                    else:
+                        capture_extension.assert_not_called()
 
 
 if __name__ == "__main__":

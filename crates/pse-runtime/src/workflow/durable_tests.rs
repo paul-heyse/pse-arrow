@@ -79,7 +79,7 @@ pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
 #[tokio::test]
-async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_removed_acquisition() {
+async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquisition() {
     let runtime = durable_runtime();
     let (package, analysis) = package_on(&runtime, LINEAR).await;
     let prepared = package
@@ -114,23 +114,46 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_removed_acquis
         _ => panic!("original root seed"),
     };
     let solution = admitted.solution();
+    let run = admitted.header().run.clone();
+    let attempt = admitted.header().attempt.clone();
     drop(result);
     drop(handle);
     drop(seeded);
     drop(prepared);
     drop(package);
     runtime.clear_program_cache();
-    runtime
-        .canonical_store()
-        .remove_isolated_fixture()
-        .await
-        .unwrap();
+    drop(admitted);
+    drop(shared);
+    // Scientific retirement, rather than fixture transport drain, withdraws
+    // authority for a later acquisition. Join eventual reader release by retrying
+    // the real guarded retirement; the bare immutable payload remains retained.
+    let mut retired = false;
+    for _ in 0..32 {
+        if runtime
+            .canonical_store()
+            .forget_run_results(&run)
+            .await
+            .is_ok()
+        {
+            retired = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert!(retired, "released readers must permit exact run retirement");
     assert!(
         operations.seed(solution).await.is_err(),
         "copied bytes cannot authorize a fresh storage acquisition"
     );
-    drop(admitted);
-    drop(shared);
+    assert!(
+        runtime
+            .canonical_store()
+            .canonical_attempt(&attempt)
+            .await
+            .unwrap()
+            .is_some(),
+        "retirement preserves the original attempt on the still-connected store"
+    );
     let retained = bare.explicit_seed().unwrap();
     let pse_backend_native::solve::WarmPayload::Root(primal) = &retained.payload else {
         panic!("retained root seed")
@@ -141,7 +164,7 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_removed_acquis
             .map(|value| value.to_bits())
             .collect::<Vec<_>>(),
         bits,
-        "an already admitted immutable payload remains owned after fixture removal"
+        "an already admitted immutable payload remains owned after run retirement"
     );
 }
 
@@ -197,6 +220,8 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
         .unwrap();
     let tables = result.tables().unwrap();
     assert!(!tables.is_empty());
+    let mut empty_sets = 0;
+    let mut nonempty_sets = 0;
     for (relation, table) in tables {
         let descriptor = selection
             .sets()
@@ -204,6 +229,20 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
             .find(|d| d.name == relation.to_string())
             .unwrap();
         assert_eq!(descriptor.row_count, table.batch().num_rows() as u64);
+        if descriptor.row_count == 0 {
+            empty_sets += 1;
+            assert_eq!(descriptor.batch_count, 0);
+            assert!(
+                operations
+                    .store()
+                    .result_payload(&selection, &descriptor.key, 0)
+                    .await
+                    .is_err(),
+                "a declared empty relation has no payload ordinal"
+            );
+            continue;
+        }
+        nonempty_sets += 1;
         assert!(descriptor.batch_count > 0);
         let payload = operations
             .store()
@@ -214,6 +253,7 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
             payload.batch.payload.len() <= pse_operations::canonical_execution::RESULT_BATCH_BYTES
         );
     }
+    assert!(empty_sets > 0 && nonempty_sets > 0);
     drop(selection);
     drop(result);
     drop(handle);

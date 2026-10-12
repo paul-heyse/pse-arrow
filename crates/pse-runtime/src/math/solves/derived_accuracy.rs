@@ -316,7 +316,7 @@ impl CertifiedReconstructionPoint {
             let _program = budget
                 .charge(program.retained_bytes())
                 .map_err(MathRuntimeError::into_problem)?;
-            let bytes = match Ibex
+            let bytes = match Ibex::default()
                 .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::First)
             {
                 Ok(bytes) if bytes <= budget.capacity().saturating_sub(budget.used()) => bytes,
@@ -330,7 +330,7 @@ impl CertifiedReconstructionPoint {
                 .iter()
                 .map(|(_, _, interval)| *interval)
                 .collect::<Vec<_>>();
-            match Ibex.enclose_arithmetic_box_with_execution(
+            match Ibex::default().enclose_arithmetic_box_with_execution(
                 &program,
                 &region,
                 DerivativeOrder::First,

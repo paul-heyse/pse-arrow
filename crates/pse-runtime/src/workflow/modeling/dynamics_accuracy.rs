@@ -1434,8 +1434,8 @@ impl ModelingSimulation {
         let owner = budget
             .charge(projection.retained_bytes())
             .map_err(|_| ProblemError::memory("dynamic point arithmetic source"))?;
-        let workspace =
-            Ibex.point_arithmetic_workspace_bytes_for_order(&projection, DerivativeOrder::Value)?;
+        let workspace = Ibex::default()
+            .point_arithmetic_workspace_bytes_for_order(&projection, DerivativeOrder::Value)?;
         let _workspace = budget
             .charge(workspace)
             .map_err(|_| ProblemError::memory("dynamic point arithmetic workspace"))?;
@@ -1482,7 +1482,7 @@ impl ModelingSimulation {
             .hash(&controls_identity(profile))
             .u64(occurrence);
         let assessment_owner = assessment_owner.finish_hash();
-        let arithmetic = Ibex.enclose_arithmetic_box_values_with_execution(
+        let arithmetic = Ibex::default().enclose_arithmetic_box_values_with_execution(
             &projection,
             &point_regions,
             workspace,

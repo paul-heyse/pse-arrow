@@ -1,25 +1,42 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original completion accumulation and bounded, conditional detail retention.
+#[cfg(feature = "solver-diffsol")]
 use crate::workflow::{
     self, Completion, ModelingSolvePreparation, RunResult, Runtime, StudyOutputDemand,
     WorkflowError, contract,
 };
 use pse_ids::SemanticId;
+#[cfg(feature = "solver-diffsol")]
 use pse_relations::columnar::FieldCheckedBatch;
+#[cfg(feature = "solver-diffsol")]
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
 
+#[cfg(feature = "solver-diffsol")]
 pub(super) type Detail = BTreeMap<SemanticId, Vec<FieldCheckedBatch>>;
 
+#[cfg(feature = "solver-diffsol")]
+type PrefixResult = (
+    Completion,
+    Result<Detail, Arc<WorkflowError>>,
+    Detail,
+    Vec<Arc<pse_columnar::AllocationLease>>,
+    Vec<pse_modeling::DomainTightening>,
+    Option<Arc<WorkflowError>>,
+    Vec<SemanticId>,
+);
+
+#[cfg(feature = "solver-diffsol")]
 struct SelectedDetail {
     demand: workflow::StudyDetailDemand,
     allowance: workflow::study_demand::DetailAllowance,
     chunks: Detail,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+#[cfg(feature = "solver-diffsol")]
 impl SelectedDetail {
     fn new(runtime: &Runtime, demand: &workflow::StudyDetailDemand) -> Result<Self, WorkflowError> {
         let bytes = (demand.maximum_rows as usize)
@@ -97,6 +114,7 @@ pub(in crate::workflow) fn summary_ids() -> [SemanticId; 10] {
 }
 
 /// The original grant stays unique until the original rows have been moved.
+#[cfg(feature = "solver-diffsol")]
 struct OriginalAdmission {
     goals: usize,
     bytes: usize,
@@ -104,6 +122,7 @@ struct OriginalAdmission {
     capacity_growth: usize,
 }
 
+#[cfg(feature = "solver-diffsol")]
 pub(super) struct OriginalHistory {
     pub(super) completion: Completion,
     summaries: Detail,
@@ -120,13 +139,14 @@ pub(super) struct OriginalHistory {
     admitted_goals: Option<OriginalAdmission>,
     compact: bool,
 }
+#[cfg(feature = "solver-diffsol")]
 impl OriginalHistory {
     pub(super) fn new(
         runtime: &Runtime,
         demand: &StudyOutputDemand,
     ) -> Result<Self, WorkflowError> {
         let (success, failed) = match demand {
-            StudyOutputDemand::Full => (None, None),
+            StudyOutputDemand::Full {} => (None, None),
             StudyOutputDemand::Compact {
                 detail,
                 failed_detail,
@@ -353,22 +373,20 @@ impl OriginalHistory {
         }
         if self.success_error.is_none()
             && let Some(selected) = &mut self.success
+            && let Err(error) = selected.append(result).await
         {
-            if let Err(error) = selected.append(result).await {
-                self.success_error = Some(Arc::new(error));
-                for chunks in selected.chunks.values_mut() {
-                    *chunks = Vec::new();
-                }
+            self.success_error = Some(Arc::new(error));
+            for chunks in selected.chunks.values_mut() {
+                *chunks = Vec::new();
             }
         }
         if self.failed_error.is_none()
             && let Some(selected) = &mut self.failed
+            && let Err(error) = selected.append(result).await
         {
-            if let Err(error) = selected.append(result).await {
-                self.failed_error = Some(Arc::new(error));
-                for chunks in selected.chunks.values_mut() {
-                    *chunks = Vec::new();
-                }
+            self.failed_error = Some(Arc::new(error));
+            for chunks in selected.chunks.values_mut() {
+                *chunks = Vec::new();
             }
         }
         Ok(())
@@ -436,12 +454,12 @@ impl OriginalHistory {
             // DiagnosticCause owns a dyn DiagnosticProjection whose producer
             // payload has no HeapUsage contract. Only genuinely newly retained
             // opaque causes require the conservative producer envelope.
-            if self.causes.len() == causes_before {
-                if let Some(retained) = retained {
-                    let placeholder = self.owners[0].clone();
-                    let owner = std::mem::replace(&mut self.owners[admission.owner], placeholder);
-                    self.owners[admission.owner] = partition_retained(owner, retained);
-                }
+            if self.causes.len() == causes_before
+                && let Some(retained) = retained
+            {
+                let placeholder = self.owners[0].clone();
+                let owner = std::mem::replace(&mut self.owners[admission.owner], placeholder);
+                self.owners[admission.owner] = partition_retained(owner, retained);
             }
         }
     }
@@ -474,15 +492,7 @@ impl OriginalHistory {
         mut self,
         usable: bool,
         final_error: Option<&WorkflowError>,
-    ) -> (
-        Completion,
-        Result<Detail, Arc<WorkflowError>>,
-        Detail,
-        Vec<Arc<pse_columnar::AllocationLease>>,
-        Vec<pse_modeling::DomainTightening>,
-        Option<Arc<WorkflowError>>,
-        Vec<SemanticId>,
-    ) {
+    ) -> PrefixResult {
         let (selected, error) = if usable {
             (self.success, self.success_error)
         } else {
@@ -515,6 +525,7 @@ impl OriginalHistory {
 
 /// Unique partitioning never releases/reacquires live capacity. A failed split
 /// retains the original grant, so ownership is never lost on an accounting error.
+#[cfg(feature = "solver-diffsol")]
 fn partition_retained(
     owner: Arc<pse_columnar::AllocationLease>,
     bytes: usize,
@@ -528,6 +539,7 @@ fn partition_retained(
 /// Rust-owned strings/nested capacities, aggregate Vec growth, and the eventual
 /// separate RunResult assessment snapshot. Native/preparation report buffers are
 /// owned elsewhere and are not part of this original Completion.
+#[cfg(feature = "solver-diffsol")]
 fn completion_retained_extent(
     completion: &Completion,
     capacity_growth: usize,
@@ -559,6 +571,7 @@ fn completion_retained_extent(
 
 /// Actual deep preparation copies are charged before their maps are cloned.
 /// Shared mathematical/native owners continue carrying their original allocations.
+#[cfg(feature = "solver-diffsol")]
 pub(super) fn preparation_copy_owner(
     runtime: &Runtime,
     prepared: &ModelingSolvePreparation,
@@ -571,7 +584,7 @@ pub(super) fn preparation_copy_owner(
             &prepared.model.values.scalars,
             &prepared.profile.numerics,
             &prepared.profile.composition,
-            &prepared.profile.backend,
+            prepared.profile.backend.document(),
             &prepared.profile.sensitivity,
             &prepared.profile.controls,
         ),
@@ -598,9 +611,7 @@ pub(super) fn preparation_copy_owner(
     for registration in prepared.providers.values() {
         let spec = registration.spec();
         let mut bytes = (spec.inputs.len() + spec.outputs.len()) * size_of::<pse_kernels::Port>()
-            + registration
-                .envelope()
-                .map_or(0, |envelope| std::mem::size_of_val(envelope))
+            + registration.envelope().map_or(0, size_of_val)
             + 256;
         for shape in spec.shapes.inputs.iter().chain(&spec.shapes.outputs) {
             let coordinates = shape.coordinates.iter().try_fold(0usize, |bytes, row| {
@@ -626,6 +637,7 @@ pub(super) fn preparation_copy_owner(
     Ok(owners)
 }
 
+#[cfg(feature = "solver-diffsol")]
 pub(super) fn step_copy_owner(
     runtime: &Runtime,
     measured: &[f64],

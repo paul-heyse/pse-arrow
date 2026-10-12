@@ -7,13 +7,12 @@ use std::collections::BTreeMap;
 
 /// Original ordinary telemetry coverage, independent of scientific completion.
 #[derive(
-    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProgressCoverage {
     /// Historical or recovered executions did not retain original counters.
-    #[default]
-    Unknown,
+    Unknown {},
     /// Finite sampling counters retained by the original execution owner.
     Sampled {
         /// Callback observations, including events rejected before cloning.
@@ -29,6 +28,11 @@ pub enum ProgressCoverage {
         /// Writer completion, separate from the scientific outcome.
         writer: ProgressWriterOutcome,
     },
+}
+impl Default for ProgressCoverage {
+    fn default() -> Self {
+        Self::Unknown {}
+    }
 }
 
 /// Bounded optional writer outcome; none of these authorizes scientific interruption.
@@ -69,17 +73,17 @@ pub struct ProgressWriterFailure {
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProgressWriteStage {
     /// No original native claim was available for the observed event.
-    Claim,
+    Claim {},
     /// Bounded scratch could not be allocated.
-    Allocation,
+    Allocation {},
     /// An admitted DTO could not be encoded within its immutable bound.
-    Encoding,
+    Encoding {},
     /// The original canonical append did not return an acknowledgment.
-    CanonicalAppend,
+    CanonicalAppend {},
     /// An acknowledgment disagreed with original immutable coverage.
-    Acknowledgment,
+    Acknowledgment {},
     /// Publication stopped before an original canonical append could be issued.
-    Publication,
+    Publication {},
 }
 
 /// Conservative bound for the retained DTO and its escaped JSON representation.
@@ -238,18 +242,80 @@ mod boundary_unit {
             acknowledged: 3,
             unacknowledged: 2,
             writer: ProgressWriterOutcome::Failed(ProgressWriterFailure {
-                stage: ProgressWriteStage::CanonicalAppend,
+                stage: ProgressWriteStage::CanonicalAppend {},
             }),
         };
-        let mut encoded = serde_json::to_value(&original).unwrap();
+        let encoded = serde_json::to_value(&original).unwrap();
         let decoded: ProgressCoverage = serde_json::from_value(encoded.clone()).unwrap();
         assert_eq!(decoded, original);
         assert_eq!(
             encoded["writer"]["failure"]["stage"]["kind"],
             "canonical_append"
         );
-        encoded["writer"]["failure"]["stage"]["invented"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<ProgressCoverage>(encoded).is_err());
+        for path in ["", "/writer", "/writer/failure", "/writer/failure/stage"] {
+            let mut forged = encoded.clone();
+            forged
+                .pointer_mut(path)
+                .unwrap()
+                .as_object_mut()
+                .unwrap()
+                .insert("invented".into(), serde_json::json!(true));
+            assert!(
+                serde_json::from_value::<ProgressCoverage>(forged).is_err(),
+                "unknown progress coverage field at {path}"
+            );
+        }
+        let unknown = serde_json::json!({"kind":"unknown"});
+        assert_eq!(
+            serde_json::to_value(ProgressCoverage::default()).unwrap(),
+            unknown
+        );
+        assert_eq!(
+            serde_json::from_value::<ProgressCoverage>(unknown).unwrap(),
+            ProgressCoverage::default()
+        );
+        assert!(
+            serde_json::from_value::<ProgressCoverage>(
+                serde_json::json!({"kind":"unknown","invented":true})
+            )
+            .is_err()
+        );
+        for (stage, kind) in [
+            (ProgressWriteStage::Claim {}, "claim"),
+            (ProgressWriteStage::Allocation {}, "allocation"),
+            (ProgressWriteStage::Encoding {}, "encoding"),
+            (ProgressWriteStage::CanonicalAppend {}, "canonical_append"),
+            (ProgressWriteStage::Acknowledgment {}, "acknowledgment"),
+            (ProgressWriteStage::Publication {}, "publication"),
+        ] {
+            let wire = serde_json::json!({"kind":kind});
+            assert_eq!(serde_json::to_value(stage).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<ProgressWriteStage>(wire).unwrap(),
+                stage
+            );
+            assert!(
+                serde_json::from_value::<ProgressWriteStage>(
+                    serde_json::json!({"kind":kind,"invented":true})
+                )
+                .is_err()
+            );
+        }
+        for writer in [
+            ProgressWriterOutcome::Complete,
+            ProgressWriterOutcome::MemoryRefused,
+            ProgressWriterOutcome::JoinFailed,
+        ] {
+            let mut wire = serde_json::to_value(writer).unwrap();
+            assert_eq!(
+                serde_json::from_value::<ProgressWriterOutcome>(wire.clone()).unwrap(),
+                writer
+            );
+            wire.as_object_mut()
+                .unwrap()
+                .insert("invented".into(), serde_json::json!(true));
+            assert!(serde_json::from_value::<ProgressWriterOutcome>(wire).is_err());
+        }
     }
     #[test]
     fn progress_preserves_exact_counters_and_nonfinite_evidence() {
@@ -308,5 +374,24 @@ mod boundary_unit {
             retained.incumbent.as_ref().unwrap().nodes,
             Some((1i64 << 53) + 3)
         );
+        for path in [
+            "",
+            "/incumbent",
+            "/values/large",
+            "/values/nan",
+            "/values/nan/value",
+        ] {
+            let mut forged: serde_json::Value = serde_json::from_slice(&encoded).unwrap();
+            forged
+                .pointer_mut(path)
+                .unwrap()
+                .as_object_mut()
+                .unwrap()
+                .insert("invented".into(), serde_json::json!(true));
+            assert!(
+                serde_json::from_value::<ProgressEventDocument>(forged).is_err(),
+                "unknown event field at {path}"
+            );
+        }
     }
 }

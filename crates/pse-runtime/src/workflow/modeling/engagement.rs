@@ -219,9 +219,7 @@ mod tests {
         assert!(engagement.during(&cancel, async { Ok(()) }).await.is_err());
         engagement.close().await.unwrap();
     }
-    async fn held_fixture(
-        runtime: crate::workflow::Runtime,
-    ) -> (ModelingPackage, Arc<HeldPreparationScope>) {
+    async fn held_fixture(runtime: Runtime) -> (ModelingPackage, Arc<HeldPreparationScope>) {
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq a:x*x==1; eq b:x==2; } }",
             SemanticId::from_bytes([43; 16]),
@@ -297,6 +295,9 @@ mod tests {
                 .unwrap();
             let pool = runtime.shared.pool();
             let filler = if refusal == 1 {
+                // Pressure may evict idle compiler/cache allocations. Remove those
+                // before filling the pool so this fixture actually refuses entry.
+                runtime.shared.math().clear_program_cache();
                 let filler = pse_columnar::MemoryConsumer::new("test:held-preentry-pressure")
                     .register(&pool);
                 filler
@@ -319,7 +320,7 @@ mod tests {
             }
             let (record, source_refusal) = scope
                 .joined(&cancel, async {
-                    assert!(cancel.token().is_cancelled());
+                    assert!(cancel.token().is_cancelled(), "preentry refusal {refusal}");
                     drop(filler);
                     attempt
                         .abandon(&Arc::new(WorkflowError::from(
@@ -370,8 +371,8 @@ mod tests {
         let view = scope.entries.lock().await.views[0].clone();
         let operation = scope.joined(&cancel, async {
             attempt
-                .abandon(&Arc::new(WorkflowError::from(
-                    crate::math::MathRuntimeError::Cancelled,
+                .abandon(&Arc::new(contract(
+                    "test:completion export before source loss",
                 )))
                 .await
         });
@@ -672,10 +673,10 @@ impl HeldPreparationScope {
         };
         let mut failure = None;
         for view in &detached.views {
-            if let Err(error) = view.close().await {
-                if failure.is_none() {
-                    failure = Some(error);
-                }
+            if let Err(error) = view.close().await
+                && failure.is_none()
+            {
+                failure = Some(error);
             }
         }
         // Released views must not remain reachable through report source packages.
@@ -697,6 +698,7 @@ impl HeldPreparationScope {
 }
 
 /// Captured at actual construction, never inferred from a prepared model hash.
+#[cfg(feature = "solver-diffsol")]
 #[derive(Debug)]
 pub(in crate::workflow) struct OriginalPreparationInputs {
     pub(in crate::workflow) root: DeclarationId,
@@ -705,6 +707,7 @@ pub(in crate::workflow) struct OriginalPreparationInputs {
     pub(in crate::workflow) limits: Limits,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+#[cfg(feature = "solver-diffsol")]
 impl OriginalPreparationInputs {
     pub(in crate::workflow) fn capture(
         source: &ModelingPackage,

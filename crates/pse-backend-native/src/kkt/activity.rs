@@ -271,10 +271,15 @@ impl Factor {
                     }
                 }
             }
-            // Replace, rather than accumulate, mutable released systems.
-            self.state.cache.borrow_mut().take();
+            // Reuse symbolic analysis only when the previous factor's numeric owner
+            // is uniquely held here. Escaped factors remain immutable and force a new
+            // solver. FERAL checks the full CSC pattern before symbolic reuse; numeric
+            // values and inertia are recomputed for every release/pin operation.
+            let retained = self.state.cache.borrow_mut().take();
+            let mut solver = retained
+                .and_then(|retained| Arc::try_unwrap(retained.factor.solver).ok())
+                .unwrap_or_else(|| feral::Solver::new().with_parallel(false));
             self.state.refactorizations.set(count + 1);
-            let mut solver = feral::Solver::new().with_parallel(false);
             match solver.factor(&matrix, None) {
                 feral::FactorStatus::Success | feral::FactorStatus::WrongInertia { .. } => {}
                 feral::FactorStatus::Singular => return Ok(None),
@@ -488,6 +493,34 @@ mod tests {
             factor.failure().as_deref(),
             Some(ProblemError::Limit { .. })
         ));
+    }
+    #[test]
+    fn release_refresh_retains_symbolic_but_recomputes_numeric_and_preserves_escaped_factors() {
+        let factor = activity(source(), Arc::new(Admission::default()));
+        // K = [1 1;1 0]. Release changes it to diag(1,-1), pin then to
+        // diag(2,-1). The pattern stays identical, including structural zero slots.
+        let first = factor.released(&[1], &[]).unwrap().unwrap();
+        assert_eq!(first.solver.symbolic_call_count(), 1);
+        let mut x = [0.; 2];
+        assert!(first.solve(&[2., 1.], &mut x));
+        assert_eq!(x, [2., -1.]);
+        drop(first);
+        let pinned = factor.released(&[1], &[0]).unwrap().unwrap();
+        assert_eq!(pinned.solver.symbolic_call_count(), 1);
+        assert!(pinned.solver.last_factor_stats().unwrap().pattern_reused);
+        assert!(pinned.solve(&[2., 1.], &mut x));
+        assert_eq!(x, [1., -1.]);
+        // An escaped immutable factor cannot have its numeric values overwritten.
+        let fresh = factor.released(&[1], &[]).unwrap().unwrap();
+        assert!(!fresh.solver.last_factor_stats().unwrap().pattern_reused);
+        assert!(fresh.solve(&[2., 1.], &mut x));
+        assert_eq!(x, [2., -1.]);
+        assert!(pinned.solve(&[2., 1.], &mut x));
+        assert_eq!(x, [1., -1.]);
+        // Independent original KKT remains the coupled system, unaffected by releases.
+        assert!(factor.source.solve(&[2., 1.], &mut x));
+        assert_eq!(x, [1., 1.]);
+        assert_eq!(factor.work().refactorizations, 3);
     }
     #[test]
     fn failed_release_is_observed_and_opaque_refinement_refuses_strict_iterations() {

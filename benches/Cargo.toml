@@ -34,6 +34,7 @@ force-validate = [
 native-process = ["pse-runtime/native-solvers"]
 
 [dev-dependencies]
+pse-buildinfo.workspace = true
 pse-admission.workspace = true
 pse-diagnostics.workspace = true
 pse-runtime.workspace = true

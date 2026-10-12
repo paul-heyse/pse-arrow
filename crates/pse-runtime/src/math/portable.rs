@@ -1834,8 +1834,8 @@ mod portable_frame_tests {
         drop(escaped);
         assert_eq!(service.pool.reserved(), baseline);
         std::fs::write(&receipt, b"not a receipt").unwrap();
-        // SAFETY: invalid controlled fixture bytes cannot grant a producer.
         assert!(
+            // SAFETY: invalid controlled fixture bytes cannot grant a producer.
             unsafe {
                 service.observe_deployment_runtime(
                     artifact,
@@ -2019,6 +2019,7 @@ mod portable_frame_tests {
                     std::io::Error::new(std::io::ErrorKind::Interrupted, "startup gate abandoned")
                 })?;
             }
+            // SAFETY: this controlled test root has no environment writers during capture.
             unsafe { observed_test_configuration(Vec::new()) }
         });
         (configuration, witness, release, calls)
@@ -2132,6 +2133,7 @@ mod portable_frame_tests {
         let observed_calls = calls.clone();
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            // SAFETY: this controlled test root has no environment writers during capture.
             unsafe { observed_test_configuration(Vec::new()) }
         });
         // SAFETY: this controlled test root must be refused before its observer is invoked.
@@ -2177,6 +2179,7 @@ mod portable_frame_tests {
         let observed_calls = calls.clone();
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            // SAFETY: this controlled test root has no environment writers during capture.
             unsafe { observed_test_configuration(Vec::new()) }
         });
         let cancelled = AtomicBool::new(true);
@@ -2227,6 +2230,7 @@ mod portable_frame_tests {
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             stop.store(true, std::sync::atomic::Ordering::Release);
+            // SAFETY: this controlled test root has no environment writers during capture.
             unsafe { observed_test_configuration(Vec::new()) }
         });
         // SAFETY: this test supplies its own controlled root; configuration only requests stop.
@@ -2299,8 +2303,9 @@ mod portable_frame_tests {
         let anchor = anchor as *const () as usize;
         let effective = Arc::new(Mutex::new(b"controlled-runtime-configuration".to_vec()));
         let current = effective.clone();
-        let observe: RuntimeConfigurationObserver = Arc::new(move || unsafe {
-            observed_test_configuration(current.lock().unwrap().clone())
+        let observe: RuntimeConfigurationObserver = Arc::new(move || {
+            // SAFETY: this controlled test root has no environment writers during capture.
+            unsafe { observed_test_configuration(current.lock().unwrap().clone()) }
         });
         // SAFETY: isolated test binary supplies its actual code anchor/configuration;
         // this control invokes no imports, JIT or provider callback within the scope.

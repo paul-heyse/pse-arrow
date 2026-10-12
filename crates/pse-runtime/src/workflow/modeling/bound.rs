@@ -43,7 +43,7 @@ impl ModelingPackage {
             .try_fold(
                 size_of::<AdmittedBinding>()
                     + size_of::<pse_columnar::Leased<AdmittedBinding>>()
-                    + 8 * size_of::<usize>(),
+                    + size_of::<[usize; 8]>(),
                 |total, entry| {
                     let path = match &entry.supplied {
                         BindingTarget::Path(path) => path.len(),
@@ -94,7 +94,7 @@ impl ModelingPackage {
             .try_fold(
                 size_of::<AdmittedBinding>()
                     + size_of::<pse_columnar::Leased<AdmittedBinding>>()
-                    + 8 * size_of::<usize>(),
+                    + size_of::<[usize; 8]>(),
                 |total, assignment| {
                     let path = match &assignment.target {
                         BindingTarget::Path(path) => path.len(),
@@ -161,7 +161,11 @@ impl ModelingPackage {
     }
 }
 
-#[cfg(all(test, feature = "solver-kinsol"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
+#[allow(
+    clippy::unwrap_used,
+    reason = "test-only authored binding fixtures require exact declarations, quantities and successful preparation; any missing fixture fact must fail the control"
+)]
 mod tests {
     use super::*;
     use crate::workflow::tests as fixture;
@@ -179,7 +183,9 @@ mod tests {
     }
     fn profile() -> SolverProfile {
         let mut profile = fixture::profile();
-        profile.selection = SolverSelection::Explicit(Backend::Kinsol);
+        // This fixture deliberately changes a parameterized two-sided bound.
+        // KINSOL sign constraints cannot represent that authored box.
+        profile.selection = SolverSelection::Explicit(Backend::Ipopt);
         profile
     }
     async fn package(
@@ -240,13 +246,32 @@ mod tests {
             .unwrap()
     }
 
+    fn member(model: &ModelingPreparation, name: &str) -> SemanticId {
+        // `paths` contains explicit path demand, not every admitted member.
+        let mut members = model
+            .compiled()
+            .model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.lineage.path.rsplit('.').next() == Some(name));
+        let id = members.next().unwrap().id;
+        assert!(
+            members.next().is_none(),
+            "fixture member must be unique: {name}"
+        );
+        id
+    }
+
     #[tokio::test]
     async fn bound_parameter_fixed_value_and_free_start_match_fresh_without_editing_parent() {
         let (parent, root) = package(3., 2., 1., 0.).await;
         let original_revision = parent.revision.identity();
         let original = prepare(&parent, root, &PointOverlay::default()).await;
-        let member = |path: &str| original.model.model.compiled().model.paths[path];
-        let (p, f, x) = (member("p"), member("f"), member("x"));
+        let (p, f, x) = (
+            member(&original.model.model, "p"),
+            member(&original.model.model, "f"),
+            member(&original.model.model, "x"),
+        );
         let overlay = PointOverlay {
             assignments: vec![
                 assignment(&parent, BindingTarget::Member(p), 4.),
@@ -280,7 +305,8 @@ mod tests {
             .await
             .unwrap();
         assert!(bound.accepted && fresh.accepted);
-        assert!((bound.values.scalars[&x] - fresh.values.scalars[&x]).abs() < 1e-8);
+        let fresh_x = member(&fresh.prepared.model.model, "x");
+        assert!((bound.values.scalars[&x] - fresh.values.scalars[&fresh_x]).abs() < 1e-8);
         assert!((bound.values.scalars[&x] - 20.).abs() < 1e-8);
         let receipt = bound.prepared.bound_source.as_ref().unwrap();
         assert_eq!(receipt.revision, original_revision);
@@ -370,7 +396,7 @@ mod tests {
             )
             .await
             .unwrap();
-        let x = changed.prepared.model.model.compiled().model.paths["x"];
+        let x = member(&changed.prepared.model.model, "x");
         assert!((changed.values.scalars[&x] - 7.).abs() < 1e-8);
         let illegal = PointOverlay {
             assignments: vec![assignment(&parent, BindingTarget::Path("e".into()), 9.)],

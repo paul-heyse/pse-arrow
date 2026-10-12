@@ -148,6 +148,10 @@ impl PreparedSolve {
 
 /// One heterogeneous rung of the single declared strategy.
 #[derive(Clone, Debug)]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "rung storage accounts the existing inline variants and boxed payloads separately; boxing a native variant solely for layout would change its admitted allocation contract"
+)]
 pub enum PreparedRung {
     /// Original source whose completion may grant scientific permission.
     Original(Box<PreparedSolve>),

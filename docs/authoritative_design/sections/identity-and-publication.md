@@ -571,7 +571,11 @@ Source creators register/check exact reclaim authority and reclaimed intervals, 
 their exact root/pin and write a creator fence atomically. Collection registers the creator
 fence before scanning roots/pins, registers affected exact authorities, and publishes
 reclamation atomically with its reclaim fence. Both commit orders invalidate the stale
-opposing decision; rebuilt creation refuses reclaimed history. Result retirement uses the
+opposing decision; rebuilt creation refuses reclaimed history. Pure active-attempt root
+removal registers reclaim authority and its exact root without writing the creator fence;
+it adds no dependency, and the durable run root retains the same source until run
+retirement. A collector can conservatively retain a removed root; collector-first
+invalidates stale release through reclaim authority. Result retirement uses the
 analogous result-creator/retirement pair. Result pins, analysis input edges, summary-study
 headers and point/run associations all participate, including association installation on
 an existing run. Absence at registration is not permanent absence unless the complete

@@ -25,6 +25,12 @@ RUST_OBSERVER = "PSE_RUST_OBSERVER_CHILD"
 EXECUTION_EFFECTS = "PSE_TEST_EXECUTION_EFFECTS"
 
 
+def cancellation_signal(value: object) -> int | None:
+    if value is not None and not isinstance(value, int):
+        raise TypeError("Invalid original process cancellation signal")
+    return value
+
+
 def rust_selected(inventory: Mapping[str, object]) -> list[dict[str, str]]:
     suites = inventory["rust-suites"]
     if not isinstance(suites, dict):
@@ -56,15 +62,28 @@ def finish(
     terminal_owner: str,
     *,
     deadline: float | None = None,
+    deadline_supplier: Callable[[], float | None] | None = None,
     on_frozen: Callable[[], None] | None = None,
     deferred: list[str] | None = None,
 ) -> bool:
+    def current_deadline() -> float | None:
+        nonlocal deadline
+        if deadline_supplier is not None:
+            supplied = deadline_supplier()
+            if supplied is not None:
+                deadline = supplied if deadline is None else min(deadline, supplied)
+        return deadline
+
     results = check.get("results", [])
     report_errors = check.get("report_errors", [])
+    artifacts = check.get("artifacts", {})
+    process = check.get("process", {})
     if (
         not isinstance(results, list)
         or not isinstance(report_errors, list)
         or any(not isinstance(item, dict) for item in results)
+        or not isinstance(artifacts, dict)
+        or not isinstance(process, dict)
     ):
         raise ValueError("Invalid terminal outcome or errors")
     outcomes = {
@@ -98,16 +117,17 @@ def finish(
         and check.get("exit_code") in {0, 1, 100},
         terminal_owner=terminal_owner,
         deadline=deadline,
+        deadline_supplier=current_deadline,
         on_frozen=on_frozen,
         terminal={
             "workload_exit": check.get("exit_code"),
             "report_errors": list(report_errors),
             "results": list(results),
-            "artifacts": dict(check.get("artifacts", {})),
+            "artifacts": dict(artifacts),
             "owned_drain": check.get(
-                "owned_drain", check.get("process", {}).get("owned_drain", "unobserved")
+                "owned_drain", process.get("owned_drain", "unobserved")
             ),
-            "process": dict(check.get("process", {})),
+            "process": dict(process),
         },
     )
     failed = False
@@ -116,7 +136,7 @@ def finish(
         return True
     for resource in eligible:
         try:
-            reason = resources.reclaim(resource, deadline=deadline)
+            reason = resources.reclaim(resource, deadline=current_deadline())
             if reason != "removed":
                 # A referenced/retained resource is valid; an uncertain drain remains pinned.
                 print(f"test-resources: {resource}: retained: {reason}")
@@ -161,6 +181,12 @@ def execute_selected(
     }
     if selected is not None:
         check["selected"] = selected
+    process_value = check["process"]
+    errors_value = check["report_errors"]
+    if not isinstance(process_value, dict) or not isinstance(errors_value, list):
+        raise TypeError("Invalid terminal process observation or errors")
+    process: dict[str, object] = process_value
+    report_errors: list[object] = errors_value
     code = None
     from scripts import native_operation  # noqa: PLC0415 -- shared process owner
 
@@ -170,6 +196,8 @@ def execute_selected(
     cleaning = False
     local_deadline: float | None = None
     local_signal: int | None = None
+    deadline: float | None = None
+    noted_deadline: float | None = None
 
     def interrupt(signum: int, frame: object) -> None:
         nonlocal local_deadline, local_signal
@@ -179,13 +207,42 @@ def execute_selected(
             return
         native_operation.note_composer_cancellation(signum, local_deadline)
         if not committed:
-            check["process"]["forwarded_signal"] = signum
+            process["forwarded_signal"] = signum
             check.update(exit_code=128 + signum, status="failed")
         validation.interrupt(signum, frame)
 
     def frozen() -> None:
         nonlocal committed
         committed = True
+
+    def current_deadline() -> float | None:
+        nonlocal deadline, noted_deadline
+        # Called only outside metadata locks, including after a post-freeze
+        # signal whose handler cannot acquire the parent operation exclusion.
+        if local_deadline is not None and (
+            noted_deadline is None or local_deadline < noted_deadline
+        ):
+            if local_signal is None:
+                raise ValueError("Cancellation clock lacks its signal")
+            native_operation.note_composer_cancellation(local_signal, local_deadline)
+            noted_deadline = local_deadline
+        process_deadline = process.get("cancellation_deadline")
+        if process_deadline is not None and not isinstance(
+            process_deadline, (int, float)
+        ):
+            raise ValueError("Invalid original process cancellation clock")
+        clocks = [
+            value
+            for value in (
+                deadline,
+                local_deadline,
+                process_deadline,
+                native_operation.composer_deadline(registration),
+            )
+            if value is not None
+        ]
+        deadline = min(clocks) if clocks else None
+        return deadline
 
     # Registration cannot expose a composer with SIGTERM's default disposition.
     for signum in (signal.SIGINT, signal.SIGTERM):
@@ -199,16 +256,14 @@ def execute_selected(
         finally:
             signal.pthread_sigmask(signal.SIG_SETMASK, launch_mask)
         if launch is not None:
-            code = launch(check["process"])
+            code = launch(process)
         else:
             run = (
                 native_operation.run_child_scope
                 if native_operation.scope_owner() is not None
                 else native_operation.run
             )
-            code = run(
-                list(command), dict(environment), cwd=ROOT, observation=check["process"]
-            )
+            code = run(list(command), dict(environment), cwd=ROOT, observation=process)
         check.update(exit_code=code, status="passed" if code == 0 else "failed")
     except BaseException as error:
         if isinstance(error, KeyboardInterrupt):
@@ -218,33 +273,24 @@ def execute_selected(
                 else -signal.SIGINT
             )
             check["exit_code"] = code
-        check["report_errors"].append(
+        report_errors.append(
             f"workload interrupted before terminal return: {type(error).__name__}: {error}"
         )
         raise
     finally:
-        deadline = None
         reconciled = False
         deferred: list[str] = []
         while not reconciled:
             try:
-                clocks = [
-                    value
-                    for value in (
-                        local_deadline,
-                        check["process"].get("cancellation_deadline"),
-                        native_operation.composer_deadline(registration),
-                    )
-                    if value is not None
-                ]
-                deadline = min(clocks) if clocks else None
-                received = native_operation.composer_signal(registration) or check[
-                    "process"
-                ].get("forwarded_signal")
+                deadline = current_deadline()
+                received = cancellation_signal(
+                    native_operation.composer_signal(registration)
+                    or process.get("forwarded_signal")
+                )
                 if received is not None and not committed:
                     code = 128 + received
                     check.update(exit_code=code, status="failed")
-                    check["process"]["forwarded_signal"] = received
+                    process["forwarded_signal"] = received
                 if selection is not None:
                     try:
                         validation_receipts.require_fresh(selection, started, "Python")
@@ -252,15 +298,14 @@ def execute_selected(
                             selection
                         )
                     except (OSError, ValueError) as error:
-                        check["report_errors"].append(
-                            f"missing current collection: {error}"
-                        )
+                        report_errors.append(f"missing current collection: {error}")
                 validation.compose_terminal(check, report, report.parent, report.stem)
                 finish(
                     path,
                     check,
                     terminal_owner,
                     deadline=deadline,
+                    deadline_supplier=current_deadline,
                     on_frozen=frozen,
                     deferred=deferred,
                 )
@@ -275,11 +320,26 @@ def execute_selected(
                 except resources.ResourceError:
                     code = 128 + validation.RECEIVED_SIGNAL
                     check.update(exit_code=code, status="failed")
-                    check["report_errors"].append(
+                    report_errors.append(
                         "terminal finalization interrupted before freeze"
                     )
                     continue
+                except Exception as error:
+                    report_errors.append(
+                        f"terminal reconciliation: {type(error).__name__}: {error}"
+                    )
+                    break
                 evidence = terminal["evidence"]
+                frozen_process = evidence["process"]
+                frozen_errors = evidence["report_errors"]
+                if not isinstance(frozen_process, dict) or not isinstance(
+                    frozen_errors, list
+                ):
+                    raise TypeError(
+                        "Invalid frozen process observation or errors"
+                    ) from None
+                process = frozen_process
+                report_errors = frozen_errors
                 code = evidence["workload_exit"]
                 check.update(
                     exit_code=code,
@@ -292,36 +352,40 @@ def execute_selected(
                     process=evidence["process"],
                 )
                 committed = True
-                resources.resume_projection(
-                    path, terminal_owner=terminal_owner, deadline=deadline
-                )
+                try:
+                    resources.resume_projection(
+                        path,
+                        terminal_owner=terminal_owner,
+                        deadline=current_deadline(),
+                        deadline_supplier=current_deadline,
+                    )
+                except Exception as error:
+                    report_errors.append(
+                        f"terminal reconciliation: {type(error).__name__}: {error}"
+                    )
+                    break
                 reconciled = True
             except Exception as error:
-                check["report_errors"].append(
+                report_errors.append(
                     f"terminal reconciliation: {type(error).__name__}: {error}"
                 )
                 break
-        if check["report_errors"]:
+        if report_errors:
             check["status"] = "failed"
         try:
-            if local_deadline is not None:
-                # A post-commit signal cannot rewrite frozen truth. Carry its
-                # clock after leaving invocation exclusion, before publication
-                # and acknowledgment, without crossing metadata lock order.
-                native_operation.note_composer_cancellation(
-                    local_signal, local_deadline
-                )
+            current_deadline()
             resources.resource_store.publish(path.with_suffix(".terminal.json"), check)
             if evidence_path is not None:
                 validation.write_json(evidence_path, check)
             if reconciled:
+                resources.host.remaining(current_deadline(), 1)
                 native_operation.acknowledge_composer(registration)
         except Exception as error:
             print(
                 f"test-resources: terminal evidence remains unresolved: {error}",
                 file=sys.stderr,
             )
-        for error in check["report_errors"]:
+        for error in report_errors:
             print(f"test-resources: {error}", file=sys.stderr)
         if reconciled and deadline is None and local_deadline is None:
             cleaning = True
@@ -617,6 +681,7 @@ def observer_rust(
     # observer uses the existing process environment; restore every carried
     # value after launch rather than leaving invocation authority ambient.
     previous = {key: os.environ.get(key) for key in forwarded}
+    report: Path | None = None
     if not inherited:
         configured, report = rust_report_command(
             invocation, ["cargo", "nextest", "run", *execution]
@@ -642,6 +707,8 @@ def observer_rust(
 
         if inherited:
             return launch({})
+        if report is None:
+            raise ValueError("Selected Rust observer lacks its report destination")
         return execute_selected(
             invocation,
             child,

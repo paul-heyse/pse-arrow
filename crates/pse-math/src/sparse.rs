@@ -96,6 +96,13 @@ impl AssemblyMatrix {
     pub fn matrix(&self) -> &SparseColMat<usize, f64> {
         &self.matrix
     }
+    /// Compile an original contribution's canonical numeric destination once.
+    pub fn contribution_index(&self, addend: Addend) -> Result<usize, MathError> {
+        self.refill
+            .get(addend)
+            .copied()
+            .ok_or_else(|| MathError::Contract("refill index".into()))
+    }
     /// Clear values without rebuilding, sorting or reallocating structure.
     pub fn clear(&mut self) {
         self.matrix.val_mut().fill(0.0);

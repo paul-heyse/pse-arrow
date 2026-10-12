@@ -212,7 +212,8 @@ impl ModelingPackage {
                     pse_modeling::specialize::Value::Boolean(*value),
                 );
             }
-            let original = super::engagement::OriginalPreparationInputs::capture(
+            #[cfg(feature = "solver-diffsol")]
+            let original = engagement::OriginalPreparationInputs::capture(
                 self, root, instance, &bindings, limits,
             )?;
             let model = if mode.facts.is_empty() {
@@ -224,6 +225,7 @@ impl ModelingPackage {
             let mut next = self
                 .prepare_simulation_mode(
                     model,
+                    #[cfg(feature = "solver-diffsol")]
                     original,
                     instance,
                     case.clone(),

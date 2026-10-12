@@ -263,3 +263,32 @@ Retain selected lexical positive/absence/scope/reference/interpretation premises
 
 **Proposed:** P-A1..P-A7 product implementation, new registry/schema activation and all remaining production controls. Audit RC20's V4 frame remains unchanged and optional publication remains a separate effects proposal. No original finding closes. Targeted functional checks for the eventual changed owners use `scripts/pse-env -- just check-package ...` and `just unit-package ...`; actual Arrow-consuming closures retain force-validation and canonical/native mode. Production integration, selected Python/solver journeys, hygiene and manual checks were **not_run** here and belong to the coordinator at functional scope end. Source and bounded fixtures establish design choices, not a new architectural acceptance, numerical qualification or cross-operation host guarantee.
 
+## Implementation checkpoint, 2026-10-12
+
+The current source implements P-A1–P-A7: typed bindings retain their admitted parent;
+delta and parsed reload preserve complete V4 source identity; preparation shares complete
+receipts under current protected engagements; receiving observations have scoped owners;
+and Runtime adopts retained granular compiler lanes with detached historical products.
+Complete export and knowledge inspection intentionally retain full-source reads. Neither
+membership enumeration nor exported ID-sorted tables promise parsed ingress order.
+
+The actual canonical/native edit journey passes cold and warm preparation, authored value
+reload, typed value binding, structural edit, fresh-oracle agreement and unchanged history.
+Warm and typed binding prepare no new structural view or semantic workspace. Structural
+edits retain semantic compilation while admitting required numerical check workspaces.
+The instrumented journey records receiving-process syscalls and maps before/after the
+first native solve; workers/services and untraced RPC are excluded. It establishes no
+speedup, universal latency or zero-I/O claim.
+
+Private preserved-history continuation and the fresh enclosing activation journey pass,
+including backup/restore, authority rotation, replay floors, original IPC readers,
+refusal of incomplete/retired histories and authenticated shutdown. All 78 frozen
+script/configuration inputs remained unchanged throughout the enclosing run. The earlier
+enclosing cleanup and source-generation-change failures retain their failed results. Production cutover and history
+deletion remain excluded. Optional publication R36-03 remains unselected. Full native,
+managed and Python acceptance and scope-end checks remain owned by P-G1.
+
+
+## Maintainer stop handoff, 2026-10-12
+
+Execution stopped after the requested immediate wrap-up. The [coordinator’s stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12) owns current evidence boundaries, worktree reconciliation and the remaining execution route. The preservation journey and edit/preparation observations retain their recorded inputs. Fresh assembled acceptance follows the coordinator’s route; this stop creates no new preparation or publication decision.

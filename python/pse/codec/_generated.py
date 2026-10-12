@@ -5,9 +5,8 @@
 from collections.abc import Iterable
 from math import isfinite
 from threading import local
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
-import cattrs
 import msgspec
 import msgspec.inspect
 
@@ -19,6 +18,9 @@ from pse.contracts.documents import DeclarationEdit, FitDeclarations
 from pse.contracts.values import ContentHash, SemanticId
 
 from . import _check_version_headers, converter, encode_json
+
+if TYPE_CHECKING:
+    import cattrs
 
 T = TypeVar("T")
 
@@ -39,7 +41,8 @@ def _check_finite(value: object, path: str) -> None:
     # JSON encoding normalizes nonfinite floats to null. Direct conversion must
     # instead refuse an invalid authored value before optional fields can hide it.
     if isinstance(value, float) and not isfinite(value):
-        raise msgspec.ValidationError(f"Expected finite number - at `{path}`")
+        message = f"Expected finite number - at `{path}`"
+        raise msgspec.ValidationError(message)
     if isinstance(value, dict):
         for key, child in value.items():
             _check_finite(child, f"{path}.{key}")
@@ -54,7 +57,8 @@ def _encode(
     plain_rows: list[object] = []
     for row in rows:
         if type(row) is not row_type:
-            raise TypeError(f"Expected generated {row_type.__name__} row")
+            message = f"Expected generated {row_type.__name__} row"
+            raise TypeError(message)
         plain_rows.append(_converters.rows.unstructure(row))
     plain = {field: plain_rows}
     _check_finite(plain, "$")

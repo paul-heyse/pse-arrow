@@ -52,7 +52,8 @@ fn compiled_features() -> Vec<String> {
         ("solver-scip", cfg!(feature = "solver-scip")),
     ]
     .into_iter()
-    .filter_map(|(name, enabled)| enabled.then(|| name.to_owned()))
+    .filter(|&(_, enabled)| enabled)
+    .map(|(name, _)| name.to_owned())
     .collect()
 }
 

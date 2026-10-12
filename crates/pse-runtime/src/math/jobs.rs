@@ -127,6 +127,26 @@ impl MathService {
         execution: &pse_backend_native::solve::Execution,
         work: impl FnOnce(Arc<datafusion::execution::memory_pool::MemoryReservation>) -> T,
     ) -> Result<T, MathRuntimeError> {
+        self.quiescent_phase_owned_construction(
+            cores,
+            ConstructionEstimate::Known(bytes),
+            execution,
+            work,
+        )
+    }
+    pub(super) fn quiescent_phase_owned_construction<T>(
+        &self,
+        cores: usize,
+        construction: ConstructionEstimate,
+        execution: &pse_backend_native::solve::Execution,
+        work: impl FnOnce(Arc<datafusion::execution::memory_pool::MemoryReservation>) -> T,
+    ) -> Result<T, MathRuntimeError> {
+        let bytes = construction.bytes();
+        if matches!(construction, ConstructionEstimate::Opaque(_))
+            && bytes > self.policy.worker_bytes
+        {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -166,7 +186,9 @@ impl MathService {
                     lease.shrink(bytes);
                 }
                 tokio::select! {
-                    () = released => {},
+                    // An active-capacity retry must not consume its own shrink
+                    // notification; retain release wakeups for pool-pressure waits.
+                    () = released, if !reserved => {},
                     () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
                 }
             }
@@ -180,8 +202,15 @@ impl MathService {
                 active,
                 runtime,
             );
+            let owner = Arc::new(ConstructionOwner::new(
+                lease.clone(),
+                construction,
+                self.policy.worker_bytes,
+                execution.cancel.clone(),
+                self.pressure.clone(),
+            ));
             let result = pse_backend_native::execution::compute_scoped(Box::new(compute), || {
-                work(lease.clone())
+                pse_math::construction::scoped(owner, || work(lease.clone()))
             });
             drop(lease);
             Ok(result)
@@ -249,7 +278,10 @@ impl MathService {
                 biased;
                 () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
                 () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
-                () = released => {},
+                // A successful tentative reservation was just shrunk when active
+                // capacity was unavailable. Its own release notification must not
+                // turn this retry into a ready loop that starves cancellation tasks.
+                () = released, if !reserved => {},
                 () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
             }
         };
@@ -279,16 +311,62 @@ pub(super) fn try_active(
         Err(TryAcquireError::Closed) => Err(MathRuntimeError::Limit("CPU admission closed")),
     }
 }
-/// Additional known numeric constructor payload grows the same admitted pool
-/// reservation immediately. No CPU/native owner waits for memory at this boundary.
+/// Source-issued construction demand, or a prepaid envelope for a producer whose
+/// complete population is opaque. The envelope is a charge, not an observed peak.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ConstructionEstimate {
+    /// Initial source-bound populations are charged; reports reserve excess or
+    /// newly discovered populations in addition to that initial demand.
+    Known(usize),
+    /// The complete opaque population is already charged; reports consume its
+    /// finite envelope without charging the same capacity for a second time.
+    Opaque(usize),
+}
+impl ConstructionEstimate {
+    pub(crate) fn from_bound(bound: Option<usize>, capacity: usize) -> Self {
+        bound.map_or(Self::Opaque(capacity), Self::Known)
+    }
+    pub(crate) fn bytes(self) -> usize {
+        match self {
+            Self::Known(bytes) | Self::Opaque(bytes) => bytes,
+        }
+    }
+}
+/// Known constructor excess grows the same admitted pool reservation immediately;
+/// reports within an explicitly prepaid opaque envelope consume its existing charge.
+/// No CPU/native owner waits for memory at this boundary.
 #[derive(Debug)]
 struct ConstructionOwner {
     reservation: Arc<datafusion::execution::memory_pool::MemoryReservation>,
     initial: usize,
+    prepaid: usize,
     capacity: usize,
     additional: std::sync::Mutex<usize>,
     cancelled: Arc<std::sync::atomic::AtomicBool>,
     pressure: Arc<super::retention::Pressure>,
+}
+impl ConstructionOwner {
+    fn new(
+        reservation: Arc<datafusion::execution::memory_pool::MemoryReservation>,
+        construction: ConstructionEstimate,
+        capacity: usize,
+        cancelled: Arc<std::sync::atomic::AtomicBool>,
+        pressure: Arc<super::retention::Pressure>,
+    ) -> Self {
+        let (initial, prepaid, capacity) = match construction {
+            ConstructionEstimate::Known(bytes) => (bytes, 0, capacity),
+            ConstructionEstimate::Opaque(bytes) => (0, bytes, bytes.min(capacity)),
+        };
+        Self {
+            reservation,
+            initial,
+            prepaid,
+            capacity,
+            additional: std::sync::Mutex::new(0),
+            cancelled,
+            pressure,
+        }
+    }
 }
 impl pse_math::construction::ConstructionAdmission for ConstructionOwner {
     fn try_grow(&self, bytes: usize) -> Result<(), pse_math::MathError> {
@@ -312,9 +390,13 @@ impl pse_math::construction::ConstructionAdmission for ConstructionOwner {
                 available: self.capacity,
             });
         }
-        self.pressure
-            .try_grow(&self.reservation, bytes)
-            .map_err(|_| pse_math::MathError::Limit("constructor common pool"))?;
+        let next = *additional + bytes;
+        let growth = next.saturating_sub(self.prepaid) - (*additional).saturating_sub(self.prepaid);
+        if growth > 0 {
+            self.pressure
+                .try_grow(&self.reservation, growth)
+                .map_err(|_| pse_math::MathError::Limit("constructor common pool"))?;
+        }
         *additional += bytes;
         Ok(())
     }
@@ -555,8 +637,16 @@ impl Submission {
 pub(super) struct AdmissionEntry {
     at: std::time::Instant,
     bytes: usize,
-    construction_bytes: usize,
+    construction: ConstructionEstimate,
     slot: PopulationEntry,
+}
+impl AdmissionEntry {
+    /// Set the constructor portion explicitly when the entry also covers other
+    /// resources, or when a source retains its opaque construction envelope.
+    pub(super) fn with_construction(mut self, construction: ConstructionEstimate) -> Self {
+        self.construction = construction;
+        self
+    }
 }
 impl MathService {
     /// Submit one finite operation under the existing admission, teardown and join owner.
@@ -589,6 +679,29 @@ impl MathService {
         + 'static,
     ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
     {
+        self.submit_construction(cores, ConstructionEstimate::Known(bytes), submission, work)
+    }
+    /// Submit construction whose source distinguishes an initial bound from a
+    /// prepaid opaque envelope before any dispatch task is created.
+    pub(crate) fn submit_construction<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        construction: ConstructionEstimate,
+        submission: Submission,
+        work: impl FnOnce(
+            Arc<std::sync::atomic::AtomicBool>,
+            Arc<pse_backend_native::solve::Progress>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
+        let bytes = construction.bytes();
+        if matches!(construction, ConstructionEstimate::Opaque(_))
+            && bytes > self.policy.worker_bytes
+        {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
         let service = self.clone();
         let Submission {
             cancel,
@@ -596,7 +709,9 @@ impl MathService {
             admitted,
             deadline,
         } = submission;
-        let entry = self.admit_entry(cores, bytes, &cancel, deadline, None)?;
+        let entry = self
+            .admit_entry(cores, bytes, &cancel, deadline, None)?
+            .with_construction(construction);
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
@@ -679,6 +794,44 @@ impl MathService {
         self.admitted(cores, bytes, cancel, (None, deadline), None, work)
             .await
     }
+    /// Construct under a source-issued bound or its explicitly prepaid opaque
+    /// fallback, preserving the same admission, thread, join and retention owner.
+    pub(super) async fn job_retained_construction<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        construction: ConstructionEstimate,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        let bytes = construction.bytes();
+        if bytes > self.policy.worker_bytes {
+            return Err(MathRuntimeError::Limit("constructor worker capacity"));
+        }
+        let entry = self
+            .admit_entry(cores, bytes, &cancel, deadline, None)?
+            .with_construction(construction);
+        self.job_retained_on_entry(cores, bytes, cancel, deadline, entry, work)
+            .await
+    }
+    pub(super) async fn job_construction<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        construction: ConstructionEstimate,
+        cancel: FlightCancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        self.job_retained_construction(cores, construction, cancel, deadline, move |flag| {
+            work(flag).map(|value| (value, 0))
+        })
+        .await
+        .map(|(value, _)| value)
+    }
     /// Consume a ticket acquired before a synchronous submission creates any task.
     pub(super) async fn job_scoped_on_entry<T: Send + 'static>(
         self: &Arc<Self>,
@@ -726,7 +879,7 @@ impl MathService {
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
-        let construction_bytes = bytes;
+        let construction = ConstructionEstimate::Known(bytes);
         let stacks = if cores > 1 {
             cores.checked_add(1)
         } else {
@@ -774,7 +927,7 @@ impl MathService {
         Ok(AdmissionEntry {
             at,
             bytes,
-            construction_bytes,
+            construction,
             slot,
         })
     }
@@ -877,7 +1030,7 @@ impl MathService {
         let AdmissionEntry {
             at,
             bytes,
-            construction_bytes,
+            construction,
             slot,
         } = entry;
         if cancel.flag().load(Ordering::Acquire) {
@@ -912,14 +1065,13 @@ impl MathService {
                     tokio::runtime::Handle::current(),
                 );
                 let native_compute = compute.clone();
-                let construction = Arc::new(ConstructionOwner {
-                    reservation: lease.clone(),
-                    initial: construction_bytes,
-                    capacity: service.policy.worker_bytes,
-                    additional: std::sync::Mutex::new(0),
-                    cancelled: flag.clone(),
-                    pressure: service.pressure.clone(),
-                });
+                let construction = Arc::new(ConstructionOwner::new(
+                    lease.clone(),
+                    construction,
+                    service.policy.worker_bytes,
+                    flag.clone(),
+                    service.pressure.clone(),
+                ));
                 let sessions = service.policy.inner_session_bytes;
                 let runtime = tokio::runtime::Handle::current();
                 let handle = std::thread::Builder::new()
@@ -1258,6 +1410,9 @@ mod construction_tests {
             .unwrap();
         let control = FlightCancellation::default();
         let stop = control.clone();
+        let released = service.released.notified();
+        tokio::pin!(released);
+        released.as_mut().enable();
         let pending_service = service.clone();
         let pending = tokio::spawn(async move {
             pending_service
@@ -1266,18 +1421,65 @@ mod construction_tests {
                 })
                 .await
         });
-        while service.jobs.available_permits() == service.policy.jobs {
-            tokio::task::yield_now().await;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            while service.jobs.available_permits() == service.policy.jobs {
+                assert!(
+                    !pending.is_finished(),
+                    "operation finished before population admission"
+                );
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("population admission must become observable");
+        tokio::time::timeout(std::time::Duration::from_secs(1), released)
+            .await
+            .expect("the unavailable stage must release its tentative memory");
+        assert!(!pending.is_finished());
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.cpu.available_permits(), service.cores);
         stop.cancel();
         assert!(matches!(
-            pending.await.unwrap(),
+            tokio::time::timeout(std::time::Duration::from_secs(1), pending)
+                .await
+                .expect("active-stage waiting must observe cancellation")
+                .unwrap(),
             Err(MathRuntimeError::Cancelled)
         ));
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        drop(active);
+    }
+    #[tokio::test]
+    async fn unavailable_active_stage_preserves_original_deadline_without_cancelling() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let active = service
+            .active_jobs
+            .clone()
+            .try_acquire_many_owned(service.policy.jobs as u32)
+            .unwrap();
+        let control = FlightCancellation::default();
+        let at = std::time::Instant::now() + std::time::Duration::from_millis(20);
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            service.reserve_active("test:blocked-active-deadline", 1, 1024, &control, at),
+        )
+        .await
+        .expect("active-stage retries must retain the original deadline");
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            ))
+        ));
+        assert!(!control.flag().load(Ordering::Acquire));
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.active_jobs.available_permits(), 0);
         drop(active);
     }
     #[tokio::test]
@@ -1420,6 +1622,7 @@ mod construction_tests {
         let owner = ConstructionOwner {
             reservation: reservation.clone(),
             initial: 4,
+            prepaid: 0,
             capacity: 12,
             additional: std::sync::Mutex::new(0),
             cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
@@ -1442,6 +1645,146 @@ mod construction_tests {
         assert_eq!(pool.reserved(), 0);
     }
     #[test]
+    fn constructor_opaque_envelope_covers_reports_without_double_charging() {
+        // The entire pool is already reserved: another growth cannot succeed.
+        let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(16));
+        let reservation = Arc::new(MemoryConsumer::new("opaque constructor test").register(&pool));
+        reservation.try_grow(16).unwrap();
+        let cancelled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let owner = ConstructionOwner {
+            reservation: reservation.clone(),
+            initial: 0,
+            prepaid: 16,
+            capacity: 16,
+            additional: std::sync::Mutex::new(0),
+            cancelled: cancelled.clone(),
+            pressure: super::super::retention::Pressure::new(0),
+        };
+        owner.try_grow(7).unwrap();
+        owner.try_grow(9).unwrap();
+        assert_eq!(reservation.size(), 16);
+        assert_eq!(pool.reserved(), 16);
+        assert!(matches!(
+            owner.try_grow(1),
+            Err(pse_math::MathError::ByteLimit {
+                resource: "constructor worker bytes",
+                required: 17,
+                available: 16,
+            })
+        ));
+        assert_eq!(*owner.additional.lock().unwrap(), 16);
+        cancelled.store(true, Ordering::Release);
+        assert!(matches!(
+            owner.try_grow(0),
+            Err(pse_math::MathError::Cancelled)
+        ));
+        assert_eq!(pool.reserved(), 16);
+        drop(owner);
+        drop(reservation);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
+    async fn phase_constructor_uses_its_reservation_and_restores_parent_owner() {
+        use pse_kernels::DerivativeOrder;
+        use pse_math::typed::{Binary, BodyBuilder, BodyLimits};
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let scalar = match registry.physical_name("Scalar").unwrap() {
+            pse_quantity::PhysicalName::QuantityType(id) => id,
+            other => panic!("Scalar must resolve to the admitted quantity type: {other:?}"),
+        };
+        let mut builder = BodyBuilder::new(
+            pse_math::initialize().unwrap(),
+            &registry,
+            &pse_quantity::standard::StandardInvariantChecker,
+            1,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let input = builder
+            .input(
+                0,
+                scalar,
+                pse_quantity::IndexSet::new(),
+                pse_ids::SemanticId::NIL,
+            )
+            .unwrap();
+        let output = builder
+            .binary(
+                Binary::Add,
+                input.clone(),
+                input,
+                None,
+                pse_ids::SemanticId::NIL,
+            )
+            .unwrap();
+        let body = builder.prepare(&[output]).unwrap();
+        let limits = pse_math::jets::EvaluationLimits::default();
+        let known = body
+            .arithmetic_compilation_allocation_bound(DerivativeOrder::Value, limits)
+            .unwrap()
+            .unwrap();
+        let capacity = 1 << 20;
+        assert!(known < capacity);
+        let (service, _cache) = super::super::tests::service_with_policy(
+            64 << 20,
+            super::super::MathPolicy {
+                worker_bytes: capacity,
+                foreign_bytes: 1 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let phase_service = service.clone();
+        service
+            .job(1, capacity, FlightCancellation::default(), move |flag| {
+                let execution =
+                    pse_backend_native::solve::Execution::new(flag.clone(), &Default::default());
+                let parent = phase_service.pool.reserved();
+                let compile = || {
+                    body.compile(
+                        &[0],
+                        &[0],
+                        DerivativeOrder::Value,
+                        pse_math::library::Optimization::default(),
+                        limits,
+                        &flag,
+                    )
+                };
+                for construction in [
+                    ConstructionEstimate::Known(known),
+                    ConstructionEstimate::Opaque(capacity),
+                ] {
+                    phase_service.quiescent_phase_owned_construction(
+                        1,
+                        construction,
+                        &execution,
+                        |reservation| {
+                            let compiled = compile().unwrap();
+                            match construction {
+                                ConstructionEstimate::Known(bytes) => {
+                                    assert!(reservation.size() > bytes);
+                                }
+                                ConstructionEstimate::Opaque(bytes) => {
+                                    assert_eq!(reservation.size(), bytes);
+                                }
+                            }
+                            drop(compiled);
+                        },
+                    )?;
+                    assert_eq!(phase_service.pool.reserved(), parent);
+                }
+                // The parent has no growth headroom. A restored parent must refuse
+                // the exact scalar cache report instead of using the departed phase.
+                let refused = compile().unwrap_err();
+                assert!(refused.to_string().contains("constructor worker bytes"));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[test]
     fn constructor_pool_pressure_refuses_immediately_without_charging_or_waiting() {
         let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(16));
         let reservation = Arc::new(MemoryConsumer::new("constructor test").register(&pool));
@@ -1450,6 +1793,7 @@ mod construction_tests {
         let owner = ConstructionOwner {
             reservation: reservation.clone(),
             initial: 8,
+            prepaid: 0,
             capacity: 64,
             additional: std::sync::Mutex::new(0),
             cancelled: cancelled.clone(),

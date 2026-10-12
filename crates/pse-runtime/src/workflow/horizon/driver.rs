@@ -571,12 +571,11 @@ fn bind_horizon_source(
 async fn close_horizon_sources(held: &[HorizonSourceEngagement]) -> Result<(), WorkflowError> {
     let mut failure = None;
     for source in held {
-        if source.owned {
-            if let Err(error) = source.scope.close().await {
-                if failure.is_none() {
-                    failure = Some(error);
-                }
-            }
+        if source.owned
+            && let Err(error) = source.scope.close().await
+            && failure.is_none()
+        {
+            failure = Some(error);
         }
     }
     if let Some(error) = failure {
@@ -1358,7 +1357,7 @@ impl Loop {
             summary_error,
             detail_membership,
         ) = original.finish(usable, final_error);
-        let mut result = if matches!(admitted.output, crate::workflow::StudyOutputDemand::Full) {
+        let mut result = if matches!(admitted.output, crate::workflow::StudyOutputDemand::Full {}) {
             let (report, failure) = joined_modeling(outcome, full_results, failed_solve);
             let mut result = RunResult::joined(
                 run_id,
@@ -1431,7 +1430,7 @@ impl Loop {
                 .await?;
             if matches!(
                 self.admitted.output,
-                crate::workflow::StudyOutputDemand::Full
+                crate::workflow::StudyOutputDemand::Full {}
             ) {
                 let owner = match super::prefix::step_copy_owner(
                     &self.admitted.sources[0].runtime,
@@ -1612,7 +1611,7 @@ impl Loop {
         };
         let full_owners = if matches!(
             self.admitted.output,
-            crate::workflow::StudyOutputDemand::Full
+            crate::workflow::StudyOutputDemand::Full {}
         ) {
             match super::prefix::preparation_copy_owner(
                 &self.admitted.sources[0].runtime,
@@ -1638,7 +1637,7 @@ impl Loop {
         let request = prepared.clone();
         if matches!(
             self.admitted.output,
-            crate::workflow::StudyOutputDemand::Full
+            crate::workflow::StudyOutputDemand::Full {}
         ) {
             self.full_owners.extend(full_owners);
             self.requests.push(prepared.clone());
@@ -1687,7 +1686,7 @@ impl Loop {
         original.horizon_owners = copy_owners;
         if matches!(
             self.admitted.output,
-            crate::workflow::StudyOutputDemand::Full
+            crate::workflow::StudyOutputDemand::Full {}
         ) {
             self.full_results.push(result.clone());
         }
@@ -1766,7 +1765,7 @@ impl Loop {
     pub(super) fn before_export_refusal(&self) -> Option<&serde_json::Value> {
         self.original_before_refusal.as_ref()
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
     pub(super) fn cancel_before_first_step(&self) {
         self.cancel.cancel();
     }

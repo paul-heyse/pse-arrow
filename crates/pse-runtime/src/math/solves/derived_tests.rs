@@ -132,7 +132,7 @@ async fn compiled_ill_conditioned_nested_relation_chain_refines_against_tighter_
                 )]),
                 ImplicitCapabilities {
                     solver: Arc::new(native::implicit::Kinsol),
-                    verifier: Some(Arc::new(native::root_isolation::Ibex)),
+                    verifier: Some(Arc::new(native::root_isolation::Ibex::default())),
                     accelerators: &accelerators,
                 },
                 DerivativeOrder::First,
@@ -1685,7 +1685,7 @@ async fn reduced_compiler_source_refines_consumed_accuracy_then_original_correct
         maximum_regimes: 1,
         time_limit: Duration::from_secs(10),
         cancel: flag.clone(),
-        verifier: Some(Arc::new(native::root_isolation::Ibex)),
+        verifier: Some(Arc::new(native::root_isolation::Ibex::default())),
     });
     let service = runtime.native();
     let factory = Arc::new(ReconstructionFactory::regimes(
@@ -2171,10 +2171,12 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
     };
     use pse_model::strategy::AccuracyClass;
     // Regimes retain their existing covering contract. Genuine Root reconstruction
-    // admits only its requested 64-cell proof workspace, within the ordinary small pool.
+    // admits only its requested 64-cell proof workspace. The finite fixture pool also
+    // covers the 64 MiB opaque constructor, 64 MiB native entry, 64 MiB compiler lane,
+    // and source/publication owners; none of those capacities is a proof-work budget.
     let runtime = crate::workflow::tests::runtime_on(
         if single_root {
-            192usize << 20
+            256usize << 20
         } else {
             24usize << 30
         },
@@ -2474,7 +2476,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
         maximum_regimes: 1,
         time_limit: std::time::Duration::from_secs(10),
         cancel: flag.clone(),
-        verifier: Some(Arc::new(native::root_isolation::Ibex)),
+        verifier: Some(Arc::new(native::root_isolation::Ibex::default())),
     });
     let realization = SelectedResidualRealization::ZeroResiduals {
         authored_offsets: vec![(row, plan.structure().rows()[0].lower)],
@@ -2503,7 +2505,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
             cancel: &flag,
         };
         let evidence = pse_math::implicit::SelectionVerifier::certify_bounded(
-            &native::root_isolation::Ibex,
+            &native::root_isolation::Ibex::default(),
             &request,
             64,
         )
@@ -2516,7 +2518,7 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
             pse_math::implicit::ImplicitFactory::Root(root),
             realization,
             Some(proof),
-            Some(Arc::new(native::root_isolation::Ibex)),
+            Some(Arc::new(native::root_isolation::Ibex::default())),
         );
         assert!(matches!(
             source.factory(),
@@ -3375,7 +3377,9 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
     };
     use pse_model::strategy::{AccuracyClass, AccuracyDemand};
     let runtime = crate::workflow::tests::runtime_on(
-        160usize << 20,
+        // Native entry (64 MiB), compiler lane (64 MiB), source candidate (32 MiB),
+        // and opaque constructor admission overlap with retained scientific products.
+        256usize << 20,
         crate::math::MathPolicy {
             worker_bytes: 64usize << 20,
             workspace_bytes: 64usize << 20,
@@ -3596,7 +3600,7 @@ async fn actual_multiple_root_suppliers_consume_nonzero_authored_offsets_and_cha
             }),
             SelectedResidualRealization::AuthoredValues,
             Some(proof),
-            Some(Arc::new(native::root_isolation::Ibex)),
+            Some(Arc::new(native::root_isolation::Ibex::default())),
         );
         let normalization = Normalization::identity(2, 1);
         let local = Arc::new(

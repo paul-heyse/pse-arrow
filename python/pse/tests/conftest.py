@@ -55,14 +55,15 @@ def pytest_sessionstart() -> None:
     """Refuse an import origin different from the native wrapper's recorded binary."""
     features = compiled_features()
     if "force-validate" not in features:
-        raise pytest.UsageError(
-            "Python correctness requires a force-validated extension; run just py-sync-correctness"
+        message = (
+            "Python correctness requires a force-validated extension; "
+            "run just py-sync-correctness"
         )
+        raise pytest.UsageError(message)
     expected_features = os.environ.get("PSE_NATIVE_EXPECTED_FEATURES")
     if expected_features is not None and features != json.loads(expected_features):
-        raise pytest.UsageError(
-            "native Python feature flags differ from wrapper capture"
-        )
+        message = "native Python feature flags differ from wrapper capture"
+        raise pytest.UsageError(message)
     expected = os.environ.get("PSE_NATIVE_EXPECTED_BINARY")
     if expected is None:
         return

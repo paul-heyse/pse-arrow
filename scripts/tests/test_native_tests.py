@@ -13,9 +13,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from scripts import native_tests, surreal_server, test_run
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
 
 
 class ManagedRustSelectionTests(unittest.TestCase):
@@ -141,12 +145,17 @@ class ManagedRustSelectionTests(unittest.TestCase):
                     extra, self.provenance, self.selected
                 )
         worker.assert_called_once()
+        self.assertIsNotNone(actual)
+        assert actual is not None
         return command, actual, [call.args[0] for call in captured.call_args_list]
 
     def test_unit_scope_uses_actual_validated_roots_and_one_prepared_inventory(
         self,
     ) -> None:
-        def resolve(command, *, run):
+        def resolve(
+            command: list[str], *, run: Callable[[Sequence[str]], bytes]
+        ) -> native_tests.arrow_validation.Resolution:
+            self.assertTrue(callable(run))
             return native_tests.arrow_validation.Resolution(
                 [*command, "--features", "pse-runtime/force-validate"],
                 ["pse-relations", "pse-runtime"],

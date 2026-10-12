@@ -6370,7 +6370,9 @@ class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constraint"):
     """One algebraic constraint at its original absolute solve step."""
 
+    #: Authored constraint identity.
     row_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original absolute solve step.
     step: int
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -6380,7 +6382,9 @@ class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fi
 class StudyMemberDemandFitObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit_observation"):
     """One observation in its original experiment."""
 
+    #: Original experiment instance identity.
     experiment_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Authored observation identity within that experiment.
     observation_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -6390,6 +6394,7 @@ class StudyMemberDemandFitObservation(msgspec.Struct, frozen=True, forbid_unknow
 class StudyMemberDemandFitParameter(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit_parameter"):
     """One fitted parameter."""
 
+    #: Authored fitted parameter identity.
     parameter_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -6399,6 +6404,7 @@ class StudyMemberDemandFitParameter(msgspec.Struct, frozen=True, forbid_unknown_
 class StudyMemberDemandTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trajectory"):
     """The original samples of one trajectory symbol."""
 
+    #: Authored trajectory symbol identity.
     symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -6408,7 +6414,9 @@ class StudyMemberDemandTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fi
 class StudyMemberDemandVariable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="variable"):
     """One algebraic variable at its original absolute solve step."""
 
+    #: Original absolute solve step.
     step: int
+    #: Authored variable identity.
     symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
 
     def _pse_equality_key(self) -> v.EqualityKey:

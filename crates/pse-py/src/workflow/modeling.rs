@@ -1979,7 +1979,7 @@ impl NativeModelingResult {
             .prepared
             .bound_source
             .as_ref()
-            .map(|binding| binding.identity().to_string())
+            .map(|binding| binding.identity().as_id().to_prefixed())
     }
     #[getter]
     fn accepted(&self) -> bool {

@@ -172,11 +172,51 @@ def initialize(
     return state
 
 
+def reset_private_retry_counter(state: Path) -> None:
+    """Reset retained counters without loading a collected private unit."""
+    unit = server.unit_name(state)
+
+    def retained() -> bool:
+        observed = server.systemctl(
+            "list-units",
+            "--all",
+            "--no-legend",
+            "--no-pager",
+            "--plain",
+            unit,
+            check=False,
+        )
+        if observed.returncode:
+            raise server.SupervisorError("Cannot observe the private fixture unit")
+        rows = observed.stdout.strip().splitlines()
+        if not rows:
+            return False
+        fields = rows[0].split(maxsplit=4)
+        if (
+            len(rows) != 1
+            or len(fields) != 5
+            or fields[0] != unit
+            or fields[1] != "loaded"
+            or fields[2] not in {"inactive", "failed"}
+        ):
+            raise server.SupervisorError("Unknown private fixture unit lifetime")
+        return True
+
+    if not retained():
+        return
+    result = server.systemctl("reset-failed", unit, check=False)
+    if not result.returncode:
+        return
+    expected = f"Failed to reset failed state of unit {unit}: Unit {unit} not loaded."
+    if result.stderr.strip() != expected or retained():
+        raise server.SupervisorError("Private fixture retry counter reset failed")
+
+
 def inspect(state: Path, body: str) -> object:
     with server.lifecycle_reservation(state):
         config = server.config_for(state)
         server.private_offline_state(state, config)
-        server.systemctl("reset-failed", server.unit_name(state))
+        reset_private_retry_counter(state)
         return server.maintenance_query(
             state, config, server.read_json(state / "credentials.json"), body
         )["value"]
@@ -190,7 +230,7 @@ def activate(
     # changing service restart policy or bypassing any activation owner checks.
     with server.lifecycle_reservation(state):
         server.private_offline_state(state, server.config_for(state))
-        server.systemctl("reset-failed", server.unit_name(state))
+        reset_private_retry_counter(state)
         return activation.execute(state, migration, archive, bridge)
 
 
@@ -381,7 +421,7 @@ def validate_history_fixture(state: Path) -> None:
             "surreal-db": str(config["database"]),
         },
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310 -- authenticated owned loopback request
         result = json.load(response)
     if (
         not isinstance(result, list)
@@ -409,9 +449,10 @@ def read_history_fixture(
     # Repeated deliberate start/stop cycles are private-fixture actions, not
     # automatic service retries. Reset only after the exact offline owner check.
     with server.lifecycle_reservation(state):
-        server.private_offline_state(state, server.config_for(state))
-        server.systemctl("reset-failed", server.unit_name(state))
-        server.start(state, server.config_for(state))
+        config = server.config_for(state)
+        server.private_offline_state(state, config)
+        reset_private_retry_counter(state)
+        server.start(state, config)
     try:
         read = subprocess.run(
             [str(bridge), str(state), str(archive), "--private-fixture-read-history"],
@@ -457,12 +498,12 @@ def general_history_journey(root: Path, bridge: Path, schema: str) -> dict[str, 
     for name, change, restore in [
         (
             "open",
-            "LET $fixture_mutation=(UPDATE type::record('canonical_attempts','"
-            + attempt
-            + "') SET ingestion_open=true RETURN NONE);",
-            "LET $fixture_mutation=(UPDATE type::record('canonical_attempts','"
-            + attempt
-            + "') SET ingestion_open=false RETURN NONE);",
+            "LET $fixture_mutation=(UPDATE type::record('canonical_attempts',"  # noqa: S608 -- explicit private fixture key encoded as JSON
+            + json.dumps(attempt)
+            + ") SET ingestion_open=true RETURN NONE);",
+            "LET $fixture_mutation=(UPDATE type::record('canonical_attempts',"  # noqa: S608 -- explicit private fixture key encoded as JSON
+            + json.dumps(attempt)
+            + ") SET ingestion_open=false RETURN NONE);",
         ),
         (
             "unknown",
@@ -548,15 +589,24 @@ def general_history_journey(root: Path, bridge: Path, schema: str) -> dict[str, 
             "native-history-derived.json",
         ]
     }
-    source = server.read_json(archive / "native-snapshot.json")["history"]
+    source = server.object_mapping(
+        server.read_json(archive / "native-snapshot.json")["history"]
+    )
+    raw_pages = source.get("pages")
+    if not isinstance(raw_pages, list):
+        raise server.SupervisorError("Historical original page inventory is invalid")
+    pages = [server.object_mapping(value) for value in raw_pages]
     if (
-        sum(page["bytes"] for page in source["pages"]) <= 16 * 1024 * 1024
-        or len(source["pages"]) <= 1
+        sum(server.integer(page["bytes"]) for page in pages) <= 16 * 1024 * 1024
+        or len(pages) <= 1
     ):
         raise server.SupervisorError(
             "Historical original archive was not genuinely paged"
         )
-    page = archive / "native-history" / source["pages"][0]["name"]
+    page_name = pages[0]["name"]
+    if not isinstance(page_name, str):
+        raise server.SupervisorError("Historical original page name is invalid")
+    page = archive / "native-history" / page_name
     unchanged = page.read_bytes()
     page.write_bytes(unchanged + b"corrupt")
     try:
@@ -687,16 +737,136 @@ def general_history_journey(root: Path, bridge: Path, schema: str) -> dict[str, 
             ],
         )
     public = read_history_fixture(state, archive, bridge)
+    restored = restore_history_journey(root, state, archive, bridge)
     return {
         "bytes": original["bytes"],
-        "pages": len(source["pages"]),
+        "pages": len(pages),
         "resume_conflicts": resume_conflicts,
         "partial": partial,
         "completed": completed,
         "replay": replay,
         "public_reader": public,
+        "restore": restored,
         "originals_preserved": True,
         "state_retained": str(state),
+    }
+
+
+def restore_history_journey(
+    root: Path, state: Path, archive: Path, bridge: Path
+) -> dict[str, object]:
+    """Real backup/restore rotates authority while preserving scientific history."""
+    original = server.config_for(state)
+    grant = inspect(
+        state,
+        "LET $changed=UPDATE ONLY type::record('canonical_guards','retention:fixture-problem') "
+        "SET protection_closed_through=time::micros() RETURN NONE; "
+        "LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:fixture-problem'); "
+        "LET $key='pse.protection.v2:'+$guard.incarnation+':'+<string>rand::uuid::v4()+':'+<string>(time::micros()+3600000000); "
+        "LET $checked=fn::pse_execution_v1::protection_grant(time::micros()+10000000,'fixture-problem',$key,true); "
+        "LET $value={key:$key,incarnation:$guard.incarnation,floor:$guard.protection_closed_through,grant:$checked};",
+    )
+    if not isinstance(grant, dict) or not isinstance(grant.get("key"), str):
+        raise server.SupervisorError("Original restore grant was not qualified")
+    backup = root / "backup"
+    restored = root / "restored"
+    activation.frozen_json(root / "restore-grant.json", grant)
+    server.backup(state, original, backup)
+    server.restore(backup, restored, server.SUBSTRATE_INTERPRETATION)
+    return check_restored_history(
+        root, original, restored, archive, bridge, grant, backup
+    )
+
+
+def check_restored_history(
+    root: Path,
+    original: dict[str, object],
+    restored: Path,
+    archive: Path,
+    bridge: Path,
+    grant: dict[str, object],
+    backup: Path,
+) -> dict[str, object]:
+    """Qualify a restored owner, including an explicitly preserved continuation."""
+    config = server.config_for(restored)
+    if (
+        config["instance_id"] == original["instance_id"]
+        or config["accepting_writes"]
+        or config["admission"] != "validation_required"
+        or config.get("derived_rebuild_pending")
+    ):
+        raise server.SupervisorError("Restore did not establish a fresh closed owner")
+    authority = inspect(
+        restored,
+        "LET $value=SELECT incarnation,protection_closed_through FROM ONLY "
+        "type::record('canonical_guards','retention:fixture-problem');",
+    )
+    if (
+        not isinstance(authority, dict)
+        or authority.get("incarnation") == grant["incarnation"]
+        or authority.get("protection_closed_through") != grant["floor"]
+    ):
+        raise server.SupervisorError(
+            "Restore reused authority or lost its replay floor"
+        )
+    failure_path = restored / "maintenance-cli-failure.json"
+    before_failure = failure_path.stat() if failure_path.exists() else None
+    try:
+        inspect(
+            restored,
+            "LET $value=fn::pse_execution_v1::protection_grant(time::micros()+10000000,'fixture-problem',"
+            + json.dumps(grant["key"])
+            + ",true);",
+        )
+    except server.SupervisorError:
+        after_failure = failure_path.stat()
+        diagnostic = server.read_json(failure_path)
+        if (
+            (
+                before_failure is not None
+                and (before_failure.st_ino, before_failure.st_mtime_ns)
+                == (after_failure.st_ino, after_failure.st_mtime_ns)
+            )
+            or diagnostic.get("owner") != server.OWNER
+            or diagnostic.get("kind") != "maintenance-cli-failure-v1"
+            or diagnostic.get("returncode") != 0
+            or diagnostic.get("stderr") != ""
+            or server.maintenance_results(config, str(diagnostic.get("stdout")))
+            != [
+                "An error occurred: protection authority incarnation differs",
+                "The query was not executed due to a cancelled transaction",
+                "Cannot COMMIT: the transaction was aborted due to a prior error",
+            ]
+        ):
+            raise
+    else:
+        raise server.SupervisorError("Restored authority accepted a pre-restore grant")
+    with server.lifecycle_reservation(restored):
+        server.validate(
+            restored,
+            config,
+            server.SUBSTRATE_INTERPRETATION,
+            [
+                sys.executable,
+                "-m",
+                "scripts.tests.preparation_activation_check",
+                "--root",
+                str(root),
+                "--bridge",
+                str(bridge),
+                "--validate-state",
+                str(restored),
+            ],
+        )
+    public = read_history_fixture(restored, archive, bridge)
+    return {
+        "fresh_instance": config["instance_id"],
+        "authority_rotated": True,
+        "replay_floor_preserved": True,
+        "old_grant_refused": True,
+        "public_reader": public,
+        "state_retained": str(restored),
+        "backup_retained": str(backup),
     }
 
 

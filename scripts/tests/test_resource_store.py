@@ -43,17 +43,17 @@ class ExactStoreTests(unittest.TestCase):
             self.register()
         original = files.digest(self.identity)
         digest = files.digest
-        with patch.object(
-            files,
-            "digest",
-            side_effect=lambda value: (
-                original if isinstance(value, list) else digest(value)
+        with (
+            patch.object(
+                files,
+                "digest",
+                side_effect=lambda value: (
+                    original if isinstance(value, list) else digest(value)
+                ),
             ),
+            self.assertRaisesRegex(files.StoreError, "hash collision"),
         ):
-            with self.assertRaisesRegex(files.StoreError, "hash collision"):
-                self.store.register(
-                    ["/other", "other", "embedded"], {}, invocation=None
-                )
+            self.store.register(["/other", "other", "embedded"], {}, invocation=None)
         self.assertEqual(self.store.lookup(resource).facts, self.facts)
 
     def test_freeze_first_prevents_any_registration_publication(self) -> None:
@@ -71,23 +71,96 @@ class ExactStoreTests(unittest.TestCase):
         with self.assertRaisesRegex(files.StoreError, "frozen terminal"):
             self.store.terminal(self.nonce)
 
+    def test_unchanged_projection_settles_prior_rename_without_replacing_authority(
+        self,
+    ) -> None:
+        resource = self.register()
+        authority = self.store.path("resources", resource)
+        marker = self.store.path("active", resource)
+        sync = files.sync_directory
+
+        def fail_after_rename(directory: Path) -> None:
+            if directory == authority.parent:
+                raise OSError("resource rename not settled")
+            sync(directory)
+
+        with (
+            patch.object(files, "sync_directory", side_effect=fail_after_rename),
+            self.assertRaisesRegex(OSError, "resource rename not settled"),
+            self.store.edit(resource, settle_if_unchanged=True) as entry,
+        ):
+            entry.facts["terminal_identity"] = "b" * 64
+        self.assertEqual(files.read(authority)["facts"]["terminal_identity"], "b" * 64)
+        inode = authority.stat().st_ino
+        synced = []
+        fsync = files.os.fsync
+
+        def observe(descriptor: int) -> None:
+            synced.append(Path(f"/proc/self/fd/{descriptor}").readlink())
+            fsync(descriptor)
+
+        with (
+            patch.object(files, "publish", wraps=files.publish) as publish,
+            patch.object(files.os, "fsync", side_effect=observe),
+            self.store.edit(resource, settle_if_unchanged=True),
+        ):
+            pass
+        publish.assert_not_called()
+        self.assertEqual(authority.stat().st_ino, inode)
+        self.assertTrue(
+            {authority, authority.parent, marker, marker.parent, self.root}
+            <= set(synced)
+        )
+        with (
+            patch.object(files.os, "fsync", side_effect=OSError("settlement failed")),
+            self.assertRaisesRegex(OSError, "settlement failed"),
+            self.store.edit(resource, settle_if_unchanged=True),
+        ):
+            pass
+
+    def test_unchanged_projection_repairs_missing_or_stale_access_marker(self) -> None:
+        resource = self.register()
+        marker = self.store.path("active", resource)
+        for missing in (True, False):
+            with self.subTest(missing=missing):
+                if missing:
+                    marker.unlink()
+                else:
+                    files.publish(marker, {"resource": "b" * 32})
+                with (
+                    patch.object(files, "publish", wraps=files.publish) as publish,
+                    self.store.edit(resource, settle_if_unchanged=True),
+                ):
+                    pass
+                self.assertIn(marker, [call.args[0] for call in publish.call_args_list])
+                self.assertEqual(files.read(marker), {"resource": resource})
+        with self.store.edit(resource) as entry:
+            entry.phase = "disposed"
+        with (
+            patch.object(files, "publish", wraps=files.publish) as publish,
+            patch.object(files, "sync_directory", wraps=files.sync_directory) as sync,
+            self.store.edit(resource, settle_if_unchanged=True),
+        ):
+            pass
+        publish.assert_not_called()
+        self.assertFalse(marker.exists())
+        self.assertIn(marker.parent, [call.args[0] for call in sync.call_args_list])
+
     def test_two_actual_fresh_first_openers_share_initialization(self) -> None:
         fresh = self.root.parent / "concurrent-fresh"
         ready, release = self.root.parent / "initializing", self.root.parent / "release"
-        script = "\n".join(
-            [
-                "import sys,time; from pathlib import Path",
-                "from scripts import resource_store as files",
-                "root,ready,release=map(Path,sys.argv[1:4]); publish=files.publish",
-                "def delayed(path,value):",
-                "    if path.name=='activation.json':",
-                "        ready.write_text('initializing')",
-                "        deadline=time.monotonic()+3",
-                "        while not release.exists() and time.monotonic()<deadline: time.sleep(.01)",
-                "    publish(path,value)",
-                "files.publish=delayed",
-                "files.FileStore(root).create_invocation({'nonce':'a'*32})",
-            ]
+        script = (
+            "import sys,time; from pathlib import Path\n"
+            "from scripts import resource_store as files\n"
+            "root,ready,release=map(Path,sys.argv[1:4]); publish=files.publish\n"
+            "def delayed(path,value):\n"
+            "    if path.name=='activation.json':\n"
+            "        ready.write_text('initializing')\n"
+            "        deadline=time.monotonic()+3\n"
+            "        while not release.exists() and time.monotonic()<deadline: time.sleep(.01)\n"
+            "    publish(path,value)\n"
+            "files.publish=delayed\n"
+            "files.FileStore(root).create_invocation({'nonce':'a'*32})"
         )
         first = subprocess.Popen(
             [sys.executable, "-c", script, str(fresh), str(ready), str(release)],
@@ -172,9 +245,11 @@ class ExactStoreTests(unittest.TestCase):
                 raise OSError("injected index publication failure")
             publish(path, value)
 
-        with patch.object(files, "publish", side_effect=fail_index):
-            with self.assertRaises(OSError):
-                self.register()
+        with (
+            patch.object(files, "publish", side_effect=fail_index),
+            self.assertRaises(OSError),
+        ):
+            self.register()
         state = files.read(self.store.path("invocation-state", self.nonce))
         resource = next(iter(state["members"]))
         self.assertEqual(state["members"][resource]["phase"], "pending")
@@ -209,9 +284,11 @@ class ExactStoreTests(unittest.TestCase):
                 raise OSError("write interrupted")
             publish(path, value)
 
-        with patch.object(files, "publish", side_effect=fail_authority):
-            with self.assertRaises(OSError):
-                self.store.register(self.identity, {}, invocation=None)
+        with (
+            patch.object(files, "publish", side_effect=fail_authority),
+            self.assertRaises(OSError),
+        ):
+            self.store.register(self.identity, {}, invocation=None)
         with self.assertRaisesRegex(files.StoreError, "Uncertain"):
             self.store.identity_lookup(self.identity)
         with self.assertRaisesRegex(files.StoreError, "already registered"):
@@ -259,19 +336,23 @@ class ExactStoreTests(unittest.TestCase):
 
     def test_publication_replace_failure_preserves_previous_authority(self) -> None:
         resource = self.register()
-        with patch.object(files.os, "replace", side_effect=OSError("replace failure")):
-            with self.assertRaises(OSError):
-                with self.store.edit(resource) as entry:
-                    entry.facts["pin"] = False
+        with (
+            patch.object(files.os, "replace", side_effect=OSError("replace failure")),
+            self.assertRaises(OSError),
+            self.store.edit(resource) as entry,
+        ):
+            entry.facts["pin"] = False
         self.assertTrue(self.store.lookup(resource).facts["pin"])
         self.assertFalse(list((self.root / "resources").glob("*.tmp")))
 
     def test_publication_fsync_failure_preserves_previous_authority(self) -> None:
         resource = self.register()
-        with patch.object(files.os, "fsync", side_effect=OSError("fsync failure")):
-            with self.assertRaises(OSError):
-                with self.store.edit(resource) as entry:
-                    entry.facts["pin"] = False
+        with (
+            patch.object(files.os, "fsync", side_effect=OSError("fsync failure")),
+            self.assertRaises(OSError),
+            self.store.edit(resource) as entry,
+        ):
+            entry.facts["pin"] = False
         self.assertTrue(self.store.lookup(resource).facts["pin"])
 
     def test_activation_without_fence_and_unknown_active_marker_refuse(self) -> None:
@@ -312,9 +393,11 @@ class ExactStoreTests(unittest.TestCase):
                 raise OSError("fence failed")
             publish(path, value)
 
-        with patch.object(files, "publish", side_effect=fail_fence):
-            with self.assertRaises(OSError):
-                store.migrate()
+        with (
+            patch.object(files, "publish", side_effect=fail_fence),
+            self.assertRaises(OSError),
+        ):
+            store.migrate()
         with host.metadata(store.root) as legacy:
             self.assertEqual(legacy["owners"][resource], facts)
         self.assertFalse((store.root / "activation.json").exists())
@@ -347,9 +430,11 @@ class ExactStoreTests(unittest.TestCase):
                 raise OSError("activation interrupted")
             publish(path, value)
 
-        with patch.object(files, "publish", side_effect=stop_before_activation):
-            with self.assertRaises(OSError):
-                store.migrate()
+        with (
+            patch.object(files, "publish", side_effect=stop_before_activation),
+            self.assertRaises(OSError),
+        ):
+            store.migrate()
         self.assertIsNotNone(child)
         _stdout, stderr = child.communicate(timeout=3)
         self.assertNotEqual(child.returncode, 0, stderr)
@@ -366,9 +451,9 @@ class ExactStoreTests(unittest.TestCase):
         store.migrate()
         (store.root / "activation.json").unlink()
         with store.lock("resources", resource, time.monotonic() + 2):
-            entry = store._entry(resource)
+            entry = store._entry(resource)  # noqa: SLF001 -- inject corruption under the owner lock
             entry.facts["pin"] = False
-            store._save(entry)
+            store._save(entry)  # noqa: SLF001 -- persist deliberately contradictory imported authority
         with self.assertRaisesRegex(files.StoreError, "differs"):
             store.migrate()
         self.assertEqual(files.read(store.root / "allocations.json")["version"], 2)
@@ -377,33 +462,36 @@ class ExactStoreTests(unittest.TestCase):
         for operation in ("replace", "fsync"):
             for destination in ("allocations.json", "activation.json"):
                 with self.subTest(operation=operation, destination=destination):
-                    self.root = self.root.parent / (
-                        operation + destination.replace(".", "-")
-                    )
-                    store, resource, facts = self.legacy()
-                    publish = files.publish
+                    self.assert_migration_failure_case(operation, destination)
 
-                    def fail(path: Path, value: dict) -> None:
-                        if path.name == destination:
-                            with patch.object(
-                                files.os,
-                                operation,
-                                side_effect=OSError("durability interrupted"),
-                            ):
-                                publish(path, value)
-                        else:
-                            publish(path, value)
+    def assert_migration_failure_case(self, operation: str, destination: str) -> None:
+        self.root = self.root.parent / (operation + destination.replace(".", "-"))
+        store, resource, facts = self.legacy()
+        publish = files.publish
 
-                    with patch.object(files, "publish", side_effect=fail):
-                        with self.assertRaisesRegex(OSError, "durability interrupted"):
-                            store.migrate()
-                    self.assertFalse((store.root / "activation.json").exists())
-                    self.assertEqual(
-                        files.read(store.root / "allocations.json")["version"],
-                        1 if destination == "allocations.json" else 2,
-                    )
-                    store.migrate()
-                    self.assertEqual(store.lookup(resource).facts, facts)
+        def fail(path: Path, value: dict) -> None:
+            if path.name == destination:
+                with patch.object(
+                    files.os,
+                    operation,
+                    side_effect=OSError("durability interrupted"),
+                ):
+                    publish(path, value)
+            else:
+                publish(path, value)
+
+        with (
+            patch.object(files, "publish", side_effect=fail),
+            self.assertRaisesRegex(OSError, "durability interrupted"),
+        ):
+            store.migrate()
+        self.assertFalse((store.root / "activation.json").exists())
+        self.assertEqual(
+            files.read(store.root / "allocations.json")["version"],
+            1 if destination == "allocations.json" else 2,
+        )
+        store.migrate()
+        self.assertEqual(store.lookup(resource).facts, facts)
 
     def test_normal_operations_do_not_read_imported_history_manifest(self) -> None:
         resource = self.register()
@@ -433,14 +521,18 @@ class ExactStoreTests(unittest.TestCase):
         self.assertFalse((store.root / "activation.json").exists())
 
     def test_private_selector_rejects_relative_and_symlink_directory(self) -> None:
-        with patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": "relative"}):
-            with self.assertRaisesRegex(resources.ResourceError, "absolute"):
-                resources.registry()
+        with (
+            patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": "relative"}),
+            self.assertRaisesRegex(resources.ResourceError, "absolute"),
+        ):
+            resources.registry()
         link = self.root.parent / "link"
         link.symlink_to(self.root, target_is_directory=True)
-        with patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": str(link)}):
-            with self.assertRaises(host.AdmissionError):
-                resources.storage().ensure(time.monotonic() + 2)
+        with (
+            patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": str(link)}),
+            self.assertRaises(host.AdmissionError),
+        ):
+            resources.storage().ensure(time.monotonic() + 2)
 
 
 if __name__ == "__main__":

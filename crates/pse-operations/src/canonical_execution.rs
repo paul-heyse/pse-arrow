@@ -1679,12 +1679,7 @@ mod canonical_execution_server_unit {
         let (store, database, revision) = fixture().await;
         run(&store, &revision, "expires").await;
         let fence = store
-            .claim_run(
-                "expires",
-                "expiry-claim",
-                "worker",
-                Duration::from_millis(250),
-            )
+            .claim_run("expires", "expiry-claim", "worker", Duration::from_secs(60))
             .await
             .unwrap();
         store
@@ -1698,7 +1693,25 @@ mod canonical_execution_server_unit {
             )
             .await
             .unwrap();
+        // Establish the acknowledged prefix before starting the short expiry
+        // phase. Initial claim/append scheduling is not the expiry behavior under
+        // test; actual renewal preserves this exact attempt and generation.
+        let expiring = store
+            .renew_attempt(&fence, Duration::from_millis(250))
+            .await
+            .unwrap();
+        assert_eq!(expiring.run, fence.run);
+        assert_eq!(expiring.key, fence.attempt);
+        assert_eq!(expiring.generation, fence.generation);
         tokio::time::sleep(Duration::from_millis(300)).await;
+        let mut clock = bounded_query(store.db.query("RETURN time::micros();"))
+            .await
+            .unwrap();
+        let now = canonical_codec::decode_int(clock.take::<Value>(0).unwrap()).unwrap();
+        assert!(
+            expiring.expires_at <= now,
+            "the renewed server lease must expire"
+        );
         assert!(
             store
                 .append_result_batch(
@@ -3821,7 +3834,7 @@ impl CanonicalStore {
                     let Value::Array(rows) = canonical_codec::required(&mut saved, "acknowledgments")? else { return Err(CanonicalError::IncompleteResponse); };
                     if !saved.is_empty() || rows.len() != items.len() { return Err(CanonicalError::IncompleteResponse); }
                     for (row, item) in rows.iter().zip(&items) {
-                        if row != &Value::Object(item.expected_response()?) { return Err(CanonicalError::OperationReused); }
+                        if row != Value::Object(item.expected_response()?) { return Err(CanonicalError::OperationReused); }
                     }
                 }
                 Err(error) => {
@@ -4393,6 +4406,10 @@ impl CanonicalStore {
         )
         .await
     }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "exact seal protocol carries distinct fence, outcome, study and seed authorities"
+    )]
     async fn seal_execution(
         &self,
         manifest: &ClosedManifest,

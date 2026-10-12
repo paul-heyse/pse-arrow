@@ -659,12 +659,14 @@ mod tests {
                         .supports()
                         .iter()
                         .find(|original| {
-                            source.plan.bodies().values().any(|body| {
-                                original.matches_body(body) && projected.matches_body(body)
-                            }) && projected
-                                .outputs()
-                                .iter()
-                                .all(|output| original.outputs().contains(output))
+                            original.order() >= projected.order()
+                                && source.plan.bodies().values().any(|body| {
+                                    original.matches_body(body) && projected.matches_body(body)
+                                })
+                                && projected
+                                    .outputs()
+                                    .iter()
+                                    .all(|output| original.outputs().contains(output))
                                 && projected
                                     .coordinates()
                                     .iter()

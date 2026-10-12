@@ -18,6 +18,9 @@ from pse.contracts.documents import (
     BoundaryDiagnostic,
     ControllerOperation,
     ObservationContracts,
+    StudyDetailDemand,
+    StudyMemberDemandVariable,
+    StudyOutputDemandCompact,
     StudyRequest,
     WorkLimits,
 )
@@ -412,11 +415,11 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     assert study.unattempted == 0
     assert study.conclusion.availability == "complete"
     assert study.conclusion.lifecycle == "terminal"
-    results = [study.result(index) for index in range(2)]
-    assert all(result is not None and result.usable for result in results)
-    first, second = results
-    assert first is not None
-    assert second is not None
+    first, second = (study.result(index) for index in range(2))
+    assert isinstance(first, pse.StoredResult)
+    assert isinstance(second, pse.StoredResult)
+    assert first.usable
+    assert second.usable
     assert first.run_id != second.run_id
     for index, key in enumerate((7, 11)):
         outcome = study.outcome(index)
@@ -434,7 +437,7 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
         assert study.failure(index) is None
     history = study.table()
     values = first.table("runtime.solve_variables")
-    del first, second, results, study, package, runtime
+    del first, second, study, package, runtime
     rows = pa.table(history).to_pylist()
     assert [row["point_index"] for row in rows] == [7, 11]
     assert all(row["usable"] and len(row["attempts"]) == 1 for row in rows)
@@ -442,6 +445,74 @@ def test_study_repeated_bindings_retain_distinct_occurrences_and_owned_results(
     variables = retained_values.to_pylist()
     _assert_scalar_root(retained_values, 2.0)
     assert [row["value"] for row in variables if row["parameter"]] == [4.0]
+
+
+@pytest.mark.integration
+@pytest.mark.managed_primary
+@pytest.mark.parametrize("select_member", [True, False])
+def test_compact_study_retains_selected_original_member_or_declared_empty_relation(
+    managed_observer_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+    select_member: bool,
+) -> None:
+    runtime = canonical_substrate.runtime(managed_observer_settings)
+    package, case = _package(runtime)
+    settings = pse.SolveSettings(
+        backend=NativeBackend.IPOPT,
+        intent=NativeSolveIntent.FEASIBLE_POINT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+    original = package.study(
+        package.admit_study(study_request(point(case, settings, 7)))
+    ).result(0)
+    assert isinstance(original, pse.StoredResult)
+    original_table = pa.table(original.table("runtime.solve_variables"))
+    variables = [row for row in original_table.to_pylist() if not row["parameter"]]
+    last = max(variables, key=lambda row: row["step"])
+    member = StudyMemberDemandVariable(
+        step=last["step"] if select_member else last["step"] + 1,
+        symbol_id=last["symbol_id"].hex(),
+    )
+    demand = StudyDetailDemand(
+        maximum_bytes=1 << 20,
+        maximum_rows=1,
+        members=(member,),
+        relations=(),
+    )
+    no_detail = StudyDetailDemand(
+        maximum_bytes=0, maximum_rows=0, members=(), relations=()
+    )
+    request = msgspec.structs.replace(
+        study_request(point(case, settings, 11)),
+        output=StudyOutputDemandCompact(detail=demand, failed_detail=no_detail),
+    )
+    definition = package.admit_study(request)
+    assert definition.points[0].operation.output == request.output
+    study = package.study(definition)
+    assert study.count == 1
+    assert study.unattempted == 0
+    assert study.conclusion.availability == "complete"
+    assert study.outcome(0).scientific.usable
+    result = study.result(0)
+    assert isinstance(result, pse.StoredResult)
+    assert result.usable
+    assert result.completion.solves
+    assert result.completion.assessments
+    stream = result.table("runtime.solve_variables")
+    del study, package, runtime
+    selected = pa.table(stream)
+    assert selected.schema == original_table.schema
+    rows = selected.to_pylist()
+    if select_member:
+        (row,) = rows
+        assert row["step"] == last["step"]
+        assert row["symbol_id"] == last["symbol_id"]
+        assert not row["parameter"]
+        assert row["value"].hex() == last["value"].hex()
+        assert row["tolerance"] == last["tolerance"]
+        assert abs(row["value"] - 2.0) <= row["tolerance"]
+    else:
+        assert rows == []
 
 
 @pytest.mark.integration
@@ -485,7 +556,7 @@ def test_study_unusable_predecessor_retains_refusal_without_dispatch(
     assert failure.envelope is not None
     assert failure.envelope == refused.diagnostic
     independent = study.result(2)
-    assert independent is not None
+    assert isinstance(independent, pse.StoredResult)
     assert independent.usable
     assert study.conclusion.availability == "partial"
     assert study.conclusion.lifecycle == "terminal"
@@ -867,16 +938,16 @@ def test_durable_study_cancel_and_its_refusals(
         ),
     ],
 )
-def test_flash_sweep_prepares_structure_once(
+def test_flash_sweep_prepares_structure_once_per_lane(
     request: pytest.FixtureRequest,
     canonical_substrate: CanonicalFixture,
     ephemeral: bool,
 ) -> None:
     """A feed-temperature sweep of the BT ideal flash changes values only (CT-S08)."""
     fixture = "inspection_settings" if ephemeral else "managed_observer_settings"
-    settings = request.getfixturevalue(fixture)
-    assert isinstance(settings, pse.EngineSettings)
-    runtime = canonical_substrate.runtime(settings, ephemeral=ephemeral)
+    engine_settings = request.getfixturevalue(fixture)
+    assert isinstance(engine_settings, pse.EngineSettings)
+    runtime = canonical_substrate.runtime(engine_settings, ephemeral=ephemeral)
     reference = Path(__file__).resolve().parents[3] / "packages/reference"
 
     def documents(path: Path) -> dict[str, str | bytes]:
@@ -945,7 +1016,9 @@ def test_flash_sweep_prepares_structure_once(
     values = []
     for index in range(len(temperatures)):
         result = study.result(index)
-        assert result is not None, study.failure(index)
+        assert isinstance(result, (pse.RunResult, pse.StoredResult)), study.failure(
+            index
+        )
         if not result.usable:
             checks = pa.table(result.table("runtime.modeling_checks")).to_pylist()
             failed_checks = [row for row in checks if not row["satisfied"]]
@@ -989,11 +1062,12 @@ def test_flash_sweep_prepares_structure_once(
     assert values[0] != values[-1]
     preparations = study.preparations
     if ephemeral:
-        # Structural admission prepares no solver view. Ready execution freezes at
-        # most one shared view and admits every point's actual numerical values.
-        # This same scientific sweep independently measures preparation in its owner.
-        assert preparations.views <= 1, preparations
-        assert preparations.views + preparations.rebuilt + preparations.shared >= len(
+        # Each concurrently executing lane owns its prepared view. A value change
+        # rebinds that owner's numerical products rather than rebuilding structure.
+        # Count actual work in this process across the complete scientific sweep.
+        lane_width = min(engine_settings.threads, engine_settings.math_jobs)
+        assert 1 <= preparations.views <= lane_width, preparations
+        assert preparations.views + preparations.rebuilt + preparations.shared == len(
             temperatures
         ), preparations
     else:

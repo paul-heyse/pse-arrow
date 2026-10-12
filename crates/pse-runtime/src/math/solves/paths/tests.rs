@@ -74,7 +74,7 @@ fn proof_payload() -> PathSelection {
         obligations: vec![],
         derivative_obligations: vec![],
     });
-    let verifier: Arc<dyn SelectionVerifier> = Arc::new(native::root_isolation::Ibex);
+    let verifier: Arc<dyn SelectionVerifier> = Arc::new(native::root_isolation::Ibex::default());
     let alternative = SelectionScope {
         id: id(1),
         program,

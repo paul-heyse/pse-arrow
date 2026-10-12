@@ -37,11 +37,28 @@ from scripts.validation_scope import (
     Gate,
     comprehensive,
     expand,
+    functional_gates,
     native_gate,
 )
 
 
 class ValidationTests(unittest.TestCase):
+    def test_functional_scopes_supply_actual_portable_producer_receipt(self) -> None:
+        self.assertEqual(expand(("producer-fixture",))[0].input_scope, "rust-product")
+        for name in FUNCTIONAL_SCOPES:
+            gates = functional_gates([name, name])
+            if name == "managed-primary":
+                self.assertEqual([gate.name for gate in gates], ["managed-native"])
+                self.assertEqual(gates[0].dependencies, ())
+            else:
+                self.assertEqual(
+                    [gate.name for gate in gates],
+                    ["producer-fixture", FUNCTIONAL_SCOPES[name].name],
+                )
+                self.assertEqual(gates[0].args, ("{output}/producer-fixture.json",))
+                self.assertEqual(gates[0].input_scope, "rust-product")
+                self.assertEqual(gates[1].dependencies, ("producer-fixture",))
+
     def test_native_covering_scope_composes_only_with_managed_prerequisite(
         self,
     ) -> None:
@@ -63,10 +80,11 @@ class ValidationTests(unittest.TestCase):
             )
         gates = json.loads(output.getvalue())["checks"]
         self.assertEqual(
-            [gate["name"] for gate in gates], ["native-test", "managed-native"]
+            [gate["name"] for gate in gates],
+            ["producer-fixture", "native-test", "managed-native"],
         )
         self.assertEqual(
-            gates[1],
+            gates[2],
             json.loads(json.dumps(asdict(FUNCTIONAL_SCOPES["managed-primary"]))),
         )
         for narrower in ("process", "preparation", "admission", "lifecycle"):
@@ -140,6 +158,7 @@ class ValidationTests(unittest.TestCase):
                 'py := "' + sys.executable + '"\n' + match.group()
             )
             (root / "scripts").mkdir()
+            (root / "scripts/__init__.py").write_text("")
             (root / "scripts/validation.py").write_text(
                 "import json, os, pathlib, sys\n"
                 "from dataclasses import asdict\n"
@@ -176,7 +195,7 @@ class ValidationTests(unittest.TestCase):
                 (["--group", "ready"], ["skills-sync", "doctor"], []),
                 (
                     ["--functional-scope", "native"],
-                    ["native-test"],
+                    ["producer-fixture", "native-test"],
                     [["native", "store"]],
                 ),
             ):
@@ -206,11 +225,14 @@ class ValidationTests(unittest.TestCase):
                         "1",
                     ),
                 )
-                if names == ["native-test"]:
+                if "native-test" in names:
                     self.assertEqual(
-                        captured["gates"][0]["mode"], "native-force-validate"
+                        captured["gates"][-1]["mode"], "native-force-validate"
                     )
-                    self.assertEqual(captured["gates"][0]["profile"], "local")
+                    self.assertEqual(captured["gates"][-1]["profile"], "local")
+                    self.assertEqual(
+                        captured["gates"][-1]["dependencies"], ["producer-fixture"]
+                    )
                 shutil.rmtree(root / output)
             self.assertFalse((root / "injected").exists())
 
@@ -1579,6 +1601,8 @@ class ValidationTests(unittest.TestCase):
                 path.write_text(f"<testsuite>{case}</testsuite>")
                 path.with_name(path.stem + "-selected.txt").write_text("node\n")
                 environment = _args[1]
+                self.assertIsInstance(environment, dict)
+                assert isinstance(environment, dict)
                 test_resources.publish_python_collection(
                     Path(environment[test_resources.MARKER]), ["node"]
                 )

@@ -1188,21 +1188,31 @@ class BuildMeasurementTests(unittest.TestCase):
             )
             timing = output / "timing.json"
             timing.write_text(json.dumps({"setup_status": "passed"}))
+
+            def wait(_child: object, *, timeout: float) -> int:
+                self.assertEqual(timeout, 0.1)
+                return -signal.SIGTERM
+
             child = type(
                 "Child",
                 (),
-                {"returncode": -signal.SIGTERM, "wait": lambda _self: -signal.SIGTERM},
+                {"returncode": -signal.SIGTERM, "wait": wait},
             )()
             with (
                 patch.object(native_operation, "current", return_value=owner),
                 patch.object(
                     native_operation.subprocess, "Popen", return_value=child
                 ) as launch,
-                patch.object(native_operation.time, "monotonic", side_effect=[20, 50]),
+                patch.object(
+                    native_operation.time, "monotonic", side_effect=[20, 50, 150]
+                ),
             ):
                 status = native_operation.run(
                     ["child"],
                     {native_operation.BUILD_TIMING: str(timing), "PRESERVE": "yes"},
+                    on_reaped=lambda: self.assertEqual(
+                        native_operation.time.monotonic(), 150
+                    ),
                 )
             self.assertEqual(status, 143)
             self.assertEqual(launch.call_args.kwargs["env"], {"PRESERVE": "yes"})
