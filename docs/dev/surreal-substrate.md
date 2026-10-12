@@ -479,6 +479,19 @@ all commands require the exact `--state` and `--folder`, and continuation/recove
 code generation does not rewrite frozen steps. Actual persistent cutover qualification
 remains in Plan37 until the integrated journeys pass.
 
+The bounded actual persistent journey is
+`scripts/tests/surrealkit_persistent_fixture_check.py`. Under the coordinator's
+exclusive allocation, pass a new `--directory` below this checkout's `build/`, the
+verified beta executable as `--binary`, and the current compiled canonical-tools
+xtask as `--canonical-binary`. It registers pinned evidence before creating private
+profiles. It exercises independent start/completion settlement, exact activation
+receipt replay after caller acknowledgement loss, a synthetic compatible forward
+index change, fresh regeneration and actual lifecycle caller SIGKILL. The killed
+caller's arbitrary SQL remains explicitly unknown; its separate profile and all
+fixture evidence remain pinned. This control never edits beta TTLs, fabricates an
+SQL acknowledgement, or treats physical drain as SQL settlement. Its synthetic
+predecessor does not establish historical migration compatibility.
+
 ## Disposable tests and retained evidence
 
 Runners register opaque invocation/test resources before side effects. Rust fixture
