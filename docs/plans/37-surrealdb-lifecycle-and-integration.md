@@ -85,7 +85,7 @@ The table owns current package status. Linked companions own the implementation 
 | A0 | Exact scientific and replay owners | [37a](37a-scientific-artifacts-history-and-policy.md#a0-scientific-closure-and-collection-decisions): settle artifact sufficiency/reduced replay | Valid/invalid selections and complete reachable mutation paths; gates A2/A3 | Complete — scientific closure/replay decisions; A1–A3 implementation remains scheduled |
 | A1 | D0 input contract | [37a](37a-scientific-artifacts-history-and-policy.md#a1-retained-exact-study-inputs): exact external start admission | Both retirement orders, pending restart/retry and release; replace late-acquisition-only retained path | In progress — copied admission and consumers integrated; final actual native study acceptance pending |
 | A2 | D0/A0, A1 input operation | [37a](37a-scientific-artifacts-history-and-policy.md#a2-independent-artifact-promotion-and-retirement): promotion/read/release | Producer retires, selected content survives, unrelated outputs drain; replace coarse-only consumer obligations | In progress — independent content, producer contexts and public recovery integrated; final actual scientific/Python acceptance pending |
-| A3 | D0/A0, A2 closure | [37a](37a-scientific-artifacts-history-and-policy.md#a3-releasable-history-and-dominating-retirement): history release/collection | No retired identity resurrection; audit/unknown protection; delete unnecessary detail after settlement | Complete at mechanism level — actual final artifact/history/maintenance selection passed13/13 with zero failures; Q1 owns public composition |
+| A3 | D0/A0, A2 closure | [37a](37a-scientific-artifacts-history-and-policy.md#a3-releasable-history-and-dominating-retirement): history release/collection | No retired identity resurrection; audit/unknown protection; delete unnecessary detail after settlement | Complete at mechanism level — final artifact/history/maintenance and source-protection selection passed23/23 with zero failures; Q1 owns public composition |
 | A4 | Current pure study facts | [37a](37a-scientific-artifacts-history-and-policy.md#a4-production-policy-compile-and-test-boundary): relocate actual policy/tests | Same production policy compiles/tests without SDK/codegen/columnar; delete old implementation/imports | Complete — integrated policy relocation; targeted compile and 16 unit tests passed |
 | B1 | D0 close contract | [37b](37b-connection-and-transport-lifetimes.md#b1-logical-release-and-authoritative-shutdown): caller/activity ownership | Close/admission/renew/publication races and final drain; replace physical-close caller wiring | Complete — integrated caller/activity/physical ownership; targeted39 operations and4 runtime controls plus scoped native/Python compile passed |
 | B2 | Current bounded WS contract | [37b](37b-connection-and-transport-lifetimes.md#b2-finite-acknowledged-restoration): finite ready/failed restoration | Missing ACK/send failure cannot park future callers or dispatch partial setup | Complete — integrated finite restoration; SDK and actual canonical transport controls passed |
@@ -101,7 +101,7 @@ The table owns current package status. Linked companions own the implementation 
 | I5 | Actual graph/query access | 37c: indexes/functions/EXPLAIN/edges/caches | Useful shape or no-consumer decision; no wholesale conversion | Complete — selective INFO/EXPLAIN and indexed/NOINDEX fixture controls; current access paths retained |
 | I6 | Fixture/inspection/maintenance consumers | 37c: testcontainers/MCP/Studio/metrics/wakeups | Minimal compatible integration or observable trigger | Complete — native fixtures and VIEWER inspection retained; optional adoption triggers |
 | I7 | Confirmed local/retry limits | 37c with 37a: checkpoint and extension boundaries | Sufficiency/extension decisions; no remote/resume/search/WASM commitment | Complete — local retry and workload-specific restart boundaries |
-| Q1 | Adopted functions implemented, I outcomes settled | Coordinator: assembled affected acceptance | Fresh actual Rust/native/Python/recovery artifacts and scope-end checks, zero failure baseline | Scheduled |
+| Q1 | Adopted functions implemented, I outcomes settled | Coordinator: assembled affected acceptance | Fresh actual Rust/native/Python/recovery artifacts and scope-end checks, zero failure baseline | In progress — final storage/protection controls passed; scientific/native/Python consumers and scope-end checks remain |
 | H1 | Q1 accepted, adopted findings resolved | Coordinator: enduring contracts/existing-plan reconciliation | Update other plans/status only now; retain their actual incomplete qualification | Scheduled |
 
 ### Dependency slices and editing ownership
@@ -153,10 +153,19 @@ v5 frozen publication is generated and validated. The workstation's exhausted in
 was corrected by the maintainer; native cleanup retains exact terminal proof and one bounded
 normal clock, with original cancellation clocks dominating first-signal control as well.
 Scientific producer contexts, public Rust/Python artifact consumers and settlement-only
-original-intent recovery are integrated. Full generation passed. The native worker preflight
-passed, while final runtime test compilation exposed obsolete ResultRead analysis test callers;
-those now use exact copied transport-fixture artifacts without claiming scientific sufficiency.
-Actual final native and rebuilt Python consumer qualification are next.
+original-intent recovery are integrated. Full generation passed. Obsolete ResultRead analysis
+test callers now use exact copied transport-fixture artifacts without claiming scientific
+sufficiency. Actual scientific consumer execution exposed final-fixture cleanup ordering:
+tracked release now relinquishes continuation before waking drain, both client aliases drop
+before their fixture owner, and final explicit protection finish ends its activity before fixture
+teardown. Expanded actual storage/protection controls passed all23, including final-borrower
+drain. The two preceding scientific fixture failures retain failure outcomes and pinned
+databases; their exact dead borrowers and scopes were truthfully drained, and the authentic
+terminal admission reconciled without fabricated acknowledgments or disposal.
+Scientific consumers are rerunning on the corrected source. Installed Python close tests now
+exercise logical release, admitted read/native continuation and independent callers; their
+actual execution awaits the rebuilt correctness extension. Managed publication and cancellation
+use a separate owned reference fixture, without restarting Plan28/36 campaigns.
 
 Independent implementation review exposed and drove corrections to selected-client authority,
 released-obligation resurrection, effect-free occurrence settlement, exact operation attribution,
@@ -166,7 +175,7 @@ both-order study/seed controls and the final scientific consumers still require 
 The obsolete preparation/backfill/history paths, callers and declarations have been removed.
 Current split-product decoding, authored revisions, current backup/recovery and anti-forgery
 checks remain. Expanded history controls, live artifact readers and inactive-intent recovery passed in
-the final13-control native storage selection. Explicit retained-input worker replacement and
+the final23-control native storage/protection selection. Explicit retained-input worker replacement and
 scientific/public Python consumers still require final actual verification.
 These are implementation checkpoints, not Q1 acceptance. Existing plans remain unchanged until
 H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original scope
