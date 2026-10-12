@@ -152,7 +152,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         config["endpoint"] = f"ws://127.0.0.1:{listener.getsockname()[1]}"
-        config["schema_interpretation"] = "pse.substrate.v4"
+        config["schema_interpretation"] = "pse.substrate.v5"
         publish()
 
         def withhold_handshake() -> None:
@@ -208,7 +208,7 @@ def test_canonical_open_failure_and_invalid_user_range_keep_distinct_diagnostics
 
 
 @pytest.mark.integration
-def test_canonical_close_releases_optional_cache_after_completed_run(
+def test_canonical_close_and_explicit_cache_release_after_completed_run(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
@@ -233,13 +233,18 @@ def test_canonical_close_releases_optional_cache_after_completed_run(
     entries, retained_bytes = _physical_cache_usage(runtime)
     assert entries > 0
     assert retained_bytes > 0
-    # The public drain releases its own optional retention without a manual clear.
+    # Caller release and optional cache eviction have separate owners.
     runtime.close()
+    runtime.close()
+    assert _physical_cache_usage(runtime) == (entries, retained_bytes)
+    with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+        runtime.attempt_record(attempt)
+    runtime.clear_program_cache()
     assert _physical_cache_usage(runtime) == (0, 0)
 
 
 @pytest.mark.integration
-def test_canonical_close_refuses_live_result_reader_then_allows_departure(
+def test_canonical_close_preserves_live_result_reader_and_independent_caller(
     inspection_settings: pse.EngineSettings,
     canonical_substrate: CanonicalFixture,
 ) -> None:
@@ -258,32 +263,49 @@ def test_canonical_close_refuses_live_result_reader_then_allows_departure(
     stream = runtime.results(run, attempt, "runtime.solve_variables")
     reader = pa.RecordBatchReader.from_stream(stream)
     del result, handle, prepared, package
+    independent = canonical_substrate.runtime(inspection_settings)
     try:
         entries, retained_bytes = _physical_cache_usage(runtime)
         assert entries > 0
         assert retained_bytes > 0
-        with pytest.raises(
-            pse.InspectionError, match="live protected readers"
-        ) as failure:
-            runtime.close()
-        assert failure.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
-        assert failure.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
+        runtime.clear_program_cache()
+        runtime.close()
+        runtime.close()
         assert _physical_cache_usage(runtime) == (0, 0)
-        # The unread selection still owns its protection and fetches an actual
-        # canonical block after refusal, before requesting EOF can release it.
+        with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+            runtime.results(run, attempt, "runtime.solve_variables")
+        # The admitted reader keeps its own activity and fetches the actual
+        # canonical block after its original logical caller has closed.
         batch = reader.read_next_batch()
         assert batch.to_pylist() == expected
-        with pytest.raises(
-            pse.InspectionError, match="live protected readers"
-        ) as failure:
-            runtime.close()
-        assert failure.value.report.code == DiagnosticCode.RUNTIME_INFRASTRUCTURE
-        assert failure.value.report.failure_class == FailureClass.RUNTIME_INFRASTRUCTURE
+        assert pa.table(independent.results(run, attempt, "runtime.solve_variables")).to_pylist() == expected
     finally:
         reader.close()
         stream.close()
     del batch, reader, stream
     runtime.close()
+
+
+@pytest.mark.integration
+def test_canonical_close_preserves_admitted_solve_but_refuses_new_start(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+) -> None:
+    runtime = canonical_substrate.runtime(inspection_settings)
+    package, case = _package(runtime)
+    prepared = package.prepare_solve(case, _settings())
+    handle = prepared.start()
+    runtime.close()
+    with pytest.raises(pse.InspectionError, match="canonical caller is closed"):
+        prepared.start()
+    result = handle.wait()
+    assert result.usable
+    attempt = result.canonical_attempt_key
+    assert attempt is not None
+    independent = canonical_substrate.runtime(inspection_settings)
+    (record,) = pa.table(independent.attempt_record(attempt)).to_pylist()
+    assert record["terminal"]
+    assert record["outcome"] == "succeeded"
 
 
 @pytest.mark.integration
