@@ -1972,6 +1972,18 @@ DEFINE FUNCTION fn::pse_analysis_v1::read($rpc_expiry: int, $key: string,$after:
     THROW 'analysis page kind';
 };
 
+DEFINE FUNCTION fn::pse_artifact_v1::abandon_study_inputs($rpc_expiry:int,$study:string) -> bool {
+    fn::pse_execution_v1::touch($rpc_expiry,'study:'+$study);
+    LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study) FOR UPDATE;
+    IF $header!=NONE { THROW 'study input abandonment requires absent header'; };
+    UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
+    LET $owners=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
+    FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); };
+    LET $inputs=SELECT id FROM canonical_study_inputs WHERE study=$study ORDER BY key LIMIT 64;
+    DELETE $inputs.id;
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN array::len($owners)<64 AND array::len($inputs)<64;
+};
 DEFINE FUNCTION fn::pse_artifact_v1::authority($rpc_expiry:int,$row:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.primary_problem) FOR UPDATE;

@@ -104,6 +104,19 @@ impl ArtifactRead {
 }
 
 impl CanonicalStore {
+    /// Abandon one exact pre-header study staging identity. The permanent fence
+    /// is published before bounded cleanup and rejects every late staging call.
+    /// Existing study headers require the ordinary study retirement owner.
+    pub async fn abandon_study_inputs(&self,study:&str)->Result<bool,CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            self.ensure_writes()?;
+            if study.is_empty() || study.len()>4096 { return Err(CanonicalError::PayloadLimit); }
+            let mut response=protected_query("canonical_artifacts::abandon_study_inputs",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::abandon_study_inputs($pse_rpc_expires_at,$study); COMMIT;").bind(("study",study.to_owned())))).await?;
+            let index=response.num_statements().saturating_sub(2);
+            response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+        }).await
+    }
     /// Read-only issue of a finite original intent. Seal it once and retain it through uncertainty.
     pub async fn new_artifact(&self, revision:&Revision, kind:&str, provenance:Vec<u8>, block_count:u64, payload_bytes:u64)->Result<Artifact,CanonicalError> {
         let activity=self.admit_activity()?;
@@ -269,6 +282,28 @@ mod canonical_artifact_tests {
         blocks[0].payload=vec![9].into();
         assert!(matches!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","alice").await,Err(CanonicalError::OperationReused)));
         assert!(store.artifact(&intent.key).await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_artifact_preheader_study_abandonment_fences_both_orders() {
+        let (store,revision)=fixture().await;
+        let (mut intent,blocks)=content(&store,&revision).await;
+        intent.kind="seed".into();
+        seal_artifact_request(&mut intent,std::slice::from_ref(&revision),&[],&blocks);
+        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","independent-owner").await.unwrap();
+        store.retain_study_input("staging-first","solution",&intent.key).await.unwrap();
+        assert_eq!(store.study_input("staging-first","solution").await.unwrap(),intent.key);
+        assert!(store.abandon_study_inputs("staging-first").await.unwrap());
+        assert!(store.abandon_study_inputs("staging-first").await.unwrap(),"same abandonment safely settles a lost ACK");
+        assert!(store.study_input("staging-first","solution").await.is_err());
+        assert!(store.retain_study_input("staging-first","solution",&intent.key).await.is_err(),"late original staging cannot recreate an abandoned identity");
+        assert!(store.abandon_study_inputs("abandonment-first").await.unwrap());
+        assert!(store.retain_study_input("abandonment-first","solution",&intent.key).await.is_err());
+        assert!(store.retain_artifact(&intent.key,"study","abandonment-first").await.is_err());
+        assert!(store.artifact(&intent.key).await.unwrap().active,"abandoning either study does not release the independent user");
+        let mut response=bounded_query(store.db.query("SELECT key FROM canonical_artifact_obligations WHERE owner_kind='study'; SELECT key FROM canonical_study_inputs;")).await.unwrap();
+        assert!(response.take::<Vec<Object>>(0).unwrap().is_empty());
+        assert!(response.take::<Vec<Object>>(1).unwrap().is_empty());
         store.remove_isolated_fixture().await.unwrap();
     }
 }
