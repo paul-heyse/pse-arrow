@@ -1073,10 +1073,10 @@ def _assert_owned_delayed_canonical_sigint(
         stream.close()
         assert first.to_pylist() == expected
         runtime.clear_program_cache()
-        runtime.close()  # Actual protected-reader release and transport drain.
+        runtime.close()  # Logical caller release; the admitted pull has joined.
         for consumer, before in reservation_baselines.items():
             assert reserved(consumer) <= before, (
-                "original response reservation survived actual transport drain"
+                "original response reservation survived joined pull and reader release"
             )
         assert first.schema == schema
         assert first.to_pylist() == expected
@@ -1088,7 +1088,7 @@ def _assert_owned_delayed_canonical_sigint(
             ),
             "controlled_pull_joined_while_delayed": True,
             "response_grant_retained_until_server_resume": True,
-            "response_grant_released_after_transport_drain": True,
+            "response_grant_released_after_joined_pull_and_reader_release": True,
             "ordinary_signal_observed_while_delayed": True,
             "ordinary_join_seconds": ordinary_seconds,
             "controlled_join_seconds": pull_seconds,
