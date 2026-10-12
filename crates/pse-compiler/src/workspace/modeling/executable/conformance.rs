@@ -228,6 +228,22 @@ impl CompilerWorkspace {
     ) -> Result<ModelingPointChecks> {
         let model =
             self.prepare_modeling_cancellable(root, instance, bindings, limits, cancel.clone())?;
+        self.check_prepared_modeling_point(&model, root, instance, values, profile, cancel)
+    }
+    /// Evaluate one already admitted exact model without repeating specialization or
+    /// executable establishment. The caller retains the model's allocation owners.
+    pub fn check_prepared_modeling_point(
+        &self,
+        model: &PreparedModeling,
+        root: DeclarationId,
+        instance: InstanceId,
+        values: &CaseValues,
+        profile: Profile,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<ModelingPointChecks> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
         if model.model.expectations.is_empty() {
             return Err(CompileError::Missing(
                 "test scope contains no expectations".into(),
@@ -254,7 +270,7 @@ impl CompilerWorkspace {
             .extend(values.scalars.iter().map(|(id, v)| (*id, *v)));
         let mut observed = model.expectation_rows();
         observed.extend(model.validity_rows());
-        let prepared = self.prepare_modeling_observations(&model, &observed, profile, &cancel)?;
+        let prepared = self.prepare_modeling_observations(model, &observed, profile, &cancel)?;
         if prepared
             .plan
             .bodies()

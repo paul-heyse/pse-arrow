@@ -194,7 +194,7 @@ async fn conditional_construction_bounds_follow_source_and_binding_populations()
             .unwrap()
             > binding
     );
-    let mut changed_values = program.values.clone();
+    let mut changed_values = program.values.as_ref().clone();
     *changed_values.scalars.values_mut().next().unwrap() += 1.0;
     assert_eq!(
         view.binding_allocation_bound(&changed_values).unwrap(),
@@ -904,11 +904,26 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
 
 #[tokio::test]
 async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overlay() {
+    conditional_retention_control(false).await;
+    conditional_retention_control(true).await;
+}
+async fn conditional_retention_control(ambiguous: bool) {
     let runtime = runtime();
+    let source = "package p {def Root {var x:Scalar; var z:Scalar; var y:Scalar; var w:Scalar; eq local:y==x/2+1; eq aux:w==z+3; let result:Scalar=y*2; state incoming supplied(true) {coordinate value=x; coordinate auxiliary=z; transport value=x tolerance 1e-7{1}; transport auxiliary=z tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=result; coordinate auxiliary=w; transport value=result tolerance 1e-7{1}; transport auxiliary=w tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(4); annotation start z(2); annotation start y(1); annotation start w(1);}}";
+    let source = if ambiguous {
+        source
+            .replace("eq local:y==x/2+1;", "eq local:y*y==x;")
+            .replace("annotation start y(1);", "annotation start y(-1);")
+    } else {
+        source.to_owned()
+    };
     let declarations = pse_authoring::language::parse(
-        "package p {def Root {var x:Scalar; var z:Scalar; var y:Scalar; var w:Scalar; eq local:y==x/2+1; eq aux:w==z+3; let result:Scalar=y*2; state incoming supplied(true) {coordinate value=x; coordinate auxiliary=z; transport value=x tolerance 1e-7{1}; transport auxiliary=z tolerance 1e-7{1};} state outgoing supplied(false) {coordinate value=result; coordinate auxiliary=w; transport value=result tolerance 1e-7{1}; transport auxiliary=w tolerance 1e-7{1};} state_port inlet=incoming; state_port outlet=outgoing; annotation connectivity inlet(1,0); annotation connectivity outlet(0,1); connect outlet -> inlet; annotation start x(4); annotation start z(2); annotation start y(1); annotation start w(1);}}",
-        id(85), pse_authoring::language::IdentityPolicy::Named, Default::default(),
-    ).unwrap();
+        &source,
+        id(85),
+        pse_authoring::language::IdentityPolicy::Named,
+        Default::default(),
+    )
+    .unwrap();
     let root = declarations
         .iter()
         .find(|r| r.name == "Root")
@@ -1038,6 +1053,15 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         .prepare_recycle(&analysis, selection.clone(), request.clone(), &cancel)
         .await
         .unwrap();
+    assert_eq!(prepared.native_backends, vec![Backend::Kinsol]);
+    assert_eq!(
+        prepared.resident_foreign_bytes,
+        prepared.programs[0]
+            .conditional
+            .as_ref()
+            .unwrap()
+            .foreign_bytes
+    );
     let program = prepared.programs[0].clone();
     let original = program.values.identity();
     assert_eq!(prepared.request().units[0].inputs, request.units[0].inputs);
@@ -1076,38 +1100,63 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
         &controls,
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
-    let worker = runtime
-        .native()
-        .worker(
-            program.program.clone(),
-            &prepared.providers,
-            execution.scope().unwrap(),
-            &budget,
-        )
-        .unwrap();
-    let mut unit = UnitWorker {
-        last_values: None,
-        input_ids: program.inputs.iter().map(|i| i.0).collect(),
-        output_ids: program.outputs.iter().map(|o| o.0).collect(),
-        program,
-        worker,
-        service: runtime.native().clone(),
-        providers: prepared.providers,
+    let live_budget = budget.clone();
+    let mut unit = UnitWorker::new(
+        program.clone(),
+        runtime.native(),
+        &prepared.providers,
+        &execution,
         budget,
-    };
+    )
+    .unwrap();
     let charged = unit.budget.used();
-    for (input, expected) in [(4.0, 6.0), (8.0, 10.0), (4.0, 6.0)] {
+    for (attempt, (input, expected)) in [(4.0_f64, 6.0), (8.0, 10.0), (4.0, 6.0)]
+        .into_iter()
+        .enumerate()
+    {
         let outputs = unit
             .evaluate(
                 &BTreeMap::from([(inlet, input), (auxiliary, 2.0)]),
                 &execution,
             )
             .unwrap();
+        let expected = if ambiguous {
+            -2.0 * input.sqrt()
+        } else {
+            expected
+        };
         assert!((outputs[&outlet] - expected).abs() < 1e-7);
         assert!((outputs[&auxiliary_outlet] - 5.0).abs() < 1e-7);
+        let retained = unit.conditional.as_ref().unwrap();
+        assert_eq!(retained.calls, attempt + 1);
+        assert_eq!(retained.last_reused, attempt > 0);
+        assert!(
+            !retained.last_setup_reused,
+            "Fresh must refresh changed numeric setup"
+        );
         assert_eq!(unit.program.values.identity(), original);
         assert_eq!(unit.budget.used(), charged);
     }
+    let independent_budget = crate::math::WorkerBudget::new(16 << 20);
+    let mut independent = UnitWorker::new(
+        program,
+        runtime.native(),
+        &prepared.providers,
+        &execution,
+        independent_budget.clone(),
+    )
+    .unwrap();
+    let independent_output = independent
+        .evaluate(
+            &BTreeMap::from([(inlet, 16.0), (auxiliary, 2.0)]),
+            &execution,
+        )
+        .unwrap();
+    assert!((independent_output[&outlet] - if ambiguous { -8.0 } else { 18.0 }).abs() < 1e-7);
+    assert!(!independent.conditional.as_ref().unwrap().last_reused);
+    assert_eq!(unit.conditional.as_ref().unwrap().calls, 3);
+    drop(independent);
+    assert_eq!(independent_budget.used(), 0);
     assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());
     assert!(
         unit.evaluate(
@@ -1135,6 +1184,14 @@ async fn conditional_unit_solves_original_rows_and_restores_each_boundary_overla
     );
     assert_eq!(unit.program.values.identity(), original);
     assert_eq!(unit.budget.used(), charged);
+
+    assert!(unit.last_values.is_none());
+    drop(unit);
+    assert_eq!(
+        live_budget.used(),
+        0,
+        "native callbacks drain before provider/worker charge release"
+    );
 
     let mut explicit = request.clone();
     explicit.units[0].realization = CausalUnitRealization::ExplicitMap;
@@ -1331,25 +1388,14 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
         &controls,
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
-    let worker = runtime
-        .native()
-        .worker(
-            program.program.clone(),
-            &prepared.providers,
-            execution.scope().unwrap(),
-            &budget,
-        )
-        .unwrap();
-    let mut unit = UnitWorker {
-        last_values: None,
-        input_ids: program.inputs.iter().map(|i| i.0).collect(),
-        output_ids: program.outputs.iter().map(|o| o.0).collect(),
+    let mut unit = UnitWorker::new(
         program,
-        worker,
-        service: runtime.native().clone(),
-        providers: prepared.providers,
+        runtime.native(),
+        &prepared.providers,
+        &execution,
         budget,
-    };
+    )
+    .unwrap();
     let charged = unit.budget.used();
     for (input, expected) in [(4.0, 4.0), (8.0, 6.0), (4.0, 4.0)] {
         let outputs = unit
@@ -1744,25 +1790,14 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
         &Controls::default(),
     );
     let budget = crate::math::WorkerBudget::new(16 << 20);
-    let worker = runtime
-        .native()
-        .worker(
-            program.program.clone(),
-            &prepared.providers,
-            execution.scope().unwrap(),
-            &budget,
-        )
-        .unwrap();
-    let mut unit = UnitWorker {
-        last_values: None,
-        input_ids: program.inputs.iter().map(|i| i.0).collect(),
-        output_ids: program.outputs.iter().map(|o| o.0).collect(),
+    let mut unit = UnitWorker::new(
         program,
-        worker,
-        service: runtime.native().clone(),
-        providers: prepared.providers,
+        runtime.native(),
+        &prepared.providers,
+        &execution,
         budget,
-    };
+    )
+    .unwrap();
     let charged = unit.budget.used();
     for target in [310.0, 320.0, 310.0] {
         let outputs = unit

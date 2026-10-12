@@ -34,8 +34,6 @@ mod dependency_ceilings;
 #[cfg(feature = "thermodynamic-oracles")]
 mod feos_reference;
 mod producer_identity;
-#[cfg(any(feature = "package-fixtures", test))]
-mod python_tests;
 #[path = "../../scripts/workspace.rs"]
 mod workspace;
 
@@ -95,12 +93,6 @@ enum Cmd {
     #[cfg(feature = "thermodynamic-oracles")]
     FeosReference {
         output: PathBuf,
-    },
-    /// Run Python tests using their operation-owned canonical fixtures.
-    #[cfg(feature = "package-fixtures")]
-    PythonTests {
-        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
-        args: Vec<String>,
     },
     /// Assert one resolved version per dependency family, equal to the declared pin.
     FamilyCheck {
@@ -193,6 +185,8 @@ enum Target {
     Relations,
     /// Rust registry contracts only, before rebuilding the ordinary package loader.
     RustContracts,
+    /// Physical fixture projection through lower native source admission.
+    Physical,
     /// `pse-schema` output: the Python contract classes.
     Python,
     /// `pse-schema` output: the reference tables in the book.
@@ -303,8 +297,6 @@ fn main() -> Result<()> {
         }
         #[cfg(feature = "thermodynamic-oracles")]
         Cmd::FeosReference { output } => feos_reference::run(&root, &output),
-        #[cfg(feature = "package-fixtures")]
-        Cmd::PythonTests { args } => python_tests::run(&root, &args),
         Cmd::FamilyCheck {
             evidence,
             evidence_families_only,

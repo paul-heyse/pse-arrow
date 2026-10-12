@@ -5,10 +5,10 @@ use super::{
     Durability, Operations, RunDurability, Runtime, WorkflowError, contract,
     durable::{DurableAttempt, DurableRecord},
 };
-use crate::authoring_driver::document::{
+use futures_util::{StreamExt, stream::FuturesUnordered};
+use pse_admission::authoring_driver::document::{
     OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
-use futures_util::{StreamExt, stream::FuturesUnordered};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::generated::{
     enums::AttemptState,
@@ -37,6 +37,13 @@ pub struct PhysicalSource {
 pub enum Processed {
     /// No currently dispatchable or recoverable occurrence was found.
     Idle,
+    /// One bounded derived readiness page advanced; this is no scientific action.
+    Maintenance {
+        /// Exact study whose derived readiness maintenance progressed.
+        study: String,
+        /// Actual points or outgoing edges examined in the bounded page.
+        examined: u64,
+    },
     /// One claimed occurrence produced its retained execution receipt.
     Ran {
         /// Exact canonical occurrence key.
@@ -152,6 +159,418 @@ mod receiver_tests {
         assert_eq!(receiver_output(bytes.as_slice()).await.unwrap(), bytes);
     }
 }
+// Existing service loop, isolated from canonical discovery for focused
+// scheduling controls. The lane itself still owns all claims and effects.
+#[cfg(test)]
+async fn serve_lanes<F, Fut>(
+    settings: WorkerSettings,
+    width: usize,
+    stop: &crate::CancelSource,
+    mut work: F,
+) -> Result<usize, WorkflowError>
+where
+    F: FnMut(bool, crate::CancelSource) -> Fut,
+    Fut: Future<Output = Result<Processed, WorkflowError>>,
+{
+    serve_owned_lanes(
+        settings,
+        vec![(); width],
+        stop,
+        move |(), recovery, drain| {
+            let future = work(recovery, drain);
+            async move { ((), future.await) }
+        },
+    )
+    .await
+    .0
+}
+/// The actual lane state is returned after every drained action, including errors.
+async fn serve_owned_lanes<S, F, Fut>(
+    settings: WorkerSettings,
+    mut available: Vec<S>,
+    stop: &crate::CancelSource,
+    mut work: F,
+) -> (Result<usize, WorkflowError>, Vec<S>)
+where
+    F: FnMut(S, bool, crate::CancelSource) -> Fut,
+    Fut: Future<Output = (S, Result<Processed, WorkflowError>)>,
+{
+    let width = available.len();
+    let mut count = 0_usize;
+    let mut last_recovery = None;
+    let drain = crate::CancelSource::new();
+    while !stop.token().is_cancelled() && settings.maximum_actions.is_none_or(|limit| count < limit)
+    {
+        let mut pending = FuturesUnordered::new();
+        let initial = settings
+            .maximum_actions
+            .map_or(width, |limit| width.min(limit - count));
+        for lane in 0..initial {
+            let owner = available.pop().expect("bounded available worker lane");
+            let recovery = lane == 0
+                && take_recovery(
+                    &mut last_recovery,
+                    tokio::time::Instant::now(),
+                    settings.recovery,
+                );
+            pending.push(work(owner, recovery, drain.clone()));
+        }
+        let mut progressed = false;
+        let mut failure = None;
+        while !pending.is_empty() {
+            let result = tokio::select! {
+                result = pending.next() => result,
+                () = stop.cancelled(), if !drain.token().is_cancelled() => { drain.cancel(); continue; }
+            };
+            let Some((owner, result)) = result else {
+                break;
+            };
+            available.push(owner);
+            let refill = matches!(&result, Ok(value) if !matches!(value, Processed::Idle));
+            match result {
+                Ok(Processed::Idle) => {}
+                Ok(Processed::Maintenance { .. }) => {
+                    progressed = true;
+                }
+                Ok(_) => {
+                    progressed = true;
+                    match count.checked_add(1) {
+                        Some(next) => count = next,
+                        None => {
+                            failure
+                                .get_or_insert_with(|| contract("worker processed count overflow"));
+                            drain.cancel();
+                        }
+                    }
+                }
+                Err(error) => {
+                    if failure.is_none() {
+                        failure = Some(error);
+                    }
+                    drain.cancel();
+                }
+            }
+            while refill
+                && pending.len() < width
+                && !drain.token().is_cancelled()
+                && settings.maximum_actions.is_none_or(|limit| {
+                    count
+                        .checked_add(pending.len())
+                        .is_some_and(|issued| issued < limit)
+                })
+            {
+                let owner = available
+                    .pop()
+                    .expect("completed worker lane returned before refill");
+                let recovery = take_recovery(
+                    &mut last_recovery,
+                    tokio::time::Instant::now(),
+                    settings.recovery,
+                );
+                pending.push(work(owner, recovery, drain.clone()));
+            }
+        }
+        if let Some(error) = failure {
+            return (Err(error), available);
+        }
+        if !progressed {
+            if settings.until_idle {
+                break;
+            }
+            tokio::select! { _ = tokio::time::sleep(settings.poll) => {}, () = stop.cancelled() => {} }
+        }
+    }
+    (Ok(count), available)
+}
+fn take_recovery(
+    last: &mut Option<tokio::time::Instant>,
+    now: tokio::time::Instant,
+    interval: Duration,
+) -> bool {
+    if last.is_none_or(|previous| now.duration_since(previous) >= interval) {
+        *last = Some(now);
+        true
+    } else {
+        false
+    }
+}
+
+#[cfg(test)]
+mod lane_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[tokio::test]
+    async fn worker_refills_after_progress_even_when_another_lane_was_idle() {
+        let stop = crate::CancelSource::new();
+        let (release, wait) = tokio::sync::oneshot::channel();
+        let mut release = Some(release);
+        let mut wait = Some(wait);
+        let mut issued = 0;
+        let work = serve_lanes(
+            WorkerSettings {
+                maximum_actions: Some(3),
+                until_idle: true,
+                ..WorkerSettings::default()
+            },
+            3,
+            &stop,
+            |_, _| {
+                let lane = issued;
+                issued += 1;
+                let wait = (lane == 0).then(|| wait.take().unwrap());
+                let release = (lane == 3).then(|| release.take().unwrap());
+                async move {
+                    if let Some(wait) = wait {
+                        wait.await.unwrap();
+                    }
+                    if let Some(release) = release {
+                        release.send(()).unwrap();
+                    }
+                    Ok(if lane == 1 {
+                        Processed::Idle
+                    } else {
+                        Processed::Settled {
+                            point: lane.to_string(),
+                        }
+                    })
+                }
+            },
+        );
+        assert_eq!(
+            tokio::time::timeout(Duration::from_secs(2), work)
+                .await
+                .unwrap()
+                .unwrap(),
+            3
+        );
+        assert_eq!(issued, 4, "idle lane did not consume an action");
+    }
+
+    #[tokio::test]
+    async fn mandatory_readiness_progress_preserves_until_idle_and_action_budget() {
+        let stop = crate::CancelSource::new();
+        let mut issued = 0;
+        let count = serve_lanes(
+            WorkerSettings {
+                maximum_actions: Some(1),
+                until_idle: true,
+                ..WorkerSettings::default()
+            },
+            1,
+            &stop,
+            |_, _| {
+                issued += 1;
+                let action = issued;
+                async move {
+                    Ok(if action < 4 {
+                        Processed::Maintenance {
+                            study: "bounded".into(),
+                            examined: 64,
+                        }
+                    } else {
+                        Processed::Settled {
+                            point: "ready".into(),
+                        }
+                    })
+                }
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!((count, issued), (1, 4));
+    }
+    #[tokio::test]
+    async fn worker_returns_actual_lane_owner_after_failure_and_drain() {
+        let stop = crate::CancelSource::new();
+        let (result, owners) = serve_owned_lanes(
+            WorkerSettings::default(),
+            vec![7_u64, 11],
+            &stop,
+            |owner, _, drain| async move {
+                if owner == 11 {
+                    (owner, Err(contract("owned lane failure")))
+                } else {
+                    drain.cancelled().await;
+                    (owner, Ok(Processed::Idle))
+                }
+            },
+        )
+        .await;
+        assert!(result.is_err());
+        let mut owners = owners;
+        owners.sort();
+        assert_eq!(owners, vec![7, 11]);
+    }
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn periodic_recovery_rotates_past_an_earlier_study_that_stays_busy() {
+        use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
+        use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let store = runtime.canonical_store();
+        let revision = store
+            .edit("recovery-rotation", None, "source", &[])
+            .await
+            .unwrap();
+        let request = |key: &str| RunRequest {
+            key: key.into(),
+            revision: revision.clone(),
+            sources: vec![],
+            request: vec![1],
+            source_selection: vec![2],
+            attestation: vec![3],
+        };
+        for name in ["a-busy-recovery", "z-later-recovery"] {
+            let point = NewOccurrence {
+                policy: PointPolicy {
+                    key: OccurrenceKey(0),
+                    dependencies: vec![],
+                    start: StartPolicy::Fresh,
+                    seed_need: SeedNeed::NotNeeded,
+                    attempt_limit: 1,
+                },
+                descriptor: vec![42],
+                run: request(&format!("{name}-point")),
+            };
+            store
+                .create_study(
+                    name,
+                    &request(&format!("{name}-parent")),
+                    &[],
+                    &[point],
+                    &|| false,
+                )
+                .await
+                .unwrap()
+                .unwrap();
+        }
+        let position = tokio::sync::Mutex::new(None);
+        let cancel = crate::CancelSource::new();
+        let mut visited = Vec::new();
+        for _ in 0..4 {
+            runtime
+                .recover_next_study(&position, &cancel)
+                .await
+                .unwrap();
+            visited.push(position.lock().await.clone().unwrap());
+            assert!(
+                !store
+                    .study_candidates("a-busy-recovery", None)
+                    .await
+                    .unwrap()
+                    .is_empty(),
+                "earlier study remains dispatchable throughout independent recovery"
+            );
+        }
+        assert_eq!(
+            visited,
+            [
+                "a-busy-recovery",
+                "z-later-recovery",
+                "a-busy-recovery",
+                "z-later-recovery"
+            ]
+        );
+    }
+    #[tokio::test]
+    async fn worker_refill_respects_total_action_limit() {
+        let stop = crate::CancelSource::new();
+        let mut issued = 0;
+        let count = serve_lanes(
+            WorkerSettings {
+                maximum_actions: Some(5),
+                ..WorkerSettings::default()
+            },
+            4,
+            &stop,
+            |_, _| {
+                issued += 1;
+                async {
+                    Ok(Processed::Settled {
+                        point: "bounded".into(),
+                    })
+                }
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!((count, issued), (5, 5));
+    }
+
+    #[tokio::test]
+    async fn worker_failure_drains_all_issued_lanes_before_returning() {
+        let stop = crate::CancelSource::new();
+        let drained = Arc::new(AtomicUsize::new(0));
+        let mut issued = 0;
+        let result = serve_lanes(WorkerSettings::default(), 2, &stop, |_, drain| {
+            let lane = issued;
+            issued += 1;
+            let drained = drained.clone();
+            async move {
+                if lane == 0 {
+                    return Err(contract("deliberate lane failure"));
+                }
+                drain.cancelled().await;
+                drained.fetch_add(1, Ordering::SeqCst);
+                Ok(Processed::Idle)
+            }
+        })
+        .await;
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("deliberate lane failure")
+        );
+        assert_eq!(issued, 2);
+        assert_eq!(drained.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn worker_stop_drains_every_issued_lane() {
+        let stop = crate::CancelSource::new();
+        let drained = Arc::new(AtomicUsize::new(0));
+        let (started, notice) = tokio::sync::oneshot::channel();
+        let mut started = Some(started);
+        let mut issued = 0;
+        let work = serve_lanes(WorkerSettings::default(), 2, &stop, |_, drain| {
+            issued += 1;
+            if issued == 2 {
+                started.take().unwrap().send(()).unwrap();
+            }
+            let drained = drained.clone();
+            async move {
+                drain.cancelled().await;
+                drained.fetch_add(1, Ordering::SeqCst);
+                Ok(Processed::Idle)
+            }
+        });
+        let (count, ()) = tokio::join!(work, async {
+            notice.await.unwrap();
+            stop.cancel();
+        });
+        assert_eq!(count.unwrap(), 0);
+        assert_eq!(issued, 2);
+        assert_eq!(drained.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn worker_continuous_refill_keeps_recovery_due_without_a_round_barrier() {
+        let now = tokio::time::Instant::now();
+        let interval = Duration::from_secs(30);
+        let mut last = None;
+        assert!(take_recovery(&mut last, now, interval));
+        assert!(!take_recovery(
+            &mut last,
+            now + Duration::from_secs(29),
+            interval
+        ));
+        assert!(take_recovery(&mut last, now + interval, interval));
+        assert!(!take_recovery(&mut last, now + interval, interval));
+    }
+}
+
 fn operations(runtime: &Runtime) -> Result<&Operations, WorkflowError> {
     match &runtime.durability {
         Durability::Durable(operations) => Ok(operations),
@@ -636,13 +1055,26 @@ impl Runtime {
     pub async fn work_once_with_result(
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
-        self.work_once_scoped(true, None, &crate::CancelSource::new())
-            .await
+        let mut lane = super::study::StudyCandidateLane::new();
+        let recovery = tokio::sync::Mutex::new(None);
+        let result = self
+            .work_once_scoped(
+                true,
+                &recovery,
+                None,
+                &mut lane,
+                &crate::CancelSource::new(),
+            )
+            .await;
+        lane.close().await?;
+        result
     }
     async fn work_once_scoped(
         &self,
         recovery: bool,
+        recovery_position: &tokio::sync::Mutex<Option<String>>,
         group: Option<&CandidateGroup>,
+        lane: &mut super::study::StudyCandidateLane,
         cancel: &crate::CancelSource,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
         use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy, WaitReason};
@@ -653,6 +1085,11 @@ impl Runtime {
                 return Ok((Processed::Idle, None));
             }
             Err(error) => return Err(error.into()),
+        }
+        if recovery && !cancel.token().is_cancelled() {
+            if let Some(action) = self.recover_next_study(recovery_position, cancel).await? {
+                return Ok((action, None));
+            }
         }
         let mut after = None;
         loop {
@@ -665,24 +1102,12 @@ impl Runtime {
             }
             for study in studies {
                 after = Some(study.key.clone());
-                let mut assigned_after = None;
-                if recovery {
-                    loop {
-                        let assigned = operations
-                            .store()
-                            .study_assigned_page(&study.key, assigned_after)
-                            .await?;
-                        if assigned.is_empty() {
-                            break;
-                        }
-                        for point in assigned {
-                            assigned_after = Some(point.ordinal);
-                            if self.recover_study_point(&point.key).await? {
-                                return Ok((Processed::Settled { point: point.key }, None));
-                            }
-                        }
-                    }
-                }
+                let readiness = operations
+                    .store()
+                    .advance_study_readiness(&study.key)
+                    .await?;
+                let maintenance = readiness.examined > 0 || readiness.pending;
+                let examined = readiness.examined;
                 let mut point_after = None;
                 loop {
                     let page = operations
@@ -738,7 +1163,9 @@ impl Runtime {
                             }
                             ActionKind::Wait(_) | ActionKind::Reconcile => continue,
                         }
-                        let mut prepared = self.prepare_study_candidate(&scope, cancel).await?;
+                        let mut prepared = self
+                            .prepare_study_candidate_in_lane(&scope, lane, cancel)
+                            .await?;
                         let action = scope.action(prepared.seed.clone())?;
                         if !matches!(action.kind, ActionKind::Start(_)) {
                             match action.kind {
@@ -816,8 +1243,18 @@ impl Runtime {
                             run,
                             attempt_id,
                         );
+                        attempt.set_output(prepared.output.clone());
                         let stop = cancel.clone();
-                        attempt.start(Arc::new(move || stop.cancel())).await?;
+                        if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
+                            let record = attempt.abandon(&Arc::new(error)).await;
+                            return Ok((
+                                Processed::Ran {
+                                    point: claim.point.key,
+                                    record: Box::new(record),
+                                },
+                                None,
+                            ));
+                        }
                         let point = match operations.store().mark_study_started(&claim).await {
                             Ok(point) => point,
                             Err(error) => {
@@ -870,11 +1307,13 @@ impl Runtime {
                                 None,
                             ));
                         }
-                        let handle = prepared
-                            .operation
-                            .start_attempt(self, cancel, attempt)
-                            .await?;
-                        let result = tokio::select! {result=handle.wait()=>result?,()=cancel.cancelled()=>{handle.cancel();handle.wait().await?}};
+                        let held = lane.scope().ok_or_else(|| {
+                            contract("worker native lane source permission absent")
+                        })?;
+                        let result = held.during(cancel, async {
+                            let handle = prepared.operation.start_attempt(self, cancel, attempt).await?;
+                            tokio::select! {result=handle.wait()=>result,()=cancel.cancelled()=>{handle.cancel();handle.wait().await}}
+                        }).await?;
                         let record = match result.durability() {
                             RunDurability::Durable(record) => record.clone(),
                             RunDurability::Ephemeral => {
@@ -905,17 +1344,66 @@ impl Runtime {
                 if self.finalize_canonical_study(&study.key).await? {
                     return Ok((Processed::Finalized { study: study.key }, None));
                 }
+                if maintenance {
+                    return Ok((
+                        Processed::Maintenance {
+                            study: study.key,
+                            examined,
+                        },
+                        None,
+                    ));
+                }
             }
         }
+    }
+    /// A separate rotating cursor gives later active studies bounded recovery
+    /// service even while scientific discovery repeatedly returns an earlier point.
+    async fn recover_next_study(
+        &self,
+        position: &tokio::sync::Mutex<Option<String>>,
+        cancel: &crate::CancelSource,
+    ) -> Result<Option<Processed>, WorkflowError> {
+        let store = operations(self)?.store();
+        let mut position = position.lock().await;
+        let mut page = store.study_page(position.as_deref()).await?;
+        if page.is_empty() && position.is_some() {
+            page = store.study_page(None).await?;
+        }
+        let Some(study) = page.into_iter().next() else {
+            *position = None;
+            return Ok(None);
+        };
+        *position = Some(study.key.clone());
+        if cancel.token().is_cancelled() {
+            return Ok(None);
+        }
+        let repair = store.repair_study_readiness(&study.key).await?;
+        // Active native width is bounded; one assigned page makes progress without
+        // a hidden graph drain. Completed recoveries leave this indexed page.
+        let assigned = store.study_assigned_page(&study.key, None).await?;
+        for point in assigned {
+            if cancel.token().is_cancelled() {
+                break;
+            }
+            if self.recover_study_point(&point.key).await? {
+                return Ok(Some(Processed::Settled { point: point.key }));
+            }
+        }
+        Ok(repair.pending.then_some(Processed::Maintenance {
+            study: study.key,
+            examined: repair.examined,
+        }))
     }
     async fn group_lane(
         &self,
         recovery: bool,
+        recovery_position: &tokio::sync::Mutex<Option<String>>,
         group: &CandidateGroup,
+        lane: &mut super::study::StudyCandidateLane,
         stop: &crate::CancelSource,
     ) -> Result<Processed, WorkflowError> {
         let cancel = crate::CancelSource::new();
-        let work = self.work_once_scoped(recovery, Some(group), &cancel);
+        let work = self.work_once_scoped(recovery, recovery_position, Some(group), lane, &cancel);
         tokio::pin!(work);
         let result = tokio::select! {
             result = &mut work => result,
@@ -939,90 +1427,51 @@ impl Runtime {
                 "worker polling and recovery intervals must be positive",
             ));
         }
-        let mut count = 0_usize;
-        let mut last_recovery = None;
         let allocation = self
             .shared
             .math()
             .cores()
-            .min(self.shared.budget().math.jobs / 2)
+            .min(self.shared.budget().math.jobs)
             .max(1);
         let width = settings.maximum_in_flight.unwrap_or(allocation);
         if width == 0 || width > allocation {
             return Err(contract("worker case lanes exceed the runtime allocation"));
         }
         let group = CandidateGroup::default();
-        let drain = crate::CancelSource::new();
-        while !stop.token().is_cancelled()
-            && settings.maximum_actions.is_none_or(|limit| count < limit)
-        {
-            let recovery = last_recovery
-                .is_none_or(|last: tokio::time::Instant| last.elapsed() >= settings.recovery);
-            if recovery {
-                last_recovery = Some(tokio::time::Instant::now());
-            }
-            let mut pending = FuturesUnordered::new();
-            let initial = settings
-                .maximum_actions
-                .map_or(width, |limit| width.min(limit - count));
-            for lane in 0..initial {
-                pending.push(self.group_lane(recovery && lane == 0, &group, &drain));
-            }
-            let mut idle = false;
-            let mut progressed = false;
-            let mut failure = None;
-            while !pending.is_empty() {
-                let result = tokio::select! {
-                    result = pending.next() => result,
-                    () = stop.cancelled(), if !drain.token().is_cancelled() => {
-                        drain.cancel();
-                        continue;
-                    }
-                };
-                match result {
-                    Some(Ok(Processed::Idle)) => idle = true,
-                    Some(Ok(_)) => {
-                        progressed = true;
-                        match count.checked_add(1) {
-                            Some(next) => count = next,
-                            None => {
-                                failure.get_or_insert_with(|| {
-                                    contract("worker processed count overflow")
-                                });
-                                drain.cancel();
-                            }
-                        }
-                    }
-                    Some(Err(error)) => {
-                        if failure.is_none() {
-                            failure = Some(error);
-                        }
-                        drain.cancel();
-                    }
-                    None => break,
+        let group = &group;
+        let recovery_position = tokio::sync::Mutex::new(None);
+        let recovery_position = &recovery_position;
+        let _owner = self.shared.math().reserve(
+            "study:worker-input-lanes",
+            width * (size_of::<super::study::StudyCandidateLane>() + 128),
+        )?;
+        let owners = (0..width)
+            .map(|_| super::study::StudyCandidateLane::new())
+            .collect();
+        let (result, mut owners) = serve_owned_lanes(
+            settings,
+            owners,
+            stop,
+            move |mut lane, recovery, drain| async move {
+                let result = self
+                    .group_lane(recovery, recovery_position, group, &mut lane, &drain)
+                    .await;
+                (lane, result)
+            },
+        )
+        .await;
+        let mut close_failure = None;
+        for lane in &mut owners {
+            if let Err(error) = lane.close().await {
+                if close_failure.is_none() {
+                    close_failure = Some(error);
                 }
-                if !idle
-                    && !drain.token().is_cancelled()
-                    && settings.maximum_actions.is_none_or(|limit| {
-                        count
-                            .checked_add(pending.len())
-                            .is_some_and(|issued| issued < limit)
-                    })
-                {
-                    pending.push(self.group_lane(false, &group, &drain));
-                }
-            }
-            if let Some(error) = failure {
-                return Err(error);
-            }
-            if !progressed {
-                if settings.until_idle {
-                    break;
-                }
-                tokio::select! {_=tokio::time::sleep(settings.poll)=>{},()=stop.cancelled()=>{}}
             }
         }
-        Ok(count)
+        if let Some(error) = close_failure {
+            return Err(error);
+        }
+        result
     }
     /// Shared document physical admission stays with its scientific owner.
     pub(crate) async fn physical_from_sources(
@@ -1030,12 +1479,12 @@ impl Runtime {
         sources: &BTreeMap<String, Vec<u8>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PhysicalContext, WorkflowError> {
-        let validation = self.sessions.validation_context(&self.registry)?;
+        let validation = self.validation_context();
         let pool = self.shared.pool();
         let token = cancel.token();
         let bundle = load_package_documents_owned(
             sources,
-            &self.registry,
+            self.registry(),
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
@@ -1061,8 +1510,8 @@ impl Runtime {
             // Local cache authority is the exact immutable validation assembly and registry.
             // Its owner is retained with the admission, preventing pointer reuse. These
             // process-local slots never enter source/scientific/operational identities.
-            .u64(Arc::as_ptr(&self.sessions) as usize as u64)
-            .u64(Arc::as_ptr(&self.registry) as usize as u64);
+            .u64(Arc::as_ptr(self.sessions()) as usize as u64)
+            .u64(Arc::as_ptr(self.registry()) as usize as u64);
         for sources in bundles {
             token.checkpoint().map_err(pse_engine::EngineError::from)?;
             framed.hash(&package_checksum(sources));
@@ -1081,14 +1530,14 @@ impl Runtime {
         if let Some(admitted) = service.modeling_cache.package(identity) {
             return self.package_from_admission(admitted, physical);
         }
-        let validation = self.sessions.validation_context(&self.registry)?;
+        let validation = self.validation_context();
         let pool = self.shared.pool();
         let bundles = bundles
             .iter()
             .map(|sources| {
                 load_package_documents_owned(
                     sources,
-                    &self.registry,
+                    self.registry(),
                     pse_authoring::ParseBudget::default(),
                     &pool,
                     &token,

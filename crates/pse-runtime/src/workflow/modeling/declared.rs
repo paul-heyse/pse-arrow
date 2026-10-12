@@ -4,6 +4,7 @@
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
+use pse_model::HeapUsage;
 use pse_model::generated::enums::{ModelingAnalysisRoute as Route, ModelingProcedure as Procedure};
 use pse_modeling::specialize::{Fixture, IntegrationFixture, ShootingFixture};
 fn authored_fixture(row: &Declaration) -> Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture>{
@@ -148,6 +149,17 @@ pub struct DeclaredExecution {
     pub model: ModelingPreparation,
     /// Requested start choice; applied choices are native StartReceipt/StartSource facts.
     pub requested_start: pse_backend_native::solve::StartPolicy,
+    prepared: Arc<pse_columnar::Leased<DeclaredPreparation>>,
+}
+/// The immutable owners and complete structural request of this declared product.
+#[derive(Debug)]
+struct DeclaredPreparation {
+    source: ModelingPackage,
+    root: DeclarationId,
+    instance: InstanceId,
+    bindings: Bindings,
+    limits: Limits,
+    model: ModelingPreparation,
 }
 /// Optional explicit initialization choices. Rust owns every omitted value.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -193,6 +205,55 @@ pub(super) fn initialization(
     Ok(plan)
 }
 impl DeclaredExecution {
+    /// Reuse only this exact admitted product under its retained source/context owners.
+    pub(in crate::workflow) fn prepared_model(
+        &self,
+        package: &ModelingPackage,
+    ) -> Result<ModelingPreparation, WorkflowError> {
+        let original = &self.prepared;
+        let source = &original.source;
+        let same_scope = match (&source.held_preparation, &package.held_preparation) {
+            (None, None) => true,
+            (Some(original), Some(current)) => Arc::ptr_eq(original, current) && current.is_open(),
+            _ => false,
+        };
+        if !same_scope
+            || source.revision.identity() != package.revision.identity()
+            || source.revision.canonical != package.revision.canonical
+            || !Arc::ptr_eq(&source.runtime.shared, &package.runtime.shared)
+            || !Arc::ptr_eq(source.runtime.sessions(), package.runtime.sessions())
+            || !Arc::ptr_eq(source.runtime.registry(), package.runtime.registry())
+            || source.physical.key != package.physical.key
+            || !Arc::ptr_eq(&source.physical.quantities, &package.physical.quantities)
+            || !Arc::ptr_eq(
+                &source.physical.preconditions,
+                &package.physical.preconditions,
+            )
+            || !Arc::ptr_eq(&source.providers, &package.providers)
+            || !Arc::ptr_eq(&source.accelerators, &package.accelerators)
+            || self.analysis.root != original.root
+            || self.analysis.instance != original.instance
+            || self.analysis.bindings != original.bindings
+            || self.analysis.limits != original.limits
+            || self
+                .analysis
+                .case
+                .values
+                .keys()
+                .chain(self.analysis.case.variables.keys())
+                .any(|path| !original.model.compiled().model.paths.contains_key(path))
+            || self.model.compiled().model.allocation_identity()
+                != original.model.compiled().model.allocation_identity()
+            || self.model.compiled().admitted.allocation_identity()
+                != original.model.compiled().admitted.allocation_identity()
+            || self.model.solved() != original.model.solved()
+        {
+            return Err(contract(
+                "declared preparation differs from its exact source, context or structural request",
+            ));
+        }
+        Ok(original.model.clone())
+    }
     /// Admit a compatible explicit initialization override, preserving authored choices.
     pub fn initialization(
         &self,
@@ -256,13 +317,42 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        self.declared_execution_with_demand(
+            root,
+            compiler,
+            solver,
+            numerical,
+            limits,
+            Vec::new(),
+            cancel,
+        )
+        .await
+    }
+    /// Carry operation-owned path demand into the one declared specialization.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "declared policy and its complete path demand share one admission"
+    )]
+    pub(in crate::workflow) async fn declared_execution_with_demand(
+        &self,
+        root: DeclarationId,
+        compiler: Profile,
+        solver: SolverProfile,
+        numerical: NumericalInputs,
+        limits: Limits,
+        demand: Vec<String>,
+        cancel: &crate::CancelSource,
+    ) -> Result<DeclaredExecution, WorkflowError> {
         let row = self.declaration(root).await?;
         let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
             .map_err(super::super::modeling_error)?;
         let limits = declared_limits(&row, limits)?;
         let solver = declared_solver(&row, &solver)?;
         let requested_start = solver.controls.start;
-        let bindings = Bindings::default().with_analysis(choice.route);
+        let mut bindings = Bindings::default().with_analysis(choice.route);
+        bindings.demand = demand;
+        bindings.demand.sort();
+        bindings.demand.dedup();
         let instance = pse_modeling::specialize::root_instance(root);
         let model = self
             .prepare(root, instance, bindings.clone(), limits, cancel)
@@ -298,12 +388,61 @@ impl ModelingPackage {
             solver,
             numerical,
         };
+        let bindings_bytes = analysis
+            .bindings
+            .arguments
+            .iter()
+            .chain(&analysis.bindings.scope)
+            .map(|(name, value)| name.len() + value.retained_bytes() + 128)
+            .sum::<usize>()
+            + analysis
+                .bindings
+                .facts
+                .values()
+                .map(|value| value.retained_bytes() + 128)
+                .sum::<usize>()
+            + analysis
+                .bindings
+                .demand
+                .iter()
+                .map(|path| path.len() + size_of::<String>())
+                .sum::<usize>()
+            + analysis.bindings.formulation.omitted.len() * 128
+            + analysis
+                .bindings
+                .formulation
+                .elastic
+                .values()
+                .map(|value| value.retained_bytes() + 128)
+                .sum::<usize>();
+        let bytes = size_of::<DeclaredPreparation>()
+            + bindings_bytes
+            + self.revision.canonical.heap_bytes()
+            + self.physical.sources.len() * 256
+            + 512;
+        let owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("modeling:declared-preparation", bytes)?;
+        let prepared = Arc::new(pse_columnar::Leased::new(
+            Arc::new(DeclaredPreparation {
+                source: self.clone(),
+                root,
+                instance,
+                bindings: analysis.bindings.clone(),
+                limits,
+                model: model.clone(),
+            }),
+            owner,
+        ));
         Ok(DeclaredExecution {
             route: choice.route,
             procedure,
             analysis,
             model,
             requested_start,
+            prepared,
         })
     }
     /// Prepare only an admitted algebraic solve procedure; inspection never executes it.
@@ -317,7 +456,22 @@ impl ModelingPackage {
                 "prepared algebraic solve requires the authored solve procedure",
             ));
         }
-        self.prepare_analysis(&execution.analysis, cancel).await
+        let model = execution.prepared_model(self)?;
+        let analysis = &execution.analysis;
+        let resolution = self
+            .resolve_prepared_case(
+                model,
+                analysis.case.clone(),
+                analysis.order,
+                analysis.compiler,
+                analysis.solver.clone(),
+                analysis.numerical.clone(),
+                cases::CaseOverrides::default(),
+                false,
+                cancel,
+            )
+            .await?;
+        self.finish_case(resolution, cancel).await
     }
     /// Execute the admitted algebraic procedure, including its authored initialization.
     pub async fn execute_declared(
@@ -328,7 +482,7 @@ impl ModelingPackage {
         match &execution.procedure {
             DeclaredProcedure::Solve => {
                 self.solve_case(
-                    self.prepare_analysis(&execution.analysis, cancel).await?,
+                    self.prepare_declared(execution, cancel).await?,
                     execution.analysis.compiler,
                     cancel,
                 )
@@ -336,7 +490,12 @@ impl ModelingPackage {
             }
             DeclaredProcedure::Initialize(plan) => {
                 let report = self
-                    .initialize_model(&execution.analysis, plan.clone(), cancel)
+                    .initialize_model_with_prepared(
+                        &execution.analysis,
+                        plan.clone(),
+                        Some(execution.prepared_model(self)?),
+                        cancel,
+                    )
                     .await?;
                 if !report.completed {
                     return Err(contract(format!(
@@ -364,8 +523,13 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
         let policy = execution.initialization(overrides)?;
-        self.initialize_model(&execution.analysis, policy, cancel)
-            .await
+        self.initialize_model_with_prepared(
+            &execution.analysis,
+            policy,
+            Some(execution.prepared_model(self)?),
+            cancel,
+        )
+        .await
     }
     /// Fitting may retain an explicit route only when it agrees with the authored case.
     pub(in crate::workflow) async fn declared_case(
@@ -470,5 +634,21 @@ mod tests {
             .unwrap();
         assert_eq!(solving.procedure.kind(), Procedure::Solve);
         assert!(solving.initialization(Default::default()).is_err());
+        assert!(solving.prepared_model(&package).is_ok());
+        let mut changed = solving.clone();
+        changed.analysis.bindings.demand.push("root.x".into());
+        assert!(changed.prepared_model(&package).is_err());
+        let mut changed = solving.clone();
+        changed.analysis.instance = InstanceId::from_id(SemanticId::NIL);
+        assert!(changed.prepared_model(&package).is_err());
+        let mut changed = solving.clone();
+        changed.analysis.limits.items -= 1;
+        assert!(changed.prepared_model(&package).is_err());
+        let mut foreign = package.clone();
+        foreign.providers = Arc::new((*package.providers).clone());
+        assert!(solving.prepared_model(&foreign).is_err());
+        let mut foreign = package.clone();
+        foreign.physical.key = pse_ids::ContentHash::from_bytes([255; 32]);
+        assert!(solving.prepared_model(&foreign).is_err());
     }
 }

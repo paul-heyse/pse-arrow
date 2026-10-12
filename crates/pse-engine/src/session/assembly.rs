@@ -30,6 +30,11 @@ impl super::EngineSession {
 pub(super) struct ModelAssembly {
     pub planning: Arc<()>,
     pub validation: std::sync::OnceLock<Arc<pse_relations::validate::ValidationContext>>,
+    pub reflection: Arc<
+        std::sync::Mutex<
+            BTreeMap<pse_schema::model::RelationKey, pse_relations::columnar::FieldCheckedBatch>,
+        >,
+    >,
     pub registry: Arc<pse_schema::Registry>,
     pub context: datafusion::execution::context::SessionContext,
     pub function_bindings: Arc<super::functions::Functions>,
@@ -37,6 +42,19 @@ pub(super) struct ModelAssembly {
     pub functions: pse_ids::ContentHash,
     pub function_names: BTreeMap<String, Vec<String>>,
     pub generation: pse_ids::SemanticId,
+}
+
+impl ModelAssembly {
+    pub(super) fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.validation
+            .get_or_init(|| {
+                Arc::new(pse_relations::validate::ValidationContext::new(
+                    &self.registry,
+                    crate::validation::NativeValidation(self.context.state()),
+                ))
+            })
+            .clone()
+    }
 }
 
 impl std::fmt::Debug for ModelAssembly {

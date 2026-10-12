@@ -202,6 +202,8 @@ impl Runtime {
         let request = Arc::new(request);
         let source = request.clone();
         let allowance = self.shared.budget().math.workspace_bytes;
+        let numerical_owner = self.native().policy_resolution_owner();
+        let physical_owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(physical.clone());
         let ((problem, proof, numerics, profile), owner) = self
             .native()
             .submit(1, demand, move |flag, _| {
@@ -223,13 +225,15 @@ impl Runtime {
                     .chain(source.rows.iter().map(|p| target(p, NumericalTarget::Row)))
                     .chain([target(&source.objective_port, NumericalTarget::Objective)])
                     .collect();
-                let numerics = Arc::new(pse_math::numerics::resolve(
-                    &quantities,
-                    &preconditions,
+                let numerics = numerical_owner.resolve(
+                    pse_math::SharedAllocation::from(quantities.clone())
+                        .with_owner(physical_owner.clone()),
+                    pse_math::SharedAllocation::from(preconditions.clone())
+                        .with_owner(physical_owner),
                     &targets,
                     &[],
                     &profile.numerics,
-                )?);
+                )?;
                 let n = source.variables.len();
                 let problem = native::ConicProblem {
                     contract: native::OracleContract {

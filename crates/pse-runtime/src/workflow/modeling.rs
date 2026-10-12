@@ -18,10 +18,13 @@ fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Insta
         Ok,
     )
 }
+mod bound;
 mod canonical;
+pub(crate) use canonical::reload::RetainedIngress;
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
+pub(in crate::workflow) mod engagement;
 mod path_pipeline;
 mod preparation;
 pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
@@ -125,6 +128,7 @@ fn source_map_extent(tables: usize) -> Result<usize, WorkflowError> {
 /// Immutable source revision sharing one deployment-owned compiler workspace.
 #[derive(Clone, Debug)]
 pub struct ModelingPackage {
+    pub(in crate::workflow) held_preparation: Option<Arc<engagement::HeldPreparationScope>>,
     pub(in crate::workflow) runtime: Runtime,
     pub(in crate::workflow) revision: canonical::SourceRevision,
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
@@ -166,8 +170,7 @@ pub(crate) struct SelectedAdmission {
     pub(crate) qualification: Arc<pse_operations::canonical_selection::SelectionDependencyReceipt>,
     pub(crate) versions: Arc<BTreeMap<String, String>>,
     pub(crate) metadata: Arc<pse_columnar::AllocationLease>,
-    pub(crate) _validation_owner: Arc<pse_engine::session::EngineFactory>,
-    pub(crate) _registry_owner: Arc<pse_schema::Registry>,
+    pub(crate) _validation_owner: pse_engine::session::BoundModel,
 }
 impl SelectedAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -204,8 +207,7 @@ pub(crate) struct PackageAdmission {
     accelerators: Arc<pse_math::implicit::accelerators::Accelerators>,
     providers: Arc<BTreeMap<String, pse_kernels::Registration>>,
     _lease: Arc<pse_columnar::AllocationLease>,
-    _validation_owner: Arc<pse_engine::session::EngineFactory>,
-    _registry_owner: Arc<pse_schema::Registry>,
+    _validation_owner: pse_engine::session::BoundModel,
 }
 impl PackageAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -231,8 +233,7 @@ impl ModelingPackage {
                         .map(|name| name.capacity() + size_of::<pse_kernels::Registration>() + 128)
                         .sum::<usize>(),
             )?,
-            _validation_owner: self.runtime.sessions.clone(),
-            _registry_owner: self.runtime.registry.clone(),
+            _validation_owner: self.runtime.model.clone(),
         })
     }
 }
@@ -243,6 +244,7 @@ impl Runtime {
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            held_preparation: None,
             runtime: self.clone(),
             revision: admitted.revision,
             accelerators: admitted.accelerators,
@@ -280,17 +282,17 @@ type DocumentCompilerContext = (
     Vec<Declaration>,
     PhysicalScope,
     super::FitDeclarations,
-    crate::authoring_driver::document::Batches,
+    pse_admission::authoring_driver::document::Batches,
     Arc<pse_modeling::document::DocumentInventory>,
     Arc<pse_columnar::AllocationLease>,
 );
 /// The package data documents of a closure and the package of each text document, which a
 /// dataset's document path resolves in (ADR-0125).
 fn data_documents(
-    documents: &crate::authoring_driver::document::OwnedDocumentSet,
+    bundles: &[pse_admission::authoring_driver::document::DocumentBundle],
 ) -> pse_modeling::document::DocumentInventory {
     let mut inventory = pse_modeling::document::DocumentInventory::default();
-    for bundle in documents.bundles() {
+    for bundle in bundles {
         for document in &bundle.documents {
             for (path, span) in document.spans.iter() {
                 if let Some(field) = path.strip_prefix("/modeling-fields/")
@@ -320,7 +322,25 @@ fn data_documents(
     inventory
 }
 fn document_inputs(
-    documents: &crate::authoring_driver::document::OwnedDocumentSet,
+    documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
+    registry: &pse_schema::Registry,
+    physical: &PhysicalContext,
+    workspace_bytes: usize,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<DocumentCompilerContext, WorkflowError> {
+    documents.validate_registry(registry)?;
+    document_inputs_bundles(
+        documents.bundles(),
+        registry,
+        physical,
+        workspace_bytes,
+        pool,
+        cancel,
+    )
+}
+fn document_inputs_bundles(
+    bundles: &[pse_admission::authoring_driver::document::DocumentBundle],
     registry: &pse_schema::Registry,
     physical: &PhysicalContext,
     workspace_bytes: usize,
@@ -328,13 +348,11 @@ fn document_inputs(
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<DocumentCompilerContext, WorkflowError> {
     use pse_model::HeapUsage;
-    documents.validate_registry(registry)?;
     cancel
         .checkpoint()
         .map_err(pse_relations::RelationError::from)
         .map_err(relation)?;
-    let (count, bytes) = documents
-        .bundles()
+    let (count, bytes) = bundles
         .iter()
         .flat_map(|bundle| &bundle.documents)
         .filter_map(|document| document.modeling_rows())
@@ -352,8 +370,7 @@ fn document_inputs(
         .map_err(pse_relations::RelationError::from)
         .map_err(relation)?;
     let lease = pse_columnar::AllocationLease::new(allocation);
-    let mut headers = documents
-        .bundles()
+    let mut headers = bundles
         .iter()
         .map(|b| b.package.clone())
         .collect::<Vec<_>>();
@@ -372,23 +389,19 @@ fn document_inputs(
         nodes: headers.len(),
         edges: workspace_bytes / 128,
     };
-    let batches = crate::authoring_driver::p1::source_context_batches(
-        documents.bundles(),
-        registry,
-        &headers,
-        limits,
+    let batches = pse_admission::authoring_driver::p1::source_context_batches(
+        bundles, registry, &headers, limits,
     )?;
     let mut rows = Vec::with_capacity(count);
     rows.extend(
-        documents
-            .bundles()
+        bundles
             .iter()
             .flat_map(|bundle| &bundle.documents)
             .filter_map(|document| document.modeling_rows())
             .flat_map(|rows| rows.iter().cloned()),
     );
-    validate_import_versions(&rows, documents)?;
-    let scope = physical_scope(documents, physical);
+    validate_import_versions(&rows, bundles)?;
+    let scope = physical_scope(bundles, physical);
     let context = [
         pse_relations::generated::authored::packages::RELATION_ID,
         pse_relations::generated::authored::documents::RELATION_ID,
@@ -401,7 +414,7 @@ fn document_inputs(
         scope,
         super::FitDeclarations::from_batches(&batches)?,
         context,
-        Arc::new(data_documents(documents)),
+        Arc::new(data_documents(bundles)),
         lease,
     ))
 }
@@ -409,17 +422,17 @@ impl Runtime {
     /// Persist native-admitted authored source once; later preparations select immutable records.
     pub async fn modeling_from_documents(
         &self,
-        documents: &crate::authoring_driver::document::OwnedDocumentSet,
+        documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
         let token = cancel.token();
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let validation = self.sessions.validation_context(&self.registry)?;
-        documents.validate_context(&self.registry, &validation, &self.shared.pool(), &token)?;
+        let validation = self.validation_context();
+        documents.validate_context(self.registry(), &validation, &self.shared.pool(), &token)?;
         let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
             documents,
-            &self.registry,
+            self.registry(),
             &physical,
             self.shared.budget().math.workspace_bytes,
             &self.shared.pool(),
@@ -437,8 +450,10 @@ impl Runtime {
                 sources,
                 fits,
                 BTreeMap::new(),
+                Some(documents),
             )
             .await?;
+        let _ = canonical::reload::retain_initial(&package, documents);
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
         Ok(package)
     }
@@ -470,6 +485,7 @@ impl Runtime {
             Default::default(),
             Default::default(),
             providers,
+            None,
         )
         .await
     }
@@ -483,12 +499,13 @@ impl Runtime {
         physical: PhysicalContext,
         scope: PhysicalScope,
         documents: Arc<pse_modeling::document::DocumentInventory>,
-        sources: crate::authoring_driver::document::Batches,
+        sources: pse_admission::authoring_driver::document::Batches,
         fits: super::fitting::FitDeclarations,
         providers: BTreeMap<String, pse_kernels::Registration>,
+        loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let revision = canonical::persist(
-            self, rows, &physical, scope, &documents, &sources, &fits, None,
+            self, rows, &physical, scope, &documents, &sources, &fits, None, loader,
         )
         .await?;
         self.package_from_canonical(revision, physical, providers)
@@ -500,6 +517,7 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         Ok(ModelingPackage {
+            held_preparation: None,
             runtime: self.clone(),
             revision,
             accelerators: Arc::new(pse_math::implicit::accelerators::Accelerators::standard()),
@@ -523,7 +541,7 @@ impl Runtime {
 /// manifest depends on, or is, the package that declared them. A physical context admitted
 /// without documents names no declaring package, so every row sees its names.
 fn physical_scope(
-    documents: &crate::authoring_driver::document::OwnedDocumentSet,
+    bundles: &[pse_admission::authoring_driver::document::DocumentBundle],
     physical: &PhysicalContext,
 ) -> PhysicalScope {
     let Some(declaring) = &physical.package else {
@@ -532,8 +550,7 @@ fn physical_scope(
     PhysicalScope {
         package: Some(declaring.name.clone()),
         documents: Some(
-            documents
-                .bundles()
+            bundles
                 .iter()
                 .filter(|bundle| {
                     bundle.package.package_id.as_id() == declaring.id
@@ -550,10 +567,9 @@ fn physical_scope(
 }
 fn validate_import_versions(
     rows: &[Declaration],
-    documents: &crate::authoring_driver::document::OwnedDocumentSet,
+    bundles: &[pse_admission::authoring_driver::document::DocumentBundle],
 ) -> Result<(), WorkflowError> {
-    let owners = documents
-        .bundles()
+    let owners = bundles
         .iter()
         .flat_map(|bundle| {
             bundle
@@ -649,8 +665,8 @@ impl ModelingPackage {
         use pse_model::HeapUsage;
         use pse_relations::generated::authored::modeling_declarations as wire;
         let (source_rows, _, _, document_sources, _source_owners) = self.full_source().await?;
-        let registry = &self.runtime.registry;
-        let validation = self.runtime.validation_context()?;
+        let registry = self.runtime.registry();
+        let validation = self.runtime.validation_context();
         let bytes = source_rows
             .iter()
             .map(HeapUsage::owned_bytes)
@@ -871,9 +887,9 @@ impl ModelingPackage {
         {
             use pse_relations::generated::authored::documents as wire;
             let rows = wire::Row::rows(batch).map_err(relation)?;
-            let validation = self.runtime.validation_context()?;
+            let validation = self.runtime.validation_context();
             let mut builder =
-                wire::Builder::with_registry(&self.runtime.registry, rows.len(), &validation)
+                wire::Builder::with_registry(self.runtime.registry(), rows.len(), &validation)
                     .map_err(relation)?;
             for mut row in rows {
                 row.source_text = None;
@@ -890,10 +906,12 @@ impl ModelingPackage {
             &sources,
             &Default::default(),
             Some(&self.revision),
+            None,
         )
         .await?;
         Ok(Self {
             revision,
+            held_preparation: None,
             ..self.clone()
         })
     }
@@ -906,30 +924,17 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        let deadline = preparation_deadline(cancel)?;
-        let mut selected = self
-            .checked_selection_scoped(&[root], cancel, deadline)
+        if let Some(scope) = &self.held_preparation {
+            return scope
+                .prepare(self, root, instance, bindings, limits, cancel)
+                .await;
+        }
+        let engagement = self
+            .engage(root, instance, bindings, limits, cancel)
             .await?;
-        let result = self
-            .prepare_selected(
-                &mut selected,
-                root,
-                instance,
-                bindings,
-                limits,
-                cancel,
-                deadline,
-            )
-            .await;
-        let release = self
-            .runtime
-            .canonical
-            .store()
-            .release(selected.read.selection())
-            .await;
-        let result = result?;
-        release?;
-        Ok(result)
+        let model = engagement.model().clone();
+        engagement.close().await?;
+        Ok(model)
     }
 }
 
@@ -1007,12 +1012,15 @@ mod tests {
             .modeling_package(rows.clone(), super::super::tests::physical())
             .await
             .unwrap();
-        let spec = runtime.registry.relation_by_id(wire::RELATION_ID).unwrap();
+        let spec = runtime
+            .registry()
+            .relation_by_id(wire::RELATION_ID)
+            .unwrap();
         let table = |rows: Vec<Declaration>| {
             let mut b = wire::Builder::with_registry(
-                &runtime.registry,
+                runtime.registry(),
                 rows.len(),
-                &runtime.validation_context().unwrap(),
+                &runtime.validation_context(),
             )
             .unwrap();
             for row in rows {
@@ -1072,21 +1080,22 @@ mod tests {
         ]);
         let token = pse_columnar::CancellationToken::new();
         let pool = rt.shared.pool();
-        let bundle = crate::authoring_driver::document::load_package_documents_owned(
+        let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
             &texts,
-            &rt.registry,
+            rt.registry(),
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
-            &rt.validation_context().unwrap(),
+            &rt.validation_context(),
         )
         .unwrap();
-        let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-            vec![bundle],
-            &pool,
-            &token,
-        )
-        .unwrap();
+        let documents =
+            pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                vec![bundle],
+                &pool,
+                &token,
+            )
+            .unwrap();
         let expected = documents
             .bundles()
             .iter()
@@ -1105,7 +1114,7 @@ mod tests {
         let retained = pool.reserved();
         let inputs = document_inputs(
             &documents,
-            &rt.registry,
+            rt.registry(),
             &physical,
             rt.shared.budget().math.workspace_bytes,
             &pool,
@@ -1121,7 +1130,7 @@ mod tests {
         assert!(
             document_inputs(
                 &documents,
-                &rt.registry,
+                rt.registry(),
                 &physical,
                 rt.shared.budget().math.workspace_bytes,
                 &small,
@@ -1295,19 +1304,19 @@ mod import_tests {
     fn load(
         rt: &Runtime,
         texts: &BTreeMap<String, Vec<u8>>,
-    ) -> Result<crate::authoring_driver::document::OwnedDocumentSet, WorkflowError> {
+    ) -> Result<pse_admission::authoring_driver::document::OwnedDocumentSet, WorkflowError> {
         let token = pse_columnar::CancellationToken::new();
         let pool = rt.shared.pool();
-        let bundle = crate::authoring_driver::document::load_package_documents_owned(
+        let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
             texts,
-            &rt.registry,
+            rt.registry(),
             pse_authoring::ParseBudget::default(),
             &pool,
             &token,
-            &rt.validation_context().unwrap(),
+            &rt.validation_context(),
         )?;
         Ok(
-            crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+            pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
                 vec![bundle],
                 &pool,
                 &token,
@@ -1467,16 +1476,16 @@ mod import_tests {
                 "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic closure\"\n",
                 SemanticId::from_bytes([id; 16])
             );
-            crate::authoring_driver::document::load_package_documents_owned(
+            pse_admission::authoring_driver::document::load_package_documents_owned(
                 &BTreeMap::from([
                     ("package.toml".into(), manifest.into_bytes()),
                     ("models/kernel.pse".into(), source.as_bytes().to_vec()),
                 ]),
-                &rt.registry,
+                rt.registry(),
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
-                &rt.validation_context().unwrap(),
+                &rt.validation_context(),
             )
             .unwrap()
         };
@@ -1499,10 +1508,11 @@ mod import_tests {
             "package app {use lib @\"1.0.0\"; def Root {let result:Scalar=lib.twice(2);}}",
         );
         let admit = async |parts| {
-            let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-                parts, &pool, &token,
-            )
-            .unwrap();
+            let documents =
+                pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                    parts, &pool, &token,
+                )
+                .unwrap();
             let package = rt
                 .modeling_from_documents(&documents, physical.clone(), &crate::CancelSource::new())
                 .await?;
@@ -1574,16 +1584,16 @@ mod import_tests {
                 "[package]\nid=\"{}\"\nname=\"{name}\"\nversion=\"1.0.0\"\nkind=\"model\"\nid_policy=\"named\"\ndependencies=[{dependencies}]\ndoc=\"synthetic identity\"\n",
                 SemanticId::from_bytes([id; 16])
             );
-            crate::authoring_driver::document::load_package_documents_owned(
+            pse_admission::authoring_driver::document::load_package_documents_owned(
                 &BTreeMap::from([
                     ("package.toml".into(), manifest.into_bytes()),
                     ("models/kernel.pse".into(), source.as_bytes().to_vec()),
                 ]),
-                &rt.registry,
+                rt.registry(),
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
-                &rt.validation_context().unwrap(),
+                &rt.validation_context(),
             )
             .unwrap()
         };
@@ -1603,10 +1613,11 @@ mod import_tests {
             )
         };
         let admit = async |parts| {
-            let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-                parts, &pool, &token,
-            )
-            .unwrap();
+            let documents =
+                pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                    parts, &pool, &token,
+                )
+                .unwrap();
             rt.modeling_from_documents(&documents, physical.clone(), &crate::CancelSource::new())
                 .await
         };
@@ -1662,21 +1673,22 @@ mod import_tests {
             ]);
             let token = pse_columnar::CancellationToken::new();
             let pool = rt.shared.pool();
-            let bundle = crate::authoring_driver::document::load_package_documents_owned(
+            let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
                 &texts,
-                &rt.registry,
+                rt.registry(),
                 pse_authoring::ParseBudget::default(),
                 &pool,
                 &token,
-                &rt.validation_context().unwrap(),
+                &rt.validation_context(),
             )
             .unwrap();
-            let documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-                vec![bundle],
-                &pool,
-                &token,
-            )
-            .unwrap();
+            let documents =
+                pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                    vec![bundle],
+                    &pool,
+                    &token,
+                )
+                .unwrap();
             assert_eq!(
                 rt.modeling_from_documents(
                     &documents,

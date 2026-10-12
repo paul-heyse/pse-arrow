@@ -9,7 +9,10 @@ use pse_quantity::{
     infer::{Exponent, InvariantChecker, OpRequest},
     scheme::{Scheme, Substitution},
 };
-use std::{cell::RefCell, collections::BTreeMap};
+use std::{
+    cell::RefCell,
+    collections::{BTreeMap, BTreeSet},
+};
 
 /// Compact coordinates under one retained field or function owner.
 #[derive(
@@ -61,20 +64,37 @@ impl AdmissionRecorder {
         recorder
     }
     pub(crate) fn for_package(package: &crate::CheckedPackage) -> Result<Self> {
+        Self::for_declarations(package, &package.declarations.keys().copied().collect())
+    }
+    pub(crate) fn for_declarations(
+        package: &crate::CheckedPackage,
+        owners: &BTreeSet<DeclarationId>,
+    ) -> Result<Self> {
         let recorder = Self {
             products: RefCell::default(),
             positions: RefCell::default(),
         };
-        let fields = package
-            .expressions
+        let fields = owners
             .iter()
+            .flat_map(|id| {
+                package
+                    .expressions
+                    .range(
+                        super::occurrences::OccurrenceKey {
+                            declaration: *id,
+                            role: String::new(),
+                            position: 0,
+                        }..,
+                    )
+                    .take_while(move |(key, _)| key.declaration == *id)
+            })
             .map(|(key, value)| {
                 let roots = super::inventory::field(&value.syntax);
                 recorder.register(Owner::Field(key.clone()), roots.iter().copied());
                 (key.clone(), super::inventory::StructuralIndex::new(roots))
             })
             .collect::<BTreeMap<_, _>>();
-        for function in package.functions.values() {
+        for function in owners.iter().filter_map(|id| package.functions.get(id)) {
             let roots = super::inventory::function(function);
             recorder.register(
                 Owner::Function(function.id),

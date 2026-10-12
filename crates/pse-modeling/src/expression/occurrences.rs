@@ -7,7 +7,10 @@ use pse_authoring::{
     SourceSpan, dsl,
     language::{self, StaticValue},
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 /// A field role and ordinal distinguish repeated syntax in one declaration.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -36,7 +39,7 @@ pub enum Syntax {
 }
 
 /// Attribution and dependencies for one checked source field.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct CheckedExpression {
     /// Exact parser field range when available; otherwise the programmatic declaration range.
     pub source: SourceSpan,
@@ -45,7 +48,9 @@ pub struct CheckedExpression {
     /// Lexical declaration chain, innermost first, retaining import context.
     pub context: Vec<DeclarationId>,
     /// Parsed once before semantic checking and retained for consumers.
-    pub syntax: Syntax,
+    pub syntax: Arc<Syntax>,
+    /// Source-local allocation lifetime retained by detached checked fields.
+    pub source_owner: Option<Arc<dyn crate::document::DataOwner>>,
     /// The declaration's checked contract, where the declaration owns a value type.
     pub declared_type: Option<crate::Type>,
     /// Concrete operation admissions and generic obligations present in this field's AST.
@@ -56,6 +61,111 @@ pub struct CheckedExpression {
     pub index_obligations: Vec<(String, String)>,
     /// Free references whose binding is supplied by specialization rather than the package.
     pub unresolved_references: BTreeSet<String>,
+}
+
+impl PartialEq for CheckedExpression {
+    fn eq(&self, other: &Self) -> bool {
+        self.source == other.source
+            && self.text == other.text
+            && self.context == other.context
+            && self.syntax == other.syntax
+            && self.declared_type == other.declared_type
+            && self.physical_admissions == other.physical_admissions
+            && self.dependencies == other.dependencies
+            && self.index_obligations == other.index_obligations
+            && self.unresolved_references == other.unresolved_references
+    }
+}
+
+/// Immutable grammar products for one exact declaration and its parser-owned
+/// field ranges. Contextual type/binding/physical admissions are never cached here.
+#[derive(Clone, Debug)]
+pub struct ParsedFields {
+    row: Declaration,
+    fields: Option<BTreeMap<String, SourceSpan>>,
+    expressions: BTreeMap<OccurrenceKey, CheckedExpression>,
+    allocation_owner: Option<Arc<dyn crate::document::DataOwner>>,
+}
+impl PartialEq for ParsedFields {
+    fn eq(&self, other: &Self) -> bool {
+        self.row == other.row
+            && self.fields == other.fields
+            && self.expressions == other.expressions
+    }
+}
+impl ParsedFields {
+    /// Parse through the same role/grammar/binder collector as checked admission.
+    /// The caller precharges parsing and retains the returned allocation owner.
+    pub fn parse(row: &Declaration, fields: Option<&BTreeMap<String, SourceSpan>>) -> Result<Self> {
+        struct Fields<'a>(Option<&'a BTreeMap<String, SourceSpan>>);
+        impl crate::document::Documents for Fields<'_> {
+            fn field_spans(&self, _: DeclarationId) -> Option<&BTreeMap<String, SourceSpan>> {
+                self.0
+            }
+            fn resolve(&self, _: pse_ids::SemanticId, _: &str) -> Option<pse_ids::SemanticId> {
+                None
+            }
+            fn admit(
+                &self,
+                plan: &Arc<crate::document::DocumentPlan>,
+                document: pse_ids::SemanticId,
+            ) -> Result<Arc<crate::document::DocumentTable>> {
+                crate::document::Documents::admit(&crate::document::NoDocuments, plan, document)
+            }
+        }
+        Ok(Self {
+            row: row.clone(),
+            fields: fields.cloned(),
+            expressions: collect_fresh(std::slice::from_ref(row), &Fields(fields))?,
+            allocation_owner: None,
+        })
+    }
+    /// Exact bytes, roles, grammar-bearing declaration and span owner must agree.
+    pub fn matches(
+        &self,
+        row: &Declaration,
+        fields: Option<&BTreeMap<String, SourceSpan>>,
+    ) -> bool {
+        &self.row == row && self.fields.as_ref() == fields
+    }
+    /// Borrow unbound grammar fields for source dependency extraction.
+    pub fn expressions(&self) -> &BTreeMap<OccurrenceKey, CheckedExpression> {
+        &self.expressions
+    }
+    /// Exact signature syntax without byte attribution; a relocated unchanged field
+    /// does not invalidate its declaration's expensive type derivation.
+    pub fn signature_syntax(&self) -> Self {
+        let mut value = self.clone();
+        value.row.source_start = 0;
+        value.row.source_end = 0;
+        value.fields = None;
+        for expression in value.expressions.values_mut() {
+            expression.source = SourceSpan::head(pse_ids::SemanticId::NIL);
+        }
+        value
+    }
+    /// Attach the source-local allocation lifetime, independently of cache residency.
+    pub fn with_owner(mut self, owner: Arc<dyn crate::document::DataOwner>) -> Self {
+        for expression in self.expressions.values_mut() {
+            expression.source_owner = Some(owner.clone());
+        }
+        self.allocation_owner = Some(owner);
+        self
+    }
+    /// Conservative immutable source/syntax extent for retention accounting.
+    pub fn retained_bytes(&self) -> usize {
+        use pse_model::HeapUsage;
+        self.row.owned_bytes()
+            + self.fields.as_ref().map_or(0, |fields| {
+                fields
+                    .keys()
+                    .map(|role| role.capacity() + size_of::<SourceSpan>() + 128)
+                    .sum::<usize>()
+            })
+            + retained_bytes_mode(&self.expressions, true)
+            + size_of::<Self>()
+            + 256
+    }
 }
 
 pub(crate) type Occurrences = BTreeMap<OccurrenceKey, CheckedExpression>;
@@ -126,7 +236,7 @@ impl CheckedPackage {
     ) -> Result<&dsl::Expr> {
         match self
             .expression_occurrence(declaration, role, position)
-            .map(|value| &value.syntax)
+            .map(|value| value.syntax.as_ref())
         {
             Some(
                 Syntax::Expression(expression)
@@ -149,7 +259,7 @@ impl CheckedPackage {
     ) -> Result<&dsl::Equation> {
         match self
             .expression_occurrence(declaration, role, position)
-            .map(|value| &value.syntax)
+            .map(|value| value.syntax.as_ref())
         {
             Some(Syntax::Equation(equation)) => Ok(equation),
             _ => Err(invalid(
@@ -169,7 +279,7 @@ impl CheckedPackage {
     ) -> Result<&dsl::Predicate> {
         match self
             .expression_occurrence(declaration, role, position)
-            .map(|value| &value.syntax)
+            .map(|value| value.syntax.as_ref())
         {
             Some(Syntax::Predicate(predicate)) => Ok(predicate),
             _ => Err(invalid(
@@ -189,7 +299,7 @@ impl CheckedPackage {
     ) -> Result<&StaticValue> {
         match self
             .expression_occurrence(declaration, role, position)
-            .map(|value| &value.syntax)
+            .map(|value| value.syntax.as_ref())
         {
             Some(Syntax::Static(value)) => Ok(value),
             _ => Err(invalid(
@@ -204,7 +314,7 @@ impl CheckedPackage {
     pub fn proposition_at(&self, declaration: DeclarationId) -> Result<&dsl::Proposition> {
         match self
             .expression_occurrence(declaration, "logic.proposition", 0)
-            .map(|value| &value.syntax)
+            .map(|value| value.syntax.as_ref())
         {
             Some(Syntax::Logic(value)) => Ok(value),
             _ => Err(invalid(declaration, "checked logic occurrence absent")),
@@ -302,7 +412,8 @@ impl Collector<'_> {
                 source: self.source_span(role, position)?,
                 text: text.into(),
                 context: Vec::new(),
-                syntax,
+                syntax: Arc::new(syntax),
+                source_owner: None,
                 declared_type: None,
                 physical_admissions: BTreeMap::new(),
                 dependencies: BTreeSet::new(),
@@ -339,6 +450,29 @@ impl Collector<'_> {
 
 /// Collect field roles explicitly: interchange strings that are labels or types are not expressions.
 pub(crate) fn collect(
+    rows: &[Declaration],
+    documents: &dyn crate::document::Documents,
+) -> Result<Occurrences> {
+    let mut values = BTreeMap::new();
+    for row in rows {
+        if let Some(parsed) = documents.parsed_fields(row.declaration_id)
+            && parsed.matches(row, documents.field_spans(row.declaration_id))
+        {
+            // Only grammar and lexical field/binder attribution are shared. Every
+            // checked consumer receives fresh contextual admission/dependency maps.
+            values.extend(
+                parsed
+                    .expressions
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.clone())),
+            );
+        } else {
+            values.extend(collect_fresh(std::slice::from_ref(row), documents)?);
+        }
+    }
+    Ok(values)
+}
+fn collect_fresh(
     rows: &[Declaration],
     documents: &dyn crate::document::Documents,
 ) -> Result<Occurrences> {
@@ -861,248 +995,273 @@ pub(crate) fn collect(
 /// Bind each occurrence in its own admitted declaration/import context; never claim that
 /// unresolved formals or indexed members have already received concrete instantiations.
 pub(crate) fn bind(p: &mut CheckedPackage) {
-    let mut values = std::mem::take(&mut p.expressions);
-    for (key, value) in &mut values {
-        let mut owner = Some(key.declaration);
-        while let Some(id) = owner {
-            value.context.push(id);
-            owner = p.declarations[&id].parent_id;
-        }
-        let formals = value
-            .context
-            .iter()
-            .flat_map(|id| {
-                p.declarations[id]
-                    .value
-                    .scope
-                    .iter()
-                    .flat_map(|scope| {
-                        scope
-                            .parameters
-                            .iter()
-                            .map(|parameter| parameter.name.clone())
-                    })
-                    .chain(
-                        p.declarations[id]
-                            .value
-                            .coordinate_map
-                            .iter()
-                            .flat_map(|map| {
-                                map.arguments.iter().map(|argument| argument.name.clone())
-                            }),
-                    )
-                    .chain(p.functions.get(id).into_iter().flat_map(|function| {
-                        function.arguments.iter().map(|(name, _)| name.clone())
-                    }))
-            })
-            .chain(value.index_obligations.iter().map(|(name, _)| name.clone()))
-            .collect::<BTreeSet<_>>();
-        value.declared_type = p.types.get(&key.declaration).cloned();
-        let mut paths = BTreeMap::new();
-        let mut visit = |path: &dsl::Path| {
-            let text = dsl::render_path(path);
-            let mut prefixes = Vec::new();
-            let mut resolved = None;
-            if path
-                .segments
-                .first()
-                .is_some_and(|segment| !formals.contains(&segment.name))
-            {
-                for end in (1..=path.segments.len()).rev() {
-                    resolved = resolved
-                        .or_else(|| p.resolve_segments(key.declaration, &path.segments[..end]));
-                    prefixes.push(
-                        path.segments[..end]
-                            .iter()
-                            .map(|segment| segment.name.as_str())
-                            .collect::<Vec<_>>()
-                            .join("."),
-                    );
-                }
-            }
-            paths.insert(text, (resolved, prefixes));
-        };
-        fn expression_paths(expression: &dsl::Expr, visit: &mut impl FnMut(&dsl::Path)) {
-            for path in super::source_paths(expression) {
-                visit(path);
-            }
-        }
-        fn predicate_paths(predicate: &dsl::Predicate, visit: &mut impl FnMut(&dsl::Path)) {
-            use dsl::PredicateKind as K;
-            match &predicate.kind {
-                K::Compare { lhs, rhs, .. } => {
-                    expression_paths(lhs, visit);
-                    expression_paths(rhs, visit);
-                }
-                K::In { expr, domain } => {
-                    expression_paths(expr, visit);
-                    visit(domain);
-                }
-                K::Atom(e) => expression_paths(e, visit),
-                K::And(a, b) | K::Or(a, b) => {
-                    predicate_paths(a, visit);
-                    predicate_paths(b, visit);
-                }
-                K::Not(p) => predicate_paths(p, visit),
-                _ => {}
-            }
-        }
-        fn equation(e: &dsl::Equation, visit: &mut impl FnMut(&dsl::Path)) {
-            match &e.kind {
-                dsl::EquationKind::Relation { lhs, rhs, .. } => {
-                    expression_paths(lhs, visit);
-                    expression_paths(rhs, visit);
-                }
-                dsl::EquationKind::Conditional {
-                    guard,
-                    then,
-                    otherwise,
-                } => {
-                    predicate_paths(guard, visit);
-                    equation(then, visit);
-                    equation(otherwise, visit);
-                }
-            }
-        }
-        fn static_paths(
-            value: &StaticValue,
-            bound: &BTreeSet<String>,
-            visit: &mut impl FnMut(&dsl::Path),
-        ) {
-            match value {
-                StaticValue::Expression(expression) => expression_paths(expression, &mut |path| {
-                    if path
-                        .segments
-                        .first()
-                        .is_some_and(|first| !bound.contains(&first.name))
-                    {
-                        visit(path);
-                    }
-                }),
-                StaticValue::Set(values) | StaticValue::Tuple(values) => {
-                    for value in values {
-                        static_paths(value, bound, visit);
-                    }
-                }
-                StaticValue::Apply { arguments, .. } => {
-                    for (_, value) in arguments {
-                        static_paths(value, bound, visit);
-                    }
-                }
-                StaticValue::Comprehension {
-                    body,
-                    bindings,
-                    filter,
-                } => {
-                    let mut local = bound.clone();
-                    for (name, domain) in bindings {
-                        static_paths(domain, &local, visit);
-                        local.insert(name.clone());
-                    }
-                    if let Some(filter) = filter {
-                        predicate_paths(filter, &mut |path| {
-                            if path
-                                .segments
-                                .first()
-                                .is_some_and(|first| !local.contains(&first.name))
-                            {
-                                visit(path);
-                            }
-                        });
-                    }
-                    static_paths(body, &local, visit);
-                }
-                StaticValue::Text(_) => {}
-            }
-        }
-        match &value.syntax {
-            Syntax::Expression(e) => expression_paths(e, &mut visit),
-            Syntax::Predicate(e) => predicate_paths(e, &mut visit),
-            Syntax::Logic(p) => {
-                p.expressions(&mut |expression| expression_paths(expression, &mut visit))
-            }
-            Syntax::Equation(e) => equation(e, &mut visit),
-            Syntax::Static(syntax) => static_paths(syntax, &BTreeSet::new(), &mut visit),
-        }
-        for (path, (resolved, prefixes)) in paths {
-            if let Some(id) = resolved {
-                value.dependencies.insert(id);
-            } else if !matches!(path.as_str(), "true" | "false" | "missing")
-                && !prefixes
-                    .iter()
-                    .any(|name| p.physical_name(key.declaration, name).is_some())
-            {
-                value.unresolved_references.insert(path);
-            }
-        }
-        let mut names = BTreeSet::new();
-        if let Syntax::Static(syntax) = &value.syntax {
-            static_parts(syntax, &mut |part| {
-                if let StaticPart::Name(name) = part {
-                    names.insert(name.to_owned());
-                }
-            });
-        }
-        value.dependencies.extend(
-            names
-                .iter()
-                .filter(|name| !formals.contains(*name))
-                .filter_map(|name| p.resolve(key.declaration, name)),
-        );
+    let values = std::mem::take(&mut p.expressions);
+    p.expressions = values
+        .into_iter()
+        .map(|(key, value)| {
+            let value = bind_one(p, &key, value);
+            (key, value)
+        })
+        .collect();
+}
+
+pub(crate) fn bind_one(
+    p: &CheckedPackage,
+    key: &OccurrenceKey,
+    mut value: CheckedExpression,
+) -> CheckedExpression {
+    let mut owner = Some(key.declaration);
+    while let Some(id) = owner {
+        value.context.push(id);
+        owner = p.declarations[&id].parent_id;
     }
-    p.expressions = values;
+    let formals = value
+        .context
+        .iter()
+        .flat_map(|id| {
+            p.declarations[id]
+                .value
+                .scope
+                .iter()
+                .flat_map(|scope| {
+                    scope
+                        .parameters
+                        .iter()
+                        .map(|parameter| parameter.name.clone())
+                })
+                .chain(
+                    p.declarations[id]
+                        .value
+                        .coordinate_map
+                        .iter()
+                        .flat_map(|map| map.arguments.iter().map(|argument| argument.name.clone())),
+                )
+                .chain(
+                    p.functions.get(id).into_iter().flat_map(|function| {
+                        function.arguments.iter().map(|(name, _)| name.clone())
+                    }),
+                )
+        })
+        .chain(value.index_obligations.iter().map(|(name, _)| name.clone()))
+        .collect::<BTreeSet<_>>();
+    value.declared_type = p.types.get(&key.declaration).cloned();
+    let mut paths = BTreeMap::new();
+    let mut visit = |path: &dsl::Path| {
+        let text = dsl::render_path(path);
+        let mut prefixes = Vec::new();
+        let mut resolved = None;
+        if path
+            .segments
+            .first()
+            .is_some_and(|segment| !formals.contains(&segment.name))
+        {
+            for end in (1..=path.segments.len()).rev() {
+                resolved =
+                    resolved.or_else(|| p.resolve_segments(key.declaration, &path.segments[..end]));
+                prefixes.push(
+                    path.segments[..end]
+                        .iter()
+                        .map(|segment| segment.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join("."),
+                );
+            }
+        }
+        paths.insert(text, (resolved, prefixes));
+    };
+    fn expression_paths(expression: &dsl::Expr, visit: &mut impl FnMut(&dsl::Path)) {
+        for path in super::source_paths(expression) {
+            visit(path);
+        }
+    }
+    fn predicate_paths(predicate: &dsl::Predicate, visit: &mut impl FnMut(&dsl::Path)) {
+        use dsl::PredicateKind as K;
+        match &predicate.kind {
+            K::Compare { lhs, rhs, .. } => {
+                expression_paths(lhs, visit);
+                expression_paths(rhs, visit);
+            }
+            K::In { expr, domain } => {
+                expression_paths(expr, visit);
+                visit(domain);
+            }
+            K::Atom(e) => expression_paths(e, visit),
+            K::And(a, b) | K::Or(a, b) => {
+                predicate_paths(a, visit);
+                predicate_paths(b, visit);
+            }
+            K::Not(p) => predicate_paths(p, visit),
+            _ => {}
+        }
+    }
+    fn equation(e: &dsl::Equation, visit: &mut impl FnMut(&dsl::Path)) {
+        match &e.kind {
+            dsl::EquationKind::Relation { lhs, rhs, .. } => {
+                expression_paths(lhs, visit);
+                expression_paths(rhs, visit);
+            }
+            dsl::EquationKind::Conditional {
+                guard,
+                then,
+                otherwise,
+            } => {
+                predicate_paths(guard, visit);
+                equation(then, visit);
+                equation(otherwise, visit);
+            }
+        }
+    }
+    fn static_paths(
+        value: &StaticValue,
+        bound: &BTreeSet<String>,
+        visit: &mut impl FnMut(&dsl::Path),
+    ) {
+        match value {
+            StaticValue::Expression(expression) => expression_paths(expression, &mut |path| {
+                if path
+                    .segments
+                    .first()
+                    .is_some_and(|first| !bound.contains(&first.name))
+                {
+                    visit(path);
+                }
+            }),
+            StaticValue::Set(values) | StaticValue::Tuple(values) => {
+                for value in values {
+                    static_paths(value, bound, visit);
+                }
+            }
+            StaticValue::Apply { arguments, .. } => {
+                for (_, value) in arguments {
+                    static_paths(value, bound, visit);
+                }
+            }
+            StaticValue::Comprehension {
+                body,
+                bindings,
+                filter,
+            } => {
+                let mut local = bound.clone();
+                for (name, domain) in bindings {
+                    static_paths(domain, &local, visit);
+                    local.insert(name.clone());
+                }
+                if let Some(filter) = filter {
+                    predicate_paths(filter, &mut |path| {
+                        if path
+                            .segments
+                            .first()
+                            .is_some_and(|first| !local.contains(&first.name))
+                        {
+                            visit(path);
+                        }
+                    });
+                }
+                static_paths(body, &local, visit);
+            }
+            StaticValue::Text(_) => {}
+        }
+    }
+    match value.syntax.as_ref() {
+        Syntax::Expression(e) => expression_paths(e, &mut visit),
+        Syntax::Predicate(e) => predicate_paths(e, &mut visit),
+        Syntax::Logic(p) => {
+            p.expressions(&mut |expression| expression_paths(expression, &mut visit))
+        }
+        Syntax::Equation(e) => equation(e, &mut visit),
+        Syntax::Static(syntax) => static_paths(syntax, &BTreeSet::new(), &mut visit),
+    }
+    for (path, (resolved, prefixes)) in paths {
+        if let Some(id) = resolved {
+            value.dependencies.insert(id);
+        } else if !matches!(path.as_str(), "true" | "false" | "missing")
+            && !prefixes
+                .iter()
+                .any(|name| p.physical_name(key.declaration, name).is_some())
+        {
+            value.unresolved_references.insert(path);
+        }
+    }
+    let mut names = BTreeSet::new();
+    if let Syntax::Static(syntax) = value.syntax.as_ref() {
+        static_parts(syntax, &mut |part| {
+            if let StaticPart::Name(name) = part {
+                names.insert(name.to_owned());
+            }
+        });
+    }
+    value.dependencies.extend(
+        names
+            .iter()
+            .filter(|name| !formals.contains(*name))
+            .filter_map(|name| p.resolve(key.declaration, name)),
+    );
+    value
 }
 
 pub(crate) fn retained_bytes(values: &Occurrences) -> usize {
+    retained_bytes_mode(values, false)
+}
+fn retained_bytes_mode(values: &Occurrences, include_shared_syntax: bool) -> usize {
     values
         .iter()
-        .map(|(key, value)| {
-            let syntax = match &value.syntax {
-                Syntax::Expression(e) | Syntax::Static(StaticValue::Expression(e)) => {
-                    super::retained_bytes(e)
-                }
-                Syntax::Predicate(e) => crate::extent::predicate(e),
-                Syntax::Equation(e) => crate::extent::equation(e),
-                Syntax::Static(e) => static_bytes(e),
-                Syntax::Logic(p) => {
-                    let mut bytes = 0;
-                    p.expressions(&mut |expression| {
-                        bytes += super::retained_bytes(expression) + size_of::<dsl::Proposition>()
-                    });
-                    bytes
-                }
-            };
-            size_of::<(OccurrenceKey, CheckedExpression)>()
-                + 64
-                + value.declared_type.as_ref().map_or(0, crate::extent::ty)
-                + value
-                    .physical_admissions
-                    .values()
-                    .map(|admission| {
-                        size_of::<(
-                            super::admission::ExpressionOccurrence,
-                            super::admission::PhysicalAdmission,
-                        )>() + 64
-                            + admission.retained_bytes()
-                    })
-                    .sum::<usize>()
-                + key.role.capacity()
-                + value.text.capacity()
-                + syntax
-                + value.context.capacity() * size_of::<DeclarationId>()
-                + value.dependencies.len() * (size_of::<DeclarationId>() + 64)
-                + value
-                    .index_obligations
-                    .iter()
-                    .map(|(n, d)| size_of::<(String, String)>() + n.capacity() + d.capacity())
-                    .sum::<usize>()
-                + value
-                    .unresolved_references
-                    .iter()
-                    .map(|n| size_of::<String>() + 64 + n.capacity())
-                    .sum::<usize>()
-        })
+        .map(|(key, value)| field_retained_bytes(key, value, include_shared_syntax))
         .sum()
+}
+/// Conservative known storage of one immutable attributed field, including its syntax.
+pub fn field_retained_bytes(
+    key: &OccurrenceKey,
+    value: &CheckedExpression,
+    include_shared_syntax: bool,
+) -> usize {
+    let syntax = if !include_shared_syntax && value.source_owner.is_some() {
+        0
+    } else {
+        match value.syntax.as_ref() {
+            Syntax::Expression(e) | Syntax::Static(StaticValue::Expression(e)) => {
+                super::retained_bytes(e)
+            }
+            Syntax::Predicate(e) => crate::extent::predicate(e),
+            Syntax::Equation(e) => crate::extent::equation(e),
+            Syntax::Static(e) => static_bytes(e),
+            Syntax::Logic(p) => {
+                let mut bytes = 0;
+                p.expressions(&mut |expression| {
+                    bytes += super::retained_bytes(expression) + size_of::<dsl::Proposition>()
+                });
+                bytes
+            }
+        }
+    };
+    size_of::<(OccurrenceKey, CheckedExpression)>()
+        + 64
+        + value.declared_type.as_ref().map_or(0, crate::extent::ty)
+        + value
+            .physical_admissions
+            .values()
+            .map(|admission| {
+                size_of::<(
+                    super::admission::ExpressionOccurrence,
+                    super::admission::PhysicalAdmission,
+                )>() + 64
+                    + admission.retained_bytes()
+            })
+            .sum::<usize>()
+        + key.role.capacity()
+        + value.text.capacity()
+        + syntax
+        + value.context.capacity() * size_of::<DeclarationId>()
+        + value.dependencies.len() * (size_of::<DeclarationId>() + 64)
+        + value
+            .index_obligations
+            .iter()
+            .map(|(n, d)| size_of::<(String, String)>() + n.capacity() + d.capacity())
+            .sum::<usize>()
+        + value
+            .unresolved_references
+            .iter()
+            .map(|n| size_of::<String>() + 64 + n.capacity())
+            .sum::<usize>()
 }
 
 fn static_bytes(value: &StaticValue) -> usize {
@@ -1151,9 +1310,9 @@ mod tests {
         }
         fn admit(
             &self,
-            plan: &std::sync::Arc<crate::document::DocumentPlan>,
+            plan: &Arc<crate::document::DocumentPlan>,
             document: pse_ids::SemanticId,
-        ) -> Result<std::sync::Arc<crate::document::DocumentTable>> {
+        ) -> Result<Arc<crate::document::DocumentTable>> {
             crate::document::Documents::admit(&crate::document::NoDocuments, plan, document)
         }
     }
@@ -1348,7 +1507,7 @@ mod tests {
         assert!(a.unresolved_references.contains("j"));
         assert!(std::ptr::eq(
             p.equation_at(first, "equation.expression", 0).unwrap(),
-            match &a.syntax {
+            match a.syntax.as_ref() {
                 Syntax::Equation(e) => e,
                 _ => panic!("equation"),
             }
@@ -1431,5 +1590,134 @@ mod tests {
             assert!(error.to_string().contains(&id.to_string()));
             assert!(error.to_string().contains("binding.expression[0]"));
         }
+    }
+    #[test]
+    fn shared_parsed_fields_reuse_grammar_but_rebind_context_and_exact_spans() {
+        struct Shared(
+            BTreeMap<DeclarationId, Arc<ParsedFields>>,
+            BTreeMap<DeclarationId, BTreeMap<String, SourceSpan>>,
+        );
+        impl crate::document::Documents for Shared {
+            fn parsed_fields(&self, id: DeclarationId) -> Option<&Arc<ParsedFields>> {
+                self.0.get(&id)
+            }
+            fn field_spans(&self, id: DeclarationId) -> Option<&BTreeMap<String, SourceSpan>> {
+                self.1.get(&id)
+            }
+            fn resolve(&self, _: pse_ids::SemanticId, _: &str) -> Option<pse_ids::SemanticId> {
+                None
+            }
+            fn admit(
+                &self,
+                plan: &Arc<crate::document::DocumentPlan>,
+                id: pse_ids::SemanticId,
+            ) -> Result<Arc<crate::document::DocumentTable>> {
+                crate::document::Documents::admit(&crate::document::NoDocuments, plan, id)
+            }
+        }
+        let text = "package p {param a:Scalar=1; def D {var x:Scalar; eq e:x==a;}}";
+        let (rows, spans) = language::parse_with_spans(
+            text,
+            pse_ids::SemanticId::NIL,
+            language::IdentityPolicy::Named,
+            Default::default(),
+        )
+        .unwrap();
+        let fields = rows
+            .iter()
+            .map(|row| {
+                (
+                    row.declaration_id,
+                    Arc::new(
+                        ParsedFields::parse(row, spans.get(&row.declaration_id))
+                            .unwrap()
+                            .with_owner(Arc::new(())),
+                    ),
+                )
+            })
+            .collect();
+        let mut documents = Shared(fields, spans);
+        let equation = rows.iter().find(|row| row.name == "e").unwrap();
+        let key = OccurrenceKey {
+            declaration: equation.declaration_id,
+            role: "equation.expression".into(),
+            position: 0,
+        };
+        let key = documents.0[&equation.declaration_id]
+            .expressions
+            .keys()
+            .next()
+            .unwrap_or(&key)
+            .clone();
+        let syntax = documents.0[&equation.declaration_id].expressions[&key]
+            .syntax
+            .clone();
+        let mut first = collect(&rows, &documents).unwrap();
+        assert!(Arc::ptr_eq(&syntax, &first[&key].syntax));
+        first
+            .get_mut(&key)
+            .unwrap()
+            .dependencies
+            .insert(rows[0].declaration_id);
+        let second = collect(&rows, &documents).unwrap();
+        assert!(
+            second[&key].dependencies.is_empty(),
+            "resolved maps are per contextual check"
+        );
+        assert!(
+            second[&key].source_owner.is_some(),
+            "detached grammar retains its allocation owner"
+        );
+        let (quantities, _) = crate::kernel_types::physical();
+        let preconditions = pse_quantity::PhysicalPreconditions::new(
+            pse_quantity::generated::standard_preconditions(),
+        )
+        .unwrap();
+        let context = crate::TypeContext {
+            admissions: None,
+            formula_authority: None,
+            quantities: &quantities,
+            preconditions: &preconditions,
+            scope: &crate::PhysicalScope::default(),
+        };
+        let checked = crate::check_with(&rows, &context, &documents).unwrap();
+        assert!(Arc::ptr_eq(
+            &syntax,
+            &checked
+                .expression_occurrence(key.declaration, &key.role, key.position)
+                .unwrap()
+                .syntax
+        ));
+        let mut without_dependency = rows.clone();
+        without_dependency.retain(|row| row.name != "a");
+        assert!(
+            crate::check_with(&without_dependency, &context, &documents).is_err(),
+            "unchanged AST cannot retain a deleted contextual binding"
+        );
+        let location = documents
+            .1
+            .get_mut(&equation.declaration_id)
+            .unwrap()
+            .values_mut()
+            .next()
+            .unwrap();
+        location.start += 1;
+        let different_span = collect(&rows, &documents).unwrap();
+        assert!(
+            !Arc::ptr_eq(&syntax, &different_span[&key].syntax),
+            "equal mathematical syntax cannot retain another source span owner"
+        );
+        let mut changed = rows.clone();
+        changed
+            .iter_mut()
+            .find(|row| row.name == "e")
+            .unwrap()
+            .value
+            .equation
+            .as_mut()
+            .unwrap()
+            .expression = "x==2".into();
+        let changed = collect(&changed, &documents).unwrap();
+        assert!(!Arc::ptr_eq(&syntax, &changed[&key].syntax));
     }
 }

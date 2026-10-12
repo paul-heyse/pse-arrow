@@ -635,6 +635,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            51u8, 31u8, 42u8, 14u8, 63u8, 201u8, 127u8, 173u8, 119u8, 170u8, 217u8,
+            173u8, 62u8, 100u8, 194u8, 123u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalBodyContents(
+                super::r#runtime::r#canonical_body_contents::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             196u8, 137u8, 125u8, 168u8, 96u8, 235u8, 48u8, 16u8, 241u8, 229u8, 144u8,
             15u8, 183u8, 204u8, 207u8, 41u8,
         ])
@@ -666,6 +678,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalGuards(
                 super::r#runtime::r#canonical_guards::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            78u8, 206u8, 187u8, 95u8, 101u8, 4u8, 150u8, 172u8, 207u8, 134u8, 36u8,
+            182u8, 14u8, 38u8, 158u8, 103u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalHistoricalResults(
+                super::r#runtime::r#canonical_historical_results::Row::rows(batch)?,
             ),
         );
     }
@@ -726,6 +750,30 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProblems(
                 super::r#runtime::r#canonical_problems::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            204u8, 89u8, 25u8, 101u8, 27u8, 191u8, 207u8, 243u8, 69u8, 240u8, 64u8, 61u8,
+            189u8, 145u8, 75u8, 246u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProductAssociations(
+                super::r#runtime::r#canonical_product_associations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            222u8, 178u8, 17u8, 176u8, 142u8, 7u8, 139u8, 7u8, 125u8, 128u8, 246u8,
+            250u8, 100u8, 12u8, 33u8, 89u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProductDescriptors(
+                super::r#runtime::r#canonical_product_descriptors::Row::rows(batch)?,
             ),
         );
     }
@@ -803,18 +851,6 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            10u8, 157u8, 205u8, 213u8, 224u8, 86u8, 78u8, 222u8, 51u8, 206u8, 204u8,
-            124u8, 9u8, 130u8, 117u8, 52u8,
-        ])
-    {
-        return Ok(
-            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultCells(
-                super::r#runtime::r#canonical_result_cells::Row::rows(batch)?,
-            ),
-        );
-    }
-    if batch.relation_id()
-        == pse_ids::SemanticId::from_bytes([
             190u8, 214u8, 37u8, 89u8, 122u8, 243u8, 119u8, 172u8, 132u8, 142u8, 163u8,
             52u8, 59u8, 28u8, 175u8, 32u8,
         ])
@@ -846,6 +882,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultRetirements(
                 super::r#runtime::r#canonical_result_retirements::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            201u8, 9u8, 33u8, 219u8, 5u8, 236u8, 80u8, 241u8, 119u8, 157u8, 133u8, 21u8,
+            173u8, 206u8, 72u8, 82u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultRows(
+                super::r#runtime::r#canonical_result_rows::Row::rows(batch)?,
             ),
         );
     }
@@ -923,6 +971,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            118u8, 169u8, 2u8, 92u8, 175u8, 73u8, 218u8, 34u8, 198u8, 26u8, 244u8, 35u8,
+            56u8, 213u8, 3u8, 168u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalSelectionReceipts(
+                super::r#runtime::r#canonical_selection_receipts::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             114u8, 28u8, 161u8, 203u8, 211u8, 205u8, 8u8, 96u8, 21u8, 37u8, 141u8, 25u8,
             251u8, 222u8, 160u8, 70u8,
         ])
@@ -978,6 +1038,30 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyPoints(
                 super::r#runtime::r#canonical_study_points::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            23u8, 115u8, 187u8, 255u8, 176u8, 49u8, 136u8, 67u8, 200u8, 218u8, 75u8,
+            30u8, 94u8, 39u8, 234u8, 23u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyReadiness(
+                super::r#runtime::r#canonical_study_readiness::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            99u8, 241u8, 85u8, 136u8, 147u8, 111u8, 27u8, 11u8, 71u8, 29u8, 6u8, 162u8,
+            177u8, 136u8, 241u8, 50u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyReadinessCursors(
+                super::r#runtime::r#canonical_study_readiness_cursors::Row::rows(batch)?,
             ),
         );
     }
@@ -1824,6 +1908,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalAttempts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalBodyContents(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalEdges(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -1833,6 +1920,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalGuards(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalHistoricalResults(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalInterpretations(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
@@ -1848,6 +1938,12 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProblems(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProductAssociations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProductDescriptors(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalProducts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -1866,9 +1962,6 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultBlocks(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
-        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultCells(rows) => {
-            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
-        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultManifests(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
@@ -1878,6 +1971,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultRetirements(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultRows(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalResultSeeds(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -1896,6 +1992,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalRuns(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalSelectionReceipts(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStagedEdits(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -1911,6 +2010,12 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyPoints(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyReadiness(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyReadinessCursors(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyRetirements(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),

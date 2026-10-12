@@ -53,6 +53,7 @@ impl CacheValue for Value {
 impl MathService {
     /// Clear retained programs without cancelling live owners or permitting late reinsertion.
     pub fn clear_program_cache(&self) {
+        self.trim_compiler_lanes();
         self.pressure.clear();
     }
     /// Obtain a compiler-issued artifact; callers cannot supply an independent cache key.
@@ -76,42 +77,45 @@ impl MathService {
         let service = self.clone();
         let flight_key = key.clone();
         let epoch = self.retention.generation();
+        let population = super::PopulationScope::capture();
         self.flights
-            .load_owned(flight_key, move |cancel| async move {
-                if let Some(v) = service.entries.get(&key) {
-                    return Ok(v.0);
-                }
-                let cores = request.cores();
-                let demand = request
-                    .construction_allocation_bound()?
-                    .unwrap_or(service.policy.worker_bytes);
-                if demand > service.policy.worker_bytes {
-                    return Err(MathRuntimeError::Limit("artifact construction capacity"));
-                }
-                let check = cancel.flag();
-                let (program, lease) = service
-                    .job_retained(cores, demand, cancel, move |flag| {
-                        let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
-                        let retained = program.retained_bytes();
-                        Ok((program, retained))
-                    })
-                    .await?;
-                if check.load(Ordering::Acquire) {
-                    return Err(MathRuntimeError::Cancelled);
-                }
-                service.live.fetch_add(lease.size(), Ordering::AcqRel);
-                let lease = Arc::new(ProgramOwner {
-                    lease,
-                    live: service.live.clone(),
-                });
-                let artifact = Arc::new(Artifact {
-                    program: Arc::new(program.with_owner(lease.clone())),
-                    lease,
-                });
-                service
-                    .pressure
-                    .publish_artifact(epoch, &key, Value(artifact.clone()));
-                Ok(artifact)
+            .load_owned(flight_key, move |cancel| {
+                population.run(async move {
+                    if let Some(v) = service.entries.get(&key) {
+                        return Ok(v.0);
+                    }
+                    let cores = request.cores();
+                    let demand = request
+                        .construction_allocation_bound()?
+                        .unwrap_or(service.policy.worker_bytes);
+                    if demand > service.policy.worker_bytes {
+                        return Err(MathRuntimeError::Limit("artifact construction capacity"));
+                    }
+                    let check = cancel.flag();
+                    let (program, lease) = service
+                        .job_retained(cores, demand, cancel, move |flag| {
+                            let program = request.build(&flag).map_err(MathRuntimeError::Math)?;
+                            let retained = program.retained_bytes();
+                            Ok((program, retained))
+                        })
+                        .await?;
+                    if check.load(Ordering::Acquire) {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
+                    service.live.fetch_add(lease.size(), Ordering::AcqRel);
+                    let lease = Arc::new(ProgramOwner {
+                        lease,
+                        live: service.live.clone(),
+                    });
+                    let artifact = Arc::new(Artifact {
+                        program: Arc::new(program.with_owner(lease.clone())),
+                        lease,
+                    });
+                    service
+                        .pressure
+                        .publish_artifact(epoch, &key, Value(artifact.clone()));
+                    Ok(artifact)
+                })
             })
             .await
             .map_err(|e| match e {
@@ -184,6 +188,10 @@ impl CacheComponent for MathService {
         vec![
             (
                 "math_native_active",
+                Some(self.policy.jobs - self.active_jobs.available_permits()),
+            ),
+            (
+                "math_native_population",
                 Some(self.policy.jobs - self.jobs.available_permits()),
             ),
             (

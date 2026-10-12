@@ -16,7 +16,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts import native_tests, python_tests, surreal_server, test_resources, test_run
+from scripts import (
+    native_operation,
+    native_tests,
+    python_tests,
+    surreal_server,
+    test_resources,
+    test_run,
+)
 
 
 class Plan30RoutingTests(unittest.TestCase):
@@ -31,6 +38,11 @@ class Plan30RoutingTests(unittest.TestCase):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
+        registry = patch.object(
+            test_resources, "registry", return_value=self.root / "registry"
+        )
+        registry.start()
+        self.addCleanup(registry.stop)
         self.worker = self.root / "worker"
         self.worker.write_bytes(b"retained receiver")
         self.worker.chmod(0o700)
@@ -102,6 +114,9 @@ class Plan30RoutingTests(unittest.TestCase):
             )
         )
         self.invocation.chmod(0o600)
+        test_resources.storage().create_invocation(
+            test_resources.read_invocation(self.invocation)
+        )
 
     def test_ordinary_metadata_never_adds_managed_features(self) -> None:
         execution, metadata = native_tests.managed_rust_arguments(
@@ -192,7 +207,9 @@ class Plan30RoutingTests(unittest.TestCase):
             order.append("prepare")
             return execution, self.worker
 
-        def observer(state: Path, command: list[str], profile: str) -> int:
+        def observer(
+            state: Path, command: list[str], profile: str, **_options: object
+        ) -> int:
             order.append("observer")
             self.assertEqual(state, Path("/owned/state"))
             self.assertEqual(profile, "exclusive-observer")
@@ -268,7 +285,7 @@ class Plan30RoutingTests(unittest.TestCase):
     ) -> None:
         self.declaration("runner")
         with (
-            patch.object(test_run.subprocess, "call", return_value=0) as execution,
+            patch.object(native_operation, "run", return_value=0) as execution,
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", return_value=True) as finish,
             patch.object(
@@ -297,7 +314,7 @@ class Plan30RoutingTests(unittest.TestCase):
             finish.call_args.args[1]["selected"],
             [{"class": "pse-runtime::lib", "name": "chosen"}],
         )
-        environment = execution.call_args.kwargs["env"]
+        environment = execution.call_args.args[1]
         self.assertNotIn("PSE_SURREAL_STATE", environment)
         self.assertNotIn("PSE_WORKER_BINARY", environment)
         self.assertEqual(environment[test_run.EXECUTION_EFFECTS], "native-local")
@@ -439,7 +456,7 @@ class Plan30RoutingTests(unittest.TestCase):
     def test_standalone_observer_finalizes_existing_runner_invocation(self) -> None:
         self.declaration("runner")
         with (
-            patch.object(test_run.subprocess, "call", return_value=0),
+            patch.object(native_operation, "run", return_value=0),
             patch.object(test_run.validation, "compose_terminal"),
             patch.object(test_run, "finish", return_value=True) as finish,
         ):
@@ -496,6 +513,19 @@ class Plan30RoutingTests(unittest.TestCase):
         self.assertIn("managed_primary_", scientific[0]["filter"])
         self.assertGreater(config["profile"]["default"]["test-threads"], 2)
 
+    def test_exclusive_store_controls_reserve_actual_scheduler_width(self) -> None:
+        configuration = tomllib.loads(
+            (Path(__file__).resolve().parents[2] / ".config/nextest.toml").read_text()
+        )
+        exclusive = [
+            item
+            for item in configuration["profile"]["default"]["overrides"]
+            if "initialization_sixteen_independent_databases_complete_in_parallel"
+            in item["filter"]
+        ]
+        self.assertEqual(len(exclusive), 1)
+        self.assertEqual(exclusive[0]["threads-required"], "num-test-threads")
+
     def test_managed_rust_binds_captured_worker_before_reference_admission(
         self,
     ) -> None:
@@ -507,7 +537,9 @@ class Plan30RoutingTests(unittest.TestCase):
             self.assertEqual(os.environ["PSE_NATIVE_PROVENANCE"], str(self.provenance))
             return state / "reference"
 
-        def observer(_state: Path, command: list[str], *, profile: str) -> int:
+        def observer(
+            _state: Path, command: list[str], *, profile: str, **_options: object
+        ) -> int:
             order.append("observer")
             self.assertEqual(profile, "reference")
             self.assertEqual(os.environ["PSE_WORKER_BINARY"], str(self.worker))
@@ -643,7 +675,15 @@ class Plan30RoutingTests(unittest.TestCase):
         self,
     ) -> None:
         for module, argv in (
-            (native_tests, ["native_tests", "python", "--managed-primary-route"]),
+            (
+                native_tests,
+                [
+                    "native_tests",
+                    "python",
+                    "--managed-primary-route",
+                    f"--junitxml={self.root / 'native.xml'}",
+                ],
+            ),
             (python_tests, ["python_tests", "--managed-primary-route"]),
         ):
             for ambient in (None, "ambient"):

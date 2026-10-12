@@ -203,28 +203,16 @@ async fn indexed_mixer_holdup_separator_executes_conditional_recycle_and_externa
     for program in prepared.programs.clone() {
         let original = program.values.identity();
         let budget = crate::math::WorkerBudget::new(16 << 20);
-        let worker = package
-            .runtime
-            .native()
-            .worker(
-                program.program.clone(),
-                &prepared.providers,
-                execution.scope().unwrap(),
-                &budget,
-            )
-            .unwrap();
-        let mut unit = UnitWorker {
-            last_values: None,
-            input_ids: program.inputs.iter().map(|i| i.0).collect(),
-            output_ids: program.outputs.iter().map(|o| o.0).collect(),
+        let mut unit = UnitWorker::new(
             program,
-            worker,
-            service: package.runtime.native().clone(),
-            providers: prepared.providers.clone(),
+            package.runtime.native(),
+            &prepared.providers,
+            &execution,
             budget,
-        };
+        )
+        .unwrap();
         boundary.extend(unit.evaluate(&boundary, &execution).unwrap());
-        let mut values = unit.program.values.clone();
+        let mut values = unit.program.values.as_ref().clone();
         values.scalars.extend(unit.original_values().scalars);
         let instance = model
             .instances

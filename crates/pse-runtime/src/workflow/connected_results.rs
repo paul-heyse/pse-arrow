@@ -5,7 +5,7 @@
 //! a time. Row coordinates select recorded coverage; missing ranges stay missing.
 
 use super::{Runtime, WorkflowError, contract, result_blocks};
-use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
+use datafusion::arrow::{buffer::Buffer, datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{
     CancellationToken, MemoryConsumer, MemoryReservation, owned_buffer::AllocationScope,
 };
@@ -13,6 +13,7 @@ use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata
 use pse_operations::canonical_results::ResultRead;
 use std::{
     collections::{BTreeMap, VecDeque},
+    io::{BufWriter, Write},
     sync::Arc,
     time::Duration,
 };
@@ -24,9 +25,21 @@ const READ_LIFETIME: Duration = Duration::from_secs(60);
 // materialized here; returned arrays keep their independent actual reservation.
 const READ_BYTES: usize = 48 * 1024 * 1024;
 
+fn response_owner(
+    runtime: &Runtime,
+    name: &'static str,
+) -> Result<Arc<MemoryReservation>, WorkflowError> {
+    let owner = MemoryConsumer::new(name).register(&runtime.shared.pool());
+    owner
+        .try_grow(READ_BYTES)
+        .map_err(pse_engine::EngineError::from)?;
+    Ok(Arc::new(owner))
+}
+
 #[derive(Debug)]
 struct OutputFilter {
     output: String,
+    field: String,
     partition: String,
     dense: bool,
     minimum: Option<f64>,
@@ -35,7 +48,7 @@ struct OutputFilter {
 }
 #[derive(Debug)]
 enum OutputRows {
-    Scalar(Vec<pse_model::generated::runtime::canonical_result_cells::Row>),
+    Scalar(Vec<pse_model::generated::runtime::canonical_result_rows::Row>),
     Dense(pse_model::generated::runtime::canonical_result_block_outputs::Row),
 }
 
@@ -46,24 +59,26 @@ pub struct CanonicalResultReader {
     read: ResultRead,
     relation: pse_ids::SemanticId,
     set: String,
-    schema: SchemaRef,
+    schema: result_blocks::PreparedIpcSchema,
     start: u64,
     end: u64,
     after: Option<u64>,
     last_end: Option<u64>,
     pending: VecDeque<BlockMetadata>,
-    metadata_owner: Option<MemoryReservation>,
     exhausted: bool,
     consumed: bool,
     cancel: CancellationToken,
     output: Option<OutputFilter>,
     indexes: BTreeMap<String, OutputRows>,
     last_receipt: Option<(String, u64)>,
+    // Drop all metadata-backed pages and indexes before their shared grant.
+    metadata_owner: Option<Arc<MemoryReservation>>,
+    _selection_owner: MemoryReservation,
 }
 impl CanonicalResultReader {
     /// Exact registry schema of the selected scientific relation.
     pub fn schema(&self) -> SchemaRef {
-        self.schema.clone()
+        self.schema.schema().clone()
     }
     /// Actual recorded terminal attempt, including failure/partiality class.
     pub fn selection(&self) -> &ResultRead {
@@ -101,7 +116,7 @@ impl CanonicalResultReader {
             .create_new(true)
             .open(&staging)
             .map_err(io)?;
-        let mut metadata = self.schema.metadata().clone();
+        let mut metadata = self.schema.schema().metadata().clone();
         metadata.insert(
             "pse.canonical.problem".into(),
             self.read.run().problem.clone(),
@@ -135,6 +150,7 @@ impl CanonicalResultReader {
         metadata.insert("pse.canonical.row-end".into(), self.end.to_string());
         if let Some(filter) = &self.output {
             metadata.insert("pse.canonical.output".into(), filter.output.clone());
+            metadata.insert("pse.canonical.field".into(), filter.field.clone());
             metadata.insert("pse.canonical.partition".into(), filter.partition.clone());
             if let Some(value) = filter.minimum {
                 metadata.insert(
@@ -152,10 +168,18 @@ impl CanonicalResultReader {
                 metadata.insert("pse.canonical.missing".into(), value.to_string());
             }
         }
-        let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
-        let mut writer =
-            datafusion::arrow::ipc::writer::StreamWriter::try_new(file, schema.as_ref())
-                .map_err(result_blocks::ResultBlockError::from)?;
+        let schema = Arc::new(
+            self.schema
+                .schema()
+                .as_ref()
+                .clone()
+                .with_metadata(metadata),
+        );
+        let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
+            BufWriter::new(file),
+            schema.as_ref(),
+        )
+        .map_err(result_blocks::ResultBlockError::from)?;
         while let Some(batch) = self.next_batch().await? {
             let batch = batch
                 .with_schema(schema.clone())
@@ -170,7 +194,8 @@ impl CanonicalResultReader {
         writer
             .finish()
             .map_err(result_blocks::ResultBlockError::from)?;
-        writer.get_ref().sync_all().map_err(io)?;
+        writer.get_mut().flush().map_err(io)?;
+        writer.get_ref().get_ref().sync_all().map_err(io)?;
         drop(writer);
         std::fs::hard_link(&staging, destination).map_err(io)?;
         std::fs::remove_file(staging).map_err(io)?;
@@ -204,7 +229,17 @@ impl CanonicalResultReader {
             return Err(pse_engine::EngineError::from(error).into());
         }
         self.consumed = true;
-        let outcome = self.next_checked().await;
+        // Interrupt the original RPC future, rather than waiting for another
+        // between-block checkpoint. The SDK's CancelOnDrop cancels its exact
+        // RequestContext; its driver retains uncertain dispatched work through
+        // physical drain. This asserts no rollback of a late pin renewal.
+        let cancel = self.cancel.clone();
+        let outcome = cancel
+            .until_cancelled(self.next_checked())
+            .await
+            .map_err(pse_engine::EngineError::from)
+            .map_err(WorkflowError::from)
+            .and_then(std::convert::identity);
         if outcome.is_err() {
             self.close();
         }
@@ -219,77 +254,80 @@ impl CanonicalResultReader {
                 if self.exhausted {
                     return Ok(None);
                 }
-                self.read.renew(READ_LIFETIME).await?;
-                let owner = MemoryConsumer::new("canonical:result-metadata")
-                    .register(&self.runtime.shared.pool());
-                owner
-                    .try_grow(READ_BYTES)
-                    .map_err(pse_engine::EngineError::from)?;
-                let page = if let Some(filter) = &self.output {
-                    let page = self
-                        .runtime
-                        .canonical_store()
-                        .result_output_page(
-                            &self.read,
-                            &self.set,
-                            &filter.output,
-                            &filter.partition,
-                            self.start,
-                            self.end,
-                            self.after,
-                            filter.dense,
-                            filter.minimum,
-                            filter.maximum,
-                            filter.missing,
-                        )
-                        .await?;
-                    self.exhausted = page.cells.len() + page.outputs.len() < 64;
-                    self.after = page
-                        .cells
-                        .last()
-                        .map(|cell| cell.row)
-                        .or_else(|| page.outputs.last().map(|output| output.start))
-                        .or(self.after);
-                    for cell in page.cells {
-                        match self
-                            .indexes
-                            .entry(cell.batch.clone())
-                            .or_insert_with(|| OutputRows::Scalar(Vec::new()))
-                        {
-                            OutputRows::Scalar(rows) => rows.push(cell),
-                            OutputRows::Dense(_) => {
-                                return Err(contract("mixed scientific output index kinds"));
+                let owner = response_owner(&self.runtime, "canonical:result-metadata")?;
+                let page =
+                    pse_operations::canonical::response_ownership_scope(owner.clone(), async {
+                        self.read.renew(READ_LIFETIME).await?;
+                        let page = if let Some(filter) = &self.output {
+                            let page = self
+                                .runtime
+                                .canonical_store()
+                                .result_output_page(
+                                    &self.read,
+                                    &self.set,
+                                    &filter.output,
+                                    &filter.partition,
+                                    self.start,
+                                    self.end,
+                                    self.after,
+                                    filter.dense,
+                                    filter.dense.then_some(filter.minimum).flatten(),
+                                    filter.dense.then_some(filter.maximum).flatten(),
+                                    None,
+                                )
+                                .await?;
+                            self.exhausted = page.rows.len() + page.outputs.len() < 64;
+                            self.after = page
+                                .rows
+                                .last()
+                                .map(|locator| locator.row)
+                                .or_else(|| page.outputs.last().map(|output| output.start))
+                                .or(self.after);
+                            for locator in page.rows {
+                                match self
+                                    .indexes
+                                    .entry(locator.batch.clone())
+                                    .or_insert_with(|| OutputRows::Scalar(Vec::new()))
+                                {
+                                    OutputRows::Scalar(rows) => rows.push(locator),
+                                    OutputRows::Dense(_) => {
+                                        return Err(contract(
+                                            "mixed scientific output index kinds",
+                                        ));
+                                    }
+                                }
                             }
-                        }
-                    }
-                    for output in page.outputs {
-                        if self
-                            .indexes
-                            .insert(output.batch.clone(), OutputRows::Dense(output))
-                            .is_some()
-                        {
-                            return Err(contract("duplicate dense output index"));
-                        }
-                    }
-                    page.blocks
-                } else {
-                    let page = self
-                        .runtime
-                        .canonical_store()
-                        .result_block_page(
-                            &self.read,
-                            &self.set,
-                            &self.relation.to_string(),
-                            "0",
-                            self.start,
-                            self.end,
-                            self.after,
-                        )
-                        .await?;
-                    self.exhausted = page.len() < 64;
-                    self.after = page.last().map(|m| m.ordinal).or(self.after);
-                    page
-                };
+                            for output in page.outputs {
+                                if self
+                                    .indexes
+                                    .insert(output.batch.clone(), OutputRows::Dense(output))
+                                    .is_some()
+                                {
+                                    return Err(contract("duplicate dense output index"));
+                                }
+                            }
+                            page.blocks
+                        } else {
+                            let page = self
+                                .runtime
+                                .canonical_store()
+                                .result_block_page(
+                                    &self.read,
+                                    &self.set,
+                                    &self.relation.to_string(),
+                                    "0",
+                                    self.start,
+                                    self.end,
+                                    self.after,
+                                )
+                                .await?;
+                            self.exhausted = page.len() < 64;
+                            self.after = page.last().map(|m| m.ordinal).or(self.after);
+                            page
+                        };
+                        Ok::<_, WorkflowError>(page)
+                    })
+                    .await?;
                 self.pending = page.into();
                 self.metadata_owner = Some(owner);
                 if self.pending.is_empty() {
@@ -303,17 +341,15 @@ impl CanonicalResultReader {
             self.cancel
                 .checkpoint()
                 .map_err(pse_engine::EngineError::from)?;
-            let owner =
-                MemoryConsumer::new("canonical:result-block").register(&self.runtime.shared.pool());
-            owner
-                .try_grow(READ_BYTES)
-                .map_err(pse_engine::EngineError::from)?;
-            let block = self
-                .runtime
-                .canonical_store()
-                .result_block(&self.read, metadata)
-                .await?;
-            if block.metadata.columns != self.schema.fields().len() as u64
+            let owner = response_owner(&self.runtime, "canonical:result-block")?;
+            let block = pse_operations::canonical::response_ownership_scope(
+                owner.clone(),
+                self.runtime
+                    .canonical_store()
+                    .result_block(&self.read, metadata),
+            )
+            .await?;
+            if block.metadata.columns != self.schema.schema().fields().len() as u64
                 || self.output.is_none()
                     && self.last_end.is_some_and(|end| block.metadata.start < end)
             {
@@ -324,11 +360,21 @@ impl CanonicalResultReader {
             self.last_end = Some(block.metadata.end);
             let rows = usize::try_from(block.metadata.rows)
                 .map_err(|_| contract("result row extent exceeds platform"))?;
-            let batch = result_blocks::decode_result_block(
-                block.batch.payload.as_slice(),
-                self.schema.clone(),
-                rows,
-            )?;
+            // The verified store payload already owns its native Vec. Transfer
+            // it before decode; both zero-copy arrays and realigned allocations
+            // are accounted under one producer scope, without charging aliases.
+            let backing = Buffer::from_vec(block.batch.payload.into_vec());
+            let capacity = backing.capacity();
+            if capacity > owner.size() {
+                return Err(contract(
+                    "result transport exceeds admitted backing capacity",
+                ));
+            }
+            let scope = AllocationScope::default();
+            let backing = scope
+                .attach_buffer(backing, owner.split(capacity))
+                .map_err(pse_engine::EngineError::from)?;
+            let batch = result_blocks::decode_owned_result_block(backing, &self.schema, rows)?;
             let lower = self.start.max(block.metadata.start);
             let upper = self.end.min(block.metadata.end);
             if lower >= upper {
@@ -343,18 +389,17 @@ impl CanonicalResultReader {
             } else {
                 batch.slice(offset, length)
             };
-            let scope = AllocationScope::default();
             let owned = scope
-                .attach_reserved(batch, owner)
+                .attach_borrowed_reserved(batch, owner.as_ref())
                 .map_err(pse_engine::EngineError::from)?;
             let spec = self
                 .runtime
-                .registry
+                .registry()
                 .relation_by_id(self.relation)
                 .ok_or_else(|| contract("result relation unavailable"))?;
-            let validation = self.runtime.validation_context()?;
+            let validation = self.runtime.validation_context();
             let checked = pse_relations::columnar::FieldCheckedBatch::admit_owned(
-                &self.runtime.registry,
+                self.runtime.registry(),
                 spec,
                 owned,
                 &validation,
@@ -367,60 +412,82 @@ impl CanonicalResultReader {
                     .remove(&block.batch.key)
                     .ok_or_else(|| contract("selected output block lacks index"))?;
                 let indices = match indexes {
-                    OutputRows::Scalar(cells) => {
-                        for cell in &cells {
-                            if cell.output != filter.output || cell.partition != filter.partition {
+                    OutputRows::Scalar(locators) => {
+                        for locator in &locators {
+                            if locator.output != filter.output
+                                || locator.partition != filter.partition
+                            {
                                 return Err(contract(
                                     "selected scalar index differs from requested output",
                                 ));
                             }
-                            let index = cell
-                                .row
-                                .checked_sub(block.metadata.start)
-                                .and_then(|row| usize::try_from(row).ok())
-                                .ok_or_else(|| {
-                                    contract("selected scalar row outside original block")
-                                })?;
-                            let field =
-                                filter.output.rsplit(':').next().ok_or_else(|| {
-                                    contract("scientific scalar output field absent")
-                                })?;
-                            let expected = super::result_projection::selected_scalar_cell(
+                            super::result_projection::verify_scalar_row(
                                 &checked,
+                                locator,
+                                &self.read.attempt().key,
                                 &self.set,
                                 &block.batch.key,
-                                index,
                                 block.metadata.start,
-                                field,
                             )?;
-                            if expected != *cell {
-                                return Err(contract(
-                                    "native scalar index differs from original scientific row",
-                                ));
-                            }
                         }
-                        cells
+                        let mask = super::result_projection::scalar_predicate(
+                            &checked,
+                            &filter.field,
+                            filter.minimum,
+                            filter.maximum,
+                            filter.missing,
+                        )?;
+                        locators
                             .into_iter()
-                            .map(|cell| {
-                                u32::try_from(cell.row - block.metadata.start)
+                            .filter(|locator| {
+                                use datafusion::arrow::array::Array;
+                                let offset = locator.offset as usize;
+                                mask.is_valid(offset) && mask.value(offset)
+                            })
+                            .map(|locator| {
+                                u32::try_from(locator.row - block.metadata.start)
                                     .map_err(|_| contract("selected row exceeds Arrow take extent"))
                             })
                             .collect::<Result<Vec<_>, _>>()?
                     }
                     OutputRows::Dense(output) => {
                         let view=pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked).map_err(super::relation)?;
+                        let first = output
+                            .start
+                            .checked_sub(block.metadata.start)
+                            .and_then(|n| usize::try_from(n).ok())
+                            .ok_or_else(|| {
+                                contract("dense output starts outside original block")
+                            })?;
+                        let last = output
+                            .end
+                            .checked_sub(block.metadata.start)
+                            .and_then(|n| usize::try_from(n).ok())
+                            .filter(|last| first < *last && *last <= view.len())
+                            .ok_or_else(|| contract("dense output ends outside original block"))?;
+                        for neighbor in [first.checked_sub(1), (last < view.len()).then_some(last)]
+                            .into_iter()
+                            .flatten()
+                        {
+                            let value = view.row(neighbor).map_err(super::relation)?;
+                            if format!("{}:{}:value", self.relation, value.symbol_id)
+                                == filter.output
+                            {
+                                return Err(contract(
+                                    "dense output omitted original adjacent rows",
+                                ));
+                            }
+                        }
                         let mut indices = Vec::new();
                         let mut min = f64::INFINITY;
                         let mut max = f64::NEG_INFINITY;
-                        for row in 0..view.len() {
+                        for row in first..last {
                             let value = view.row(row).map_err(super::relation)?;
                             if format!("{}:{}:value", self.relation, value.symbol_id)
                                 != filter.output
-                                || output.start != block.metadata.start
-                                || output.end != block.metadata.end
                             {
                                 return Err(contract(
-                                    "dense output group differs from original scientific rows",
+                                    "dense output range differs from original scientific rows",
                                 ));
                             }
                             min = min.min(value.time);
@@ -458,7 +525,16 @@ impl CanonicalResultReader {
             } else {
                 checked
             };
-            self.last_receipt = Some((block.batch.key.clone(), lower));
+            // The receipt outlives this block response and its page grant.
+            // Transfer the actual String after admitting its true capacity;
+            // release the preceding receipt's charge only after it is dropped.
+            self._selection_owner
+                .try_grow(block.batch.key.capacity())
+                .map_err(pse_engine::EngineError::from)?;
+            let previous = self.last_receipt.replace((block.batch.key, lower));
+            let released = previous.as_ref().map_or(0, |(key, _)| key.capacity());
+            drop(previous);
+            self._selection_owner.shrink(released);
             return Ok(Some(checked));
         }
     }
@@ -470,17 +546,15 @@ impl Runtime {
         run: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_runs as rows;
-        let extent = MemoryConsumer::new("canonical:result-header").register(&self.shared.pool());
-        extent
-            .try_grow(READ_BYTES)
-            .map_err(pse_engine::EngineError::from)?;
-        let row = self
-            .canonical_store()
-            .canonical_run(run)
-            .await?
-            .ok_or_else(|| contract("canonical run absent"))?;
-        let validation = self.validation_context()?;
-        let mut builder = rows::Builder::with_registry(&self.registry, 1, &validation)
+        let extent = response_owner(self, "canonical:result-header")?;
+        let row = pse_operations::canonical::response_ownership_scope(
+            extent.clone(),
+            self.canonical_store().canonical_run(run),
+        )
+        .await?
+        .ok_or_else(|| contract("canonical run absent"))?;
+        let validation = self.validation_context();
+        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
             .map_err(super::relation)?;
         builder.push(row).map_err(super::relation)?;
         builder
@@ -495,17 +569,15 @@ impl Runtime {
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_attempts as rows;
-        let extent = MemoryConsumer::new("canonical:result-header").register(&self.shared.pool());
-        extent
-            .try_grow(READ_BYTES)
-            .map_err(pse_engine::EngineError::from)?;
-        let row = self
-            .canonical_store()
-            .canonical_attempt(attempt)
-            .await?
-            .ok_or_else(|| contract("canonical attempt absent"))?;
-        let validation = self.validation_context()?;
-        let mut builder = rows::Builder::with_registry(&self.registry, 1, &validation)
+        let extent = response_owner(self, "canonical:result-header")?;
+        let row = pse_operations::canonical::response_ownership_scope(
+            extent.clone(),
+            self.canonical_store().canonical_attempt(attempt),
+        )
+        .await?
+        .ok_or_else(|| contract("canonical attempt absent"))?;
+        let validation = self.validation_context();
+        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
             .map_err(super::relation)?;
         builder.push(row).map_err(super::relation)?;
         builder
@@ -520,20 +592,21 @@ impl Runtime {
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         use pse_relations::generated::runtime::canonical_result_manifests as rows;
-        let extent = MemoryConsumer::new("canonical:result-header").register(&self.shared.pool());
-        extent
-            .try_grow(READ_BYTES)
-            .map_err(pse_engine::EngineError::from)?;
+        let extent = response_owner(self, "canonical:result-header")?;
         let store = self.canonical_store();
-        let selected = store
-            .canonical_attempt(attempt)
-            .await?
-            .ok_or_else(|| contract("canonical attempt absent"))?;
-        let read = store
-            .read_results(&selected.run, attempt, READ_LIFETIME)
-            .await?;
-        let validation = self.validation_context()?;
-        let mut builder = rows::Builder::with_registry(&self.registry, 1, &validation)
+        let read = pse_operations::canonical::response_ownership_scope(extent.clone(), async {
+            let selected = store
+                .canonical_attempt(attempt)
+                .await?
+                .ok_or_else(|| contract("canonical attempt absent"))?;
+            store
+                .read_results(&selected.run, attempt, READ_LIFETIME)
+                .await
+                .map_err(WorkflowError::from)
+        })
+        .await?;
+        let validation = self.validation_context();
+        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
             .map_err(super::relation)?;
         builder
             .push(read.manifest().clone())
@@ -555,11 +628,14 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let read = self
-            .canonical_store()
-            .latest_results(problem, classes, READ_LIFETIME)
-            .await?;
-        self.result_selection(read, relation, start, end, cancel)
+        let extent = response_owner(self, "canonical:result-selection")?;
+        let read = pse_operations::canonical::response_ownership_scope(
+            extent.clone(),
+            self.canonical_store()
+                .latest_results(problem, classes, READ_LIFETIME),
+        )
+        .await?;
+        self.result_selection(read, relation, start, end, cancel, &extent)
     }
     /// Reopen one exact terminal run/attempt and registry relation after restart.
     /// `start..end` are half-open recorded row coordinates; partial/failure
@@ -577,11 +653,14 @@ impl Runtime {
         if start > end {
             return Err(contract("result row range is reversed"));
         }
-        let read = self
-            .canonical_store()
-            .read_results(run, attempt, READ_LIFETIME)
-            .await?;
-        self.result_selection(read, relation, start, end, cancel)
+        let extent = response_owner(self, "canonical:result-selection")?;
+        let read = pse_operations::canonical::response_ownership_scope(
+            extent.clone(),
+            self.canonical_store()
+                .read_results(run, attempt, READ_LIFETIME),
+        )
+        .await?;
+        self.result_selection(read, relation, start, end, cancel, &extent)
     }
     fn result_selection(
         &self,
@@ -590,16 +669,17 @@ impl Runtime {
         start: u64,
         end: u64,
         cancel: CancellationToken,
+        extent: &MemoryReservation,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         if start > end {
             return Err(contract("result row range is reversed"));
         }
         let spec = self
-            .registry
+            .registry()
             .relation(relation)
             .ok_or_else(|| contract("unknown result relation"))?;
         let name = spec.id.to_string();
-        let schema = pse_schema::arrow::relation_schema_ref(&self.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.registry(), spec)
             .map_err(|error| pse_engine::EngineError::Semantic(Arc::new(error)))?;
         let set = read
             .sets()
@@ -608,12 +688,23 @@ impl Runtime {
             .ok_or_else(|| contract("relation is not part of selected attempt"))?
             .key
             .clone();
+        // The schema is borrowed from the registry's charged immutable arena.
+        let retained = read
+            .retained_bytes()?
+            .checked_add(set.capacity())
+            .ok_or_else(|| contract("result selection allocation extent"))?;
+        if retained > extent.size() {
+            return Err(contract(
+                "result selection metadata exceeds its admitted response extent",
+            ));
+        }
+        let selection_owner = extent.split(retained);
         Ok(CanonicalResultReader {
             runtime: self.clone(),
             read,
             relation: spec.id,
             set,
-            schema,
+            schema: result_blocks::PreparedIpcSchema::result(schema)?,
             start,
             end,
             after: None,
@@ -626,6 +717,7 @@ impl Runtime {
             output: None,
             indexes: BTreeMap::new(),
             last_receipt: None,
+            _selection_owner: selection_owner,
         })
     }
     /// Select one explicitly declared scientific output. Scalar numeric bounds
@@ -668,14 +760,56 @@ impl Runtime {
                 "finite dense outputs have no missing-value predicate",
             ));
         }
-        reader.output = Some(OutputFilter {
-            output: format!("{}:{owner}:{field}", reader.relation),
+        // Two exact 128-bit hexadecimal identities plus separators; reserve
+        // owned strings and temporary formatting before materializing them.
+        let output_length = 65usize
+            .checked_add(if dense {
+                1usize
+                    .checked_add(field.len())
+                    .ok_or_else(|| contract("output identity extent"))?
+            } else {
+                0
+            })
+            .ok_or_else(|| contract("output identity extent"))?;
+        let admitted = output_length
+            .checked_add(field.len())
+            .and_then(|bytes| bytes.checked_add(partition.len()))
+            .and_then(|bytes| bytes.checked_add(128))
+            .ok_or_else(|| contract("output selection allocation extent"))?;
+        reader
+            ._selection_owner
+            .try_grow(admitted)
+            .map_err(pse_engine::EngineError::from)?;
+        let mut output = String::with_capacity(output_length);
+        use std::fmt::Write as _;
+        write!(output, "{}:{owner}", reader.relation)
+            .map_err(|_| contract("output identity formatting"))?;
+        if dense {
+            output.push(':');
+            output.push_str(field);
+        }
+        let filter = OutputFilter {
+            output,
+            field: field.into(),
             partition: partition.into(),
             dense,
             minimum,
             maximum,
             missing,
-        });
+        };
+        let retained = filter
+            .output
+            .capacity()
+            .checked_add(filter.field.capacity())
+            .and_then(|bytes| bytes.checked_add(filter.partition.capacity()))
+            .ok_or_else(|| contract("output selection allocation extent"))?;
+        if retained > admitted {
+            return Err(contract(
+                "output selection exceeds admitted string capacity",
+            ));
+        }
+        reader._selection_owner.shrink(admitted - retained);
+        reader.output = Some(filter);
         Ok(reader)
     }
 }
@@ -686,12 +820,166 @@ mod canonical_connected_results_server_unit {
         unsafe_code,
         reason = "isolated generated finite-field fixtures explicitly assert a partial terminal class"
     )]
+    use super::super::durable::PublicationAcks;
     use super::*;
     use datafusion::arrow::array::{Array, Float64Array};
     use pse_operations::canonical_execution::{
         RunRequest, TerminalClass, result_batch_key, result_payload_digest, result_set_key,
     };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
+    #[tokio::test]
+    async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
+        use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
+        let runtime = super::super::tests::runtime();
+        let store = runtime.canonical_store().clone();
+        let pool = runtime.shared.pool();
+        let source = store
+            .edit("empty-demand", None, "source", &[])
+            .await
+            .unwrap();
+        store
+            .begin_run(&RunRequest {
+                key: "empty-demand".into(),
+                revision: source,
+                sources: vec![],
+                request: vec![1],
+                source_selection: vec![2],
+                attestation: vec![3],
+            })
+            .await
+            .unwrap();
+        let fence = store
+            .claim_run("empty-demand", "claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let validation = runtime.validation_context();
+        let empty = solve_metrics::Builder::with_registry(runtime.registry(), 0, &validation)
+            .unwrap()
+            .finish()
+            .unwrap();
+        let schema = empty.batch().schema();
+        let acknowledgments = PublicationAcks::new(&pool);
+        super::super::result_projection::store_result_table(
+            &store,
+            &fence,
+            solve_metrics::RELATION_ID,
+            crate::workflow::ResultCursor::from_checked(empty),
+            &pool,
+            &acknowledgments,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            pse_operations::testing::pending_result_batch_rows(
+                &store,
+                &fence,
+                &solve_metrics::RELATION_ID.to_string(),
+                0
+            )
+            .await
+            .unwrap(),
+            None
+        );
+        let original = StoredCompletion {
+            version: 2,
+            attempt_id: pse_operations::mint_id(),
+            completion: None,
+            termination: TerminationDetail {
+                version: pse_model::document::Version,
+                cause: TerminationCause::Assessment {
+                    usable: false,
+                    candidate_use: vec![],
+                    diagnostics: vec![],
+                },
+                point: None,
+                retry_failure: Some(pse_model::study::RetryFailure::Deterministic),
+                effect: pse_model::study::EffectState::Absent,
+            },
+            state: pse_model::generated::enums::AttemptState::Partial,
+            progress: super::super::ProgressCoverage::Unknown,
+        };
+        let bytes = serde_json::to_vec(&original).unwrap();
+        acknowledgments
+            .append(
+                &fence,
+                store
+                    .append_result_batch(
+                        &fence,
+                        "completion",
+                        "__completion",
+                        0,
+                        pse_operations::canonical_execution::ResultPayload::new((&bytes).to_vec())
+                            .unwrap(),
+                        bytes.len() as u64,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+        acknowledgments.complete(&fence, "__completion").unwrap();
+        let receipt=serde_json::to_vec(&serde_json::json!({"version":1,"batch_count":1,"payload_bytes":bytes.len(),"digest":result_payload_digest(&bytes),"inline":null})).unwrap();
+        let manifest = store
+            .close_acknowledged(&fence, "close", acknowledgments.freeze(&fence).unwrap())
+            .await
+            .unwrap();
+        // SAFETY: the fixture owns a completed zero-row relation and asserts partial availability only.
+        unsafe {
+            store
+                .seal_acknowledged(
+                    &manifest,
+                    "seal",
+                    TerminalClass::Partial,
+                    &receipt,
+                    pse_operations::canonical_execution::SeedEligibility::Unavailable,
+                )
+                .await
+                .unwrap();
+        }
+        let before_selection = pool.reserved();
+        let mut selected = runtime
+            .results(
+                fence.run(),
+                fence.attempt(),
+                "runtime.solve_metrics",
+                0,
+                0,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let retained = selected.selection().retained_bytes().unwrap() + selected.set.capacity();
+        assert_eq!(selected._selection_owner.size(), retained);
+        assert!(
+            retained < READ_BYTES / 16,
+            "idle reader retains actual metadata, not the RPC envelope"
+        );
+        assert_eq!(pool.reserved() - before_selection, retained);
+        assert_eq!(selected.schema().fields(), schema.fields());
+        let demanded = selected
+            .selection()
+            .sets()
+            .iter()
+            .find(|set| set.name == solve_metrics::RELATION_ID.to_string())
+            .unwrap();
+        assert_eq!((demanded.batch_count, demanded.row_count), (0, 0));
+        assert!(selected.next_batch().await.unwrap().is_none());
+        assert!(selected.next_batch().await.unwrap().is_none());
+        drop(selected);
+        assert_eq!(pool.reserved(), before_selection);
+        assert!(
+            runtime
+                .results(
+                    fence.run(),
+                    fence.attempt(),
+                    "runtime.solve_variables",
+                    0,
+                    0,
+                    CancellationToken::new()
+                )
+                .await
+                .is_err()
+        );
+    }
     #[tokio::test]
     async fn canonical_decoded_arrow_survives_reader_drop_and_result_reclamation() {
         let runtime = super::super::tests::runtime();
@@ -741,9 +1029,9 @@ mod canonical_connected_results_server_unit {
                 },
             })
             .collect::<Vec<_>>();
-        let validation = runtime.validation_context().unwrap();
+        let validation = runtime.validation_context();
         let mut builder =
-            solve_metrics::Builder::with_registry(&runtime.registry, expected.len(), &validation)
+            solve_metrics::Builder::with_registry(runtime.registry(), expected.len(), &validation)
                 .unwrap();
         for row in &expected {
             builder.push(row.clone()).unwrap();
@@ -755,6 +1043,7 @@ mod canonical_connected_results_server_unit {
             solve_metrics::RELATION_ID,
             crate::workflow::ResultCursor::from_checked(original.clone()),
             &pool,
+            &PublicationAcks::new(&pool),
         )
         .await
         .unwrap();
@@ -762,9 +1051,17 @@ mod canonical_connected_results_server_unit {
         let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: independently authored observations assert partial availability only.
-        unsafe { store.seal_attempt(&manifest, "seal", TerminalClass::Partial, &[1]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal",
+                TerminalClass::Partial,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         let baseline = pool.reserved();
         let mut reader = runtime
             .results(
@@ -780,7 +1077,7 @@ mod canonical_connected_results_server_unit {
         let batch = reader.next_batch().await.unwrap().unwrap();
         {
             let view = solve_metrics::View::try_from_batch_with_registry(
-                &runtime.registry,
+                runtime.registry(),
                 &batch,
                 &validation,
             )
@@ -865,24 +1162,33 @@ mod canonical_connected_results_server_unit {
             .claim_run("projection", "claim", "worker", Duration::from_secs(60))
             .await
             .unwrap();
-        let validation = runtime.validation_context().unwrap();
+        let validation = runtime.validation_context();
         let first: pse_ids::SemanticId = pse_operations::mint_id();
         let second: pse_ids::SemanticId = pse_operations::mint_id();
         let absent: pse_ids::SemanticId = pse_operations::mint_id();
+        let paged: pse_ids::SemanticId = pse_operations::mint_id();
         let unit: pse_ids::SemanticId = pse_operations::mint_id();
         let run_id = pse_operations::mint_id();
         let mut parameters =
-            fit_parameters::Builder::with_registry(&runtime.registry, 800, &validation).unwrap();
+            fit_parameters::Builder::with_registry(runtime.registry(), 800, &validation).unwrap();
         for index in 0..800 {
             parameters
                 .push(fit_parameters::Row {
-                    run_id,
+                    // Distinct full keys deliberately exercise metadata paging
+                    // for one derived owner selector in this storage fixture.
+                    run_id: if index >= 100 {
+                        pse_operations::mint_id()
+                    } else {
+                        run_id
+                    },
                     parameter_id: if index == 0 {
                         first
                     } else if index == 41 {
                         second
                     } else if index == 42 {
                         absent
+                    } else if index >= 100 {
+                        paged
                     } else {
                         pse_operations::mint_id()
                     },
@@ -907,11 +1213,12 @@ mod canonical_connected_results_server_unit {
             fit_parameters::RELATION_ID,
             crate::workflow::ResultCursor::from_checked(parameters.clone()),
             &runtime.shared.pool(),
+            &PublicationAcks::new(&runtime.shared.pool()),
         )
         .await
         .unwrap();
         let mut samples =
-            simulation_samples::Builder::with_registry(&runtime.registry, 200, &validation)
+            simulation_samples::Builder::with_registry(runtime.registry(), 200, &validation)
                 .unwrap();
         let mut outputs = [first, second];
         outputs.sort_unstable();
@@ -937,15 +1244,24 @@ mod canonical_connected_results_server_unit {
             simulation_samples::RELATION_ID,
             crate::workflow::ResultCursor::from_checked(samples.clone()),
             &runtime.shared.pool(),
+            &PublicationAcks::new(&runtime.shared.pool()),
         )
         .await
         .unwrap();
         let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: fixture observations deliberately assert partial availability, not usable success.
-        unsafe { store.seal_attempt(&manifest, "seal", TerminalClass::Partial, &[1]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal",
+                TerminalClass::Partial,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         let read = store
             .read_results("projection", fence.attempt(), Duration::from_secs(60))
             .await
@@ -955,7 +1271,7 @@ mod canonical_connected_results_server_unit {
             .result_output_page(
                 &read,
                 &set,
-                &format!("{}:{absent}:value", fit_parameters::RELATION_ID),
+                &format!("{}:{absent}", fit_parameters::RELATION_ID),
                 "0",
                 0,
                 u64::MAX,
@@ -963,11 +1279,11 @@ mod canonical_connected_results_server_unit {
                 false,
                 None,
                 None,
-                Some(true),
+                None,
             )
             .await
             .unwrap();
-        assert_eq!(page.cells.len(), 1);
+        assert_eq!(page.rows.len(), 1);
         assert_eq!(page.blocks.len(), 1);
         assert!(
             read.sets()
@@ -1027,6 +1343,75 @@ mod canonical_connected_results_server_unit {
                 .to_bits(),
             (-0.0f64).to_bits()
         );
+        let mut late = runtime
+            .output_results(
+                "projection",
+                fence.attempt(),
+                "runtime.fit_parameters",
+                paged,
+                "value",
+                "0",
+                0,
+                u64::MAX,
+                Some(798.0),
+                None,
+                None,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let mut selected_values = Vec::new();
+        while let Some(batch) = late.next_batch().await.unwrap() {
+            let values = batch
+                .column_by_name("value")
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .unwrap();
+            selected_values.extend(values.values().iter().copied());
+        }
+        assert_eq!(
+            selected_values,
+            vec![798.0, 799.0],
+            "cursor advances across metadata pages whose decoded predicate selects no rows"
+        );
+        let mut none = runtime
+            .output_results(
+                "projection",
+                fence.attempt(),
+                "runtime.fit_parameters",
+                paged,
+                "value",
+                "0",
+                0,
+                u64::MAX,
+                Some(900.0),
+                None,
+                None,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(none.next_batch().await.unwrap().is_none());
+        assert!(
+            runtime
+                .output_results(
+                    "projection",
+                    fence.attempt(),
+                    "runtime.fit_parameters",
+                    paged,
+                    "fixed",
+                    "0",
+                    0,
+                    u64::MAX,
+                    None,
+                    None,
+                    None,
+                    CancellationToken::new(),
+                )
+                .await
+                .is_err()
+        );
         let trajectory_set = result_set_key(
             fence.attempt(),
             &simulation_samples::RELATION_ID.to_string(),
@@ -1055,7 +1440,8 @@ mod canonical_connected_results_server_unit {
                 .find(|descriptor| descriptor.key == trajectory_set)
                 .unwrap()
                 .batch_count,
-            2
+            1,
+            "two exact symbol ranges share one original IPC payload"
         );
         let mut trajectory = runtime
             .output_results(
@@ -1077,7 +1463,7 @@ mod canonical_connected_results_server_unit {
         let batch = trajectory.next_batch().await.unwrap().unwrap();
         assert_eq!(batch.num_rows(), 3);
         let view = simulation_samples::View::try_from_batch_with_registry(
-            &runtime.registry,
+            runtime.registry(),
             &batch,
             &validation,
         )
@@ -1093,6 +1479,8 @@ mod canonical_connected_results_server_unit {
         drop(trajectory);
         drop(zero);
         drop(missing);
+        drop(late);
+        drop(none);
         drop(read);
     }
     #[tokio::test]
@@ -1115,9 +1503,9 @@ mod canonical_connected_results_server_unit {
             .claim_run("run", "claim", "worker", Duration::from_secs(60))
             .await
             .unwrap();
-        let validation = runtime.validation_context().unwrap();
+        let validation = runtime.validation_context();
         let mut builder =
-            solve_metrics::Builder::with_registry(&runtime.registry, 4, &validation).unwrap();
+            solve_metrics::Builder::with_registry(runtime.registry(), 4, &validation).unwrap();
         for (step, value) in [Some(1.0), Some(-0.0), None, Some(4.0)]
             .into_iter()
             .enumerate()
@@ -1168,7 +1556,15 @@ mod canonical_connected_results_server_unit {
             interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
         };
         store
-            .append_result_block(&fence, "write", &name, 0, &payload, 4, &metadata)
+            .append_result_block(
+                &fence,
+                "write",
+                &name,
+                0,
+                pse_operations::canonical_execution::ResultPayload::new(payload.clone()).unwrap(),
+                4,
+                &metadata,
+            )
             .await
             .unwrap();
         let progress = super::super::ProgressEventDocument {
@@ -1186,15 +1582,52 @@ mod canonical_connected_results_server_unit {
         };
         let progress_payload = serde_json::to_vec(&vec![progress]).unwrap();
         store
-            .append_result_batch(&fence, "progress", "__progress", 0, &progress_payload, 1)
+            .append_result_batch(
+                &fence,
+                "progress",
+                "__progress",
+                0,
+                pse_operations::canonical_execution::ResultPayload::new(
+                    (&progress_payload).to_vec(),
+                )
+                .unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        let completion = super::super::durable::StoredCompletion {
+            version: 1,
+            attempt_id: pse_operations::mint_id(),
+            completion: None,
+            termination: super::super::durable::TerminationDetail {
+                version: pse_model::document::Version,
+                cause: super::super::durable::TerminationCause::Assessment {
+                    usable: false,
+                    candidate_use: vec![],
+                    diagnostics: vec![],
+                },
+                point: None,
+                retry_failure: Some(pse_model::study::RetryFailure::Deterministic),
+                effect: pse_model::study::EffectState::Absent,
+            },
+            state: pse_model::generated::enums::AttemptState::Failed,
+            progress: super::super::ProgressCoverage::Unknown,
+        };
+        let completion = serde_json::to_vec(&serde_json::json!({ "version": 1, "batch_count": 0, "payload_bytes": 0, "digest": "", "inline": completion })).unwrap();
         // SAFETY: finite generated rows are explicitly classified as a partial fixture, not usable success.
-        unsafe { store.seal_attempt(&manifest, "seal", TerminalClass::Partial, &[1]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal",
+                TerminalClass::Partial,
+                &completion,
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         assert_eq!(
             runtime.run_record("run").await.unwrap().batch().num_rows(),
             1
@@ -1395,7 +1828,7 @@ mod canonical_connected_results_server_unit {
                     &format!("malformed-write-{ordinal}"),
                     &name,
                     ordinal,
-                    &bytes,
+                    pse_operations::canonical_execution::ResultPayload::new(bytes).unwrap(),
                     end - start,
                     &block,
                 )
@@ -1408,9 +1841,17 @@ mod canonical_connected_results_server_unit {
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: deliberately corrupt transport evidence is explicitly partial.
-        unsafe { store.seal_attempt(&manifest, "malformed-seal", TerminalClass::Partial, &[1]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "malformed-seal",
+                TerminalClass::Partial,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         let mut late = runtime
             .results(
                 "malformed",

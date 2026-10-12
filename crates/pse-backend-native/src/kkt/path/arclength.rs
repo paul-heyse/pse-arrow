@@ -316,6 +316,7 @@ pub fn tangent<O: ParameterizedOracle<Error = ProblemError>>(
     execution: &Execution,
     workspace: &mut TangentWorkspace,
 ) -> Result<Tangent, Failure> {
+    let _original = crate::execution::original_scope(execution);
     let mut work = Work::default();
     let result = quality::contained(|| {
         let matrix = assemble(&request, oracle, execution, &mut work)?;
@@ -698,6 +699,7 @@ pub fn probe<O: ParameterizedOracle<Error = ProblemError>>(
     policy: ProbePolicy,
     execution: &Execution,
 ) -> Result<Event, Failure> {
+    let _original = crate::execution::original_scope(execution);
     let ProbePolicy {
         localization,
         rank_threshold,

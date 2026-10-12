@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exact admitted canonical progress history, read one immutable payload at a time.
-use super::{ProgressEventDocument, Runtime, WorkflowError};
+use super::{ProgressCoverage, ProgressEventDocument, Runtime, WorkflowError};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::canonical_results::ResultRead;
 use std::time::Duration;
@@ -17,6 +17,7 @@ pub struct ProgressStream {
     read: Option<ResultRead>,
     run: String,
     attempt: String,
+    coverage: ProgressCoverage,
     set: Option<String>,
     batches: u64,
     ordinal: u64,
@@ -36,6 +37,13 @@ impl Runtime {
             .canonical_store()
             .read_results(run, attempt, LIFETIME)
             .await?;
+        let operations = super::Operations::from_store(
+            self.canonical_store().clone(),
+            "progress-reader",
+            super::LeasePolicy::default(),
+            self.shared.pool(),
+        );
+        let coverage = operations.progress_coverage(&read).await?;
         let descriptor = read.sets().iter().find(|set| set.name == "__progress");
         let (set, batches) =
             descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
@@ -44,6 +52,7 @@ impl Runtime {
             read: Some(read),
             run: run.into(),
             attempt: attempt.into(),
+            coverage,
             set,
             batches,
             ordinal: 0,
@@ -53,6 +62,11 @@ impl Runtime {
     }
 }
 impl ProgressStream {
+    /// Original terminal telemetry coverage copied under this exact read permission.
+    /// This copied fact remains inspectable after close and grants no further reads.
+    pub fn coverage(&self) -> &ProgressCoverage {
+        &self.coverage
+    }
     /// Exact opaque producing run key.
     pub fn run(&self) -> &str {
         &self.run

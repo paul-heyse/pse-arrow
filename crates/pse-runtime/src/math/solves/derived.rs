@@ -256,12 +256,20 @@ impl PreparedRung {
             Self::Petsc(p) => p.threads(),
         }
     }
+    /// Every adapter whose state can coexist inside this operation.
+    pub(crate) fn backends(&self) -> Vec<Backend> {
+        #[cfg(feature = "solver-kinsol")]
+        if let Self::Causal(prepared) = self {
+            return prepared.backends().to_vec();
+        }
+        self.backend().into_iter().collect()
+    }
     pub(crate) fn declared_foreign_bytes(&self) -> usize {
         match self {
             #[cfg(feature = "solver-kinsol")]
             Self::Blocks(p) => p.original().declared_foreign_bytes(),
             #[cfg(feature = "solver-kinsol")]
-            Self::Causal(p) => p.original().declared_foreign_bytes(),
+            Self::Causal(p) => p.declared_foreign_bytes(),
             Self::Surrogate(_) => 0,
             Self::Multistart(p) => p.profile().controls.foreign_bytes.unwrap_or(0),
             Self::Original(p) => p.declared_foreign_bytes(),

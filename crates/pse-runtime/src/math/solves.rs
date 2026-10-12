@@ -180,9 +180,18 @@ struct SensitivityProgram {
     /// Keep the pinned factor in the worker's retained state for an advanced step (Plan 22
     /// Y5c2), charged to the job's allowance; set by [`PreparedSolve::retaining_factor`].
     retain: bool,
-    /// Immutable original dependencies for a requested fresh Root predictor. Its actual
+    /// Immutable original dependencies for fresh Root response products. Their actual
     /// point is filled only by the postsolve fresh derivative producer.
     root_source: Option<pse_model::strategy::SemanticProductKey>,
+}
+struct FreshRootPartials {
+    square: native::square_response::SquareScope,
+    state: faer::sparse::SparseColMat<usize, f64>,
+    parameters: faer::sparse::SparseColMat<usize, f64>,
+    key: pse_model::strategy::SemanticProductKey,
+    bytes: usize,
+    owner: Arc<dyn pse_math::AllocationOwner>,
+    execution: Execution,
 }
 impl SensitivityProgram {
     /// The request for the backend: callbacks over `worker`, or the reason none could be
@@ -232,7 +241,7 @@ pub struct PreparedSolve {
     representation: Representation,
     profile: SolverProfile,
     requested_hessian: HessianMode,
-    numerics: Arc<ResolvedNumericalPolicy>,
+    numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     normalization: Normalization,
     tolerances: Tolerances,
     /// Stopping budgets resolved from `numerics`; never taken from user controls (F20).
@@ -245,9 +254,7 @@ pub struct PreparedSolve {
     compatibility: Option<Compatibility>,
     // Cloning a preparation shares the immutable seed; a native owning boundary
     // makes its admitted working copy only after its result/worker grant exists.
-    explicit_start: Option<Arc<WarmStart>>,
-    /// A converted or decoded seed retains its grant even in a bare solve clone.
-    _explicit_start_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
+    explicit_start: Option<Arc<pse_columnar::Leased<WarmStart>>>,
     /// Actual original-screened proposal, retaining its producer and entry permissions.
     proposal_start: Option<super::prediction::Screened>,
     /// Already available source-bound mathematical products eligible for automatic use.
@@ -1198,6 +1205,42 @@ impl PreparedSolve {
     pub(crate) fn task_scope(&self) -> Option<pse_kernels::ExecutionScope> {
         self.task_scope.clone()
     }
+    /// Private readonly source for the original prediction selector. The caller
+    /// precharges its copy before entering here. No task, start permission, pending
+    /// factor or prepared recovery work may survive merely to identify a source.
+    /// Preserve the full historical profile and stamped semantic identities: this
+    /// source is never dispatched, even when its historical policy says Explicit.
+    pub(crate) fn prediction_source_copy(&self) -> Self {
+        Self {
+            representation: self.representation.clone(),
+            profile: self.profile.clone(),
+            requested_hessian: self.requested_hessian,
+            numerics: self.numerics.clone(),
+            normalization: self.normalization.clone(),
+            tolerances: self.tolerances.clone(),
+            accuracy: self.accuracy.clone(),
+            work_precision: self.work_precision,
+            route: self.route,
+            snapshot: self.snapshot.clone(),
+            compatibility: self.compatibility.clone(),
+            explicit_start: None,
+            proposal_start: None,
+            automatic_products: Vec::new(),
+            automatic_owner: None,
+            composition: None,
+            route_decision: self.route_decision.clone(),
+            task_scope: None,
+            task_admission: None,
+            point_accuracy: None,
+            selected_outputs: self.selected_outputs.clone(),
+            #[cfg(feature = "solver-kinsol")]
+            causal_supplier: None,
+            pool: self.pool.clone(),
+            pressure: self.pressure.clone(),
+            _owner: self._owner.clone(),
+        }
+    }
+
     pub(crate) fn source_start(
         &self,
         previous: Option<&Predecessor>,
@@ -1206,7 +1249,7 @@ impl PreparedSolve {
             return Ok(start.proposal().values().map(|(_, value)| value).collect());
         }
         let seed = match self.profile.controls.start {
-            StartPolicy::Explicit => self.explicit_start.as_deref(),
+            StartPolicy::Explicit => self.explicit_start.as_deref().map(|seed| &**seed),
             StartPolicy::PreviousAccepted => previous.map(|p| &p.seed),
             StartPolicy::NoPriorStart => None,
         };
@@ -1646,7 +1689,7 @@ impl PreparedSolve {
         })
     }
     #[cfg(all(test, feature = "solver-kinsol"))]
-    pub(crate) fn explicit_seed(&self) -> Option<&Arc<WarmStart>> {
+    pub(crate) fn explicit_seed(&self) -> Option<&Arc<pse_columnar::Leased<WarmStart>>> {
         self.explicit_start.as_ref()
     }
     /// All contextual alternatives, distinct from the linked adapter inventory.
@@ -1660,7 +1703,14 @@ impl PreparedSolve {
         self.route_decision.as_ref()
     }
     /// Attach a compatible explicitly selected seed without changing allocation policy.
-    pub fn with_start(mut self, seed: WarmStart) -> Result<Self, ProblemError> {
+    pub fn with_start(self, seed: WarmStart) -> Result<Self, ProblemError> {
+        self.with_start_owned(seed, Arc::new(()))
+    }
+    /// Share the immutable decoded payload and its grant until native admission.
+    pub(crate) fn with_start_shared(
+        mut self,
+        seed: Arc<pse_columnar::Leased<WarmStart>>,
+    ) -> Result<Self, ProblemError> {
         let target = self.compatibility.as_ref().ok_or_else(|| {
             ProblemError::Contract("constant evaluation cannot consume a seed".into())
         })?;
@@ -1677,8 +1727,7 @@ impl PreparedSolve {
         };
         seed.validate_shape(n, m)?;
         self.profile.controls.start = StartPolicy::Explicit;
-        self.explicit_start = Some(Arc::new(seed));
-        self._explicit_start_owner = None;
+        self.explicit_start = Some(seed);
         self.proposal_start = None;
         Ok(self)
     }
@@ -1689,9 +1738,7 @@ impl PreparedSolve {
         seed: WarmStart,
         owner: Arc<dyn pse_columnar::PayloadOwner>,
     ) -> Result<Self, ProblemError> {
-        let mut prepared = self.with_start(seed)?;
-        prepared._explicit_start_owner = Some(owner);
-        Ok(prepared)
+        self.with_start_shared(Arc::new(pse_columnar::Leased::new(Arc::new(seed), owner)))
     }
     /// Attach the availability of the profile's parametric sensitivity program:
     /// the case's plan with the requested parameters appended as coordinates
@@ -1711,6 +1758,25 @@ impl PreparedSolve {
             ProblemError::Contract("no sensitivity request to attach a program to".into())
         })?;
         request.admit(self.profile.intent)?;
+        let root_source = if self.profile.intent == SolveIntent::Root {
+            let Representation::Algebraic(case) = &self.representation else {
+                return Err(ProblemError::Contract(
+                    "Root response requires original algebraic coordinates".into(),
+                )
+                .into());
+            };
+            let point = case
+                .prepared
+                .compiled()
+                .plan
+                .columns()
+                .iter()
+                .map(|id| case.values.scalars[id])
+                .collect::<Vec<_>>();
+            Some(self.semantic_point_key(&point)?)
+        } else {
+            None
+        };
         let Representation::Algebraic(case) = &mut self.representation else {
             return Err(ProblemError::Contract(
                 "parametric sensitivities need an algebraic case".into(),
@@ -1792,7 +1858,7 @@ impl PreparedSolve {
             parameters,
             reduced_hessian: request.reduced_hessian,
             retain: false,
-            root_source: None,
+            root_source,
         }));
         Ok(self)
     }
@@ -1846,6 +1912,9 @@ impl PreparedSolve {
     /// Immutable physical requirements and their provenance.
     pub fn numerics(&self) -> &ResolvedNumericalPolicy {
         &self.numerics
+    }
+    pub(crate) fn shared_numerics(&self) -> pse_math::SharedAllocation<ResolvedNumericalPolicy> {
+        self.numerics.clone()
     }
     /// Frozen original-coordinate acceptance budgets.
     pub fn tolerances(&self) -> &Tolerances {
@@ -2490,13 +2559,13 @@ impl MathService {
             .plan
             .numerical_targets(&prepared.prepared.quantities)?;
         targets.extend(numerical.targets);
-        let numerics = Arc::new(pse_math::numerics::resolve(
-            &prepared.prepared.quantities,
-            &prepared.prepared.preconditions,
+        let numerics = self.policy_resolution_owner().resolve(
+            prepared.prepared.quantities.clone(),
+            prepared.prepared.preconditions.clone(),
             &targets,
             &numerical.declarations,
             &profile.numerics,
-        )?);
+        )?;
         self.prepare_resolved(
             prepared,
             values,
@@ -2526,7 +2595,7 @@ impl MathService {
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         mut profile: SolverProfile,
-        numerics: Arc<ResolvedNumericalPolicy>,
+        numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
         implicit: BTreeMap<pse_kernels::ProviderKey, pse_math::factorable::ImplicitDefinition>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         profile.controls.validate()?;
@@ -3114,7 +3183,6 @@ impl MathService {
             route,
             compatibility: stamp,
             explicit_start: None,
-            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3163,22 +3231,40 @@ impl MathService {
         executable: Arc<ExecutableCase>,
         values: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        mut profile: SolverProfile,
-        numerics: Arc<ResolvedNumericalPolicy>,
+        profile: SolverProfile,
+        numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
         route: Route,
         snapshot: execution::Snapshot,
         scope: &pse_kernels::ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedSolve, MathRuntimeError> {
-        let requested_hessian = profile.controls.hessian;
-        profile.resolve_curvature(prepared.prepared.plan.available_order());
-        profile.controls.validate()?;
         let Route::Native(selected) = route else {
             return Err(ProblemError::Contract(
                 "conditional block needs a selected native route".into(),
             )
             .into());
         };
+        let (prepared, executable) = self
+            .conditional_program(prepared, executable, &profile, selected, scope, driver)
+            .await?;
+        self.prepare_conditional_bound(
+            prepared, executable, values, providers, profile, numerics, route, snapshot,
+        )
+    }
+    /// Prepare the selected block's derivative/JVP ceiling once, before execution.
+    #[cfg(feature = "solver-kinsol")]
+    pub(super) async fn conditional_program(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        executable: Arc<ExecutableCase>,
+        profile: &SolverProfile,
+        selected: Backend,
+        scope: &pse_kernels::ExecutionScope,
+        driver: &crate::CancelSource,
+    ) -> Result<(Preparation, Arc<ExecutableCase>), MathRuntimeError> {
+        let mut profile = profile.clone();
+        profile.resolve_curvature(prepared.prepared.plan.available_order());
+        profile.controls.validate()?;
         let order = routing::derivative_demand(
             execution::adapter(selected).capability(),
             &profile.controls,
@@ -3213,6 +3299,24 @@ impl MathService {
         } else {
             executable
         };
+        Ok((prepared, executable))
+    }
+    /// Bind a block profile on its admitted owner; compiled programs are already ready.
+    #[cfg(feature = "solver-kinsol")]
+    pub(super) fn prepare_conditional_bound(
+        self: &Arc<Self>,
+        prepared: Preparation,
+        executable: Arc<ExecutableCase>,
+        values: CaseValues,
+        providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        mut profile: SolverProfile,
+        numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
+        route: Route,
+        snapshot: execution::Snapshot,
+    ) -> Result<PreparedSolve, MathRuntimeError> {
+        let requested_hessian = profile.controls.hessian;
+        profile.resolve_curvature(prepared.prepared.plan.available_order());
+        profile.controls.validate()?;
         let plan = &prepared.prepared.plan;
         plan.structure().validate_values(&values)?;
         if !prepared.prepared.presolve.matches(plan, &values) {
@@ -3323,7 +3427,6 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3346,7 +3449,7 @@ impl MathService {
         problem: Arc<native::ConicProblem>,
         certificate: Arc<dyn QuadraticEvidence>,
         mut profile: SolverProfile,
-        numerics: Arc<ResolvedNumericalPolicy>,
+        numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     ) -> Result<PreparedSolve, MathRuntimeError> {
         let requested_hessian = profile.controls.hessian;
         profile.resolve_curvature(problem.contract.derivatives);
@@ -3394,6 +3497,9 @@ impl MathService {
             &normalization.variables,
             normalization.objective,
         )?;
+        let derivation = self
+            .policy_resolution_owner()
+            .derivation(&numerics, problem.contract.rows.len())?;
         let mut resolved = numerics.as_ref().clone();
         for (id, scale) in problem.contract.rows.iter().zip(&normalization.rows) {
             let target = resolved
@@ -3422,7 +3528,7 @@ impl MathService {
         let mut identity = FramedHasher::new(pse_ids::Frame::NumericalConeV1);
         identity.hash(&resolved.key).hash(&normalization.key());
         resolved.key = identity.finish_hash();
-        let numerics = Arc::new(resolved);
+        let numerics = derivation.finish(resolved)?;
         let tolerances = Tolerances::from_policy(&numerics, &ids, &problem.contract.rows)?;
         let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
         let snapshot = execution::Snapshot::observe(&execution::LINKED);
@@ -3566,7 +3672,6 @@ impl MathService {
             route,
             compatibility: Some(stamp),
             explicit_start: None,
-            _explicit_start_owner: None,
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
@@ -3785,11 +3890,20 @@ impl MathService {
             retained.clear();
         }
         let (chosen, previous_attempt) = if step.proposal_start.is_some() {
-            (step.explicit_start.as_deref().cloned(), None)
+            (
+                step.explicit_start
+                    .as_ref()
+                    .map(|seed| WarmStart::clone(seed)),
+                None,
+            )
         } else {
             match controls.start {
                 StartPolicy::NoPriorStart => (None, None),
-                StartPolicy::Explicit => match step.explicit_start.as_deref().cloned() {
+                StartPolicy::Explicit => match step
+                    .explicit_start
+                    .as_ref()
+                    .map(|seed| WarmStart::clone(seed))
+                {
                     Some(seed) => (Some(seed), None),
                     None => {
                         return Err(Outcome::Rejected(Arc::new(
@@ -4637,14 +4751,35 @@ impl MathService {
         tolerances: &Tolerances,
         budget: &Arc<WorkerBudget>,
     ) {
-        use native::square_response::{self, SquareScope, Withheld};
-        let plan = &prepared.prepared.plan;
-        if let Some(ParametricPreparation::Available(program)) = sensitivity
-            && program.retain
-            && program.root_source.is_some()
-        {
-            report.evidence.root_predictor = Some(self.fresh_root_predictor(
-                report,
+        use native::square_response::{self, Withheld};
+        let Some(preparation) = sensitivity else {
+            return;
+        };
+        let program = match preparation {
+            ParametricPreparation::Available(program) => program,
+            ParametricPreparation::Unavailable(cause) => {
+                report.evidence.root_response = Some(Err(cause.clone()));
+                return;
+            }
+        };
+        let retain = program.retain && program.root_source.is_some();
+        let result = (|| {
+            let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
+            if report
+                .quality
+                .as_ref()
+                .is_none_or(|quality| !quality.feasible())
+                || report.callback_failure().is_some()
+                || report.validation_failure().is_some()
+            {
+                return Err(Withheld::Infeasible("Root products require independent original feasibility without a terminal cause".into()));
+            }
+            let observed = report.observation.as_ref().ok_or_else(|| {
+                Withheld::Infeasible("Root products lack fresh original values".into())
+            })?;
+            let partials = self.fresh_root_partials_at(
+                &candidate.primal,
+                &observed.values,
                 prepared,
                 program,
                 values,
@@ -4653,170 +4788,92 @@ impl MathService {
                 normalization,
                 tolerances,
                 budget,
-            ));
-        }
-        if let Some(preparation) = sensitivity {
-            let result = (|| {
-                let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
-                if report.quality.as_ref().is_none_or(|q| !q.feasible()) {
-                    return Err(Withheld::Infeasible(
-                        "base root is not independently qualified".into(),
-                    ));
-                }
-                let program = match preparation {
-                    ParametricPreparation::Available(program) => program,
-                    ParametricPreparation::Unavailable(cause) => return Err(cause.clone()),
-                };
-                let (mut request, _owner) = self
-                    .worker(program.program.clone(), providers, scope.clone(), budget)
-                    .map_err(MathRuntimeError::into_problem)
-                    .and_then(
-                        |ExecutionWorker {
-                             worker,
-                             _case,
-                             _charge,
-                         }| {
-                            Ok((program.request(worker, values)?, (_case, _charge)))
-                        },
-                    )
-                    .map_err(|cause| match cause {
-                        ProblemError::Limit { .. } => Withheld::Memory,
-                        ProblemError::Math(
-                            pse_math::MathError::Limit(_)
-                            | pse_math::MathError::ByteLimit { .. }
-                            | pse_math::MathError::SlotLimit { .. }
-                            | pse_math::MathError::WorkLimit { .. },
-                        ) => Withheld::Memory,
-                        _ => Withheld::Neighborhood(cause.to_string()),
-                    })?;
-                let n = candidate.primal.len();
-                let np = program.parameters.len();
-                let bytes = square_response::workspace_bytes(n, np)
-                    .and_then(|b| {
-                        b.checked_add(
-                            request
-                                .oracle
-                                .jacobian_pattern()
-                                .row_idx()
-                                .len()
-                                .checked_mul(size_of::<f64>())?,
-                        )
-                    })
-                    .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(size_of::<f64>())?))
-                    .and_then(|b| b.checked_add(np.checked_mul(size_of::<pse_ids::SemanticId>())?))
-                    .and_then(|b| b.checked_add(n.checked_mul(128)?.checked_add(256)?))
-                    .ok_or(Withheld::Memory)?;
-                let charge = budget.charge(bytes).map_err(|_| Withheld::Memory)?;
-                let contract = native::assembled::contract(plan);
-                let bounds = plan
-                    .structure()
-                    .rows()
-                    .iter()
-                    .map(|r| (r.lower, r.upper))
-                    .collect::<Vec<_>>();
-                request
-                    .admit(&contract)
-                    .map_err(|cause| Withheld::Numerical(cause.to_string()))?;
-                let scope = SquareScope::admit(
-                    &contract,
-                    plan.jacobian_pattern(),
-                    &bounds,
-                    Some(&prepared.prepared.structure),
-                )?;
-                let parameters = program
-                    .parameters
-                    .iter()
-                    .map(|(id, _)| *id)
-                    .collect::<Vec<_>>();
-                let scales = &program.normalization.variables[n..];
-                let values = report
-                    .observation
-                    .as_ref()
-                    .ok_or_else(|| Withheld::Infeasible("no fresh original observation".into()))?;
-                let mut point = candidate.primal.clone();
-                point.extend(program.parameters.iter().map(|(_, v)| *v));
-                let response = square_response::response(
-                    square_response::Request {
-                        scope: &scope,
-                        point: &candidate.primal,
-                        residual_values: &values.values,
-                        tolerances,
+                true,
+            );
+            let FreshRootPartials {
+                square,
+                state,
+                parameters,
+                key,
+                bytes,
+                owner,
+                execution,
+            } = match partials {
+                Ok(partials) => partials,
+                Err(Withheld::Memory) if retain => {
+                    // Public dense spectrum capacity can refuse independently of
+                    // the sparse predictor. No derivatives were evaluated before
+                    // this reservation refusal.
+                    let predictor = self.fresh_root_predictor_at(
+                        &candidate.primal,
+                        &observed.values,
+                        prepared,
+                        program,
+                        values,
+                        providers,
+                        scope,
                         normalization,
-                        parameters: &parameters,
-                        parameter_scales: scales,
-                        rank_tolerance: square_response::DEFAULT_RELATIVE_RANK_CUTOFF,
-                        bytes,
-                    },
-                    || {
-                        let entries = request.oracle.jacobian_pattern().row_idx().len();
-                        let mut jac = vec![0.; entries];
-                        request.oracle.jacobian(&point, &mut jac)?;
-                        let pattern = request.oracle.jacobian_pattern();
-                        let mut fx = faer::Mat::zeros(n, n);
-                        let mut fp = faer::Mat::zeros(n, np);
-                        for c in 0..n + np {
-                            for k in pattern.col_range(c) {
-                                let r = pattern.row_idx()[k];
-                                if c < n {
-                                    fx[(r, c)] = jac[k];
-                                } else {
-                                    fp[(r, c - n)] = jac[k];
-                                }
-                            }
-                        }
-                        Ok((fx, fp))
-                    },
-                )?;
-                Ok(response.with_owner(Arc::new(charge)))
-            })();
-            report.evidence.root_response = Some(result);
+                        tolerances,
+                        budget,
+                    );
+                    return Ok(square_response::Products {
+                        response: Err(Withheld::Memory),
+                        predictor: Some(predictor),
+                    });
+                }
+                Err(cause) => return Err(cause),
+            };
+            let parameter_ids = program
+                .parameters
+                .iter()
+                .map(|(id, _)| *id)
+                .collect::<Vec<_>>();
+            let parameter_values = program
+                .parameters
+                .iter()
+                .map(|(_, value)| *value)
+                .collect::<Vec<_>>();
+            let n = candidate.primal.len();
+            let mut products = square_response::products(
+                square_response::Request {
+                    scope: &square,
+                    point: &candidate.primal,
+                    residual_values: &observed.values,
+                    tolerances,
+                    normalization,
+                    parameters: &parameter_ids,
+                    parameter_scales: &program.normalization.variables[n..],
+                    rank_tolerance: square_response::DEFAULT_RELATIVE_RANK_CUTOFF,
+                    bytes,
+                },
+                key,
+                &parameter_values,
+                retain,
+                || Ok((state, parameters)),
+                &execution,
+            );
+            products.response = products
+                .response
+                .map(|response| response.with_owner(owner.clone()));
+            products.predictor = products
+                .predictor
+                .map(|predictor| predictor.map(|predictor| predictor.with_owner(owner)));
+            Ok(products)
+        })();
+        match result {
+            Ok(products) => {
+                report.evidence.root_response = Some(products.response);
+                report.evidence.root_predictor = products.predictor;
+            }
+            Err(cause) => {
+                let response = match &cause {
+                    Withheld::Cause(error) => square_response::evaluation_failure(error),
+                    _ => cause.clone(),
+                };
+                report.evidence.root_response = Some(Err(response));
+                report.evidence.root_predictor = retain.then_some(Err(cause));
+            }
         }
-    }
-    /// Factor the fresh original state Jacobian once, retaining sparse parameter
-    /// partials for subsequent actions. This operation is independent of a native
-    /// iteration setup and of the optional dense public response analysis.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the postsolve producer consumes the complete original case, scope and resolved physical budgets"
-    )]
-    fn fresh_root_predictor(
-        &self,
-        report: &SolveReport,
-        prepared: &Preparation,
-        program: &SensitivityProgram,
-        values: &CaseValues,
-        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        scope: &pse_kernels::ExecutionScope,
-        normalization: &Normalization,
-        tolerances: &Tolerances,
-        budget: &Arc<WorkerBudget>,
-    ) -> Result<native::square_response::SparsePredictor, native::square_response::Withheld> {
-        use native::square_response::Withheld;
-        let cause = |error: ProblemError| Withheld::Cause(Arc::new(error));
-        scope.check().map_err(ProblemError::from).map_err(cause)?;
-        let candidate = report.candidate.as_ref().ok_or(Withheld::NoCandidate)?;
-        if report.quality.as_ref().is_none_or(|q| !q.feasible())
-            || report.callback_failure().is_some()
-            || report.validation_failure().is_some()
-        {
-            return Err(Withheld::Infeasible("fresh predictor requires independent original feasibility without a terminal cause".into()));
-        }
-        let observed = report
-            .observation
-            .as_ref()
-            .ok_or_else(|| Withheld::Infeasible("fresh predictor lacks original values".into()))?;
-        self.fresh_root_predictor_at(
-            &candidate.primal,
-            &observed.values,
-            prepared,
-            program,
-            values,
-            providers,
-            scope,
-            normalization,
-            tolerances,
-            budget,
-        )
     }
     #[expect(
         clippy::too_many_arguments,
@@ -4835,40 +4892,97 @@ impl MathService {
         tolerances: &Tolerances,
         budget: &Arc<WorkerBudget>,
     ) -> Result<native::square_response::SparsePredictor, native::square_response::Withheld> {
-        use native::square_response::{
-            SparseFactor, SparsePredictor, SparseRequest, SquareScope, Withheld,
-        };
+        use native::square_response::{SparseFactor, SparsePredictor, SparseRequest, Withheld};
+        let FreshRootPartials {
+            square,
+            state,
+            parameters,
+            key,
+            bytes,
+            owner,
+            execution,
+        } = self.fresh_root_partials_at(
+            primal,
+            observed,
+            prepared,
+            program,
+            values,
+            providers,
+            scope,
+            normalization,
+            tolerances,
+            budget,
+            false,
+        )?;
+        let factor = SparseFactor::prepare(
+            SparseRequest {
+                scope: &square,
+                point: primal,
+                values: observed,
+                tolerances,
+                normalization,
+                key,
+                bytes,
+            },
+            || Ok(state),
+            &execution,
+        )?
+        .with_owner(owner.clone());
+        Ok(
+            SparsePredictor::new(factor, program.parameters.clone(), parameters)
+                .map_err(|cause| Withheld::Cause(Arc::new(cause)))?
+                .with_owner(owner),
+        )
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "fresh original partials consume one complete admitted point and physical execution context"
+    )]
+    fn fresh_root_partials_at(
+        &self,
+        primal: &[f64],
+        observed: &[f64],
+        prepared: &Preparation,
+        program: &SensitivityProgram,
+        values: &CaseValues,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        scope: &pse_kernels::ExecutionScope,
+        normalization: &Normalization,
+        tolerances: &Tolerances,
+        budget: &Arc<WorkerBudget>,
+        public_response: bool,
+    ) -> Result<FreshRootPartials, native::square_response::Withheld> {
+        use native::square_response::{SparseFactor, SquareScope, Withheld};
         let cause = |error: ProblemError| Withheld::Cause(Arc::new(error));
         scope.check().map_err(ProblemError::from).map_err(cause)?;
         let plan = &prepared.compiled().plan;
         let n = plan.columns().len();
         let np = program.parameters.len();
-        let bytes = SparseFactor::allowance(n)
-            .and_then(|b| {
-                b.checked_add(
-                    program
-                        .program
-                        .assembly
-                        .jacobian_pattern()
-                        .compute_nnz()
-                        .checked_mul(64)?,
-                )
-            })
-            .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
-            .ok_or(Withheld::Memory)?;
-        let charge = budget
-            .charge(bytes)
-            .map_err(|error| cause(error.into_problem()))?;
-        let ExecutionWorker {
-            worker,
-            _case,
-            _charge,
-        } = self
-            .worker(program.program.clone(), providers, scope.clone(), budget)
-            .map_err(|e| cause(e.into_problem()))?;
-        let mut request = program.request(worker, values).map_err(cause)?;
+        let bytes = (if public_response {
+            native::square_response::workspace_bytes(n, np)
+        } else {
+            SparseFactor::allowance(n)
+        })
+        .and_then(|b| {
+            b.checked_add(
+                program
+                    .program
+                    .assembly
+                    .jacobian_pattern()
+                    .compute_nnz()
+                    .checked_mul(64)?,
+            )
+        })
+        .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
+        .ok_or(Withheld::Memory)?;
+        let charge = budget.charge(bytes).map_err(|error| {
+            if public_response {
+                Withheld::Memory
+            } else {
+                cause(error.into_problem())
+            }
+        })?;
         let contract = native::assembled::contract(plan);
-        request.admit(&contract).map_err(cause)?;
         let row_bounds = plan
             .structure()
             .rows()
@@ -4881,6 +4995,30 @@ impl MathService {
             &row_bounds,
             Some(&prepared.compiled().structure),
         )?;
+        let mut key = program.root_source.ok_or_else(|| {
+            cause(ProblemError::internal(
+                "fresh Root products lack original dependencies",
+            ))
+        })?;
+        key.point = Some(native::square_response::point_key(primal));
+        SparseFactor::check(&native::square_response::SparseRequest {
+            scope: &square,
+            point: primal,
+            values: observed,
+            tolerances,
+            normalization,
+            key,
+            bytes,
+        })?;
+        let ExecutionWorker {
+            worker,
+            _case,
+            _charge,
+        } = self
+            .worker(program.program.clone(), providers, scope.clone(), budget)
+            .map_err(|e| cause(e.into_problem()))?;
+        let mut request = program.request(worker, values).map_err(cause)?;
+        request.admit(&contract).map_err(cause)?;
         let mut point = primal.to_vec();
         point.extend(program.parameters.iter().map(|(_, v)| *v));
         let mut jacobian = vec![0.; request.oracle.jacobian_pattern().compute_nnz()];
@@ -4921,12 +5059,6 @@ impl MathService {
                     )))
                 },
             )?;
-        let mut key = program.root_source.ok_or_else(|| {
-            cause(ProblemError::internal(
-                "retained Root predictor lacks original dependencies",
-            ))
-        })?;
-        key.point = Some(native::square_response::point_key(primal));
         let mut execution = Execution::within(
             scope.cancellation().clone(),
             &Controls::default(),
@@ -4937,25 +5069,15 @@ impl MathService {
             .admission()
             .map(|owner| -> Arc<dyn WorkAdmission> { owner });
         let owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(charge);
-        let factor = SparseFactor::prepare(
-            SparseRequest {
-                scope: &square,
-                point: primal,
-                values: observed,
-                tolerances,
-                normalization,
-                key,
-                bytes,
-            },
-            || Ok(state),
-            &execution,
-        )?
-        .with_owner(owner.clone());
-        Ok(
-            SparsePredictor::new(factor, program.parameters.clone(), parameters)
-                .map_err(cause)?
-                .with_owner(owner),
-        )
+        Ok(FreshRootPartials {
+            square,
+            state,
+            parameters,
+            key,
+            bytes,
+            owner,
+            execution,
+        })
     }
     /// Rebuild a previously qualified factor from its exact portable original point.
     /// This is numerical preparation, called only under the claimed target's task.
@@ -5080,7 +5202,7 @@ impl MathService {
     ) -> Result<ExecutionWorker, MathRuntimeError> {
         let case =
             case.ok_or_else(|| ProblemError::Internal("missing executable representation".into()))?;
-        self.worker(case, &providers, scope.clone(), budget)
+        self.reusable_worker(case, &providers, scope.clone(), budget)
     }
     /// All-fixed original evaluation without a native attempt.
     fn constant(

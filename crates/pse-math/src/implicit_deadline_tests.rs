@@ -9,7 +9,7 @@ use super::*;
 use pse_kernels::{ExecutionScope, ProviderFactory};
 use std::{sync::atomic::AtomicUsize, time::Instant};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Root {
     calls: Arc<AtomicUsize>,
     allowances: Arc<Mutex<Vec<Duration>>>,
@@ -22,8 +22,14 @@ impl InnerSolver for Root {
     fn minimum_order(&self) -> DerivativeOrder {
         DerivativeOrder::First
     }
+
+    fn worker(&self) -> Box<dyn InnerWorker> {
+        Box::new(self.clone())
+    }
+}
+impl InnerWorker for Root {
     fn solve(
-        &self,
+        &mut self,
         _: Arc<Problem>,
         parameters: &[f64],
         options: &Options,

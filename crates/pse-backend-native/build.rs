@@ -26,12 +26,11 @@ mod build_receipt;
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("cargo:rerun-if-env-changed=IPOPT_DIR");
-    println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=build_receipt.rs");
-    println!("cargo:rerun-if-env-changed=PSE_ROOT_ISOLATION_DIR");
-    if env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some() {
+    let isolation = env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some();
+    if isolation {
+        println!("cargo:rerun-if-env-changed=PSE_ROOT_ISOLATION_DIR");
         root_isolation()?;
     }
     let out = PathBuf::from(env::var_os("OUT_DIR").ok_or("OUT_DIR unset")?);
@@ -40,9 +39,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let pardiso = env::var_os("CARGO_FEATURE_CLARABEL_PARDISO").is_some();
     let pipeline =
         env::var_os("CARGO_FEATURE_UNO").is_some() || env::var_os("CARGO_FEATURE_PETSC").is_some();
-    let prefix = env::var_os("IPOPT_DIR").map(PathBuf::from);
+    let linked = ipopt || sdp || pardiso || pipeline;
+    if linked || isolation {
+        println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
+    }
+    let prefix = if linked {
+        println!("cargo:rerun-if-env-changed=IPOPT_DIR");
+        env::var_os("IPOPT_DIR").map(PathBuf::from)
+    } else {
+        None
+    };
     let mut manifest = String::new();
-    if ipopt || sdp || pardiso || pipeline {
+    if linked {
         match &prefix {
             Some(prefix) => {
                 let pc = prefix.join("lib/pkgconfig").join(format!("{MKL}.pc"));
@@ -66,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             manifest = fs::read_to_string(&info)?;
         }
     }
-    fs::write(out.join("solver-manifest.txt"), manifest)?;
+    build_receipt::write_if_changed(&out.join("solver-manifest.txt"), manifest.as_bytes())?;
     // The dependency source is declared once by the workspace. Embed the immutable
     // requested revision rather than treating an unchanged crate version as provenance.
     let workspace =
@@ -82,7 +90,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let revision = source["rev"]
         .as_str()
         .ok_or("missing immutable POUNCE revision")?;
-    fs::write(out.join("pounce-source.txt"), format!("{git}@{revision}"))?;
+    build_receipt::write_if_changed(
+        &out.join("pounce-source.txt"),
+        format!("{git}@{revision}").as_bytes(),
+    )?;
     Ok(())
 }
 

@@ -129,8 +129,8 @@ impl Proposal {
         Ok(proposal)
     }
     pub(crate) fn surrogate(
-        point: &pse_math::surrogate::SurrogateProposal,
-        correspondence: &pse_math::surrogate::FidelityCorrespondence,
+        point: &crate::math::surrogate::SurrogateProposal,
+        correspondence: &crate::math::surrogate::FidelityCorrespondence,
         task: ContentHash,
         mut source: SemanticProductKey,
         target: ContentHash,

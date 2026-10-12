@@ -26,6 +26,13 @@ impl RunResult {
             ids.push(accuracy_goal_assessments::RELATION_ID);
         }
         match &self.request {
+            super::RunRequest::Horizon(_) => {
+                ids.extend(super::horizon::prefix::summary_ids());
+                if let Some(report) = &self.horizon_output {
+                    ids.extend(report.summaries.keys());
+                    ids.extend(&report.detail_membership);
+                }
+            }
             super::RunRequest::Modeling(_) => ids.extend([
                 solve_runs::RELATION_ID,
                 solve_variables::RELATION_ID,
@@ -93,11 +100,32 @@ impl RunResult {
         ids.dedup();
         ids
     }
+    /// Mandatory original-assessment, numerical-policy and lineage relations.
+    pub(super) fn summary_table_ids(&self) -> Vec<SemanticId> {
+        use pse_relations::generated::runtime::*;
+        let summary = [
+            candidate_assessments::RELATION_ID,
+            accuracy_goal_assessments::RELATION_ID,
+            resolved_numerics::RELATION_ID,
+            run_lineage::RELATION_ID,
+            solve_runs::RELATION_ID,
+            computation_runs::RELATION_ID,
+            modeling_checks::RELATION_ID,
+            modeling_reports::RELATION_ID,
+            modeling_findings::RELATION_ID,
+            route_decisions::RELATION_ID,
+            structural_assessments::RELATION_ID,
+        ];
+        self.table_ids()
+            .into_iter()
+            .filter(|id| summary.contains(id))
+            .collect()
+    }
     /// Name discovery requires no payload allocation or field validation.
     pub fn table_names(&self) -> Vec<String> {
         self.table_ids()
             .iter()
-            .filter_map(|id| self.runtime.registry.relation_by_id(*id))
+            .filter_map(|id| self.runtime.registry().relation_by_id(*id))
             .map(|spec| format!("{}.{}", spec.key.namespace.as_str(), spec.key.name))
             .collect()
     }
@@ -125,7 +153,7 @@ impl RunResult {
     pub fn table(&self, name: &str) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
             .id;
@@ -146,7 +174,7 @@ impl RunResult {
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
             .id;
@@ -160,7 +188,7 @@ impl RunResult {
     ) -> Result<super::ResultCursor<'static>, Arc<WorkflowError>> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
             .id;
@@ -172,10 +200,10 @@ impl RunResult {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(|e| Arc::new(relation(e.into())))?;
         super::ResultCursor::new(
             schema,
@@ -199,7 +227,7 @@ impl RunResult {
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| Arc::new(contract("unknown result relation")))?
             .id;
@@ -213,12 +241,30 @@ impl RunResult {
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         self.cursor_by_id_range(id, rows, order, 0..usize::MAX)
     }
-    fn cursor_by_id_range(
+    pub(super) fn cursor_by_id_range(
         &self,
         id: SemanticId,
         rows: usize,
         order: super::ResultOrder,
         range: std::ops::Range<usize>,
+    ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
+        self.cursor_by_id_range_controlled(
+            id,
+            rows,
+            order,
+            range,
+            pse_columnar::CancellationToken::new(),
+        )
+    }
+    /// Recreate only the pure projection of this immutable original outcome.
+    /// The caller owns one enclosing cancellation scope across cold memory retry.
+    pub(super) fn cursor_by_id_range_controlled(
+        &self,
+        id: SemanticId,
+        rows: usize,
+        order: super::ResultOrder,
+        range: std::ops::Range<usize>,
+        cancel: pse_columnar::CancellationToken,
     ) -> Result<super::ResultCursor<'_>, Arc<WorkflowError>> {
         if !self.table_ids().contains(&id) {
             return Err(Arc::new(contract("relation is not part of this run")));
@@ -228,21 +274,71 @@ impl RunResult {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
-        let schema =
-            pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec).map_err(|e| {
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
+            .map_err(|e| {
                 Arc::new(WorkflowError::Engine(
                     pse_relations::RelationError::Schema(e).into(),
                 ))
             })?;
-        super::ResultCursor::new_range(schema, id, rows, order, range, |projection| async move {
-            self.encode(&projection)
-                .await
-                .map_err(|error| self.encodings.record(id, error))
-        })
+        super::ResultCursor::new_range_controlled(
+            schema,
+            id,
+            rows,
+            order,
+            range,
+            cancel,
+            |projection| async move {
+                self.encode(&projection)
+                    .await
+                    .map_err(|error| self.encodings.record(id, error))
+            },
+        )
         .map_err(Arc::new)
+    }
+    pub(super) async fn encode_horizon_findings(
+        &self,
+        projection: &super::result_export::Projection,
+    ) -> Result<(), WorkflowError> {
+        let registry = self.runtime.registry();
+        let pool = self.runtime.shared.pool();
+        let validation = self.runtime.validation_context();
+        let mut rows = super::result_export::Rows::<
+            pse_relations::generated::runtime::modeling_findings::Row,
+        >::new(projection, registry, &pool, &projection.cancel, &validation)
+        .map_err(relation)?;
+        let completion = self
+            .completion
+            .as_ref()
+            .map_err(|error| WorkflowError::Shared(error.clone()))?;
+        let mut ordinal = 0i64;
+        for finding in &completion.diagnostics {
+            rows.push(super::modeling::analysis_tables::finding_row(
+                self.run_id,
+                ordinal,
+                finding,
+            ))
+            .await
+            .map_err(relation)?;
+            ordinal += 1;
+        }
+        for tightening in self.horizon_tightenings.iter().flatten() {
+            // Expand one original descriptor only while its requested row is
+            // projected; no BoundaryDiagnostic history survives this iteration.
+            let _working = rows.working(&[(tightening.path.len(), 2), (64 * 1024, 1)])?;
+            let finding = tightening.boundary_diagnostic();
+            rows.push(super::modeling::analysis_tables::finding_row(
+                self.run_id,
+                ordinal,
+                &finding,
+            ))
+            .await
+            .map_err(relation)?;
+            ordinal += 1;
+        }
+        rows.finish().await.map_err(relation)
     }
     async fn encode(
         &self,
@@ -252,6 +348,89 @@ impl RunResult {
             accuracy_goal_assessments, candidate_assessments, resolved_numerics, run_lineage,
         };
         let id = projection.relation;
+        if matches!(self.request, super::RunRequest::Horizon(_)) {
+            if super::horizon::prefix::summary_ids().contains(&id)
+                && let Some(report) = &self.horizon_output
+                && let Some(error) = &report.summary_error
+            {
+                return Err(WorkflowError::Shared(error.clone()));
+            }
+            if id == pse_relations::generated::runtime::modeling_findings::RELATION_ID {
+                return self.encode_horizon_findings(projection).await;
+            }
+            if let Some(report) = &self.horizon_output
+                && let Some(batches) = report.summaries.get(&id)
+            {
+                send_retained_prefix(projection, batches).await?;
+                return Ok(());
+            }
+            if let Some(report) = &self.horizon_output
+                && report.detail_membership.contains(&id)
+                && let Err(error) = &report.detail
+            {
+                return Err(WorkflowError::Shared(error.clone()));
+            }
+            if let Some(report) = &self.horizon_output
+                && let Ok(detail) = &report.detail
+                && let Some(batches) = detail.get(&id)
+            {
+                send_retained_prefix(projection, batches).await?;
+                return Ok(());
+            }
+            if self
+                .completion()
+                .is_ok_and(|completion| completion.solves.is_empty())
+            {
+                let registry = self.runtime.registry();
+                let pool = self.runtime.shared.pool();
+                let validation = self.runtime.validation_context();
+                let mut empty = super::result_export::SelectedCollection::new(
+                    projection,
+                    registry,
+                    &pool,
+                    &projection.cancel,
+                    &validation,
+                );
+                use pse_relations::generated::runtime::*;
+                empty
+                    .ensure::<candidate_assessments::Row>()
+                    .map_err(relation)?;
+                empty
+                    .ensure::<accuracy_goal_assessments::Row>()
+                    .map_err(relation)?;
+                empty.ensure::<resolved_numerics::Row>().map_err(relation)?;
+                empty.ensure::<run_lineage::Row>().map_err(relation)?;
+                empty.ensure::<solve_runs::Row>().map_err(relation)?;
+                empty.ensure::<modeling_checks::Row>().map_err(relation)?;
+                empty.ensure::<modeling_reports::Row>().map_err(relation)?;
+                empty.ensure::<route_decisions::Row>().map_err(relation)?;
+                empty
+                    .ensure::<structural_assessments::Row>()
+                    .map_err(relation)?;
+                empty.finish().await.map_err(relation)?;
+                return Ok(());
+            }
+            if id == pse_relations::generated::runtime::solve_runs::RELATION_ID {
+                let registry = self.runtime.registry();
+                let pool = self.runtime.shared.pool();
+                let validation = self.runtime.validation_context();
+                let mut rows = super::result_export::Rows::<
+                    pse_relations::generated::runtime::solve_runs::Row,
+                >::new(
+                    projection, registry, &pool, &projection.cancel, &validation
+                )
+                .map_err(relation)?;
+                for row in &self
+                    .completion()
+                    .map_err(|error| contract(error.to_string()))?
+                    .solves
+                {
+                    rows.push_ref(row).await.map_err(relation)?;
+                }
+                rows.finish().await.map_err(relation)?;
+                return Ok(());
+            }
+        }
         if [
             candidate_assessments::RELATION_ID,
             resolved_numerics::RELATION_ID,
@@ -263,6 +442,7 @@ impl RunResult {
             return self.project_common(projection).await;
         }
         match &self.request {
+            super::RunRequest::Horizon(_) => Err(contract("horizon detail was not selected")),
             super::RunRequest::Simulation(_) => self.encode_simulation(projection).await,
             super::RunRequest::Modeling(_) => self.encode_modeling(projection).await,
             super::RunRequest::Fit(_) => self.encode_fit(projection).await,
@@ -270,6 +450,33 @@ impl RunResult {
             super::RunRequest::Shooting { .. } => self.encode_shooting(projection).await,
         }
     }
+}
+
+/// Apply the ordinary public cursor range and delivery bound to original checked
+/// chunks without rewriting their scientific keys or allocating row copies.
+async fn send_retained_prefix(
+    projection: &super::result_export::Projection,
+    batches: &[FieldCheckedBatch],
+) -> Result<(), WorkflowError> {
+    let mut origin = 0usize;
+    for batch in batches {
+        let end = origin
+            .checked_add(batch.batch().num_rows())
+            .ok_or_else(|| contract("horizon retained row extent"))?;
+        let begin = origin.max(projection.range.start);
+        let limit = end.min(projection.range.end);
+        let mut at = begin;
+        while at < limit {
+            let rows = (limit - at).min(projection.rows);
+            projection
+                .send_checked(batch.slice(at - origin, rows).map_err(relation)?)
+                .await
+                .map_err(WorkflowError::Shared)?;
+            at += rows;
+        }
+        origin = end;
+    }
+    Ok(())
 }
 
 pub(super) async fn push_metric(

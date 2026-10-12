@@ -134,6 +134,9 @@ impl DocumentType for pse_buildinfo::BuildInfo {
 impl DocumentType for pse_runtime::workflow::ProgressEventDocument {
     const NAME: &'static str = "ProgressEventDocument";
 }
+impl DocumentType for pse_runtime::workflow::ProgressCoverage {
+    const NAME: &'static str = "ProgressCoverage";
+}
 impl DocumentType for pse_runtime::workflow::RouteDocument {
     const NAME: &'static str = "RouteDocument";
 }

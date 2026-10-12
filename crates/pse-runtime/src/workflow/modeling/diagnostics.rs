@@ -36,7 +36,7 @@ pub struct ModelingDiagnosticPreparation {
     /// The prepared case, with its structure and start values.
     pub model: ModelingCasePreparation,
     /// Resolved physical nominals and numerical requirements of the case.
-    pub numerics: Arc<ResolvedNumericalPolicy>,
+    pub numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     /// Retained original route and structural assessment, including admission refusals.
     pub route_decision: pse_backend_native::routing::Decision,
     /// Bound request identity, independent of a native numerical attempt.
@@ -403,16 +403,13 @@ impl ModelingPackage {
             .numerical_targets(physical)
             .map_err(crate::math::MathRuntimeError::from)?;
         targets.extend(resolved.numerical.targets);
-        let numerics = Arc::new(
-            pse_math::numerics::resolve(
-                physical,
-                &resolved.model.case.compiled().preconditions,
-                &targets,
-                &resolved.numerical.declarations,
-                &resolved.solver.numerics,
-            )
-            .map_err(crate::math::MathRuntimeError::from)?,
-        );
+        let numerics = self.runtime.native().policy_resolution_owner().resolve(
+            physical.clone(),
+            resolved.model.case.compiled().preconditions.clone(),
+            &targets,
+            &resolved.numerical.declarations,
+            &resolved.solver.numerics,
+        )?;
         Ok(ModelingDiagnosticPreparation {
             model: resolved.model,
             numerics,

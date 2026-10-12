@@ -10,10 +10,14 @@ use pse_compiler::workspace::ModelingBodyRetention;
 use pse_ids::roles::{AdmittedClosureHash, PreparedViewHash, SemanticBodyHash};
 use std::sync::atomic::Ordering;
 mod weighted;
-use weighted::{WeightedCache, entry_weight};
+pub(crate) use weighted::WeightedCache;
+use weighted::entry_weight;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 enum Key {
     Package(AdmittedClosureHash),
+    Numerics(Arc<pse_math::numerics::ResolutionPremises>),
+    ParsedFields(pse_ids::ContentHash),
+    Ingress(String, usize, usize, pse_ids::ContentHash),
     Selected(Arc<crate::workflow::modeling::SelectedRequest>),
     Body(SemanticBodyHash),
     EncodedBody(SemanticBodyHash),
@@ -28,6 +32,8 @@ impl CacheKey for Key {
         size_of::<Self>()
             .saturating_add(128)
             .saturating_add(match self {
+                Self::Ingress(key, ..) => key.capacity(),
+                Self::Numerics(key) => key.retained_bytes(),
                 Self::Selected(request) => request.retained_bytes(),
                 Self::Basis(key) | Self::Frontier(key) => key.retained_bytes(),
                 _ => 0,
@@ -39,7 +45,10 @@ impl CacheKey for Key {
 }
 #[derive(Clone)]
 enum Product {
+    Numerics(numerics::RetainedPolicy),
     Package(crate::workflow::PackageAdmission),
+    ParsedFields(Arc<pse_modeling::expression::occurrences::ParsedFields>),
+    Ingress(Arc<crate::workflow::modeling::RetainedIngress>),
     Selected(Arc<Vec<Arc<crate::workflow::modeling::SelectedAdmission>>>),
     Body(Arc<pse_compiler::typed_math::AdmittedBody>),
     EncodedBody(Arc<portable::EncodedBody>),
@@ -56,6 +65,9 @@ impl CacheValue for Product {
             .saturating_add(128)
             .saturating_add(match self {
                 Self::Package(p) => p.retained_bytes(),
+                Self::Numerics(policy) => policy.bytes,
+                Self::ParsedFields(fields) => fields.retained_bytes(),
+                Self::Ingress(ingress) => ingress.retained_bytes(),
                 Self::Selected(values) => values.iter().fold(
                     values.capacity().saturating_mul(size_of::<
                         Arc<crate::workflow::modeling::SelectedAdmission>,
@@ -141,7 +153,7 @@ impl Pressure {
         *demands += 1;
         PressureDemand(self.clone())
     }
-    fn active(&self) -> bool {
+    pub(super) fn active(&self) -> bool {
         *self
             .demands
             .lock()
@@ -284,6 +296,59 @@ impl ModelingCache {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
         }
     }
+    pub(crate) fn ingress(
+        &self,
+        revision: &str,
+        validation: usize,
+        registry: usize,
+        physical: pse_ids::ContentHash,
+    ) -> Option<Arc<crate::workflow::modeling::RetainedIngress>> {
+        match self.get(&Key::Ingress(
+            revision.into(),
+            validation,
+            registry,
+            physical,
+        ))? {
+            Product::Ingress(ingress) => Some(ingress),
+            _ => None,
+        }
+    }
+    pub(crate) fn retain_ingress(
+        &self,
+        generation: u64,
+        revision: String,
+        validation: usize,
+        registry: usize,
+        physical: pse_ids::ContentHash,
+        ingress: Arc<crate::workflow::modeling::RetainedIngress>,
+    ) {
+        self.put(
+            generation,
+            Key::Ingress(revision, validation, registry, physical),
+            Product::Ingress(ingress),
+        );
+    }
+    pub(crate) fn parsed_fields(
+        &self,
+        key: pse_ids::ContentHash,
+    ) -> Option<Arc<pse_modeling::expression::occurrences::ParsedFields>> {
+        match self.get(&Key::ParsedFields(key))? {
+            Product::ParsedFields(fields) => Some(fields),
+            _ => None,
+        }
+    }
+    pub(crate) fn retain_parsed_fields(
+        &self,
+        generation: u64,
+        key: pse_ids::ContentHash,
+        fields: Arc<pse_modeling::expression::occurrences::ParsedFields>,
+    ) {
+        self.put(
+            generation,
+            Key::ParsedFields(key),
+            Product::ParsedFields(fields),
+        );
+    }
     pub(crate) fn selected(
         &self,
         request: &Arc<crate::workflow::modeling::SelectedRequest>,
@@ -340,6 +405,23 @@ impl ModelingCache {
             }
             values.remove(0);
         }
+    }
+    pub(super) fn numerics(
+        &self,
+        key: &Arc<pse_math::numerics::ResolutionPremises>,
+    ) -> Option<numerics::RetainedPolicy> {
+        match self.get(&Key::Numerics(key.clone()))? {
+            Product::Numerics(policy) => Some(policy),
+            _ => None,
+        }
+    }
+    pub(super) fn retain_numerics(
+        &self,
+        generation: u64,
+        key: Arc<pse_math::numerics::ResolutionPremises>,
+        policy: numerics::RetainedPolicy,
+    ) {
+        self.put(generation, Key::Numerics(key), Product::Numerics(policy));
     }
     pub(crate) fn generation(&self) -> u64 {
         self.fence.generation()

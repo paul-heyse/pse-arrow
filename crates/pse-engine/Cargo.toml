@@ -40,7 +40,6 @@ pse-ids.workspace = true
 pse-schema.workspace = true
 thiserror.workspace = true
 miette.workspace = true
-pse-workspace-hack.workspace = true
 
 [dev-dependencies]
 pse-model.workspace = true

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import errno
+import fcntl
 import io
 import json
 import os
@@ -15,6 +16,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -1979,6 +1981,7 @@ class SurrealSupervisorTests(unittest.TestCase):
 
     def test_observer_control_cap_restored_after_verified_drain(self) -> None:
         self.reference_fixture()
+        observation: dict[str, object] = {}
         with (
             self.observer_control_fixture() as (state, _calls, _drained),
             patch.object(server, "ensure_execution_placement"),
@@ -1987,24 +1990,31 @@ class SurrealSupervisorTests(unittest.TestCase):
             ) as handoff,
             patch.object(server, "systemd_environment", return_value={}),
             patch.object(server, "observer_scope_command", return_value=["probe"]),
-            patch.object(server.subprocess, "call", return_value=0) as launch,
+            patch.object(server.native_operation, "run", return_value=0) as launch,
         ):
             self.assertEqual(
-                server.observer(self.state, ["probe"], "exclusive-observer"), 0
+                server.observer(
+                    self.state, ["probe"], "exclusive-observer", observation=observation
+                ),
+                0,
             )
             self.assertEqual(state["memory"], 144 * server.GIB)
         launch.assert_called_once()
-        self.assertFalse(launch.call_args.kwargs["start_new_session"])
         handoff.assert_called_once_with(
             self.allocation.register.call_args.args[0], foreground=True
         )
         self.allocation.release.assert_not_called()
         self.assertFalse((self.state / "observer-launch.json").exists())
+        self.assertEqual(observation["owned_drain"], "complete")
 
     def test_parent_owned_observer_isolates_supervisor_from_gate_process_group(
         self,
     ) -> None:
         self.reference_fixture()
+        server.native_operation.write_json(
+            self.root / "handoff",
+            {"version": server.native_operation.VERSION, "admissions": {}},
+        )
         with (
             self.observer_control_fixture(),
             patch.object(server, "ensure_execution_placement"),
@@ -2015,16 +2025,16 @@ class SurrealSupervisorTests(unittest.TestCase):
             ),
             patch.object(server, "systemd_environment", return_value={}),
             patch.object(server, "observer_scope_command", return_value=["probe"]),
-            patch.object(server.subprocess, "call", return_value=0) as launch,
+            patch.object(server.native_operation, "run", return_value=0) as launch,
         ):
             self.assertEqual(
                 server.observer(self.state, ["probe"], "exclusive-observer"), 0
             )
-        self.assertTrue(launch.call_args.kwargs["start_new_session"])
         self.assertEqual(
-            launch.call_args.kwargs["env"]["PSE_NATIVE_HANDOFF"],
+            launch.call_args.args[1]["PSE_NATIVE_HANDOFF"],
             str(self.root / "handoff"),
         )
+        self.assertEqual(launch.call_args.kwargs["foreground"], self.root / "handoff")
 
     def test_observer_control_cap_restored_when_launch_raises(self) -> None:
         with self.observer_control_fixture() as (state, _calls, _drained):
@@ -2046,7 +2056,7 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server.native_operation, "prepare_handoff", return_value=None),
             patch.object(server, "systemd_environment", return_value={}),
             patch.object(server, "observer_scope_command", return_value=["probe"]),
-            patch.object(server.subprocess, "call", return_value=0),
+            patch.object(server.native_operation, "run", return_value=0),
         ):
             drained.return_value = False
             self.assertEqual(
@@ -2198,6 +2208,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 record = {
                     "boot": "d" * 8 + "-" + "-".join(["d" * 4] * 3) + "-" + "d" * 12,
                     "units": units,
+                    "terminal_guards": {"f" * 32: {"phase": "registered"}},
                 }
                 original = json.loads(json.dumps(record))
                 ledger: dict[str, object] = {"owners": {self.allocation.nonce: record}}
@@ -2230,7 +2241,63 @@ class SurrealSupervisorTests(unittest.TestCase):
                         server.observer_allocation_drained(self.allocation, unit),
                         expected,
                     )
+                    self.assertFalse(host.drained({**record, "released": True}))
                 self.assertEqual(record, original)
+
+    def test_observer_cleanup_restoration_uses_original_cancellation_clock(
+        self,
+    ) -> None:
+        with self.observer_control_fixture() as (state, manager, drained):
+            metadata = host.allocation_metadata.side_effect
+            calls = []
+
+            def bounded_metadata(directory: Path, **options):
+                calls.append(options.get("deadline"))
+                return metadata(directory)
+
+            clock = [None]
+            with patch.object(
+                host, "allocation_metadata", side_effect=bounded_metadata
+            ):
+                with server.observer_control_limit(
+                    self.allocation,
+                    "observer.scope",
+                    "exclusive-observer",
+                    cancellation_deadline=lambda: clock[0],
+                ):
+                    clock[0] = time.monotonic() + 1
+                self.assertEqual(state["memory"], 144 * server.GIB)
+            self.assertEqual(calls[-2:], [clock[0], clock[0]])
+            self.assertEqual(drained.call_args.kwargs["deadline"], clock[0])
+            restoration = [
+                call
+                for call in manager.call_args_list
+                if call.kwargs.get("deadline") is not None
+            ]
+            self.assertTrue(restoration)
+            self.assertTrue(
+                all(call.kwargs["deadline"] == clock[0] for call in restoration)
+            )
+
+    def test_observer_physical_drain_refuses_contended_metadata_by_original_clock(
+        self,
+    ) -> None:
+        owner = host.acquire(
+            host.select("light"), directory=self.root / "private-admission"
+        )
+        descriptor = os.open(owner.directory / ".lock", os.O_RDWR)
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        started = time.monotonic()
+        try:
+            with self.assertRaises(host.AdmissionError):
+                server.observer_allocation_drained(
+                    owner, "unknown.scope", deadline=started + 0.03
+                )
+        finally:
+            os.close(descriptor)
+        self.assertLess(time.monotonic() - started, 0.2)
+        with host.allocation_metadata(owner.directory) as ledger:
+            self.assertIn(owner.nonce, ledger["owners"])
 
     def test_observer_unbound_launch_retains_cap_and_reservation(self) -> None:
         actual_drained = server.observer_allocation_drained
@@ -2259,7 +2326,7 @@ class SurrealSupervisorTests(unittest.TestCase):
                 "prepare_handoff",
                 side_effect=OSError("handoff failed"),
             ),
-            patch.object(server.subprocess, "call") as launch,
+            patch.object(server.native_operation, "run") as launch,
         ):
             drained.side_effect = actual_drained
             with self.assertRaisesRegex(OSError, "handoff failed"):

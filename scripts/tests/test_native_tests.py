@@ -107,7 +107,9 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 files[name] = hashlib.file_digest(stream, "sha256").hexdigest()
         return {"profile": profile, "files": files}
 
-    def capture(self, extra: list[str]) -> tuple[list[str], Path, list[list[str]]]:
+    def capture(
+        self, extra: list[str], *, package_scope: bool = False
+    ) -> tuple[list[str], Path, list[list[str]]]:
         responses = [
             subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
             subprocess.CompletedProcess([], 0, '{"workspace_root": "/checkout"}'),
@@ -126,11 +128,58 @@ class ManagedRustSelectionTests(unittest.TestCase):
                 native_tests, "native_provenance", side_effect=self.parent_inputs
             ),
         ):
-            command, actual = native_tests.managed_rust_capture(
-                extra, self.provenance, self.selected
-            )
+            if package_scope:
+                command, actual = native_tests.ordinary_rust_capture(
+                    ["cargo", "nextest", "run", *extra],
+                    self.provenance,
+                    self.selected,
+                    {},
+                    package_scope=True,
+                )
+            else:
+                command, actual = native_tests.managed_rust_capture(
+                    extra, self.provenance, self.selected
+                )
         worker.assert_called_once()
         return command, actual, [call.args[0] for call in captured.call_args_list]
+
+    def test_unit_scope_uses_actual_validated_roots_and_one_prepared_inventory(
+        self,
+    ) -> None:
+        def resolve(command, *, run):
+            return native_tests.arrow_validation.Resolution(
+                [*command, "--features", "pse-runtime/force-validate"],
+                ["pse-relations", "pse-runtime"],
+            )
+
+        with patch.object(
+            native_tests.arrow_validation, "resolve", side_effect=resolve
+        ) as resolution:
+            execution, _, commands = self.capture(
+                [
+                    "-p",
+                    "pse-runtime",
+                    "-p",
+                    "pse-relations",
+                    "--lib",
+                    "-E",
+                    "test(chosen)",
+                    "--partition",
+                    "hash:1/2",
+                ],
+                package_scope=True,
+            )
+        resolution.assert_called_once()
+        self.assertEqual(len(commands), 3)
+        build, metadata, inventory = commands
+        self.assertIn("pse-runtime/force-validate", build)
+        self.assertIn("pse-runtime/force-validate", metadata)
+        scoped = "(test(chosen)) & (package(pse-relations) | package(pse-runtime))"
+        self.assertIn(scoped, inventory)
+        self.assertIn(scoped, execution)
+        self.assertIn("--binaries-metadata", execution)
+        self.assertIn("--cargo-metadata", execution)
+        self.assertIn("hash:1/2", execution)
 
     def test_composed_validation_features_reach_metadata_and_provenance(self) -> None:
         def compose(command: list[str], environment: dict[str, str]) -> list[str]:
@@ -721,6 +770,7 @@ class ManagedPythonRouteTests(unittest.TestCase):
                 "--managed-primary-child",
             ],
             profile="reference",
+            observation={},
         )
 
     def test_managed_child_captures_original_native_and_collection_receipts(
@@ -751,7 +801,15 @@ class ManagedPythonRouteTests(unittest.TestCase):
                     },
                     clear=True,
                 ),
-                patch.object(native_tests, "python_native_binary", return_value=binary),
+                patch.object(
+                    native_tests.python_extension,
+                    "capture",
+                    return_value={
+                        "binary": str(binary),
+                        "sha256": "actual-digest",
+                        "features": ["force-validate", "native-solvers"],
+                    },
+                ),
                 patch.object(native_tests, "observe_deployed_artifacts"),
                 patch.object(
                     native_tests,
@@ -797,7 +855,28 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
         composition.start()
         self.addCleanup(composition.stop)
 
-    def test_exact_ignored_selection_is_forwarded_to_both_list_and_run(self) -> None:
+    def test_owned_native_route_defers_validation_to_its_preparing_observer(
+        self,
+    ) -> None:
+        extra = ["-p", "pse-runtime", "--run-ignored", "all", "-E", "test(=chosen)"]
+        with (
+            patch.dict(
+                os.environ, {"PSE_NATIVE_OPERATION": "/exact/operation"}, clear=True
+            ),
+            patch.object(sys, "argv", ["native_tests.py", "rust", *extra]),
+            patch.object(
+                native_tests,
+                "correctness_command",
+                side_effect=AssertionError("duplicate resolution"),
+            ),
+            patch.object(test_run, "run_rust", return_value=7) as executed,
+        ):
+            self.assertEqual(native_tests.main(), 7)
+        executed.assert_called_once_with(
+            native_tests.rust_command("run", ["--no-fail-fast", *extra])
+        )
+
+    def test_standalone_ignored_selection_reuses_one_prepared_inventory(self) -> None:
         name = "math::portable::canonical_deployment_tests::canonical_deployment_actual_receipts_enforce_selected_role"
         extra = ["--profile", "local", "--run-ignored", "all", "-E", f"test(={name})"]
         inventory = {
@@ -811,6 +890,11 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                 }
             }
         }
+        responses = [
+            subprocess.CompletedProcess([], 0, '{"rust-binaries": {}}'),
+            subprocess.CompletedProcess([], 0, '{"workspace_root": "/checkout"}'),
+            subprocess.CompletedProcess([], 0, json.dumps(inventory)),
+        ]
         with (
             tempfile.TemporaryDirectory() as directory,
             patch.dict(
@@ -826,26 +910,40 @@ class NativeIgnoredSelectionTests(unittest.TestCase):
                 "argv",
                 ["native_tests.py", "rust", *extra, "--success-output", "final"],
             ),
-            patch.object(
-                subprocess,
-                "run",
-                return_value=subprocess.CompletedProcess([], 0, json.dumps(inventory)),
-            ) as listed,
+            patch.object(subprocess, "run", side_effect=responses) as listed,
             patch.object(test_run, "run_rust", return_value=0) as executed,
+            patch.object(
+                native_tests,
+                "worker_binary",
+                return_value=Path(directory) / "actual-worker",
+            ),
             patch.object(native_tests, "observe_deployed_artifacts"),
-            patch.object(native_tests, "native_provenance", return_value={}),
+            patch.object(native_tests, "native_provenance", return_value={"files": {}}),
+            patch.object(
+                native_tests,
+                "correctness_command",
+                side_effect=lambda command, _env: command,
+            ) as resolved,
         ):
             self.assertEqual(native_tests.main(), 0)
+        resolved.assert_called_once()
         self.assertEqual(
-            listed.call_args.args[0],
-            native_tests.rust_command("list", ["--message-format", "json", *extra]),
+            listed.call_count, 3, "one build, one metadata observation, one inventory"
         )
-        self.assertEqual(
-            executed.call_args.args[0],
-            native_tests.rust_command(
-                "run", ["--no-fail-fast", *extra, "--success-output", "final"]
-            ),
-        )
+        selected = listed.call_args_list[2].args[0]
+        self.assertIn("--binaries-metadata", selected)
+        self.assertIn("--cargo-metadata", selected)
+        self.assertIn("--run-ignored", selected)
+        self.assertIn(f"test(={name})", selected)
+        self.assertNotIn("--success-output", selected)
+        run = executed.call_args.args[0]
+        self.assertEqual(run[:3], ["cargo", "nextest", "run"])
+        self.assertIn("--binaries-metadata", run)
+        self.assertIn("--cargo-metadata", run)
+        self.assertIn("--run-ignored", run)
+        self.assertIn(f"test(={name})", run)
+        self.assertIn("--success-output", run)
+        self.assertEqual(executed.call_args.kwargs["inventory"], inventory)
 
 
 if __name__ == "__main__":

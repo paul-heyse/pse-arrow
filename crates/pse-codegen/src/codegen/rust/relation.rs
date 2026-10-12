@@ -234,6 +234,7 @@ fn support(
         #[derive(Debug)]
         pub struct #view<'a> {
             batch: &'a crate::RecordBatch,
+            checked: Option<&'a crate::columnar::FieldCheckedBatch>,
             #(#columns: &'a #array_types,)*
         }
         impl<'a> #view<'a> {
@@ -248,17 +249,17 @@ fn support(
             /// A schema, field contract or local value violation.
             pub fn try_from_batch_with_registry(registry: &pse_schema::Registry, batch: &'a crate::RecordBatch, context: &crate::validate::ValidationContext) -> Result<Self, crate::RelationError> {
                 crate::validate::validate_batch(registry, spec(registry)?, batch, context).map_err(|errors| crate::RelationError::Validation { errors })?;
-                Self::borrow_columns(batch)
+                Self::borrow_columns(batch, None)
             }
             /// Borrows a checked owner without rescanning visible values.
             /// The private owner must carry this exact relation and complete declaration.
             /// # Errors
             /// A different generated declaration or an incompatible Arrow layout.
             pub fn from_checked(owner: &'a crate::columnar::FieldCheckedBatch) -> Result<Self, crate::RelationError> {
-                Self::borrow_columns(owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?)
+                Self::borrow_columns(owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?, Some(owner))
             }
-            fn borrow_columns(batch: &'a crate::RecordBatch) -> Result<Self, crate::RelationError> {
-                Ok(Self { batch, #(#columns: crate::columnar::array::<#array_types>(batch.column(#positions).as_ref())?,)* })
+            fn borrow_columns(batch: &'a crate::RecordBatch, checked: Option<&'a crate::columnar::FieldCheckedBatch>) -> Result<Self, crate::RelationError> {
+                Ok(Self { batch, checked, #(#columns: crate::columnar::array::<#array_types>(batch.column(#positions).as_ref())?,)* })
             }
             /// The immutable batch, preserving its buffer owners and reservations.
             pub const fn batch(&self) -> &'a crate::RecordBatch { self.batch }
@@ -295,6 +296,7 @@ fn support(
         impl crate::columnar::RelationView for #view<'_> {
             type Row = #row;
             fn batch(&self) -> &crate::RecordBatch { self.batch }
+            fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> { self.checked }
         }
 
     })

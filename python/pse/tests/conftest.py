@@ -9,6 +9,7 @@ belongs to this checkout.
 """
 
 import hashlib
+import json
 import os
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from pse._build import (
     CacheSettings,
     EngineSettings,
     build_info,
+    compiled_features,
 )
 from pse.contracts.extension_types import EXTENSION_NAMES
 from pse.tests.canonical_fixture import CanonicalFixture
@@ -51,6 +53,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 def pytest_sessionstart() -> None:
     """Refuse an import origin different from the native wrapper's recorded binary."""
+    features = compiled_features()
+    if "force-validate" not in features:
+        raise pytest.UsageError(
+            "Python correctness requires a force-validated extension; run just py-sync-correctness"
+        )
+    expected_features = os.environ.get("PSE_NATIVE_EXPECTED_FEATURES")
+    if expected_features is not None and features != json.loads(expected_features):
+        raise pytest.UsageError(
+            "native Python feature flags differ from wrapper capture"
+        )
     expected = os.environ.get("PSE_NATIVE_EXPECTED_BINARY")
     if expected is None:
         return

@@ -188,6 +188,7 @@ pub use modeling::{
 #[salsa::db]
 trait CompilerDb: Database {
     fn cancel(&self) -> &Arc<AtomicBool>;
+    fn projection_scratch_limit(&self) -> usize;
     fn body_retention(&self) -> Option<&Arc<dyn ModelingBodyRetention>>;
     fn body_refusal(&self) -> &std::sync::Mutex<Option<MathError>>;
 }
@@ -196,6 +197,7 @@ trait CompilerDb: Database {
 struct CompilerDatabase {
     storage: salsa::Storage<Self>,
     cancel: Arc<AtomicBool>,
+    projection_scratch_limit: usize,
     body_retention: Option<Arc<dyn ModelingBodyRetention>>,
     body_refusal: Arc<std::sync::Mutex<Option<MathError>>>,
 }
@@ -205,6 +207,9 @@ impl Database for CompilerDatabase {}
 impl CompilerDb for CompilerDatabase {
     fn cancel(&self) -> &Arc<AtomicBool> {
         &self.cancel
+    }
+    fn projection_scratch_limit(&self) -> usize {
+        self.projection_scratch_limit
     }
     fn body_retention(&self) -> Option<&Arc<dyn ModelingBodyRetention>> {
         self.body_retention.as_ref()
@@ -1169,6 +1174,7 @@ pub struct CompilerWorkspace {
 
     generation: usize,
     modeling: Option<modeling::State>,
+    granular: modeling::granular::State,
     /// Package data document inputs by identity (ADR-0125), each set only when its bytes
     /// change.
     documents: BTreeMap<SemanticId, modeling::DataDocumentInput>,
@@ -1211,6 +1217,7 @@ impl CompilerWorkspace {
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(event),
             cancel: Arc::default(),
+            projection_scratch_limit: limits.input_bytes,
             body_retention: None,
             body_refusal: Default::default(),
         };
@@ -1224,6 +1231,7 @@ impl CompilerWorkspace {
 
             generation: 0,
             modeling: None,
+            granular: Default::default(),
             documents: BTreeMap::new(),
         })
     }
@@ -1302,7 +1310,7 @@ impl CompilerWorkspace {
     pub fn retention_usage(&self) -> (usize, usize) {
         let report = <dyn Database>::memory_usage(&self.db);
         report.structs.iter().chain(report.queries.values()).fold(
-            (0usize, 0usize),
+            (self.granular.entries(), self.granular.known_bytes(&self.db)),
             |(entries, bytes), info| {
                 (
                     entries.saturating_add(info.count()),

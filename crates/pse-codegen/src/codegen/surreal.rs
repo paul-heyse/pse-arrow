@@ -71,6 +71,7 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             let (ty, codec) = match column.value_type().data_type() {
                 DataType::Utf8 => ("string", "string"),
                 DataType::Binary => ("bytes", "bytes"),
+                DataType::FixedSizeBinary(16) => ("bytes", "id"),
                 DataType::UInt64 => ("decimal", "uint"),
                 DataType::Int64 | DataType::Timestamp(_, _) => ("int", "int"),
                 DataType::Boolean => ("bool", "boolean"),
@@ -89,7 +90,9 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             } else {
                 ty.to_owned()
             };
-            let assertion = if ty == "decimal" {
+            let assertion = if codec == "id" {
+                " ASSERT $value = NONE OR bytes::len($value) = 16"
+            } else if ty == "decimal" {
                 " ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value)"
             } else if ty == "object" {
                 " ASSERT $value = NONE OR ($value.projection >= -1.7976931348623157e308f AND $value.projection <= 1.7976931348623157e308f)"
@@ -108,7 +111,7 @@ pub(super) fn append(registry: &Registry, tree: &mut GeneratedTree) -> Result<()
             }
             let encode_field = format_ident!("encode_{codec}");
             let decode_field = format_ident!("decode_{codec}");
-            let copy = matches!(codec, "uint" | "int" | "boolean" | "finite");
+            let copy = matches!(codec, "uint" | "int" | "boolean" | "finite" | "id");
             if column.nullable() {
                 let value = if copy {
                     quote!(*value)

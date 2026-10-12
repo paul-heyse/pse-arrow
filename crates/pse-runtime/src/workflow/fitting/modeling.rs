@@ -51,7 +51,7 @@ pub(super) enum Assessment {
     Steady {
         model: Box<ModelingPreparation>,
         program: Option<Arc<ExecutableCase>>,
-        numerics: Arc<ResolvedNumericalPolicy>,
+        numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     },
     Transient(Box<ModelingSimulation>),
 }
@@ -503,6 +503,7 @@ impl ModelingPackage {
                             BTreeSet::new()
                         },
                         &provisional_quadratures,
+                        None,
                         cancel,
                     )
                     .await?;
@@ -594,6 +595,7 @@ impl ModelingPackage {
                 let result = Experiment::Transient(Box::new(IntegratedExperiment {
                     snapshot: simulation.snapshot().clone(),
                     program: simulation.program(),
+                    snapshots: simulation.snapshot_allocator(),
                     profile: simulation.profile().clone(),
                     parameters: simulation.parameters.clone(),
                     output_ports,
@@ -929,6 +931,7 @@ impl ModelingPackage {
         let quantities = q.clone();
         let preconditions = self.physical.preconditions.clone();
         let source = identity.finish_hash();
+        let physical_owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(self.physical.clone());
         // The transferred reservation owns construction storage; the canonical job
         // supplies the bounded worker, CPU admission and native cancellation boundary.
         let operation = self
@@ -941,6 +944,7 @@ impl ModelingPackage {
                     quantities,
                     preconditions,
                     source,
+                    physical_owner,
                     reservation,
                     &flag,
                 ))

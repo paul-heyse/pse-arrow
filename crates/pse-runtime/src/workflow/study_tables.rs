@@ -159,8 +159,8 @@ pub(super) fn export<T: RelationRow + pse_model::HeapUsage>(
     )?;
     let pool = runtime.shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let validation = runtime.validation_context()?;
-    let mut columns = Collection::new(&runtime.registry, &pool, &cancel, &validation);
+    let validation = runtime.validation_context();
+    let mut columns = Collection::new(runtime.registry(), &pool, &cancel, &validation);
     columns.ensure::<T>().map_err(super::relation)?;
     for row in rows {
         columns.push(row).map_err(super::relation)?;

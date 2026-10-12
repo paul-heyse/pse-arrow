@@ -1,0 +1,2408 @@
+{
+  "binary": "/home/paul/.local/share/pse-arrow/tools/surreal/v3.3.0/linux-amd64/surreal",
+  "version": "3.3.0 for linux on x86_64",
+  "directory": "/tmp/plan36-coordination-z9xhjctu",
+  "command": [
+    "/home/paul/.local/share/pse-arrow/tools/surreal/v3.3.0/linux-amd64/surreal",
+    "start",
+    "--bind",
+    "127.0.0.1:49215",
+    "--user",
+    "probe",
+    "--pass",
+    "probe",
+    "--log",
+    "warn",
+    "rocksdb:///tmp/plan36-coordination-z9xhjctu/store"
+  ],
+  "plans": {
+    "membership-head": {
+      "query": "SELECT * FROM canonical_memberships WHERE problem='p' AND to_sequence=NONE AND key>'' AND scope='s' ORDER BY key LIMIT 64",
+      "rows": 64,
+      "result_keys": [
+        "000-10",
+        "001-10",
+        "002-10",
+        "003-10",
+        "004-10",
+        "005-10",
+        "006-10",
+        "007-10",
+        "008-10",
+        "009-10",
+        "010-10",
+        "011-10",
+        "012-10",
+        "013-10",
+        "014-10",
+        "015-10",
+        "016-10",
+        "017-10",
+        "018-10",
+        "019-10",
+        "020-10",
+        "021-10",
+        "022-10",
+        "023-10",
+        "024-10",
+        "025-10",
+        "026-10",
+        "027-10",
+        "028-10",
+        "029-10",
+        "030-10",
+        "031-10",
+        "032-10",
+        "033-10",
+        "034-10",
+        "035-10",
+        "036-10",
+        "037-10",
+        "038-10",
+        "039-10",
+        "040-10",
+        "041-10",
+        "042-10",
+        "043-10",
+        "044-10",
+        "045-10",
+        "046-10",
+        "047-10",
+        "048-10",
+        "049-10",
+        "050-10",
+        "051-10",
+        "052-10",
+        "053-10",
+        "054-10",
+        "055-10",
+        "056-10",
+        "057-10",
+        "058-10",
+        "059-10",
+        "060-10",
+        "061-10",
+        "062-10",
+        "063-10"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "access": "['p', 's', NONE] MoreThan ''",
+              "direction": "Forward",
+              "index": "membership_scope_head_pages",
+              "limit": "64"
+            },
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 248650,
+              "output_batches": 1,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "IndexScan"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 3850,
+          "output_batches": 1,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      }
+    },
+    "membership-head-scoped": {
+      "query": "SELECT * FROM canonical_memberships WITH INDEX membership_scope_head_pages WHERE problem='p' AND scope='s' AND to_sequence=NONE AND key>'' ORDER BY key LIMIT 64",
+      "rows": 64,
+      "result_keys": [
+        "000-10",
+        "001-10",
+        "002-10",
+        "003-10",
+        "004-10",
+        "005-10",
+        "006-10",
+        "007-10",
+        "008-10",
+        "009-10",
+        "010-10",
+        "011-10",
+        "012-10",
+        "013-10",
+        "014-10",
+        "015-10",
+        "016-10",
+        "017-10",
+        "018-10",
+        "019-10",
+        "020-10",
+        "021-10",
+        "022-10",
+        "023-10",
+        "024-10",
+        "025-10",
+        "026-10",
+        "027-10",
+        "028-10",
+        "029-10",
+        "030-10",
+        "031-10",
+        "032-10",
+        "033-10",
+        "034-10",
+        "035-10",
+        "036-10",
+        "037-10",
+        "038-10",
+        "039-10",
+        "040-10",
+        "041-10",
+        "042-10",
+        "043-10",
+        "044-10",
+        "045-10",
+        "046-10",
+        "047-10",
+        "048-10",
+        "049-10",
+        "050-10",
+        "051-10",
+        "052-10",
+        "053-10",
+        "054-10",
+        "055-10",
+        "056-10",
+        "057-10",
+        "058-10",
+        "059-10",
+        "060-10",
+        "061-10",
+        "062-10",
+        "063-10"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "access": "['p', 's', NONE] MoreThan ''",
+              "direction": "Forward",
+              "index": "membership_scope_head_pages",
+              "limit": "64"
+            },
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 180835,
+              "output_batches": 1,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "IndexScan"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 3960,
+          "output_batches": 1,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      }
+    },
+    "membership-current": {
+      "query": "SELECT * FROM canonical_memberships WHERE problem='p' AND scope='s' AND key>'' AND from_sequence<=10 AND (to_sequence=NONE OR to_sequence>10) ORDER BY key LIMIT 64",
+      "rows": 64,
+      "result_keys": [
+        "000-10",
+        "001-10",
+        "002-10",
+        "003-10",
+        "004-10",
+        "005-10",
+        "006-10",
+        "007-10",
+        "008-10",
+        "009-10",
+        "010-10",
+        "011-10",
+        "012-10",
+        "013-10",
+        "014-10",
+        "015-10",
+        "016-10",
+        "017-10",
+        "018-10",
+        "019-10",
+        "020-10",
+        "021-10",
+        "022-10",
+        "023-10",
+        "024-10",
+        "025-10",
+        "026-10",
+        "027-10",
+        "028-10",
+        "029-10",
+        "030-10",
+        "031-10",
+        "032-10",
+        "033-10",
+        "034-10",
+        "035-10",
+        "036-10",
+        "037-10",
+        "038-10",
+        "039-10",
+        "040-10",
+        "041-10",
+        "042-10",
+        "043-10",
+        "044-10",
+        "045-10",
+        "046-10",
+        "047-10",
+        "048-10",
+        "049-10",
+        "050-10",
+        "051-10",
+        "052-10",
+        "053-10",
+        "054-10",
+        "055-10",
+        "056-10",
+        "057-10",
+        "058-10",
+        "059-10",
+        "060-10",
+        "061-10",
+        "062-10",
+        "063-10"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "from_sequence <= 10 AND to_sequence = NONE OR to_sequence > 10"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p', 's'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_scope_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 1503205,
+                      "output_batches": 3,
+                      "output_rows": 768,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "from_sequence <= 10 AND to_sequence = NONE OR to_sequence > 10"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 195027,
+                  "output_batches": 3,
+                  "output_rows": 69,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 6031,
+              "output_batches": 3,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 8560,
+          "output_batches": 3,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      }
+    },
+    "membership-historical": {
+      "query": "SELECT * FROM canonical_memberships WHERE problem='p' AND scope='s' AND key>'' AND from_sequence<=5 AND (to_sequence=NONE OR to_sequence>5) ORDER BY key LIMIT 64",
+      "rows": 64,
+      "result_keys": [
+        "000-05",
+        "001-05",
+        "002-05",
+        "003-05",
+        "004-05",
+        "005-05",
+        "006-05",
+        "007-05",
+        "008-05",
+        "009-05",
+        "010-05",
+        "011-05",
+        "012-05",
+        "013-05",
+        "014-05",
+        "015-05",
+        "016-05",
+        "017-05",
+        "018-05",
+        "019-05",
+        "020-05",
+        "021-05",
+        "022-05",
+        "023-05",
+        "024-05",
+        "025-05",
+        "026-05",
+        "027-05",
+        "028-05",
+        "029-05",
+        "030-05",
+        "031-05",
+        "032-05",
+        "033-05",
+        "034-05",
+        "035-05",
+        "036-05",
+        "037-05",
+        "038-05",
+        "039-05",
+        "040-05",
+        "041-05",
+        "042-05",
+        "043-05",
+        "044-05",
+        "045-05",
+        "046-05",
+        "047-05",
+        "048-05",
+        "049-05",
+        "050-05",
+        "051-05",
+        "052-05",
+        "053-05",
+        "054-05",
+        "055-05",
+        "056-05",
+        "057-05",
+        "058-05",
+        "059-05",
+        "060-05",
+        "061-05",
+        "062-05",
+        "063-05"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "from_sequence <= 5 AND to_sequence = NONE OR to_sequence > 5"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p', 's'] MoreThan ''",
+                      "direction": "Forward",
+                      "index": "membership_scope_pages"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 2016257,
+                      "output_batches": 3,
+                      "output_rows": 768,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "from_sequence <= 5 AND to_sequence = NONE OR to_sequence > 5"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 121500,
+                  "output_batches": 3,
+                  "output_rows": 70,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 4890,
+              "output_batches": 3,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 5060,
+          "output_batches": 3,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      }
+    },
+    "membership-exact-version": {
+      "query": "SELECT * FROM canonical_memberships WHERE problem='p' AND version='v064-05' AND from_sequence<=5 AND (to_sequence=NONE OR to_sequence>5) LIMIT 1",
+      "rows": 1,
+      "result_keys": [
+        "064-05"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "problem = 'p' AND from_sequence <= 5 AND to_sequence = NONE OR to_sequence > 5"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "= 'v064-05'",
+                      "direction": "Forward",
+                      "index": "membership_version"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 48033,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "problem = 'p' AND from_sequence <= 5 AND to_sequence = NONE OR to_sequence > 5"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 8060,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 1940,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1440,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      }
+    },
+    "latest-results": {
+      "query": "SELECT VALUE {run:key,attempt:terminal_attempt} FROM canonical_runs WHERE problem='p' AND terminal_attempt!=NONE AND terminal_class!=NONE ORDER BY sequence DESC LIMIT 1",
+      "rows": 1,
+      "result_keys": [
+        "r0990"
+      ],
+      "explain": {
+        "attributes": {
+          "expr": "{run: key, attempt: terminal_attempt}"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "1"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "terminal_attempt != NONE AND terminal_class != NONE"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['p']",
+                      "direction": "Backward",
+                      "index": "run_order"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 131050,
+                      "output_batches": 7,
+                      "output_rows": 28,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "predicate",
+                    "sql": "terminal_attempt != NONE AND terminal_class != NONE"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 11741,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "1"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 5200,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "expressions": [
+          {
+            "role": "expr",
+            "sql": "{run: key, attempt: terminal_attempt}"
+          }
+        ],
+        "metrics": {
+          "elapsed_ns": 10201,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "ProjectValue",
+        "total_rows": 1
+      }
+    },
+    "seed-original": {
+      "query": "SELECT * FROM canonical_result_seeds WHERE layout='l' AND preparation='p' AND backend='b' AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1)=[] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64",
+      "rows": 64,
+      "result_keys": [
+        "s064",
+        "s063",
+        "s062",
+        "s061",
+        "s060",
+        "s059",
+        "s058",
+        "s057",
+        "s056",
+        "s055",
+        "s054",
+        "s053",
+        "s052",
+        "s051",
+        "s050",
+        "s049",
+        "s048",
+        "s047",
+        "s046",
+        "s045",
+        "s044",
+        "s043",
+        "s042",
+        "s041",
+        "s040",
+        "s039",
+        "s038",
+        "s037",
+        "s036",
+        "s035",
+        "s034",
+        "s033",
+        "s032",
+        "s031",
+        "s030",
+        "s029",
+        "s028",
+        "s027",
+        "s026",
+        "s025",
+        "s024",
+        "s023",
+        "s022",
+        "s021",
+        "s020",
+        "s019",
+        "s018",
+        "s017",
+        "s016",
+        "s015",
+        "s014",
+        "s013",
+        "s012",
+        "s011",
+        "s010",
+        "s009",
+        "s008",
+        "s007",
+        "s006",
+        "s005",
+        "s004",
+        "s003",
+        "s002",
+        "s001"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "predicate": "(ProjectValue) = []"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "access": "['l', 'p', 'b']",
+                      "direction": "Backward",
+                      "index": "result_seed_eligibility"
+                    },
+                    "context": "Db",
+                    "metrics": {
+                      "elapsed_ns": 214848,
+                      "output_batches": 1,
+                      "output_rows": 65,
+                      "records_fetched": 0
+                    },
+                    "operator": "IndexScan"
+                  }
+                ],
+                "context": "Db",
+                "expressions": [
+                  {
+                    "embedded_operators": [
+                      {
+                        "plan": {
+                          "attributes": {
+                            "expr": "key"
+                          },
+                          "children": [
+                            {
+                              "attributes": {
+                                "direction": "Forward",
+                                "limit": "1",
+                                "pre_decode_filter": "no (unsupported predicate)",
+                                "predicate": "run = $parent.run",
+                                "table": "canonical_result_retirements"
+                              },
+                              "context": "Db",
+                              "metrics": {
+                                "elapsed_ns": 109369,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "TableScan"
+                            }
+                          ],
+                          "context": "Db",
+                          "expressions": [
+                            {
+                              "role": "expr",
+                              "sql": "key"
+                            }
+                          ],
+                          "metrics": {
+                            "elapsed_ns": 9000,
+                            "output_batches": 0,
+                            "output_rows": 0,
+                            "records_fetched": 0
+                          },
+                          "operator": "ProjectValue"
+                        },
+                        "role": "subquery"
+                      }
+                    ],
+                    "role": "predicate",
+                    "sql": "(ProjectValue) = []"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 148783,
+                  "output_batches": 1,
+                  "output_rows": 65,
+                  "records_fetched": 0
+                },
+                "operator": "Filter"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 3031,
+              "output_batches": 1,
+              "output_rows": 64,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 3640,
+          "output_batches": 1,
+          "output_rows": 64,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 64
+      }
+    },
+    "seed-eligible": {
+      "query": "SELECT * FROM canonical_result_seeds WHERE layout='l' AND preparation='p' AND backend='b' AND type::record('canonical_attempts',attempt).terminal_eligible=true AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1)=[] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64",
+      "rows": 1,
+      "result_keys": [
+        "s000"
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "limit": "64"
+            },
+            "children": [
+              {
+                "attributes": {
+                  "limit": "64",
+                  "sort_keys": "run_sequence DESC, attempt_generation DESC, step DESC, key DESC"
+                },
+                "children": [
+                  {
+                    "attributes": {
+                      "predicate": "type::record('canonical_attempts', attempt).terminal_eligible = true AND (ProjectValue) = []"
+                    },
+                    "children": [
+                      {
+                        "attributes": {
+                          "access": "['l', 'p', 'b']",
+                          "direction": "Backward",
+                          "index": "result_seed_eligibility"
+                        },
+                        "context": "Db",
+                        "metrics": {
+                          "elapsed_ns": 198087,
+                          "output_batches": 1,
+                          "output_rows": 65,
+                          "records_fetched": 0
+                        },
+                        "operator": "IndexScan"
+                      }
+                    ],
+                    "context": "Db",
+                    "expressions": [
+                      {
+                        "embedded_operators": [
+                          {
+                            "plan": {
+                              "attributes": {
+                                "expr": "key"
+                              },
+                              "children": [
+                                {
+                                  "attributes": {
+                                    "direction": "Forward",
+                                    "limit": "1",
+                                    "pre_decode_filter": "no (unsupported predicate)",
+                                    "predicate": "run = $parent.run",
+                                    "table": "canonical_result_retirements"
+                                  },
+                                  "context": "Db",
+                                  "metrics": {
+                                    "elapsed_ns": 13461,
+                                    "output_batches": 0,
+                                    "output_rows": 0,
+                                    "records_fetched": 0
+                                  },
+                                  "operator": "TableScan"
+                                }
+                              ],
+                              "context": "Db",
+                              "expressions": [
+                                {
+                                  "role": "expr",
+                                  "sql": "key"
+                                }
+                              ],
+                              "metrics": {
+                                "elapsed_ns": 671,
+                                "output_batches": 0,
+                                "output_rows": 0,
+                                "records_fetched": 0
+                              },
+                              "operator": "ProjectValue"
+                            },
+                            "role": "subquery"
+                          }
+                        ],
+                        "role": "predicate",
+                        "sql": "type::record('canonical_attempts', attempt).terminal_eligible = true AND (ProjectValue) = []"
+                      }
+                    ],
+                    "metrics": {
+                      "elapsed_ns": 114629,
+                      "output_batches": 1,
+                      "output_rows": 1,
+                      "records_fetched": 0
+                    },
+                    "operator": "Filter"
+                  }
+                ],
+                "context": "Db",
+                "metrics": {
+                  "elapsed_ns": 3680,
+                  "output_batches": 1,
+                  "output_rows": 1,
+                  "records_fetched": 0
+                },
+                "operator": "SortTopKByKey"
+              }
+            ],
+            "context": "Db",
+            "expressions": [
+              {
+                "role": "limit",
+                "sql": "64"
+              }
+            ],
+            "metrics": {
+              "elapsed_ns": 6540,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "Limit"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 1770,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      }
+    },
+    "ack-exact-record": {
+      "query": "SELECT * FROM ONLY ack:k0999",
+      "rows": 1,
+      "result_keys": null,
+      "explain": {
+        "children": [
+          {
+            "children": [
+              {
+                "attributes": {
+                  "record_id": "ack:k0999"
+                },
+                "context": "Db",
+                "expressions": [
+                  {
+                    "role": "record_id",
+                    "sql": "ack:k0999"
+                  }
+                ],
+                "metrics": {
+                  "elapsed_ns": 12181,
+                  "output_batches": 0,
+                  "output_rows": 0,
+                  "records_fetched": 0
+                },
+                "operator": "RecordIdScan"
+              }
+            ],
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 12401,
+              "output_batches": 0,
+              "output_rows": 0,
+              "records_fetched": 0
+            },
+            "operator": "Project"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 13771,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "UnwrapExactlyOne",
+        "total_rows": 1
+      }
+    },
+    "ack-exact-index": {
+      "query": "SELECT * FROM ack WHERE problem='p' AND descriptor='d0999' AND store='store' LIMIT 1",
+      "rows": 1,
+      "result_keys": [
+        null
+      ],
+      "explain": {
+        "attributes": {
+          "projections": "*"
+        },
+        "children": [
+          {
+            "attributes": {
+              "access": "['p', 'd0999', 'store']",
+              "direction": "Forward",
+              "index": "ack_lookup",
+              "limit": "1"
+            },
+            "context": "Db",
+            "metrics": {
+              "elapsed_ns": 56945,
+              "output_batches": 1,
+              "output_rows": 1,
+              "records_fetched": 0
+            },
+            "operator": "IndexScan"
+          }
+        ],
+        "context": "Db",
+        "metrics": {
+          "elapsed_ns": 2410,
+          "output_batches": 1,
+          "output_rows": 1,
+          "records_fetched": 0
+        },
+        "operator": "SelectProject",
+        "total_rows": 1
+      }
+    }
+  },
+  "controls": {
+    "seed-original-masks-eligible": true,
+    "seed-eligible-selects-older": true,
+    "membership-current-noindex-equality": true,
+    "membership-historical-noindex-equality": true,
+    "membership-head-noindex-equality": true,
+    "membership-head-interval-equality": true,
+    "membership-head-scoped-interval-equality": true,
+    "guarded-head": [
+      {
+        "result": null,
+        "status": "OK",
+        "time": "0ns",
+        "type": null
+      },
+      {
+        "result": null,
+        "status": "OK",
+        "time": "225.878\u00b5s",
+        "type": null
+      },
+      {
+        "result": null,
+        "status": "OK",
+        "time": "55.714\u00b5s",
+        "type": null
+      },
+      {
+        "result": [
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-000`",
+            "key": "000-10",
+            "logical": "v000",
+            "problem": "p",
+            "scope": "s",
+            "version": "v000-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-001`",
+            "key": "001-10",
+            "logical": "v001",
+            "problem": "p",
+            "scope": "s",
+            "version": "v001-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-002`",
+            "key": "002-10",
+            "logical": "v002",
+            "problem": "p",
+            "scope": "s",
+            "version": "v002-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-003`",
+            "key": "003-10",
+            "logical": "v003",
+            "problem": "p",
+            "scope": "s",
+            "version": "v003-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-004`",
+            "key": "004-10",
+            "logical": "v004",
+            "problem": "p",
+            "scope": "s",
+            "version": "v004-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-005`",
+            "key": "005-10",
+            "logical": "v005",
+            "problem": "p",
+            "scope": "s",
+            "version": "v005-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-006`",
+            "key": "006-10",
+            "logical": "v006",
+            "problem": "p",
+            "scope": "s",
+            "version": "v006-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-007`",
+            "key": "007-10",
+            "logical": "v007",
+            "problem": "p",
+            "scope": "s",
+            "version": "v007-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-008`",
+            "key": "008-10",
+            "logical": "v008",
+            "problem": "p",
+            "scope": "s",
+            "version": "v008-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-009`",
+            "key": "009-10",
+            "logical": "v009",
+            "problem": "p",
+            "scope": "s",
+            "version": "v009-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-010`",
+            "key": "010-10",
+            "logical": "v010",
+            "problem": "p",
+            "scope": "s",
+            "version": "v010-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-011`",
+            "key": "011-10",
+            "logical": "v011",
+            "problem": "p",
+            "scope": "s",
+            "version": "v011-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-012`",
+            "key": "012-10",
+            "logical": "v012",
+            "problem": "p",
+            "scope": "s",
+            "version": "v012-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-013`",
+            "key": "013-10",
+            "logical": "v013",
+            "problem": "p",
+            "scope": "s",
+            "version": "v013-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-014`",
+            "key": "014-10",
+            "logical": "v014",
+            "problem": "p",
+            "scope": "s",
+            "version": "v014-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-015`",
+            "key": "015-10",
+            "logical": "v015",
+            "problem": "p",
+            "scope": "s",
+            "version": "v015-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-016`",
+            "key": "016-10",
+            "logical": "v016",
+            "problem": "p",
+            "scope": "s",
+            "version": "v016-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-017`",
+            "key": "017-10",
+            "logical": "v017",
+            "problem": "p",
+            "scope": "s",
+            "version": "v017-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-018`",
+            "key": "018-10",
+            "logical": "v018",
+            "problem": "p",
+            "scope": "s",
+            "version": "v018-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-019`",
+            "key": "019-10",
+            "logical": "v019",
+            "problem": "p",
+            "scope": "s",
+            "version": "v019-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-020`",
+            "key": "020-10",
+            "logical": "v020",
+            "problem": "p",
+            "scope": "s",
+            "version": "v020-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-021`",
+            "key": "021-10",
+            "logical": "v021",
+            "problem": "p",
+            "scope": "s",
+            "version": "v021-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-022`",
+            "key": "022-10",
+            "logical": "v022",
+            "problem": "p",
+            "scope": "s",
+            "version": "v022-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-023`",
+            "key": "023-10",
+            "logical": "v023",
+            "problem": "p",
+            "scope": "s",
+            "version": "v023-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-024`",
+            "key": "024-10",
+            "logical": "v024",
+            "problem": "p",
+            "scope": "s",
+            "version": "v024-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-025`",
+            "key": "025-10",
+            "logical": "v025",
+            "problem": "p",
+            "scope": "s",
+            "version": "v025-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-026`",
+            "key": "026-10",
+            "logical": "v026",
+            "problem": "p",
+            "scope": "s",
+            "version": "v026-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-027`",
+            "key": "027-10",
+            "logical": "v027",
+            "problem": "p",
+            "scope": "s",
+            "version": "v027-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-028`",
+            "key": "028-10",
+            "logical": "v028",
+            "problem": "p",
+            "scope": "s",
+            "version": "v028-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-029`",
+            "key": "029-10",
+            "logical": "v029",
+            "problem": "p",
+            "scope": "s",
+            "version": "v029-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-030`",
+            "key": "030-10",
+            "logical": "v030",
+            "problem": "p",
+            "scope": "s",
+            "version": "v030-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-031`",
+            "key": "031-10",
+            "logical": "v031",
+            "problem": "p",
+            "scope": "s",
+            "version": "v031-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-032`",
+            "key": "032-10",
+            "logical": "v032",
+            "problem": "p",
+            "scope": "s",
+            "version": "v032-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-033`",
+            "key": "033-10",
+            "logical": "v033",
+            "problem": "p",
+            "scope": "s",
+            "version": "v033-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-034`",
+            "key": "034-10",
+            "logical": "v034",
+            "problem": "p",
+            "scope": "s",
+            "version": "v034-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-035`",
+            "key": "035-10",
+            "logical": "v035",
+            "problem": "p",
+            "scope": "s",
+            "version": "v035-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-036`",
+            "key": "036-10",
+            "logical": "v036",
+            "problem": "p",
+            "scope": "s",
+            "version": "v036-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-037`",
+            "key": "037-10",
+            "logical": "v037",
+            "problem": "p",
+            "scope": "s",
+            "version": "v037-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-038`",
+            "key": "038-10",
+            "logical": "v038",
+            "problem": "p",
+            "scope": "s",
+            "version": "v038-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-039`",
+            "key": "039-10",
+            "logical": "v039",
+            "problem": "p",
+            "scope": "s",
+            "version": "v039-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-040`",
+            "key": "040-10",
+            "logical": "v040",
+            "problem": "p",
+            "scope": "s",
+            "version": "v040-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-041`",
+            "key": "041-10",
+            "logical": "v041",
+            "problem": "p",
+            "scope": "s",
+            "version": "v041-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-042`",
+            "key": "042-10",
+            "logical": "v042",
+            "problem": "p",
+            "scope": "s",
+            "version": "v042-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-043`",
+            "key": "043-10",
+            "logical": "v043",
+            "problem": "p",
+            "scope": "s",
+            "version": "v043-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-044`",
+            "key": "044-10",
+            "logical": "v044",
+            "problem": "p",
+            "scope": "s",
+            "version": "v044-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-045`",
+            "key": "045-10",
+            "logical": "v045",
+            "problem": "p",
+            "scope": "s",
+            "version": "v045-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-046`",
+            "key": "046-10",
+            "logical": "v046",
+            "problem": "p",
+            "scope": "s",
+            "version": "v046-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-047`",
+            "key": "047-10",
+            "logical": "v047",
+            "problem": "p",
+            "scope": "s",
+            "version": "v047-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-048`",
+            "key": "048-10",
+            "logical": "v048",
+            "problem": "p",
+            "scope": "s",
+            "version": "v048-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-049`",
+            "key": "049-10",
+            "logical": "v049",
+            "problem": "p",
+            "scope": "s",
+            "version": "v049-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-050`",
+            "key": "050-10",
+            "logical": "v050",
+            "problem": "p",
+            "scope": "s",
+            "version": "v050-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-051`",
+            "key": "051-10",
+            "logical": "v051",
+            "problem": "p",
+            "scope": "s",
+            "version": "v051-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-052`",
+            "key": "052-10",
+            "logical": "v052",
+            "problem": "p",
+            "scope": "s",
+            "version": "v052-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-053`",
+            "key": "053-10",
+            "logical": "v053",
+            "problem": "p",
+            "scope": "s",
+            "version": "v053-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-054`",
+            "key": "054-10",
+            "logical": "v054",
+            "problem": "p",
+            "scope": "s",
+            "version": "v054-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-055`",
+            "key": "055-10",
+            "logical": "v055",
+            "problem": "p",
+            "scope": "s",
+            "version": "v055-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-056`",
+            "key": "056-10",
+            "logical": "v056",
+            "problem": "p",
+            "scope": "s",
+            "version": "v056-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-057`",
+            "key": "057-10",
+            "logical": "v057",
+            "problem": "p",
+            "scope": "s",
+            "version": "v057-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-058`",
+            "key": "058-10",
+            "logical": "v058",
+            "problem": "p",
+            "scope": "s",
+            "version": "v058-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-059`",
+            "key": "059-10",
+            "logical": "v059",
+            "problem": "p",
+            "scope": "s",
+            "version": "v059-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-060`",
+            "key": "060-10",
+            "logical": "v060",
+            "problem": "p",
+            "scope": "s",
+            "version": "v060-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-061`",
+            "key": "061-10",
+            "logical": "v061",
+            "problem": "p",
+            "scope": "s",
+            "version": "v061-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-062`",
+            "key": "062-10",
+            "logical": "v062",
+            "problem": "p",
+            "scope": "s",
+            "version": "v062-10"
+          },
+          {
+            "from_sequence": 10,
+            "id": "canonical_memberships:`canonical_memberships:m10-063`",
+            "key": "063-10",
+            "logical": "v063",
+            "problem": "p",
+            "scope": "s",
+            "version": "v063-10"
+          }
+        ],
+        "status": "OK",
+        "time": "530.074\u00b5s",
+        "type": null
+      },
+      {
+        "result": null,
+        "status": "OK",
+        "time": "11.526557ms",
+        "type": null
+      }
+    ],
+    "absent-registration-response": [
+      {
+        "result": null,
+        "status": "OK",
+        "time": "0ns",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "NotExecuted"
+        },
+        "kind": "Query",
+        "result": "The query was not executed due to a failed transaction",
+        "status": "ERR",
+        "time": "171.964\u00b5s",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "NotExecuted"
+        },
+        "kind": "Query",
+        "result": "The query was not executed due to a failed transaction",
+        "status": "ERR",
+        "time": "801.640426ms",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "NotExecuted"
+        },
+        "kind": "Query",
+        "result": "The query was not executed due to a failed transaction",
+        "status": "ERR",
+        "time": "182.695\u00b5s",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "TransactionConflict"
+        },
+        "kind": "Query",
+        "result": "Cannot COMMIT: Transaction conflict: Resource busy. This transaction can be retried",
+        "status": "ERR",
+        "time": "9.103004ms",
+        "type": null
+      }
+    ],
+    "absent-registration-refuses": true,
+    "disjoint-registered-readers": [
+      [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "id": "race:fence",
+            "value": 0
+          },
+          "status": "OK",
+          "time": "185.445\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "301.382952ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:disjoint0",
+              "value": 1
+            }
+          ],
+          "status": "OK",
+          "time": "192.726\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "11.522244ms",
+          "type": null
+        }
+      ],
+      [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "id": "race:fence",
+            "value": 0
+          },
+          "status": "OK",
+          "time": "177.344\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "300.764431ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:disjoint1",
+              "value": 1
+            }
+          ],
+          "status": "OK",
+          "time": "138.722\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "2.407909ms",
+          "type": null
+        }
+      ]
+    ],
+    "creator-first": {
+      "a": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "id": "race:reclaim",
+            "v": 0
+          },
+          "status": "OK",
+          "time": "190.495\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "15.272\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "101.200585ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:root",
+              "v": 1
+            }
+          ],
+          "status": "OK",
+          "time": "161.033\u00b5s",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:creator",
+              "v": 1
+            }
+          ],
+          "status": "OK",
+          "time": "67.515\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "11.513533ms",
+          "type": null
+        }
+      ],
+      "b": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "190.535\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "83.926\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "700.549197ms",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "202.686\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "TransactionConflict"
+          },
+          "kind": "Query",
+          "result": "Cannot COMMIT: Transaction conflict: Resource busy. This transaction can be retried",
+          "status": "ERR",
+          "time": "45.494\u00b5s",
+          "type": null
+        }
+      ]
+    },
+    "collector-first": {
+      "a": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "190.896\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "15.671\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "700.650014ms",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "161.183\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "40.243\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "TransactionConflict"
+          },
+          "kind": "Query",
+          "result": "Cannot COMMIT: Transaction conflict: Resource busy. This transaction can be retried",
+          "status": "ERR",
+          "time": "38.024\u00b5s",
+          "type": null
+        }
+      ],
+      "b": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "id": "race:creator",
+            "v": 0
+          },
+          "status": "OK",
+          "time": "89.778\u00b5s",
+          "type": null
+        },
+        {
+          "result": [],
+          "status": "OK",
+          "time": "66.655\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "101.211698ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:reclaim",
+              "v": 1
+            }
+          ],
+          "status": "OK",
+          "time": "194.416\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "3.154321ms",
+          "type": null
+        }
+      ]
+    },
+    "append-first": {
+      "a": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "cancelled": false,
+            "id": "race:cancel"
+          },
+          "status": "OK",
+          "time": "89.057\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "101.198478ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "id": "race:append",
+              "v": 1
+            }
+          ],
+          "status": "OK",
+          "time": "172.915\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "3.084444ms",
+          "type": null
+        }
+      ],
+      "b": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "cancelled": false,
+            "id": "race:cancel"
+          },
+          "status": "OK",
+          "time": "228.969\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "701.193396ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "cancelled": true,
+              "id": "race:cancel"
+            }
+          ],
+          "status": "OK",
+          "time": "159.803\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "11.491607ms",
+          "type": null
+        }
+      ],
+      "retained_append": [
+        {
+          "id": "race:append",
+          "v": 1
+        }
+      ]
+    },
+    "cancel-first": {
+      "a": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "184.755\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "701.056561ms",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "167.123\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "TransactionConflict"
+          },
+          "kind": "Query",
+          "result": "Cannot COMMIT: Transaction conflict: Resource busy. This transaction can be retried",
+          "status": "ERR",
+          "time": "37.373\u00b5s",
+          "type": null
+        }
+      ],
+      "b": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": {
+            "cancelled": false,
+            "id": "race:cancel"
+          },
+          "status": "OK",
+          "time": "127.801\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "101.201621ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "cancelled": true,
+              "id": "race:cancel"
+            }
+          ],
+          "status": "OK",
+          "time": "153.053\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "11.513057ms",
+          "type": null
+        }
+      ],
+      "retained_append": []
+    },
+    "grant-versus-settlement": {
+      "a": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "115.179\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "24.583\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "700.826454ms",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "NotExecuted"
+          },
+          "kind": "Query",
+          "result": "The query was not executed due to a failed transaction",
+          "status": "ERR",
+          "time": "183.775\u00b5s",
+          "type": null
+        },
+        {
+          "details": {
+            "kind": "TransactionConflict"
+          },
+          "kind": "Query",
+          "result": "Cannot COMMIT: Transaction conflict: Resource busy. This transaction can be retried",
+          "status": "ERR",
+          "time": "39.824\u00b5s",
+          "type": null
+        }
+      ],
+      "b": [
+        {
+          "result": null,
+          "status": "OK",
+          "time": "0ns",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "222.248\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "101.223873ms",
+          "type": null
+        },
+        {
+          "result": [
+            {
+              "closed_through": 1,
+              "id": "race:floor"
+            }
+          ],
+          "status": "OK",
+          "time": "190.606\u00b5s",
+          "type": null
+        },
+        {
+          "result": [],
+          "status": "OK",
+          "time": "24.542\u00b5s",
+          "type": null
+        },
+        {
+          "result": null,
+          "status": "OK",
+          "time": "11.483524ms",
+          "type": null
+        }
+      ]
+    },
+    "late-closed-grant": [
+      {
+        "result": null,
+        "status": "OK",
+        "time": "0ns",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "NotExecuted"
+        },
+        "kind": "Query",
+        "result": "The query was not executed due to a failed transaction",
+        "status": "ERR",
+        "time": "258.212\u00b5s",
+        "type": null
+      },
+      {
+        "kind": "Thrown",
+        "result": "An error occurred: closed grant",
+        "status": "ERR",
+        "time": "9.290422ms",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "Cancelled"
+        },
+        "kind": "Query",
+        "result": "The query was not executed due to a cancelled transaction",
+        "status": "ERR",
+        "time": "0ns",
+        "type": null
+      },
+      {
+        "details": {
+          "kind": "NotExecuted"
+        },
+        "kind": "Query",
+        "result": "Cannot COMMIT: the transaction was aborted due to a prior error",
+        "status": "ERR",
+        "time": "0ns",
+        "type": null
+      }
+    ]
+  },
+  "fixture": {
+    "memberships": 1408,
+    "current": 128,
+    "superseded": 1280,
+    "runs": 1000,
+    "seeds": 65,
+    "acks": 1000,
+    "scope": "schema-compatible query shapes, not generated canonical functions"
+  },
+  "server_exit": 0
+}

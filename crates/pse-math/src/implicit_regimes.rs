@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Bounded selection among verified implicit roots. Smooth branches do not prove a smooth selector.
+#[cfg(test)]
+use super::InnerWorker;
 use super::{InnerSolver, Options, Problem, selected_inputs};
 use crate::{
     MathError,
@@ -127,7 +129,7 @@ impl RegimeFactory {
                             )
                         }
                     },
-                    solver: r.residual.solver.clone(),
+                    solver: super::SolverWorker::new(r.residual.solver.as_ref()),
                     configuration: super::ConfigurationWorker::new(
                         r.residual.configuration.clone(),
                         r.residual.hints.as_ref(),
@@ -296,7 +298,7 @@ impl pse_kernels::Provider for SelectedProvider {
 #[derive(Debug)]
 pub struct Regime {
     problem: Arc<Problem>,
-    solver: Arc<dyn InnerSolver>,
+    solver: super::SolverWorker,
     configuration: super::ConfigurationWorker,
     eligibility: Worker,
     criterion: Worker,
@@ -316,7 +318,7 @@ mod tests {
         implicit::Unknown,
         typed::{Binary, BodyBuilder, BodyLimits},
     };
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct Roots {
         fail: Option<SemanticId>,
         wrong: bool,
@@ -331,8 +333,14 @@ mod tests {
                 self.fail, self.wrong
             ))
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for Roots {
         fn solve(
-            &self,
+            &mut self,
             problem: Arc<Problem>,
             _: &[f64],
             options: &Options,
@@ -581,7 +589,7 @@ mod tests {
     }
     fn fail_rival(selected: &mut RegimeSelection) {
         let id = selected.alternatives[1].problem.id;
-        selected.alternatives[1].solver = Arc::new(Roots {
+        selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
             fail: Some(id),
             wrong: false,
         });
@@ -647,7 +655,7 @@ mod tests {
             .evaluate(&[-1.5], DerivativeOrder::Second, &cancel)
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 4);
-        selected.alternatives[1].solver = Arc::new(Roots {
+        selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
             fail: None,
             wrong: false,
         });
@@ -661,7 +669,7 @@ mod tests {
         assert_eq!(calls.load(Ordering::Relaxed), 4);
         fail_rival(&mut selected);
         // Cached mathematics never substitutes for a new original residual verification.
-        selected.alternatives[0].solver = Arc::new(Roots {
+        selected.alternatives[0].solver = super::super::SolverWorker::new(&Roots {
             fail: None,
             wrong: true,
         });
@@ -711,7 +719,7 @@ mod tests {
         assert_eq!((result.examined, result.eligible), (2, 2));
         assert_eq!(calls.load(Ordering::Relaxed), 1);
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct FatalRoots(&'static str);
     impl InnerSolver for FatalRoots {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -720,8 +728,14 @@ mod tests {
         fn identity(&self) -> pse_ids::ContentHash {
             super::super::solver_identity("test.fatal-regime-roots.v1")
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for FatalRoots {
         fn solve(
-            &self,
+            &mut self,
             problem: Arc<Problem>,
             _: &[f64],
             _: &Options,
@@ -747,7 +761,7 @@ mod tests {
         for failure in ["resource", "cancel", "internal"] {
             let cancel = Arc::new(AtomicBool::new(false));
             let (mut selected, calls) = group_selection(None, false);
-            selected.alternatives[1].solver = Arc::new(FatalRoots(failure));
+            selected.alternatives[1].solver = super::super::SolverWorker::new(&FatalRoots(failure));
             let result = selected.evaluate(&[-2.], DerivativeOrder::First, &cancel);
             match failure {
                 "resource" => assert!(matches!(
@@ -764,7 +778,7 @@ mod tests {
         let (mut selected, calls) = group_selection(None, false);
         fail_rival(&mut selected);
         let winner = &mut selected.alternatives[0];
-        winner.solver = Arc::new(Roots {
+        winner.solver = super::super::SolverWorker::new(&Roots {
             fail: Some(winner.problem.id),
             wrong: false,
         });
@@ -869,7 +883,7 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let mut selected = selection([true, true]);
         let failed = selected.alternatives[1].problem.id;
-        selected.alternatives[1].solver = Arc::new(Roots {
+        selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
             fail: Some(failed),
             wrong: false,
         });
@@ -880,7 +894,7 @@ mod tests {
                 ..
             })
         ));
-        selected.alternatives[1].solver = Arc::new(Roots {
+        selected.alternatives[1].solver = super::super::SolverWorker::new(&Roots {
             fail: None,
             wrong: true,
         });
@@ -910,7 +924,7 @@ mod tests {
             Err(MathError::Cancelled)
         ));
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct CountedRoots {
         calls: Arc<std::sync::atomic::AtomicUsize>,
         mode: u8,
@@ -922,8 +936,14 @@ mod tests {
         fn identity(&self) -> pse_ids::ContentHash {
             super::super::solver_identity(&format!("test.counted-roots:{}", self.mode))
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for CountedRoots {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             parameters: &[f64],
             options: &Options,
@@ -979,7 +999,7 @@ mod tests {
         let (mut selected, proofs) = group_selection(None, false);
         let proposals = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         for regime in &mut selected.alternatives {
-            regime.solver = Arc::new(CountedRoots {
+            regime.solver = super::super::SolverWorker::new(&CountedRoots {
                 calls: proposals.clone(),
                 mode: 0,
             });
@@ -1228,7 +1248,7 @@ mod tests {
         }
         selected.alternatives[0].isolation = Some(Arc::new(projection));
         let proposals = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-        selected.alternatives[0].solver = Arc::new(CountedRoots {
+        selected.alternatives[0].solver = super::super::SolverWorker::new(&CountedRoots {
             calls: proposals.clone(),
             mode: if moving { 1 } else { 2 },
         });
@@ -1411,7 +1431,7 @@ impl Regime {
         );
         Ok(Self {
             problem,
-            solver,
+            solver: super::SolverWorker::new(solver.as_ref()),
             configuration,
             eligibility: eligibility.worker(),
             criterion: criterion.worker(),

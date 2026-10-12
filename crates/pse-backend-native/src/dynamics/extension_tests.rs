@@ -389,7 +389,10 @@ impl Oracle for Decay {
             };
             faer::sparse::SparseColMat::try_new_from_triplets(values.len(), 1, &entries).unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 /// L-D5: `IDASetConstraints` keeps a non-negative state non-negative at every accepted
@@ -592,7 +595,10 @@ impl Oracle for Chain {
             faer::sparse::SparseColMat::try_new_from_triplets(values.len(), n + 3, &triplets)
                 .unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 /// F12: IDAS sensitivity residuals and output sensitivities come from faer sparse
@@ -744,8 +750,10 @@ impl Oracle for Forced {
                     faer::sparse::Triplet::new(1, 0, 2.0),
                     faer::sparse::Triplet::new(1, 1, -1.0),
                 ];
-                *j =
-                    faer::sparse::SparseColMat::try_new_from_triplets(2, n + 1, &triplets).unwrap();
+                *j = Arc::new(
+                    faer::sparse::SparseColMat::try_new_from_triplets(2, n + 1, &triplets).unwrap(),
+                )
+                .into();
             }
         }
         Ok(e)

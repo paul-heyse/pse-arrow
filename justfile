@@ -183,7 +183,7 @@ producer-deployment-unit:
 [doc('Generator identity, unchanged-output and physical fixture controls')]
 [positional-arguments]
 codegen-unit-test *args:
-    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --locked --features package-fixtures -E 'test(codegen::tests::) | test(codegen::physical::tests::)' "$@"
+    scripts/pse-env --native=compiler,solver -- "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p xtask --bin xtask --locked --features full-codegen -E 'test(codegen::tests::) | test(codegen::physical::tests::)' "$@"
 
 [group('local')]
 [doc('Focused explicit Python target selection controls without solver discovery')]
@@ -313,7 +313,7 @@ register-lint:
 
 [group('local')]
 codegen-relations-check:
-    cargo xtask codegen --only relations --check
+    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
 
 [group('mutating')]
 [doc('Generate Rust contracts only, without physical fixtures or compiler workflows')]
@@ -323,6 +323,17 @@ codegen-rust-contracts:
 [group('local')]
 codegen-rust-contracts-check:
     cargo run -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
+
+[group('mutating')]
+[doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
+codegen-physical:
+    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical
+
+[group('local')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
+codegen-physical-check:
+    cargo run -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only physical --check
 
 [group('local')]
 codegen-python-check:
@@ -339,24 +350,12 @@ codegen-surreal-check:
 
 [group('local')]
 codegen-bindgen-check:
-    cargo run -p xtask --no-default-features --locked -- codegen --only bindgen --check
-
-[group('mutating')]
-[doc('Regenerate the workspace feature owner after dependency retirement or changes')]
-codegen-hakari:
-    cargo hakari generate
-    cargo hakari manage-deps --yes
-
-[group('local')]
-[doc('The cargo-hakari workspace-hack matches a fresh generation and every managed member depends on it (ADR-0122)')]
-codegen-hakari-check:
-    cargo hakari generate --diff
-    cargo hakari manage-deps --dry-run
+    cargo run -p xtask --no-default-features --features native-abi --locked -- codegen --only bindgen --check
 
 [group('local')]
 [doc('The published document and authoring JSON Schemas and the Python document types match a fresh derivation from the owning crates (ADR-0116)')]
 codegen-schemas-check:
-    scripts/pse-env --native= -- cargo run -p xtask --locked -- codegen --only schemas --check
+    scripts/pse-env --native= -- cargo run -p xtask --no-default-features --features product-schemas,force-validate --locked -- codegen --only schemas --check
 
 [group('local')]
 [positional-arguments]
@@ -476,15 +475,17 @@ test-package pkg *args:
 
 [group('local')]
 [doc('Unit tests of one package: a bare word means test(word); extra -p widens; prints the command (scripts/select.py)')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-package pkg filter *args:
-    @python3 scripts/select.py unit "$@"
+    python3 scripts/select.py unit "$@"
 
 [group('local')]
 [doc('Explicit isolated library-unit selection in one workspace feature graph; review the filter to exclude product journeys')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-libraries filter *args:
-    @python3 scripts/select.py workspace "$@"
+    python3 scripts/select.py workspace "$@"
 
 
 
@@ -592,7 +593,7 @@ lint-solver-contracts:
 
 [group('local')]
 [doc('Native callback, upload, status, ABI and lifetime units; no native convergence journeys')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 unit-native-contracts:
     "{{ py }}" -m scripts.arrow_validation nextest {{ nextest_action }} -p pse-backend-native -p pse-ipopt-sys -p pse-compiler -p pse-structural -p pse-runtime -p pse-math --lib --locked --features pse-runtime/native-solvers -E 'package(pse-backend-native) | package(pse-compiler) | package(pse-math) | test(abi_tests::) | test(flowsheet::tests::) | test(initialization::tests::) | test(math::tests::) | test(workflow::tests::)'
 
@@ -634,8 +635,8 @@ ci-fast:
 [group('local')]
 [doc('Sync locked dependencies and rebuild the editable native extension with the dev profile')]
 py-sync:
-    uv sync --locked
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --skip-install --profile dev --locked --features force-validate
+    uv sync --locked --no-install-project
+    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile dev --locked
     cargo run -p xtask --no-default-features --locked -- python-stubs
 
 [group('local')]
@@ -643,8 +644,18 @@ py-sync:
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 py-sync-native profile="dev":
     uv sync --locked --no-install-project
-    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features force-validate,native-solvers
+    VIRTUAL_ENV="{{ absolute_path(venv) }}" "{{ bin / 'maturin' }}" develop --uv --profile {{ quote(profile) }} --locked --features native-solvers
     cargo run -p xtask --no-default-features --locked -- python-stubs
+
+[group('local')]
+[doc('Build an explicitly force-validated Python extension for correctness; auto preserves the installed native/dev build selection')]
+py-sync-correctness mode="auto" profile="dev":
+    "{{ py }}" -m scripts.python_extension sync {{ quote(mode) }} {{ quote(profile) }}
+
+[group('local')]
+[doc('Build the linked force-validated Python correctness extension')]
+py-sync-native-correctness profile="dev":
+    "{{ py }}" -m scripts.python_extension sync native {{ quote(profile) }}
 
 [group('local')]
 [doc('Compile the linked public native Python boundary with Arrow validation')]
@@ -656,6 +667,7 @@ check-native-python:
 [doc('Targeted Python native workflow units under the explicit linked solver runtime')]
 [script("bash", "scripts/pse-env", "--native=solver", "--", "bash", "-euo", "pipefail")]
 py-native-contracts:
+    "{{ py }}" -m scripts.python_extension sync native
     export LD_LIBRARY_PATH="$IPOPT_DIR/lib:${LD_LIBRARY_PATH:-}"
     "{{ py }}" -m pytest python/pse/tests/test_native_workflow.py python/pse/tests/test_native_boundary_contracts.py -m unit -q
 
@@ -691,13 +703,15 @@ lint-imports:
 [doc('Python unit + component tests against the canonical store at $PSE_SURREAL_STATE (pass -m to override)')]
 [positional-arguments]
 py-test *args:
-    scripts/pse-env --store -- "{{ py }}" -m scripts.arrow_validation run --quiet --package xtask --bin xtask --locked -- python-tests "$@"
+    "{{ py }}" -m scripts.python_extension sync auto
+    scripts/pse-env --store -- "{{ py }}" -m scripts.python_tests "$@"
 
 [group('local')]
 [doc('Python unit tests; routes through the native environment when the installed extension is the linked build')]
 [positional-arguments]
 [script]
 py-unit *args:
+    "{{ py }}" -m scripts.python_extension sync auto
     case "$(python3 scripts/doctor.py --extension-kind)" in
       native) exec scripts/pse-env --native -- "{{ py }}" -m scripts.python_tests --unit-only --maxfail=0 --continue-on-collection-errors "$@" ;;
       dev) exec "{{ py }}" -m scripts.python_tests --unit-only --maxfail=0 --continue-on-collection-errors "$@" ;;
@@ -934,16 +948,14 @@ library-catalog:
     "{{ py }}" scripts/library_utilization.py --write
 
 [group('mutating')]
-[doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings and the cargo-hakari workspace-hack')]
-[script("bash", "scripts/pse-env", "--recipe-default-class", "compile", "--", "bash", "-euo", "pipefail")]
+[doc('Regenerate relations, Python contracts, docs/generated, the canonical native schema and codecs, the Ipopt bindings')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen:
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
     cargo run --quiet -p xtask --no-default-features --locked -- codegen --only rust-contracts
     cargo run --quiet -p xtask --no-default-features --locked -- codegen --only surreal
-    scripts/pse-env --native=compiler,solver -- cargo run --quiet -p xtask --features package-fixtures --locked -- codegen
-    cargo hakari generate
-    cargo hakari manage-deps --yes
+    scripts/pse-env --native=compiler,solver -- cargo run --quiet -p xtask --features full-codegen,force-validate --locked -- codegen
 
 
 [group('mutating')]
@@ -995,12 +1007,11 @@ gh-setup *args:
 # and pass its name here; an undeclared (transitive) package moves by name alone
 # (`name@version` selects one of several resolved majors, as `cargo update -p` suggests).
 # There is no whole-lock form: a wholesale re-resolve is an operator request. Upgrade-specific
-# checks join this recipe: the cargo-hakari workspace-hack is regenerated from the moved
-# graph (as `just codegen` does) and `just family-check` must pass, so a split family fails
+# checks join this recipe: `just family-check` must pass, so a split family fails
 # here rather than as a misleading `downcast_ref` miss in the next test. A family moves as a
 # unit. Then run the tests the move affects.
 [group('mutating')]
-[doc('Move named packages after a pin edit, regenerate hakari, check families: just upgrade package ...')]
+[doc('Move named packages after a pin edit, check families: just upgrade package ...')]
 [positional-arguments]
 [script]
 upgrade +packages:
@@ -1021,8 +1032,6 @@ upgrade +packages:
             exit 1
         fi
     done
-    cargo hakari generate
-    cargo hakari manage-deps --yes
     python3 - "$before" <<'PY'
     import sys, tomllib
     from pathlib import Path
@@ -1296,7 +1305,7 @@ llvm-system *args:
 
 [group('local')]
 [doc('Explicit targeted library checks against the shared linked native feature graph')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-native-selected filter *args:
     python3 scripts/select.py --features pse-py/native-solvers workspace "$@"
@@ -1309,15 +1318,17 @@ check-native-process-bench:
 
 [group('local')]
 [doc('Targeted native package units with explicitly selected adapter features')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-native-package pkg features filter *args:
     scripts/pse-env --native=solver,klu,isolation,uno,petsc -- python3 scripts/select.py --execution-effects canonical --features "$2" unit "$1" "$3" "${@:4}"
 
 [group('local')]
 [doc('Native-local package units with explicit setup capabilities; --execution-effects canonical selects worker/store effects')]
+[script("bash", "scripts/pse-env", "--recipe-default-class", "exclusive", "--", "bash", "-euo", "pipefail")]
 [positional-arguments]
 unit-native-capability-package pkg features capabilities filter *args:
-    @scripts/pse-env --native="$3" -- python3 scripts/select.py --execution-effects native-local --features "$2" unit "$1" "$4" "${@:5}"
+    scripts/pse-env --native="$3" -- python3 scripts/select.py --execution-effects native-local --features "$2" unit "$1" "$4" "${@:5}"
 
 [group('local')]
 [doc('Focused default-feature refusal controls; keeps the real serial QDLDL absence branch')]
@@ -1332,7 +1343,7 @@ native-test *args:
     scripts/pse-env --native --store -- "{{ py }}" -m scripts.native_tests rust "$@"
 
 [group('local')]
-[doc('Linked Python scopes; --managed-primary-route uses a separate observer process; refresh with py-sync-native after Rust edits')]
+[doc('Linked Python correctness scopes; requires py-sync-native-correctness; --managed-primary-route uses a separate observer process')]
 [positional-arguments]
 [script]
 native-python output *args:

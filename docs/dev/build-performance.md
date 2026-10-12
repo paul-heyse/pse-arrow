@@ -10,10 +10,10 @@ resolve over all workspace members whatever `-p` selects, so `check-package`,
 symbolica, DataFusion and Arrow per mode. Only opt-in features —
 `pse-relations/force-validate` and `native-solvers` — select a different build.
 
-`pse-workspace-hack` (cargo-hakari, `.config/hakari.toml`) states the same unification in
-manifests, for Cargo that does not read `[unstable]`. Hakari simulates every member with
-all features, so the opt-in paths are excluded from its traversal; `just codegen`
-regenerates it and `just codegen-check` compares it.
+The pinned nightly is the supported Cargo path. ADR-0175 retires the redundant
+workspace-hack fallback and its generator routes after actual target/host/dev/native
+graph checks. Explicit correctness routes still verify Arrow leaf validation; ordinary
+interactive builds keep that feature opt-in.
 
 Each checkout keeps its intermediates in its own `target/`. Cargo's build directory is
 not shared between checkouts: Cargo keys a workspace crate's unit by its

@@ -21,6 +21,12 @@ pub struct RuntimeCanonicalProtectionsRow {
     pub r#expires_at: i64,
     ///released
     pub r#released: bool,
+    ///grant_deadline
+    pub r#grant_deadline: Option<i64>,
+    ///grant_nonce
+    pub r#grant_nonce: Option<String>,
+    ///authority_incarnation
+    pub r#authority_incarnation: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalProtectionsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -30,6 +36,15 @@ impl crate::SemanticEq for RuntimeCanonicalProtectionsRow {
             && crate::SemanticEq::semantic_eq(&self.r#sequence, &other.r#sequence)
             && crate::SemanticEq::semantic_eq(&self.r#expires_at, &other.r#expires_at)
             && crate::SemanticEq::semantic_eq(&self.r#released, &other.r#released)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#grant_deadline,
+                &other.r#grant_deadline,
+            )
+            && crate::SemanticEq::semantic_eq(&self.r#grant_nonce, &other.r#grant_nonce)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#authority_incarnation,
+                &other.r#authority_incarnation,
+            )
     }
 }
 impl PartialEq for RuntimeCanonicalProtectionsRow {
@@ -53,6 +68,12 @@ impl crate::SemanticFrame for RuntimeCanonicalProtectionsRow {
         crate::SemanticFrame::frame(&self.r#expires_at, hash);
         hash.str(stringify!(r#released));
         crate::SemanticFrame::frame(&self.r#released, hash);
+        hash.str(stringify!(r#grant_deadline));
+        crate::SemanticFrame::frame(&self.r#grant_deadline, hash);
+        hash.str(stringify!(r#grant_nonce));
+        crate::SemanticFrame::frame(&self.r#grant_nonce, hash);
+        hash.str(stringify!(r#authority_incarnation));
+        crate::SemanticFrame::frame(&self.r#authority_incarnation, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalProtectionsRow {
@@ -64,5 +85,8 @@ impl crate::HeapUsage for RuntimeCanonicalProtectionsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sequence))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#expires_at))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#released))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#grant_deadline))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#grant_nonce))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#authority_incarnation))
     }
 }

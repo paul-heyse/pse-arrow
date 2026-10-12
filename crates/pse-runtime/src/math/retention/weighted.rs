@@ -28,12 +28,12 @@ struct State<K, V> {
 
 /// Equal keys may own different allocation capacities. Lookups never replace a
 /// resident key, and eviction always reads its immutable insertion weight.
-pub(super) struct WeightedCache<K, V> {
+pub(crate) struct WeightedCache<K, V> {
     state: Mutex<State<K, V>>,
     name: &'static str,
 }
 
-pub(super) fn entry_weight<K: CacheKey, V: CacheValue>(key: &K, value: &V) -> Option<usize> {
+pub(crate) fn entry_weight<K: CacheKey, V: CacheValue>(key: &K, value: &V) -> Option<usize> {
     key.size()
         .checked_add(value.size())?
         .checked_add(size_of::<Snapshot<V>>())?
@@ -41,7 +41,7 @@ pub(super) fn entry_weight<K: CacheKey, V: CacheValue>(key: &K, value: &V) -> Op
 }
 
 impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
-    pub(super) fn new(limit: usize, name: &'static str) -> Self {
+    pub(crate) fn new(limit: usize, name: &'static str) -> Self {
         Self {
             state: Mutex::new(State {
                 limit,
@@ -79,7 +79,7 @@ impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
-    pub(super) fn get(&self, key: &K) -> Option<V> {
+    pub(crate) fn get(&self, key: &K) -> Option<V> {
         self.state()
             .entries
             .as_ref()?
@@ -89,7 +89,7 @@ impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
 
     /// Reject before library insertion: an overweight replacement must preserve
     /// the old entry, and even the library's transient weight sums must not overflow.
-    pub(super) fn put(&self, key: K, value: V) -> bool {
+    pub(crate) fn put(&self, key: K, value: V) -> bool {
         let Some(bytes) = entry_weight(&key, &value) else {
             return false;
         };
@@ -115,31 +115,31 @@ impl<K: CacheKey, V: CacheValue> WeightedCache<K, V> {
         true
     }
 
-    pub(super) fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.state().entries.as_ref().map_or(0, Cache::len)
     }
 
-    pub(super) fn memory_used(&self) -> usize {
+    pub(crate) fn memory_used(&self) -> usize {
         self.state().entries.as_ref().map_or(0, |entries| {
             usize::try_from(entries.weight()).unwrap_or(usize::MAX)
         })
     }
 
-    pub(super) fn cache_limit(&self) -> usize {
+    pub(crate) fn cache_limit(&self) -> usize {
         self.state().limit
     }
 
-    pub(super) fn name(&self) -> String {
+    pub(crate) fn name(&self) -> String {
         self.name.into()
     }
 
-    pub(super) fn clear(&self) {
+    pub(crate) fn clear(&self) {
         if let Some(entries) = self.state().entries.as_mut() {
             entries.clear();
         }
     }
 
-    pub(super) fn update_cache_limit(&self, limit: usize) {
+    pub(crate) fn update_cache_limit(&self, limit: usize) {
         let mut state = self.state();
         state.limit = limit;
         if limit == 0 {

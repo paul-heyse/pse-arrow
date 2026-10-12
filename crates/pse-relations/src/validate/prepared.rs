@@ -187,6 +187,8 @@ impl ValidationContext {
             predicates,
             nodes,
             evaluations: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            structural_scans: std::sync::atomic::AtomicUsize::new(0),
         });
         Ok(contract)
     }
@@ -232,6 +234,8 @@ pub struct PreparedLocalContract {
     predicates: Vec<PreparedPredicate>,
     nodes: Vec<super::occurrences::Node>,
     evaluations: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    structural_scans: std::sync::atomic::AtomicUsize,
 }
 impl PreparedLocalContract {
     pub(crate) fn same_native_owner(&self, other: &Self) -> bool {
@@ -255,16 +259,57 @@ impl PreparedLocalContract {
         maximum_findings: usize,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<ValidationReport, RelationError> {
-        self.evaluate_selected(batch, maximum_findings, cancel, None)
+        self.evaluate_selected(batch, maximum_findings, cancel, None, None, false)
     }
 
     pub(crate) fn evaluate_missing_checks(
         &self,
-        batch: &RecordBatch,
+        checked: &crate::columnar::FieldCheckedBatch,
         missing: &std::collections::BTreeSet<String>,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<ValidationReport, RelationError> {
-        self.evaluate_selected(batch, 16, cancel, Some(missing))
+        self.evaluate_selected(
+            checked.structurally_trusted_batch(),
+            16,
+            cancel,
+            Some(missing),
+            None,
+            true,
+        )
+    }
+
+    // Only the private storage owner can supply this structural premise.
+    pub(crate) fn evaluate_retained(
+        &self,
+        checked: &crate::columnar::FieldCheckedBatch,
+        maximum_findings: usize,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<ValidationReport, RelationError> {
+        self.evaluate_selected(
+            checked.structurally_trusted_batch(),
+            maximum_findings,
+            cancel,
+            None,
+            None,
+            true,
+        )
+    }
+
+    pub(crate) fn evaluate_retained_ranges(
+        &self,
+        checked: &crate::columnar::FieldCheckedBatch,
+        ranges: &[(usize, usize)],
+        maximum_findings: usize,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<ValidationReport, RelationError> {
+        self.evaluate_selected(
+            checked.structurally_trusted_batch(),
+            maximum_findings,
+            cancel,
+            None,
+            Some(ranges),
+            true,
+        )
     }
 
     /// Actual local admission attempts, including rejected batches.
@@ -278,6 +323,8 @@ impl PreparedLocalContract {
         maximum_findings: usize,
         cancel: &pse_columnar::CancellationToken,
         missing: Option<&std::collections::BTreeSet<String>>,
+        ranges: Option<&[(usize, usize)]>,
+        structurally_trusted: bool,
     ) -> Result<ValidationReport, RelationError> {
         self.evaluations
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -289,40 +336,60 @@ impl PreparedLocalContract {
                 "prepared and actual schema differ",
             ));
         }
-        for column in batch.columns() {
-            column.to_data().validate_full()?;
+        cancel.checkpoint()?;
+        if !structurally_trusted {
+            #[cfg(test)]
+            self.structural_scans
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            for column in batch.columns() {
+                cancel.checkpoint()?;
+                column.to_data().validate_full()?;
+            }
         }
         let mut findings = Findings::new(batch, maximum_findings, cancel);
-        for start in (0..batch.num_rows()).step_by(super::occurrences::CHUNK) {
-            cancel.checkpoint()?;
-            let input = batch.slice(
-                start,
-                (batch.num_rows() - start).min(super::occurrences::CHUNK),
-            );
-            if missing.is_none() {
-                for (node, column) in self.nodes.iter().zip(input.columns()) {
-                    node.root(column, start, &mut findings)?;
-                }
-            }
-            for predicate in &self.predicates {
-                if missing.is_some_and(|names| !names.contains(&predicate.rule)) {
-                    continue;
-                }
+        let all = [(0, batch.num_rows())];
+        for &(offset, length) in ranges.unwrap_or(&all) {
+            let end = offset
+                .checked_add(length)
+                .filter(|end| *end <= batch.num_rows())
+                .ok_or_else(|| {
+                    super::mismatch(
+                        "local validation",
+                        "evaluation segment outside retained storage",
+                    )
+                })?;
+            for start in (offset..end).step_by(super::occurrences::CHUNK) {
                 cancel.checkpoint()?;
-                let result = predicate
-                    .physical
-                    .evaluate(&input)
-                    .and_then(|value| value.into_array(input.num_rows()))
-                    .map_err(engine)?;
-                let result = result
-                    .as_any()
-                    .downcast_ref::<BooleanArray>()
-                    .ok_or_else(|| {
-                        super::mismatch("local validation", "predicate did not return Boolean")
-                    })?;
-                for row in 0..result.len() {
-                    if result.is_null(row) || !result.value(row) {
-                        findings.row_check(&predicate.rule, start + row)?;
+                let input = batch.slice(start, (end - start).min(super::occurrences::CHUNK));
+                if missing.is_none() {
+                    for (node, column) in self.nodes.iter().zip(input.columns()) {
+                        node.root(column, start, &mut findings)?;
+                    }
+                }
+                for predicate in &self.predicates {
+                    if missing.is_some_and(|names| !names.contains(&predicate.rule)) {
+                        continue;
+                    }
+                    cancel.checkpoint()?;
+                    let result = predicate
+                        .physical
+                        .evaluate(&input)
+                        .and_then(|value| value.into_array(input.num_rows()))
+                        .map_err(engine)?;
+                    let result =
+                        result
+                            .as_any()
+                            .downcast_ref::<BooleanArray>()
+                            .ok_or_else(|| {
+                                super::mismatch(
+                                    "local validation",
+                                    "predicate did not return Boolean",
+                                )
+                            })?;
+                    for row in 0..result.len() {
+                        if result.is_null(row) || !result.value(row) {
+                            findings.row_check(&predicate.rule, start + row)?;
+                        }
                     }
                 }
             }
@@ -416,10 +483,12 @@ impl<'a> Findings<'a> {
         field: &Field,
         array: &arrow::array::ArrayRef,
         index: usize,
-        location: &super::occurrences::Location,
+        traversal: &super::occurrences::Traversal,
     ) -> Result<(), RelationError> {
-        self.invalid_rows[location.row] = true;
+        let row = traversal.row(index);
+        self.invalid_rows[row] = true;
         if self.count()? {
+            let location = traversal.location(index);
             let literal = pse_schema::literal::to_json(array.as_ref(), field, index)?;
             let field = pse_columnar::native_field::canonical_json(field)
                 .map_err(|error| super::mismatch("validation findings", error.to_string()))?;

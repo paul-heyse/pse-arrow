@@ -704,6 +704,7 @@ where
             client: Cow::Borrowed(self),
             queries: vec![query.into()],
             variables: Ok(Variables::new()),
+            payload_drain: None,
         }
     }
 

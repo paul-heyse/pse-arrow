@@ -114,7 +114,10 @@ impl Oracle for Vessel {
             _ => (vec![], vec![]),
         };
         let jacobian = d.then(|| jacobian(values.len(), n + 1, &entries));
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 fn vessel_profile(dae: bool) -> Profile {
@@ -285,7 +288,10 @@ impl Oracle for Degenerate {
             _ => (vec![], vec![]),
         };
         let jacobian = d.then(|| jacobian(values.len(), 2, &entries));
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 /// I9: a singular Newton factorization is an error of the pse-owned linear solver, which
@@ -491,7 +497,10 @@ impl Oracle for Tank {
             _ => (vec![], vec![]),
         };
         let jacobian = d.then(|| jacobian(values.len(), 12, &entries));
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 /// S09 (L-D1), comparable to the IDAES PETSc PID example: a steady start (`IDA_Y_INIT`),

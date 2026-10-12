@@ -7,17 +7,18 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import native_operation, validation, validation_receipts
 from scripts import test_resources as resources
+from scripts import validation, validation_receipts
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 RUST_OBSERVER = "PSE_RUST_OBSERVER_CHILD"
@@ -49,7 +50,15 @@ def rust_selected(inventory: Mapping[str, object]) -> list[dict[str, str]]:
     return selected
 
 
-def finish(path: Path, check: dict[str, object], terminal_owner: str) -> bool:
+def finish(
+    path: Path,
+    check: dict[str, object],
+    terminal_owner: str,
+    *,
+    deadline: float | None = None,
+    on_frozen: Callable[[], None] | None = None,
+    deferred: list[str] | None = None,
+) -> bool:
     results = check.get("results", [])
     report_errors = check.get("report_errors", [])
     if (
@@ -64,17 +73,50 @@ def finish(path: Path, check: dict[str, object], terminal_owner: str) -> bool:
         ): "pass" if item["status"] == "passed" else "failure"
         for item in results
     }
+    declaration = resources.read_invocation(path)
+    catalog = {
+        item["binary_id"] + "::" + item["name"]
+        if declaration["kind"] == "rust"
+        else item["name"]
+        for item in declaration["selected"]
+    }
+    unexpected = set(outcomes) - catalog
+    if unexpected:
+        report_errors.append(
+            "terminal results outside selected catalog: "
+            + ", ".join(sorted(unexpected))
+        )
+        outcomes = {
+            identity: outcome
+            for identity, outcome in outcomes.items()
+            if identity in catalog
+        }
     eligible = resources.finalize(
         path,
         outcomes,
         complete=not check.get("report_errors")
         and check.get("exit_code") in {0, 1, 100},
         terminal_owner=terminal_owner,
+        deadline=deadline,
+        on_frozen=on_frozen,
+        terminal={
+            "workload_exit": check.get("exit_code"),
+            "report_errors": list(report_errors),
+            "results": list(results),
+            "artifacts": dict(check.get("artifacts", {})),
+            "owned_drain": check.get(
+                "owned_drain", check.get("process", {}).get("owned_drain", "unobserved")
+            ),
+            "process": dict(check.get("process", {})),
+        },
     )
     failed = False
+    if deferred is not None:
+        deferred.extend(eligible)
+        return True
     for resource in eligible:
         try:
-            reason = resources.reclaim(resource)
+            reason = resources.reclaim(resource, deadline=deadline)
             if reason != "removed":
                 # A referenced/retained resource is valid; an uncertain drain remains pinned.
                 print(f"test-resources: {resource}: retained: {reason}")
@@ -86,7 +128,224 @@ def finish(path: Path, check: dict[str, object], terminal_owner: str) -> bool:
     return not failed
 
 
-def run_python(command: Sequence[str], *, env: Mapping[str, str] | None = None) -> int:
+def execute_selected(
+    path: Path,
+    command: Sequence[str],
+    environment: Mapping[str, str],
+    report: Path,
+    *,
+    selected: list[dict[str, str]] | None = None,
+    selection: Path | None = None,
+    terminal_owner: str = "runner",
+    details: Mapping[str, object] | None = None,
+    launch: Callable[[dict[str, object]], int] | None = None,
+    evidence_path: Path | None = None,
+) -> int:
+    """One selected composer reconciles exactly once, including exceptional return.
+
+    Existing enclosing process owners handle signals and physical drain. An inherited
+    child never enters this composer. Persist reconciliation errors separately from
+    the workload exit; a missing or partial report cannot manufacture a Pass.
+    """
+    started = time.time()
+    check: dict[str, object] = {
+        "exit_code": None,
+        "status": "failed",
+        "started": started,
+        "results": [],
+        "report_errors": [],
+        "command": list(command),
+        "artifacts": {},
+        "process": {},
+        **dict(details or {}),
+    }
+    if selected is not None:
+        check["selected"] = selected
+    code = None
+    from scripts import native_operation  # noqa: PLC0415 -- shared process owner
+
+    registration = None
+    previous_handlers = {}
+    committed = False
+    cleaning = False
+    local_deadline: float | None = None
+    local_signal: int | None = None
+
+    def interrupt(signum: int, frame: object) -> None:
+        nonlocal local_deadline, local_signal
+        if local_deadline is None:
+            local_deadline, local_signal = time.monotonic() + 10, signum
+        if committed and not cleaning:
+            return
+        native_operation.note_composer_cancellation(signum, local_deadline)
+        if not committed:
+            check["process"]["forwarded_signal"] = signum
+            check.update(exit_code=128 + signum, status="failed")
+        validation.interrupt(signum, frame)
+
+    def frozen() -> None:
+        nonlocal committed
+        committed = True
+
+    # Registration cannot expose a composer with SIGTERM's default disposition.
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous_handlers[signum] = signal.signal(signum, interrupt)
+    try:
+        launch_mask = signal.pthread_sigmask(
+            signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM}
+        )
+        try:
+            registration = native_operation.register_composer(path)
+        finally:
+            signal.pthread_sigmask(signal.SIG_SETMASK, launch_mask)
+        if launch is not None:
+            code = launch(check["process"])
+        else:
+            run = (
+                native_operation.run_child_scope
+                if native_operation.scope_owner() is not None
+                else native_operation.run
+            )
+            code = run(
+                list(command), dict(environment), cwd=ROOT, observation=check["process"]
+            )
+        check.update(exit_code=code, status="passed" if code == 0 else "failed")
+    except BaseException as error:
+        if isinstance(error, KeyboardInterrupt):
+            code = (
+                128 + validation.RECEIVED_SIGNAL
+                if isinstance(error, validation.Interrupted)
+                else -signal.SIGINT
+            )
+            check["exit_code"] = code
+        check["report_errors"].append(
+            f"workload interrupted before terminal return: {type(error).__name__}: {error}"
+        )
+        raise
+    finally:
+        deadline = None
+        reconciled = False
+        deferred: list[str] = []
+        while not reconciled:
+            try:
+                clocks = [
+                    value
+                    for value in (
+                        local_deadline,
+                        check["process"].get("cancellation_deadline"),
+                        native_operation.composer_deadline(registration),
+                    )
+                    if value is not None
+                ]
+                deadline = min(clocks) if clocks else None
+                received = native_operation.composer_signal(registration) or check[
+                    "process"
+                ].get("forwarded_signal")
+                if received is not None and not committed:
+                    code = 128 + received
+                    check.update(exit_code=code, status="failed")
+                    check["process"]["forwarded_signal"] = received
+                if selection is not None:
+                    try:
+                        validation_receipts.require_fresh(selection, started, "Python")
+                        check["selected"] = validation_receipts.python_selection(
+                            selection
+                        )
+                    except (OSError, ValueError) as error:
+                        check["report_errors"].append(
+                            f"missing current collection: {error}"
+                        )
+                validation.compose_terminal(check, report, report.parent, report.stem)
+                finish(
+                    path,
+                    check,
+                    terminal_owner,
+                    deadline=deadline,
+                    on_frozen=frozen,
+                    deferred=deferred,
+                )
+                reconciled = True
+            except validation.Interrupted:
+                # A signal before freeze retries an incomplete composition. If
+                # freeze already committed, resume its immutable truth instead.
+                try:
+                    _identity, terminal = resources.storage().terminal(
+                        path.stem, deadline=deadline
+                    )
+                except resources.ResourceError:
+                    code = 128 + validation.RECEIVED_SIGNAL
+                    check.update(exit_code=code, status="failed")
+                    check["report_errors"].append(
+                        "terminal finalization interrupted before freeze"
+                    )
+                    continue
+                evidence = terminal["evidence"]
+                code = evidence["workload_exit"]
+                check.update(
+                    exit_code=code,
+                    status="passed"
+                    if code == 0 and not evidence["report_errors"]
+                    else "failed",
+                    results=evidence["results"],
+                    report_errors=evidence["report_errors"],
+                    artifacts=evidence["artifacts"],
+                    process=evidence["process"],
+                )
+                committed = True
+                resources.resume_projection(
+                    path, terminal_owner=terminal_owner, deadline=deadline
+                )
+                reconciled = True
+            except Exception as error:
+                check["report_errors"].append(
+                    f"terminal reconciliation: {type(error).__name__}: {error}"
+                )
+                break
+        if check["report_errors"]:
+            check["status"] = "failed"
+        try:
+            if local_deadline is not None:
+                # A post-commit signal cannot rewrite frozen truth. Carry its
+                # clock after leaving invocation exclusion, before publication
+                # and acknowledgment, without crossing metadata lock order.
+                native_operation.note_composer_cancellation(
+                    local_signal, local_deadline
+                )
+            resources.resource_store.publish(path.with_suffix(".terminal.json"), check)
+            if evidence_path is not None:
+                validation.write_json(evidence_path, check)
+            if reconciled:
+                native_operation.acknowledge_composer(registration)
+        except Exception as error:
+            print(
+                f"test-resources: terminal evidence remains unresolved: {error}",
+                file=sys.stderr,
+            )
+        for error in check["report_errors"]:
+            print(f"test-resources: {error}", file=sys.stderr)
+        if reconciled and deadline is None and local_deadline is None:
+            cleaning = True
+            try:
+                for resource in deferred:
+                    resources.reclaim(resource)
+            except (Exception, validation.Interrupted) as error:
+                print(
+                    f"test-resources: post-terminal cleanup retained: {error}",
+                    file=sys.stderr,
+                )
+            finally:
+                cleaning = False
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+    return code
+
+
+def run_python(
+    command: Sequence[str],
+    *,
+    env: Mapping[str, str] | None = None,
+    artifact: Mapping[str, object] | None = None,
+) -> int:
     environment = dict(os.environ if env is None else env)
     if resources.MARKER in environment:
         return subprocess.call(command, cwd=ROOT, env=environment)
@@ -95,31 +354,69 @@ def run_python(command: Sequence[str], *, env: Mapping[str, str] | None = None) 
     report = path.with_suffix(".xml")
     selection = path.with_suffix(".selected.txt")
     environment["PSE_TEST_ENUMERATION"] = str(selection)
-    started = time.time()
-    code = subprocess.call(
-        [*command, "--junitxml=" + str(report)], cwd=ROOT, env=environment
+    return execute_selected(
+        path,
+        [*command, "--junitxml=" + str(report)],
+        environment,
+        report,
+        selection=selection,
+        details={"artifacts": {"python": dict(artifact)}}
+        if artifact is not None
+        else None,
     )
-    check: dict[str, object] = {
-        "exit_code": code,
-        "status": "passed" if code == 0 else "failed",
-        "started": started,
-        "results": [],
-        "report_errors": [],
-        "command": list(command),
-        "artifacts": {},
-    }
+
+
+def python_observer(
+    command: list[str],
+    extra: list[str],
+    launch: Callable[[dict[str, object]], int],
+    *,
+    terminal_owner: str = "standalone",
+    default_report: bool = False,
+    artifact: Mapping[str, object] | None = None,
+) -> int:
+    """The existing observer forwarding parent owns standalone reconciliation."""
+    if resources.MARKER in os.environ or "--terminal-owner=assessment" in extra:
+        return launch({})
+    destinations = [
+        Path(item.split("=", 1)[1]) for item in extra if item.startswith("--junitxml=")
+    ]
+    if len(destinations) > 1 or (not destinations and not default_report):
+        raise ValueError("native Python execution requires one JUnit destination")
+    path = resources.invocation("python", [], terminal_owner=terminal_owner)
+    report = destinations[0] if destinations else path.with_suffix(".xml")
+    if not destinations:
+        command.append("--junitxml=" + str(report))
+    selection = report.with_name(report.stem + "-selected.txt")
+    forwarded = {resources.MARKER: str(path), "PSE_TEST_ENUMERATION": str(selection)}
+    if artifact is not None:
+        from scripts import python_extension  # noqa: PLC0415 -- selected observation
+
+        forwarded.update(python_extension.execution_environment({}, artifact))
+    previous = {key: os.environ.get(key) for key in forwarded}
+    os.environ.update(forwarded)
     try:
-        check["selected"] = validation_receipts.python_selection(selection)
-    except (OSError, ValueError) as error:
-        errors = check["report_errors"]
-        if not isinstance(errors, list):
-            raise TypeError("Invalid report errors") from error
-        errors.append(str(error))
-    validation.compose_terminal(check, report, report.parent, report.stem)
-    finish(path, check, "runner")
-    operation_report = path.with_suffix(".terminal.json")
-    validation.write_json(operation_report, check)
-    return code or int(check["status"] != "passed")
+        return execute_selected(
+            path,
+            command,
+            dict(os.environ),
+            report,
+            selection=selection,
+            terminal_owner=terminal_owner,
+            launch=launch,
+            evidence_path=report.with_suffix(".terminal.json")
+            if destinations
+            else None,
+            details={"artifacts": {"python": dict(artifact)}}
+            if artifact is not None
+            else None,
+        )
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def run_rust(
@@ -128,6 +425,7 @@ def run_rust(
     env: Mapping[str, str] | None = None,
     inventory: Mapping[str, object] | None = None,
     effects: str = "canonical",
+    package_scope: bool = False,
 ) -> int:
     # Preparation and terminal execution call each other; defer symbol binding.
     from scripts.native_tests import rust_test_environment  # noqa: PLC0415
@@ -149,7 +447,11 @@ def run_rust(
         and environment.get(RUST_OBSERVER) != "1"
         and "--binaries-metadata" not in command
     ):
-        return observer_rust(list(command), environment, effects=effects)
+        return observer_rust(
+            list(command), environment, effects=effects, package_scope=package_scope
+        )
+    if package_scope:
+        raise ValueError("package-scoped invocation requires its preparing observer")
     inherited = environment.get(resources.MARKER)
     run = list(command)
     position = run.index("run")
@@ -187,13 +489,25 @@ def run_rust(
                 "Runner inventory differs from selected invocation"
             )
 
-        declaration["selected"] = selected
-        native_operation.write_json(path, declaration)
+        resources.publish_selection(path, selected)
         if environment.get("PSE_RUST_TERMINAL_OWNER") != "runner":
             return subprocess.call(command, cwd=ROOT, env=environment)
     else:
         path = resources.invocation("rust", selected)
     environment[resources.MARKER] = str(path)
+    run, report = rust_report_command(path, run)
+    return execute_selected(
+        path,
+        run,
+        environment,
+        report,
+        selected=[
+            {"class": item["binary_id"], "name": item["name"]} for item in selected
+        ],
+    )
+
+
+def rust_report_command(path: Path, run: list[str]) -> tuple[list[str], Path]:
     profile = "default"
     for index, item in enumerate(run):
         if item == "--profile":
@@ -225,34 +539,18 @@ def run_rust(
         config += f"\n[profile.{profile}.junit]\npath = {json.dumps(str(report))}\nstore-failure-output = true\n"
     config_path = path.with_suffix(".toml")
     config_path.write_text(config)
-    started = time.time()
-    code = subprocess.call(
-        [*run, "--config-file", str(config_path)], cwd=ROOT, env=environment
-    )
-    check: dict[str, object] = {
-        "exit_code": code,
-        "status": "passed" if code == 0 else "failed",
-        "started": started,
-        "results": [],
-        "report_errors": [],
-        "selected": [
-            {"class": item["binary_id"], "name": item["name"]} for item in selected
-        ],
-        "command": run,
-        "artifacts": {},
-    }
-    validation.compose_terminal(check, report, report.parent, report.stem)
-    finish(path, check, "runner")
-    validation.write_json(path.with_suffix(".terminal.json"), check)
-    return code or int(check["status"] != "passed")
+    return [*run, "--config-file", str(config_path)], report
 
 
 def observer_rust(
-    command: list[str], environment: dict[str, str], *, effects: str = "canonical"
+    command: list[str],
+    environment: dict[str, str],
+    *,
+    effects: str = "canonical",
+    package_scope: bool = False,
 ) -> int:
     """Prepare exact artifacts before the scientific observer's process cap."""
     from scripts import (  # noqa: PLC0415 -- runner cycle
-        native_operation,
         native_tests,
         surreal_server,
     )
@@ -270,7 +568,12 @@ def observer_rust(
         )
     ).resolve()
     execution, worker = native_tests.ordinary_rust_capture(
-        command, provenance, selection, environment, effects=effects
+        command,
+        provenance,
+        selection,
+        environment,
+        effects=effects,
+        package_scope=package_scope,
     )
     inventory = validation_receipts.native_inventory(selection.read_text())
     if effects == "native-local":
@@ -298,8 +601,7 @@ def observer_rust(
             raise resources.ResourceError(
                 "Runner inventory differs from selected invocation"
             )
-        declaration["selected"] = selected
-        native_operation.write_json(invocation, declaration)
+        resources.publish_selection(invocation, selected)
     else:
         invocation = resources.invocation("rust", selected)
     forwarded = {
@@ -309,18 +611,46 @@ def observer_rust(
         "PSE_WORKER_BINARY": str(worker),
         "PSE_TEST_EXECUTION_PROFILE": "exclusive-observer",
         RUST_OBSERVER: "1",
-        "PSE_RUST_TERMINAL_OWNER": "runner" if not inherited else "inherited",
+        "PSE_RUST_TERMINAL_OWNER": "inherited",
         "RUST_MIN_STACK": environment["RUST_MIN_STACK"],
     }
     # observer uses the existing process environment; restore every carried
     # value after launch rather than leaving invocation authority ambient.
     previous = {key: os.environ.get(key) for key in forwarded}
+    if not inherited:
+        configured, report = rust_report_command(
+            invocation, ["cargo", "nextest", "run", *execution]
+        )
+        execution = configured[3:]
     os.environ.update(forwarded)
     try:
-        return surreal_server.observer(
-            Path(environment["PSE_SURREAL_STATE"]),
-            [sys.executable, "-m", "scripts.test_run", "--observer-child", *execution],
-            profile="exclusive-observer",
+        child = [
+            sys.executable,
+            "-m",
+            "scripts.test_run",
+            "--observer-child",
+            *execution,
+        ]
+
+        def launch(observation: dict[str, object]) -> int:
+            return surreal_server.observer(
+                Path(environment["PSE_SURREAL_STATE"]),
+                child,
+                profile="exclusive-observer",
+                observation=observation,
+            )
+
+        if inherited:
+            return launch({})
+        return execute_selected(
+            invocation,
+            child,
+            {**environment, **forwarded},
+            report,
+            selected=[
+                {"class": item["binary_id"], "name": item["name"]} for item in selected
+            ],
+            launch=launch,
         )
     finally:
         for key, value in previous.items():

@@ -30,8 +30,8 @@ impl RunResult {
             Err(_) => None,
             _ => return Err(contract("fit report mismatch")),
         };
-        let registry = &self.runtime.registry;
-        let validation = self.runtime.validation_context()?;
+        let registry = self.runtime.registry();
+        let validation = self.runtime.validation_context();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
         let mut header = crate::workflow::result_export::Rows::<computation_runs::Row>::new(
@@ -983,10 +983,10 @@ impl RunResult {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(cells::RELATION_ID)
             .ok_or_else(|| contract("fitted parameter declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -1013,10 +1013,10 @@ impl RunResult {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(cells::RELATION_ID)
             .ok_or_else(|| contract("fitted parameter declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -1058,10 +1058,10 @@ impl RunResult {
         let problem = &prepared.problem;
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut builder = crate::workflow::result_export::SelectedCollection::new(
             request,
-            &self.runtime.registry,
+            self.runtime.registry(),
             &pool,
             &cancel,
             &validation,

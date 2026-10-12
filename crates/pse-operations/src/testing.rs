@@ -27,6 +27,10 @@ impl FixtureLifetime {
     }
 }
 impl FixtureLifetime {
+    pub(crate) fn cleanup_executor(&self) -> tokio::runtime::Handle {
+        self.executor.handle().clone()
+    }
+
     pub(crate) fn execute<F, T>(&self, future: F) -> Result<T, crate::canonical::CanonicalError>
     where
         F: Future<Output = Result<T, crate::canonical::CanonicalError>> + Send,
@@ -409,6 +413,7 @@ pub fn canonical_fixture_peer(
         ));
     }
     let peer = lifetime.execute(crate::canonical::CanonicalStore::connect(options))?;
+    lifetime.execute(peer.open())?;
     lifetime.retain_peer(peer.clone())?;
     peer.borrow_fixture(owner)
 }

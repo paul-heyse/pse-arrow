@@ -406,6 +406,7 @@ async fn nmpc_closed_loop_on_antiwindup() {
     let result = run(
         &runtime,
         Horizon {
+            output: crate::workflow::StudyOutputDemand::Full,
             plant,
             period: PERIOD,
             steps: STEPS,
@@ -525,6 +526,7 @@ async fn horizon_reuses_prepared_view() {
         let handle = runtime
             .start_horizon(
                 Horizon {
+                    output: crate::workflow::StudyOutputDemand::Full,
                     plant,
                     period: PERIOD,
                     steps: STEPS,
@@ -645,6 +647,7 @@ async fn mhe_recovers_initial_state() {
     let result = run(
         &runtime,
         Horizon {
+            output: crate::workflow::StudyOutputDemand::Full,
             plant,
             period: PERIOD,
             steps: STEPS,
@@ -754,6 +757,7 @@ async fn horizon_records_one_durable_attempt() {
     let handle = runtime
         .start_horizon(
             Horizon {
+                output: crate::workflow::StudyOutputDemand::Full,
                 plant,
                 period: PERIOD,
                 steps: STEPS,
@@ -819,6 +823,7 @@ async fn horizon_refuses_inconsistent_loops() {
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, x) = plant(&package, whole, 0., 4).await;
     let horizon = |controller: HorizonController, steps: usize, input: SemanticId| Horizon {
+        output: crate::workflow::StudyOutputDemand::Full,
         plant: plant.clone(),
         period: PERIOD,
         steps,
@@ -907,6 +912,7 @@ async fn antiwindup_with_start_policy(
     let result = run(
         &runtime,
         Horizon {
+            output: crate::workflow::StudyOutputDemand::Full,
             plant,
             period: PERIOD,
             steps,
@@ -1234,6 +1240,75 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         Ok(_) => panic!("zero evaluation cap must refuse the actual target"),
     };
     assert!(cause.strategy_trace().is_some());
+    // The compact accumulator copies the same already assessed products,
+    // including the original absolute failed ordinal and all mandatory tables.
+    let demand = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let mut history = prefix::OriginalHistory::new(&runtime, &demand).unwrap();
+    history.admit_step(&runtime, &good).unwrap();
+    let mut first_original = RunResult::joined(
+        completed.run_id,
+        runtime.clone(),
+        crate::workflow::RunRequest::Modeling(vec![good.clone()]),
+        None,
+        Ok(RunReport::Modeling(vec![first.clone()])),
+    )
+    .completed();
+    history.validate_original(&first_original).unwrap();
+    history.export(&first_original).await.unwrap();
+    history.take_original(&mut first_original);
+    let mut original_failure = RunResult::joined(
+        completed.run_id,
+        runtime.clone(),
+        crate::workflow::RunRequest::Modeling(vec![bad.clone()]),
+        None,
+        Err(cause.clone()),
+    );
+    original_failure.modeling_origin = 1;
+    let mut original_failure = original_failure.completed();
+    let failed_assessments = serde_json::to_value(&original_failure.assessments).unwrap();
+    history.admit_step(&runtime, &bad).unwrap();
+    history.validate_original(&original_failure).unwrap();
+    history.export(&original_failure).await.unwrap();
+    history.take_original(&mut original_failure);
+    let (
+        compact_completion,
+        detail,
+        summaries,
+        _owners,
+        _findings,
+        _summary_error,
+        _detail_membership,
+    ) = history.finish(false, None);
+    assert!(detail.unwrap().is_empty());
+    assert_eq!(
+        compact_completion
+            .solves
+            .iter()
+            .map(|row| row.step)
+            .collect::<Vec<_>>(),
+        vec![0, 1]
+    );
+    assert_eq!(
+        serde_json::to_value(&compact_completion.assessments[..completed.assessments.len()])
+            .unwrap(),
+        serde_json::to_value(&completed.assessments).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&compact_completion.assessments[completed.assessments.len()..])
+            .unwrap(),
+        failed_assessments
+    );
+    assert!(
+        summaries.contains_key(&pse_relations::generated::runtime::resolved_numerics::RELATION_ID)
+    );
+    let summary_runs = summaries[&solve_runs::RELATION_ID]
+        .iter()
+        .flat_map(|batch| solve_runs::Row::rows(batch).unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(summary_runs, compact_completion.solves);
     let (report, failure) = driver::joined_modeling(
         Err(crate::workflow::WorkflowError::Shared(cause)),
         vec![first.clone()],
@@ -1317,4 +1392,898 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
     let runs = solve_runs::Row::rows(&tables[&solve_runs::RELATION_ID]).unwrap();
     assert_eq!(runs.len(), 1);
     assert!(runs[0].error.is_none());
+}
+
+/// Compact execution uses the same actual native session and advanced-step
+/// factor, while retaining only current role state and the rolling input window.
+#[tokio::test]
+async fn compact_horizon_bounds_roles_and_keeps_actual_background_permission() {
+    const STEPS: usize = 20;
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let mut controller = controller(&package, root, x, vec![1.; STEPS]);
+    controller.advanced = Some(AdvancedStep {
+        predictions: vec![("x0".into(), "x[0.25{s}]".into())],
+    });
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let admitted = Arc::new(
+        driver::Admitted::new(
+            &runtime,
+            Horizon {
+                output: output.clone(),
+                plant,
+                period: PERIOD,
+                steps: STEPS,
+                inputs: vec![HorizonInput {
+                    parameter: actuator,
+                    initial: 0.,
+                }],
+                estimator: None,
+                controller: Some(controller),
+            },
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap(),
+    );
+    let original = prefix::OriginalHistory::new(&runtime, &output).unwrap();
+    let staged = crate::workflow::staged::Staged::open(&runtime, None).unwrap();
+    let mut execution = driver::Loop::new(
+        admitted,
+        staged,
+        pse_operations::mint_id(),
+        crate::CancelSource::new(),
+        Arc::new(pse_backend_native::solve::Progress::new(0)),
+        None,
+        original,
+    );
+    execution.run().await.unwrap();
+    let (roles, requests, reports, measurements, inputs) = execution.retained_counts();
+    assert!(roles <= 4, "{roles}");
+    assert_eq!((requests, reports, measurements, inputs), (0, 0, 1, 0));
+    assert_eq!(execution.retained_sample_count(), 1);
+    let sample = execution.last_sample().unwrap();
+    assert_eq!(sample.time, PERIOD * (STEPS - 1) as f64);
+    assert_eq!(sample.decision, HorizonDecision::Predicted);
+    let background = execution
+        .retained_result(sample.controller.unwrap())
+        .unwrap();
+    assert!(background.completion.decision.permits_use());
+    let Outcome::Native(native) = &background.outcome else {
+        panic!("actual native background required")
+    };
+    assert!(
+        native
+            .evidence
+            .sensitivity
+            .as_ref()
+            .unwrap()
+            .retained
+            .is_some_and(|bytes| bytes > 0)
+    );
+    assert_eq!(
+        execution.accepted_role(driver::Role::Controller),
+        sample.controller
+    );
+    assert!(
+        execution
+            .completion()
+            .assessments
+            .iter()
+            .all(|row| row.permits_result)
+    );
+    // A later actually dispatched refusal cannot displace the last accepted
+    // role owner. The next native request must use that older original seed.
+    let accepted = execution.accepted_role(driver::Role::Controller).unwrap();
+    let values = std::collections::BTreeMap::from([
+        ("x0".into(), 0.4),
+        ("r".into(), 1.),
+        ("u[0{s}]".into(), 0.2),
+    ]);
+    let mut bad = execution
+        .prepare_solve(driver::Role::Controller, values.clone(), false)
+        .await
+        .unwrap();
+    let scope = pse_kernels::ExecutionScope::new(
+        Arc::default(),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+    );
+    let admission = crate::math::strategy::admission::TaskAdmission::new(
+        pse_model::strategy::WorkLimits {
+            attempts: 4,
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        },
+        scope.clone(),
+        None,
+        false,
+    );
+    bad.solve = bad.solve.within_admitted_task(scope, admission).unwrap();
+    assert!(
+        execution
+            .execute_solve(driver::Role::Controller, bad)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        execution.accepted_role(driver::Role::Controller),
+        Some(accepted)
+    );
+    let prepared = execution
+        .prepare_solve(driver::Role::Controller, values, false)
+        .await
+        .unwrap();
+    let next = execution
+        .execute_solve(driver::Role::Controller, prepared)
+        .await
+        .unwrap();
+    let Outcome::Native(native) = &execution.retained_result(next).unwrap().outcome else {
+        panic!("actual native successor required")
+    };
+    assert_eq!(
+        native.start_receipt.as_ref().unwrap().previous_attempt,
+        Some(accepted)
+    );
+    assert!(native.start_receipt.as_ref().unwrap().submitted);
+    execution.close().await.unwrap();
+}
+
+#[tokio::test]
+async fn full_horizon_preparation_materialization_requires_actual_pool_admission() {
+    let result = antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
+    let prepared = &modeling(&result)[0].prepared;
+    let runtime = &result.runtime;
+    let pool = runtime.shared.pool();
+    let filler =
+        pse_columnar::MemoryConsumer::new("test:full-horizon-copy-pressure").register(&pool);
+    filler
+        .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
+        .unwrap();
+    assert!(prefix::preparation_copy_owner(runtime, prepared).is_err());
+    drop(filler);
+    let original_reserved = pool.reserved();
+    let owners = prefix::preparation_copy_owner(runtime, prepared).unwrap();
+    assert!(pool.reserved() > original_reserved);
+    drop(owners);
+    assert_eq!(pool.reserved(), original_reserved);
+}
+
+#[tokio::test]
+async fn compact_horizon_keeps_original_summaries_and_absolute_member_ordinals() {
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::runtime::{resolved_numerics, solve_variables},
+    };
+    const STEPS: usize = 3;
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let controller = controller(&package, root, x, vec![1.; STEPS]);
+    let prepared = package
+        .prepare_analysis(&controller.analysis, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
+    drop(prepared);
+    let detail = crate::workflow::StudyDetailDemand {
+        relations: Vec::new(),
+        members: vec![crate::workflow::StudyMemberDemand::Variable {
+            step: 2,
+            symbol_id: symbol,
+        }],
+        maximum_rows: 1,
+        maximum_bytes: 1 << 20,
+    };
+    let result = run(
+        &runtime,
+        Horizon {
+            output: crate::workflow::StudyOutputDemand::Compact {
+                detail,
+                failed_detail: Default::default(),
+            },
+            plant,
+            period: PERIOD,
+            steps: STEPS,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller),
+        },
+    )
+    .await;
+    assert!(result.usable(), "{:?}", result.report());
+    let RunReport::Horizon(report) = result.report().unwrap() else {
+        panic!("compact horizon must be explicit")
+    };
+    assert_eq!(report.solves, STEPS);
+    assert!(report.detail_error().is_none());
+    assert_eq!(result.horizon().unwrap().steps.len(), 1);
+    assert_eq!(result.horizon().unwrap().completed_steps, STEPS);
+    assert_eq!(
+        result
+            .completion()
+            .unwrap()
+            .solves
+            .iter()
+            .map(|row| row.step)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    let tables = result.tables().unwrap();
+    let selected = solve_variables::Row::rows(&tables[&solve_variables::RELATION_ID]).unwrap();
+    assert_eq!(selected.len(), 1);
+    assert_eq!((selected[0].step, selected[0].symbol_id), (2, symbol));
+    let policies = resolved_numerics::Row::rows(&tables[&resolved_numerics::RELATION_ID]).unwrap();
+    assert_eq!(
+        policies
+            .iter()
+            .map(|row| row.step)
+            .collect::<std::collections::BTreeSet<_>>(),
+        [0, 1, 2].into_iter().collect()
+    );
+    let mut range = result
+        .table_range("runtime.solve_variables", 1..2, 1)
+        .unwrap();
+    assert!(range.next_batch().await.unwrap().is_none());
+    assert!(range.complete());
+}
+
+/// Controls use the production loop/finalizer and authentic source and attempt
+/// owners; no fixture invents permission or a scientific native report.
+async fn owned_loop(
+    runtime: &Runtime,
+    horizon: Horizon,
+    durable: bool,
+) -> (
+    driver::Loop,
+    Arc<driver::Admitted>,
+    Option<(String, String)>,
+) {
+    let maximum_solves = horizon.steps * 3;
+    let output = horizon.output.clone();
+    let admitted = Arc::new(
+        driver::Admitted::new(runtime, horizon, &crate::CancelSource::new())
+            .await
+            .unwrap(),
+    );
+    let run_id = pse_operations::mint_id();
+    let mut attempt = if durable {
+        Some(crate::workflow::durable::DurableAttempt::new(
+            runtime.operations().unwrap(),
+        ))
+    } else {
+        None
+    };
+    if let Some(attempt) = &mut attempt {
+        let request = admitted.request();
+        attempt
+            .register_horizon(
+                run_id,
+                runtime,
+                &request.sources,
+                request.identity,
+                &request.provenance,
+            )
+            .await
+            .unwrap();
+        attempt.start(Arc::new(|| {})).await.unwrap();
+        attempt
+            .begin_horizon_prefix(output.clone(), maximum_solves)
+            .unwrap();
+    }
+    let keys = attempt
+        .as_ref()
+        .map(|attempt| attempt.canonical_keys(run_id));
+    let original = prefix::OriginalHistory::new(runtime, &output).unwrap();
+    let staged = crate::workflow::staged::Staged::open(runtime, None).unwrap();
+    let execution = driver::Loop::new(
+        admitted.clone(),
+        staged,
+        run_id,
+        crate::CancelSource::new(),
+        Arc::new(pse_backend_native::solve::Progress::new(0)),
+        attempt,
+        original,
+    );
+    (execution, admitted, keys)
+}
+
+#[tokio::test]
+async fn compact_horizon_post_science_pressure_moves_original_completion_on_refusal() {
+    #[cfg(feature = "canonical-tests")]
+    let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
+    #[cfg(not(feature = "canonical-tests"))]
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let (mut execution, admitted, keys) = owned_loop(
+        &runtime,
+        Horizon {
+            output,
+            plant,
+            period: PERIOD,
+            steps: 2,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller(&package, root, x, vec![1.; 2])),
+        },
+        cfg!(feature = "canonical-tests"),
+    )
+    .await;
+    execution.refuse_next_export();
+    let outcome = execution.run().await;
+    assert!(outcome.is_err());
+    let expected = execution.before_export_refusal().unwrap().clone();
+    assert_eq!(
+        serde_json::to_value(execution.completion()).unwrap(),
+        expected
+    );
+    assert_eq!(execution.completion().solves.len(), 1);
+    assert_eq!(execution.completion().lineage.len(), 1);
+    assert_eq!(execution.completion().assessments.len(), 1);
+    let result = execution.finish(runtime.clone(), outcome, false).await;
+    assert!(result.report().is_err());
+    assert_eq!(
+        serde_json::to_value(result.completion().unwrap()).unwrap(),
+        expected
+    );
+    let summary_error = result
+        .horizon_output
+        .as_ref()
+        .unwrap()
+        .summary_error()
+        .unwrap();
+    for id in prefix::summary_ids() {
+        assert!(result.table_ids().contains(&id));
+        let mut cursor = result
+            .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
+            .unwrap();
+        let spec = runtime.registry().relation_by_id(id).unwrap();
+        assert_eq!(
+            cursor.schema(),
+            pse_schema::arrow::relation_schema_ref(runtime.registry(), spec).unwrap()
+        );
+        let error = cursor.next_batch().await.unwrap_err();
+        assert_eq!(error.to_string(), summary_error.to_string());
+        assert!(
+            !cursor.complete(),
+            "failed export cannot become complete empty membership for {id}"
+        );
+    }
+    #[cfg(feature = "canonical-tests")]
+    if let Some((run, attempt)) = keys {
+        let crate::workflow::RunDurability::Durable(record) = result.durability() else {
+            panic!("actual durable attempt required")
+        };
+        assert!(record.attempt.is_err() && record.manifest.is_none());
+        assert!(
+            runtime
+                .operations()
+                .unwrap()
+                .store()
+                .read_results(&run, &attempt, std::time::Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+    }
+    #[cfg(not(feature = "canonical-tests"))]
+    let _ = keys;
+    admitted.close_sources().await.unwrap();
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership() {
+    let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let (mut execution, admitted, keys) = owned_loop(
+        &runtime,
+        Horizon {
+            output,
+            plant,
+            period: PERIOD,
+            steps: 2,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller(&package, root, x, vec![1.; 2])),
+        },
+        true,
+    )
+    .await;
+    execution.cancel_before_first_step();
+    let outcome = execution.run().await;
+    assert!(outcome.is_err() && execution.completion().solves.is_empty());
+    let result = execution.finish(runtime.clone(), outcome, true).await;
+    admitted.close_sources().await.unwrap();
+    let tables = result.tables().unwrap();
+    let findings = pse_relations::generated::runtime::modeling_findings::RELATION_ID;
+    for id in prefix::summary_ids() {
+        assert!(tables.contains_key(&id), "missing {id}");
+        if id != findings {
+            assert_eq!(tables[&id].batch().num_rows(), 0);
+            let mut cursor = result
+                .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
+                .unwrap();
+            while let Some(batch) = cursor.next_batch().await.unwrap() {
+                assert_eq!(batch.batch().num_rows(), 0);
+            }
+            assert!(
+                cursor.complete(),
+                "zero-solve declared empty remains complete"
+            );
+        }
+        let spec = runtime.registry().relation_by_id(id).unwrap();
+        assert_eq!(
+            tables[&id].batch().schema(),
+            pse_schema::arrow::relation_schema_ref(runtime.registry(), spec).unwrap()
+        );
+    }
+    let crate::workflow::RunDurability::Durable(record) = result.durability() else {
+        panic!("actual durable attempt required")
+    };
+    assert!(record.attempt.is_ok(), "{:?}", record.attempt);
+    let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
+        record.manifest.as_ref().unwrap(),
+    )
+    .unwrap();
+    for id in prefix::summary_ids()
+        .into_iter()
+        .filter(|id| *id != findings)
+    {
+        assert_eq!(
+            descriptors
+                .iter()
+                .find(|descriptor| descriptor.name == id.to_string())
+                .unwrap()
+                .row_count,
+            0
+        );
+    }
+    let (run, attempt) = keys.unwrap();
+    let admitted_read = runtime
+        .operations()
+        .unwrap()
+        .store()
+        .read_results(&run, &attempt, std::time::Duration::from_secs(60))
+        .await
+        .unwrap();
+    drop(admitted_read);
+}
+
+#[tokio::test]
+async fn compact_mhe_keeps_only_rolling_measurements_inputs_and_arrival_role() {
+    const STEPS: usize = 12;
+    let runtime = horizon_runtime();
+    let (package, [_, whole, estimator]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0.8, STEPS).await;
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let (mut execution, admitted, _) = owned_loop(
+        &runtime,
+        Horizon {
+            output,
+            plant,
+            period: PERIOD,
+            steps: STEPS,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.5,
+            }],
+            estimator: Some(estimation(&package, estimator, x)),
+            controller: None,
+        },
+        false,
+    )
+    .await;
+    let outcome = execution.run().await;
+    assert!(outcome.is_ok(), "{outcome:?}");
+    let (roles, requests, reports, measurements, inputs) = execution.retained_counts();
+    assert_eq!(
+        (roles, requests, reports, measurements, inputs),
+        (1, 0, 0, 5, 4)
+    );
+    let latest = execution
+        .retained_result(execution.accepted_role(driver::Role::Estimator).unwrap())
+        .unwrap();
+    assert!(latest.accepted && latest.completion.decision.permits_use());
+    let paths = &latest.prepared.model.model.compiled().model.paths;
+    let now = latest.values.scalars[&paths["x[1{s}]"]];
+    let expected = 1. - 0.2 * (-((STEPS - 1) as f64) * PERIOD).exp();
+    let budget = crate::workflow::tests::engineering_target(
+        latest.prepared.solve.numerics(),
+        pse_model::generated::enums::NumericalTarget::Variable,
+        paths["x[1{s}]"],
+    )
+    .budget;
+    assert!((now - expected).abs() <= budget);
+    let result = execution.finish(runtime, outcome, false).await;
+    assert!(result.usable(), "{:?}", result.report());
+    assert_eq!(result.completion().unwrap().solves.len(), STEPS - 4);
+    admitted.close_sources().await.unwrap();
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory() {
+    const STEPS: usize = 3;
+    let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., STEPS).await;
+    let result = run(
+        &runtime,
+        Horizon {
+            output: crate::workflow::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            },
+            plant,
+            period: PERIOD,
+            steps: STEPS,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller(&package, root, x, vec![1.; STEPS])),
+        },
+    )
+    .await;
+    assert!(result.usable(), "{:?}", result.report());
+    let crate::workflow::RunDurability::Durable(record) = result.durability() else {
+        panic!("durable horizon required")
+    };
+    assert_eq!(
+        record.attempt.as_ref().unwrap().outcome.as_deref(),
+        Some("succeeded")
+    );
+    assert_eq!(
+        record
+            .solutions
+            .iter()
+            .map(|(step, _)| *step)
+            .collect::<Vec<_>>(),
+        vec![0, 1, 2]
+    );
+    assert_eq!(
+        serde_json::to_value(
+            record
+                .completion
+                .as_ref()
+                .unwrap()
+                .completion
+                .as_ref()
+                .unwrap()
+        )
+        .unwrap(),
+        serde_json::to_value(result.completion().unwrap()).unwrap()
+    );
+    let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
+        record.manifest.as_ref().unwrap(),
+    )
+    .unwrap();
+    for id in [
+        pse_relations::generated::runtime::solve_runs::RELATION_ID,
+        pse_relations::generated::runtime::candidate_assessments::RELATION_ID,
+        pse_relations::generated::runtime::run_lineage::RELATION_ID,
+    ] {
+        assert_eq!(
+            descriptors
+                .iter()
+                .find(|descriptor| descriptor.name == id.to_string())
+                .unwrap()
+                .row_count,
+            STEPS as u64
+        );
+    }
+    for (_, solution) in &record.solutions {
+        assert!(runtime.operations().unwrap().seed(*solution).await.is_ok());
+    }
+}
+
+#[tokio::test]
+async fn compact_failed_detail_uses_one_whole_horizon_cap_and_original_outcome() {
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., 3).await;
+    let controller = controller(&package, root, x, vec![1.; 3]);
+    let prepared = package
+        .prepare_analysis(&controller.analysis, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let symbol = prepared.model.model.compiled().model.paths["u[0.25{s}]"];
+    drop(prepared);
+    let member = |step| crate::workflow::StudyMemberDemand::Variable {
+        step,
+        symbol_id: symbol,
+    };
+    let detail = crate::workflow::StudyDetailDemand {
+        relations: Vec::new(),
+        members: vec![member(0)],
+        maximum_rows: 1,
+        maximum_bytes: 1 << 20,
+    };
+    let failed_detail = crate::workflow::StudyDetailDemand {
+        relations: Vec::new(),
+        members: vec![member(0), member(1)],
+        maximum_rows: 1,
+        maximum_bytes: 1 << 20,
+    };
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail,
+        failed_detail,
+    };
+    let (mut execution, admitted, _) = owned_loop(
+        &runtime,
+        Horizon {
+            output,
+            plant,
+            period: PERIOD,
+            steps: 3,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller),
+        },
+        false,
+    )
+    .await;
+    let values = std::collections::BTreeMap::from([
+        ("x0".into(), 0.4),
+        ("r".into(), 1.),
+        ("u[0{s}]".into(), 0.2),
+    ]);
+    for _ in 0..2 {
+        let prepared = execution
+            .prepare_solve(driver::Role::Controller, values.clone(), false)
+            .await
+            .unwrap();
+        execution
+            .execute_solve(driver::Role::Controller, prepared)
+            .await
+            .unwrap();
+    }
+    let prefix = execution.completion().clone();
+    let mut bad = execution
+        .prepare_solve(driver::Role::Controller, values, false)
+        .await
+        .unwrap();
+    let scope = pse_kernels::ExecutionScope::new(
+        Arc::default(),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(5)),
+    );
+    let admission = crate::math::strategy::admission::TaskAdmission::new(
+        pse_model::strategy::WorkLimits {
+            attempts: 4,
+            evaluations: Some(0),
+            iterations: None,
+            factorizations: None,
+            proof_steps: None,
+        },
+        scope.clone(),
+        None,
+        false,
+    );
+    bad.solve = bad.solve.within_admitted_task(scope, admission).unwrap();
+    let failure = execution
+        .execute_solve(driver::Role::Controller, bad)
+        .await
+        .unwrap_err();
+    assert!(failure.strategy_trace().is_some());
+    let result = execution.finish(runtime, Err(failure), false).await;
+    let completion = result.completion().unwrap();
+    assert_eq!(completion.solves.len(), 3);
+    assert_eq!(
+        serde_json::to_value(&completion.solves[..2]).unwrap(),
+        serde_json::to_value(&prefix.solves).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&completion.assessments[..2]).unwrap(),
+        serde_json::to_value(&prefix.assessments).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(&completion.lineage[..2]).unwrap(),
+        serde_json::to_value(&prefix.lineage).unwrap()
+    );
+    assert!(completion.solves[2].error.is_some());
+    let detail_error = result
+        .horizon_output
+        .as_ref()
+        .unwrap()
+        .detail_error()
+        .unwrap();
+    let variables = pse_relations::generated::runtime::solve_variables::RELATION_ID;
+    assert!(
+        result.table_ids().contains(&variables),
+        "requested failed detail retains declared membership"
+    );
+    let mut cursor = result
+        .cursor_by_id(variables, 1, crate::workflow::ResultOrder::Canonical)
+        .unwrap();
+    let spec = result.runtime.registry().relation_by_id(variables).unwrap();
+    assert_eq!(
+        cursor.schema(),
+        pse_schema::arrow::relation_schema_ref(result.runtime.registry(), spec).unwrap()
+    );
+    let export_error = cursor.next_batch().await.unwrap_err();
+    assert_eq!(export_error.to_string(), detail_error.to_string());
+    assert!(
+        !cursor.complete(),
+        "requested detail cap refusal is incomplete, never unrequested or complete empty"
+    );
+    drop(cursor);
+    assert!(result.report().unwrap_err().strategy_trace().is_some());
+    admitted.close_sources().await.unwrap();
+}
+
+/// A real producer's original rows fit repeatedly beside one native admission;
+/// old report allowances cannot accumulate behind a Compact history owner.
+#[tokio::test]
+async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
+    let source = antiwindup_with_start_policy(None, false, StartPolicy::PreviousAccepted, 1).await;
+    let runtime = &source.runtime;
+    let native = modeling(&source)[0].clone();
+    assert!(
+        native
+            .completion
+            .accuracy
+            .iter()
+            .all(|goal| goal.failure.is_none())
+    );
+    let prepared = &native.prepared;
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let mut history = prefix::OriginalHistory::new(runtime, &output).unwrap();
+    let baseline = history.retained_owner_bytes();
+    history.admit_step(runtime, prepared).unwrap();
+    let allowance = history.retained_owner_bytes() - baseline;
+    let pool = runtime.shared.pool();
+    let limit = runtime.shared.budget().memory_limit_bytes.get();
+    let cushion = allowance + 256 * 1024;
+    let filler =
+        pse_columnar::MemoryConsumer::new("test:horizon-one-producer-allowance").register(&pool);
+    filler.try_grow(limit - pool.reserved() - cushion).unwrap();
+    for step in 0..32 {
+        if step != 0 {
+            history.admit_step(runtime, prepared).unwrap();
+        }
+        let mut original = RunResult::joined(
+            source.run_id,
+            runtime.clone(),
+            crate::workflow::RunRequest::Modeling(vec![prepared.clone()]),
+            None,
+            Ok(crate::workflow::RunReport::Modeling(vec![native.clone()])),
+        );
+        original.modeling_origin = step;
+        original = original.completed();
+        let expected = serde_json::to_value(original.completion().unwrap()).unwrap();
+        history.validate_original(&original).unwrap();
+        let issued = history.retained_owner_bytes();
+        history.take_original(&mut original);
+        assert!(
+            history.retained_owner_bytes() < issued,
+            "report-only native capacity must leave each committed step"
+        );
+        assert_eq!(
+            serde_json::to_value(&history.completion.solves[step..]).unwrap(),
+            expected["solves"]
+        );
+        assert_eq!(
+            serde_json::to_value(&history.completion.lineage[step..]).unwrap(),
+            expected["lineage"]
+        );
+        assert_eq!(
+            serde_json::to_value(&history.completion.assessments[step..]).unwrap(),
+            expected["assessments"]
+        );
+    }
+    assert_eq!(history.completion.solves.len(), 32);
+    assert!(
+        history.retained_owner_bytes() < baseline + 2 * allowance,
+        "retained originals must follow row/capacity extent, not 32 report envelopes"
+    );
+    drop(filler);
+    drop(history);
+}
+
+#[tokio::test]
+async fn compact_summary_refusal_invalidates_prior_complete_prefixes() {
+    let runtime = horizon_runtime();
+    let (package, [root, whole, _]) = package(runtime.clone()).await;
+    let (plant, actuator, x) = plant(&package, whole, 0., 2).await;
+    let output = crate::workflow::StudyOutputDemand::Compact {
+        detail: Default::default(),
+        failed_detail: Default::default(),
+    };
+    let (mut execution, admitted, _) = owned_loop(
+        &runtime,
+        Horizon {
+            output,
+            plant,
+            period: PERIOD,
+            steps: 2,
+            inputs: vec![HorizonInput {
+                parameter: actuator,
+                initial: 0.,
+            }],
+            estimator: None,
+            controller: Some(controller(&package, root, x, vec![1.; 2])),
+        },
+        false,
+    )
+    .await;
+    let values = std::collections::BTreeMap::from([
+        ("x0".into(), 0.4),
+        ("r".into(), 1.),
+        ("u[0{s}]".into(), 0.2),
+    ]);
+    let first = execution
+        .prepare_solve(driver::Role::Controller, values.clone(), false)
+        .await
+        .unwrap();
+    execution
+        .execute_solve(driver::Role::Controller, first)
+        .await
+        .unwrap();
+    let first = serde_json::to_value(execution.completion()).unwrap();
+    execution.refuse_next_export();
+    let second = execution
+        .prepare_solve(driver::Role::Controller, values, false)
+        .await
+        .unwrap();
+    let refusal = execution
+        .execute_solve(driver::Role::Controller, second)
+        .await
+        .unwrap_err();
+    let second = execution.before_export_refusal().unwrap().clone();
+    let aggregate = serde_json::to_value(execution.completion()).unwrap();
+    for name in ["assessments", "solves", "lineage", "accuracy_goals"] {
+        let mut expected = first[name].as_array().unwrap().clone();
+        expected.extend(second[name].as_array().unwrap().iter().cloned());
+        assert_eq!(aggregate[name], serde_json::Value::Array(expected));
+    }
+    let result = execution.finish(runtime, Err(refusal), false).await;
+    assert_eq!(
+        serde_json::to_value(result.completion().unwrap()).unwrap(),
+        aggregate
+    );
+    for id in prefix::summary_ids() {
+        let mut cursor = result
+            .cursor_by_id(id, 1, crate::workflow::ResultOrder::Canonical)
+            .unwrap();
+        assert!(
+            cursor.next_batch().await.is_err(),
+            "earlier complete prefix is incomplete after a later issued step is missing for {id}"
+        );
+        assert!(!cursor.complete());
+    }
+    admitted.close_sources().await.unwrap();
 }

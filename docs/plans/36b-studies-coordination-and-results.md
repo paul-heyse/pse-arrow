@@ -1,8 +1,8 @@
 ---
 title: Studies, coordination and results
-status: draft
+status: in-progress
 date: 2026-10-11
-adrs: []
+adrs: [ADR-0173, ADR-0176, ADR-0177, ADR-0178]
 review_sources:
   - docs/design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md
   - docs/design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md
@@ -14,22 +14,28 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 # Plan 36b: Studies, coordination and results
 
-Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. No product implementation, tests or measurements are established by plan authoring.
+Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline refreshed for the investigations: `2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. No product implementation, tests or measurements are established by plan authoring.
 
 ## Implementation packets
 
-Every packet is scheduled design work awaiting separate implementation authorization. Required input means the delivered, verified slice described below, not completion of an entire other document. Conditional investigations have their own decision outcomes; no finding closes merely because a packet is written.
+The bounded investigations are delivered below; the maintainer authorized accepted-target product implementation on 2026-10-11. Required input means the delivered, verified slice described below, not completion of an entire other document. Conditional investigations have their own decision outcomes; no finding closes merely because a packet is written.
 
 | Packet | Required input | Delivery and acceptance | Status |
 |---|---|---|---|
-| P-B1 | Accepted RC06 and governing schema/decision route | Exact conflict domains, both creation/reclaim orders, cancellation and original-clock settlement across all consumers. | Scheduled |
-| P-B2 | P-B1 claim slice; P-A5 only for engagement/affinity reuse | Readiness hints, continuous refill and bounded projected terminal discovery with policy recheck. | Scheduled |
-| P-B3 | Accepted RC07; actual resident/transient owners | Separate population, resident memory and active stages; fitting phase handoff, explicit faer Par and chunk admission. | Scheduled |
-| P-B4 | Accepted RC08/10; selected output/row-locator schema | Typed original-row indexing, payload-shaped blocks, explicit empty close and migrated compact/full consumers. | Scheduled |
-| P-B5 | P-B4 close/demand contract for changed output; existing format can be improved first | Actual acknowledgment accumulator, authoritative close/seal and slim live completion reads; uncertainty readback retained. | Scheduled |
-| P-B6 | P-B4/P-B5 sink slice for horizon; telemetry independently ready | Bounded horizon role history and noninterfering ordinary telemetry, one attempt and coherent final outcome. | Scheduled |
-| P-B7 | P-B1 creation/retirement registration; settled replay floor | Collect only fenced settled residue, with late-effect, restore and interruption controls. | Scheduled |
-| P-B8 | Existing authoritative seal and exact seed permission; P-B5 slim-read slice only for transport integration | Eligibility before cutoff and one admitted seed carried to start/prediction; no full-P-B5 prerequisite for completeness. | Scheduled |
+| P-B1 | Accepted RC06 and governing schema/decision route | Exact conflict domains, both creation/reclaim orders, cancellation and original-clock settlement across all consumers. | In progress |
+| P-B2 | P-B1 claim slice; P-A5 only for engagement/affinity reuse | Readiness hints, continuous refill and bounded projected terminal discovery with policy recheck. | In progress |
+| P-B3 | Accepted RC07; actual resident/transient owners | Separate population, resident memory and active stages; fitting phase handoff, explicit faer Par and chunk admission. | In progress |
+| P-B4 | Accepted RC08/10; selected output/row-locator schema | Typed original-row indexing, payload-shaped blocks, explicit empty close and migrated compact/full consumers. | In progress |
+| P-B5 | P-B4 close/demand contract for changed output; existing format can be improved first | Actual acknowledgment accumulator, authoritative close/seal and slim live completion reads; uncertainty readback retained. | In progress |
+| P-B6 | P-B4/P-B5 sink slice for horizon; telemetry independently ready | Bounded horizon role history and noninterfering ordinary telemetry, one attempt and coherent final outcome. | In progress |
+| P-B7 | P-B1 creation/retirement registration; settled replay floor | Collect only fenced settled residue, with late-effect, restore and interruption controls. | In progress |
+| P-B8 | Existing authoritative seal and exact seed permission; P-B5 slim-read slice only for transport integration | Eligibility before cutoff and one admitted seed carried to start/prediction; no full-P-B5 prerequisite for completeness. | In progress |
+
+## Investigation checkpoint, 2026-10-11
+
+[Coordination evidence](36-investigation-evidence/coordination.md) records the exact inspected sources, proposed interfaces, optional decisions and disposable controls. **Tested:** isolated SurrealDB 3.3.0 RocksDB query/protocol shapes, with zero unexpected control failures in the corrected run and the owned server joined (exit 0). Both creator/collector commit orders, exact absent-key conflict, unchanged disjoint readers, cancellation ordering, closed-grant refusal and seed eligibility before cutoff were exercised. These are abstract authority/query fixtures; generated canonical functions, admitted scientific seeds, restore and integrated native drain remain unqualified. The first fixture setup failed on missing explicit namespace/database and was corrected; it is not counted as a product pass.
+
+The selected physical access distinctions are concrete: historical membership retains exact intervals; current-head acceleration selects the investigated `(problem,scope,to_sequence,key)` index only with registered head equality (fixture index limit64/output64); exact descriptor/store acknowledgement uses exact record/index access; latest-result discovery already uses backward indexed order in the fixture. A 64-row result bound does not bound examined history. Terminal seed eligibility is checked before LIMIT within the same snapshot, then exact protected admission rechecks permission. Resource/fitting/horizon, typed demand/locator, close/seal and grant-settlement interfaces are specified in the evidence; optional alternatives there have explicit retain/select/separate-proposal/defer outcomes. Product implementation and original finding closure are not established.
 
 ## Selected target and preservation boundaries
 
@@ -40,6 +46,8 @@ Preserve acknowledged durability before ordinary `wait()` returns, independent o
 Choose library-owned mechanisms where they supply the consumed contract: SurrealDB registered exact-record conflict checks and transactional functions; Tokio bounded queues/semaphores and cancellation; the existing shared DataFusion pool; Arrow selection kernels on original scientific rows; explicit admitted `faer::Par`. No new universal scheduler, cache, resource estimator, semantic authority or guaranteed diagnostic stream is required.
 
 The accepted RC06–RC12 decisions are recorded in the coordinator. Their governing amendments precede dependent implementation.
+
+The independent [canonical/preparation target review](../design_review/reviews/design_review_plan36-canonical-preparation_2026-10-11.md) accepted revised ADR-0177/0178. Its F01 identified study-association creators omitted from the initial retirement contract. **Scheduled:** P-B1 must fence summary-header and point/run membership installation, including an existing terminal run, atomically against result retirement; exercise both commit orders and uncertain retries. The Proposed contract is corrected; implementation and actual emitted-query acceptance remain open. This disposition does not close F08/F15.
 
 ## P-B1. Exact conflict domains and retry ownership (F08; L2-02; RC06)
 
@@ -71,6 +79,20 @@ Refill continuously as completions release dependencies; an idle lane does not i
 
 Single-successor continuation affinity is an optimization: pass owned compatible seed/prepared engagement and, within resident admission, retained native session to its next point. Multiple workers/restart may break affinity without changing allowed starts. Never monopolize capacity with an idle chain or assume in-memory state is durable permission. Engagement acquisition/renewal failure stops new point admission but still owns already issued/uncertain work through drain (preparation package prerequisite).
 
+Implementation checkpoint, 2026-10-11: continuous refill and explicit input-lane
+owners are connected to derived readiness rows, indexed pure discovery, atomic
+point-writer invalidation and bounded exact-premise repair. Persistent cursors
+bound and rotate per-study notification, rebuild and verification work. Mandatory
+maintenance does not consume the scientific action budget. Operations and linked
+Runtime compilation succeeded; emitted-query, restart and actual lane controls
+remain in progress. Independent source review found that periodic verification
+across studies can still starve later studies behind an always-busy earlier study;
+a rotating recovery position and populated fairness control are required before
+acceptance. Full query/candidate observations and lease/failure/drain acceptance
+remain open.
+
+The final-summary owner now reads a bounded pending-state hint before parent recovery or guarded finalization, retaining the authoritative finalizer's atomic recheck. Original outcome and immutable definition arrive in one byte-bounded four-point projection rather than one metadata page followed by an individual full-point read for every occurrence. Existing finalization/recovery controls now also compare projected original bytes, policy and outcome and check that pending discovery leaves parent authority unchanged. These additions remain unrun; readiness hints and engagement-dependent affinity are still open.
+
 Controls: independent chains with skew, chain-major layouts, retries, failed predecessors, explicit starts, refusal, cancellation, stolen/expired claims and restart; candidate/finalize counters and populated EXPLAIN. Original `(w−1)N²/2` and ten-million arithmetic are workload hypotheses, not established source counts. D-P2 and D-P3 should measure actual examined candidates, protected calls, retries and wait relative to numerical work; zero retries changes prioritization, not the broad local-write diagnosis. Remove restart-from-zero blocked traversal, round idle latch, eager guarded probes and item rereads after replacement tests.
 
 ## P-B3. Population, resident memory and active stage admission (F10a–e; RC07)
@@ -93,6 +115,8 @@ Controls: saturated resident sessions plus compiler/subwork, several simultaneou
 
 ## P-B4. Demand, exact row locators and empty close coverage (F11/F13 study detail; RC08/RC10)
 
+Implementation checkpoint, 2026-10-11: the [independent bounded target review](../design_review/reviews/design_review_plan36-result-demand_2026-10-11.md) accepts the proposed ADR-0180/P-B4–P-B6 target, with no additional material finding or rule impact. Scalar-row declaration/producer/reader migration is underway. Demand, empty-close coverage, acknowledgment accumulation and horizon streaming remain open; target acceptance is not implementation acceptance. The changed interpretation will be exercised on separately owned new fixtures, without activating or migrating a live deployment.
+
 Current `result_projection.rs::{scalar_cells_at,store_result_chunk,metadata_prefix,store_trajectory}` emits per-field cells and lets their 128 KiB metadata ceiling choose IPC prefixes before the 512 KiB payload bound. `store_result_table` insists on a block even for empty relations. `connected_results.rs::output_results` decodes the original block and verifies selected fields. `DurableAttempt::store_tables` exports every table; ephemeral `study_inner` retains every full RunResult because its occurrence consumers currently expect full reports.
 
 Select one **typed exact row locator per indexed scalar scientific row**, independent of field: exact attempt/set, relation-owned primary-key tuple, block identity and original row offset. Encode keys with registry-owned types/comparison, never a Float64 surrogate. The declared output selector maps owner/partition to that row; field support/missing/finite predicates execute on the decoded original row using Arrow kernels. Verify locator identity/row/key/field against original columns, preserve signed zero and exceptional bits, explicit missingness, units/quality and attempt boundaries. Retain refusal for unsupported fields. This avoids globally resorting current relations merely to simplify an index. Typed block-key bounds remain an alternative if populated access evidence justifies their ordering and range contracts; current coordinate_min/max are finite Float64 **time** bounds and cannot encode arbitrary composite keys.
@@ -105,6 +129,35 @@ Migrate typed study documents/schema/generated Python contracts, study admission
 
 Controls: selected scalar fields, signed zero, nonfinite diagnostics, missing/finite bounds, invalid keys, unsupported fields, original row ranges, dense multi-symbol time selection, full/compact study consumers, demanded empty sets, empty-versus-incomplete crash, batched append lost acknowledgment and cancellation during export. E-P1: bounded metadata-only reads of **exact isolated fixture set keys** (`result_set,ordinal,rows,payload_bytes`) plus append/index counts, preserving empty-set membership. No production-history scan or numerical campaign is needed. Tens-of-rows and savings remain unmeasured. Remove scalar-cell declarations/indexes/generation, projection staging and schema-only empty append/test fixtures once every reader has migrated.
 
+Implementation checkpoint, 2026-10-11: study request/operation/definition contracts
+now carry explicit output demand (versions 5/6/9). Existing complete-report
+consumers select Full; Compact retains original completion and separately bounded
+success/failure detail, with Rust/Python selected-detail consumers. Ephemeral
+continuation retention is being separated from full report ownership. Durable
+publication selects mandatory summaries and demanded relations, including
+explicit empty coverage. Dense trajectory packing now supports several exact
+symbol ranges in one original payload; the reader verifies those original ranges.
+The combined native Runtime all-target compile passes after correcting two
+allocation-pool borrows and a trajectory fixture field type. New functional
+controls still await execution; this does not accept the packet. Compact
+continuations now copy only original-permitted seeds and prediction sources,
+preserving full identity/profile while releasing old task/start execution owners.
+Typed member demand and its original-row selection controls are now written,
+including absolute solve-step keys, signed zero and exceptional bits. Bounded
+append batching is now written over the same projection owner: bounded groups
+share one transaction while preserving original per-block operation identities,
+the first offered deadline and exact lost-response settlement. Coverage advances
+only from actual acknowledgments. Optional queue storage drains before polling
+an allocating producer; already owned checked chunks can share submissions.
+The Surreal generation is published. Independent source review found two
+remaining gaps: staged byte owners could end before timed-out transport drained,
+and normal durable producers still flushed before every poll. Repairs carry actual
+payload grants through transport drain and give only the immutable typed projection
+one memory-only cold retry under the same original cancellation/deadline. Bounds,
+rollback, replay, empty-membership, continuous-charge and actual normal-export
+grouping controls await execution. Horizon private-prefix streaming, generated
+contracts and Python consumer verification remain open.
+
 ## P-B5. Actual acknowledgments and live completion reads (F12; RC09)
 
 Source `store_result_table` currently discards compact acknowledgments; the writer does **not** already hold a complete set. Introduce attempt-owned bounded accumulation in the publication owner, consumed by close/manifest/seal. For each set retain next acknowledged ordinal, rows and streaming ordered digest of exact batch key/digest/rows; retain compact demand/empty membership, completion coverage and eligible seed/progress coverage. The current batch-selection FramedHasher format is incremental, so keeping every payload or all historical acknowledgment objects is unnecessary. Concurrency within a set must be ordinal-ordered or have a bounded outstanding gap buffer. Duplicate/lost-ack settlement advances once for the exact same request identity.
@@ -113,7 +166,19 @@ The server's final admission validates **all** advertised sets and counts/covera
 
 Keep ordinary durable return after acknowledgment. No early scientific return is selected. For key-only stored-result handles select a **slim protected completion-only read**, avoiding seed inventory; repeated properties may share one explicitly live-pinned operation/read session but cannot keep permission after expiry/retirement. A separately named copied completion snapshot can survive later retirement as owned bytes, if ever authorized; do not silently change current handle semantics. Bulk terminal study pages obey the same exact permission and memory rules.
 
+Implementation checkpoint, 2026-10-11: key-only completion properties now use a narrow protected completion owner, sharing terminal/revision/result-creator admission and live renewal with full reads. It fetches only the exact completion-set coverage, avoids manifest descriptor transport and seed discovery, and shares bounded chunk assembly/digest verification. Fresh reads still require current permission; already copied completion bytes do not authorize a later read. Inline/chunked equivalence and removed-fixture refusal controls are written; integrated Runtime execution remains pending. Actual acknowledgment accumulation and authoritative normal close/seal remain open, including the P-B4 demand/empty contract.
+
 Controls: byte-identical acknowledged completion versus recovery, gap/duplicate/missing/extra set coverage, empty sets, close-authority recovery, rejected heartbeat join, lost seal/close/append acknowledgment, crash between stages, retired/reclaimed/expired result refusal and property reads without seed inventory. Remove normal-path full reconcile/reopen and successful-close lookup after the accumulator and authoritative acknowledgments are real; retain server readback for uncertainty/recovery.
+
+Implementation decision, 2026-10-11: opaque Operations-issued append acknowledgments own the unchanged framed digest; server close owns complete frozen membership/extents and exact receipt checks. The accumulator cannot be constructed from caller totals or serialized descriptors. The pinned server's plain-string BLAKE3 is not byte-compatible with the existing derive-key framing. Do not substitute it or claim protection against arbitrary raw-database mutation. Recovery retains independent immutable-record digest reconstruction. This authority split is recorded in proposed ADR-0180; implementation and actual canonical controls remain open.
+
+Implementation checkpoint: the acknowledgment accumulator, atomic complete-membership
+close/seal and normal no-reopen completion route are implemented. The bounded progress
+uncertainty route preserves the original sampled counters and permits only additional
+optional progress within the original queued coverage. Independent source review found
+no material defect in this identified slice. Actual canonical tests exposed a shared
+source-grant response-slot bug before result readback and preparation engagement; its
+repair is being verified. Study demand and horizon streaming remain separate open slices.
 
 ## P-B6. Bounded horizon role state and telemetry (F13 horizon/F14; RC10/RC11)
 
@@ -126,6 +191,18 @@ IDAS sample sensitivities/interpolation/checkpoint retention remain the numerica
 For ordinary iteration telemetry select nonblocking sampling/coalescing at the tap, bounded latest state/retained events and exact dropped/partiality counters, sequence/timestamps and accounted memory. Current `Tap::observe` can block native producers to heartbeat timeout or immediately refuse async-runtime overflow, then cancel; that can interrupt before original assessment, so do not call every affected solve already scientifically sound. Storage/telemetry failure and scientific assessment stay separate. Mandatory terminal science/seed permission already have completion authority; do not invent another guaranteed phase/failure/terminal stream without an identified consumer. Explicit strict-audit telemetry may choose interruption on loss, with a separate policy and clear operational outcome. Hard work limits/cancellation remain independent of sampled events.
 
 Controls: long horizons with intermittent failed role steps, rolling-window movement, advanced-step factor/permission reuse/fallback, general staged historical consumers, private-prefix crash/cancel, final manifest coherence, saturated telemetry on native and async producers, exact drop counts/order, strict mode and terminal transport failure. Remove redundant full-history executor vectors/record clones for the bounded horizon role and diagnostic-overflow cancellation in ordinary mode once the new consumers pass.
+
+Implementation checkpoint, 2026-10-11: bounded per-role predecessors, rolling
+windows, compact selected detail and one-attempt private prefix streaming are
+written; general staged history retains its separate contract. Independent review
+found post-science completion-copy refusal could lose original rows, zero-solve
+Compact membership omitted mandatory empty schemas, and tightening diagnostics
+were expanded eagerly. The repair admits aggregate capacity before execution,
+moves original completion rows on every publication outcome, declares summary
+membership before row production and defers compact tightening descriptors to
+final projection. Unexpected producer-shape mismatch retains the actual issued
+step and reports an explicit aggregate error. Compilation and decisive refusal,
+window, zero-solve and final canonical coverage controls remain open.
 
 ## P-B7. Settled retirement before bookkeeping collection (F15; RC12)
 
@@ -141,17 +218,19 @@ Controls: acquisition dispatched before release but committing after local failu
 
 `canonical_execution.rs::result_seed_candidates` currently LIMITs 64 headers before `durable.rs::latest_seed` skips nonterminal attempts; an older usable sealed seed can be masked. `latest_seed` then admits/decodes one seed but returns only its ID; `with_stored_start` reopens it, `seed_document` also calls full `record`, and prediction decodes again.
 
-Select eligibility **before cutoff within one server-query snapshot**. Atomically publish a bounded attempt-level terminal seed-selection witness during seal, bound to acknowledged seed inventory and complete-original completion; recovery/cancelled prefixes with unavailable science publish no seed eligibility. `store_seeds` already exports only `completed_modeling_seed` products, but terminal=true alone is insufficient because incomplete cancellation/recovery may leave headers. Avoid a per-step unbounded seal update loop: the witness is per attempt and refers to frozen complete inventory. The selector filters terminal witness, retirement, layout/preparation/backend before its bounded limit, using deterministic sequence/generation/step/seed-key ordering. Exact protected admission still verifies header membership and per-step completion permission. Current-query-cut semantics are enough; no promise of newest at the later instant of numerical use. If the planner cannot serve that joined selector efficiently, investigate indexed terminal-attempt selection rather than silently reverting to a pre-eligibility cutoff; bounded keyset pagination must expose incomplete discovery and an explicit observation contract.
+Select eligibility **before cutoff within one server-query snapshot**. Atomically publish a bounded attempt-level terminal seed-selection witness during seal, bound to acknowledged seed inventory and complete-original completion; recovery/cancelled prefixes with unavailable science publish no seed eligibility. `store_seeds` already exports only `completed_modeling_seed` products, but terminal=true alone is insufficient because incomplete cancellation/recovery may leave headers. Avoid a per-step unbounded seal update loop: the witness is per attempt and refers to frozen complete inventory. The selector filters terminal witness, retirement, layout/preparation/backend before its bounded limit, using deterministic sequence/generation/step/seed-key ordering. Exact protected admission still verifies header membership and per-step completion permission. Current-query-cut semantics are enough; no promise of newest at the later instant of numerical use. If populated production-shaped evidence shows the joined scan is ordinary limiting work, select an indexed eligible-attempt discovery relation with bounded compatibility partitions and frozen-inventory identity, activated transactionally with seal, as specified in the coordination evidence; never revert to a pre-eligibility cutoff; bounded keyset pagination must expose incomplete discovery and an explicit observation contract.
 
 Return one owned admitted seed object carrying immutable header, exact warm payload, optional prediction, completion permission/provenance and allocation ownership; transport it through selection/start/prediction and same-process continuation. Acquire one exact live protection during admission, reserve before decode, then deliberately copy out the admitted seed for the **already-authorized start operation**. Independent later discovery/use obtains fresh permission; owned bytes are not cached stored permission. Preserve the public distinction: exact coordinate/layout and backend compatibility, while numeric data and native options may deliberately differ (`run.rs::with_stored_start`). Carry profile/data provenance without incorrectly requiring equality. Explicit incompatible seeds refuse; corruption/infrastructure errors never become absence or cold fallback.
+
+Implementation checkpoint, 2026-10-11: seed selection now returns one admitted immutable product containing its original header, copied completion evidence, warm start and optional prediction with their allocation owners. Explicit selection and latest selection each perform one protected original read; completion decoding shares that read, and immediate continuation/start/prediction share the decoded product. Native working copies remain behind native admission. Prediction anchors require the exact run and attempt. A later acquisition still checks current original-manifest and scientific permission. Shared-payload and removed-fixture refusal controls are written; compilation and actual canonical/native execution of this slice remain pending.
 
 Controls: older usable seed plus 64 newer unsealed headers selects older; after valid seal selects newest; cancellation/recovery prefix is ineligible; total-order ties, retired/expired admission, lost seal acknowledgment, incompatible layouts/backends and permitted data/options variation. Count one selected seed's protected opens/decodes through start/prediction and compare bit-identical payload/start lineage. Remove ID-only internal handoff, repeated full-record/seed inventory reads and decode duplication; keep public explicit SolutionId selection as identity, resolving it once.
 
 ## Remaining source opportunities and settling branches
 
-The original inquiries contain opportunities beyond the finding IDs. They must be covered without calling unexamined breadth defective. Route D-04 repeated preparation and interleaved/twice study admission to the preparation engagement package; JSON ingress remains a real validation boundary. Default MathPolicy.jobs=4 versus reference=32 needs an explicit supported concurrency/default decision from runtime owner, not automatic widening. Ephemeral frontier rescanning is in-memory and currently cheap: measure policy effort before replacing it. Independent fit experiments with ordered assembly, cloned sparse response/constraint structure and double-forward transient objective/gradient belong to numerical demand analysis; select parallelism only within common admission and preserve deterministic addend order. Dense uncertainty GEMM/diagonal demand requires a large-output consumer and the existing scalar-sum bit contract; no unconditional rewrite.
+The original inquiries contain opportunities beyond the finding IDs. They must be covered without calling unexamined breadth defective. Route D-04 repeated preparation and interleaved/twice study admission to the preparation engagement package; JSON ingress remains a real validation boundary. Retain MathPolicy.jobs=4 and existing unknown-allocation guards during this change; reference jobs=32 is a fixture, not deployment evidence. Runtime owner may revise defaults only after representative concurrent native/fit/dynamics population and allocation observations, as specified in the investigation evidence. Retain ephemeral in-memory frontier rescanning until measured study-policy effort is material; durable readiness/continuous refill remains selected. Independent fit experiments with ordered assembly, cloned sparse response/constraint structure and double-forward transient objective/gradient belong to numerical demand analysis; select parallelism only within common admission and preserve deterministic addend order. Dense uncertainty GEMM/diagonal demand requires a large-output consumer and the existing scalar-sum bit contract; no unconditional rewrite.
 
-E/L2 opportunities: repeated payload digests, own-writer IPC preflight and byte copies route to assurance/IPC ownership; read-side preflight/admit_owned remains justified at the trust boundary until an owned checked transport proves the replacement. Fixed 64-row membership pages/history intervals, populated latest_results EXPLAIN and repeated result_analysis read_results route to preparation/selection owner; byte bounds and exact interval semantics precede any index choice. Read coalescing via Arrow BatchCoalescer and buffered IPC file writer are cold optional improvements after larger publication blocks; measure remaining tiny-block/file-write demand. JSON u64 seed arrays preserve exact bits; binary seed encoding needs version/compatibility/coverage benefits before adoption. One reconciliation absolute deadline remains authoritative; large trajectories should use accumulated normal-path coverage and bounded recovery with honest incomplete results, never per-page renewed deadlines.
+E/L2 opportunities: repeated payload digests, own-writer IPC preflight and byte copies route to assurance/IPC ownership; read-side preflight/admit_owned remains justified at the trust boundary until an owned checked transport proves the replacement. Fixed 64-row membership pages/history intervals, populated latest_results EXPLAIN and repeated result_analysis read_results route to preparation/selection owner; byte bounds and exact interval semantics precede any index choice. Read coalescing via Arrow BatchCoalescer and buffered IPC file writer are cold optional improvements after larger publication blocks; measure remaining tiny-block/file-write demand. JSON u64 seed arrays preserve exact bits; binary seed encoding needs version/compatibility/coverage benefits before adoption. The bounded read-side choices and their reopening triggers are dispositioned in the investigation evidence. One reconciliation absolute deadline remains authoritative; large trajectories should use accumulated normal-path coverage and bounded recovery with honest incomplete results, never per-page renewed deadlines.
 
 `ensure_writes` config reads are advisory and must not become quiesce authority; supervisor drain remains decisive. Managed executable/generation hashing belongs to the assurance owner, with E-P2 already-measured per-pass evidence not mistaken for assembled startup time. Dead file-cache/load/predicate/store envelopes and build feature residue belong to relational/build owners (L2-01/P2); metadata-preserving DataFusion wrappers fill a real 55.1 library gap, so removing them needs exact replacement evidence. Sorted source declarations can eliminate cold re-sorts only if providers establish ordering. Existing Flights has cancellation/completion semantics beyond quick_cache's async guard, so retain it absent a fitting replacement. LIVE SELECT versus rare 20ms identical-edit polling is optional; no new subscription lifecycle now. Keep the justified SurrealDB request-context patch/hold until upstream supplies its consumed deadline/cancel/admission/drain contract (L2-04); a thin hook/upstreaming is maintenance opportunity. BLAKE3 unused knob/feature and SHA256 alternatives route to assurance/build, with repetition removed before algorithm change. Declare exact JSON float-roundtrip feature ownership via F29 rather than relying on Clarabel. Do not introduce compression (currently refused), inbound Python Arrow, new database, cross-output product or blanket library replacement without a consumer and changed-contract assessment.
 

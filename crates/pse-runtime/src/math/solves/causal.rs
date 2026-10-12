@@ -27,6 +27,8 @@ pub(crate) struct CausalResult {
 
 /// One prepared causal evaluator; execution stays on the admitted session worker.
 pub(crate) trait CausalExecution: std::fmt::Debug + Send + Sync {
+    fn backends(&self) -> &[Backend];
+    fn resident_foreign_bytes(&self) -> usize;
     fn execute(
         &self,
         service: &MathService,
@@ -43,6 +45,7 @@ pub struct PreparedCausal {
     scope: ExecutionScope,
     key: pse_ids::ContentHash,
     realization: Arc<dyn CausalExecution>,
+    foreign_bytes: usize,
 }
 impl PreparedCausal {
     pub(crate) fn new(
@@ -50,13 +53,18 @@ impl PreparedCausal {
         scope: ExecutionScope,
         key: pse_ids::ContentHash,
         realization: Arc<dyn CausalExecution>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, MathRuntimeError> {
+        let foreign_bytes = original
+            .declared_foreign_bytes()
+            .checked_add(realization.resident_foreign_bytes())
+            .ok_or(MathRuntimeError::Limit("causal resident foreign extent"))?;
+        Ok(Self {
             original: Box::new(original),
             scope,
             key,
             realization,
-        }
+            foreign_bytes,
+        })
     }
     /// Frozen complete original numerical target.
     pub fn original(&self) -> &PreparedSolve {
@@ -73,6 +81,12 @@ impl PreparedCausal {
     /// The same linked root backend admitted by the original source.
     pub fn backend(&self) -> Backend {
         Backend::Kinsol
+    }
+    pub(crate) fn backends(&self) -> &[Backend] {
+        self.realization.backends()
+    }
+    pub(crate) fn declared_foreign_bytes(&self) -> usize {
+        self.foreign_bytes
     }
     pub(crate) fn result_bytes(&self) -> Result<usize, MathRuntimeError> {
         self.original

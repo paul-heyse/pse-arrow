@@ -62,13 +62,14 @@ pub async fn conform_pure_documents(
         pse_engine::session::native_engine_profile(),
     )?
     .with_cache_service(resources.caches.clone());
-    let validation = sessions.validation_context(&registry)?;
+    let model = Arc::new(sessions).bind_model(registry.clone())?;
+    let validation = model.validation_context();
     let token = cancel.token();
     let load = |documents: &[BTreeMap<String, Vec<u8>>]| {
         let bundles = documents
             .iter()
             .map(|sources| {
-                crate::authoring_driver::document::load_package_documents_owned(
+                pse_admission::authoring_driver::document::load_package_documents_owned(
                     sources,
                     &registry,
                     pse_authoring::ParseBudget::default(),
@@ -78,19 +79,14 @@ pub async fn conform_pure_documents(
                 )
             })
             .collect::<Result<Vec<_>, _>>()?;
-        crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+        pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
             bundles,
             &resources.pool,
             &token,
         )
     };
-    let physical = PhysicalContext::from_documents(
-        &load(&[physical_documents])?,
-        registry.clone(),
-        &sessions,
-        &token,
-    )
-    .await?;
+    let physical =
+        PhysicalContext::from_documents(&load(&[physical_documents])?, &model, &token).await?;
     let (rows, names, _fit_declarations, _sources, data_documents, _input_lease) = document_inputs(
         &load(&documents)?,
         &registry,
@@ -224,11 +220,10 @@ pub async fn conform_pure_documents(
                 covered.extend(model.model.instances.values().map(|i| i.definition));
                 report.note_units(fixture, &model.model);
                 let checked = compiler
-                    .check_modeling_point(
+                    .check_prepared_modeling_point(
+                        &model,
                         fixture,
                         pse_modeling::specialize::root_instance(fixture),
-                        bindings,
-                        limits,
                         &pse_math::binding::CaseValues {
                             scalars: BTreeMap::new(),
                         },

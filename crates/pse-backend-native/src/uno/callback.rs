@@ -58,7 +58,7 @@ impl<'a> Context<'a> {
     }
     fn evaluate(
         &mut self,
-        demand: &str,
+        demand: &'static str,
         work: impl FnOnce(&mut dyn NlpOracle) -> Result<(), ProblemError>,
     ) -> i32 {
         if self.state.evaluate(demand, || work(self.oracle)).is_some() {
@@ -471,7 +471,10 @@ mod tests {
             context.state.terminal.as_ref().unwrap().0,
             Termination::Panic
         );
-        assert_eq!(context.state.counts["objective"], 1);
+        assert_eq!(
+            context.state.counts[&crate::callback::CallbackKey::Named("objective")],
+            1
+        );
     }
     #[derive(Debug)]
     struct Domain(crate::solver_tests::Polynomial);

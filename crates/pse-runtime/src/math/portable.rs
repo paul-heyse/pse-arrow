@@ -13,12 +13,10 @@ use pse_operations::{
     canonical_selection::SelectedRead,
 };
 use serde::{Deserialize, Serialize};
-#[cfg(test)]
-use std::sync::Mutex;
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v4";
-const OBSERVATION_WORK_BYTES: usize = 4 << 20;
+const OBSERVATION_WORK_BYTES: usize = pse_buildinfo::identity::OBSERVATION_WORK_BYTES;
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 pub enum PortableError {
@@ -273,17 +271,137 @@ impl QualifiedProducer {
 /// Additional effective configuration observed by the actual composition root.
 /// It is called outside the loader scope, so Python can acquire the GIL without
 /// holding glibc's loader lock. The controlled root excludes concurrent mutation.
-pub type RuntimeConfigurationObserver = Arc<dyn Fn() -> std::io::Result<Vec<u8>> + Send + Sync>;
+/// The root bounds construction, not just the returned length, by
+/// `pse_buildinfo::identity::MAX_CONFIGURATION_BYTES` and observes the complete
+/// supported configuration. An opaque/unbounded embedding must omit local replay.
+pub type RuntimeConfigurationObserver =
+    Arc<dyn Fn() -> std::io::Result<RuntimeConfigurationObservation> + Send + Sync>;
+
+/// Complete bounded configuration and owned environment observed by the actual
+/// composition root outside the loader scope. JSON bytes retain their old framing.
+#[derive(Debug, PartialEq, Eq)]
+pub struct RuntimeConfigurationObservation {
+    bytes: Vec<u8>,
+    environment: pse_buildinfo::identity::CurrentEnvironmentSnapshot,
+}
+impl RuntimeConfigurationObservation {
+    /// Bind original configuration bytes to an independently owned environment
+    /// snapshot. Producers bound their allocations before calling this operation.
+    /// # Errors
+    /// Configuration generation exceeded the supported finite extent.
+    pub fn new(
+        bytes: Vec<u8>,
+        environment: pse_buildinfo::identity::CurrentEnvironmentSnapshot,
+    ) -> std::io::Result<Self> {
+        if bytes.capacity() > pse_buildinfo::identity::MAX_CONFIGURATION_BYTES {
+            return Err(std::io::Error::other("runtime configuration byte limit"));
+        }
+        Ok(Self { bytes, environment })
+    }
+}
+
+/// Checkout context observed during startup, separately from loaded-image assurance.
+#[derive(Debug)]
+pub struct StartupDeploymentObservation {
+    /// Complete bytes observed now, or explicit installed source-unavailable context.
+    pub outer: pse_buildinfo::OuterObservation,
+    /// Strict operator-reviewed producer, when the selected receipt qualifies it.
+    pub producer: Option<QualifiedProducer>,
+}
 
 /// Opaque exact local deployment compatibility, distinct from producer qualification.
-#[derive(Clone)]
 pub struct LocalReplay {
     observation: pse_buildinfo::LocalRuntimeObservation,
     anchor: usize,
+    role: pse_buildinfo::LocalRuntimeRole,
     configuration: RuntimeConfigurationObserver,
     configuration_bytes: Vec<u8>,
+    configuration_environment: pse_buildinfo::identity::CurrentEnvironmentSnapshot,
     identity: ContentHash,
     _owner: Option<Arc<pse_columnar::AllocationLease>>,
+}
+
+// Weak evidence slots retain neither metadata copies nor allocation owners. Every
+// hit compares the complete supported configuration; no digest or timestamp is
+// permission. Bounded replacement changes cache residency only.
+struct ReplayCandidates {
+    slots: [std::sync::Weak<LocalReplay>; 8],
+    next: usize,
+}
+fn replay_candidates() -> &'static Mutex<ReplayCandidates> {
+    static CANDIDATES: std::sync::OnceLock<Mutex<ReplayCandidates>> = std::sync::OnceLock::new();
+    CANDIDATES.get_or_init(|| {
+        Mutex::new(ReplayCandidates {
+            slots: std::array::from_fn(|_| std::sync::Weak::new()),
+            next: 0,
+        })
+    })
+}
+fn candidate(
+    role: pse_buildinfo::LocalRuntimeRole,
+    anchor: usize,
+    configuration: &RuntimeConfigurationObservation,
+) -> Option<Arc<LocalReplay>> {
+    let mut candidates = replay_candidates()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for slot in &mut candidates.slots {
+        let Some(local) = slot.upgrade() else {
+            *slot = std::sync::Weak::new();
+            continue;
+        };
+        if local.role == role
+            && local.anchor == anchor
+            && local.configuration_bytes == configuration.bytes
+            && local.configuration_environment == configuration.environment
+        {
+            return Some(local);
+        }
+    }
+    None
+}
+fn retain_candidate(local: &Arc<LocalReplay>) {
+    let mut candidates = replay_candidates()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let next = candidates.next;
+    candidates.slots[next] = Arc::downgrade(local);
+    candidates.next = (next + 1) % candidates.slots.len();
+}
+fn local_role(
+    target: ExpectedProducerTarget,
+) -> Result<pse_buildinfo::LocalRuntimeRole, PortableError> {
+    match (target.package, target.target, target.kind) {
+        ("xtask", "pse-worker", "bin") => Ok(pse_buildinfo::LocalRuntimeRole::Worker),
+        ("pse-py", "_native", "cdylib") => Ok(pse_buildinfo::LocalRuntimeRole::Python),
+        _ => Err(PortableError::Qualification(
+            "unsupported local reconstruction role".into(),
+        )),
+    }
+}
+fn observe_configuration(
+    configuration: &RuntimeConfigurationObserver,
+) -> Result<RuntimeConfigurationObservation, PortableError> {
+    let bytes = configuration().map_err(observation_error)?;
+    if bytes.bytes.capacity() > pse_buildinfo::identity::MAX_CONFIGURATION_BYTES {
+        return Err(PortableError::Qualification(
+            "runtime configuration byte limit".into(),
+        ));
+    }
+    Ok(bytes)
+}
+#[cfg(test)]
+#[allow(
+    unsafe_code,
+    reason = "controlled native test roots supply their genuine no-environment-writers lifetime"
+)]
+unsafe fn observed_test_configuration(
+    bytes: Vec<u8>,
+) -> std::io::Result<RuntimeConfigurationObservation> {
+    // SAFETY: caller is the actual controlled test root, not a public safe wrapper.
+    let environment =
+        unsafe { pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(())) }?;
+    RuntimeConfigurationObservation::new(bytes, environment)
 }
 impl std::fmt::Debug for LocalReplay {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -332,10 +450,13 @@ impl ReplayAdmission {
     /// reads actual effective configuration. The supported reconstruction path must
     /// contain only immutable native mathematical construction: no Python imports,
     /// provider/plugin callbacks, JIT/direct executable mappings, runtime mutation,
+    /// or concurrent current-environment mutation, including foreign libc writers,
     /// or work which waits for another thread to acquire the loader lock. Existing
     /// native generation-use ownership protects managed artifacts; privileged or
     /// external mutations are outside this controlled lifetime. Opaque contexts must
     /// omit local admission and use fresh scientific preparation.
+    /// The configuration observer obeys its preallocation bound and observes the
+    /// actual process-global role configuration for this anchor throughout replay.
     /// # Errors
     /// Unsupported role/platform/loader, unidentified mappings or unavailable context.
     #[allow(
@@ -372,16 +493,7 @@ impl ReplayAdmission {
         deadline: Option<std::time::Instant>,
     ) -> Result<Self, PortableError> {
         receiving_checkpoint(cancelled, deadline)?;
-        let role = if (target.package, target.target, target.kind) == ("xtask", "pse-worker", "bin")
-        {
-            pse_buildinfo::LocalRuntimeRole::Worker
-        } else if (target.package, target.target, target.kind) == ("pse-py", "_native", "cdylib") {
-            pse_buildinfo::LocalRuntimeRole::Python
-        } else {
-            return Err(PortableError::Qualification(
-                "unsupported local reconstruction role".into(),
-            ));
-        };
+        let role = local_role(target)?;
         // Establish the process-global mathematical runtime before observing its
         // loaded closure. License activation can resolve a hostname and load NSS
         // modules; capturing first would make the first preparation invalidate
@@ -390,18 +502,27 @@ impl ReplayAdmission {
         let initialized = pse_math::initialize();
         receiving_checkpoint(cancelled, deadline)?;
         initialized?;
-        let configuration_bytes = configuration();
+        let configuration_bytes = observe_configuration(&configuration);
         receiving_checkpoint(cancelled, deadline)?;
-        let configuration_bytes = configuration_bytes.map_err(observation_error)?;
+        let configuration_bytes = configuration_bytes?;
         let checkpoint = || observation_checkpoint(cancelled, deadline);
         let observation = pse_buildinfo::with_local_runtime_scope(|| {
-            pse_buildinfo::LocalRuntimeObservation::capture_scoped(role, anchor, &checkpoint)
+            // SAFETY: the actual root captured the owned environment outside the
+            // loader scope and retains controlled native execution premises.
+            unsafe {
+                pse_buildinfo::LocalRuntimeObservation::capture_scoped(
+                    role,
+                    anchor,
+                    &configuration_bytes.environment,
+                    &checkpoint,
+                )
+            }
         });
         receiving_checkpoint(cancelled, deadline)?;
         let observation = observation.map_err(observation_error)?;
-        let current_configuration = configuration();
+        let current_configuration = observe_configuration(&configuration);
         receiving_checkpoint(cancelled, deadline)?;
-        if current_configuration.map_err(observation_error)? != configuration_bytes {
+        if current_configuration? != configuration_bytes {
             return Err(PortableError::Qualification(
                 "effective runtime configuration changed during observation".into(),
             ));
@@ -409,13 +530,15 @@ impl ReplayAdmission {
         let mut hash = FramedHasher::new(Frame::BuildInputsV1);
         hash.str("pse.local-runtime-replay.v2")
             .hash(&observation.identity().map_err(observation_error)?)
-            .part(&configuration_bytes);
+            .part(&configuration_bytes.bytes);
         receiving_checkpoint(cancelled, deadline)?;
         Ok(Self::Local(Arc::new(LocalReplay {
             observation,
             anchor,
+            role,
             configuration,
-            configuration_bytes,
+            configuration_bytes: configuration_bytes.bytes,
+            configuration_environment: configuration_bytes.environment,
             identity: hash.finish_hash(),
             _owner: None,
         })))
@@ -443,6 +566,10 @@ impl ReplayAdmission {
         self.qualify_receiving(&AtomicBool::new(false), None)
             .is_ok_and(|namespace| namespace.is_some())
     }
+    #[allow(
+        unsafe_code,
+        reason = "LocalReplay retains the actual controlled-root observation contract"
+    )]
     pub(super) fn qualify_receiving(
         &self,
         cancelled: &AtomicBool,
@@ -450,12 +577,22 @@ impl ReplayAdmission {
     ) -> Result<Option<ValidatedReplayNamespace>, PortableError> {
         receiving_checkpoint(cancelled, deadline)?;
         if let Self::Local(local) = self {
-            if (local.configuration)().map_err(observation_error)? != local.configuration_bytes {
+            let before = observe_configuration(&local.configuration)?;
+            if before.bytes != local.configuration_bytes
+                || before.environment != local.configuration_environment
+            {
                 return Ok(None);
             }
             let checkpoint = || observation_checkpoint(cancelled, deadline);
             let result = pse_buildinfo::with_local_runtime_scope(|| {
-                local.observation.verify_scoped(local.anchor, &checkpoint)
+                // SAFETY: LocalReplay comes from the actual controlled root. Its
+                // newly observed environment is owned, so ordinary Python writers
+                // cannot race a borrowed libc vector inside this loader scope.
+                unsafe {
+                    local
+                        .observation
+                        .verify_scoped(local.anchor, &before.environment, &checkpoint)
+                }
             });
             if let Err(error) = result {
                 return match error.kind() {
@@ -466,7 +603,10 @@ impl ReplayAdmission {
                 };
             }
             receiving_checkpoint(cancelled, deadline)?;
-            if (local.configuration)().map_err(observation_error)? != local.configuration_bytes {
+            let after = observe_configuration(&local.configuration)?;
+            if after.bytes != local.configuration_bytes
+                || after.environment != local.configuration_environment
+            {
                 return Ok(None);
             }
         }
@@ -577,6 +717,101 @@ pub(crate) async fn qualify_replay(
 }
 
 impl super::MathService {
+    /// Capture startup checkout context and an optional strict receipt on a native
+    /// owner. Cancellation joins the actual worker before returning its allocation.
+    /// This does not refresh later run context or qualify a replay candidate.
+    /// # Safety
+    /// A selected receipt must satisfy [`QualifiedProducer::from_deployment_receipt`]'s
+    /// reviewed deployment provenance contract; when selecting one, `artifact` is
+    /// the actual loaded role. An unqualified outer observation mints no permission.
+    /// # Errors
+    /// Original deadline, cancellation, admission, source or strict receipt refusal.
+    #[allow(
+        unsafe_code,
+        reason = "actual composition root supplies reviewed strict receipt provenance"
+    )]
+    pub async unsafe fn observe_deployment_runtime(
+        self: &Arc<Self>,
+        artifact: std::path::PathBuf,
+        receipt: Option<std::path::PathBuf>,
+        target: ExpectedProducerTarget,
+        deadline: std::time::Instant,
+        driver: &crate::CancelSource,
+    ) -> Result<Arc<pse_columnar::Leased<StartupDeploymentObservation>>, PortableError> {
+        // A size observation is only allocation preflight, never content evidence.
+        // Its native owner drains before the complete independently admitted capture.
+        let receipt_bytes = if let Some(path) = receipt.clone() {
+            let (size, owner) = startup_observation_job(
+                self,
+                OBSERVATION_WORK_BYTES,
+                deadline,
+                driver,
+                move |flag| {
+                    receiving_checkpoint(&flag, Some(deadline))?;
+                    let metadata = std::fs::metadata(path).map_err(observation_error)?;
+                    if !metadata.is_file() {
+                        return Err(PortableError::Qualification(
+                            "startup receipt is not a regular file".into(),
+                        ));
+                    }
+                    let size = metadata.len();
+                    receiving_checkpoint(&flag, Some(deadline))?;
+                    usize::try_from(size)
+                        .map_err(|_| PortableError::Qualification("receipt extent overflow".into()))
+                },
+            )
+            .await?;
+            drop(owner);
+            size
+        } else {
+            0
+        };
+        let allowance = receipt_bytes
+            .checked_mul(16)
+            .and_then(|n| n.checked_add(OBSERVATION_WORK_BYTES))
+            .ok_or_else(|| {
+                PortableError::Qualification("startup observation extent overflow".into())
+            })?;
+        let (observation, owner) =
+            startup_observation_job(self, allowance, deadline, driver, move |flag| {
+                let checkpoint = || observation_checkpoint(&flag, Some(deadline));
+                let outer =
+                    pse_buildinfo::identity::observe_deployment_scoped(&artifact, &checkpoint)
+                        .map_err(observation_error)?;
+                let producer = match receipt {
+                    None => None,
+                    Some(path) => {
+                        let bytes = read_startup_receipt(&path, receipt_bytes, &checkpoint)
+                            .map_err(observation_error)?;
+                        let actual = pse_buildinfo::identity::verify_receipt_artifact_scoped(
+                            &bytes,
+                            &artifact,
+                            &checkpoint,
+                        )
+                        .map_err(observation_error)?;
+                        checkpoint().map_err(observation_error)?;
+                        // SAFETY: the actual composition root retains the operator-owned
+                        // receipt contract; the same worker just verified current inputs.
+                        let qualified = unsafe {
+                            QualifiedProducer::from_deployment_receipt(
+                                &bytes,
+                                &actual.sha256,
+                                target,
+                            )
+                        }?;
+                        checkpoint().map_err(observation_error)?;
+                        qualified
+                    }
+                };
+                checkpoint().map_err(observation_error)?;
+                Ok(StartupDeploymentObservation { outer, producer })
+            })
+            .await?;
+        Ok(Arc::new(pse_columnar::Leased::new(
+            Arc::new(observation),
+            owner,
+        )))
+    }
     /// Observe the actual local composition root with owned admission and native drain.
     /// # Safety
     /// The caller must satisfy [`ReplayAdmission::observe_local_scoped`]'s controlled
@@ -603,6 +838,27 @@ impl super::MathService {
             control.clone(),
             Some(deadline),
             move |flag| {
+                let observed_role = match receiving_checkpoint(&flag, Some(deadline))
+                    .and_then(|()| local_role(role))
+                {
+                    Ok(role) => role,
+                    Err(error) => return Ok((Err(error), 0)),
+                };
+                // The callback itself is bounded by the unsafe composition-root
+                // contract and runs on this completion-owned native worker.
+                let bytes = match observe_configuration(&configuration) {
+                    Ok(bytes) => bytes,
+                    Err(error) => return Ok((Err(error), 0)),
+                };
+                if let Err(error) = receiving_checkpoint(&flag, Some(deadline)) {
+                    return Ok((Err(error), 0));
+                }
+                if let Some(local) = candidate(observed_role, anchor, &bytes) {
+                    // Evidence only. No observation or receiving permission is
+                    // asserted here; acquisition/publication must still qualify.
+                    return Ok((Ok((ReplayAdmission::Local(local), false)), 0));
+                }
+                drop(bytes);
                 // SAFETY: the actual root supplies the same controlled contract as
                 // the synchronous mint; the job owns stop, accounting and final join.
                 let observed = unsafe {
@@ -620,10 +876,11 @@ impl super::MathService {
                             + 256
                             + local.observation.retained_bytes()
                             + local.configuration_bytes.capacity()
+                            + local.configuration_environment.retained_bytes()
                     }
                     ReplayAdmission::QualifiedProducer(_) => size_of::<ReplayAdmission>(),
                 });
-                Ok((observed, bytes))
+                Ok((observed.map(|admission| (admission, true)), bytes))
             },
         );
         tokio::pin!(operation);
@@ -641,8 +898,8 @@ impl super::MathService {
                 cause: pse_model::diagnostic::DiagnosticCause::new(error),
             })
         })?;
-        let mut admission = admission?;
-        if let ReplayAdmission::Local(local) = &mut admission {
+        let (mut admission, fresh) = admission?;
+        if fresh && let ReplayAdmission::Local(local) = &mut admission {
             Arc::get_mut(local)
                 .ok_or_else(|| {
                     PortableError::Qualification(
@@ -650,9 +907,110 @@ impl super::MathService {
                     )
                 })?
                 ._owner = Some(owner);
+            // Publish only after attaching the actual retained allocation. Hits
+            // retain this original owner, even across another Runtime's pool.
+            retain_candidate(local);
         }
         Ok(admission)
     }
+}
+
+async fn startup_observation_job<T: Send + 'static>(
+    service: &Arc<super::MathService>,
+    bytes: usize,
+    deadline: std::time::Instant,
+    driver: &crate::CancelSource,
+    work: impl FnOnce(Arc<AtomicBool>) -> Result<T, PortableError> + Send + 'static,
+) -> Result<(T, Arc<pse_columnar::AllocationLease>), PortableError> {
+    let control = pse_columnar::flight::FlightCancellation::default();
+    let operation =
+        service.job_retained_scoped(1, bytes, control.clone(), Some(deadline), move |flag| {
+            // Retain the preflight envelope until the observation's last consumer.
+            Ok((work(flag), bytes))
+        });
+    tokio::pin!(operation);
+    let result = tokio::select! {
+        biased;
+        () = driver.cancelled() => {
+            control.cancel();
+            let _ = operation.await;
+            return Err(pse_math::MathError::Cancelled.into());
+        },
+        result = &mut operation => result,
+    };
+    let (result, owner) = result.map_err(|error| {
+        PortableError::Math(pse_math::MathError::Typed {
+            retained: size_of_val(&error),
+            cause: pse_model::diagnostic::DiagnosticCause::new(error),
+        })
+    })?;
+    Ok((result?, owner))
+}
+
+fn read_startup_receipt(
+    path: &std::path::Path,
+    extent: usize,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    checkpoint()?;
+    let mut file = std::fs::File::open(path)?;
+    let before = file.metadata()?;
+    let canonical = path.canonicalize()?;
+    if !before.is_file() || before.len() != extent as u64 {
+        return Err(std::io::Error::other(
+            "startup receipt changed after preflight",
+        ));
+    }
+    let mut bytes = Vec::new();
+    bytes
+        .try_reserve_exact(extent)
+        .map_err(|_| std::io::Error::other("startup receipt allocation refused"))?;
+    let mut buffer = [0_u8; 65_536];
+    loop {
+        checkpoint()?;
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        if count > extent.saturating_sub(bytes.len()) {
+            return Err(std::io::Error::other(
+                "startup receipt grew after preflight",
+            ));
+        }
+        bytes.extend_from_slice(&buffer[..count]);
+    }
+    checkpoint()?;
+    if bytes.len() != extent {
+        return Err(std::io::Error::other(
+            "startup receipt changed after preflight",
+        ));
+    }
+    let after = file.metadata()?;
+    let current = std::fs::metadata(path)?;
+    if before.len() != after.len()
+        || before.modified()? != after.modified()?
+        || canonical != path.canonicalize()?
+    {
+        return Err(std::io::Error::other(
+            "startup receipt changed during capture",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let identity =
+            |m: &std::fs::Metadata| (m.dev(), m.ino(), m.mode(), m.ctime(), m.ctime_nsec());
+        if identity(&before) != identity(&after) || identity(&before) != identity(&current) {
+            return Err(std::io::Error::other(
+                "startup receipt replaced during capture",
+            ));
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = current;
+    checkpoint()?;
+    Ok(bytes)
 }
 
 async fn native_receiving<T: Send + 'static>(
@@ -864,6 +1222,7 @@ pub async fn publish_body(
     let description = describe_body(
         service,
         read,
+        selection_material(service, read)?,
         namespace.producer_key().to_owned(),
         body,
         context,
@@ -906,7 +1265,14 @@ async fn publish_with_producer_key(
     body: &AdmittedBody,
     context: &CompilerContext,
 ) -> Result<PublishedBody, PortableError> {
-    let description = describe_body(service, read, producer, body, context)?;
+    let description = describe_body(
+        service,
+        read,
+        selection_material(service, read)?,
+        producer,
+        body,
+        context,
+    )?;
     let key = publish_description(
         store,
         read,
@@ -924,7 +1290,7 @@ async fn publish_with_producer_key(
 pub(super) struct EncodedBody {
     semantic_identity: SemanticBodyHash,
     request: Vec<u8>,
-    payload: Vec<u8>,
+    payload: Arc<Vec<u8>>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl EncodedBody {
@@ -936,13 +1302,50 @@ impl EncodedBody {
 pub(crate) struct BodyDescription {
     pub(crate) description: pse_operations::canonical_selection::ProductDescription,
     pub(crate) semantic_identity: SemanticBodyHash,
-    producer: String,
+    producer: Arc<String>,
+    _content_owner: Arc<pse_columnar::AllocationLease>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl BodyDescription {
-    pub(super) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.description.retained_bytes() + self.producer.capacity()
+    pub(crate) fn has_producer(&self, producer: &str) -> bool {
+        self.producer.as_str() == producer
     }
+    pub(super) fn retained_bytes(&self) -> usize {
+        size_of::<Self>() + self.description.exclusive_retained_bytes() + self.producer.capacity()
+    }
+    /// A once-checked equivalent receipt changes only the current selected binding.
+    /// Original blob/content ownership and exact ACK provenance remain shared.
+    pub(crate) fn rebind_selection(
+        &self,
+        service: &super::MathService,
+        read: &SelectedRead,
+        binding: &pse_operations::canonical_selection::SelectionRebinding,
+    ) -> Result<Arc<Self>, PortableError> {
+        let owner = reserve_portable(
+            service,
+            "math:canonical-description-binding",
+            size_of::<Self>() + 128,
+        )?;
+        Ok(Arc::new(Self {
+            description: self.description.rebind_selection(read, binding)?,
+            semantic_identity: self.semantic_identity,
+            producer: self.producer.clone(),
+            _content_owner: self._content_owner.clone(),
+            _owner: owner,
+        }))
+    }
+}
+/// Precharge and capture the complete post-merge receipt once for a body inventory.
+pub(crate) fn selection_material(
+    service: &super::MathService,
+    read: &SelectedRead,
+) -> Result<Arc<pse_operations::canonical_selection::SelectionMaterial>, PortableError> {
+    let owner = reserve_portable(
+        service,
+        "math:canonical-selection-material",
+        pse_operations::canonical_selection::SelectionMaterial::allocation_bytes(read)?,
+    )?;
+    Ok(pse_operations::canonical_selection::SelectionMaterial::capture(read, owner)?)
 }
 fn encoded_body(
     service: &super::MathService,
@@ -978,7 +1381,7 @@ fn encoded_body(
     let encoded = Arc::new(EncodedBody {
         semantic_identity: identity,
         request,
-        payload,
+        payload: Arc::new(payload),
         _owner: owner,
     });
     service
@@ -989,6 +1392,7 @@ fn encoded_body(
 pub(crate) fn describe_body(
     service: &super::MathService,
     read: &SelectedRead,
+    selection: Arc<pse_operations::canonical_selection::SelectionMaterial>,
     producer: String,
     body: &AdmittedBody,
     context: &CompilerContext,
@@ -997,12 +1401,7 @@ pub(crate) fn describe_body(
     let _scratch = reserve_portable(
         service,
         "math:canonical-description-encode",
-        encoded
-            .payload
-            .len()
-            .saturating_mul(2)
-            .saturating_add(read.publication_scratch_bytes()?.saturating_mul(3))
-            .saturating_add(MAX_METADATA_BYTES),
+        MAX_METADATA_BYTES.saturating_add(encoded.request.len()),
     )?;
     let mut hash = FramedHasher::new(Frame::MathAdmittedRecipeV1);
     hash.str(INTERPRETATION)
@@ -1016,23 +1415,35 @@ pub(crate) fn describe_body(
         problem: revision.problem.clone(),
         revision: revision.key.clone(),
         request: encoded.request.clone().into(),
-        payload: encoded.payload.clone().into(),
+        payload: Vec::new().into(),
         dependencies: Vec::new().into(),
         producer: producer.clone(),
         interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
     };
     let description =
-        pse_operations::canonical_selection::ProductDescription::prepare(read, product)?;
-    let owner = reserve_portable(
+        pse_operations::canonical_selection::ProductDescription::prepare_with_shared_payload(
+            read,
+            product,
+            selection,
+            encoded.payload.clone(),
+            encoded.clone(),
+        )?;
+    let content_owner = reserve_portable(
         service,
         "math:retained-canonical-description",
-        description.retained_bytes() + producer.capacity() + size_of::<BodyDescription>(),
+        description.descriptor_allocation_bytes() + producer.capacity() + 128,
+    )?;
+    let owner = reserve_portable(
+        service,
+        "math:canonical-description-binding",
+        size_of::<BodyDescription>() + 128,
     )?;
     Ok(Arc::new(BodyDescription {
         description,
-        producer,
+        producer: Arc::new(producer),
         semantic_identity: encoded.semantic_identity,
         _owner: owner,
+        _content_owner: content_owner,
     }))
 }
 #[allow(
@@ -1275,6 +1686,319 @@ async fn qualify_candidate(
 #[cfg(test)]
 mod portable_frame_tests {
     use super::*;
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "actual native test root excludes current-environment writers during its owned snapshots"
+    )]
+    async fn shared_replay_candidate_retains_original_charge_and_requires_receiving_qualification()
+    {
+        fn anchor() {}
+        let anchor = anchor as *const () as usize;
+        let original = super::super::tests::service();
+        let other = super::super::tests::service();
+        let original_pool = original.pool.clone();
+        let other_baseline = other.pool.reserved();
+        let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counted = calls.clone();
+        let observe: RuntimeConfigurationObserver = Arc::new(move || {
+            counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            // SAFETY: this actual controlled test root has no environment writers.
+            unsafe { observed_test_configuration(b"charged-candidate-control".to_vec()) }
+        });
+        let driver = crate::CancelSource::new();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        // SAFETY: genuine test executable anchor and complete controlled configuration.
+        let first = unsafe {
+            original.observe_local_runtime(
+                ExpectedProducerTarget::WORKER,
+                anchor,
+                observe.clone(),
+                deadline,
+                &driver,
+            )
+        }
+        .await
+        .unwrap();
+        let retained = original_pool.reserved();
+        assert!(retained > 0);
+        let captured = calls.load(std::sync::atomic::Ordering::Relaxed);
+        // SAFETY: same actual root, with a separate service and allocation pool.
+        let second = unsafe {
+            other.observe_local_runtime(
+                ExpectedProducerTarget::WORKER,
+                anchor,
+                observe.clone(),
+                deadline,
+                &driver,
+            )
+        }
+        .await
+        .unwrap();
+        let (ReplayAdmission::Local(first_local), ReplayAdmission::Local(second_local)) =
+            (&first, &second)
+        else {
+            panic!("actual local observations")
+        };
+        assert!(Arc::ptr_eq(first_local, second_local));
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::Relaxed),
+            captured + 1
+        );
+        assert_eq!(original_pool.reserved(), retained);
+        assert_eq!(other.pool.reserved(), other_baseline);
+        // Evidence sharing does not replace the full completion-owned receiving check.
+        assert!(
+            qualify_replay(&other, Some(second.clone()), deadline, &driver)
+                .await
+                .unwrap()
+                .is_some()
+        );
+        assert_eq!(
+            calls.load(std::sync::atomic::Ordering::Relaxed),
+            captured + 3
+        );
+        // SAFETY: actual owned snapshot under the same no-writers test lifetime.
+        let complete =
+            unsafe { observed_test_configuration(b"charged-candidate-control".to_vec()) }.unwrap();
+        assert!(candidate(pse_buildinfo::LocalRuntimeRole::Python, anchor, &complete).is_none());
+        assert!(
+            candidate(
+                pse_buildinfo::LocalRuntimeRole::Worker,
+                anchor + 1,
+                &complete
+            )
+            .is_none()
+        );
+        // SAFETY: complete but different supported configuration, not a new permission.
+        let changed =
+            unsafe { observed_test_configuration(b"different-candidate-control".to_vec()) }
+                .unwrap();
+        assert!(candidate(pse_buildinfo::LocalRuntimeRole::Worker, anchor, &changed).is_none());
+        let weak = Arc::downgrade(second_local);
+        drop(first);
+        drop(original);
+        assert_eq!(original_pool.reserved(), retained);
+        drop(second);
+        assert!(weak.upgrade().is_none());
+        assert_eq!(original_pool.reserved(), 0);
+        assert!(candidate(pse_buildinfo::LocalRuntimeRole::Worker, anchor, &complete).is_none());
+    }
+    #[tokio::test]
+    #[allow(
+        unsafe_code,
+        reason = "outer startup fixtures deliberately select no qualifying receipt"
+    )]
+    async fn deployment_startup_retains_its_observation_owner_and_truthful_receipt_outcomes() {
+        let directory = tempfile::tempdir().unwrap();
+        let artifact = directory.path().join("installed-native");
+        std::fs::write(&artifact, b"actual isolated artifact").unwrap();
+        let receipt = directory.path().join("receipt.json");
+        std::fs::write(
+            &receipt,
+            serde_json::to_vec(&serde_json::json!({
+                "receipt_version":2,"frame":Frame::ProducerV1.as_str(),"native_abi":null,
+                "deployment":null,"identity":ContentHash::from_bytes([1;32]).to_hex(),
+                "persistent_reuse_eligible":false,"reasons":["unqualified fixture"]
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        // SAFETY: the controlled fixture's receipt explicitly refuses eligibility;
+        // no scientific permission is minted from its artificial artifact path.
+        let observed = unsafe {
+            service.observe_deployment_runtime(
+                artifact.clone(),
+                Some(receipt.clone()),
+                ExpectedProducerTarget::PYTHON,
+                deadline,
+                &driver,
+            )
+        }
+        .await
+        .unwrap();
+        assert!(observed.outer.source.is_none());
+        assert_eq!(observed.outer.git_sha, "source-unavailable");
+        assert!(observed.producer.is_none());
+        assert!(service.pool.reserved() > baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        let escaped = observed.clone();
+        drop(observed);
+        assert!(service.pool.reserved() > baseline);
+        drop(escaped);
+        assert_eq!(service.pool.reserved(), baseline);
+        std::fs::write(&receipt, b"not a receipt").unwrap();
+        // SAFETY: invalid controlled fixture bytes cannot grant a producer.
+        assert!(
+            unsafe {
+                service.observe_deployment_runtime(
+                    artifact,
+                    Some(receipt),
+                    ExpectedProducerTarget::PYTHON,
+                    deadline,
+                    &driver,
+                )
+            }
+            .await
+            .is_err()
+        );
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
+    async fn deployment_startup_preserves_original_expiry_before_native_work() {
+        let service = super::super::tests::service();
+        let driver = crate::CancelSource::new();
+        let entered = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let calls = entered.clone();
+        let baseline = service.pool.reserved();
+        assert!(
+            startup_observation_job(
+                &service,
+                OBSERVATION_WORK_BYTES,
+                std::time::Instant::now(),
+                &driver,
+                move |_| {
+                    calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    Ok(())
+                }
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(entered.load(std::sync::atomic::Ordering::Relaxed), 0);
+        assert!(!driver.token().is_cancelled());
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
+    async fn deployment_startup_abandonment_retains_native_owner_until_join() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let driver = crate::CancelSource::new();
+        let (entered, witness) = tokio::sync::oneshot::channel();
+        let (release, gate) = std::sync::mpsc::channel();
+        let deadline = std::time::Instant::now() + ReplayAdmission::STARTUP_OBSERVATION_LIMIT;
+        let mut observe = Box::pin(startup_observation_job(
+            &service,
+            OBSERVATION_WORK_BYTES,
+            deadline,
+            &driver,
+            move |flag| {
+                entered.send(()).unwrap();
+                gate.recv().unwrap();
+                receiving_checkpoint(&flag, Some(deadline))?;
+                Ok(())
+            },
+        ));
+        assert!(futures_util::poll!(observe.as_mut()).is_pending());
+        witness.await.unwrap();
+        let charged = service.pool.reserved();
+        drop(observe);
+        assert!(!driver.token().is_cancelled());
+        assert_eq!(service.pool.reserved(), charged);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+        assert_eq!(service.cpu.available_permits(), service.cores - 1);
+        release.send(()).unwrap();
+        let drained = service
+            .jobs
+            .clone()
+            .acquire_many_owned(service.policy.jobs as u32)
+            .await
+            .unwrap();
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        drop(drained);
+    }
+
+    #[tokio::test]
+    async fn deployment_startup_cancel_and_deadline_keep_native_charge_until_actual_drain() {
+        for cancel in [true, false] {
+            let service = super::super::tests::service();
+            let baseline = service.pool.reserved();
+            let driver = crate::CancelSource::new();
+            let (entered, witness) = tokio::sync::oneshot::channel();
+            let (release, gate) = std::sync::mpsc::channel();
+            let deadline = std::time::Instant::now()
+                + if cancel {
+                    std::time::Duration::from_secs(10)
+                } else {
+                    std::time::Duration::from_millis(50)
+                };
+            let mut observe = Box::pin(startup_observation_job(
+                &service,
+                OBSERVATION_WORK_BYTES,
+                deadline,
+                &driver,
+                move |flag| {
+                    entered.send(()).unwrap();
+                    gate.recv().unwrap();
+                    receiving_checkpoint(&flag, Some(deadline))?;
+                    Ok(())
+                },
+            ));
+            assert!(futures_util::poll!(observe.as_mut()).is_pending());
+            witness.await.unwrap();
+            let charged = service.pool.reserved();
+            assert!(charged > baseline);
+            if cancel {
+                driver.cancel();
+            } else {
+                tokio::time::sleep_until(deadline.into()).await;
+            }
+            assert!(
+                futures_util::poll!(observe.as_mut()).is_pending(),
+                "startup must join its actual worker"
+            );
+            assert_eq!(service.pool.reserved(), charged);
+            assert_eq!(service.jobs.available_permits(), service.policy.jobs - 1);
+            assert_eq!(service.cpu.available_permits(), service.cores - 1);
+            release.send(()).unwrap();
+            assert!(observe.await.is_err());
+            assert_eq!(service.pool.reserved(), baseline);
+            assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+            assert_eq!(service.cpu.available_permits(), service.cores);
+            assert_eq!(driver.token().is_cancelled(), cancel);
+        }
+    }
+
+    #[test]
+    fn deployment_startup_receipt_checks_chunks_extent_and_original_stop() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("receipt");
+        let bytes = vec![31; 3 * 65_536];
+        std::fs::write(&path, &bytes).unwrap();
+        assert_eq!(
+            read_startup_receipt(&path, bytes.len(), &|| Ok(())).unwrap(),
+            bytes
+        );
+        assert!(read_startup_receipt(&path, bytes.len() - 1, &|| Ok(())).is_err());
+        let polls = std::sync::atomic::AtomicUsize::new(0);
+        let error = read_startup_receipt(&path, bytes.len(), &|| {
+            if polls.fetch_add(1, std::sync::atomic::Ordering::Relaxed) == 2 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "startup stop",
+                ))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
+        assert_eq!(polls.load(std::sync::atomic::Ordering::Relaxed), 3);
+    }
+
+    #[allow(
+        unsafe_code,
+        reason = "controlled native test root excludes every environment writer during owned snapshot capture"
+    )]
     fn gated_startup_configuration() -> (
         RuntimeConfigurationObserver,
         tokio::sync::oneshot::Receiver<()>,
@@ -1295,7 +2019,7 @@ mod portable_frame_tests {
                     std::io::Error::new(std::io::ErrorKind::Interrupted, "startup gate abandoned")
                 })?;
             }
-            Ok(Vec::new())
+            unsafe { observed_test_configuration(Vec::new()) }
         });
         (configuration, witness, release, calls)
     }
@@ -1408,7 +2132,7 @@ mod portable_frame_tests {
         let observed_calls = calls.clone();
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            Ok(Vec::new())
+            unsafe { observed_test_configuration(Vec::new()) }
         });
         // SAFETY: this controlled test root must be refused before its observer is invoked.
         let error = unsafe {
@@ -1453,7 +2177,7 @@ mod portable_frame_tests {
         let observed_calls = calls.clone();
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            Ok(Vec::new())
+            unsafe { observed_test_configuration(Vec::new()) }
         });
         let cancelled = AtomicBool::new(true);
         // SAFETY: the actual test root supplies its own anchor and controlled configuration.
@@ -1503,7 +2227,7 @@ mod portable_frame_tests {
         let configuration: RuntimeConfigurationObserver = Arc::new(move || {
             observed_calls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             stop.store(true, std::sync::atomic::Ordering::Release);
-            Ok(Vec::new())
+            unsafe { observed_test_configuration(Vec::new()) }
         });
         // SAFETY: this test supplies its own controlled root; configuration only requests stop.
         let error = unsafe {
@@ -1575,8 +2299,9 @@ mod portable_frame_tests {
         let anchor = anchor as *const () as usize;
         let effective = Arc::new(Mutex::new(b"controlled-runtime-configuration".to_vec()));
         let current = effective.clone();
-        let observe: RuntimeConfigurationObserver =
-            Arc::new(move || Ok(current.lock().unwrap().clone()));
+        let observe: RuntimeConfigurationObserver = Arc::new(move || unsafe {
+            observed_test_configuration(current.lock().unwrap().clone())
+        });
         // SAFETY: isolated test binary supplies its actual code anchor/configuration;
         // this control invokes no imports, JIT or provider callback within the scope.
         let local = unsafe {
@@ -2135,6 +2860,76 @@ mod canonical_portable_body_tests {
             providers: BTreeMap::new(),
         }
     }
+    #[tokio::test]
+    async fn canonical_portable_shared_selection_material_precharges_and_retains_one_real_lease() {
+        let state = std::env::var("PSE_SURREAL_STATE")
+            .expect("canonical portable unit supplies supervised state");
+        let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
+        options.database = format!(
+            "canonical_test_shared_material_{}",
+            uuid::Uuid::new_v4().simple()
+        );
+        let store = CanonicalStore::connect(&options).await.unwrap();
+        store.create().await.unwrap();
+        let revision = store
+            .edit("problem", None, "shared-material", &[])
+            .await
+            .unwrap();
+        let read = SelectedRead::new(
+            store
+                .protect(revision, Duration::from_secs(60))
+                .await
+                .unwrap(),
+        );
+        let extent =
+            pse_operations::canonical_selection::SelectionMaterial::allocation_bytes(&read)
+                .unwrap();
+        let refused = crate::math::tests::limited_service(extent - 1);
+        let refused_baseline = refused.pool.reserved();
+        assert!(
+            selection_material(&refused, &read).is_err(),
+            "allocation refusal precedes material allocation"
+        );
+        assert_eq!(refused.pool.reserved(), refused_baseline);
+        let service = crate::math::tests::service();
+        let baseline = service.pool.reserved();
+        let material = selection_material(&service, &read).unwrap();
+        assert_eq!(service.pool.reserved(), baseline + extent);
+        let lease_lifetime = Arc::downgrade(&material);
+        let descriptions = [b"one".as_slice(), b"two".as_slice()].map(|payload| {
+            pse_operations::canonical_selection::ProductDescription::prepare_with_selection(
+                &read,
+                pse_model::generated::runtime::canonical_products::Row {
+                    key: "offer".into(),
+                    problem: "problem".into(),
+                    revision: read.selection().revision().key.clone(),
+                    request: b"request".to_vec().into(),
+                    payload: payload.to_vec().into(),
+                    dependencies: Vec::new().into(),
+                    producer: "fixture".into(),
+                    interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+                },
+                material.clone(),
+            )
+            .unwrap()
+        });
+        assert_eq!(
+            service.pool.reserved(),
+            baseline + extent,
+            "body aliases charge the captured premise allocation once"
+        );
+        drop(material);
+        service.clear_program_cache();
+        assert_eq!(service.pool.reserved(), baseline + extent);
+        let escaped = descriptions[1].clone();
+        drop(descriptions);
+        assert!(lease_lifetime.upgrade().is_some());
+        drop(escaped);
+        assert!(lease_lifetime.upgrade().is_none());
+        assert_eq!(service.pool.reserved(), baseline);
+        read.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
     fn admitted(context: CompilerContext, text: &str) -> Arc<AdmittedBody> {
         admitted_with_limits(context, text, Limits::default())
     }
@@ -2303,7 +3098,7 @@ mod canonical_portable_body_tests {
             ReplayAdmission::observe_local(
                 ExpectedProducerTarget::WORKER,
                 anchor as *const () as usize,
-                Arc::new(|| Ok(Vec::new())),
+                Arc::new(|| observed_test_configuration(Vec::new())),
             )
         }
         .unwrap()
@@ -2484,7 +3279,7 @@ mod canonical_portable_body_tests {
                 anchor as *const () as usize,
                 Arc::new(move || {
                     if observed.fetch_add(1, Ordering::Relaxed) < 2 {
-                        Ok(vec![7])
+                        observed_test_configuration(vec![7])
                     } else {
                         Err(std::io::Error::other(
                             "cold miss unexpectedly observed producer context",

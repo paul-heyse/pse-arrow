@@ -408,7 +408,10 @@ async fn runtime(
         .name
         .clone()
         .unwrap_or_else(|| Operations::process_worker("pse-worker"));
-    let runtime = Runtime::from_shared(shared, registry, sessions, deployment)
+    let model = sessions
+        .bind_model(registry)
+        .map_err(|error| error.to_string())?;
+    let runtime = Runtime::from_shared(shared, model, deployment)
         .and_then(|runtime| {
             runtime.with_durability(DurabilitySelection::Durable { worker, policy })
         })

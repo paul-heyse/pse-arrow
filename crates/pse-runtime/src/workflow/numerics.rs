@@ -588,6 +588,9 @@ fn compose_accuracy(
 }
 impl RunResult {
     pub(super) fn assess_candidates(&self) -> Vec<assessments::Row> {
+        if matches!(self.request, RunRequest::Horizon(_)) {
+            return self.assessments.clone();
+        }
         if let (RunRequest::Simulation(_), Ok(RunReport::Simulation(trajectory))) =
             (&self.request, &self.report)
         {
@@ -662,7 +665,7 @@ impl RunResult {
                     };
                 completed.assessment_row(
                     self.run_id,
-                    step as i64,
+                    self.modeling_step(step) as i64,
                     policy,
                     report,
                     numerical,
@@ -675,10 +678,10 @@ impl RunResult {
         &self,
         request: &super::result_export::Projection,
     ) -> Result<(), WorkflowError> {
-        let registry = &self.runtime.registry;
+        let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         if request.wants(assessments::RELATION_ID) {
             let mut candidates = crate::workflow::result_export::Rows::<assessments::Row>::new(
                 request,
@@ -715,12 +718,15 @@ impl RunResult {
                 RunRequest::Modeling(p) => p.len(),
                 _ => 1,
             };
-            let policy = |step: usize| match &self.request {
-                RunRequest::Fit(f) => &f.problem.numerics,
-                RunRequest::Simulation(p) => p.numerics(),
-                #[cfg(feature = "solver-diffsol")]
-                RunRequest::Shooting { problem: p, .. } => p.numerics(),
-                RunRequest::Modeling(p) => p[step].solve.numerics(),
+            let policy = |step: usize| {
+                Some(match &self.request {
+                    RunRequest::Fit(f) => &f.problem.numerics,
+                    RunRequest::Simulation(p) => p.numerics(),
+                    #[cfg(feature = "solver-diffsol")]
+                    RunRequest::Shooting { problem: p, .. } => p.numerics(),
+                    RunRequest::Modeling(p) => p[step].solve.numerics(),
+                    RunRequest::Horizon(_) => return None,
+                })
             };
             let mut resolved = crate::workflow::result_export::Rows::<resolved::Row>::new(
                 request,
@@ -731,7 +737,12 @@ impl RunResult {
             )
             .map_err(relation)?;
             for step in 0..policy_count {
-                for t in &policy(step).targets {
+                for t in &policy(step)
+                    .ok_or_else(|| {
+                        contract("compact horizon resolved numerics were not materialized")
+                    })?
+                    .targets
+                {
                     if resolved.skip_next() {
                         continue;
                     }
@@ -750,7 +761,7 @@ impl RunResult {
                     resolved
                         .push(resolved::Row {
                             run_id: self.run_id,
-                            step: step as i64,
+                            step: self.modeling_step(step) as i64,
                             target_id: t.id,
                             target_kind: t.kind,
                             quantity_id: t.quantity,

@@ -12,11 +12,11 @@
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
 use datafusion::arrow::array::{ArrayRef, Float64Array, Int64Array, RecordBatch};
 use datafusion::arrow::datatypes::{DataType, Field, Schema};
+use pse_admission::authoring_driver::document::load_package_documents;
 use pse_compiler::workspace::{CompilerContext, CompilerWorkspace, WorkspaceLimits};
 use pse_modeling::PhysicalScope;
 use pse_modeling::document::DocumentInventory;
 use pse_relations::columnar::RelationRow;
-use pse_runtime::authoring_driver::document::load_package_documents;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -66,7 +66,10 @@ fn context() -> CompilerContext {
 fn admission(c: &mut Criterion) {
     let registry = pse_schema::shared_registry().unwrap();
     let native = pse_testkit::NativeFixture::new((256 << 20).try_into().unwrap()).unwrap();
-    let validation = native.factory.validation_context(&registry).unwrap();
+    let model = Arc::new(native.factory.clone())
+        .bind_model(registry.clone())
+        .unwrap();
+    let validation = model.validation_context();
     let sources = sources();
     let load = || {
         load_package_documents(

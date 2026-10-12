@@ -683,12 +683,18 @@ impl FitProblem {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
             native::routing::Route::Constant => vec![],
         };
-        native::execution::scoped(
+        let (mut report, execution) = native::execution::scoped(
             &adapters,
             solver.controls.threads,
             self.runtime.native().stack_bytes(),
-            || self.execute_inner(solver, route, scope, progress, workers, admission),
-        )
+            || self.execute_inner(solver, route, scope, progress, admission),
+        )?;
+        // The estimation adapter team and native retained state have joined before
+        // profile admission releases the coordinator's active allowance.
+        native::execution::original_scoped(&execution, || {
+            self.derive(&mut report, route, &execution, workers);
+        });
+        Ok(report)
     }
     fn execute_inner(
         self: &Arc<Self>,
@@ -696,9 +702,8 @@ impl FitProblem {
         route: native::routing::Route,
         scope: pse_kernels::ExecutionScope,
         progress: Arc<native::solve::Progress>,
-        workers: usize,
         admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
-    ) -> Result<FitReport, crate::math::MathRuntimeError> {
+    ) -> Result<(FitReport, Execution), crate::math::MathRuntimeError> {
         let mut execution =
             Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
         execution.progress = progress;
@@ -786,8 +791,7 @@ impl FitProblem {
             profiles: None,
         };
         self.observe(&mut report, execution.clone())?;
-        self.derive(&mut report, route, &execution, workers);
-        Ok(report)
+        Ok((report, execution))
     }
     /// The free parameters: each one's declaration index and fit column, in fit order.
     pub(super) fn free(&self) -> impl Iterator<Item = (usize, OriginalCol)> + '_ {
@@ -973,7 +977,8 @@ impl FitOracle {
                 bytes = bytes
                     .and_then(|b| b.checked_add(native::square_response::workspace_bytes(n, np)?))
                     .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(256)?))
-                    .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?));
+                    .and_then(|b| b.checked_add(n.checked_mul(n)?.checked_mul(128)?))
+                    .and_then(|b| b.checked_add(n.checked_mul(np)?.checked_mul(64)?));
                 scratch = scratch.max(rank_scratch(n, n, false).size_bytes());
             }
         }
@@ -1115,7 +1120,62 @@ impl FitOracle {
                 let jac = point.blocks[ei]
                     .as_ref()
                     .ok_or_else(|| ProblemError::internal("steady response partials"))?;
-                let qualified_response = native::square_response::response(
+                let parameter_values = free
+                    .iter()
+                    .map(|(_, c)| point.x[c.get()])
+                    .collect::<Vec<_>>();
+                // This ephemeral key names this original experiment projection only.
+                // It does not authorize reuse at another fitting point or provider branch.
+                let mut context = FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+                context
+                    .str("fresh-fit-steady-response")
+                    .hash(&p.key)
+                    .hash(&p.source_identity)
+                    .hash(&p.profile_key.as_id())
+                    .hash(&p.numerics.key)
+                    .u64(ei as u64)
+                    .f64(p.profile.rank_tolerance)
+                    .f64(tolerances.integrality);
+                for value in &point.x {
+                    context.f64(*value);
+                }
+                for (i, variable) in contract.variables.iter().enumerate() {
+                    context
+                        .id(&variable.id)
+                        .f64(variable.lower)
+                        .f64(variable.upper)
+                        .f64(tolerances.variables[i]);
+                }
+                for (i, row) in contract.rows.iter().enumerate() {
+                    context
+                        .id(row)
+                        .f64(bounds[i].0)
+                        .f64(bounds[i].1)
+                        .f64(tolerances.rows[i])
+                        .f64(row_values[i]);
+                }
+                for scale in &parameter_scales {
+                    context.f64(*scale);
+                }
+                let context = context.finish_hash();
+                let mut parameter_key =
+                    FramedHasher::new(pse_ids::Frame::ImplicitNumericalProductV1);
+                parameter_key.str("fresh-fit-free-parameters");
+                for (id, value) in parameters.iter().zip(&parameter_values) {
+                    parameter_key.id(id).f64(*value);
+                }
+                let key = pse_model::strategy::SemanticProductKey {
+                    structure: contract.identity,
+                    binding: p.key,
+                    numerical_policy: Some(p.numerics.key),
+                    normalization: Some(normalization.key()),
+                    point: Some(native::square_response::point_key(&states)),
+                    parameters: Some(parameter_key.finish_hash()),
+                    derivation: Some(context),
+                    branch: None,
+                    accuracy: Some(context),
+                };
+                let qualified_response = native::square_response::products(
                     native::square_response::Request {
                         scope: &scope,
                         point: &states,
@@ -1127,22 +1187,45 @@ impl FitOracle {
                         rank_tolerance: p.profile.rank_tolerance,
                         bytes,
                     },
+                    key,
+                    &parameter_values,
+                    false,
                     || {
-                        Ok((
-                            Mat::from_fn(nx, nx, |i, j| {
-                                jac.get(s.constraints[i].0.get(), j).copied().unwrap_or(0.)
-                            }),
-                            Mat::from_fn(nx, np, |i, j| {
-                                point
+                        let mut state_values = Vec::with_capacity(pattern.as_ref().compute_nnz());
+                        for column in 0..nx {
+                            for row in pattern.as_ref().row_idx_of_col(column) {
+                                state_values.push(
+                                    jac.get(s.constraints[row].0.get(), column)
+                                        .copied()
+                                        .unwrap_or(0.),
+                                );
+                            }
+                        }
+                        let mut parameter_entries = Vec::new();
+                        for (column, (_, source)) in free.iter().enumerate() {
+                            for (row, (_, target)) in s.constraints.iter().enumerate() {
+                                let value = point
                                     .jacobian
                                     .matrix()
-                                    .get(s.constraints[i].1.get(), free[j].1.get())
+                                    .get(target.get(), source.get())
                                     .copied()
-                                    .unwrap_or(0.)
-                            }),
-                        ))
+                                    .unwrap_or(0.);
+                                parameter_entries
+                                    .push(faer::sparse::Triplet::new(row, column, value));
+                            }
+                        }
+                        let parameter_partials =
+                            SparseColMat::try_new_from_triplets(nx, np, &parameter_entries)
+                                .map_err(|error| {
+                                    ProblemError::numerical(format!(
+                                        "fresh fit parameter partials: {error:?}"
+                                    ))
+                                })?;
+                        Ok((SparseColMat::new(pattern, state_values), parameter_partials))
                     },
+                    &self.execution,
                 )
+                .response
                 .map_err(|e| ProblemError::numerical(e.to_string()))?;
                 let dx = qualified_response.values;
                 for &i in &p.layout.mappings[ei].observations {

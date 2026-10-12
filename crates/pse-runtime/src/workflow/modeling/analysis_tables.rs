@@ -115,8 +115,8 @@ fn export(
     )?;
     let pool = runtime.shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let validation = runtime.validation_context()?;
-    let mut columns = Collection::new(&runtime.registry, &pool, &cancel, &validation);
+    let validation = runtime.validation_context();
+    let mut columns = Collection::new(runtime.registry(), &pool, &cancel, &validation);
     build(&mut columns)?;
     Ok(columns
         .finish()
@@ -230,7 +230,7 @@ impl ModelingDiagnostics {
     pub fn table(&self, name: &str) -> Result<FieldCheckedBatch, WorkflowError> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown diagnostic relation"))?
             .id;
@@ -244,7 +244,7 @@ impl ModelingDiagnostics {
     ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown diagnostic relation"))?
             .id;
@@ -258,7 +258,7 @@ impl ModelingDiagnostics {
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
         let runtime = &self.runtime;
         let id = runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown result relation"))?
             .id;
@@ -269,10 +269,10 @@ impl ModelingDiagnostics {
             return Err(WorkflowError::Shared(error));
         }
         let spec = runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("result declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -300,10 +300,10 @@ impl ModelingDiagnostics {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("diagnostic declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -333,10 +333,10 @@ impl ModelingDiagnostics {
         );
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            &self.runtime.registry,
+            self.runtime.registry(),
             &pool,
             &cancel,
             &validation,

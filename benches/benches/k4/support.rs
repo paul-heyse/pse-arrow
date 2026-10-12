@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared admitted scientific sources for study adapters and scalar preparation.
 use super::WorkflowRuntime;
-use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_runtime::workflow::{ModelingPackage, PackageSources, PhysicalContext, Runtime};
 use std::{collections::BTreeMap, path::Path};
 
@@ -51,13 +51,13 @@ pub(super) fn admitted_documents(
     sources: &[BTreeMap<String, Vec<u8>>],
 ) -> OwnedDocumentSet {
     let pool = owner.runtime.pool();
-    let validation = owner.sessions.validation_context(&owner.registry).unwrap();
+    let validation = owner.model.validation_context();
     let bundles = sources
         .iter()
         .map(|texts| {
             load_package_documents_owned(
                 texts,
-                &owner.registry,
+                owner.model.registry(),
                 Default::default(),
                 &pool,
                 &owner.cancel,

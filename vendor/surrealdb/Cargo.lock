@@ -5043,7 +5043,7 @@ dependencies = [
  "serde_json",
  "serial_test",
  "surrealdb-cnf",
- "surrealdb-engine-api",
+ "surrealdb-engine-api 3.3.0",
  "surrealdb-engine-local",
  "surrealdb-iam",
  "surrealdb-kvs",
@@ -5287,6 +5287,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "surrealdb-engine-api"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dff233f2d7c1b5b0eac9f54abb01aaaa42dc466c381095d6b16588ae95482383"
+dependencies = [
+ "async-channel",
+ "surrealdb-rpc",
+ "surrealdb-types",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "surrealdb-engine-local"
 version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5298,7 +5311,7 @@ dependencies = [
  "surrealdb-cnf",
  "surrealdb-core",
  "surrealdb-datastore",
- "surrealdb-engine-api",
+ "surrealdb-engine-api 3.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "surrealdb-iam",
  "surrealdb-kvs",
  "surrealdb-rpc",

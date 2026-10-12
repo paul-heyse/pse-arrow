@@ -108,6 +108,18 @@ pub(super) struct Projection {
     pub(super) cancel: CancellationToken,
 }
 impl Projection {
+    pub(super) async fn send_checked(
+        &self,
+        batch: FieldCheckedBatch,
+    ) -> Result<(), Arc<WorkflowError>> {
+        if self.cancel.is_cancelled() {
+            return Err(Arc::new(contract("selected result cursor cancelled")));
+        }
+        self.sender
+            .send(batch)
+            .await
+            .map_err(|_| Arc::new(contract("selected result consumer closed")))
+    }
     pub(super) fn wants(&self, relation: SemanticId) -> bool {
         self.relation == relation
     }
@@ -122,6 +134,9 @@ pub struct ResultCursor<'a> {
     schema: datafusion::arrow::datatypes::SchemaRef,
     complete: bool,
     cancel: CancellationToken,
+    checked_buffers: bool,
+    cancel_on_drop: bool,
+    projection_memory_refused: bool,
 }
 impl std::fmt::Debug for ResultCursor<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -131,6 +146,35 @@ impl std::fmt::Debug for ResultCursor<'_> {
     }
 }
 impl<'a> ResultCursor<'a> {
+    /// A selected original relation owns its buffers independently of a run report.
+    pub(super) fn from_retained(
+        schema: datafusion::arrow::datatypes::SchemaRef,
+        id: SemanticId,
+        batches: &'a [FieldCheckedBatch],
+    ) -> Result<Self, WorkflowError> {
+        let mut cursor = Self::new(
+            schema,
+            id,
+            1024,
+            ResultOrder::Public,
+            move |request| async move {
+                for batch in batches {
+                    if request.cancel.is_cancelled() {
+                        return Err(Arc::new(contract("selected result cursor cancelled")));
+                    }
+                    request
+                        .sender
+                        .send(batch.clone())
+                        .await
+                        .map_err(|_| Arc::new(contract("selected result consumer closed")))?;
+                }
+                Ok(())
+            },
+        )?;
+        cursor.checked_buffers = true;
+        Ok(cursor)
+    }
+
     /// Traverse an already selected checked relation without another encoding pass.
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) fn from_checked(batch: FieldCheckedBatch) -> Self {
@@ -147,6 +191,9 @@ impl<'a> ResultCursor<'a> {
             schema,
             complete: false,
             cancel: CancellationToken::new(),
+            checked_buffers: true,
+            cancel_on_drop: true,
+            projection_memory_refused: false,
         }
     }
 
@@ -175,6 +222,29 @@ impl<'a> ResultCursor<'a> {
         F: FnOnce(Projection) -> Fut,
         Fut: Future<Output = Result<(), Arc<WorkflowError>>> + Send + 'a,
     {
+        Self::new_range_controlled(
+            schema,
+            id,
+            rows,
+            order,
+            range,
+            CancellationToken::new(),
+            build,
+        )
+    }
+    pub(super) fn new_range_controlled<F, Fut>(
+        schema: datafusion::arrow::datatypes::SchemaRef,
+        id: SemanticId,
+        rows: usize,
+        order: ResultOrder,
+        range: std::ops::Range<usize>,
+        cancel: CancellationToken,
+        build: F,
+    ) -> Result<Self, WorkflowError>
+    where
+        F: FnOnce(Projection) -> Fut,
+        Fut: Future<Output = Result<(), Arc<WorkflowError>>> + Send + 'a,
+    {
         if rows == 0 {
             return Err(contract("result chunk row bound must be positive"));
         }
@@ -182,7 +252,6 @@ impl<'a> ResultCursor<'a> {
             return Err(contract("result row range is reversed"));
         }
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
-        let cancel = CancellationToken::new();
         let producer = build(Projection {
             relation: id,
             rows,
@@ -198,7 +267,31 @@ impl<'a> ResultCursor<'a> {
             schema,
             complete: false,
             cancel,
+            checked_buffers: false,
+            cancel_on_drop: true,
+            projection_memory_refused: false,
         })
+    }
+    /// Only the typed immutable projection owner may reuse its token after a
+    /// positively classified memory refusal. The failed producer has returned;
+    /// no callback, background task or undelivered chunk may remain.
+    pub(super) fn release_failed_projection(&mut self) -> Result<(), WorkflowError> {
+        if !self.projection_memory_refused
+            || self.producer.is_some()
+            || !self.receiver.is_closed()
+            || !self.receiver.is_empty()
+            || self.complete
+        {
+            return Err(contract("failed projection has not drained"));
+        }
+        self.cancel_on_drop = false;
+        Ok(())
+    }
+    /// Only private original-buffer constructors establish this fact. An
+    /// allocating producer or filter must be polled without optional append
+    /// retention until it provides a separately pre-admitted producer contract.
+    pub(super) const fn owns_checked_buffers(&self) -> bool {
+        self.checked_buffers
     }
     /// Request cancellation shared with foreign-language delivery and computation checkpoints.
     pub fn cancellation_token(&self) -> CancellationToken {
@@ -232,7 +325,9 @@ impl<'a> ResultCursor<'a> {
 }
 impl Drop for ResultCursor<'_> {
     fn drop(&mut self) {
-        self.cancel.cancel();
+        if self.cancel_on_drop {
+            self.cancel.cancel();
+        }
     }
 }
 
@@ -252,7 +347,11 @@ impl Stream for ResultCursor<'_> {
         match this.receiver.poll_recv(cx) {
             Poll::Ready(Some(batch)) => Poll::Ready(Some(Ok(batch))),
             Poll::Ready(None) => match this.terminal.take() {
-                Some(Err(error)) => Poll::Ready(Some(Err(error))),
+                Some(Err(error)) => {
+                    this.projection_memory_refused =
+                        super::result_projection::projection_memory_refusal(&error);
+                    Poll::Ready(Some(Err(error)))
+                }
                 Some(Ok(())) => {
                     this.complete = true;
                     Poll::Ready(None)
@@ -271,6 +370,7 @@ pub(super) struct SelectedCollection<'a> {
     cancel: &'a CancellationToken,
     validation: &'a pse_relations::validate::ValidationContext,
     columns: Option<Collection<'a>>,
+    row_copy: Option<pse_columnar::MemoryReservation>,
     count: usize,
     position: usize,
 }
@@ -289,6 +389,7 @@ impl<'a> SelectedCollection<'a> {
             cancel,
             validation,
             columns: None,
+            row_copy: None,
             count: 0,
             position: 0,
         }
@@ -329,9 +430,17 @@ impl<'a> SelectedCollection<'a> {
         if self.skip_next::<T>() {
             return Ok(());
         }
-        let scratch = pse_columnar::MemoryConsumer::new("result:row-copy").register(self.pool);
+        let bytes = row.allocation_size()?;
+        let scratch = self
+            .row_copy
+            .get_or_insert_with(|| {
+                pse_columnar::MemoryConsumer::new("result:chunk-row-copy").register(self.pool)
+            })
+            .new_empty();
+        // The child reservation shares this chunk's registration. It frees the row's
+        // charge even when a caller abandons this future during sender backpressure.
         scratch
-            .try_grow(row.allocation_size()?)
+            .try_grow(bytes)
             .map_err(pse_columnar::CanonError::from)?;
         self.push(row.clone()).await
     }
@@ -447,6 +556,9 @@ impl<'a> SelectedCollection<'a> {
             }
             self.count = 0;
         }
+        // Registration follows the bounded chunk through sender backpressure. Each
+        // temporary row clone is charged only while live, with no per-row consumer.
+        self.row_copy.take();
         Ok(())
     }
     pub(super) async fn finish(mut self) -> Result<(), RelationError> {
@@ -558,11 +670,11 @@ pub(super) fn collect(
         chunks.push(chunk);
     }
     let spec = runtime
-        .registry
+        .registry()
         .relation_by_id(id)
         .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
     FieldCheckedBatch::concat_reserved(
-        &runtime.registry,
+        runtime.registry(),
         spec,
         &chunks,
         &runtime.shared.pool(),
@@ -574,7 +686,7 @@ pub(super) fn collect(
 /// Shared immutable strategy traces with independent selected event transport.
 #[derive(Debug)]
 pub struct StrategyEventExport {
-    registry: Arc<pse_schema::Registry>,
+    model: pse_engine::session::BoundModel,
     shared: Arc<crate::SharedRuntime>,
     traces: Vec<(
         pse_model::generated::identities::RunId,
@@ -587,7 +699,7 @@ pub struct StrategyEventExport {
 impl StrategyEventExport {
     /// Retain shared traces in original attempt order; payload encoding remains lazy.
     pub fn new(
-        registry: Arc<pse_schema::Registry>,
+        model: pse_engine::session::BoundModel,
         shared: Arc<crate::SharedRuntime>,
         upper: usize,
         traces: impl Iterator<
@@ -616,7 +728,7 @@ impl StrategyEventExport {
             retained.push(trace);
         }
         Ok(Self {
-            registry,
+            model,
             shared,
             traces: retained,
             failures: EncodingState::default(),
@@ -634,10 +746,11 @@ impl StrategyEventExport {
             return Err(WorkflowError::Shared(error));
         }
         let spec = self
-            .registry
+            .model
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("strategy event declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.model.registry(), spec)
             .map_err(RelationError::from)
             .map_err(relation)?;
         ResultCursor::new(
@@ -649,12 +762,10 @@ impl StrategyEventExport {
                 let result = async {
                     let pool = self.shared.pool();
                     let cancel = request.cancel.clone();
-                    let validation =
-                        pse_relations::validate::ValidationContext::local(&self.registry)
-                            .map_err(relation)?;
+                    let validation = self.model.validation_context();
                     let mut columns = Rows::<events::Row>::new(
                         &request,
-                        &self.registry,
+                        self.model.registry(),
                         &pool,
                         &cancel,
                         &validation,
@@ -700,8 +811,289 @@ pub(super) fn collect_tables<'a>(
 mod tests {
     use super::*;
     use datafusion::execution::memory_pool::GreedyMemoryPool;
+    use pse_columnar::MemoryConsumer;
     use pse_relations::generated::runtime::{fit_parameters, solve_metrics};
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct CopyCountingPool {
+        inner: GreedyMemoryPool,
+        registrations: AtomicUsize,
+        departures: AtomicUsize,
+        live: AtomicUsize,
+    }
+    impl std::fmt::Display for CopyCountingPool {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            std::fmt::Display::fmt(&self.inner, f)
+        }
+    }
+    impl MemoryPool for CopyCountingPool {
+        fn name(&self) -> &str {
+            "row-copy-control"
+        }
+        fn register(&self, consumer: &pse_columnar::MemoryConsumer) {
+            self.inner.register(consumer);
+            if consumer.name() == "result:chunk-row-copy" {
+                self.registrations.fetch_add(1, Ordering::Relaxed);
+                assert_eq!(self.live.fetch_add(1, Ordering::Relaxed), 0);
+            }
+        }
+        fn unregister(&self, consumer: &pse_columnar::MemoryConsumer) {
+            self.inner.unregister(consumer);
+            if consumer.name() == "result:chunk-row-copy" {
+                self.departures.fetch_add(1, Ordering::Relaxed);
+                assert_eq!(self.live.fetch_sub(1, Ordering::Relaxed), 1);
+            }
+        }
+        fn grow(&self, reservation: &pse_columnar::MemoryReservation, bytes: usize) {
+            self.inner.grow(reservation, bytes);
+        }
+        fn shrink(&self, reservation: &pse_columnar::MemoryReservation, bytes: usize) {
+            self.inner.shrink(reservation, bytes);
+        }
+        fn try_grow(
+            &self,
+            reservation: &pse_columnar::MemoryReservation,
+            bytes: usize,
+        ) -> datafusion::common::Result<()> {
+            self.inner.try_grow(reservation, bytes)
+        }
+        fn reserved(&self) -> usize {
+            self.inner.reserved()
+        }
+        fn memory_limit(&self) -> datafusion::execution::memory_pool::MemoryLimit {
+            self.inner.memory_limit()
+        }
+    }
+    #[tokio::test]
+    async fn row_copy_admission_is_lazy_and_owned_by_bounded_chunk_through_backpressure() {
+        let source = Source::new(1 << 20);
+        let observed = Arc::new(CopyCountingPool {
+            inner: GreedyMemoryPool::new(1 << 20),
+            registrations: AtomicUsize::new(0),
+            departures: AtomicUsize::new(0),
+            live: AtomicUsize::new(0),
+        });
+        let pool: Arc<dyn MemoryPool> = observed.clone();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        let request = Projection {
+            relation: fit_parameters::RELATION_ID,
+            rows: 3,
+            order: ResultOrder::Public,
+            range: 1..6,
+            sender,
+            cancel: CancellationToken::new(),
+        };
+        let mut columns = SelectedCollection::new(
+            &request,
+            source.registry,
+            &pool,
+            &request.cancel,
+            &source.validation,
+        );
+        let row = fit_parameters::Row {
+            run_id: SemanticId::NIL.into(),
+            parameter_id: SemanticId::NIL,
+            fixed: false,
+            value: Some(1.0),
+            unit_id: SemanticId::NIL,
+            scale: 1.0,
+            at_bound: None,
+        };
+        columns.push_ref(&row).await.unwrap();
+        assert_eq!(observed.registrations.load(Ordering::Relaxed), 0); // Excluded row.
+        for _ in 0..3 {
+            columns.push_ref(&row).await.unwrap();
+        }
+        assert_eq!(observed.registrations.load(Ordering::Relaxed), 1);
+        assert_eq!(observed.departures.load(Ordering::Relaxed), 1);
+        for _ in 0..2 {
+            columns.push_ref(&row).await.unwrap();
+        }
+        assert_eq!(observed.registrations.load(Ordering::Relaxed), 2);
+        let mut finish = Box::pin(columns.finish());
+        assert!(futures_util::poll!(finish.as_mut()).is_pending());
+        assert_eq!(observed.live.load(Ordering::Relaxed), 1);
+        let first = receiver.recv().await.unwrap();
+        assert_eq!(first.batch().num_rows(), 3);
+        finish.await.unwrap();
+        let second = receiver.recv().await.unwrap();
+        assert_eq!(second.batch().num_rows(), 2);
+        assert_eq!(observed.departures.load(Ordering::Relaxed), 2);
+        assert_eq!(observed.live.load(Ordering::Relaxed), 0);
+        drop((first, second));
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
+    async fn row_copy_refusal_and_abandoned_send_release_exact_owned_charge() {
+        let source = Source::new(1 << 20);
+        let observed = Arc::new(CopyCountingPool {
+            inner: GreedyMemoryPool::new(1 << 20),
+            registrations: AtomicUsize::new(0),
+            departures: AtomicUsize::new(0),
+            live: AtomicUsize::new(0),
+        });
+        let pool: Arc<dyn MemoryPool> = observed.clone();
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(1);
+        let request = Projection {
+            relation: fit_parameters::RELATION_ID,
+            rows: 1,
+            order: ResultOrder::Public,
+            range: 0..usize::MAX,
+            sender,
+            cancel: CancellationToken::new(),
+        };
+        let row = fit_parameters::Row {
+            run_id: SemanticId::NIL.into(),
+            parameter_id: SemanticId::NIL,
+            fixed: false,
+            value: Some(1.0),
+            unit_id: SemanticId::NIL,
+            scale: 1.0,
+            at_bound: None,
+        };
+        let mut columns = SelectedCollection::new(
+            &request,
+            source.registry,
+            &pool,
+            &request.cancel,
+            &source.validation,
+        );
+        let fill = pse_columnar::MemoryConsumer::new("row-copy-refusal-control").register(&pool);
+        fill.try_grow(1 << 20).unwrap();
+        assert!(columns.push_ref(&row).await.is_err());
+        assert_eq!(columns.count, 0);
+        assert_eq!(pool.reserved(), 1 << 20);
+        drop(fill);
+        columns.push_ref(&row).await.unwrap();
+        let mut blocked = Box::pin(columns.push_ref(&row));
+        assert!(futures_util::poll!(blocked.as_mut()).is_pending());
+        let first = receiver.recv().await.unwrap();
+        assert!(pool.reserved() > row.allocation_size().unwrap());
+        drop(blocked);
+        drop(first);
+        columns.finish().await.unwrap();
+        assert_eq!(observed.live.load(Ordering::Relaxed), 0);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[tokio::test]
+    async fn failed_pure_projection_transfers_same_token_only_after_memory_drain() {
+        let source = Source::new(1 << 20);
+        let id = fit_parameters::RELATION_ID;
+        let schema = pse_schema::arrow::relation_schema_ref(
+            source.registry,
+            source.registry.relation_by_id(id).unwrap(),
+        )
+        .unwrap();
+        let token = CancellationToken::new();
+        let pressure = MemoryConsumer::new("test:projection-failure").register(&source.pool);
+        pressure.try_grow(1 << 20).unwrap();
+        let producer_source = source.clone();
+        let mut failed = ResultCursor::new_range_controlled(
+            schema.clone(),
+            id,
+            1,
+            ResultOrder::Canonical,
+            0..usize::MAX,
+            token.clone(),
+            move |request| async move {
+                let mut builder = fit_parameters::Builder::with_registry(
+                    producer_source.registry,
+                    1,
+                    &producer_source.validation,
+                )
+                .map_err(|e| Arc::new(relation(e)))?;
+                builder
+                    .push(fit_parameters::Row {
+                        run_id: SemanticId::NIL.into(),
+                        parameter_id: SemanticId::NIL,
+                        fixed: false,
+                        value: Some(0.0),
+                        unit_id: SemanticId::NIL,
+                        scale: 1.0,
+                        at_bound: None,
+                    })
+                    .map_err(|e| Arc::new(relation(e)))?;
+                request
+                    .sender
+                    .send(builder.finish().map_err(|e| Arc::new(relation(e)))?)
+                    .await
+                    .unwrap();
+                let allocation = MemoryConsumer::new("test:second-projection-chunk")
+                    .register(&producer_source.pool);
+                allocation
+                    .try_grow(1)
+                    .map_err(|e| Arc::new(WorkflowError::from(pse_engine::EngineError::from(e))))?;
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(
+            failed.release_failed_projection().is_err(),
+            "a live producer cannot transfer its cancellation owner"
+        );
+        let delivered = failed.next_batch().await.unwrap().unwrap();
+        assert_eq!(delivered.batch().num_rows(), 1);
+        drop(delivered);
+        let error = failed.next_batch().await.unwrap_err();
+        assert!(super::super::result_projection::projection_memory_refusal(
+            &error
+        ));
+        failed.release_failed_projection().unwrap();
+        drop(failed);
+        assert!(
+            !token.is_cancelled(),
+            "failed drained cursor cannot cancel its enclosing retry scope"
+        );
+        drop(pressure);
+        let next_source = source.clone();
+        let mut next = ResultCursor::new_range_controlled(
+            schema,
+            id,
+            2,
+            ResultOrder::Canonical,
+            1..3,
+            token.clone(),
+            move |request| async move {
+                let mut columns = SelectedCollection::new(
+                    &request,
+                    next_source.registry,
+                    &next_source.pool,
+                    &request.cancel,
+                    &next_source.validation,
+                );
+                for value in 0..3 {
+                    columns
+                        .push(fit_parameters::Row {
+                            run_id: SemanticId::NIL.into(),
+                            parameter_id: SemanticId::NIL,
+                            fixed: false,
+                            value: Some(value as f64),
+                            unit_id: SemanticId::NIL,
+                            scale: 1.0,
+                            at_bound: None,
+                        })
+                        .await
+                        .map_err(|e| Arc::new(relation(e)))?;
+                }
+                columns.finish().await.map_err(|e| Arc::new(relation(e)))
+            },
+        )
+        .unwrap();
+        let selected = next.next_batch().await.unwrap().unwrap();
+        let view = fit_parameters::View::from_checked(&selected).unwrap();
+        assert_eq!(view.len(), 2);
+        assert_eq!(view.row(0).unwrap().value, Some(1.0));
+        assert_eq!(view.row(1).unwrap().value, Some(2.0));
+        assert!(next.next_batch().await.unwrap().is_none());
+        assert!(next.complete());
+        assert!(next.release_failed_projection().is_err());
+        drop(next);
+        assert!(
+            token.is_cancelled(),
+            "the final cursor still owns cancellation"
+        );
+    }
 
     struct Source {
         registry: &'static pse_schema::Registry,

@@ -79,6 +79,8 @@ pub(in crate::workflow) struct CaseOverrides {
 #[derive(Clone, Debug)]
 pub struct ModelingSolvePreparation {
     pub(in crate::workflow) stored_seed_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
+    /// Exact transient binding and original attribution, owned through result retention.
+    pub bound_source: Option<Arc<pse_columnar::Leased<super::super::AdmittedBinding>>>,
     /// The case's model view, solver projection and input values.
     pub model: ModelingCasePreparation,
     /// Routed solve with its numerical policy and representation.
@@ -101,7 +103,7 @@ pub(in crate::workflow) struct ModelingCaseResolution {
     pub providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     pub numerical: NumericalInputs,
     pub solver: SolverProfile,
-    pub numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    pub numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     /// The parametric program of the solver's sensitivity request (Plan 22 S1).
     pub parametric: Option<ParametricPreparation<Arc<crate::math::ExecutableCase>>>,
 }
@@ -557,6 +559,7 @@ impl ModelingPackage {
     pub(in crate::workflow) async fn discrete_assignment(
         &self,
         analysis: &ModelingAnalysis,
+        prepared: &ModelingPreparation,
         policy: &DiscreteInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
@@ -580,15 +583,22 @@ impl ModelingPackage {
         );
         bindings.demand.sort();
         bindings.demand.dedup();
-        let model = self
-            .prepare(
+        let model = if bindings
+            .demand
+            .iter()
+            .all(|path| prepared.compiled().model.paths.contains_key(path))
+        {
+            prepared.clone()
+        } else {
+            self.prepare(
                 analysis.root,
                 analysis.instance,
                 bindings,
                 analysis.limits,
                 cancel,
             )
-            .await?;
+            .await?
+        };
         let product = model.compiled();
         let specialized = &product.model;
         let inner = Inner::of(product);
@@ -877,6 +887,7 @@ impl ModelingPackage {
         let _ = numerics;
         Ok(ModelingSolvePreparation {
             stored_seed_owner: None,
+            bound_source: None,
             source: self.clone(),
             compiler,
             profile: solver,
@@ -904,7 +915,7 @@ impl ModelingPackage {
         order: DerivativeOrder,
         compiler: Profile,
         solver: SolverProfile,
-        mut numerical: NumericalInputs,
+        numerical: NumericalInputs,
         overrides: CaseOverrides,
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
@@ -917,6 +928,36 @@ impl ModelingPackage {
         let model = self
             .prepare(root, instance, bindings, limits, cancel)
             .await?;
+        self.resolve_prepared_case(
+            model,
+            case,
+            order,
+            compiler,
+            solver,
+            numerical,
+            overrides,
+            allow_missing_free,
+            cancel,
+        )
+        .await
+    }
+    /// Bind fresh numerical inputs to an already admitted parent specialization.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "fresh numerical resolution consumes the existing immutable specialization and operation settings"
+    )]
+    pub(in crate::workflow) async fn resolve_prepared_case(
+        &self,
+        model: ModelingPreparation,
+        case: ModelingCaseBindings,
+        order: DerivativeOrder,
+        compiler: Profile,
+        solver: SolverProfile,
+        mut numerical: NumericalInputs,
+        overrides: CaseOverrides,
+        allow_missing_free: bool,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingCaseResolution, WorkflowError> {
         let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
             || solver.reconstruction.is_some()
             || implicit::declared_accuracy(&model, &solver.numerics))
@@ -1280,7 +1321,10 @@ impl ModelingPackage {
         compiler: Profile,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
-    ) -> Result<Arc<pse_model::numerics::ResolvedNumericalPolicy>, WorkflowError> {
+    ) -> Result<
+        pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
+        WorkflowError,
+    > {
         let product = model.compiled();
         let variables = variables(product);
         let equations = equations(product);
@@ -1533,14 +1577,18 @@ impl ModelingPackage {
         numerical.declarations.extend(reconstruction_requirements);
         numerical.declarations.extend(conservation_requirements);
         numerical.declarations.extend(closure_requirements);
-        let resolved = pse_math::numerics::resolve(
-            &physical,
-            &preconditions,
-            &targets,
-            &numerical.declarations,
-            &solver.numerics,
-        )
-        .map_err(crate::math::MathRuntimeError::from)?;
+        let resolved = self
+            .runtime
+            .native()
+            .policy_resolution_owner()
+            .resolve(
+                physical.clone(),
+                preconditions.clone(),
+                &targets,
+                &numerical.declarations,
+                &solver.numerics,
+            )
+            .map_err(crate::math::MathRuntimeError::from)?;
         // Free variables move to their nominal, except an equality-bound coordinate:
         // its sole admissible value must also characterize the physical row scales.
         // Fixed variables and sensitivity parameters keep their bound values.
@@ -1619,16 +1667,13 @@ impl ModelingPackage {
                 ));
             }
         }
-        Ok(Arc::new(
-            pse_math::numerics::resolve(
-                &physical,
-                &preconditions,
-                &targets,
-                &numerical.declarations,
-                &solver.numerics,
-            )
-            .map_err(crate::math::MathRuntimeError::from)?,
-        ))
+        Ok(self.runtime.native().policy_resolution_owner().resolve(
+            physical,
+            preconditions,
+            &targets,
+            &numerical.declarations,
+            &solver.numerics,
+        )?)
     }
 }
 fn selected_output_derivative_unavailable(cause: &crate::math::MathRuntimeError) -> bool {

@@ -35,6 +35,15 @@ pub(crate) struct IntegratedExperiment {
     pub(crate) snapshot: native::execution::Snapshot,
     /// The compiled dynamic functions.
     pub(crate) program: super::dynamics::DynamicProgram,
+    /// Per-snapshot allocation admission, supplied by the actual Runtime owner.
+    #[cfg_attr(
+        not(feature = "solver-diffsol"),
+        expect(
+            dead_code,
+            reason = "the allocator is consumed by linked dynamic execution"
+        )
+    )]
+    pub(crate) snapshots: super::dynamics::SnapshotAllocator,
     /// The prepared integration profile; its sensitivity is what the consumer requested.
     pub(crate) profile: super::SimulationProfile,
     /// The integration vector at the model's values.
@@ -199,7 +208,9 @@ impl IntegratedExperiment {
             ));
         }
         let profile = attempt(&self.profile, execution, sensitivity);
-        let mut worker = self.program.worker(execution.scope()?)?;
+        let mut worker = self
+            .program
+            .worker(execution.scope()?, self.snapshots.clone())?;
         let report = native::dynamics::integrate_with_progress_observed(
             &mut worker,
             &profile,
@@ -221,7 +232,9 @@ impl IntegratedExperiment {
     ) -> Result<Vec<Vec<f64>>, ProblemError> {
         use native::dynamics::Oracle;
         let parameters = self.bind(value);
-        let mut worker = self.program.worker(execution.scope()?)?;
+        let mut worker = self
+            .program
+            .worker(execution.scope()?, self.snapshots.clone())?;
         report
             .samples
             .iter()
@@ -301,7 +314,9 @@ impl IntegratedExperiment {
             )
         })?;
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self.program.worker(execution.scope()?)?;
+        let mut worker = self
+            .program
+            .worker(execution.scope()?, self.snapshots.clone())?;
         let native::dynamics::Gradient {
             report, gradient, ..
         } = native::dynamics::gradient_observed(
@@ -366,7 +381,9 @@ impl IntegratedExperiment {
         directions.sort_unstable();
         directions.dedup();
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self.program.worker(execution.scope()?)?;
+        let mut worker = self
+            .program
+            .worker(execution.scope()?, self.snapshots.clone())?;
         let native::dynamics::Gradient {
             report,
             gradient,
@@ -432,8 +449,11 @@ impl IntegratedExperiment {
                 "an adjoint product is a gradient, not an integration",
             ));
         }
-        let mut oracle =
-            native::dynamics::Anchored::new(self.program.worker(execution.scope()?)?, false)?;
+        let mut oracle = native::dynamics::Anchored::new(
+            self.program
+                .worker(execution.scope()?, self.snapshots.clone())?,
+            false,
+        )?;
         let profile = oracle.profile(&attempt(&window.profile, execution, sensitivity));
         let report = native::dynamics::integrate_with_progress_observed(
             &mut oracle,
@@ -462,8 +482,11 @@ impl IntegratedExperiment {
                 "adjoint gradients need the worker's admitted foreign allowance".into(),
             )
         })?;
-        let mut oracle =
-            native::dynamics::Anchored::new(self.program.worker(execution.scope()?)?, true)?;
+        let mut oracle = native::dynamics::Anchored::new(
+            self.program
+                .worker(execution.scope()?, self.snapshots.clone())?,
+            true,
+        )?;
         let profile = oracle.profile(&attempt(
             &window.profile,
             execution,

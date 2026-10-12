@@ -188,19 +188,9 @@ impl<'a> Collection<'a> {
                 return Err(mismatch("the declared generated builder result"));
             }
             checked.check_declaration(self.registry, spec)?;
-            let relation_id = checked.relation_id;
-            let contract = checked.contract.clone();
-            let owned = pse_columnar::owned_buffer::OwnedRecordBatch::from_reserved(
-                checked.into_batch(),
-                reservation,
-            )?;
-            let checked = FieldCheckedBatch::from_parts(
-                relation_id,
-                contract,
-                owned.batch().clone(),
-                Some(owned),
-            )
-            .retained(self.pool, self.cancel)?;
+            let checked = checked
+                .attach_reserved(reservation)?
+                .retained(self.pool, self.cancel)?;
             match result.entry(key) {
                 Entry::Vacant(entry) => {
                     entry.insert(checked);
@@ -218,4 +208,59 @@ fn finish<T: RelationRow>(builder: ErasedBuilder) -> Result<FieldCheckedBatch, R
         .downcast::<T::Builder>()
         .map_err(|_| mismatch("the exact generated builder at completion"))?;
     T::finish(*builder)
+}
+
+#[cfg(test)]
+mod admission_carriage_unit {
+    use super::*;
+    use crate::generated::reference::dimensions;
+    use crate::native::execution::context::SessionContext;
+    use std::sync::Arc;
+
+    #[test]
+    fn collected_rows_keep_exact_admission_after_allocation_attachment() -> Result<(), RelationError>
+    {
+        let registry = pse_schema::catalog::assemble()?;
+        let spec = dimensions::spec(&registry)?;
+        let context =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let cancel = CancellationToken::new();
+        let prepared = context.relation(&registry, spec)?;
+        let mut columns = Collection::new(&registry, &pool, &cancel, &context);
+        columns.push(dimensions::Row {
+            ordinal: 0,
+            name: "length".into(),
+        })?;
+        let completed = columns.finish()?;
+        let checked = &completed[&spec.key];
+        assert!(checked.local_admission().is_some());
+        assert_eq!(prepared.evaluation_count(), 1);
+        checked.validate_context(&registry, spec, &context, &cancel)?;
+        assert_eq!(
+            prepared.evaluation_count(),
+            1,
+            "allocation ownership is not semantic readmission"
+        );
+        let foreign =
+            crate::validate::ValidationContext::new(&registry, SessionContext::new().state());
+        let rebound = checked.readmit_context(&registry, spec, &foreign, &cancel)?;
+        assert_eq!(foreign.relation(&registry, spec)?.evaluation_count(), 1);
+        assert!(
+            rebound
+                .local_admission()
+                .ok_or_else(|| mismatch("retained local admission"))?
+                .matches(&registry, spec, &foreign)?
+        );
+        assert!(
+            !rebound
+                .local_admission()
+                .ok_or_else(|| mismatch("retained local admission"))?
+                .matches(&registry, spec, &context)?
+        );
+        drop(rebound);
+        drop(completed);
+        assert_eq!(pool.reserved(), 0);
+        Ok(())
+    }
 }

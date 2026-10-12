@@ -1135,9 +1135,9 @@ impl ModelingPackage {
             .map(|row| fixture_policy(row, &policy))
             .collect::<Result<Vec<_>, _>>()?;
         let mut report = ModelingConformanceReport::new(
-            self.runtime.registry.clone(),
+            self.runtime.registry().clone(),
             self.runtime.shared.pool(),
-            self.runtime.validation_context()?,
+            self.runtime.validation_context(),
             &fixtures
                 .iter()
                 .map(|r| r.declaration_id)
@@ -1301,9 +1301,9 @@ impl ModelingPackage {
     ) -> Result<FixtureReport, WorkflowError> {
         let cap = policy.maximum_checks;
         let mut report = ModelingConformanceReport::new(
-            self.runtime.registry.clone(),
+            self.runtime.registry().clone(),
             self.runtime.shared.pool(),
-            self.runtime.validation_context()?,
+            self.runtime.validation_context(),
             &[row.declaration_id],
             cap,
         )?;
@@ -1366,15 +1366,21 @@ impl ModelingPackage {
             let mut expected_failure = data.and_then(|f| f.expected_failure.as_ref());
             let case = admitted.analysis.case.clone();
             if matches!(&admitted.procedure, DeclaredProcedure::Check) {
-                let checked = self
-                    .canonical_point(
-                        fixture,
-                        bindings,
-                        admitted.analysis.limits,
-                        admitted.analysis.compiler,
-                        cancel,
-                    )
-                    .await;
+                let checked = match self.pure_workspace() {
+                    Ok(workspace) => self
+                        .runtime
+                        .shared
+                        .math()
+                        .modeling_point_prepared(
+                            workspace,
+                            admitted.prepared_model(self)?,
+                            admitted.analysis.compiler,
+                            cancel,
+                        )
+                        .await
+                        .map_err(WorkflowError::from),
+                    Err(error) => Err(error),
+                };
                 report.pure_result(fixture, model.compiled(), checked, cap);
                 break 'fixture;
             }
@@ -1645,11 +1651,8 @@ impl ModelingPackage {
             let diagnostic_inputs =
                 (!expected_diagnostics.is_empty()).then(|| (bindings.clone(), case.clone()));
             let resolution = match self
-                .resolve_case(
-                    fixture,
-                    pse_modeling::specialize::root_instance(fixture),
-                    bindings,
-                    admitted.analysis.limits,
+                .resolve_prepared_case(
+                    admitted.prepared_model(self)?,
                     case,
                     solve_order,
                     admitted.analysis.compiler,
@@ -2703,8 +2706,9 @@ mod tests {
         );
         Runtime::from_shared(
             shared,
-            pse_schema::shared_registry().unwrap(),
-            sessions,
+            sessions
+                .bind_model(pse_schema::shared_registry().unwrap())
+                .unwrap(),
             fixture::canonical_deployment(),
         )
         .unwrap()
@@ -4110,13 +4114,15 @@ mod tests {
         assert!(report.results.is_empty());
         let tables = report.admission_tables().unwrap();
         let route = pse_relations::generated::runtime::route_decisions::Row::rows(
-            &tables[&pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
-                .unwrap()
-                .id],
+            &tables[&pse_relations::generated::runtime::route_decisions::spec(
+                p.runtime.registry(),
+            )
+            .unwrap()
+            .id],
         )
         .unwrap();
         let structural_id =
-            pse_relations::generated::runtime::structural_assessments::spec(&p.runtime.registry)
+            pse_relations::generated::runtime::structural_assessments::spec(p.runtime.registry())
                 .unwrap()
                 .id;
         let structure = pse_relations::generated::runtime::structural_assessments::Row::rows(
@@ -5220,7 +5226,7 @@ mod tests {
         }));
         let tables = report.admission_tables().unwrap();
         let route_id =
-            pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
+            pse_relations::generated::runtime::route_decisions::spec(p.runtime.registry())
                 .unwrap()
                 .id;
         let routes =
@@ -5348,12 +5354,12 @@ mod tests {
         let identity = resolution.admission_identity(&decision).unwrap();
         let tables = analysis_tables::admission_tables(&p.runtime, &decision, identity, 0).unwrap();
         let structural_id =
-            pse_relations::generated::runtime::structural_assessments::spec(&p.runtime.registry)
+            pse_relations::generated::runtime::structural_assessments::spec(p.runtime.registry())
                 .unwrap()
                 .id;
         assert!(!tables.contains_key(&structural_id));
         let route_id =
-            pse_relations::generated::runtime::route_decisions::spec(&p.runtime.registry)
+            pse_relations::generated::runtime::route_decisions::spec(p.runtime.registry())
                 .unwrap()
                 .id;
         let routes =

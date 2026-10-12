@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    106u8, 121u8, 129u8, 34u8, 18u8, 122u8, 255u8, 248u8, 67u8, 121u8, 25u8, 151u8,
-    145u8, 87u8, 78u8, 151u8, 103u8, 172u8, 3u8, 144u8, 113u8, 57u8, 21u8, 38u8, 26u8,
-    167u8, 103u8, 2u8, 167u8, 201u8, 213u8, 200u8,
+    216u8, 26u8, 46u8, 6u8, 111u8, 220u8, 230u8, 6u8, 138u8, 108u8, 56u8, 251u8, 167u8,
+    42u8, 178u8, 105u8, 81u8, 125u8, 255u8, 139u8, 87u8, 217u8, 161u8, 215u8, 32u8,
+    230u8, 221u8, 209u8, 109u8, 116u8, 243u8, 215u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisInputsRow {
     fn append(
@@ -266,6 +266,7 @@ pub mod columns {
 #[derive(Debug)]
 pub struct RuntimeCanonicalAnalysisInputsView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     analysis_column: &'a arrow_array::StringArray,
     run_column: &'a arrow_array::StringArray,
@@ -294,7 +295,7 @@ impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -305,13 +306,16 @@ impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             key_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -438,5 +442,8 @@ impl crate::columnar::RelationView for RuntimeCanonicalAnalysisInputsView<'_> {
     type Row = RuntimeCanonicalAnalysisInputsRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

@@ -462,8 +462,8 @@ impl<'o> Passes<'_, 'o> {
         };
         let (lambda, parameters) = sample_jump(
             &shared.contract.differential,
-            output.as_ref(),
-            rhs.as_ref().map(|j| j.as_ref()),
+            output.as_ref().as_ref(),
+            rhs.as_ref().map(|j| j.as_ref().as_ref()),
             &weights[i * m..(i + 1) * m],
         )?;
         let (Some(adjoint), Some(partial)) = (state.s.first_mut(), state.sg.first_mut()) else {

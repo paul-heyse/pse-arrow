@@ -12,8 +12,7 @@ use super::{errors, settings::EngineSettings};
 pub(crate) struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
     pub(crate) executor: &'static tokio::runtime::Runtime,
-    pub(crate) registry: Arc<pse_schema::Registry>,
-    pub(crate) sessions: Arc<pse_engine::session::EngineFactory>,
+    pub(crate) model: pse_engine::session::BoundModel,
     settings: EngineSettings,
 }
 
@@ -44,6 +43,7 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
             .session_factory(native_engine_profile())
             .map_err(|error| EngineError::Semantic(Arc::new(error)))?,
     );
+    let model = sessions.bind_model(registry)?;
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(settings.budget.threads.pool_threads.get())
         // Native scientific services retain Tokio's blocking capacity while
@@ -65,8 +65,7 @@ pub(crate) fn acquire(settings: &EngineSettings) -> Result<Arc<Runtime>, EngineE
     let runtime = Arc::new(Runtime {
         shared,
         executor,
-        registry,
-        sessions,
+        model,
         settings: settings.clone(),
     });
     *active = Some(Arc::clone(&runtime));

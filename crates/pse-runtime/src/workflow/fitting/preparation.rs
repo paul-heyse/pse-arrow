@@ -29,6 +29,7 @@ impl PreparedExperiments {
         quantities: Arc<pse_quantity::QuantityRegistry>,
         preconditions: Arc<pse_quantity::PhysicalPreconditions>,
         source_identity: ContentHash,
+        physical_owner: Arc<dyn pse_math::AllocationOwner>,
         reservation: datafusion::execution::memory_pool::MemoryReservation,
         cancel: &std::sync::atomic::AtomicBool,
     ) -> Result<FitProblem, WorkflowError> {
@@ -162,16 +163,13 @@ impl PreparedExperiments {
             integer: false,
             declared_tolerance: None,
         });
-        let numerics = Arc::new(
-            pse_math::numerics::resolve(
-                q,
-                &preconditions,
-                &targets,
-                &declarations,
-                &profile.solver.numerics,
-            )
-            .map_err(math)?,
-        );
+        let numerics = runtime.native().policy_resolution_owner().resolve(
+            pse_math::SharedAllocation::from(quantities.clone()).with_owner(physical_owner.clone()),
+            pse_math::SharedAllocation::from(preconditions.clone()).with_owner(physical_owner),
+            &targets,
+            &declarations,
+            &profile.solver.numerics,
+        )?;
         let columns: Vec<_> = vars.iter().map(|v| v.id).collect();
         let normalization = Normalization::from_policy(&numerics, &columns, &rows).map_err(math)?;
         let tolerances = native::quality::Tolerances::from_policy(&numerics, &columns, &rows)

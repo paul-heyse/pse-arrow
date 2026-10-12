@@ -119,7 +119,10 @@ impl Oracle for Conserved {
             )
             .unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 fn methods() -> Vec<Method> {

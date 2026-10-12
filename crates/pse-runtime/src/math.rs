@@ -8,6 +8,7 @@ mod functions;
 pub mod initialization;
 mod jobs;
 pub mod modeling;
+pub(crate) mod numerics;
 pub mod portable;
 pub mod prediction;
 mod preparation;
@@ -24,7 +25,7 @@ use datafusion::execution::{
     cache::default_cache::DefaultCache,
     memory_pool::{MemoryConsumer, MemoryPool},
 };
-pub(crate) use jobs::Submission;
+pub(crate) use jobs::{PopulationScope, Submission};
 pub use jobs::{WorkerBudget, WorkerCharge};
 use pse_columnar::flight::{FlightCancellation, Flights};
 use pse_compiler::workspace::{
@@ -62,7 +63,8 @@ pub struct MathPolicy {
     pub workspace_bytes: usize,
     /// Explicit native stack, qualified for structural recursion.
     pub stack_bytes: usize,
-    /// Maximum admitted native jobs, including admission waiters.
+    /// Maximum admitted population, including waiters and resident sessions.
+    /// Active native stages have the same finite upper bound, with separate ownership.
     pub jobs: usize,
     /// Finite admission-only wait when the caller supplies no task deadline.
     /// It does not limit execution after dispatch or renew an enclosing task clock.
@@ -318,8 +320,10 @@ pub struct MathService {
     cores: usize,
     policy: MathPolicy,
     jobs: Arc<tokio::sync::Semaphore>,
+    active_jobs: Arc<tokio::sync::Semaphore>,
     entries: Arc<DefaultCache<Key, Value>>,
     pub(crate) modeling_cache: retention::ModelingCache,
+    compiler_lanes: Mutex<Vec<modeling::CompilerLane>>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
         (
@@ -347,6 +351,64 @@ pub struct MathService {
     misses: AtomicUsize,
     products: Mutex<BTreeMap<Vec<usize>, std::sync::Weak<products::ProductOwner>>>,
     preparations: Preparations,
+    #[cfg(test)]
+    preparation_effects: Arc<PreparationEffects>,
+}
+/// Isolated service-local observations survive worker and flight task boundaries.
+/// These controls are deliberately absent from product contracts and release builds.
+#[cfg(test)]
+#[derive(Default)]
+struct PreparationEffects {
+    workspaces: AtomicUsize,
+    frontiers: AtomicUsize,
+    completions: AtomicUsize,
+    settlements: AtomicUsize,
+    publications: AtomicUsize,
+}
+#[cfg(test)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PreparationEffectCounts {
+    pub(crate) workspaces: usize,
+    pub(crate) frontiers: usize,
+    pub(crate) completions: usize,
+    pub(crate) settlements: usize,
+    pub(crate) publications: usize,
+}
+#[cfg(test)]
+impl PreparationEffectCounts {
+    pub(crate) fn since(self, before: Self) -> Self {
+        Self {
+            workspaces: self.workspaces - before.workspaces,
+            frontiers: self.frontiers - before.frontiers,
+            completions: self.completions - before.completions,
+            settlements: self.settlements - before.settlements,
+            publications: self.publications - before.publications,
+        }
+    }
+}
+#[cfg(test)]
+impl MathService {
+    pub(crate) fn preparation_effects(&self) -> PreparationEffectCounts {
+        use std::sync::atomic::Ordering::Relaxed;
+        let effects = &self.preparation_effects;
+        PreparationEffectCounts {
+            workspaces: effects.workspaces.load(Relaxed),
+            frontiers: effects.frontiers.load(Relaxed),
+            completions: effects.completions.load(Relaxed),
+            settlements: effects.settlements.load(Relaxed),
+            publications: effects.publications.load(Relaxed),
+        }
+    }
+    pub(crate) fn record_preparation_settlement(&self) {
+        self.preparation_effects
+            .settlements
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    pub(crate) fn record_preparation_publication(&self) {
+        self.preparation_effects
+            .publications
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 /// Weak, bounded ownership of one exact cold selected qualification at a time.
 /// Current reads remain private; only completed immutable admissions are reused.
@@ -501,6 +563,7 @@ impl std::fmt::Debug for MathService {
 pub struct Workspace {
     compiler: Arc<Mutex<CompilerWorkspace>>,
     lease: Arc<pse_columnar::AllocationLease>,
+    lane_head: Arc<Mutex<Option<modeling::LaneStamp>>>,
 }
 /// Prepared semantic outputs retain their own payload after a generation rotates.
 #[derive(Clone, Debug)]
@@ -531,6 +594,7 @@ impl Preparation {
 pub struct ExecutableCase {
     pub(crate) assembly: Arc<CaseAssembly>,
     _artifacts: Vec<Arc<Artifact>>,
+    _layout: Arc<pse_columnar::AllocationLease>,
     _owner: Arc<dyn pse_math::AllocationOwner>,
 }
 /// Provider workers for one attempt, each attached to the attempt's cooperative
@@ -549,7 +613,8 @@ pub(crate) fn attempt_providers(
         })
         .collect()
 }
-/// Attempt-local mutable state and its reservation; never retained in Salsa or a cache.
+/// Attempt-local mutable state and its reservation. An opted-in native session may
+/// reclaim exclusively drained/reset numeric storage; never retained in Salsa.
 #[derive(Debug)]
 pub struct ExecutionWorker {
     worker: CaseWorker,
@@ -588,8 +653,10 @@ impl MathService {
             cpu,
             cores,
             jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
+            active_jobs: Arc::new(tokio::sync::Semaphore::new(policy.jobs)),
             entries: pressure.artifacts(),
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
+            compiler_lanes: Mutex::default(),
             flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
             selected_qualifications: Default::default(),
@@ -603,6 +670,8 @@ impl MathService {
             misses: AtomicUsize::new(0),
             products: Mutex::default(),
             preparations: Preparations::default(),
+            #[cfg(test)]
+            preparation_effects: Arc::default(),
         });
         let component: Arc<dyn CacheComponent> = service.clone();
         native.register_component(&component);
@@ -614,8 +683,31 @@ impl MathService {
         bytes: usize,
     ) -> Result<Arc<pse_columnar::AllocationLease>, MathRuntimeError> {
         let r = MemoryConsumer::new(name).register(&self.pool);
-        self.pressure.try_grow(&r, bytes)?;
+        if self.pressure.try_grow(&r, bytes).is_err() {
+            self.trim_compiler_lanes();
+            self.pressure.try_grow(&r, bytes)?;
+        }
         Ok(pse_columnar::AllocationLease::new(r))
+    }
+    pub(crate) fn dynamic_snapshots(self: &Arc<Self>) -> crate::workflow::SnapshotAllocator {
+        let pool = self.pool.clone();
+        let pressure = self.pressure.clone();
+        let service = Arc::downgrade(self);
+        crate::workflow::SnapshotAllocator::new(move |bytes| {
+            let reservation =
+                MemoryConsumer::new("math:dynamic-derivative-snapshot").register(&pool);
+            if pressure.try_grow(&reservation, bytes).is_err() {
+                if let Some(service) = service.upgrade() {
+                    service.trim_compiler_lanes();
+                }
+            } else {
+                return Ok(pse_columnar::AllocationLease::new(reservation));
+            }
+            pressure
+                .try_grow(&reservation, bytes)
+                .map_err(|error| pse_backend_native::ProblemError::memory(error.to_string()))?;
+            Ok(pse_columnar::AllocationLease::new(reservation))
+        })
     }
     pub(crate) fn selected_qualification_turn(
         &self,
@@ -671,9 +763,14 @@ impl MathService {
         let lease = self.reserve("math:compiler-workspace", self.policy.workspace_bytes)?;
         let mut compiler = CompilerWorkspace::new(inputs, limits)?;
         compiler.attach_body_retention(Arc::new(retention::BodyRetention(Arc::downgrade(self))))?;
+        #[cfg(test)]
+        self.preparation_effects
+            .workspaces
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         Ok(Workspace {
             compiler: Arc::new(Mutex::new(compiler)),
             lease,
+            lane_head: Arc::default(),
         })
     }
     /// Structural preparations and value rebinds performed so far (A6).
@@ -712,12 +809,17 @@ impl MathService {
             artifacts.push(self.artifact(request.clone()).await?);
         }
         let plan = prepared.prepared.plan.clone();
+        let layout = self.reserve(
+            "case_operation_layout",
+            plan.operation_layout_allocation_bound()?,
+        )?;
         let _span = tracing::info_span!("pse.case.program_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         Ok(Arc::new(ExecutableCase {
             assembly,
             _artifacts: artifacts,
+            _layout: layout,
             // The executable is shared by every binding of this stable plan.
             // Its programs retain their own leases; binding allocations must retire.
             _owner: plan,
@@ -800,6 +902,60 @@ impl MathService {
         tokio::pin!(operation);
         tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
     }
+    /// Opt into exclusive reuse only on the actual native session owner thread.
+    /// Ordinary workers (including independent original assessments) remain cold.
+    pub(crate) fn reusable_worker(
+        &self,
+        case: Arc<ExecutableCase>,
+        registrations: &BTreeMap<ProviderKey, pse_kernels::Registration>,
+        scope: pse_kernels::ExecutionScope,
+        budget: &Arc<WorkerBudget>,
+    ) -> Result<ExecutionWorker, MathRuntimeError> {
+        let Some(origin) = staged::scratch_origin() else {
+            return self.worker(case, registrations, scope, budget);
+        };
+        // Covers the callback box, two passive allocation handles, lane slot metadata
+        // and exact immutable-owner references before any opt-in allocation.
+        let Some(bytes) = case
+            .assembly
+            .numeric_worker_bytes()
+            .checked_add(1024)
+            .filter(|bytes| *bytes <= self.policy.worker_bytes)
+        else {
+            return self.worker(case, registrations, scope, budget);
+        };
+        scope
+            .check()
+            .map_err(pse_backend_native::ProblemError::Provider)?;
+        let reusable = staged::take_scratch(&origin, &case, budget, bytes);
+        let (scratch, charge) = match reusable {
+            Some((scratch, charge)) => (Some(scratch), charge),
+            None => match budget.charge(bytes) {
+                Ok(charge) => (None, charge),
+                // Reuse is optional. Its metadata must not reduce the existing
+                // scientific worker's policy or actual budget eligibility.
+                Err(_) => return self.worker(case, registrations, scope, budget),
+            },
+        };
+        let providers = attempt_providers(registrations, &scope)
+            .map_err(pse_backend_native::ProblemError::Provider)?;
+        let mut worker = match scratch {
+            Some(scratch) => case
+                .assembly
+                .worker_from_scratch(scratch, providers, scope)?,
+            None => case.assembly.worker_scoped(providers, scope),
+        };
+        let returned = charge.share();
+        let owner = case.clone();
+        worker.recycle_on_drop(move |scratch| {
+            staged::return_scratch(origin, owner, scratch, returned)
+        });
+        Ok(ExecutionWorker {
+            worker,
+            _case: case,
+            _charge: charge,
+        })
+    }
     /// Construct a mutable attempt evaluator after admission on its owning execution
     /// thread. It is the one construction path: its providers observe the attempt's
     /// cancellation, and its numeric storage is charged to the job's budget for as long as
@@ -815,7 +971,16 @@ impl MathService {
         if bytes > self.policy.worker_bytes {
             return Err(MathRuntimeError::Limit("worker storage"));
         }
-        let charge = budget.charge(bytes)?;
+        let charge = match budget.charge(bytes) {
+            Ok(charge) => charge,
+            Err(_) if staged::yield_idle_scratch(budget) => {
+                scope
+                    .check()
+                    .map_err(pse_backend_native::ProblemError::Provider)?;
+                budget.charge(bytes)?
+            }
+            Err(error) => return Err(error),
+        };
         scope
             .check()
             .map_err(pse_backend_native::ProblemError::Provider)?;

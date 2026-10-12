@@ -243,6 +243,12 @@ impl<O: Oracle> Anchored<O> {
     }
 }
 impl<O: Oracle> Oracle for Anchored<O> {
+    fn snapshot_owner(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        self.inner.snapshot_owner(bytes)
+    }
     fn contract(&self) -> &Contract {
         &self.contract
     }
@@ -310,7 +316,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                     self.evaluate_inner(mode, Function::Rhs, time, state, parameters, derivatives)?;
                 let mut values = f.values;
                 if derivatives {
-                    self.append(&mut triplets, f.jacobian.as_ref(), 0, |_| true)?;
+                    self.append(&mut triplets, f.jacobian.as_deref(), 0, |_| true)?;
                 }
                 if self.observed {
                     let g = self.evaluate_inner(
@@ -323,7 +329,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                     )?;
                     values.extend(g.values);
                     if derivatives {
-                        self.append(&mut triplets, g.jacobian.as_ref(), n, |_| true)?;
+                        self.append(&mut triplets, g.jacobian.as_deref(), n, |_| true)?;
                     }
                 }
                 let rows = values.len();
@@ -345,7 +351,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 values.extend(std::iter::repeat_n(0.0, quadratures));
                 if derivatives {
                     let differential = self.contract.differential.clone();
-                    self.append(&mut triplets, guess.jacobian.as_ref(), 0, |r| {
+                    self.append(&mut triplets, guess.jacobian.as_deref(), 0, |r| {
                         !differential[r]
                     })?;
                     for (k, i) in self.anchors.iter().enumerate() {
@@ -366,7 +372,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let mut values = y.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
-                    self.append(&mut triplets, y.jacobian.as_ref(), 0, |_| true)?;
+                    self.append(&mut triplets, y.jacobian.as_deref(), 0, |_| true)?;
                     for q in 0..quadratures {
                         triplets.push(faer::sparse::Triplet::new(self.m + q, n + q, 1.0));
                     }
@@ -385,7 +391,7 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let mut values = r.values;
                 values.extend_from_slice(&state[n..]);
                 if derivatives {
-                    self.append(&mut triplets, r.jacobian.as_ref(), 0, |_| true)?;
+                    self.append(&mut triplets, r.jacobian.as_deref(), 0, |_| true)?;
                     for q in 0..quadratures {
                         triplets.push(faer::sparse::Triplet::new(n + q, n + q, 1.0));
                     }
@@ -399,15 +405,37 @@ impl<O: Oracle> Oracle for Anchored<O> {
                 let v =
                     self.evaluate_inner(mode, function, time, state, parameters, derivatives)?;
                 if derivatives {
-                    self.append(&mut triplets, v.jacobian.as_ref(), 0, |_| true)?;
+                    self.append(&mut triplets, v.jacobian.as_deref(), 0, |_| true)?;
                 }
                 let rows = v.values.len();
                 (v.values, rows)
             }
         };
-        let jacobian = derivatives
-            .then(|| self.matrix(rows, &triplets))
-            .transpose()?;
+        let jacobian = if derivatives {
+            let columns = state
+                .len()
+                .checked_add(parameters.len())
+                .and_then(|n| n.checked_add(1))
+                .ok_or_else(|| ProblemError::memory("anchored snapshot columns"))?;
+            let bytes = triplets
+                .len()
+                .checked_mul(size_of::<usize>() + size_of::<f64>())
+                .and_then(|n| n.checked_add(columns.checked_mul(size_of::<usize>())?))
+                .and_then(|n| {
+                    n.checked_add(
+                        size_of::<faer::sparse::SparseColMat<usize, f64>>()
+                            + 2 * size_of::<usize>(),
+                    )
+                })
+                .ok_or_else(|| ProblemError::memory("anchored snapshot extent"))?;
+            let owner = self.inner.snapshot_owner(bytes)?;
+            Some(
+                pse_math::SharedAllocation::from(Arc::new(self.matrix(rows, &triplets)?))
+                    .with_owner(owner),
+            )
+        } else {
+            None
+        };
         Ok(Evaluation { values, jacobian })
     }
     fn weighted_hessian(

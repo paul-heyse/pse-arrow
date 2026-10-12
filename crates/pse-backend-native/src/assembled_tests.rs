@@ -116,6 +116,23 @@ fn split_native_callbacks_and_equality_root_views() {
     assert_eq!(out, [0.0]);
 }
 #[test]
+fn native_dense_trial_preserves_atomic_failure_and_recovers() {
+    let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
+    let mut oracle = assembled::AlgebraicOracle::new(
+        assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false))),
+        values.clone(),
+    )
+    .unwrap();
+    let mut output = [99.0];
+    NleOracle::residual(&mut oracle, &[7.0], &mut output).unwrap();
+    assert_eq!(output, [5.0]);
+    assert!(NleOracle::residual(&mut oracle, &[f64::INFINITY], &mut output).is_err());
+    assert_eq!(output, [5.0]);
+    assert!(NlpOracle::constraint_sources(&oracle).is_err());
+    NleOracle::residual(&mut oracle, &[4.0], &mut output).unwrap();
+    assert_eq!(output, [2.0]);
+}
+#[test]
 fn integrality_is_explicit_and_continuous_oracles_reject_it() {
     pse_math::initialize().unwrap();
     let (a, v) = fixture(ModelingVariableDomain::Integer);
@@ -163,4 +180,42 @@ fn explicit_cones_validate_storage_dimensions_parameters_and_psd() {
     p.quadratic.values[0] = 2.0;
     p.constraints.row_indices[0] = 2;
     assert!(p.validate(&cert).is_err());
+}
+
+#[test]
+fn shared_conditional_oracle_lends_one_worker_and_keeps_other_owners_private() {
+    let (assembly, values) = fixture(ModelingVariableDomain::Continuous);
+    let create = || {
+        assembled::SharedRootOracle::new(
+            assembled::AlgebraicOracle::compact(
+                assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false))),
+                |id| values.scalars.get(&id).copied(),
+            )
+            .unwrap(),
+        )
+        .unwrap()
+    };
+    let mut one = create();
+    let mut loan = one.clone();
+    let mut other = create();
+    let mut output = [99.0];
+    NleOracle::residual(&mut one, &[3.0], &mut output).unwrap();
+    assert_eq!(output, [1.0]);
+    NleOracle::residual(&mut other, &[8.0], &mut output).unwrap();
+    assert_eq!(output, [6.0]);
+    // A loan sees the same current source witness, the independent owner does not.
+    let loan_observation = NleOracle::observe(&loan, vec![1.0]).unwrap();
+    let other_observation = NleOracle::observe(&other, vec![6.0]).unwrap();
+    assert_eq!(loan_observation.sources[0].value, 3.0);
+    assert_eq!(other_observation.sources[0].value, 8.0);
+    assert!(
+        one.refill_inputs(&[(SemanticId::from_bytes([250; 16]), 0.0)])
+            .is_err()
+    );
+    assert!(NleOracle::observe(&loan, vec![1.0]).is_err());
+    NleOracle::residual(&mut loan, &[4.0], &mut output).unwrap();
+    assert_eq!(output, [2.0]);
+    assert!(NleOracle::observe(&one, vec![2.0]).is_ok());
+    NleOracle::jacobian_product(&mut loan, &[4.0], &[5.0], &mut output).unwrap();
+    assert_eq!(output, [5.0]);
 }

@@ -20,6 +20,39 @@ mod tests;
 
 tokio::task_local! {
     static OPERATION_DEADLINE: tokio::time::Instant;
+    static RESPONSE_OWNER: Arc<dyn std::fmt::Debug + Send + Sync>;
+}
+
+#[derive(Debug)]
+struct ResponseOwners {
+    _enclosing: Arc<dyn std::fmt::Debug + Send + Sync>,
+    _current: Arc<dyn std::fmt::Debug + Send + Sync>,
+}
+
+/// Carry the caller's actual response allocation into every nested native route.
+pub(crate) async fn response_ownership_scope<F: Future>(
+    owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    future: F,
+) -> F::Output {
+    let owner: Arc<dyn std::fmt::Debug + Send + Sync> = match RESPONSE_OWNER.try_with(Arc::clone) {
+        Ok(enclosing) => Arc::new(ResponseOwners {
+            _enclosing: enclosing,
+            _current: owner,
+        }),
+        Err(_) => owner,
+    };
+    RESPONSE_OWNER.scope(owner, future).await
+}
+
+/// Capture before spawning: Tokio tasks do not inherit the submitting scope.
+pub(crate) fn inherit_response_ownership<F: Future>(future: F) -> impl Future<Output = F::Output> {
+    let owner = RESPONSE_OWNER.try_with(Arc::clone).ok();
+    async move {
+        match owner {
+            Some(owner) => RESPONSE_OWNER.scope(owner, future).await,
+            None => future.await,
+        }
+    }
 }
 
 pub(crate) fn original_deadline(budget: Duration) -> tokio::time::Instant {
@@ -42,6 +75,19 @@ where
     tokio::time::timeout_at(deadline, OPERATION_DEADLINE.scope(deadline, future))
         .await
         .map_err(|_| super::CanonicalError::Timeout)?
+}
+
+/// Carry a caller's original clock through nested requests without dropping its
+/// enclosing effect owner. Individual requests still enforce their own bounds.
+pub(crate) async fn operation_scope<F: Future>(
+    deadline: std::time::Instant,
+    future: F,
+) -> F::Output {
+    let deadline = tokio::time::Instant::from_std(deadline);
+    let deadline = OPERATION_DEADLINE
+        .try_with(|enclosing| (*enclosing).min(deadline))
+        .unwrap_or(deadline);
+    OPERATION_DEADLINE.scope(deadline, future).await
 }
 
 pub(crate) struct CanonicalClient {
@@ -216,14 +262,19 @@ impl CanonicalClient {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default();
         let expiry = i64::try_from(utc.saturating_add(remaining).as_micros()).unwrap_or(i64::MAX);
-        self.client
+        let query = self
+            .client
             .query(query)
             .request_context(self.context(false))
             .bind(("pse_rpc_expires_at", expiry))
             .bind((
                 "pse_rpc_timeout",
                 surrealdb::types::Duration::from_std(remaining),
-            ))
+            ));
+        match RESPONSE_OWNER.try_with(Arc::clone) {
+            Ok(owner) => query.payload_owner(owner),
+            Err(_) => query,
+        }
     }
 
     pub(crate) fn control_query<'r>(
@@ -237,9 +288,12 @@ impl CanonicalClient {
         &self,
         resource: impl surrealdb::opt::IntoResource<O>,
     ) -> surrealdb::method::Select<'_, Client, O> {
-        self.client
-            .select(resource)
-            .request_context(self.context(false))
+        let context = self.context(false);
+        let context = match RESPONSE_OWNER.try_with(Arc::clone) {
+            Ok(owner) => context.with_payload_owner(owner),
+            Err(_) => context,
+        };
+        self.client.select(resource).request_context(context)
     }
 
     fn context(&self, control: bool) -> RequestContext {

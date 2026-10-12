@@ -135,6 +135,37 @@ pub(crate) struct ClosedStage {
 }
 
 pub(crate) const PRODUCT_BLOB_KIND: &str = "pse.product-blob.v1";
+pub(crate) const BODY_CONTENT_KIND: &str = "pse.body-content.v1";
+pub(crate) const SELECTION_RECEIPT_KIND: &str = "pse.selection-receipt.v1";
+const SPLIT_PRODUCT_KIND: &str = "pse.split-product.v1";
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ReceiptBlob {
+    pub(crate) version: String,
+    pub(crate) digest: String,
+    pub(crate) bytes: usize,
+}
+impl ReceiptBlob {
+    pub(crate) fn capture(dependencies: &[u8]) -> Result<Self, CanonicalError> {
+        if dependencies.len() > PRODUCT_DEPENDENCY_LIMIT {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        Ok(Self {
+            version: derive_hash(
+                Frame::CanonicalSelectionReceiptV1,
+                &[
+                    wire::INTERPRETATION.as_bytes(),
+                    SELECTION_RECEIPT_KIND.as_bytes(),
+                    dependencies,
+                ],
+            )
+            .to_hex(),
+            digest: payload_digest(dependencies),
+            bytes: dependencies.len(),
+        })
+    }
+}
+
 const PRODUCT_BLOB_LIMIT: usize = 128 * 1024 * 1024;
 const PRODUCT_PAYLOAD_LIMIT: usize = 65 * 1024 * 1024 + 4096;
 const PRODUCT_DEPENDENCY_LIMIT: usize = 32 * 1024 * 1024;
@@ -149,8 +180,54 @@ pub(crate) struct ProductBlob {
     pub(crate) bytes: usize,
     pub(crate) payload_bytes: usize,
     pub(crate) dependency_bytes: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) receipt: Option<ReceiptBlob>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub(crate) producer: String,
 }
 impl ProductBlob {
+    pub(crate) fn from_parts(
+        payload: &[u8],
+        dependencies: &[u8],
+        producer: &str,
+    ) -> Result<Self, CanonicalError> {
+        Self::with_receipt(payload, producer, ReceiptBlob::capture(dependencies)?)
+    }
+    pub(crate) fn with_receipt(
+        payload: &[u8],
+        producer: &str,
+        receipt: ReceiptBlob,
+    ) -> Result<Self, CanonicalError> {
+        if payload.len() > PRODUCT_PAYLOAD_LIMIT
+            || receipt.bytes > PRODUCT_DEPENDENCY_LIMIT
+            || producer.len() > IDENTITY_BYTES
+            || producer.is_empty()
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        Ok(Self {
+            frame: SPLIT_PRODUCT_KIND.into(),
+            version: derive_hash(
+                Frame::CanonicalBodyContentV1,
+                &[
+                    wire::INTERPRETATION.as_bytes(),
+                    BODY_CONTENT_KIND.as_bytes(),
+                    producer.as_bytes(),
+                    payload,
+                ],
+            )
+            .to_hex(),
+            digest: payload_digest(payload),
+            bytes: payload
+                .len()
+                .checked_add(receipt.bytes)
+                .ok_or(CanonicalError::PayloadLimit)?,
+            payload_bytes: payload.len(),
+            dependency_bytes: receipt.bytes,
+            producer: producer.into(),
+            receipt: Some(receipt),
+        })
+    }
     pub(crate) fn decode(bytes: &[u8]) -> Result<Self, CanonicalError> {
         if bytes.len() > 4096 {
             return Err(CanonicalError::PayloadLimit);
@@ -158,12 +235,41 @@ impl ProductBlob {
         let value: Self = serde_json::from_slice(bytes).map_err(|error| {
             CanonicalError::Configuration(format!("product descriptor: {error}"))
         })?;
+        if value.receipt.is_some() {
+            let receipt = value.receipt.as_ref().ok_or(CanonicalError::PayloadLimit)?;
+            if value.frame != SPLIT_PRODUCT_KIND
+                || value.bytes
+                    != value
+                        .payload_bytes
+                        .checked_add(value.dependency_bytes)
+                        .ok_or(CanonicalError::PayloadLimit)?
+                || receipt.bytes != value.dependency_bytes
+                || value.payload_bytes > PRODUCT_PAYLOAD_LIMIT
+                || receipt.bytes > PRODUCT_DEPENDENCY_LIMIT
+                || value.producer.len() > IDENTITY_BYTES
+                || value.producer.is_empty()
+                || [
+                    &value.version,
+                    &value.digest,
+                    &receipt.version,
+                    &receipt.digest,
+                ]
+                .iter()
+                .any(|v| v.len() != 64 || !v.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(CanonicalError::Configuration(
+                    "split product descriptor invalid".into(),
+                ));
+            }
+            return Ok(value);
+        }
         let expected = PRODUCT_BLOB_MAGIC
             .len()
             .checked_add(16)
             .and_then(|n| n.checked_add(value.payload_bytes))
             .and_then(|n| n.checked_add(value.dependency_bytes));
         if value.frame != PRODUCT_BLOB_KIND
+            || !value.producer.is_empty()
             || expected != Some(value.bytes)
             || value.bytes > PRODUCT_BLOB_LIMIT
             || value.payload_bytes > PRODUCT_PAYLOAD_LIMIT
@@ -194,27 +300,27 @@ impl ProductBlob {
             .and_then(|n| n.checked_add(64 * 1024 * 1024))
             .ok_or(CanonicalError::PayloadLimit)
     }
-    // Borrow only material encoded by this module. Public receiving qualification still
-    // uses `split`, which verifies magic, length and both exact hashes before decoding.
-    pub(crate) fn encoded_parts<'a>(
-        &self,
-        bytes: &'a [u8],
-    ) -> Result<(&'a [u8], &'a [u8]), CanonicalError> {
-        let start = PRODUCT_BLOB_MAGIC.len() + 16;
-        let end = start
-            .checked_add(self.payload_bytes)
-            .ok_or(CanonicalError::PayloadLimit)?;
-        if bytes.len() != self.bytes || end > bytes.len() {
-            return Err(CanonicalError::Configuration(
-                "encoded product extent differs".into(),
-            ));
-        }
-        Ok((&bytes[start..end], &bytes[end..]))
-    }
     pub(crate) fn split<'a>(
         &self,
         bytes: &'a [u8],
     ) -> Result<(&'a [u8], &'a [u8]), CanonicalError> {
+        if let Some(receipt) = &self.receipt {
+            if bytes.len() != self.bytes {
+                return Err(CanonicalError::Configuration(
+                    "split product extent differs".into(),
+                ));
+            }
+            let (payload, dependencies) = bytes.split_at(self.payload_bytes);
+            if Self::from_parts(payload, dependencies, &self.producer)? != *self
+                || payload_digest(payload) != self.digest
+                || payload_digest(dependencies) != receipt.digest
+            {
+                return Err(CanonicalError::Configuration(
+                    "split product exact hashes differ".into(),
+                ));
+            }
+            return Ok((payload, dependencies));
+        }
         let header = PRODUCT_BLOB_MAGIC.len();
         if bytes.len() != self.bytes
             || !bytes.starts_with(PRODUCT_BLOB_MAGIC)
@@ -237,6 +343,7 @@ impl ProductBlob {
     }
 }
 
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn product_blob(
     payload: &[u8],
     dependencies: &[u8],
@@ -258,6 +365,8 @@ pub(crate) fn product_blob(
         bytes: bytes.len(),
         payload_bytes: payload.len(),
         dependency_bytes: dependencies.len(),
+        receipt: None,
+        producer: String::new(),
     };
     let edit = ObjectEdit {
         logical: PRODUCT_BLOB_KIND.into(),
@@ -544,9 +653,12 @@ impl CanonicalStore {
         edits: &[ObjectEdit],
     ) -> Result<StageOutcome, CanonicalError> {
         if edits.iter().any(|edit| {
-            edit.version
-                .as_ref()
-                .is_some_and(|version| version.kind == PRODUCT_BLOB_KIND)
+            edit.version.as_ref().is_some_and(|version| {
+                matches!(
+                    version.kind.as_str(),
+                    PRODUCT_BLOB_KIND | BODY_CONTENT_KIND | SELECTION_RECEIPT_KIND
+                )
+            })
         }) {
             return Err(CanonicalError::Configuration(
                 "reserved product blobs cannot author source revisions".into(),
@@ -640,37 +752,129 @@ impl CanonicalStore {
         .await
     }
 
-    pub(crate) async fn stage_product_blob(
+    /// Stage two immutable physical products without cloning either retained byte owner.
+    pub(crate) async fn stage_product_parts(
         &self,
         problem: &str,
         operation: &str,
-        edit: ObjectEdit,
+        descriptor: &ProductBlob,
+        payload: &[u8],
+        dependencies: &[u8],
     ) -> Result<Option<ClosedStage>, CanonicalError> {
-        crate::canonical::transport::within_clock(
-            crate::canonical::transport::original_deadline(
-                crate::canonical::ACTIVATION_REQUEST_TIMEOUT,
+        let receipt = descriptor
+            .receipt
+            .as_ref()
+            .ok_or_else(|| CanonicalError::Configuration("split receipt missing".into()))?;
+        if descriptor.payload_bytes != payload.len()
+            || descriptor.dependency_bytes != dependencies.len()
+            || receipt.bytes != dependencies.len()
+            || descriptor.frame != SPLIT_PRODUCT_KIND
+        {
+            return Err(CanonicalError::Configuration(
+                "borrowed immutable product staging extent differs".into(),
+            ));
+        }
+        let parts = [
+            (BODY_CONTENT_KIND, descriptor.version.as_str(), payload),
+            (
+                SELECTION_RECEIPT_KIND,
+                receipt.version.as_str(),
+                dependencies,
             ),
-            async {
-                let edits = [edit];
-                let plan = plan(problem, None, &edits)?;
-                let Some(token) = self
-                    .begin_stage_inner(
-                        problem,
-                        None,
-                        operation,
-                        &plan,
-                        STAGE_LIFETIME,
-                        StagePurpose::Product,
-                    )
-                    .await?
-                else {
-                    return Ok(None);
+        ];
+        let changes = parts
+            .iter()
+            .enumerate()
+            .map(|(ordinal, (kind, key, bytes))| {
+                let len = bytes.len() as u64;
+                let digest = if ordinal == 0 {
+                    descriptor.digest.clone()
+                } else {
+                    receipt.digest.clone()
                 };
-                self.stage_plan(&token, &plan, &edits).await?;
-                Ok(Some(token))
-            },
-        )
-        .await
+                let content_digest = derive_hash(
+                    Frame::CanonicalVersionV1,
+                    &[
+                        kind.as_bytes(),
+                        kind.as_bytes(),
+                        wire::INTERPRETATION.as_bytes(),
+                        &len.to_le_bytes(),
+                        digest.as_bytes(),
+                        b"[]",
+                    ],
+                )
+                .to_hex();
+                ChangeDescription {
+                    logical: (*kind).into(),
+                    scope: (*kind).into(),
+                    name: (*kind).into(),
+                    version: Some(VersionDescription {
+                        key: (*key).into(),
+                        logical: (*kind).into(),
+                        kind: (*kind).into(),
+                        interpretation: wire::INTERPRETATION.into(),
+                        payload_digest: digest,
+                        payload_len: len,
+                        block_count: bytes.len().div_ceil(SOURCE_BLOCK_BYTES) as u64,
+                        reference_count: 0,
+                        content_digest,
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
+        let encoded = serde_json::to_vec(&(problem, Option::<&str>::None, &changes))
+            .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
+        let hash = derive_hash(
+            Frame::CanonicalEditV1,
+            &[wire::INTERPRETATION.as_bytes(), &encoded],
+        );
+        let plan = EditPlan {
+            changes,
+            request: hash.as_bytes().to_vec(),
+            request_digest: hash.to_hex(),
+        };
+        let Some(token) = self
+            .begin_stage_inner(
+                problem,
+                None,
+                operation,
+                &plan,
+                STAGE_LIFETIME,
+                StagePurpose::Product,
+            )
+            .await?
+        else {
+            return Ok(None);
+        };
+        for (ordinal, (change, (_, key, bytes))) in plan.changes.iter().zip(parts).enumerate() {
+            self.stage_metadata(&token, ordinal, change).await?;
+            let header: Option<Object> =
+                request(self.db.select(("canonical_version_manifests", key))).await?;
+            let closed = header
+                .map(wire::decode_canonical_version_manifests)
+                .transpose()?
+                .is_some_and(|header| header.closed);
+            if !closed {
+                for (ordinal, bytes) in bytes.chunks(SOURCE_BLOCK_BYTES).enumerate() {
+                    self.stage_query(
+                        "canonical_staging::stage_product_parts",
+                        &token,
+                        STAGE_BLOCK,
+                        vec![("block", source_block(key, ordinal as u64, bytes)?)],
+                    )
+                    .await?;
+                }
+                self.stage_query(
+                    "canonical_staging::stage_product_parts",
+                    &token,
+                    CLOSE_VERSION,
+                    vec![("version", Value::String(key.into()))],
+                )
+                .await?;
+            }
+        }
+        self.close_stage(&token).await?;
+        Ok(Some(token))
     }
 
     async fn stage_plan(
@@ -1283,46 +1487,135 @@ impl CanonicalStore {
         product: &pse_model::generated::runtime::canonical_products::Row,
         descriptor: &ProductBlob,
     ) -> Result<(), CanonicalError> {
-        let row = self
+        let receipt = descriptor.receipt.as_ref().ok_or_else(|| {
+            CanonicalError::Configuration("historical product needs explicit activation".into())
+        })?;
+        let content = self
             .authorized_record(
-                "canonical_version_manifests",
+                "canonical_body_contents",
                 &descriptor.version,
                 Some(selection),
                 &descriptor.version,
                 Some(product),
             )
             .await?
-            .ok_or_else(|| CanonicalError::Configuration("product manifest absent".into()))?;
-        let header = wire::decode_canonical_version_manifests(row)?;
-        if !header.closed
-            || header.key != descriptor.version
-            || header.logical != PRODUCT_BLOB_KIND
-            || header.kind != PRODUCT_BLOB_KIND
-            || header.interpretation != wire::INTERPRETATION
-            || header.reference_count != 0
-            || header.payload_len != descriptor.bytes as u64
-            || header.payload_digest != descriptor.digest
-            || header.block_count != descriptor.bytes.div_ceil(SOURCE_BLOCK_BYTES) as u64
+            .ok_or_else(|| {
+                CanonicalError::Configuration("immutable body content record absent".into())
+            })?;
+        let content = wire::decode_canonical_body_contents(content)?;
+        let selected = self
+            .authorized_record(
+                "canonical_selection_receipts",
+                &receipt.version,
+                Some(selection),
+                &receipt.version,
+                Some(product),
+            )
+            .await?
+            .ok_or_else(|| {
+                CanonicalError::Configuration("immutable selection receipt record absent".into())
+            })?;
+        let selected = wire::decode_canonical_selection_receipts(selected)?;
+        if content.key != descriptor.version
+            || content.version != descriptor.version
+            || content.digest != descriptor.digest
+            || content.bytes != descriptor.payload_bytes as u64
+            || content.producer != product.producer
+            || content.interpretation != wire::INTERPRETATION
+            || content.format != BODY_CONTENT_KIND
+            || selected.key != receipt.version
+            || selected.version != receipt.version
+            || selected.digest != receipt.digest
+            || selected.bytes != receipt.bytes as u64
+            || selected.interpretation != wire::INTERPRETATION
+            || selected.format != SELECTION_RECEIPT_KIND
         {
             return Err(CanonicalError::Configuration(
-                "product descriptor/header mismatch".into(),
+                "immutable body/receipt reconstruction metadata differs".into(),
             ));
+        }
+        for (kind, key, digest, bytes) in [
+            (
+                BODY_CONTENT_KIND,
+                descriptor.version.as_str(),
+                descriptor.digest.as_str(),
+                descriptor.payload_bytes,
+            ),
+            (
+                SELECTION_RECEIPT_KIND,
+                receipt.version.as_str(),
+                receipt.digest.as_str(),
+                receipt.bytes,
+            ),
+        ] {
+            let row = self
+                .authorized_record(
+                    "canonical_version_manifests",
+                    key,
+                    Some(selection),
+                    key,
+                    Some(product),
+                )
+                .await?
+                .ok_or_else(|| CanonicalError::Configuration("product manifest absent".into()))?;
+            let header = wire::decode_canonical_version_manifests(row)?;
+            if !header.closed
+                || header.key != key
+                || header.logical != kind
+                || header.kind != kind
+                || header.interpretation != wire::INTERPRETATION
+                || header.reference_count != 0
+                || header.payload_len != bytes as u64
+                || header.payload_digest != digest
+                || header.block_count != bytes.div_ceil(SOURCE_BLOCK_BYTES) as u64
+            {
+                return Err(CanonicalError::Configuration(
+                    "product descriptor/header mismatch".into(),
+                ));
+            }
         }
         Ok(())
     }
-
     pub(crate) async fn assemble_product_blob(
         &self,
         selection: &ProtectedSelection,
         product: &pse_model::generated::runtime::canonical_products::Row,
         descriptor: &ProductBlob,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
-        self.assemble_source(
-            Some(selection),
-            &descriptor.version,
-            Some((product, descriptor)),
-        )
-        .await
+        self.validate_product_candidate(selection, product, descriptor)
+            .await?;
+        let receipt = descriptor
+            .receipt
+            .as_ref()
+            .ok_or(CanonicalError::PayloadLimit)?;
+        let Some(mut body) = self
+            .assemble_source(
+                Some(selection),
+                &descriptor.version,
+                Some((product, descriptor)),
+            )
+            .await?
+        else {
+            return Ok(None);
+        };
+        let Some(receipt) = self
+            .assemble_source(
+                Some(selection),
+                &receipt.version,
+                Some((product, descriptor)),
+            )
+            .await?
+        else {
+            return Ok(None);
+        };
+        let mut bytes = std::mem::take(&mut body.payload).into_vec();
+        bytes
+            .try_reserve_exact(receipt.payload.len())
+            .map_err(|e| CanonicalError::Configuration(format!("product assembly: {e}")))?;
+        bytes.extend_from_slice(receipt.payload.as_slice());
+        descriptor.split(&bytes)?;
+        body.payload = bytes.into();
+        Ok(Some(body))
     }
 
     async fn source_record(
@@ -1349,7 +1642,7 @@ impl CanonicalStore {
                 CanonicalError::Configuration("product read requires protection".into())
             })?;
             let sql = format!(
-                "{PROTECTED_BEGIN}\nLET $saved = SELECT * FROM ONLY type::record('canonical_products', $product.key);\nLET $root = SELECT * FROM ONLY type::record('canonical_roots', $product.key);\nLET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $product.key + ':0');\nLET $stage = SELECT * FROM ONLY type::record('canonical_stages', $product.key);\nIF $saved = NONE OR $saved.key != $product.key OR $saved.problem != $problem OR $saved.problem != $product.problem OR $saved.revision != $product.revision OR $saved.payload != $product.payload OR $saved.dependencies != $product.dependencies OR $saved.request != $product.request OR $saved.producer != $product.producer OR $saved.interpretation != $product.interpretation OR $root = NONE OR $root.problem != $saved.problem OR $root.revision != $saved.revision OR $root.owner_kind != 'product' OR $root.owner != $saved.key OR $child = NONE OR $child.stage != $saved.key OR $child.version != $version OR $child.logical != $reserved OR $child.scope != $reserved OR $child.name != $reserved OR $stage = NONE OR $stage.problem != $saved.problem OR $stage.closed = false OR $stage.activated = false OR $stage.abandoned {{ THROW 'product blob authorization unavailable'; }};\nLET $pse_rpc_result = SELECT * FROM ONLY type::record($table, $key) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result;\nCOMMIT;"
+                "{PROTECTED_BEGIN}\nLET $saved=SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);\nLET $root=SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;\nIF $saved=NONE OR $saved.key!=$product.key OR $saved.issuing_store!=$product.issuing_store OR $saved.problem!=$problem OR $saved.problem!=$product.problem OR $saved.revision!=$product.revision OR $saved.payload!=$product.payload OR $saved.dependencies!=$product.dependencies OR $saved.request!=$product.request OR $saved.content!=$product.content OR $saved.receipt!=$product.receipt OR $saved.descriptor!=$product.descriptor OR $saved.producer!=$product.producer OR $saved.interpretation!=$product.interpretation OR $root=NONE OR $root.problem!=$saved.problem OR $root.revision!=$saved.revision OR $root.owner_kind!='product' OR $root.owner!=$saved.key OR $version NOT IN [$saved.content,$saved.receipt] {{ THROW 'product physical authorization unavailable'; }};\nLET $pse_rpc_result=SELECT * FROM ONLY type::record($table,$key) TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at<=time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $pse_rpc_result; COMMIT;"
             );
             let mut response = self
                 .protected_query(
@@ -1367,8 +1660,12 @@ impl CanonicalStore {
                                 "sequence",
                                 canonical_codec::encode_uint(selection.revision().sequence)?,
                             ))
-                            .bind(("product", wire::encode_canonical_products(product)?))
-                            .bind(("reserved", PRODUCT_BLOB_KIND.to_owned()))
+                            .bind((
+                                "product",
+                                wire::encode_canonical_product_associations(
+                                    &self.product_association_row(product)?,
+                                )?,
+                            ))
                             .bind(("version", version.to_owned()))
                             .bind(("table", table.to_owned()))
                             .bind(("key", key.to_owned())))
@@ -1420,17 +1717,39 @@ impl CanonicalStore {
         }
         let length =
             usize::try_from(header.payload_len).map_err(|_| CanonicalError::PayloadLimit)?;
-        if let Some((_, descriptor)) = product
-            && (header.logical != PRODUCT_BLOB_KIND
-                || header.kind != PRODUCT_BLOB_KIND
+        if let Some((_, descriptor)) = product {
+            let receipt = descriptor
+                .receipt
+                .as_ref()
+                .ok_or(CanonicalError::PayloadLimit)?;
+            let (kind, digest, bytes) = if version == descriptor.version {
+                (
+                    BODY_CONTENT_KIND,
+                    descriptor.digest.as_str(),
+                    descriptor.payload_bytes,
+                )
+            } else if version == receipt.version {
+                (
+                    SELECTION_RECEIPT_KIND,
+                    receipt.digest.as_str(),
+                    receipt.bytes,
+                )
+            } else {
+                return Err(CanonicalError::Configuration(
+                    "unassociated product physical version".into(),
+                ));
+            };
+            if header.logical != kind
+                || header.kind != kind
                 || header.reference_count != 0
-                || header.payload_digest != descriptor.digest
-                || header.payload_len != descriptor.bytes as u64
-                || length > PRODUCT_BLOB_LIMIT)
-        {
-            return Err(CanonicalError::Configuration(
-                "product manifest differs from descriptor".into(),
-            ));
+                || header.payload_digest != digest
+                || header.payload_len != bytes as u64
+                || length > PRODUCT_BLOB_LIMIT
+            {
+                return Err(CanonicalError::Configuration(
+                    "product manifest differs from descriptor".into(),
+                ));
+            }
         }
         let expected_blocks = u64::try_from(length.div_ceil(SOURCE_BLOCK_BYTES))
             .map_err(|_| CanonicalError::PayloadLimit)?;
@@ -1527,7 +1846,7 @@ UPSERT type::record('canonical_stages', $operation) SET key = $operation, proble
     expires_at = time::micros() + $lifetime, closed = false, activated = false, edit_count = $edit_count,
     generation = ($old.generation ?? 0dec) + 1dec, abandoned = false, cleanup_complete = false;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 LET $pse_rpc_result = IF $busy { {acquired:false} } ELSE { {acquired:true, stage:(SELECT * FROM ONLY type::record('canonical_stages', $operation))} };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -1545,7 +1864,7 @@ IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generati
 const STAGE_END: &str = r#"IF $lease.expires_at <= time::micros() { THROW 'staging lease expired before renewal'; };
 UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $lease.expires_at <= time::micros() { THROW 'staging lease expired before commit'; };
 COMMIT;"#;
@@ -1562,7 +1881,7 @@ const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false AND $lease.expires_at 
 IF $lease.closed = false {
     UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
     UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-    UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+    fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'staging close lease expired before commit'; };
@@ -1639,8 +1958,9 @@ LET $members = SELECT key FROM canonical_memberships WHERE version = $version AN
 LET $stages = SELECT key FROM canonical_staged_edits WHERE version = $version AND ($excluded_stage = NONE OR stage != $excluded_stage)
     AND type::record('canonical_stages', stage).activated = false AND type::record('canonical_stages', stage).abandoned = false
     AND type::record('canonical_stages', stage).expires_at > time::micros() LIMIT 1;
-LET $products = SELECT key FROM canonical_staged_edits WHERE version = $version AND scope = 'pse.product-blob.v1' AND type::record('canonical_products', stage).key = stage AND type::record('canonical_roots', stage).owner_kind = 'product' AND type::record('canonical_roots', stage).owner = stage AND type::record('canonical_roots', stage).problem = type::record('canonical_products', stage).problem AND type::record('canonical_roots', stage).revision = type::record('canonical_products', stage).revision LIMIT 1;
-LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array::len($products) != 0 {
+LET $archives = SELECT key FROM canonical_product_associations WITH INDEX product_association_archive WHERE historical_blob != NONE AND historical_blob = $version LIMIT 1;
+LET $products = SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1;
+LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array::len($products) != 0 OR array::len($archives) != 0 {
     {version:false, blocks:0dec, edges:0dec, pending:false}
 } ELSE {
     LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
@@ -1701,7 +2021,7 @@ impl CanonicalStore {
             let key =
                 canonical_codec::decode_string(canonical_codec::required(&mut child, "key")?)?;
             let query = format!(
-                "{CLEANUP_STAGE_BEGIN}\nLET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $root = SELECT * FROM ONLY type::record('canonical_roots', $operation);\nLET $keep = $child.scope = 'pse.product-blob.v1' AND $root != NONE AND $root.owner_kind = 'product' AND $root.owner = $operation AND $root.problem = $problem AND type::record('canonical_products', $operation).revision = $root.revision;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\n{CLEANUP_STAGE_END}\nLET $pse_rpc_result = $result;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
+                "{CLEANUP_STAGE_BEGIN}\nLET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $archived = SELECT key FROM canonical_product_associations WITH INDEX product_association_archive WHERE historical_blob != NONE AND historical_blob = $version LIMIT 1;\nLET $keep = array::len($archived) != 0 OR $child.scope IN ['pse.body-content.v1','pse.selection-receipt.v1'] AND array::len((SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1)) != 0;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\n{CLEANUP_STAGE_END}\nLET $pse_rpc_result = $result;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
             );
             let mut decision = self
                 .cleanup_stage_query(problem, &operation, &query, Some(&key))
@@ -1733,7 +2053,7 @@ impl CanonicalStore {
             }
         }
         let query = format!(
-            "{CLEANUP_STAGE_BEGIN}\n{CLEANUP_STAGE_END}\nLET $all_remaining = SELECT key FROM canonical_staged_edits WHERE stage = $operation LIMIT 1;\nLET $root = SELECT * FROM ONLY type::record('canonical_roots', $operation);\nLET $rooted_product = $root != NONE AND $root.owner_kind = 'product' AND $root.owner = $operation AND $root.problem = $problem AND type::record('canonical_products', $operation).revision = $root.revision;\nLET $remaining = $all_remaining.filter(|$child| $rooted_product = false);\nIF $eligible AND array::len($all_remaining) = 0 {{ UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; }};\nLET $pse_rpc_result = {{pending:array::len($remaining) != 0}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
+            "{CLEANUP_STAGE_BEGIN}\n{CLEANUP_STAGE_END}\nLET $all_remaining = SELECT key, scope, version FROM canonical_staged_edits WHERE stage = $operation LIMIT 65;\nLET $remaining = $all_remaining.filter(|$child| {{ LET $archived = SELECT key FROM canonical_product_associations WITH INDEX product_association_archive WHERE historical_blob != NONE AND historical_blob = $child.version LIMIT 1; LET $protected = SELECT key FROM canonical_product_associations WHERE (content = $child.version OR receipt = $child.version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1; array::len($archived) = 0 AND ($child.scope NOT IN ['pse.body-content.v1','pse.selection-receipt.v1'] OR array::len($protected) = 0) }});\nIF $eligible AND array::len($all_remaining) = 0 {{ UPDATE type::record('canonical_stages', $operation) SET cleanup_complete = true; }};\nLET $pse_rpc_result = {{pending:array::len($remaining) != 0}};\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nRETURN $pse_rpc_result;\nCOMMIT;"
         );
         let mut decision = self
             .cleanup_stage_query(problem, &operation, &query, None)
@@ -1795,6 +2115,7 @@ impl CanonicalStore {
 }
 
 const CLEANUP_STAGE_BEGIN: &str = r#"BEGIN;
+fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -1804,7 +2125,7 @@ LET $eligible = $lease != NONE AND $lease.problem = $problem AND ($lease.activat
 IF $eligible AND $lease.activated = false { UPDATE type::record('canonical_stages', $operation) SET abandoned = true, closed = false, generation = generation + 1dec; };"#;
 
 const CLEANUP_STAGE_END: &str = r#"UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;"#;
+UPSERT $retention_guard SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;"#;
 
 fn describe(
     version: &ObjectVersion,
@@ -2030,6 +2351,303 @@ mod canonical_server_unit {
         wire::decode_canonical_guards(row.unwrap())
             .unwrap()
             .generation
+    }
+
+    #[tokio::test]
+    async fn migrated_archive_survives_last_root_release_and_exhaustive_reclamation() {
+        use crate::canonical_preparation_activation::{
+            ActivationBinding, HistoricalProduct, PreparationBackfill,
+        };
+        use pse_model::generated::runtime::{
+            canonical_products::Row as Product, canonical_roots::Row as Root,
+        };
+        let (store, database) = fixture().await;
+        let revision = store
+            .edit("problem", None, "archive-source", &[])
+            .await
+            .unwrap();
+        let premises = serde_json::to_vec(
+            &serde_json::json!({"interpretation":wire::INTERPRETATION,"premises":[]}),
+        )
+        .unwrap();
+        let (original_descriptor, original_edit) =
+            product_blob(&vec![71; SOURCE_BLOCK_BYTES * 2 + 17], &premises).unwrap();
+        let original_blob = original_edit.version.as_ref().unwrap().clone();
+        let original_plan = plan("problem", None, std::slice::from_ref(&original_edit)).unwrap();
+        let original_stage = store
+            .begin_stage_inner(
+                "problem",
+                None,
+                "archived-publication",
+                &original_plan,
+                STAGE_LIFETIME,
+                StagePurpose::Product,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        store
+            .stage_plan(&original_stage, &original_plan, &[original_edit])
+            .await
+            .unwrap();
+        let product = Product {
+            key: original_stage.operation.clone(),
+            problem: revision.problem.clone(),
+            revision: revision.key.clone(),
+            request: b"original-request".to_vec().into(),
+            payload: serde_json::to_vec(&original_descriptor).unwrap().into(),
+            dependencies: Vec::new().into(),
+            producer: "historical-producer".into(),
+            interpretation: wire::INTERPRETATION.into(),
+        };
+        let root = Root {
+            key: product.key.clone(),
+            problem: revision.problem.clone(),
+            revision: revision.key.clone(),
+            sequence: revision.sequence,
+            owner_kind: "product".into(),
+            owner: product.key.clone(),
+        };
+        bounded_query(store.db.query("CREATE type::record('canonical_products',$key) CONTENT $product; CREATE type::record('canonical_roots',$key) CONTENT $root; UPDATE type::record('canonical_stages',$key) SET activated=true;")
+            .bind(("key",product.key.clone())).bind(("product",wire::encode_canonical_products(&product).unwrap())).bind(("root",wire::encode_canonical_roots(&root).unwrap()))).await.unwrap();
+        let backfill = PreparationBackfill::derive(
+            ActivationBinding {
+                migration: "isolated-archive-control".into(),
+                issuing_store: store.issuing_store().unwrap().into(),
+                old_schema_digest: "exact-original-fixture".into(),
+                snapshot: "isolated-retained-snapshot".into(),
+                borrowers: "isolated-borrowers".into(),
+            },
+            vec![HistoricalProduct {
+                product: product.clone(),
+                root,
+                blob: original_blob.clone(),
+            }],
+            std::sync::Arc::new(()),
+        )
+        .unwrap();
+        // Installing a derived snapshot into this isolated test database exercises
+        // ordinary collectors; this is not the production offline effect executor.
+        macro_rules! install {
+            ($table:literal,$rows:expr,$encode:path) => {
+                for row in $rows {
+                    bounded_query(
+                        store
+                            .db
+                            .query("CREATE type::record($table,$key) CONTENT $row;")
+                            .bind(("table", $table))
+                            .bind(("key", row.key.clone()))
+                            .bind(("row", $encode(row).unwrap())),
+                    )
+                    .await
+                    .unwrap();
+                }
+            };
+        }
+        install!(
+            "canonical_body_contents",
+            &backfill.contents,
+            wire::encode_canonical_body_contents
+        );
+        install!(
+            "canonical_selection_receipts",
+            &backfill.receipts,
+            wire::encode_canonical_selection_receipts
+        );
+        install!(
+            "canonical_product_associations",
+            &backfill.associations,
+            wire::encode_canonical_product_associations
+        );
+        install!(
+            "canonical_product_descriptors",
+            &backfill.descriptors,
+            wire::encode_canonical_product_descriptors
+        );
+        install!(
+            "canonical_stages",
+            &backfill.stages,
+            wire::encode_canonical_stages
+        );
+        install!(
+            "canonical_staged_edits",
+            &backfill.staged_edits,
+            wire::encode_canonical_staged_edits
+        );
+        install!(
+            "canonical_version_manifests",
+            &backfill.manifests,
+            wire::encode_canonical_version_manifests
+        );
+        install!(
+            "canonical_version_receipts",
+            &backfill.version_receipts,
+            wire::encode_canonical_version_receipts
+        );
+        install!(
+            "canonical_payload_blocks",
+            &backfill.blocks,
+            wire::encode_canonical_payload_blocks
+        );
+        let archive_header: Option<Object> = request(
+            store
+                .db
+                .select(("canonical_version_manifests", original_blob.key.as_str())),
+        )
+        .await
+        .unwrap();
+        let archive_stage: Option<Object> =
+            request(store.db.select(("canonical_stages", product.key.as_str())))
+                .await
+                .unwrap();
+        let archive_edit: Option<Object> = request(
+            store
+                .db
+                .select(("canonical_staged_edits", format!("{}:0", product.key))),
+        )
+        .await
+        .unwrap();
+        let mut archived_blocks=bounded_query(store.db.query("SELECT * FROM canonical_payload_blocks WHERE version=$version ORDER BY ordinal;").bind(("version",original_blob.key.clone()))).await.unwrap();
+        let archived_blocks: Vec<Object> = archived_blocks.take(0).unwrap();
+        let archive_receipt: Option<Object> = request(
+            store
+                .db
+                .select(("canonical_version_receipts", original_blob.key.as_str())),
+        )
+        .await
+        .unwrap();
+        store
+            .drop_retained_root(
+                &revision,
+                &crate::canonical_retention::RetentionOwner::Product(product.key.clone()),
+            )
+            .await
+            .unwrap();
+        // An unrelated abandoned source stage remains disposable in the same pass.
+        let disposable = [edit(
+            "disposable-unmigrated",
+            "unused",
+            SOURCE_BLOCK_BYTES + 5,
+        )];
+        let disposable_plan = plan("problem", Some(&revision.key), &disposable).unwrap();
+        let disposable_stage = store
+            .begin_stage(
+                "problem",
+                Some(&revision.key),
+                "disposable-stage",
+                &disposable_plan,
+                STAGE_LIFETIME,
+            )
+            .await
+            .unwrap();
+        store
+            .stage_plan(&disposable_stage, &disposable_plan, &disposable)
+            .await
+            .unwrap();
+        bounded_query(store.db.query("UPDATE type::record('canonical_stages','disposable-stage') SET abandoned=true,expires_at=0;")).await.unwrap();
+        for _ in 0..3 {
+            let mut cursor = String::new();
+            for page_number in 0..128 {
+                let page = store
+                    .reclaim_staging_page("problem", &cursor)
+                    .await
+                    .unwrap();
+                match page.after {
+                    Some(next) => cursor = next,
+                    None => break,
+                }
+                assert!(
+                    page_number < 127,
+                    "archive retention must not stall the bounded collector cursor"
+                );
+            }
+            let mut cursor = String::new();
+            for page_number in 0..128 {
+                let page = store.reclaim_page("problem", &cursor).await.unwrap();
+                match page.after {
+                    Some(next) => cursor = next,
+                    None => break,
+                }
+                assert!(page_number < 127);
+            }
+        }
+        assert_eq!(
+            request::<_, Option<Object>>(
+                store
+                    .db
+                    .select(("canonical_version_manifests", original_blob.key.as_str()))
+            )
+            .await
+            .unwrap(),
+            archive_header
+        );
+        assert_eq!(
+            request::<_, Option<Object>>(
+                store
+                    .db
+                    .select(("canonical_version_receipts", original_blob.key.as_str()))
+            )
+            .await
+            .unwrap(),
+            archive_receipt
+        );
+        assert_eq!(
+            request::<_, Option<Object>>(
+                store.db.select(("canonical_stages", product.key.as_str()))
+            )
+            .await
+            .unwrap(),
+            archive_stage
+        );
+        assert_eq!(
+            request::<_, Option<Object>>(
+                store
+                    .db
+                    .select(("canonical_staged_edits", format!("{}:0", product.key)))
+            )
+            .await
+            .unwrap(),
+            archive_edit
+        );
+        let mut blocks=bounded_query(store.db.query("SELECT * FROM canonical_payload_blocks WHERE version=$version ORDER BY ordinal;").bind(("version",original_blob.key.clone()))).await.unwrap();
+        assert_eq!(blocks.take::<Vec<Object>>(0).unwrap(), archived_blocks);
+        let original: Option<Object> = request(
+            store
+                .db
+                .select(("canonical_products", product.key.as_str())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            wire::decode_canonical_products(original.unwrap()).unwrap(),
+            product
+        );
+        assert!(
+            request::<_, Option<Object>>(
+                store.db.select(("canonical_roots", product.key.as_str()))
+            )
+            .await
+            .unwrap()
+            .is_none()
+        );
+        for version in backfill
+            .contents
+            .iter()
+            .map(|v| v.version.as_str())
+            .chain(backfill.receipts.iter().map(|v| v.version.as_str()))
+            .chain(std::iter::once("disposable-unmigrated"))
+        {
+            assert!(
+                request::<_, Option<Object>>(
+                    store.db.select(("canonical_version_manifests", version))
+                )
+                .await
+                .unwrap()
+                .is_none(),
+                "only archived original material is retained: {version}"
+            );
+        }
+        remove(&store, &database).await;
     }
 
     #[tokio::test]

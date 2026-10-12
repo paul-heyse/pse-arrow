@@ -2302,10 +2302,14 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
             provenance: "actual complete selected-root certificate".into(),
         };
         original.profile.numerics.goals.push(goal.clone());
-        Arc::make_mut(&mut original.numerics)
-            .policy
-            .goals
-            .push(goal);
+        let derivation = runtime
+            .native()
+            .policy_resolution_owner()
+            .derivation(&original.numerics, 1)
+            .unwrap();
+        let mut altered = original.numerics.as_ref().clone();
+        altered.policy.goals.push(goal);
+        original.numerics = derivation.finish(altered).unwrap();
         if observable {
             original = package
                 .prepare_solve(
@@ -2737,8 +2741,10 @@ async fn full_reconstruction_kind(single_root: bool, with_goal: bool, observable
 #[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
-    use crate::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
     use crate::workflow::tests as fixture;
+    use pse_admission::authoring_driver::document::{
+        OwnedDocumentSet, load_package_documents_owned,
+    };
     use std::{collections::BTreeMap, path::Path};
     fn documents(root: &Path, at: &Path, values: &mut BTreeMap<String, Vec<u8>>) {
         for entry in std::fs::read_dir(at).unwrap() {
@@ -2770,11 +2776,11 @@ async fn reference_flash_completed_blocks_discharge_reporting_allowance() {
         documents(&root, &root, &mut values);
         load_package_documents_owned(
             &values,
-            &runtime.registry,
+            runtime.registry(),
             Default::default(),
             &pool,
             &token,
-            &runtime.validation_context().unwrap(),
+            &runtime.validation_context(),
         )
         .unwrap()
     };

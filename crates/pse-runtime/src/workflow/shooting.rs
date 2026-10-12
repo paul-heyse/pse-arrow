@@ -8,7 +8,7 @@
 //! anchored at its start state ([`native::dynamics::Anchored`]), with the differential
 //! states at the inner nodes as variables closed by continuity rows. Path bounds on outputs
 //! are rows at every sample of the horizon. A terminal objective weighs the outputs at the
-//! end and takes its gradient from the forward sensitivities that the rows need anyway;
+//! end and takes its gradient from forward sensitivities when first derivatives are requested;
 //! an integral objective weighs the declared quadratures and takes its gradient from the
 //! adjoint, with each window's quadratures observed as outputs. The NLP runs through the
 //! one NLP runner (`native::execution::nlp`) with the limited-memory Hessian. The route
@@ -65,6 +65,30 @@ pub struct ShootingObjective {
     /// Declared quadrature weights over the horizon.
     pub integral: BTreeMap<SemanticId, f64>,
 }
+/// Integration order selected for shooting value callbacks. No native backend is assumed
+/// to amortize eager sensitivities without callback evidence from that operation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ShootingEvaluationPolicy {
+    /// Integrate values first; reintegrate the same point if first derivatives are requested.
+    #[default]
+    Demanded,
+    /// Integrate first derivatives on value callbacks as an explicit operation choice.
+    EagerFirst,
+}
+impl ShootingEvaluationPolicy {
+    fn order(self, requested: DerivativeOrder) -> DerivativeOrder {
+        match self {
+            Self::Demanded => requested,
+            Self::EagerFirst => requested.max(DerivativeOrder::First),
+        }
+    }
+    fn identity(self) -> &'static str {
+        match self {
+            Self::Demanded => "demanded",
+            Self::EagerFirst => "eager-first",
+        }
+    }
+}
 /// A shooting request over one prepared simulation.
 #[derive(Clone, Debug)]
 pub struct ShootingProfile {
@@ -79,6 +103,8 @@ pub struct ShootingProfile {
     pub path: Vec<PathBound>,
     /// The minimized objective.
     pub objective: ShootingObjective,
+    /// Value-callback integration policy; demanded order is the default choice.
+    pub evaluation: ShootingEvaluationPolicy,
     /// The NLP's native controls; shooting supplies first derivatives, so the Hessian is
     /// limited memory.
     pub solver: SolverProfile,
@@ -119,6 +145,7 @@ pub struct ShootingProblem {
     bounds: Vec<(f64, f64)>,
     terminal: Vec<(usize, f64)>,
     integral: Vec<(usize, f64)>,
+    evaluation: ShootingEvaluationPolicy,
     contract: OracleContract,
     pattern: SymbolicSparseColMat<usize>,
     normalization: Normalization,
@@ -376,6 +403,7 @@ impl ShootingProblem {
         let experiment = IntegratedExperiment {
             snapshot: simulation.snapshot().clone(),
             program: simulation.program(),
+            snapshots: simulation.snapshot_allocator(),
             profile: profile.clone(),
             parameters: simulation.parameters.clone(),
             output_ports,
@@ -572,7 +600,8 @@ impl ShootingProblem {
                     .map_err(crate::math::MathRuntimeError::from)?
                     .as_id(),
             )
-            .hash(&numerics.key);
+            .hash(&numerics.key)
+            .str(request.evaluation.identity());
         let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
         identity
             .hash(&simulation.identity())
@@ -618,6 +647,7 @@ impl ShootingProblem {
             bounds,
             terminal,
             integral,
+            evaluation: request.evaluation,
             contract: oracle_contract,
             // Filled below from the rows and the windows.
             pattern: SymbolicSparseColMat::new_checked(0, 0, vec![0], None, vec![]),
@@ -710,7 +740,15 @@ impl ShootingProblem {
     }
     /// Actual native callable profile identity.
     pub fn strategy_profile(&self) -> Result<ContentHash, ProblemError> {
-        crate::math::solves::profile_key(&self.solver).map(|key| key.as_id())
+        self.operation_profile(&self.solver)
+    }
+    fn operation_profile(&self, solver: &SolverProfile) -> Result<ContentHash, ProblemError> {
+        let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
+        identity
+            .str("shooting-execution")
+            .hash(&crate::math::solves::profile_key(solver)?.as_id())
+            .str(self.evaluation.identity());
+        Ok(identity.finish_hash())
     }
     fn data_identity(&self) -> ContentHash {
         let mut identity = FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
@@ -738,7 +776,8 @@ impl ShootingProblem {
         Ok(crate::math::strategy::target::Source {
             original: self.target_identity(),
             preparation: self.contract.identity,
-            profile: crate::math::solves::profile_key(solver)?.as_id(),
+            profile: self.operation_profile(solver)?,
+            profile_projection: None,
             backend: match self.route {
                 native::routing::Route::Native(backend) => Some(backend),
                 native::routing::Route::Constant => None,
@@ -934,10 +973,15 @@ fn target(
     }
 }
 
-/// One evaluated point: every window's report and the rows, objective and derivatives.
+/// One coherently evaluated point. Reports are observations, never reusable native
+/// checkpoints: upgrading the achieved order performs a new integration.
 #[derive(Debug)]
 struct Point {
+    /// Immutable source owner and original execution against which this point was built.
+    source: Arc<ShootingProblem>,
+    execution: Execution,
     x: Vec<f64>,
+    achieved: DerivativeOrder,
     reports: Vec<native::dynamics::Report>,
     constraints: Vec<f64>,
     jacobian: Vec<f64>,
@@ -947,6 +991,28 @@ struct Point {
     /// The integral part, from the windows' adjoints, once computed.
     adjoint: Option<Vec<f64>>,
 }
+impl Point {
+    fn compatible(&self, source: &Arc<ShootingProblem>, execution: &Execution, x: &[f64]) -> bool {
+        Arc::ptr_eq(&self.source, source)
+            && self.execution.started == execution.started
+            && self.execution.time_limit == execution.time_limit
+            && Arc::ptr_eq(&self.execution.cancel, &execution.cancel)
+            && Arc::ptr_eq(&self.execution.abandonment, &execution.abandonment)
+            && (match (&self.execution.enclosing_scope, &execution.enclosing_scope) {
+                (None, None) => true,
+                (Some(a), Some(b)) => {
+                    a.deadline() == b.deadline() && Arc::ptr_eq(a.cancellation(), b.cancellation())
+                }
+                _ => false,
+            })
+            && self.x.len() == x.len()
+            && self
+                .x
+                .iter()
+                .zip(x)
+                .all(|(a, b)| a.to_bits() == b.to_bits())
+    }
+}
 /// The shooting NLP oracle over one attempt.
 #[derive(Debug)]
 struct ShootingOracle {
@@ -955,11 +1021,15 @@ struct ShootingOracle {
     point: Option<Point>,
 }
 impl ShootingOracle {
-    fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
-        if let Some(stop) = self.execution.stopped() {
-            return Err(ProblemError::stopped(stop, "shooting evaluation deadline"));
+    fn evaluate(&mut self, x: &[f64], requested: DerivativeOrder) -> Result<&Point, ProblemError> {
+        self.execution.check()?;
+        if requested > DerivativeOrder::First {
+            return Err(ProblemError::unsupported(
+                "shooting second derivative demand",
+            ));
         }
         let p = self.problem.clone();
+        let order = p.evaluation.order(requested);
         let n = p.contract.variables.len();
         if x.len() != n || x.iter().any(|v| !v.is_finite()) {
             return Err(ProblemError::numerical("shooting trial coordinates"));
@@ -967,16 +1037,17 @@ impl ShootingOracle {
         if self
             .point
             .as_ref()
-            .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()))
+            .is_some_and(|v| v.compatible(&p, &self.execution, x) && v.achieved >= order)
         {
             return self
                 .point
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("shooting point cache"));
         }
-        self.point = None;
-        // Forward sensitivities serve the rows and the terminal objective.
-        let forward = n > 0 && (!p.rows.is_empty() || !p.terminal.is_empty());
+        // Forward sensitivities serve first-order rows and the terminal objective only.
+        // Keep the old point until the entire new integration and its products succeed.
+        let first = order >= DerivativeOrder::First;
+        let forward = first && n > 0 && (!p.rows.is_empty() || !p.terminal.is_empty());
         let sensitivity = if forward {
             DynamicSensitivity::Forward
         } else {
@@ -1005,7 +1076,11 @@ impl ShootingOracle {
         };
         let width = |k: usize| p.windows[k].columns.len();
         let mut constraints = Vec::with_capacity(p.rows.len());
-        let mut jacobian = vec![0.; p.pattern.row_idx().len()];
+        let mut jacobian = if first {
+            vec![0.; p.pattern.row_idx().len()]
+        } else {
+            vec![]
+        };
         let mut entries = BTreeMap::<(usize, usize), f64>::new();
         for (r, row) in p.rows.iter().enumerate() {
             let (k, next) = p.row_window(row);
@@ -1039,11 +1114,11 @@ impl ShootingOracle {
                     }
                 }
             }
-            if let Some(v) = next {
+            if let Some(v) = next.filter(|_| first) {
                 *entries.entry((r, v)).or_default() -= 1.;
             }
         }
-        for col in 0..p.pattern.ncols() {
+        for col in 0..(if first { p.pattern.ncols() } else { 0 }) {
             for k in p.pattern.col_range(col) {
                 jacobian[k] = entries
                     .get(&(p.pattern.row_idx()[k], col))
@@ -1067,7 +1142,7 @@ impl ShootingOracle {
                 .map(|(q, w)| w * sample.integrals[*q])
                 .sum::<f64>();
         }
-        let mut gradient = vec![0.; n];
+        let mut gradient = if first { vec![0.; n] } else { vec![] };
         if forward {
             for (o, w) in &p.terminal {
                 let sensitivities =
@@ -1090,6 +1165,7 @@ impl ShootingOracle {
                 "nonfinite shooting row or objective",
             ));
         }
+        self.execution.check()?;
         self.execution.progress.push(native::solve::Event {
             phase: "shooting.evaluation".into(),
             elapsed: self.execution.started.elapsed(),
@@ -1100,7 +1176,10 @@ impl ShootingOracle {
             incumbent: None,
         });
         self.point = Some(Point {
+            source: p,
+            execution: self.execution.clone(),
             x: x.to_vec(),
+            achieved: order,
             reports,
             constraints,
             jacobian,
@@ -1115,6 +1194,7 @@ impl ShootingOracle {
     /// The integral objective's gradient: one adjoint per window over its observed
     /// quadratures, whose outputs follow the model's own at the window's end.
     fn adjoint(&mut self, x: &[f64]) -> Result<Vec<f64>, ProblemError> {
+        self.evaluate(x, DerivativeOrder::Value)?;
         if let Some(gradient) = self.point.as_ref().and_then(|p| p.adjoint.clone()) {
             return Ok(gradient);
         }
@@ -1147,6 +1227,7 @@ impl ShootingOracle {
                 }
             }
         }
+        self.execution.check()?;
         if let Some(point) = self.point.as_mut() {
             point.adjoint = Some(total.clone());
         }
@@ -1170,10 +1251,11 @@ impl NlpOracle for ShootingOracle {
         &self.problem.bounds
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-        self.evaluate(x).map(|p| p.objective)
+        self.evaluate(x, DerivativeOrder::Value)
+            .map(|p| p.objective)
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let p = self.evaluate(x)?;
+        let p = self.evaluate(x, DerivativeOrder::Value)?;
         if out.len() != p.constraints.len() {
             return Err(ProblemError::internal("shooting constraint extent"));
         }
@@ -1181,7 +1263,7 @@ impl NlpOracle for ShootingOracle {
         Ok(())
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let terminal = self.evaluate(x)?.gradient.clone();
+        let terminal = self.evaluate(x, DerivativeOrder::First)?.gradient.clone();
         if out.len() != terminal.len() {
             return Err(ProblemError::internal("shooting gradient extent"));
         }
@@ -1195,7 +1277,7 @@ impl NlpOracle for ShootingOracle {
         Ok(())
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let p = self.evaluate(x)?;
+        let p = self.evaluate(x, DerivativeOrder::First)?;
         if out.len() != p.jacobian.len() {
             return Err(ProblemError::internal("shooting Jacobian extent"));
         }
@@ -1225,9 +1307,12 @@ impl ShootingProblem {
             native::routing::Route::Native(backend) => vec![native::execution::adapter(backend)],
             native::routing::Route::Constant => vec![],
         };
+        let projection = |profile: &SolverProfile| self.operation_profile(profile);
+        let mut source = self.callable_source(solver, initial)?;
+        source.profile_projection = Some(&projection);
         let (mut report, trace) = crate::math::strategy::target::callable(
             self.runtime.shared.math(),
-            self.callable_source(solver, initial)?,
+            source,
             &scope,
             |profile, admission| {
                 let profile = profile.unwrap_or(solver);
@@ -1283,7 +1368,7 @@ impl ShootingProblem {
         solver: &SolverProfile,
         admission: Arc<crate::math::strategy::admission::TaskAdmission>,
     ) -> Result<ShootingReport, crate::math::MathRuntimeError> {
-        let operation_profile = crate::math::solves::profile_key(solver)?;
+        let operation_profile = self.operation_profile(solver)?;
         let mut execution =
             Execution::within(scope.cancellation().clone(), &solver.controls, scope)?;
         execution.progress = progress;
@@ -1321,7 +1406,7 @@ impl ShootingProblem {
                     normalization: &self.normalization,
                     compatibility: Compatibility {
                         layout: self.contract.identity,
-                        profile: operation_profile.as_id(),
+                        profile: operation_profile,
                         data: self.data_identity(),
                         backend,
                     },
@@ -1378,7 +1463,7 @@ impl ShootingProblem {
                 execution: execution.clone(),
                 point: None,
             };
-            let point = match oracle.evaluate(&x) {
+            let point = match oracle.evaluate(&x, DerivativeOrder::Value) {
                 Ok(point) => point,
                 Err(error) => {
                     let diagnostic = super::diagnostics::observed(

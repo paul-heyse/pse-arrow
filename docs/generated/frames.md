@@ -211,6 +211,9 @@ Derived in: pse-backend-native.
 | `CanonicalPayloadV1` | `pse.canonical-payload.v1` | Exact source payload bytes, independent of transport chunking. |
 | `CanonicalVersionV1` | `pse.canonical-version.v1` | Immutable source identity, metadata, payload and structural references. |
 | `CanonicalProductV1` | `pse.canonical-product.v1` | Portable product content and its complete captured canonical dependency meaning. |
+| `CanonicalBodyContentV1` | `pse.canonical-body-content.v1` | Immutable scientific body bytes and their exact reconstruction meaning. |
+| `CanonicalSelectionReceiptV1` | `pse.canonical-selection-receipt.v1` | Complete immutable selected and acquired predicate receipt. |
+| `CanonicalProductDescriptorV1` | `pse.canonical-product-descriptor.v1` | Exact issuing-store scoped physical product descriptor. |
 | `CanonicalSchemaV1` | `pse.canonical-schema.v1` | Exact generated native schema and codec interpretation at database opening. |
 | `MathReplayAuthorityV1` | `pse.math.replay-authority.v1` | Exact authenticated subvalues of a qualified portable scientific recipe. |
 | `MathAdmittedRecipeV1` | `pse.math.admitted-recipe.v1` | Portable mathematical meaning with its concrete admitted construction receipts. |

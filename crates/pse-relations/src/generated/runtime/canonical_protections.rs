@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    132u8, 23u8, 111u8, 188u8, 125u8, 68u8, 175u8, 146u8, 224u8, 240u8, 179u8, 135u8,
-    15u8, 216u8, 164u8, 65u8, 144u8, 164u8, 33u8, 175u8, 183u8, 223u8, 71u8, 247u8,
-    155u8, 26u8, 112u8, 141u8, 227u8, 218u8, 161u8, 7u8,
+    209u8, 37u8, 216u8, 159u8, 67u8, 54u8, 105u8, 170u8, 56u8, 223u8, 225u8, 27u8, 240u8,
+    63u8, 174u8, 250u8, 52u8, 193u8, 247u8, 171u8, 86u8, 19u8, 213u8, 109u8, 27u8, 98u8,
+    127u8, 227u8, 246u8, 12u8, 157u8, 169u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalProtectionsRow {
     fn append(
@@ -50,6 +50,18 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProtectionsRow {
             &self.r#released,
             children[5usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#grant_deadline,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#grant_nonce,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#authority_incarnation,
+            children[8usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -66,6 +78,15 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProtectionsRow {
         <u64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -98,6 +119,24 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalProtectionsRow {
             )?,
             r#released: <bool as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#grant_deadline: <Option<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#grant_nonce: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#authority_incarnation: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -165,6 +204,18 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProtectionsRow {
             columns[4usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#released, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#grant_deadline,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#grant_nonce,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#authority_incarnation,
+            columns[8usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -200,10 +251,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProtectionsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        12_288_usize + size_of::<Self::Builder>()
+        18_432_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        96usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -231,6 +282,39 @@ impl crate::columnar::RelationRow for RuntimeCanonicalProtectionsRow {
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#grant_deadline).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#grant_nonce).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#authority_incarnation).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -241,7 +325,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -272,6 +356,21 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
         name: "released",
         position: 5usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "grant_deadline",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "grant_nonce",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "authority_incarnation",
+        position: 8usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -287,18 +386,28 @@ pub mod columns {
     pub const EXPIRES_AT: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///released
     pub const RELEASED: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///grant_deadline
+    pub const GRANT_DEADLINE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///grant_nonce
+    pub const GRANT_NONCE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///authority_incarnation
+    pub const AUTHORITY_INCARNATION: crate::columnar::ColumnReference = super::COLUMNS[8usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct RuntimeCanonicalProtectionsView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     problem_column: &'a arrow_array::StringArray,
     revision_column: &'a arrow_array::StringArray,
     sequence_column: &'a arrow_array::UInt64Array,
     expires_at_column: &'a arrow_array::TimestampMicrosecondArray,
     released_column: &'a arrow_array::BooleanArray,
+    grant_deadline_column: &'a arrow_array::TimestampMicrosecondArray,
+    grant_nonce_column: &'a arrow_array::StringArray,
+    authority_incarnation_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalProtectionsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -322,7 +431,7 @@ impl<'a> RuntimeCanonicalProtectionsView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -333,13 +442,16 @@ impl<'a> RuntimeCanonicalProtectionsView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             key_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -358,6 +470,15 @@ impl<'a> RuntimeCanonicalProtectionsView<'a> {
             released_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
             >(batch.column(5usize).as_ref())?,
+            grant_deadline_column: crate::columnar::array::<
+                arrow_array::TimestampMicrosecondArray,
+            >(batch.column(6usize).as_ref())?,
+            grant_nonce_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            authority_incarnation_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -444,6 +565,48 @@ impl<'a> RuntimeCanonicalProtectionsView<'a> {
     pub fn released_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[5usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "grant_deadline",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn grant_deadline_column(
+        &self,
+    ) -> &'a arrow_array::TimestampMicrosecondArray {
+        self.grant_deadline_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "grant_deadline", "`.")]
+    pub fn grant_deadline_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "grant_nonce",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn grant_nonce_column(&self) -> &'a arrow_array::StringArray {
+        self.grant_nonce_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "grant_nonce", "`.")]
+    pub fn grant_nonce_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "authority_incarnation",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn authority_incarnation_column(&self) -> &'a arrow_array::StringArray {
+        self.authority_incarnation_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "authority_incarnation",
+        "`.",
+    )]
+    pub fn authority_incarnation_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -465,6 +628,18 @@ impl<'a> RuntimeCanonicalProtectionsView<'a> {
                 index,
             )?,
             r#released: crate::columnar::ArrowValue::read(self.released_column, index)?,
+            r#grant_deadline: crate::columnar::ArrowValue::read(
+                self.grant_deadline_column,
+                index,
+            )?,
+            r#grant_nonce: crate::columnar::ArrowValue::read(
+                self.grant_nonce_column,
+                index,
+            )?,
+            r#authority_incarnation: crate::columnar::ArrowValue::read(
+                self.authority_incarnation_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -485,5 +660,8 @@ impl crate::columnar::RelationView for RuntimeCanonicalProtectionsView<'_> {
     type Row = RuntimeCanonicalProtectionsRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

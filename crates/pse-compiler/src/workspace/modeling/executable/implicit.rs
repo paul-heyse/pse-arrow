@@ -938,7 +938,24 @@ impl AdmittedImplicit {
         }))
     }
 }
+fn descendant_instances(
+    hierarchy: &DiGraph<InstanceId, ()>,
+    owner: petgraph::graph::NodeIndex,
+    mut check: impl FnMut(),
+) -> BTreeSet<InstanceId> {
+    use petgraph::visit::{Dfs, Reversed};
+    let reverse = Reversed(hierarchy);
+    let mut traversal = Dfs::new(reverse, owner);
+    let mut reachable = BTreeSet::new();
+    while let Some(node) = traversal.next(reverse) {
+        check();
+        reachable.insert(hierarchy[node]);
+    }
+    reachable
+}
+
 pub(super) fn project(
+    db: &dyn CompilerDb,
     model: &SpecializedModel,
     registry: &QuantityRegistry,
     p: &mut super::Projection,
@@ -946,6 +963,41 @@ pub(super) fn project(
 ) -> Result<()> {
     use pse_model::generated::enums::ModelingDeclarationKind as Kind;
     use pse_modeling::specialize::Realization as Policy;
+    checkpoint(db);
+    // All temporary graph storage, ordered indexes and one traversal coexist within
+    // the workspace reservation. Refuse their conservative extent before allocation;
+    // immutable output bodies retain their separate existing allocation accounting.
+    let ordinary = model
+        .implicit
+        .values()
+        .any(|policy| matches!(policy, Policy::Nested | Policy::Accelerated(_)));
+    let indexed_symbols = if ordinary { model.symbols.len() } else { 0 };
+    let scratch = model
+        .instances
+        .len()
+        .checked_mul(size_of::<InstanceId>() * 4 + size_of::<usize>() * 24 + 256)
+        .and_then(|bytes| {
+            bytes.checked_add(
+                indexed_symbols
+                    .checked_mul(size_of::<SemanticId>() * 2 + size_of::<InstanceId>() + 160)?,
+            )
+        })
+        .ok_or(CompileError::Limit("implicit projection scratch extent"))?;
+    if scratch > db.projection_scratch_limit() {
+        return Err(CompileError::Limit("implicit projection scratch allowance"));
+    }
+    let mut variables: BTreeMap<InstanceId, Vec<SemanticId>> = BTreeMap::new();
+    if ordinary {
+        for symbol in model.symbols.values() {
+            checkpoint(db);
+            if symbol.role == Kind::Variable && symbol.expression.is_none() {
+                variables
+                    .entry(symbol.lineage.instance)
+                    .or_default()
+                    .push(symbol.id);
+            }
+        }
+    }
     let mut hidden = BTreeSet::new();
     let mut unknown_ids = BTreeSet::new();
     let mut additions = vec![];
@@ -976,6 +1028,7 @@ pub(super) fn project(
         .map(|id| (*id, hierarchy.add_node(*id)))
         .collect::<BTreeMap<_, _>>();
     for (id, item) in &model.instances {
+        checkpoint(db);
         if let Some(parent) = item.parent {
             let owner = nodes
                 .get(&parent)
@@ -1013,6 +1066,7 @@ pub(super) fn project(
         ));
     }
     for (stage, algorithm) in &stages {
+        checkpoint(db);
         let generated = *algorithm == ImplicitAlgorithm::AffineRates;
         let instance = &InstanceId::from_id(*stage);
         let unknowns = if generated {
@@ -1022,16 +1076,7 @@ pub(super) fn project(
                 .map(|d| d.rate)
                 .collect::<Vec<_>>()
         } else {
-            model
-                .symbols
-                .values()
-                .filter(|s| {
-                    s.lineage.instance == *instance
-                        && s.role == Kind::Variable
-                        && s.expression.is_none()
-                })
-                .map(|s| s.id)
-                .collect::<Vec<_>>()
+            variables.get(instance).cloned().unwrap_or_default()
         };
         let selection = model.regimes.get(instance);
         let mut operation = SelectionProjection {
@@ -1265,18 +1310,15 @@ pub(super) fn project(
             });
             hidden.extend(rows);
         }
+        let reachable = if generated {
+            BTreeSet::new()
+        } else {
+            descendant_instances(&hierarchy, nodes[instance], || checkpoint(db))
+        };
         let descendants = p
             .implicit
             .iter()
-            .filter(|child| {
-                generated
-                    || petgraph::algo::has_path_connecting(
-                        &hierarchy,
-                        nodes[&InstanceId::from_id(child.id)],
-                        nodes[instance],
-                        None,
-                    )
-            })
+            .filter(|child| generated || reachable.contains(&InstanceId::from_id(child.id)))
             .flat_map(|child| child.unknowns.iter().map(|id| symbol_name(*id)))
             .collect::<BTreeSet<_>>();
         let mut scope_bindings = bindings.clone();
@@ -2374,5 +2416,47 @@ mod topology_tests {
         assert!(topology.order(None).is_err());
         assert_eq!(topology.graph.node_count(), 5);
         assert_eq!(topology.graph.edge_count(), 3);
+    }
+}
+
+#[cfg(test)]
+mod hierarchy_tests {
+    use super::*;
+
+    #[test]
+    fn reverse_reachability_matches_pairwise_oracle_for_shared_descendants_and_cycles() {
+        // All directed four-node graphs cover diamonds, isolates, shared descendants,
+        // cycles and self inclusion without assuming the hierarchy is a tree.
+        let pairs = (0..4)
+            .flat_map(|from| {
+                (0..4)
+                    .filter(move |to| *to != from)
+                    .map(move |to| (from, to))
+            })
+            .collect::<Vec<_>>();
+        for mask in 0..(1usize << pairs.len()) {
+            let mut graph = DiGraph::new();
+            let nodes = (0..4)
+                .map(|i| graph.add_node(InstanceId::from_id(SemanticId::from_bytes([i; 16]))))
+                .collect::<Vec<_>>();
+            for (bit, &(from, to)) in pairs.iter().enumerate() {
+                if mask & (1 << bit) != 0 {
+                    graph.add_edge(nodes[from], nodes[to], ());
+                }
+            }
+            for owner in &nodes {
+                let mut visits = 0;
+                let actual = descendant_instances(&graph, *owner, || visits += 1);
+                let expected = nodes
+                    .iter()
+                    .filter(|candidate| {
+                        petgraph::algo::has_path_connecting(&graph, **candidate, *owner, None)
+                    })
+                    .map(|node| graph[*node])
+                    .collect::<BTreeSet<_>>();
+                assert_eq!(actual, expected, "graph {mask}, owner {owner:?}");
+                assert_eq!(visits, actual.len());
+            }
+        }
     }
 }

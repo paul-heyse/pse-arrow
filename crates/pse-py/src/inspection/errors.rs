@@ -96,7 +96,7 @@ macro_rules! semantic_report_source {
 semantic_report_source!(
     BoundaryDiagnostic,
     pse_runtime::math::MathRuntimeError,
-    pse_runtime::authoring_driver::DriverError,
+    pse_admission::authoring_driver::DriverError,
     pse_backend_native::ProblemError,
 );
 impl ReportSource for pse_runtime::workflow::WorkflowError {

@@ -19,8 +19,8 @@ when someone changes it on purpose.
 
 **Change versions deliberately, on judgment.** Add or bump a dependency when the work calls
 for it, with no ADR or approval: edit that pin (or its family), run
-`just upgrade <package> …` (it moves the named packages, regenerates the cargo-hakari
-workspace-hack, runs `just family-check` and prints what moved), check that the lock diff
+`just upgrade <package> …` (it moves the named packages,
+runs `just family-check` and prints what moved), check that the lock diff
 moved only what you meant, run the tests it affects and name the move in the commit. No
 wholesale re-resolve (`uv lock --upgrade`, bare `cargo update`) unless the operator asks.
 Dependabot (ADR-0035) runs with `versioning-strategy: lockfile-only`, so it proposes moves

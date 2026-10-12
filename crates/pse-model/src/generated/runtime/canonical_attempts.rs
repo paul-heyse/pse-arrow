@@ -37,6 +37,10 @@ pub struct RuntimeCanonicalAttemptsRow {
     pub r#closed_manifest: Option<String>,
     ///completion
     pub r#completion: Option<crate::Bytes>,
+    ///seed_manifest
+    pub r#seed_manifest: Option<String>,
+    ///finalization_study
+    pub r#finalization_study: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalAttemptsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -62,6 +66,14 @@ impl crate::SemanticEq for RuntimeCanonicalAttemptsRow {
                 &self.r#closed_manifest,
                 &other.r#closed_manifest,
             ) && crate::SemanticEq::semantic_eq(&self.r#completion, &other.r#completion)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#seed_manifest,
+                &other.r#seed_manifest,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#finalization_study,
+                &other.r#finalization_study,
+            )
     }
 }
 impl PartialEq for RuntimeCanonicalAttemptsRow {
@@ -101,6 +113,10 @@ impl crate::SemanticFrame for RuntimeCanonicalAttemptsRow {
         crate::SemanticFrame::frame(&self.r#closed_manifest, hash);
         hash.str(stringify!(r#completion));
         crate::SemanticFrame::frame(&self.r#completion, hash);
+        hash.str(stringify!(r#seed_manifest));
+        crate::SemanticFrame::frame(&self.r#seed_manifest, hash);
+        hash.str(stringify!(r#finalization_study));
+        crate::SemanticFrame::frame(&self.r#finalization_study, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalAttemptsRow {
@@ -120,5 +136,7 @@ impl crate::HeapUsage for RuntimeCanonicalAttemptsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#closed_manifest))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#completion))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_manifest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#finalization_study))
     }
 }

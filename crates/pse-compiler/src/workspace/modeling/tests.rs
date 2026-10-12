@@ -132,6 +132,7 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     let document = pse_ids::named_id(package, "data/bank.parquet");
     let documents = Arc::new(DocumentInventory {
         field_spans: Default::default(),
+        parsed_fields: Default::default(),
         packages: [(SemanticId::from_bytes([81; 16]), package)].into(),
         documents: [(
             document,
@@ -217,6 +218,7 @@ fn keyed_document_republication_matches_clean_admission_and_preserves_old_snapsh
     let inventory = |value: &str| {
         Arc::new(DocumentInventory {
             field_spans: Default::default(),
+            parsed_fields: Default::default(),
             packages: [(source, package)].into(),
             documents: [(
                 document,
@@ -1456,7 +1458,7 @@ fn kernel_nested_hints_reject_self_dependencies_and_select_regime_overrides() {
 fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     use pse_kernels::ProviderFactory;
     use pse_math::implicit::{InnerSolver, Options, Problem, Unknown};
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct AnalyticRoot;
     impl InnerSolver for AnalyticRoot {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -1465,8 +1467,14 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.analytic-root.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for AnalyticRoot {
         fn solve(
-            &self,
+            &mut self,
             _problem: Arc<Problem>,
             inputs: &[f64],
             _options: &Options,
@@ -1705,7 +1713,7 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
     use pse_math::implicit::{
         Configuration, ImplicitFactory, InnerSolver, Options, Problem, Unknown,
     };
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct Anchored;
     impl InnerSolver for Anchored {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -1717,8 +1725,14 @@ fn implicit_selection_requires_authored_meaning_and_separates_operational_anchor
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.anchored.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for Anchored {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             p: &[f64],
             o: &Options,
@@ -1994,7 +2008,7 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
         SelectionEquivalence::NondegenerateAffine
     );
     assert_eq!(inner.descriptor.spec().derivatives, DerivativeOrder::First);
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct First;
     impl pse_math::implicit::InnerSolver for First {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -2003,8 +2017,14 @@ fn implicit_c1_provider_compiles_only_justified_first_order() {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.first.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for First {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<pse_math::implicit::Problem>,
             _: &[f64],
             _: &pse_math::implicit::Options,
@@ -2157,7 +2177,7 @@ fn implicit_constructor_bound_uses_residual_minimum_and_requested_output() {
 fn implicit_nested_value_propagates_native_first_order_to_child() {
     use pse_kernels::ProviderFactory;
     use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct FirstRoot;
     impl InnerSolver for FirstRoot {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -2166,8 +2186,14 @@ fn implicit_nested_value_propagates_native_first_order_to_child() {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.first-root.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for FirstRoot {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             inputs: &[f64],
             _: &Options,
@@ -3859,7 +3885,7 @@ fn kernel_analysis_facts_are_typed_and_select_source_guards() {
 fn kernel_regime_derivatives_are_regular_local_branch_jets() {
     use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
     use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct Roots;
     impl InnerSolver for Roots {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -3868,8 +3894,14 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.polynomial-roots.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for Roots {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             inputs: &[f64],
             options: &Options,
@@ -3981,7 +4013,7 @@ fn kernel_regime_derivatives_are_regular_local_branch_jets() {
 fn implicit_minimum_score_unproved_native_roots_are_value_only() {
     use pse_kernels::{EvaluationContext, ProviderFactory, ProviderRequest};
     use pse_math::implicit::{Configuration, InnerSolver, Options, Problem, Unknown};
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct Candidate;
     impl InnerSolver for Candidate {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -3990,8 +4022,14 @@ fn implicit_minimum_score_unproved_native_roots_are_value_only() {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.regime-candidate.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for Candidate {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             _: &[f64],
             options: &Options,
@@ -4146,7 +4184,7 @@ mod nonlinear_selection_isolation_tests {
     };
     use std::sync::atomic::AtomicUsize;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct ExactSquareRoots;
     impl InnerSolver for ExactSquareRoots {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -4155,8 +4193,14 @@ mod nonlinear_selection_isolation_tests {
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.exact-isolation-square-roots.v1")
         }
+
+        fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl pse_math::implicit::InnerWorker for ExactSquareRoots {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             parameters: &[f64],
             options: &Options,

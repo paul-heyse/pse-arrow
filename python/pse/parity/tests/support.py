@@ -7,7 +7,9 @@ member identities by path, and typed result rows.
 """
 
 import os
+from collections.abc import Mapping
 from pathlib import Path
+from types import MappingProxyType
 
 import pyarrow as pa
 
@@ -53,22 +55,72 @@ def runtime(spill: Path) -> pse.Runtime:
     )
 
 
+class ParityContext:
+    """Session owner of one Runtime and exact immutable admitted source snapshots.
+
+    Only physical admission and source bytes survive between comparisons. Each
+    authored model package and every scientific operation remain independently built.
+    """
+
+    def __init__(self, runtime: pse.Runtime) -> None:
+        self._runtime = runtime
+        self._primitives: tuple[Mapping[str, bytes], pse.PhysicalContext] | None = None
+        self._reference: tuple[Mapping[str, bytes], pse.PhysicalContext] | None = None
+        self._reference_documents: tuple[Mapping[str, bytes], ...] | None = None
+
+    @property
+    def runtime(self) -> pse.Runtime:
+        """The actual admission owner, fixed for this session."""
+        return self._runtime
+
+    @property
+    def primitives(self) -> pse.PhysicalContext:
+        """Lazily admit and retain the physical primitives' exact byte snapshot."""
+        if self._primitives is None:
+            source = documents(
+                ROOT / "tests/fixtures/packages/physical-primitives", all_files=True
+            )
+            physical = self._runtime.physical_from_documents(source)
+            self._primitives = source, physical
+        return self._primitives[1]
+
+    @property
+    def reference_physical(self) -> pse.PhysicalContext:
+        """Lazily admit the same physical source used by the reference closure."""
+        if self._reference is None:
+            source = self.reference_documents[-1]
+            physical = self._runtime.physical_from_documents(source)
+            self._reference = source, physical
+        return self._reference[1]
+
+    @property
+    def reference_documents(self) -> tuple[Mapping[str, bytes], ...]:
+        """Immutable library source bytes; no admitted model packages or results."""
+        if self._reference_documents is None:
+            reference = ROOT / "packages/reference"
+            self._reference_documents = tuple(
+                documents(reference / name)
+                for name in (
+                    "data/references",
+                    "process",
+                    "thermodynamics",
+                    "methods",
+                    "domain",
+                    "physical",
+                )
+            )
+        return self._reference_documents
+
+
 def package(
-    runtime: pse.Runtime, text: str
+    context: ParityContext, text: str
 ) -> tuple[pse.ModelingPackage, dict[str, DeclarationId]]:
     """An authored package over the physical primitives, by declaration name.
 
     The package's manifest depends on the primitives, whose physical document names
     `Scalar` and `Time`.
     """
-    primitives = ROOT / "tests/fixtures/packages/physical-primitives"
-    physical = runtime.physical_from_documents(
-        {
-            str(path.relative_to(primitives)): path.read_text()
-            for path in primitives.rglob("*")
-            if path.is_file()
-        }
-    )
+    physical = context.primitives
     manifest = (
         (ROOT / "tests/fixtures/packages/minimal_explicit/package.toml")
         .read_text()
@@ -79,29 +131,33 @@ def package(
             'version_req = { operator = "exact", major = 1, minor = 0, patch = 0 } }]',
         )
     )
-    authored = runtime.modeling_from_documents(
+    authored = context.runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/parity.pse": text}], physical
     )
     return authored, {row.name: row.declaration_id for row in authored.declarations()}
 
 
-def documents(path: Path) -> dict[str, str | bytes]:
-    """A package directory's documents by relative path."""
-    return {
-        p.relative_to(path).as_posix(): p.read_bytes()
-        for p in path.rglob("*")
-        if p.is_file() and p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
-    }
+def documents(path: Path, *, all_files: bool = False) -> Mapping[str, bytes]:
+    """An immutable snapshot of original document bytes, by relative path."""
+    return MappingProxyType(
+        {
+            p.relative_to(path).as_posix(): p.read_bytes()
+            for p in sorted(path.rglob("*"))
+            if p.is_file()
+            and (
+                all_files or p.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}
+            )
+        }
+    )
 
 
-def reference_package(runtime: pse.Runtime, text: str) -> pse.ModelingPackage:
+def reference_package(context: ParityContext, text: str) -> pse.ModelingPackage:
     """An authored package that uses the reference libraries (`control`, `math`).
 
     The package's manifest depends on `pse.physical`, whose physical document names
     `Scalar` and `Time`.
     """
-    reference = ROOT / "packages/reference"
-    physical = runtime.physical_from_documents(documents(reference / "physical"))
+    physical = context.reference_physical
     manifest = """[package]
 package_id = "5a1b2c3d4e5f60718293a4b5c6d7e8f9"
 name = "parity.reference"
@@ -116,19 +172,9 @@ dependencies = [
 ]
 doc = "Parity comparison models."
 """
-    return runtime.modeling_from_documents(
+    return context.runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/parity.pse": text}]
-        + [
-            documents(reference / name)
-            for name in (
-                "data/references",
-                "process",
-                "thermodynamics",
-                "methods",
-                "domain",
-                "physical",
-            )
-        ],
+        + list(context.reference_documents),
         physical,
     )
 

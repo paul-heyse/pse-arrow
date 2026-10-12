@@ -319,7 +319,17 @@ pub fn declaration_references(
     row: &Declaration,
     fields: Option<&std::collections::BTreeMap<String, pse_authoring::SourceSpan>>,
 ) -> crate::Result<DeclarationReferences> {
-    let occurrences = occurrences(row, fields)?;
+    let parsed = crate::expression::occurrences::ParsedFields::parse(row, fields)?;
+    declaration_references_parsed(row, &parsed)
+}
+
+/// Extract lexical requirements from the same immutable grammar fields consumed
+/// by checked admission, without retaining resolved bindings or physical assurance.
+pub fn declaration_references_parsed(
+    row: &Declaration,
+    parsed: &crate::expression::occurrences::ParsedFields,
+) -> crate::Result<DeclarationReferences> {
+    let occurrences = parsed.expressions();
     let mut result = DeclarationReferences {
         types: type_paths(row),
         exact: Vec::new(),

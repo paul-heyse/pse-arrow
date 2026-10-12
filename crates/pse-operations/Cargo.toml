@@ -32,22 +32,23 @@ pse-diagnostics.workspace = true
 pse-ids.workspace = true
 # The registry owns canonical rows, enumerations and typed identities.
 pse-model.workspace = true
+# Typed result locators validate their complete keys against the declaration owner.
+pse-schema.workspace = true
 url.workspace = true
 uuid.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 tokio.workspace = true
-pse-workspace-hack.workspace = true
 surrealdb.workspace = true
 
 [dev-dependencies]
+pse-columnar.workspace = true
 futures-util.workspace = true
 tokio-tungstenite.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
-# Store tests compare the created schema with canonical registry declarations.
-pse-schema.workspace = true
 url.workspace = true

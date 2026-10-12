@@ -16,12 +16,15 @@ pub use pse_model::generated::runtime::{
 };
 use pse_model::generated::runtime::{
     canonical_result_block_outputs::Row as ResultOutput,
-    canonical_result_blocks::Row as ResultBlock, canonical_result_cells::Row as ResultCell,
+    canonical_result_blocks::Row as ResultBlock, canonical_result_rows::Row as ResultRow,
     canonical_result_sets::Row as ResultSet,
 };
 use serde::{Deserialize, Serialize};
 use std::{future::IntoFuture, time::Duration};
 use surrealdb::types::{Bytes, Object, Value};
+
+#[cfg(all(test, feature = "canonical-tests"))]
+tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
 
 /// Decode an acknowledged guarded refusal before the ordinary generated row codec.
 /// No driver error or later cancellation observation grants this classification.
@@ -93,8 +96,15 @@ pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
 }
 
 /// Derive encoded scalar metadata extent through the canonical codec owner.
-pub fn result_cell_metadata_extent(cell: &ResultCell) -> Result<usize, CanonicalError> {
-    result_metadata_extent(&Value::Object(wire::encode_canonical_result_cells(cell)?))
+pub fn result_row_metadata_extent(locator: &ResultRow) -> Result<usize, CanonicalError> {
+    result_metadata_extent(&Value::Object(wire::encode_canonical_result_rows(locator)?))
+}
+
+/// Derive dense output metadata extent through the canonical codec owner.
+pub fn result_output_metadata_extent(output: &ResultOutput) -> Result<usize, CanonicalError> {
+    result_metadata_extent(&Value::Object(wire::encode_canonical_result_block_outputs(
+        output,
+    )?))
 }
 
 /// Exact selected scientific input and executable provenance, before native work.
@@ -160,6 +170,452 @@ mod canonical_execution_server_unit {
             })
             .await
             .unwrap()
+    }
+    #[tokio::test]
+    async fn canonical_append_group_lost_reply_settles_exact_receipts_once_and_replays_after_cancel()
+     {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "batch-replay").await;
+        let fence = store
+            .claim_run(
+                "batch-replay",
+                "claim-group",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let group = || {
+            vec![
+                canonical_result_admission_unit::append_item(&fence, "values", 0, vec![1]),
+                canonical_result_admission_unit::append_item(&fence, "other", 0, vec![2]),
+                canonical_result_admission_unit::append_item(&fence, "values", 1, vec![3]),
+            ]
+        };
+        let acks = APPEND_GROUP_REPLY_LOSS
+            .scope(true, store.append_result_blocks(&fence, group()))
+            .await
+            .unwrap();
+        assert_eq!(acks.len(), 3);
+        let receipts = acks
+            .iter()
+            .map(|ack| ack.receipt.clone())
+            .collect::<Vec<_>>();
+        let mut accumulated = ResultAcknowledgments::new(&fence);
+        for ack in acks {
+            accumulated.append(ack).unwrap();
+        }
+        assert_eq!(accumulated.rows("values"), 2);
+        assert_eq!(accumulated.rows("other"), 1);
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM canonical_result_sets WHERE attempt=$attempt ORDER BY key;")
+                .bind(("attempt", fence.attempt().to_owned())),
+        )
+        .await
+        .unwrap();
+        let sets = response
+            .take::<Vec<Object>>(0)
+            .unwrap()
+            .into_iter()
+            .map(|row| wire::decode_canonical_result_sets(row).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(sets.iter().map(|set| set.next_ordinal).sum::<u64>(), 3);
+        store.cancel_run(fence.run(), "cancel-group").await.unwrap();
+        let replay = store.append_result_blocks(&fence, group()).await.unwrap();
+        assert_eq!(
+            replay
+                .iter()
+                .map(|ack| ack.receipt.clone())
+                .collect::<Vec<_>>(),
+            receipts
+        );
+        // All-replay remains authenticated by original receipts, but mixing an
+        // unacknowledged new append cannot borrow that earlier permission.
+        let mut mixed = group();
+        let new = canonical_result_admission_unit::append_item(&fence, "later", 0, vec![4]);
+        let missing = new.acknowledgment.key.clone();
+        mixed.push(new);
+        assert!(store.append_result_blocks(&fence, mixed).await.is_err());
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY type::record('canonical_result_batches',$key);")
+                .bind(("key", missing)),
+        )
+        .await
+        .unwrap();
+        assert!(response.take::<Option<Object>>(0).unwrap().is_none());
+        remove(&store, &database).await;
+    }
+    #[tokio::test]
+    async fn canonical_append_group_late_sequence_refusal_rolls_back_all_new_blocks() {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "batch-rollback").await;
+        let fence = store
+            .claim_run(
+                "batch-rollback",
+                "claim-rollback",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
+        let first = canonical_result_admission_unit::append_item(&fence, "values", 0, vec![1]);
+        let key = first.acknowledgment.key.clone();
+        // Different set: only authentic server state can establish that ordinal7
+        // is a gap. The first append must be rolled back with that later refusal.
+        let gap = canonical_result_admission_unit::append_item(&fence, "other", 7, vec![2]);
+        assert!(
+            store
+                .append_result_blocks(&fence, vec![first, gap])
+                .await
+                .is_err()
+        );
+        let mut response = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM ONLY type::record('canonical_result_batches',$key);")
+                .bind(("key", key)),
+        )
+        .await
+        .unwrap();
+        assert!(response.take::<Option<Object>>(0).unwrap().is_none());
+        let valid = vec![
+            canonical_result_admission_unit::append_item(&fence, "values", 0, vec![1]),
+            canonical_result_admission_unit::append_item(&fence, "other", 0, vec![2]),
+        ];
+        assert_eq!(
+            store
+                .append_result_blocks(&fence, valid)
+                .await
+                .unwrap()
+                .len(),
+            2
+        );
+        remove(&store, &database).await;
+    }
+    async fn completion_ack(
+        store: &CanonicalStore,
+        fence: &AttemptFence,
+        acks: &mut ResultAcknowledgments,
+    ) -> Vec<u8> {
+        let payload = b"original completion fixture";
+        acks.append(
+            store
+                .append_result_batch(
+                    fence,
+                    &format!("completion:{}", fence.attempt()),
+                    "__completion",
+                    0,
+                    ResultPayload::new((payload).to_vec()).unwrap(),
+                    payload.len() as u64,
+                )
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        acks.complete("__completion").unwrap();
+        serde_json::to_vec(&serde_json::json!({"version":1,"batch_count":1,"payload_bytes":payload.len(),"digest":result_payload_digest(payload),"inline":null})).unwrap()
+    }
+    #[tokio::test]
+    async fn canonical_acknowledged_close_retains_empty_demand_and_actual_seal_headers() {
+        let (store, database, revision) = fixture().await;
+        run(&store, &revision, "ack-empty").await;
+        let fence = store
+            .claim_run("ack-empty", "claim", "worker", Duration::from_secs(60))
+            .await
+            .unwrap();
+        let mut acks = ResultAcknowledgments::new(&fence);
+        acks.expect("demanded-empty").unwrap();
+        acks.empty(
+            store
+                .declare_empty_result_set(&fence, "empty", "demanded-empty")
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        acks.complete("demanded-empty").unwrap();
+        let receipt = completion_ack(&store, &fence, &mut acks).await;
+        let manifest = store
+            .close_acknowledged(&fence, "close", acks)
+            .await
+            .unwrap();
+        assert_eq!(manifest.closed.authority, fence.generation());
+        let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+        let empty = descriptors
+            .iter()
+            .find(|set| set.name == "demanded-empty")
+            .unwrap();
+        assert_eq!((empty.batch_count, empty.row_count), (0, 0));
+        // SAFETY: this fixture owns the exact finite bytes and asserts only partial availability.
+        let (attempt, header) = unsafe {
+            store
+                .seal_acknowledged(
+                    &manifest,
+                    "seal",
+                    TerminalClass::Partial,
+                    &receipt,
+                    SeedEligibility::Unavailable,
+                )
+                .await
+                .unwrap()
+        }
+        .into_parts();
+        assert_eq!(
+            header.terminal_attempt.as_deref(),
+            Some(attempt.key.as_str())
+        );
+        assert_eq!(attempt.completion.unwrap().as_slice(), receipt);
+        let read = store
+            .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+            .await
+            .unwrap();
+        assert_eq!(
+            read.sets()
+                .iter()
+                .find(|set| set.name == "demanded-empty")
+                .unwrap(),
+            empty
+        );
+        assert!(store.result_payload(&read, &empty.key, 0).await.is_err());
+        drop(read);
+        remove(&store, &database).await;
+    }
+    #[tokio::test]
+    async fn canonical_acknowledged_close_refuses_unobserved_sets_counts_and_missing_receipt() {
+        for mutation in 0..4 {
+            let (store, database, revision) = fixture().await;
+            run(&store, &revision, "ack-coverage").await;
+            let fence = store
+                .claim_run("ack-coverage", "claim", "worker", Duration::from_secs(60))
+                .await
+                .unwrap();
+            let mut acks = ResultAcknowledgments::new(&fence);
+            completion_ack(&store, &fence, &mut acks).await;
+            let first = store
+                .append_result_batch(
+                    &fence,
+                    "value-0",
+                    "values",
+                    0,
+                    ResultPayload::new((&[1]).to_vec()).unwrap(),
+                    1,
+                )
+                .await
+                .unwrap();
+            let set = first.result_set.clone();
+            acks.append(first).unwrap();
+            acks.complete("values").unwrap();
+            match mutation {
+                0 => {
+                    store
+                        .append_result_batch(
+                            &fence,
+                            "extra",
+                            "unadvertised",
+                            0,
+                            ResultPayload::new((&[9]).to_vec()).unwrap(),
+                            1,
+                        )
+                        .await
+                        .unwrap();
+                }
+                1 => {
+                    store
+                        .append_result_batch(
+                            &fence,
+                            "value-1",
+                            "values",
+                            1,
+                            ResultPayload::new((&[2]).to_vec()).unwrap(),
+                            1,
+                        )
+                        .await
+                        .unwrap();
+                }
+                2 => {
+                    bounded_query(
+                        store
+                            .db
+                            .query("DELETE ONLY type::record('canonical_result_sets',$key);")
+                            .bind(("key", set)),
+                    )
+                    .await
+                    .unwrap();
+                }
+                _ => {
+                    bounded_query(store.db.query(
+                        "DELETE ONLY type::record('canonical_execution_operations','value-0');",
+                    ))
+                    .await
+                    .unwrap();
+                }
+            }
+            assert!(
+                store
+                    .close_acknowledged(&fence, "close", acks)
+                    .await
+                    .is_err()
+            );
+            let current = store
+                .canonical_attempt(fence.attempt())
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(current.ingestion_open && !current.closed && !current.terminal);
+            assert!(current.closed_manifest.is_none());
+            remove(&store, &database).await;
+        }
+    }
+    #[tokio::test]
+    async fn canonical_progress_uncertainty_readback_allows_only_bounded_optional_tail() {
+        for mutation in 0..3 {
+            let (store, database, revision) = fixture().await;
+            run(&store, &revision, "ack-progress").await;
+            let fence = store
+                .claim_run("ack-progress", "claim", "worker", Duration::from_secs(60))
+                .await
+                .unwrap();
+            let mut acks = ResultAcknowledgments::new(&fence);
+            completion_ack(&store, &fence, &mut acks).await;
+            acks.append(
+                store
+                    .append_result_batch(
+                        &fence,
+                        "progress-0",
+                        "__progress",
+                        0,
+                        ResultPayload::new((b"[]").to_vec()).unwrap(),
+                        1,
+                    )
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            acks.complete("__progress").unwrap();
+            assert_eq!(acks.rows("__progress"), 1);
+            // An append may commit without its original producer observing the ACK.
+            store
+                .append_result_batch(
+                    &fence,
+                    "progress-1",
+                    "__progress",
+                    1,
+                    ResultPayload::new((b"[]").to_vec()).unwrap(),
+                    2,
+                )
+                .await
+                .unwrap();
+            if mutation == 1 {
+                store
+                    .append_result_batch(
+                        &fence,
+                        "extra",
+                        "unadvertised",
+                        0,
+                        ResultPayload::new((&[9]).to_vec()).unwrap(),
+                        1,
+                    )
+                    .await
+                    .unwrap();
+            }
+            let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
+            let result = store
+                .reconcile_progress_uncertainty(&closed, acks, if mutation == 2 { 2 } else { 3 })
+                .await;
+            if mutation == 0 {
+                let manifest = result.unwrap();
+                let descriptors = decode_result_descriptors(manifest.row()).unwrap();
+                let actual = descriptors
+                    .iter()
+                    .find(|set| set.name == "__progress")
+                    .unwrap();
+                assert_eq!((actual.batch_count, actual.row_count), (2, 3));
+            } else {
+                assert!(result.is_err());
+            }
+            assert!(
+                !store
+                    .canonical_attempt(fence.attempt())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .terminal
+            );
+            remove(&store, &database).await;
+        }
+    }
+    #[tokio::test]
+    async fn canonical_acknowledged_close_requires_complete_actual_seed_inventory() {
+        for mode in 0..3 {
+            let (store, database, revision) = fixture().await;
+            let run = run(&store, &revision, "ack-seeds").await;
+            let fence = store
+                .claim_run("ack-seeds", "claim", "worker", Duration::from_secs(60))
+                .await
+                .unwrap();
+            let mut acks = ResultAcknowledgments::new(&fence);
+            completion_ack(&store, &fence, &mut acks).await;
+            let payload = b"seed fixture";
+            let batch = store
+                .append_result_batch(
+                    &fence,
+                    "seed-chunk",
+                    "__seeds",
+                    0,
+                    ResultPayload::new((payload).to_vec()).unwrap(),
+                    payload.len() as u64,
+                )
+                .await
+                .unwrap();
+            let row = pse_model::generated::runtime::canonical_result_seeds::Row {
+                key: "seed-fixture".into(),
+                batch: batch.key.clone(),
+                first_ordinal: 0,
+                result_set: batch.result_set.clone(),
+                attempt: fence.attempt().into(),
+                run: fence.run().into(),
+                layout: "layout".into(),
+                preparation: "preparation".into(),
+                profile: "profile".into(),
+                data: "data".into(),
+                backend: "constant".into(),
+                step: 0,
+                batch_count: 1,
+                payload_bytes: payload.len() as u64,
+                digest: result_payload_digest(payload),
+                run_sequence: run.sequence,
+                attempt_generation: fence.generation(),
+            };
+            acks.append(batch).unwrap();
+            if mode != 0 {
+                let registered = store
+                    .register_result_seed(&fence, "seed-register", &row)
+                    .await
+                    .unwrap();
+                if mode == 2 {
+                    acks.seed(registered).unwrap();
+                }
+            }
+            acks.complete("__seeds").unwrap();
+            let closed = store.close_acknowledged(&fence, "close", acks).await;
+            if mode == 2 {
+                assert!(closed.is_ok());
+            } else {
+                assert!(closed.is_err());
+            }
+            assert!(
+                !store
+                    .canonical_attempt(fence.attempt())
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .terminal
+            );
+            remove(&store, &database).await;
+        }
     }
     #[tokio::test]
     async fn canonical_execution_native_metadata_bound_matches_conservative_client() {
@@ -281,7 +737,14 @@ mod canonical_execution_server_unit {
         }
         let first = &claims[0].fence;
         store
-            .append_result_batch(first, "before-cancel", "observations", 0, &[7], 1)
+            .append_result_batch(
+                first,
+                "before-cancel",
+                "observations",
+                0,
+                ResultPayload::new((&[7]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let closed = store
@@ -298,7 +761,14 @@ mod canonical_execution_server_unit {
         // An acknowledged original append/close survives subsequent writer refusal.
         assert!(
             store
-                .append_result_batch(first, "before-cancel", "observations", 0, &[7], 1)
+                .append_result_batch(
+                    first,
+                    "before-cancel",
+                    "observations",
+                    0,
+                    ResultPayload::new((&[7]).to_vec()).unwrap(),
+                    1
+                )
                 .await
                 .is_ok()
         );
@@ -312,7 +782,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the isolated fixture owns these synthetic observations; this cancelled stale capability must refuse success.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "stale-success", TerminalClass::Succeeded, &[9])
+                    .seal_attempt(
+                        &manifest,
+                        "stale-success",
+                        TerminalClass::Succeeded,
+                        &[9],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -321,7 +797,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture supplies its actual cancellation; this stale capability must still be refused.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "stale-cancel", TerminalClass::Cancelled, &[9])
+                    .seal_attempt(
+                        &manifest,
+                        "stale-cancel",
+                        TerminalClass::Cancelled,
+                        &[9],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -334,7 +816,7 @@ mod canonical_execution_server_unit {
                         &format!("late-{index}"),
                         "observations",
                         1,
-                        &[8],
+                        ResultPayload::new((&[8]).to_vec()).unwrap(),
                         1
                     )
                     .await
@@ -361,6 +843,7 @@ mod canonical_execution_server_unit {
                         &format!("cancel-terminal-{index}"),
                         TerminalClass::Cancelled,
                         &[9],
+                        SeedEligibility::Unavailable,
                     )
                     .await
             }
@@ -394,10 +877,256 @@ mod canonical_execution_server_unit {
         // SAFETY: this fixture writer owns the exact reconciled observations and supplies the test-selected terminal class.
         unsafe {
             store
-                .seal_attempt(&manifest, operation, outcome, &[9])
+                .seal_attempt(
+                    &manifest,
+                    operation,
+                    outcome,
+                    &[9],
+                    SeedEligibility::Unavailable,
+                )
                 .await
         }
         .unwrap()
+    }
+
+    async fn seed_headers(
+        store: &CanonicalStore,
+        revision: &crate::canonical::Revision,
+        key: &str,
+        count: u64,
+    ) -> (
+        AttemptFence,
+        Vec<pse_model::generated::runtime::canonical_result_seeds::Row>,
+    ) {
+        let run = run(store, revision, key).await;
+        let fence = store
+            .claim_run(
+                key,
+                &format!("claim-{key}"),
+                "worker",
+                Duration::from_secs(600),
+            )
+            .await
+            .unwrap();
+        let payload = [7, 9];
+        let batch = store
+            .append_result_batch(
+                &fence,
+                &format!("batch-{key}"),
+                "__seeds",
+                0,
+                ResultPayload::new((&payload).to_vec()).unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let mut seeds = Vec::new();
+        for step in 0..count {
+            let row = pse_model::generated::runtime::canonical_result_seeds::Row {
+                key: format!("seed-{key}-{step:03}"),
+                batch: batch.key.clone(),
+                result_set: batch.result_set.clone(),
+                attempt: fence.attempt().into(),
+                run: key.into(),
+                layout: "layout".into(),
+                preparation: "preparation".into(),
+                profile: "original-profile".into(),
+                data: "original-data".into(),
+                backend: "backend".into(),
+                step,
+                batch_count: 1,
+                first_ordinal: 0,
+                run_sequence: run.sequence,
+                attempt_generation: fence.generation(),
+                payload_bytes: payload.len() as u64,
+                digest: result_payload_digest(&payload),
+            };
+            store
+                .register_result_seed(&fence, &row.key, &row)
+                .await
+                .unwrap();
+            seeds.push(row);
+        }
+        (fence, seeds)
+    }
+
+    async fn seal_seed_inventory(store: &CanonicalStore, fence: &AttemptFence) -> ClosedManifest {
+        let closed = store
+            .close_result_ingestion(fence, &format!("close-{}", fence.attempt()))
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: the fixture owns every registered synthetic seed and its complete
+        // original observations in this exact frozen inventory, without native science.
+        let terminal = unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    &format!("seal-{}", fence.attempt()),
+                    TerminalClass::Partial,
+                    &[9],
+                    SeedEligibility::CompleteOriginalInventory,
+                )
+                .await
+        }
+        .unwrap();
+        assert_eq!(
+            terminal.seed_manifest.as_deref(),
+            Some(manifest.row().key.as_str())
+        );
+        manifest
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_seed_eligibility_precedes_cutoff_and_retirement() {
+        let (store, database, revision) = fixture().await;
+        let (old, old_seeds) = seed_headers(&store, &revision, "old", 1).await;
+        seal_seed_inventory(&store, &old).await;
+        let (new, new_seeds) = seed_headers(&store, &revision, "new", 64).await;
+        // Exactly 65 headers: LIMIT on unfiltered inventory would mask the old one.
+        let candidates = store
+            .result_seed_candidates("layout", "preparation", "backend", None)
+            .await
+            .unwrap();
+        assert_eq!(candidates, old_seeds);
+        assert!(
+            store
+                .result_seed_candidates("layout", "preparation", "backend", Some(new.attempt()))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .result_seed_candidates("layout", "preparation", "backend", Some(old.attempt()))
+                .await
+                .unwrap(),
+            old_seeds
+        );
+        let manifest = seal_seed_inventory(&store, &new).await;
+        let candidates = store
+            .result_seed_candidates("layout", "preparation", "backend", None)
+            .await
+            .unwrap();
+        assert_eq!(candidates.len(), 64);
+        assert_eq!(candidates.first(), new_seeds.last());
+        // Exact replay after an unknown acknowledgement retains the same witness;
+        // changing the eligibility under the same original intent is refused.
+        // SAFETY: replay of the exact fixture-owned frozen inventory and completion.
+        let replay = unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    &format!("seal-{}", new.attempt()),
+                    TerminalClass::Partial,
+                    &[9],
+                    SeedEligibility::CompleteOriginalInventory,
+                )
+                .await
+        }
+        .unwrap();
+        assert_eq!(
+            replay.seed_manifest.as_deref(),
+            Some(manifest.row().key.as_str())
+        );
+        // SAFETY: deliberately changed replay must fail, never remove eligibility.
+        assert!(
+            unsafe {
+                store
+                    .seal_attempt(
+                        &manifest,
+                        &format!("seal-{}", new.attempt()),
+                        TerminalClass::Partial,
+                        &[9],
+                        SeedEligibility::Unavailable,
+                    )
+                    .await
+            }
+            .is_err()
+        );
+        for (layout, preparation, backend) in [
+            ("other", "preparation", "backend"),
+            ("layout", "other", "backend"),
+            ("layout", "preparation", "other"),
+        ] {
+            assert!(
+                store
+                    .result_seed_candidates(layout, preparation, backend, None)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
+        }
+        store.forget_run_results(new.run()).await.unwrap();
+        assert_eq!(
+            store
+                .result_seed_candidates("layout", "preparation", "backend", None)
+                .await
+                .unwrap(),
+            old_seeds
+        );
+        assert!(
+            store
+                .read_results(new.run(), new.attempt(), Duration::from_secs(30))
+                .await
+                .is_err()
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_seed_witness_refuses_recovered_prefix_and_orders_ties() {
+        let (store, database, revision) = fixture().await;
+        let (old, seeds) = seed_headers(&store, &revision, "old", 1).await;
+        let mut tied = seeds[0].clone();
+        tied.key = "zz-tied-seed".into();
+        // Data and solver profile are provenance, deliberately outside compatibility.
+        tied.profile = "different-options".into();
+        tied.data = "different-numeric-data".into();
+        store
+            .register_result_seed(&old, &tied.key, &tied)
+            .await
+            .unwrap();
+        seal_seed_inventory(&store, &old).await;
+        let (prefix, _) = seed_headers(&store, &revision, "prefix", 1).await;
+        store
+            .cancel_run(prefix.run(), "cancel-prefix")
+            .await
+            .unwrap();
+        let closed = store
+            .recover_closed_attempt(prefix.run(), "recover-prefix")
+            .await
+            .unwrap();
+        let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture supplies the actual cancelled incomplete prefix;
+        // its registered header must not acquire original scientific permission.
+        let terminal = unsafe {
+            store
+                .seal_attempt(
+                    &manifest,
+                    "seal-prefix",
+                    TerminalClass::Cancelled,
+                    &[],
+                    SeedEligibility::Unavailable,
+                )
+                .await
+        }
+        .unwrap();
+        assert!(terminal.terminal);
+        assert!(terminal.seed_manifest.is_none());
+        let candidates = store
+            .result_seed_candidates("layout", "preparation", "backend", None)
+            .await
+            .unwrap();
+        assert_eq!(candidates, vec![tied, seeds[0].clone()]);
+        assert!(
+            store
+                .result_seed_candidates("layout", "preparation", "backend", Some(prefix.attempt()))
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        remove(&store, &database).await;
     }
 
     #[tokio::test]
@@ -416,31 +1145,66 @@ mod canonical_execution_server_unit {
             .unwrap();
         assert_eq!(fence.attempt(), replay.attempt());
         let batch = store
-            .append_result_batch(&fence, "batch-0", "values", 0, &[1, 2], 2)
+            .append_result_batch(
+                &fence,
+                "batch-0",
+                "values",
+                0,
+                ResultPayload::new((&[1, 2]).to_vec()).unwrap(),
+                2,
+            )
             .await
             .unwrap();
         assert_eq!(
             batch,
             store
-                .append_result_batch(&fence, "batch-0", "values", 0, &[1, 2], 2)
+                .append_result_batch(
+                    &fence,
+                    "batch-0",
+                    "values",
+                    0,
+                    ResultPayload::new((&[1, 2]).to_vec()).unwrap(),
+                    2
+                )
                 .await
                 .unwrap()
         );
         assert!(
             store
-                .append_result_batch(&fence, "batch-0", "values", 0, &[1, 3], 2)
+                .append_result_batch(
+                    &fence,
+                    "batch-0",
+                    "values",
+                    0,
+                    ResultPayload::new((&[1, 3]).to_vec()).unwrap(),
+                    2
+                )
                 .await
                 .is_err()
         );
         assert!(
             store
-                .append_result_batch(&fence, "changed-batch", "values", 0, &[1, 3], 2)
+                .append_result_batch(
+                    &fence,
+                    "changed-batch",
+                    "values",
+                    0,
+                    ResultPayload::new((&[1, 3]).to_vec()).unwrap(),
+                    2
+                )
                 .await
                 .is_err()
         );
         assert!(
             store
-                .append_result_batch(&fence, "gap", "values", 2, &[4], 1)
+                .append_result_batch(
+                    &fence,
+                    "gap",
+                    "values",
+                    2,
+                    ResultPayload::new((&[4]).to_vec()).unwrap(),
+                    1
+                )
                 .await
                 .is_err()
         );
@@ -453,7 +1217,14 @@ mod canonical_execution_server_unit {
         let close = store.close_result_ingestion(&fence, "close").await.unwrap();
         assert!(
             store
-                .append_result_batch(&fence, "late", "values", 1, &[5], 1)
+                .append_result_batch(
+                    &fence,
+                    "late",
+                    "values",
+                    1,
+                    ResultPayload::new((&[5]).to_vec()).unwrap(),
+                    1
+                )
                 .await
                 .is_err()
         );
@@ -464,7 +1235,13 @@ mod canonical_execution_server_unit {
         // SAFETY: the fixture admits exactly its two synthetic values as partial with its fixed completion.
         let terminal = unsafe {
             store
-                .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
+                .seal_attempt(
+                    &manifest,
+                    "seal",
+                    TerminalClass::Partial,
+                    &[8],
+                    SeedEligibility::Unavailable,
+                )
                 .await
         }
         .unwrap();
@@ -473,7 +1250,13 @@ mod canonical_execution_server_unit {
             // SAFETY: this is an exact replay of the fixture-owned partial observations and completion.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[8])
+                    .seal_attempt(
+                        &manifest,
+                        "seal",
+                        TerminalClass::Partial,
+                        &[8],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .unwrap()
@@ -482,7 +1265,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture owns these synthetic observations; changing its admitted class must be refused.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "seal", TerminalClass::Succeeded, &[8])
+                    .seal_attempt(
+                        &manifest,
+                        "seal",
+                        TerminalClass::Succeeded,
+                        &[8],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -491,7 +1280,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture owns these synthetic observations; changing its admitted completion must be refused.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "seal", TerminalClass::Partial, &[9])
+                    .seal_attempt(
+                        &manifest,
+                        "seal",
+                        TerminalClass::Partial,
+                        &[9],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -520,7 +1315,14 @@ mod canonical_execution_server_unit {
         assert!(fresh.generation() > fence.generation());
         assert!(
             store
-                .append_result_batch(&fence, "stale", "values", 1, &[5], 1)
+                .append_result_batch(
+                    &fence,
+                    "stale",
+                    "values",
+                    1,
+                    ResultPayload::new((&[5]).to_vec()).unwrap(),
+                    1
+                )
                 .await
                 .is_err()
         );
@@ -632,7 +1434,7 @@ mod canonical_execution_server_unit {
                         &format!("concurrent-batch-{index}"),
                         "temperature_kelvin",
                         0,
-                        &original,
+                        ResultPayload::new((&original).to_vec()).unwrap(),
                         4,
                     )
                     .await
@@ -654,6 +1456,7 @@ mod canonical_execution_server_unit {
                             &format!("concurrent-seal-{index}"),
                             TerminalClass::Succeeded,
                             b"four original temperatures",
+                            SeedEligibility::Unavailable,
                         )
                         .await
                 }
@@ -688,7 +1491,7 @@ mod canonical_execution_server_unit {
                             &format!("concurrent-late-{index}"),
                             "temperature_kelvin",
                             1,
-                            &[0],
+                            ResultPayload::new((&[0]).to_vec()).unwrap(),
                             1
                         )
                         .await
@@ -740,7 +1543,14 @@ mod canonical_execution_server_unit {
             let close = format!("close-{index}");
             let payload = [index];
             let (batch, closed) = tokio::join!(
-                store.append_result_batch(&fence, &operation, "values", 0, &payload, 1),
+                store.append_result_batch(
+                    &fence,
+                    &operation,
+                    "values",
+                    0,
+                    ResultPayload::new((&payload).to_vec()).unwrap(),
+                    1
+                ),
                 store.close_result_ingestion(&fence, &close)
             );
             let closed = closed.unwrap();
@@ -752,7 +1562,14 @@ mod canonical_execution_server_unit {
             }
             assert!(
                 store
-                    .append_result_batch(&fence, &format!("late-{index}"), "values", 1, &[index], 1)
+                    .append_result_batch(
+                        &fence,
+                        &format!("late-{index}"),
+                        "values",
+                        1,
+                        ResultPayload::new((&[index]).to_vec()).unwrap(),
+                        1
+                    )
                     .await
                     .is_err()
             );
@@ -871,13 +1688,27 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         store
-            .append_result_batch(&fence, "first", "diagnostics", 0, &[7], 1)
+            .append_result_batch(
+                &fence,
+                "first",
+                "diagnostics",
+                0,
+                ResultPayload::new((&[7]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_millis(300)).await;
         assert!(
             store
-                .append_result_batch(&fence, "stale", "diagnostics", 1, &[8], 1)
+                .append_result_batch(
+                    &fence,
+                    "stale",
+                    "diagnostics",
+                    1,
+                    ResultPayload::new((&[8]).to_vec()).unwrap(),
+                    1
+                )
                 .await
                 .is_err()
         );
@@ -896,7 +1727,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture owns the expired synthetic attempt; recovered failure observations must refuse success.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "false-success", TerminalClass::Succeeded, &[])
+                    .seal_attempt(
+                        &manifest,
+                        "false-success",
+                        TerminalClass::Succeeded,
+                        &[],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -904,7 +1741,13 @@ mod canonical_execution_server_unit {
         // SAFETY: the fixture owns the recovered diagnostic observation and admits its actual failed outcome.
         let failed = unsafe {
             store
-                .seal_attempt(&manifest, "failed", TerminalClass::Failed, &[7])
+                .seal_attempt(
+                    &manifest,
+                    "failed",
+                    TerminalClass::Failed,
+                    &[7],
+                    SeedEligibility::Unavailable,
+                )
                 .await
         }
         .unwrap();
@@ -919,7 +1762,14 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         store
-            .append_result_batch(&fence, "cancel-first", "values", 0, &[1], 1)
+            .append_result_batch(
+                &fence,
+                "cancel-first",
+                "values",
+                0,
+                ResultPayload::new((&[1]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let closed = store
@@ -935,7 +1785,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture owns these synthetic observations; cancellation must refuse this stale success candidate.
             unsafe {
                 store
-                    .seal_attempt(&stale_manifest, "stale-seal", TerminalClass::Succeeded, &[])
+                    .seal_attempt(
+                        &stale_manifest,
+                        "stale-seal",
+                        TerminalClass::Succeeded,
+                        &[],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -949,7 +1805,13 @@ mod canonical_execution_server_unit {
             // SAFETY: the fixture owns the recovered attempt; its actual cancellation must refuse a failed candidate.
             unsafe {
                 store
-                    .seal_attempt(&manifest, "ignored-cancel", TerminalClass::Failed, &[])
+                    .seal_attempt(
+                        &manifest,
+                        "ignored-cancel",
+                        TerminalClass::Failed,
+                        &[],
+                        SeedEligibility::Unavailable,
+                    )
                     .await
             }
             .is_err()
@@ -957,7 +1819,13 @@ mod canonical_execution_server_unit {
         // SAFETY: the fixture owns the reconciled synthetic observation and admits its actual cancellation.
         let terminal = unsafe {
             store
-                .seal_attempt(&manifest, "cancel-seal", TerminalClass::Cancelled, &[1])
+                .seal_attempt(
+                    &manifest,
+                    "cancel-seal",
+                    TerminalClass::Cancelled,
+                    &[1],
+                    SeedEligibility::Unavailable,
+                )
                 .await
         }
         .unwrap();
@@ -1022,11 +1890,25 @@ mod canonical_execution_server_unit {
             .await
             .unwrap();
         store
-            .append_result_batch(&fence, "missing-first", "values", 0, &[1], 1)
+            .append_result_batch(
+                &fence,
+                "missing-first",
+                "values",
+                0,
+                ResultPayload::new((&[1]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let missing = store
-            .append_result_batch(&fence, "missing-second", "values", 1, &[2], 1)
+            .append_result_batch(
+                &fence,
+                "missing-second",
+                "values",
+                1,
+                ResultPayload::new((&[2]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let closed = store
@@ -1037,7 +1919,7 @@ mod canonical_execution_server_unit {
             store
                 .db
                 .query("DELETE ONLY type::record('canonical_result_batches',$key);")
-                .bind(("key", missing.key)),
+                .bind(("key", missing.key.clone())),
         )
         .await
         .unwrap();
@@ -1071,7 +1953,15 @@ mod canonical_execution_server_unit {
             let cancel = format!("cancel-race-op-{index}");
             let (sealed, cancelled) = tokio::join!(
                 // SAFETY: the fixture owns this empty synthetic success; cancellation races only its durable admission.
-                unsafe { store.seal_attempt(&manifest, &seal, TerminalClass::Succeeded, &[]) },
+                unsafe {
+                    store.seal_attempt(
+                        &manifest,
+                        &seal,
+                        TerminalClass::Succeeded,
+                        &[],
+                        SeedEligibility::Unavailable,
+                    )
+                },
                 store.cancel_run(&key, &cancel)
             );
             assert_ne!(sealed.is_ok(), cancelled.is_ok());
@@ -1097,6 +1987,7 @@ mod canonical_execution_server_unit {
                             &format!("race-cancelled-{index}"),
                             TerminalClass::Cancelled,
                             &[],
+                            SeedEligibility::Unavailable,
                         )
                         .await
                 }
@@ -1109,7 +2000,7 @@ mod canonical_execution_server_unit {
 }
 
 /// Worker admission capability; fields cannot be fabricated by an external caller.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AttemptFence {
     run: String,
     attempt: String,
@@ -1140,6 +2031,16 @@ impl AttemptFence {
     pub fn generation(&self) -> u64 {
         self.generation
     }
+}
+
+/// Scientific authority for discovering seeds from this exact frozen inventory.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SeedEligibility {
+    /// Every registered seed belongs to the fully exported original completion.
+    CompleteOriginalInventory,
+    /// Recovery, summary or an incomplete export supplies no seed permission.
+    Unavailable,
 }
 
 /// Terminal class supplied only after the scientific owner determines quality.
@@ -1180,6 +2081,716 @@ impl ClosedAttempt {
     }
 }
 
+/// Conservative resident allowance for one bounded acknowledgment accumulator.
+/// Callers reserve this before constructing the accumulator or retaining receipts.
+pub const RESULT_ACKNOWLEDGMENT_BYTES: usize =
+    RESULT_SETS * (64 * 1024) + 4 * EXECUTION_METADATA_BYTES;
+
+/// Compact immutable metadata returned by an authenticated append.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AppendReceipt {
+    /// Exact immutable batch coordinate.
+    pub key: String,
+    /// Owning attempt.
+    pub attempt: String,
+    /// Owning result set.
+    pub result_set: String,
+    /// Actual admitted ordinal.
+    pub ordinal: u64,
+    /// Digest of the original admitted bytes.
+    pub digest: String,
+    /// Actual admitted row coverage.
+    pub row_count: u64,
+}
+/// Authenticated successful append or exact operation settlement. Not constructible
+/// from a descriptor, serialized input or a copied public receipt.
+#[derive(Debug, PartialEq, Eq)]
+pub struct AppendAck {
+    receipt: AppendReceipt,
+    fence: AttemptFence,
+    name: String,
+    operation: String,
+    request: Vec<u8>,
+}
+impl std::ops::Deref for AppendAck {
+    type Target = AppendReceipt;
+    fn deref(&self) -> &AppendReceipt {
+        &self.receipt
+    }
+}
+/// One already encoded immutable block, with the caller's prepaid staging owner.
+/// Request framing and validation are shared with individual append operations.
+/// This owns no successful acknowledgment or writer permission.
+#[derive(Debug)]
+pub struct ResultBlockAppend {
+    acknowledgment: AppendAck,
+    item: Object,
+    extent: usize,
+    _owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+}
+impl ResultBlockAppend {
+    /// Prepare one block only after admitting the copied metadata/encoder extent.
+    /// The payload keeps its existing immutable bytes and per-block request identity.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "the original immutable block, its typed indexes and prepaid copy owner are separate append premises"
+    )]
+    pub fn new(
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: ResultPayload,
+        row_count: u64,
+        block: &ResultBlock,
+        row_indexes: &[ResultRow],
+        outputs: &[ResultOutput],
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        Self::prepare(
+            fence,
+            operation,
+            name,
+            ordinal,
+            payload,
+            row_count,
+            Some(block),
+            row_indexes,
+            outputs,
+            Some(owner),
+        )
+    }
+    /// Conservative complete encoded item extent, including payload and request.
+    pub fn encoded_extent(&self) -> usize {
+        self.extent
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "one immutable append constructor preserves the original individual request framing"
+    )]
+    fn prepare(
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+        ordinal: u64,
+        payload: ResultPayload,
+        row_count: u64,
+        block: Option<&ResultBlock>,
+        row_indexes: &[ResultRow],
+        outputs: &[ResultOutput],
+        owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+    ) -> Result<Self, CanonicalError> {
+        identity(operation)?;
+        if row_indexes
+            .windows(2)
+            .any(|pair| pair[0].key >= pair[1].key)
+            || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+        {
+            return Err(CanonicalError::Configuration(
+                "result index metadata must have strictly ordered identities".into(),
+            ));
+        }
+        identity(name)?;
+        if name.len() > 128 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let payload_bytes = payload.as_slice().len();
+        let set_key = result_set_key(&fence.attempt, name);
+        let key = result_batch_key(&fence.attempt, &set_key, ordinal);
+        let ResultPayload {
+            bytes: payload,
+            digest,
+            owner: payload_owner,
+        } = payload;
+        let owner = owner.or(payload_owner);
+        let set = ResultSet {
+            key: set_key.clone(),
+            attempt: fence.attempt.clone(),
+            name: name.into(),
+            interpretation: wire::INTERPRETATION.into(),
+            next_ordinal: 0,
+            row_count: 0,
+        };
+        let batch = ResultBatch {
+            key: key.clone(),
+            attempt: fence.attempt.clone(),
+            result_set: set_key.clone(),
+            ordinal,
+            digest: digest.clone(),
+            payload,
+            row_count,
+        };
+        if let Some(block) = block
+            && (block.key != key
+                || block.batch != key
+                || block.result_set != set_key
+                || block.ordinal != ordinal
+                || block.rows != row_count
+                || block.payload_bytes != payload_bytes as u64
+                || block.payload_digest != digest
+                || block.interpretation != wire::INTERPRETATION
+                || block.end < block.start
+                || block.end - block.start != row_count)
+        {
+            return Err(CanonicalError::Configuration(
+                "scientific block descriptor does not match immutable batch".into(),
+            ));
+        }
+        if let Some(block) = block {
+            crate::canonical_results::validate_result_block_metadata(block, &batch)?;
+        }
+        if row_indexes.len() > wire::RESULT_INDEX_RECORDS {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut row_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+        row_hash.str("pse.execution.scalar-row-metadata.v1");
+        let mut scientific_keys = std::collections::BTreeSet::new();
+        let mut coordinates = std::collections::BTreeSet::new();
+        for locator in row_indexes {
+            crate::canonical_results::validate_result_row(locator)?;
+            if locator.attempt != fence.attempt
+                || locator.relation_id.to_string() != name
+                || !scientific_keys.insert((
+                    locator.relation_id,
+                    locator.run_id,
+                    locator.owner,
+                    locator.step,
+                ))
+                || !coordinates.insert(locator.row)
+                || block.is_none_or(|block| {
+                    block.start.checked_add(locator.offset) != Some(locator.row)
+                })
+            {
+                return Err(CanonicalError::Configuration(
+                    "scalar row typed key, attempt or original offset mismatch".into(),
+                ));
+            }
+            if locator.batch != key || locator.result_set != set_key {
+                return Err(CanonicalError::Configuration(
+                    "scalar locator batch coordinate mismatch".into(),
+                ));
+            }
+            if block.is_some_and(|block| locator.row < block.start || locator.row >= block.end) {
+                return Err(CanonicalError::Configuration(
+                    "scalar locator row is outside original IPC block".into(),
+                ));
+            }
+            pse_model::SemanticFrame::frame(locator, &mut row_hash);
+        }
+        let registry = pse_schema::registry()
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let scalar_relation = [
+            "runtime.solve_variables",
+            "runtime.solve_constraints",
+            "runtime.fit_parameters",
+            "runtime.fit_observations",
+        ]
+        .iter()
+        .any(|relation| {
+            registry
+                .relation(relation)
+                .is_some_and(|spec| spec.id.to_string() == name)
+        });
+        if (scalar_relation || !row_indexes.is_empty()) && row_indexes.len() as u64 != row_count {
+            return Err(CanonicalError::Configuration(
+                "scalar row coverage differs from original IPC block".into(),
+            ));
+        }
+        if outputs.len() > wire::RESULT_INDEX_RECORDS {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+        output_hash.str("pse.execution.output-index-metadata.v1");
+        for output in outputs {
+            identity(&output.key)?;
+            identity(&output.output)?;
+            identity(&output.partition)?;
+            if output.batch != key
+                || output.result_set != set_key
+                || output.interpretation != wire::INTERPRETATION
+                || output.end < output.start
+                || block.is_none_or(|block| output.start < block.start || output.end > block.end)
+            {
+                return Err(CanonicalError::Configuration(
+                    "output index batch coordinate mismatch".into(),
+                ));
+            }
+            pse_model::SemanticFrame::frame(output, &mut output_hash);
+        }
+        let mut block_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+        block_hash.str("pse.execution.block-metadata.v1");
+        if let Some(block) = block {
+            pse_model::SemanticFrame::frame(block, &mut block_hash);
+        }
+        let request = json(&(
+            &fence.run,
+            &fence.attempt,
+            fence.generation,
+            name,
+            ordinal,
+            &digest,
+            row_count,
+            block_hash.finish_hash().to_hex(),
+            row_hash.finish_hash().to_hex(),
+            output_hash.finish_hash().to_hex(),
+        ))?;
+        let block = block
+            .map(wire::encode_canonical_result_blocks)
+            .transpose()?;
+        let row_indexes = row_indexes
+            .iter()
+            .map(wire::encode_canonical_result_rows)
+            .collect::<Result<Vec<_>, _>>()?;
+        let outputs = outputs
+            .iter()
+            .map(wire::encode_canonical_result_block_outputs)
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut metadata = Object::new();
+        metadata.insert(
+            "block",
+            block.clone().map(Value::Object).unwrap_or(Value::None),
+        );
+        metadata.insert(
+            "row_indexes",
+            Value::Array(
+                row_indexes
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        metadata.insert(
+            "outputs",
+            Value::Array(
+                outputs
+                    .iter()
+                    .cloned()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let encoded_set = wire::encode_canonical_result_sets(&set)?;
+        let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
+
+        let acknowledgment = AppendAck {
+            receipt: AppendReceipt {
+                key: batch.key,
+                attempt: batch.attempt,
+                result_set: batch.result_set,
+                ordinal: batch.ordinal,
+                digest: batch.digest,
+                row_count: batch.row_count,
+            },
+            fence: fence.clone(),
+            name: name.into(),
+            operation: operation.into(),
+            request: request.clone(),
+        };
+        let mut item = Object::new();
+        item.insert("operation", Value::String(operation.into()));
+        item.insert("request", Value::Bytes(Bytes::from(request)));
+        item.insert("set", Value::Object(encoded_set));
+        item.insert("batch", Value::Object(encoded_batch));
+        item.insert("block", block.map(Value::Object).unwrap_or(Value::None));
+        item.insert(
+            "row_indexes",
+            Value::Array(
+                row_indexes
+                    .into_iter()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        item.insert(
+            "outputs",
+            Value::Array(
+                outputs
+                    .into_iter()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
+        let extent = result_metadata_extent(&Value::Object(item.clone()))?;
+        Ok(Self {
+            acknowledgment,
+            item,
+            extent,
+            _owner: owner,
+        })
+    }
+    fn expected_response(&self) -> Result<Object, CanonicalError> {
+        let ack = &self.acknowledgment;
+        let mut row = Object::new();
+        row.insert("key", Value::String(ack.key.clone()));
+        row.insert("attempt", Value::String(ack.attempt.clone()));
+        row.insert("result_set", Value::String(ack.result_set.clone()));
+        row.insert("ordinal", canonical_codec::encode_uint(ack.ordinal)?);
+        row.insert("digest", Value::String(ack.digest.clone()));
+        row.insert("row_count", canonical_codec::encode_uint(ack.row_count)?);
+        row.insert("request", Value::Bytes(Bytes::from(ack.request.clone())));
+        Ok(row)
+    }
+}
+
+fn validate_append_group(
+    fence: &AttemptFence,
+    items: &[ResultBlockAppend],
+) -> Result<(), CanonicalError> {
+    if items.is_empty() || items.len() > wire::RESULT_INDEX_RECORDS {
+        return Err(CanonicalError::PayloadLimit);
+    }
+    let mut extent = 4096usize;
+    let mut operations = std::collections::BTreeSet::new();
+    let mut next = std::collections::BTreeMap::<&str, u64>::new();
+    for item in items {
+        if &item.acknowledgment.fence != fence
+            || !operations.insert(item.acknowledgment.operation.as_str())
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        let ack = &item.acknowledgment;
+        if next
+            .get(ack.result_set.as_str())
+            .is_some_and(|ordinal| *ordinal != ack.ordinal)
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        next.insert(
+            &ack.result_set,
+            ack.ordinal
+                .checked_add(1)
+                .ok_or(CanonicalError::PayloadLimit)?,
+        );
+        extent = extent
+            .checked_add(item.extent)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        if extent > crate::canonical::PAYLOAD_BYTES {
+            return Err(CanonicalError::PayloadLimit);
+        }
+    }
+    Ok(())
+}
+
+/// Authenticated declaration of a demanded relation with no scientific rows.
+#[derive(Debug)]
+pub struct EmptySetAck {
+    fence: AttemptFence,
+    name: String,
+    key: String,
+    operation: String,
+    request: Vec<u8>,
+}
+/// Authenticated immutable seed registration; scientific eligibility is separate.
+#[derive(Debug)]
+pub struct SeedAck {
+    fence: AttemptFence,
+    key: String,
+    operation: String,
+    request: Vec<u8>,
+    first: u64,
+    count: u64,
+    bytes: u64,
+}
+#[derive(Debug, PartialEq, Eq)]
+struct ReceiptProof {
+    operation: String,
+    request: Vec<u8>,
+    kind: &'static str,
+    batch: Option<AppendReceipt>,
+}
+impl ReceiptProof {
+    fn encode(&self) -> Result<Object, CanonicalError> {
+        let mut row = Object::new();
+        row.insert("operation", Value::String(self.operation.clone()));
+        row.insert("request", Value::Bytes(Bytes::from(self.request.clone())));
+        row.insert("kind", Value::String(self.kind.into()));
+        if let Some(batch) = &self.batch {
+            row.insert("key", Value::String(batch.key.clone()));
+            row.insert("ordinal", canonical_codec::encode_uint(batch.ordinal)?);
+            row.insert("digest", Value::String(batch.digest.clone()));
+            row.insert("rows", canonical_codec::encode_uint(batch.row_count)?);
+        }
+        Ok(row)
+    }
+}
+#[derive(Debug)]
+struct AcknowledgedSet {
+    key: String,
+    name: String,
+    next: u64,
+    rows: u64,
+    digest: FramedHasher,
+    last: Option<ReceiptProof>,
+    complete: bool,
+}
+/// Attempt-local, bounded actual receipt accumulation. This contains no payload,
+/// scientific permission, database connection or replay authority. It must live
+/// under the caller's prepaid RESULT_ACKNOWLEDGMENT_BYTES allowance.
+#[derive(Debug)]
+pub struct ResultAcknowledgments {
+    fence: AttemptFence,
+    sets: std::collections::BTreeMap<String, AcknowledgedSet>,
+    seed_count: u64,
+    seed_batches: u64,
+    seed_bytes: u64,
+    last_seed: Option<(String, ReceiptProof)>,
+}
+impl ResultAcknowledgments {
+    /// Bind this precharged owner to one actual live attempt.
+    pub fn new(fence: &AttemptFence) -> Self {
+        Self {
+            fence: fence.clone(),
+            sets: Default::default(),
+            seed_count: 0,
+            seed_batches: 0,
+            seed_bytes: 0,
+            last_seed: None,
+        }
+    }
+    /// Original binding; this does not mint another writer capability.
+    pub fn fence(&self) -> &AttemptFence {
+        &self.fence
+    }
+    fn same_fence(&self, fence: &AttemptFence) -> Result<(), CanonicalError> {
+        if self.fence.run != fence.run
+            || self.fence.attempt != fence.attempt
+            || self.fence.generation != fence.generation
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        Ok(())
+    }
+    /// Advertise real producer demand before reading or exporting its rows.
+    pub fn expect(&mut self, name: &str) -> Result<(), CanonicalError> {
+        identity(name)?;
+        if name.len() > 128 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        if self.sets.contains_key(name) {
+            return Ok(());
+        }
+        if self.sets.len() == RESULT_SETS {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
+        digest.str("pse.execution.batch-selection.v1");
+        self.sets.insert(
+            name.into(),
+            AcknowledgedSet {
+                key: result_set_key(&self.fence.attempt, name),
+                name: name.into(),
+                next: 0,
+                rows: 0,
+                digest,
+                last: None,
+                complete: false,
+            },
+        );
+        Ok(())
+    }
+    /// Consume an actual ACK once. Only an exact immediate replay is idempotent;
+    /// older ordinals, alternate operations and gaps never extend coverage.
+    pub fn append(&mut self, ack: AppendAck) -> Result<(), CanonicalError> {
+        self.same_fence(&ack.fence)?;
+        self.expect(&ack.name)?;
+        let set = self
+            .sets
+            .get_mut(&ack.name)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let proof = ReceiptProof {
+            operation: ack.operation,
+            request: ack.request,
+            kind: "append",
+            batch: Some(ack.receipt),
+        };
+        let batch = proof
+            .batch
+            .as_ref()
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        if set.last.as_ref() == Some(&proof) {
+            return Ok(());
+        }
+        if set.complete
+            || batch.result_set != set.key
+            || batch.attempt != self.fence.attempt
+            || batch.key != result_batch_key(&self.fence.attempt, &set.key, batch.ordinal)
+            || batch.ordinal != set.next
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        let next = set
+            .next
+            .checked_add(1)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        let rows = set
+            .rows
+            .checked_add(batch.row_count)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        set.digest
+            .str(&batch.key)
+            .str(&batch.digest)
+            .u64(batch.row_count);
+        set.next = next;
+        set.rows = rows;
+        set.last = Some(proof);
+        Ok(())
+    }
+    /// Consume the actual fenced declaration, preserving demanded empty membership.
+    pub fn empty(&mut self, ack: EmptySetAck) -> Result<(), CanonicalError> {
+        self.same_fence(&ack.fence)?;
+        self.expect(&ack.name)?;
+        let set = self
+            .sets
+            .get_mut(&ack.name)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let proof = ReceiptProof {
+            operation: ack.operation,
+            request: ack.request,
+            kind: "empty",
+            batch: None,
+        };
+        if set.last.as_ref() == Some(&proof) {
+            return Ok(());
+        }
+        if set.next != 0 || set.last.is_some() || set.key != ack.key || set.complete {
+            return Err(CanonicalError::OperationReused);
+        }
+        set.last = Some(proof);
+        Ok(())
+    }
+    /// Mark authentic producer exhaustion. A missing declaration or ACK refuses close.
+    pub fn complete(&mut self, name: &str) -> Result<(), CanonicalError> {
+        let set = self
+            .sets
+            .get_mut(name)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        if set.last.is_none() {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        set.complete = true;
+        Ok(())
+    }
+    /// Finish an optional producer which may have acknowledged no batches.
+    pub fn complete_present(&mut self, name: &str) -> Result<(), CanonicalError> {
+        if self.sets.contains_key(name) {
+            self.complete(name)
+        } else {
+            Ok(())
+        }
+    }
+    /// Actual acknowledged rows, useful for checking the joined progress writer.
+    pub fn rows(&self, name: &str) -> u64 {
+        self.sets.get(name).map_or(0, |set| set.rows)
+    }
+    /// Consume one actual seed registration after its contiguous payload ACKs.
+    pub fn seed(&mut self, ack: SeedAck) -> Result<(), CanonicalError> {
+        self.same_fence(&ack.fence)?;
+        let proof = ReceiptProof {
+            operation: ack.operation,
+            request: ack.request,
+            kind: "seed",
+            batch: None,
+        };
+        if self
+            .last_seed
+            .as_ref()
+            .is_some_and(|(key, last)| key == &ack.key && last == &proof)
+        {
+            return Ok(());
+        }
+        let end = ack
+            .first
+            .checked_add(ack.count)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        if ack.first != self.seed_batches
+            || ack.count == 0
+            || self.sets.get("__seeds").is_none_or(|set| set.next != end)
+        {
+            return Err(CanonicalError::OperationReused);
+        }
+        let count = self
+            .seed_count
+            .checked_add(1)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        let bytes = self
+            .seed_bytes
+            .checked_add(ack.bytes)
+            .ok_or(CanonicalError::PayloadLimit)?;
+        self.seed_batches = end;
+        self.seed_count = count;
+        self.seed_bytes = bytes;
+        self.last_seed = Some((ack.key, proof));
+        Ok(())
+    }
+    fn finish(self) -> Result<(ResultManifest, Vec<Object>, Object), CanonicalError> {
+        let mut descriptors = Vec::with_capacity(self.sets.len());
+        let mut proofs = Vec::with_capacity(self.sets.len());
+        for (_, set) in self.sets {
+            if !set.complete {
+                return Err(CanonicalError::IncompleteResponse);
+            }
+            let mut proof = set
+                .last
+                .ok_or(CanonicalError::IncompleteResponse)?
+                .encode()?;
+            proof.insert("set", Value::String(set.key.clone()));
+            proof.insert("name", Value::String(set.name.clone()));
+            proof.insert("count", canonical_codec::encode_uint(set.next)?);
+            proof.insert("row_count", canonical_codec::encode_uint(set.rows)?);
+            proofs.push(proof);
+            descriptors.push(ResultSetDescriptor {
+                key: set.key,
+                name: set.name,
+                batch_count: set.next,
+                row_count: set.rows,
+                batches_digest: set.digest.finish_hash().to_hex(),
+            });
+        }
+        descriptors.sort_by(|a, b| a.key.cmp(&b.key));
+        let bytes = json(&descriptors)?;
+        bounded(&bytes, EXECUTION_METADATA_BYTES)?;
+        let row = ResultManifest {
+            key: self.fence.attempt.clone(),
+            attempt: self.fence.attempt,
+            generation: self.fence.generation,
+            digest: metadata_digest(&bytes),
+            descriptors: bytes.into(),
+        };
+        let mut seed = match self.last_seed {
+            Some((key, proof)) => {
+                let mut row = proof.encode()?;
+                row.insert("key", Value::String(key));
+                row
+            }
+            None => Object::new(),
+        };
+        seed.insert("count", canonical_codec::encode_uint(self.seed_count)?);
+        seed.insert("batches", canonical_codec::encode_uint(self.seed_batches)?);
+        seed.insert("bytes", canonical_codec::encode_uint(self.seed_bytes)?);
+        Ok((row, proofs, seed))
+    }
+}
+/// Actual terminal response together with the run header from the same transaction.
+#[derive(Debug)]
+pub struct SealAck {
+    attempt: CanonicalAttempt,
+    run: CanonicalRun,
+}
+impl SealAck {
+    /// Consume the authenticated terminal response; no read permission is retained.
+    pub fn into_parts(self) -> (CanonicalAttempt, CanonicalRun) {
+        (self.attempt, self.run)
+    }
+}
+
 /// Exact frozen coordinate extent of one scientific result set.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -1203,6 +2814,10 @@ pub struct ClosedManifest {
     row: ResultManifest,
 }
 impl ClosedManifest {
+    /// Actual closed authority which admitted this immutable selection.
+    pub fn closed(&self) -> &ClosedAttempt {
+        &self.closed
+    }
     /// Exact immutable descriptor retained in the substrate.
     pub fn row(&self) -> &ResultManifest {
         &self.row
@@ -1242,6 +2857,47 @@ pub fn result_batch_key(attempt: &str, set: &str, ordinal: u64) -> String {
 /// Scientific payload integrity digest; a digest alone does not establish admission.
 pub fn result_payload_digest(payload: &[u8]) -> String {
     hash("pse.execution.result-payload.v1", &[payload])
+}
+/// Immutable bounded result bytes and the digest of those exact bytes. This is
+/// transport integrity, not Arrow, registry or scientific admission. A fresh
+/// store read still independently verifies its returned payload.
+#[derive(Debug)]
+pub struct ResultPayload {
+    bytes: pse_model::Bytes,
+    digest: String,
+    owner: Option<std::sync::Arc<dyn std::fmt::Debug + Send + Sync>>,
+}
+impl ResultPayload {
+    /// Consume native storage and calculate its integrity digest once.
+    /// # Errors
+    /// The immutable batch exceeds its existing transport bound.
+    pub fn new(bytes: Vec<u8>) -> Result<Self, CanonicalError> {
+        bounded(&bytes, RESULT_BATCH_BYTES)?;
+        let digest = result_payload_digest(&bytes);
+        Ok(Self {
+            bytes: bytes.into(),
+            digest,
+            owner: None,
+        })
+    }
+    /// Consume bytes only after their actual encoder/transport allowance is charged.
+    /// The owner follows every local route copy until response or physical drain.
+    pub fn new_owned(
+        bytes: Vec<u8>,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        let mut payload = Self::new(bytes)?;
+        payload.owner = Some(owner);
+        Ok(payload)
+    }
+    /// Exact immutable bytes; no mutable alias or digest setter is exposed.
+    pub fn as_slice(&self) -> &[u8] {
+        self.bytes.as_slice()
+    }
+    /// Existing framed payload digest, bound to this immutable allocation.
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
 }
 /// Verify a bounded exact batch before decoding its scientific contents.
 pub fn validate_result_batch(batch: &ResultBatch) -> Result<(), CanonicalError> {
@@ -1505,28 +3161,12 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(
-                self.db
-                    .query("SELECT problem FROM ONLY type::record('canonical_runs',$run);")
-                    .bind(("run", run.to_owned())),
-            )
-            .await?;
-            let mut row = response
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?;
-            let problem = canonical_codec::decode_string(
-                row.remove("problem")
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?;
-            self.protected_query(
-                &problem,
-                crate::canonical::QueryEffect::Mutation,
-                operation,
-                build,
-            )
-            .await
-        })
+        self.protected_query(
+            &format!("execution-run:{run}"),
+            crate::canonical::QueryEffect::Mutation,
+            operation,
+            build,
+        )
         .await
     }
     /// Retain selected inputs and provenance atomically before native execution.
@@ -1625,7 +3265,7 @@ impl CanonicalStore {
         })
         .await
     }
-    /// Narrow eligibility selector; callers validate terminal scientific permission.
+    /// Filter sealed complete-original inventory before cutoff; admission remains independent.
     pub async fn result_seed_candidates(
         &self,
         layout: &str,
@@ -1636,9 +3276,9 @@ impl CanonicalStore {
     {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let query = if attempt.is_some() {
-                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64;"
             } else {
-                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC LIMIT 64;"
+                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64;"
             };
             let mut result = bounded_query(
                 self.db
@@ -1720,7 +3360,7 @@ impl CanonicalStore {
         fence: &AttemptFence,
         operation: &str,
         seed: &pse_model::generated::runtime::canonical_result_seeds::Row,
-    ) -> Result<(), CanonicalError> {
+    ) -> Result<SeedAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             identity(&seed.key)?;
@@ -1746,6 +3386,7 @@ impl CanonicalStore {
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result=self.protected_execution_query(&fence.run, "canonical_execution::register_result_seed", ||Ok(self.db.query("RETURN fn::pse_execution_v1::seed($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$seed);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("seed",encoded.clone())))).await;
+            let acknowledged = || SeedAck { fence: fence.clone(), key: seed.key.clone(), operation: operation.into(), request: request.clone(), first: seed.first_ordinal, count: seed.batch_count, bytes: seed.payload_bytes };
             match result {
                 Ok(mut response) => {
                     let saved = wire::decode_canonical_result_seeds(writer_response(
@@ -1756,10 +3397,10 @@ impl CanonicalStore {
                     if saved != *seed {
                         return Err(CanonicalError::OperationReused);
                     }
-                    Ok(())
+                    Ok(acknowledged())
                 }
                 Err(error) => match self.settle_operation(operation, "seed", &request).await? {
-                    Some(_) => Ok(()),
+                    Some(_) => Ok(acknowledged()),
                     None => Err(error),
                 },
             }
@@ -1942,7 +3583,7 @@ impl CanonicalStore {
             let attempt = execution_attempt_key(run, operation);
             let request = json(&(run, operation, worker, lifetime, wire::INTERPRETATION))?;
             self.ensure_writes()?;
-            let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($pse_rpc_expires_at, $run,$operation,$request,$attempt,$worker,$lifetime,$interpretation);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
+            let result = self.protected_execution_query(run, "canonical_execution::claim_run", || Ok(self.db.query("RETURN fn::pse_execution_v1::claim($pse_rpc_expires_at, $run,$operation,$request,$attempt,$worker,$lifetime,$interpretation,NONE);").bind(("run",run.to_owned())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("interpretation",wire::INTERPRETATION)))).await;
             let row = match result {
                 Ok(mut response) => wire::decode_canonical_attempts(
                     response
@@ -1968,9 +3609,9 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
         ordinal: u64,
-        payload: &[u8],
+        payload: ResultPayload,
         row_count: u64,
-    ) -> Result<ResultBatch, CanonicalError> {
+    ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.append_execution_batch(
                 fence,
@@ -1998,10 +3639,10 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
         ordinal: u64,
-        payload: &[u8],
+        payload: ResultPayload,
         row_count: u64,
         block: &ResultBlock,
-    ) -> Result<ResultBatch, CanonicalError> {
+    ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.append_execution_batch(
                 fence,
@@ -2018,24 +3659,27 @@ impl CanonicalStore {
         })
         .await
     }
-    /// Retain exact scalar values and their batch receipt under one ingestion gate.
+    /// Retain complete scalar row locators and their batch receipt under one ingestion gate.
     #[allow(
         clippy::too_many_arguments,
         reason = "scalar indexes and their immutable batch descriptor must share the explicit fenced ingestion operation"
     )]
-    pub async fn append_result_block_cells(
+    pub async fn append_result_block_rows(
         &self,
         fence: &AttemptFence,
         operation: &str,
         name: &str,
         ordinal: u64,
-        payload: &[u8],
+        payload: ResultPayload,
         row_count: u64,
         block: &ResultBlock,
-        cells: &[ResultCell],
-    ) -> Result<ResultBatch, CanonicalError> {
+        row_indexes: &[ResultRow],
+    ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            if cells.windows(2).any(|pair| pair[0].key >= pair[1].key) {
+            if row_indexes
+                .windows(2)
+                .any(|pair| pair[0].key >= pair[1].key)
+            {
                 return Err(CanonicalError::Configuration(
                     "scalar metadata must have strictly ordered identities".into(),
                 ));
@@ -2048,7 +3692,7 @@ impl CanonicalStore {
                 payload,
                 row_count,
                 Some(block),
-                cells,
+                row_indexes,
                 &[],
             )
             .await
@@ -2066,14 +3710,16 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
         ordinal: u64,
-        payload: &[u8],
+        payload: ResultPayload,
         row_count: u64,
         block: &ResultBlock,
-        cells: &[ResultCell],
+        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
-    ) -> Result<ResultBatch, CanonicalError> {
+    ) -> Result<AppendAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            if cells.windows(2).any(|pair| pair[0].key >= pair[1].key)
+            if row_indexes
+                .windows(2)
+                .any(|pair| pair[0].key >= pair[1].key)
                 || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
             {
                 return Err(CanonicalError::Configuration(
@@ -2088,7 +3734,7 @@ impl CanonicalStore {
                 payload,
                 row_count,
                 Some(block),
-                cells,
+                row_indexes,
                 outputs,
             )
             .await
@@ -2105,191 +3751,146 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
         ordinal: u64,
-        payload: &[u8],
+        payload: ResultPayload,
         row_count: u64,
         block: Option<&ResultBlock>,
-        cells: &[ResultCell],
+        row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
-    ) -> Result<ResultBatch, CanonicalError> {
+    ) -> Result<AppendAck, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            let prepared = ResultBlockAppend::prepare(fence, operation, name, ordinal, payload,
+                row_count, block, row_indexes, outputs, None)?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            self.ensure_writes()?;
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || {
+                let item = &prepared.item;
+                let query = self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set,$batch,$block,$row_indexes,$outputs);")
+                    .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone()))
+                    .bind(("operation",item.get("operation").cloned().unwrap_or(Value::None)))
+                    .bind(("request",item.get("request").cloned().unwrap_or(Value::None)))
+                    .bind(("set",item.get("set").cloned().unwrap_or(Value::None)))
+                    .bind(("batch",item.get("batch").cloned().unwrap_or(Value::None)))
+                    .bind(("block",item.get("block").cloned().unwrap_or(Value::None)))
+                    .bind(("row_indexes",item.get("row_indexes").cloned().unwrap_or(Value::None)))
+                    .bind(("outputs",item.get("outputs").cloned().unwrap_or(Value::None)))
+                    ;
+                Ok(match prepared._owner.clone() { Some(owner) => query.payload_owner(owner), None => query })
+            }).await;
+            match result {
+                Ok(mut response) => {
+                    let saved = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
+                    if saved != prepared.expected_response()? { return Err(CanonicalError::OperationReused); }
+                }
+                Err(error) => {
+                    let ack = &prepared.acknowledgment;
+                    if self.settle_operation(&ack.operation, "append", &ack.request).await?.is_none() { return Err(error); }
+                }
+            }
+            Ok(prepared.acknowledgment)
+        }).await
+    }
+    /// Submit multiple original immutable blocks in one server transaction.
+    /// All actual per-block receipts are validated before any opaque ACK escapes.
+    /// Uncertain transport settles every exact operation under this original clock.
+    pub async fn append_result_blocks(
+        &self,
+        fence: &AttemptFence,
+        items: Vec<ResultBlockAppend>,
+    ) -> Result<Vec<AppendAck>, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            validate_append_group(fence, &items)?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            let owners = std::sync::Arc::new(items.iter().filter_map(|item| item._owner.clone()).collect::<Vec<_>>());
+            let encoded = items.iter().map(|item| Value::Object(item.item.clone())).collect::<Vec<_>>();
+            self.ensure_writes()?;
+            // The bounded native driver encodes/checks the FULL query+bindings
+            // against MESSAGE_BYTES before dispatch, including its live deadline.
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::append_result_blocks", ||
+                Ok(self.db.query("RETURN fn::pse_execution_v1::append_many($pse_rpc_expires_at,$run,$attempt,$generation,$items);")
+                    .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone()))
+                    .bind(("generation",generation.clone())).bind(("items",encoded.clone())).payload_owner(owners.clone()))).await;
+            #[cfg(all(test, feature = "canonical-tests"))]
+            let result = if result.is_ok() && APPEND_GROUP_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
+                // Controlled actual-server post-commit reply loss. Settlement
+                // still reads every genuine original operation receipt.
+                Err(CanonicalError::IncompleteResponse)
+            } else { result };
+            match result {
+                Ok(mut response) => {
+                    let mut saved = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
+                    let Value::Array(rows) = canonical_codec::required(&mut saved, "acknowledgments")? else { return Err(CanonicalError::IncompleteResponse); };
+                    if !saved.is_empty() || rows.len() != items.len() { return Err(CanonicalError::IncompleteResponse); }
+                    for (row, item) in rows.iter().zip(&items) {
+                        if row != &Value::Object(item.expected_response()?) { return Err(CanonicalError::OperationReused); }
+                    }
+                }
+                Err(error) => {
+                    for item in &items {
+                        let ack = &item.acknowledgment;
+                        if self.settle_operation(&ack.operation, "append", &ack.request).await?.is_none() { return Err(error); }
+                    }
+                }
+            }
+            Ok(items.into_iter().map(|item| item.acknowledgment).collect())
+        }).await
+    }
+    /// Authenticate demanded zero-row membership without writing a schema-only IPC batch.
+    pub async fn declare_empty_result_set(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        name: &str,
+    ) -> Result<EmptySetAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             identity(name)?;
-            if name.len() > 128 {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            bounded(payload, RESULT_BATCH_BYTES)?;
-            let set_key = result_set_key(&fence.attempt, name);
-            let key = result_batch_key(&fence.attempt, &set_key, ordinal);
-            let digest = result_payload_digest(payload);
-            let set = ResultSet {
-                key: set_key.clone(),
-                attempt: fence.attempt.clone(),
-                name: name.into(),
-                interpretation: wire::INTERPRETATION.into(),
-                next_ordinal: 0,
-                row_count: 0,
-            };
-            let batch = ResultBatch {
-                key: key.clone(),
-                attempt: fence.attempt.clone(),
-                result_set: set_key.clone(),
-                ordinal,
-                digest: digest.clone(),
-                payload: payload.to_vec().into(),
-                row_count,
-            };
-            if let Some(block) = block
-                && (block.key != key
-                    || block.batch != key
-                    || block.result_set != set_key
-                    || block.ordinal != ordinal
-                    || block.rows != row_count
-                    || block.payload_bytes != payload.len() as u64
-                    || block.payload_digest != digest
-                    || block.interpretation != wire::INTERPRETATION
-                    || block.end < block.start
-                    || block.end - block.start != row_count)
-            {
-                return Err(CanonicalError::Configuration(
-                    "scientific block descriptor does not match immutable batch".into(),
-                ));
-            }
-            if let Some(block) = block {
-                crate::canonical_results::validate_result_block(block, &batch)?;
-            }
-            if cells.len() > wire::RESULT_INDEX_RECORDS {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            let mut cell_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-            cell_hash.str("pse.execution.scalar-metadata.v1");
-            for cell in cells {
-                crate::canonical_results::validate_result_cell(cell)?;
-                if cell.batch != key || cell.result_set != set_key {
-                    return Err(CanonicalError::Configuration(
-                        "scalar cell batch coordinate mismatch".into(),
-                    ));
-                }
-                if block.is_some_and(|block| cell.row < block.start || cell.row >= block.end) {
-                    return Err(CanonicalError::Configuration(
-                        "scalar cell row is outside original IPC block".into(),
-                    ));
-                }
-                pse_model::SemanticFrame::frame(cell, &mut cell_hash);
-            }
-            if outputs.len() > wire::RESULT_INDEX_RECORDS {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            let mut output_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-            output_hash.str("pse.execution.output-index-metadata.v1");
-            for output in outputs {
-                identity(&output.key)?;
-                identity(&output.output)?;
-                identity(&output.partition)?;
-                if output.batch != key
-                    || output.result_set != set_key
-                    || output.interpretation != wire::INTERPRETATION
-                    || output.end < output.start
-                    || block.is_none_or(|block| output.start < block.start || output.end > block.end)
-                {
-                    return Err(CanonicalError::Configuration(
-                        "output index batch coordinate mismatch".into(),
-                    ));
-                }
-                pse_model::SemanticFrame::frame(output, &mut output_hash);
-            }
-            let mut block_hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-            block_hash.str("pse.execution.block-metadata.v1");
-            if let Some(block) = block {
-                pse_model::SemanticFrame::frame(block, &mut block_hash);
-            }
-            let request = json(&(
-                &fence.run,
-                &fence.attempt,
-                fence.generation,
-                name,
-                ordinal,
-                &digest,
-                row_count,
-                block_hash.finish_hash().to_hex(),
-                cell_hash.finish_hash().to_hex(),
-                output_hash.finish_hash().to_hex(),
-            ))?;
-            let block = block
-                .map(wire::encode_canonical_result_blocks)
-                .transpose()?;
-            let cells = cells
-                .iter()
-                .map(wire::encode_canonical_result_cells)
-                .collect::<Result<Vec<_>, _>>()?;
-            let outputs = outputs
-                .iter()
-                .map(wire::encode_canonical_result_block_outputs)
-                .collect::<Result<Vec<_>, _>>()?;
-            let mut metadata = Object::new();
-            metadata.insert(
-                "block",
-                block.clone().map(Value::Object).unwrap_or(Value::None),
-            );
-            metadata.insert(
-                "cells",
-                Value::Array(
-                    cells
-                        .iter()
-                        .cloned()
-                        .map(Value::Object)
-                        .collect::<Vec<_>>()
-                        .into(),
-                ),
-            );
-            metadata.insert(
-                "outputs",
-                Value::Array(
-                    outputs
-                        .iter()
-                        .cloned()
-                        .map(Value::Object)
-                        .collect::<Vec<_>>()
-                        .into(),
-                ),
-            );
-            if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            let encoded_set = wire::encode_canonical_result_sets(&set)?;
-            let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
+            if name.len() > 128 { return Err(CanonicalError::PayloadLimit); }
+            let key = result_set_key(fence.attempt(), name);
+            let set = ResultSet { key: key.clone(), attempt: fence.attempt.clone(), name: name.into(), interpretation: wire::INTERPRETATION.into(), next_ordinal: 0, row_count: 0 };
+            let encoded = wire::encode_canonical_result_sets(&set)?;
+            let request = json(&(&fence.run, &fence.attempt, fence.generation, name, &key, wire::INTERPRETATION))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
-            // The shared native WebSocket driver admits the complete encoded RPC
-            // envelope against MESSAGE_BYTES before dispatch. Domain metadata and
-            // Arrow IPC limits above are independent of that transport bound.
             self.ensure_writes()?;
-            let result = self.protected_execution_query(&fence.run, "canonical_execution::append_execution_batch", || Ok(self.db.query("RETURN fn::pse_execution_v1::append($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request,$set,$batch,$block,$cells,$outputs);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded_set.clone())).bind(("batch",encoded_batch.clone())).bind(("block",block.clone().map(Value::Object).unwrap_or(Value::None))).bind(("cells",cells.clone())).bind(("outputs",outputs.clone())))).await;
+            let result = self.protected_execution_query(&fence.run, "canonical_execution::declare_empty_result_set", || Ok(self.db.query("RETURN fn::pse_execution_v1::empty($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$set);")
+                .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("set",encoded.clone())))).await;
             match result {
                 Ok(mut response) => {
-                    let saved = writer_response(response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?)?;
-                    let mut expected = encoded_batch;
-                    expected.remove("payload");
-                    expected.insert("request", Value::Bytes(Bytes::from(request.clone())));
-                    if saved != expected {
-                        return Err(CanonicalError::OperationReused);
-                    }
-                    Ok(batch)
+                    let saved = wire::decode_canonical_result_sets(writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?)?;
+                    if saved != set { return Err(CanonicalError::OperationReused); }
                 }
-                Err(error) => {
-                    // The exact operation receipt exists only after all original
-                    // payload bytes and metadata were admitted atomically. Settlement
-                    // retains that guarantee without fetching the IPC success echo.
-                    if self
-                        .settle_operation(operation, "append", &request)
-                        .await?
-                        .is_none()
-                    {
-                        return Err(error);
-                    }
-                    Ok(batch)
-                }
+                Err(error) => if self.settle_operation(operation,"empty",&request).await?.is_none() { return Err(error); },
             }
+            Ok(EmptySetAck { fence: fence.clone(), name: name.into(), key, operation: operation.into(), request })
+        }).await
+    }
+    /// Close the complete actual acknowledged inventory and admit its unchanged
+    /// framed descriptor in the same fenced transaction. Server coverage checks
+    /// do not reimplement the trusted writer's framed BLAKE3 algorithm.
+    pub async fn close_acknowledged(
+        &self,
+        fence: &AttemptFence,
+        operation: &str,
+        acknowledgments: ResultAcknowledgments,
+    ) -> Result<ClosedManifest, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            identity(operation)?;
+            acknowledgments.same_fence(fence)?;
+            let (manifest, proofs, seeds) = acknowledgments.finish()?;
+            let encoded = wire::encode_canonical_result_manifests(&manifest)?;
+            let request = json(&(&fence.run,&fence.attempt,fence.generation,&manifest.digest))?;
+            let generation = canonical_codec::encode_uint(fence.generation)?;
+            self.ensure_writes()?;
+            let result = self.protected_execution_query(&fence.run,"canonical_execution::close_acknowledged", || Ok(self.db.query("RETURN fn::pse_execution_v1::close_acknowledged($pse_rpc_expires_at,$run,$attempt,$generation,$operation,$request,$manifest,$proofs,$seeds);")
+                .bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("manifest",encoded.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())))).await;
+            let uncertain=result.is_err();
+            let closed = self.closed_response(result,operation,"close",&request,Some(fence)).await?;
+            if uncertain {
+                let saved=self.canonical_result_manifest(&manifest.key).await?.ok_or(CanonicalError::IncompleteResponse)?;
+                if saved != manifest { return Err(CanonicalError::OperationReused); }
+            }
+            // A lost close reply retains exact settlement/readback comparison;
+            // an acknowledged reply itself carries the actual closed authority.
+            Ok(ClosedManifest { closed, row: manifest })
         }).await
     }
     /// Fence late batches before reconciling immutable metadata outside a transaction.
@@ -2304,7 +3905,7 @@ impl CanonicalStore {
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
             let result = self.protected_execution_query(&fence.run, "canonical_execution::close_result_ingestion", || Ok(self.db.query("RETURN fn::pse_execution_v1::close($pse_rpc_expires_at, $run,$attempt,$generation,$operation,$request);").bind(("run",fence.run.clone())).bind(("attempt",fence.attempt.clone())).bind(("generation",generation.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))))).await;
-            self.closed_response(result, operation, "close", &request)
+            self.closed_response(result, operation, "close", &request, Some(fence))
                 .await
         }).await
     }
@@ -2347,6 +3948,7 @@ impl CanonicalStore {
         operation: &str,
         kind: &str,
         request: &[u8],
+        expected: Option<&AttemptFence>,
     ) -> Result<ClosedAttempt, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let result = match result {
@@ -2357,6 +3959,16 @@ impl CanonicalStore {
                 )?),
                 Err(error) => Err(error),
             };
+            if let (Ok(row), Some(fence)) = (&result, expected) {
+                let mut value = closed(wire::decode_canonical_attempts(row.clone())?)?;
+                if value.fence != *fence {
+                    return Err(CanonicalError::OperationReused);
+                }
+                // An exact replay can return an attempt subsequently cancelled.
+                // Its old close ACK never borrows the later recovery generation.
+                value.authority = fence.generation;
+                return Ok(value);
+            }
             let receipt = self
                 .closure_operation(operation, kind, Some(request))
                 .await?;
@@ -2367,6 +3979,9 @@ impl CanonicalStore {
                 Ok(row) => closed(wire::decode_canonical_attempts(row)?)?,
                 Err(error) => closed(self.canonical_attempt(&key).await?.ok_or(error)?)?,
             };
+            if value.fence.attempt != key || expected.is_some_and(|fence| value.fence != *fence) {
+                return Err(CanonicalError::OperationReused);
+            }
             value.authority = authority;
             Ok(value)
         })
@@ -2435,7 +4050,7 @@ impl CanonicalStore {
                         .bind(("request", Bytes::from(request.clone()))))
                 })
                 .await;
-            self.closed_response(result, operation, "recover", &request)
+            self.closed_response(result, operation, "recover", &request, None)
                 .await
         }).await
     }
@@ -2467,6 +4082,40 @@ impl CanonicalStore {
                 })?)?;
             value.authority = authority;
             Ok(value)
+        }).await
+    }
+    /// Reconcile a joined optional progress writer's uncertain tail. Actual ACKs
+    /// still describe only the observed prefix; this readback never promotes the
+    /// original sampled counters or grants permission from guessed totals.
+    pub async fn reconcile_progress_uncertainty(
+        &self,
+        closed: &ClosedAttempt,
+        acknowledgments: ResultAcknowledgments,
+        queued: u64,
+    ) -> Result<ClosedManifest, CanonicalError> {
+        within_clock(original_deadline(REQUEST_TIMEOUT), async {
+            acknowledgments.same_fence(closed.fence())?;
+            if closed.authority != closed.fence.generation || acknowledgments.rows("__progress") > queued { return Err(CanonicalError::OperationReused); }
+            let (expected,proofs,seeds)=acknowledgments.finish()?;
+            let generation=canonical_codec::encode_uint(closed.fence.generation)?;
+            let queued_value=canonical_codec::encode_uint(queued)?;
+            let mut response=self.protected_execution_query(closed.fence.run(),"canonical_execution::reconcile_progress_uncertainty", || Ok(self.db.query("RETURN fn::pse_execution_v1::check_closed_acknowledgments($pse_rpc_expires_at,$run,$attempt,$generation,$proofs,$seeds,$queued);")
+                .bind(("run",closed.fence.run.clone())).bind(("attempt",closed.fence.attempt.clone())).bind(("generation",generation.clone())).bind(("proofs",proofs.clone())).bind(("seeds",seeds.clone())).bind(("queued",queued_value.clone())))).await?;
+            let mut saved=writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
+            if saved.remove("valid")!=Some(Value::Bool(true)) || !saved.is_empty() { return Err(CanonicalError::IncompleteResponse); }
+            // Independently read every frozen metadata page and frame the actual
+            // inventory, including any unobserved progress tail, under this clock.
+            let actual=self.reconcile_closed_attempt(closed).await?;
+            let expected=decode_result_descriptors(&expected)?;
+            let actual_sets=decode_result_descriptors(actual.row())?;
+            for set in &actual_sets {
+                let prefix=expected.iter().find(|item|item.key==set.key);
+                if set.name=="__progress" {
+                    if set.row_count>queued || prefix.is_some_and(|prefix|set.batch_count<prefix.batch_count || set.row_count<prefix.row_count) { return Err(CanonicalError::OperationReused); }
+                } else if prefix!=Some(set) { return Err(CanonicalError::OperationReused); }
+            }
+            if expected.iter().any(|set|actual_sets.iter().all(|actual|actual.key!=set.key)) { return Err(CanonicalError::OperationReused); }
+            Ok(actual)
         }).await
     }
     /// Reconcile exact immutable batch membership in bounded metadata pages, then admit its descriptor.
@@ -2626,6 +4275,8 @@ impl CanonicalStore {
     /// observations described by this manifest, and must supply their actual terminal
     /// class and completion. In particular, success requires the scientific owner's
     /// numerical conclusion, physical eligibility and contextual accuracy admission.
+    /// CompleteOriginalInventory additionally asserts that every registered seed belongs
+    /// to the fully exported original completion and its per-step seed permissions.
     /// This is an intercrate authority assertion; it performs no pointer or ABI work.
     #[allow(
         unsafe_code,
@@ -2637,10 +4288,12 @@ impl CanonicalStore {
         operation: &str,
         outcome: TerminalClass,
         completion: &[u8],
+        seeds: SeedEligibility,
     ) -> Result<CanonicalAttempt, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.seal_execution(manifest, operation, outcome, completion, None)
+            self.seal_execution(manifest, operation, outcome, completion, None, seeds, None)
                 .await
+                .map(|ack| ack.attempt)
         })
         .await
     }
@@ -2664,9 +4317,80 @@ impl CanonicalStore {
     ) -> Result<CanonicalAttempt, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(study)?;
-            self.seal_execution(manifest, operation, outcome, completion, Some(study))
-                .await
+            self.seal_execution(
+                manifest,
+                operation,
+                outcome,
+                completion,
+                Some(study),
+                SeedEligibility::Unavailable,
+                None,
+            )
+            .await
+            .map(|ack| ack.attempt)
         })
+        .await
+    }
+    /// Seal joined scientific observations and return both actual terminal headers.
+    /// # Safety
+    /// The caller must satisfy the same original scientific and seed admission
+    /// obligations as `seal_attempt` for this exact frozen manifest.
+    #[allow(
+        unsafe_code,
+        reason = "controlled scientific owner supplies original admission"
+    )]
+    pub async unsafe fn seal_acknowledged(
+        &self,
+        manifest: &ClosedManifest,
+        operation: &str,
+        outcome: TerminalClass,
+        completion: &[u8],
+        seeds: SeedEligibility,
+    ) -> Result<SealAck, CanonicalError> {
+        let header: serde_json::Value = serde_json::from_slice(completion)
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        if header.get("version").and_then(serde_json::Value::as_u64) != Some(1)
+            || !header.get("inline").is_some_and(serde_json::Value::is_null)
+        {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        let count = header
+            .get("batch_count")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let bytes = header
+            .get("payload_bytes")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let descriptors = decode_result_descriptors(&manifest.row)?;
+        let chunk = descriptors
+            .iter()
+            .find(|set| set.name == "__completion")
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        if chunk.batch_count != count || chunk.row_count != bytes {
+            return Err(CanonicalError::OperationReused);
+        }
+        let mut coverage = Object::new();
+        coverage.insert("count", canonical_codec::encode_uint(count)?);
+        coverage.insert("bytes", canonical_codec::encode_uint(bytes)?);
+        coverage.insert(
+            "progress",
+            canonical_codec::encode_uint(
+                descriptors
+                    .iter()
+                    .find(|set| set.name == "__progress")
+                    .map_or(0, |set| set.row_count),
+            )?,
+        );
+        self.seal_execution(
+            manifest,
+            operation,
+            outcome,
+            completion,
+            None,
+            seeds,
+            Some(coverage),
+        )
         .await
     }
     async fn seal_execution(
@@ -2676,7 +4400,9 @@ impl CanonicalStore {
         outcome: TerminalClass,
         completion: &[u8],
         study: Option<&str>,
-    ) -> Result<CanonicalAttempt, CanonicalError> {
+        seeds: SeedEligibility,
+        coverage: Option<Object>,
+    ) -> Result<SealAck, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             bounded(completion, EXECUTION_METADATA_BYTES)?;
@@ -2690,14 +4416,15 @@ impl CanonicalStore {
                 outcome,
                 result_payload_digest(completion),
                 study,
+                seeds,
             ))?;
             bounded(&request, crate::canonical::PAYLOAD_BYTES)?;
             let authority = canonical_codec::encode_uint(manifest.closed.authority)?;
             self.ensure_writes()?;
             let query = if study.is_some() {
-                "RETURN fn::pse_study_v1::seal($pse_rpc_expires_at, $study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+                "RETURN fn::pse_execution_v1::study_seal_ack($pse_rpc_expires_at, $study,$run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
             } else {
-                "RETURN fn::pse_execution_v1::seal($pse_rpc_expires_at, $run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion);"
+                "RETURN fn::pse_execution_v1::seal_ack($pse_rpc_expires_at, $run,$attempt,$authority,$operation,$request,$manifest,$digest,$outcome,$completion,$seed_eligible,$coverage);"
             };
             let result = self
                 .protected_execution_query(&fence.run, "canonical_execution::seal_execution", || {
@@ -2713,17 +4440,26 @@ impl CanonicalStore {
                         .bind(("manifest", manifest.row.key.clone()))
                         .bind(("digest", manifest.row.digest.clone()))
                         .bind(("outcome", outcome.as_str()))
-                        .bind(("completion", Bytes::from(completion.to_vec()))))
+                        .bind(("completion", Bytes::from(completion.to_vec())))
+                        .bind(("seed_eligible", seeds == SeedEligibility::CompleteOriginalInventory))
+                        .bind(("coverage", coverage.clone().map(Value::Object).unwrap_or(Value::None))))
                 })
                 .await;
             match result {
-                Ok(mut response) => Ok(wire::decode_canonical_attempts(writer_response(
-                    response
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?)?),
+                Ok(mut response) => {
+                    let mut row = writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?;
+                    let attempt = match canonical_codec::required(&mut row,"attempt")? { Value::Object(row) => wire::decode_canonical_attempts(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
+                    let run = match canonical_codec::required(&mut row,"run")? { Value::Object(row) => wire::decode_canonical_runs(row)?, _ => return Err(CanonicalError::IncompleteResponse) };
+                    if !row.is_empty() || attempt.run != run.key || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) || !attempt.terminal || attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes| bytes.as_slice()) != Some(completion) { return Err(CanonicalError::OperationReused); }
+                    Ok(SealAck { attempt, run })
+                },
                 Err(error) => match self.settle_operation(operation, "seal", &request).await? {
-                    Some(key) => self.canonical_attempt(&key).await?.ok_or(error),
+                    Some(key) => {
+                        let attempt = self.canonical_attempt(&key).await?.ok_or(error)?;
+                        let run = self.canonical_run(&fence.run).await?.ok_or(CanonicalError::IncompleteResponse)?;
+                        if attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes|bytes.as_slice()) != Some(completion) || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) { return Err(CanonicalError::OperationReused); }
+                        Ok(SealAck { attempt, run })
+                    },
                     None => Err(error),
                 },
             }
@@ -2734,6 +4470,272 @@ impl CanonicalStore {
 #[cfg(test)]
 mod canonical_result_admission_unit {
     use super::*;
+    fn ack(
+        fence: &AttemptFence,
+        name: &str,
+        ordinal: u64,
+        operation: &str,
+        bytes: &[u8],
+        rows: u64,
+    ) -> AppendAck {
+        let result_set = result_set_key(fence.attempt(), name);
+        AppendAck {
+            receipt: AppendReceipt {
+                key: result_batch_key(fence.attempt(), &result_set, ordinal),
+                attempt: fence.attempt().into(),
+                result_set,
+                ordinal,
+                digest: result_payload_digest(bytes),
+                row_count: rows,
+            },
+            fence: fence.clone(),
+            name: name.into(),
+            operation: operation.into(),
+            request: operation.as_bytes().to_vec(),
+        }
+    }
+    pub(super) fn append_item(
+        fence: &AttemptFence,
+        name: &str,
+        ordinal: u64,
+        bytes: Vec<u8>,
+    ) -> ResultBlockAppend {
+        let set = result_set_key(fence.attempt(), name);
+        let key = result_batch_key(fence.attempt(), &set, ordinal);
+        let payload = ResultPayload::new(bytes).unwrap();
+        let block = ResultBlock {
+            key: key.clone(),
+            batch: key.clone(),
+            result_set: set,
+            output: name.into(),
+            partition: "0".into(),
+            ordinal,
+            start: ordinal,
+            end: ordinal + 1,
+            rows: 1,
+            columns: 1,
+            coordinate_min: None,
+            coordinate_max: None,
+            payload_bytes: payload.as_slice().len() as u64,
+            payload_digest: payload.digest().into(),
+            interpretation: wire::INTERPRETATION.into(),
+        };
+        // Protocol fixtures own synthetic tiny bytes; production callers pass
+        // the actual reserved immutable encoded-item/transport owner.
+        ResultBlockAppend::new(
+            fence,
+            &format!("batch:{key}"),
+            name,
+            ordinal,
+            payload,
+            1,
+            &block,
+            &[],
+            &[],
+            std::sync::Arc::new(()),
+        )
+        .unwrap()
+    }
+    #[test]
+    fn bounded_append_group_preserves_individual_request_and_exact_fence_order() {
+        let fence = ack_fence();
+        let first = append_item(&fence, "values", 0, vec![1]);
+        let expected = first.acknowledgment.request.clone();
+        let mut group = vec![
+            first,
+            append_item(&fence, "other", 0, vec![3]),
+            append_item(&fence, "values", 1, vec![2]),
+        ];
+        validate_append_group(&fence, &group).unwrap();
+        assert_eq!(group[0].acknowledgment.request, expected);
+        assert!(
+            group
+                .iter()
+                .all(|item| item.encoded_extent() > item.acknowledgment.request.len())
+        );
+        group.swap(0, 2);
+        assert!(validate_append_group(&fence, &group).is_err());
+        let foreign = AttemptFence {
+            generation: 8,
+            ..fence.clone()
+        };
+        assert!(validate_append_group(&foreign, &group).is_err());
+        assert!(validate_append_group(&fence, &[]).is_err());
+        let duplicate = vec![
+            append_item(&fence, "values", 0, vec![1]),
+            append_item(&fence, "values", 0, vec![1]),
+        ];
+        assert!(validate_append_group(&fence, &duplicate).is_err());
+    }
+    #[test]
+    fn bounded_append_group_admits_item_bytes_and_refuses_full_envelope_overflow() {
+        let fence = ack_fence();
+        let group = (0..6)
+            .map(|ordinal| append_item(&fence, "values", ordinal, vec![7; RESULT_BATCH_BYTES]))
+            .collect::<Vec<_>>();
+        assert!(validate_append_group(&fence, &group[..5]).is_ok());
+        assert!(matches!(
+            validate_append_group(&fence, &group),
+            Err(CanonicalError::PayloadLimit)
+        ));
+    }
+    fn ack_fence() -> AttemptFence {
+        AttemptFence {
+            run: "ack-run".into(),
+            attempt: "ack-attempt".into(),
+            generation: 7,
+        }
+    }
+    #[test]
+    fn actual_ack_accumulator_preserves_framing_and_only_last_exact_replay() {
+        let fence = ack_fence();
+        let mut acks = ResultAcknowledgments::new(&fence);
+        let first = ack(&fence, "values", 0, "first", &[0, 1], 2);
+        let mut expected = FramedHasher::new(Frame::CanonicalPayloadV1);
+        expected
+            .str("pse.execution.batch-selection.v1")
+            .str(&first.key)
+            .str(&first.digest)
+            .u64(first.row_count);
+        acks.append(first).unwrap();
+        acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
+            .unwrap();
+        assert!(
+            acks.append(ack(&fence, "values", 0, "other-operation", &[0, 1], 2))
+                .is_err()
+        );
+        assert!(
+            acks.append(ack(&fence, "values", 2, "gap", &[2], 1))
+                .is_err()
+        );
+        let second = ack(&fence, "values", 1, "second", &[2], 1);
+        expected
+            .str(&second.key)
+            .str(&second.digest)
+            .u64(second.row_count);
+        acks.append(second).unwrap();
+        assert!(
+            acks.append(ack(&fence, "values", 0, "first", &[0, 1], 2))
+                .is_err()
+        );
+        assert_eq!(acks.sets["values"].next, 2);
+        assert_eq!(acks.rows("values"), 3);
+        acks.complete("values").unwrap();
+        let (manifest, proofs, _) = acks.finish().unwrap();
+        let sets = decode_result_descriptors(&manifest).unwrap();
+        assert_eq!(sets[0].batches_digest, expected.finish_hash().to_hex());
+        assert_eq!(sets[0].batch_count, 2);
+        assert_eq!(proofs.len(), 1);
+    }
+    #[test]
+    fn demanded_empty_requires_actual_declaration_and_complete_producer() {
+        let fence = ack_fence();
+        let mut absent = ResultAcknowledgments::new(&fence);
+        absent.expect("empty").unwrap();
+        assert!(absent.complete("empty").is_err());
+        assert!(absent.finish().is_err());
+        let mut declared = ResultAcknowledgments::new(&fence);
+        declared.expect("empty").unwrap();
+        declared
+            .empty(EmptySetAck {
+                fence: fence.clone(),
+                name: "empty".into(),
+                key: result_set_key(fence.attempt(), "empty"),
+                operation: "declare".into(),
+                request: b"declare".to_vec(),
+            })
+            .unwrap();
+        assert!(!declared.sets["empty"].complete);
+        declared.complete("empty").unwrap();
+        let (manifest, proofs, _) = declared.finish().unwrap();
+        let descriptors = decode_result_descriptors(&manifest).unwrap();
+        assert_eq!(
+            (descriptors[0].batch_count, descriptors[0].row_count),
+            (0, 0)
+        );
+        assert_eq!(proofs[0].get("kind"), Some(&Value::String("empty".into())));
+    }
+    #[test]
+    fn actual_ack_accumulator_refuses_foreign_attempt_and_bounds_resident_sets() {
+        let fence = ack_fence();
+        let mut acks = ResultAcknowledgments::new(&fence);
+        let mut foreign = fence.clone();
+        foreign.generation += 1;
+        assert!(
+            acks.append(ack(&foreign, "values", 0, "wrong-fence", &[1], 1))
+                .is_err()
+        );
+        assert!(acks.sets.is_empty());
+        for set in 0..RESULT_SETS {
+            acks.expect(&format!("set-{set}")).unwrap();
+        }
+        assert!(matches!(
+            acks.expect("one-too-many"),
+            Err(CanonicalError::PayloadLimit)
+        ));
+        assert_eq!(acks.sets.len(), RESULT_SETS);
+        assert!(acks.finish().is_err());
+    }
+    #[test]
+    fn actual_seed_ack_requires_contiguous_acknowledged_chunks() {
+        let fence = ack_fence();
+        let mut acks = ResultAcknowledgments::new(&fence);
+        acks.append(ack(&fence, "__seeds", 0, "chunk-0", &[1, 2], 2))
+            .unwrap();
+        let seed = |first, count| SeedAck {
+            fence: fence.clone(),
+            key: "seed".into(),
+            operation: "seed-op".into(),
+            request: b"seed-op".to_vec(),
+            first,
+            count,
+            bytes: 2,
+        };
+        assert!(acks.seed(seed(1, 1)).is_err());
+        assert!(acks.seed(seed(0, 2)).is_err());
+        acks.seed(seed(0, 1)).unwrap();
+        acks.seed(seed(0, 1)).unwrap();
+        assert_eq!(
+            (acks.seed_count, acks.seed_batches, acks.seed_bytes),
+            (1, 1, 2)
+        );
+        acks.complete("__seeds").unwrap();
+        assert!(
+            acks.append(ack(&fence, "__seeds", 1, "late", &[3], 1))
+                .is_err()
+        );
+    }
+    #[test]
+    fn immutable_payload_transfers_storage_but_fresh_read_rechecks_integrity() {
+        let mut bytes = Vec::with_capacity(256);
+        bytes.extend_from_slice(&(-0.0f64).to_bits().to_be_bytes());
+        let pointer = bytes.as_ptr();
+        let payload = ResultPayload::new(bytes).unwrap();
+        assert_eq!(payload.as_slice().as_ptr(), pointer);
+        assert_ne!(
+            payload.digest(),
+            result_payload_digest(&0.0f64.to_bits().to_be_bytes())
+        );
+        let ResultPayload { bytes, digest, .. } = payload;
+        let mut batch = ResultBatch {
+            key: result_batch_key("attempt", "set", 0),
+            attempt: "attempt".into(),
+            result_set: "set".into(),
+            ordinal: 0,
+            digest,
+            payload: bytes,
+            row_count: 1,
+        };
+        validate_result_batch(&batch).unwrap();
+        let mut bytes = batch.payload.into_vec();
+        bytes[0] ^= 1;
+        batch.payload = bytes.into();
+        assert!(validate_result_batch(&batch).is_err());
+        assert!(matches!(
+            ResultPayload::new(vec![0; RESULT_BATCH_BYTES + 1]),
+            Err(CanonicalError::PayloadLimit)
+        ));
+    }
     #[test]
     fn writer_refusal_retains_exact_identity_and_rejects_malformed_tags() {
         let mut row = Object::new();
@@ -2778,15 +4780,10 @@ mod canonical_result_admission_unit {
             7
         );
         assert_eq!(wire::RESULT_INDEX_RECORDS, wire::RESULT_INDEX_BYTES / 7);
-        row.insert("coordinate", Value::String("x".repeat(65536)));
-        row.insert("bits", Value::Bytes(Bytes::from(vec![0; 8])));
-        row.insert(
-            "projection",
-            Value::Number(surrealdb::types::Number::Float(0.0)),
-        );
+        row.insert("partition", Value::String("x".repeat(65536)));
         let mut envelope = Object::new();
         envelope.insert(
-            "cells",
+            "row_indexes",
             Value::Array(vec![Value::Object(row.clone())].into()),
         );
         envelope.insert("outputs", Value::Array(vec![Value::Object(row)].into()));

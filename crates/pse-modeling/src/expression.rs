@@ -1355,282 +1355,294 @@ pub(crate) fn check_all(p: &mut CheckedPackage, context: &TypeContext<'_>) -> Re
     Ok(())
 }
 fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<()> {
-    for (id, row) in &p.declarations {
-        let mut env = declaration_environment(p, context, *id)?;
-        let mut ancestors = Vec::new();
-        let mut cursor = row.parent_id;
-        while let Some(owner) = cursor {
-            ancestors.push(owner);
-            cursor = p.declarations[&owner].parent_id;
+    for id in p.declarations.keys() {
+        check_declaration(p, context, *id)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn check_declaration(
+    p: &CheckedPackage,
+    context: &TypeContext<'_>,
+    declaration: DeclarationId,
+) -> Result<()> {
+    let id = &declaration;
+    let row = &p.declarations[id];
+    let mut env = declaration_environment(p, context, *id)?;
+    let mut ancestors = Vec::new();
+    let mut cursor = row.parent_id;
+    while let Some(owner) = cursor {
+        ancestors.push(owner);
+        cursor = p.declarations[&owner].parent_id;
+    }
+    for owner in ancestors.into_iter().rev() {
+        if let Some(_guard) = &p.declarations[&owner].value.guard {
+            let predicate = p.predicate_at(owner, "guard.predicate", 0)?;
+            env = refine(predicate, &env, p, context, owner)?;
         }
-        for owner in ancestors.into_iter().rev() {
-            if let Some(_guard) = &p.declarations[&owner].value.guard {
-                let predicate = p.predicate_at(owner, "guard.predicate", 0)?;
-                env = refine(predicate, &env, p, context, owner)?;
+    }
+    let indices = member_indices(row);
+    let outer = env.clone();
+    for (position, (name, _domain)) in indices.into_iter().enumerate() {
+        let (Type::Set(element) | Type::Continuous(_, element)) =
+            member_index_type(*id, position, &env, p, context)?
+        else {
+            return Err(invalid(*id, "indexed member requires a finite set"));
+        };
+        env.insert(name.clone(), *element);
+    }
+    check_forms(row, *id, &outer, &env, p, context)?;
+    check_process_contracts(row, *id, &env, p, context)?;
+    if let Some(_axis) = &row.value.continuous {
+        let Type::Continuous(_, target) = &p.types[id] else {
+            return Err(invalid(*id, "continuous type absent"));
+        };
+        for role in ["continuous.lower", "continuous.upper"] {
+            let e = p.expression_at(*id, role, 0)?;
+            if infer(e, &env, p, context, *id, Some(target))? != **target {
+                return Err(invalid(*id, "continuous bound type differs"));
             }
         }
-        let indices = member_indices(row);
-        let outer = env.clone();
-        for (position, (name, _domain)) in indices.into_iter().enumerate() {
-            let (Type::Set(element) | Type::Continuous(_, element)) =
-                member_index_type(*id, position, &env, p, context)?
-            else {
-                return Err(invalid(*id, "indexed member requires a finite set"));
+    }
+    if let Some(scope) = &row.value.scope {
+        if let Some(_selection) = &scope.selection {
+            let score = p.expression_at(*id, "scope.selection.criterion", 0)?;
+            let Type::Quantity(quantity) = infer(score, &env, p, context, *id, None)? else {
+                return Err(invalid(
+                    *id,
+                    "regime score requires a complete physical quantity",
+                ));
             };
-            env.insert(name.clone(), *element);
-        }
-        check_forms(row, *id, &outer, &env, p, context)?;
-        check_process_contracts(row, *id, &env, p, context)?;
-        if let Some(_axis) = &row.value.continuous {
-            let Type::Continuous(_, target) = &p.types[id] else {
-                return Err(invalid(*id, "continuous type absent"));
-            };
-            for role in ["continuous.lower", "continuous.upper"] {
-                let e = p.expression_at(*id, role, 0)?;
-                if infer(e, &env, p, context, *id, Some(target))? != **target {
-                    return Err(invalid(*id, "continuous bound type differs"));
-                }
-            }
-        }
-        if let Some(scope) = &row.value.scope {
-            if let Some(_selection) = &scope.selection {
-                let score = p.expression_at(*id, "scope.selection.criterion", 0)?;
-                let Type::Quantity(quantity) = infer(score, &env, p, context, *id, None)? else {
-                    return Err(invalid(
-                        *id,
-                        "regime score requires a complete physical quantity",
-                    ));
+            let tolerance = p.expression_at(*id, "scope.selection.tolerance", 0)?;
+            let expected = Type::Quantity(Scheme::Delta(Box::new(quantity)));
+            if infer(tolerance, &env, p, context, *id, Some(&expected))? != expected {
+                // Concrete types and delta schemes can name the same physical type.
+                let actual = infer(tolerance, &env, p, context, *id, Some(&expected))?;
+                let (Type::Quantity(a), Type::Quantity(b)) = (actual, expected) else {
+                    return Err(invalid(*id, "regime tie tolerance units"));
                 };
-                let tolerance = p.expression_at(*id, "scope.selection.tolerance", 0)?;
-                let expected = Type::Quantity(Scheme::Delta(Box::new(quantity)));
-                if infer(tolerance, &env, p, context, *id, Some(&expected))? != expected {
-                    // Concrete types and delta schemes can name the same physical type.
-                    let actual = infer(tolerance, &env, p, context, *id, Some(&expected))?;
-                    let (Type::Quantity(a), Type::Quantity(b)) = (actual, expected) else {
-                        return Err(invalid(*id, "regime tie tolerance units"));
-                    };
-                    if a.resolve_with_evidence(
+                if a.resolve_with_evidence(
+                    context.quantities,
+                    &BTreeMap::new(),
+                    context.preconditions,
+                )
+                .map_err(|e| invalid(*id, e.to_string()))?
+                    != b.resolve_with_evidence(
                         context.quantities,
                         &BTreeMap::new(),
                         context.preconditions,
                     )
                     .map_err(|e| invalid(*id, e.to_string()))?
-                        != b.resolve_with_evidence(
-                            context.quantities,
-                            &BTreeMap::new(),
-                            context.preconditions,
-                        )
-                        .map_err(|e| invalid(*id, e.to_string()))?
-                    {
-                        return Err(invalid(*id, "regime tie tolerance units"));
-                    }
-                }
-            }
-            if let Some(_eligible) = &scope.eligibility {
-                predicate(
-                    p.predicate_at(*id, "scope.eligibility", 0)?,
-                    &env,
-                    p,
-                    context,
-                    *id,
-                )?;
-            }
-        }
-        if let Some(scheme) = &row.value.difference_scheme {
-            crate::continuous::Scheme::Difference(scheme).validate(*id)?;
-        }
-        if let Some(scheme) = &row.value.collocation_scheme {
-            crate::continuous::Scheme::Collocation(scheme).validate(*id)?;
-        }
-        if let Some(grid) = &row.value.discretization {
-            let target = p
-                .resolve(*id, &grid.target)
-                .ok_or_else(|| invalid(*id, "discretization target absent"))?;
-            if !matches!(p.types.get(&target), Some(Type::Continuous(..))) {
-                return Err(invalid(*id, "discretization target must be continuous"));
-            }
-            if !matches!(grid.scheme.as_str(), "integrated" | "stationary") {
-                crate::continuous::scheme(p, *id, &grid.scheme)?;
-            }
-            for role in ["discretization.elements", "discretization.order"] {
-                let e = p.expression_at(*id, role, 0)?;
-                if infer(e, &env, p, context, *id, Some(&Type::Integer))? != Type::Integer {
-                    return Err(invalid(*id, "mesh sizes must be exact integers"));
-                }
-            }
-        }
-        if let Some(policy) = &row.value.realization {
-            use pse_model::generated::enums::ModelingDeclarationKind as K;
-            let target = p
-                .resolve(*id, &policy.target)
-                .ok_or_else(|| invalid(*id, "realization target absent"))?;
-            let target = &p.declarations[&target];
-            if target.value.kind == K::Implicit {
-                crate::specialize::Realization::from_contract(policy, *id)?;
-            } else if !(matches!(
-                target.value.kind,
-                K::Disjunction
-                    | K::Sos1
-                    | K::Sos2
-                    | K::Atmost
-                    | K::Atleast
-                    | K::Exactly
-                    | K::Piecewise
-                    | K::Logic
-                    | K::Complementarity
-            ) || target
-                .value
-                .equation
-                .as_ref()
-                .is_some_and(|e| e.condition.is_some()))
-            {
-                // ADR-0104: forms and disjunctions admit their realizations at specialization.
-                return Err(invalid(
-                    *id,
-                    "realization target must be an implicit block, a constraint form or a disjunction",
-                ));
-            }
-        }
-        if let Some(v) = &row.value.relaxation {
-            let target = p
-                .resolve(*id, &v.target)
-                .ok_or_else(|| invalid(*id, "elastic target absent"))?;
-            if p.declarations[&target].value.equation.is_none() {
-                return Err(invalid(*id, "elastic target must be an equation"));
-            }
-            let ty = crate::annotation::target_type(
-                p,
-                context,
-                *id,
-                p.expression_at(*id, "relaxation.target", 0)?,
-                &env,
-            )?;
-            let e = p.expression_at(*id, "relaxation.nominal", 0)?;
-            if infer(e, &env, p, context, *id, Some(&ty))? != ty {
-                return Err(invalid(*id, "elastic nominal must have residual units"));
-            }
-        }
-        if let Some(v) = &row.value.continuation {
-            let target = p
-                .resolve(*id, &v.target)
-                .ok_or_else(|| invalid(*id, "continuation target absent"))?;
-            if p.declarations[&target].value.kind
-                != pse_model::generated::enums::ModelingDeclarationKind::Parameter
-            {
-                return Err(invalid(
-                    *id,
-                    "continuation target must be a physical runtime parameter",
-                ));
-            }
-            let ty = crate::annotation::target_type(
-                p,
-                context,
-                *id,
-                p.expression_at(*id, "continuation.target", 0)?,
-                &env,
-            )?;
-            if !matches!(ty, Type::Quantity(_)) {
-                return Err(invalid(*id, "continuation cannot change structural facts"));
-            }
-            for role in ["continuation.start", "continuation.end"] {
-                let e = p.expression_at(*id, role, 0)?;
-                if infer(e, &env, p, context, *id, Some(&ty))? != ty {
-                    return Err(invalid(*id, "continuation endpoint physical type differs"));
-                }
-            }
-        }
-        if let Some(f) = p.functions.get(id) {
-            let physical_context = TypeContext {
-                admissions: context.admissions,
-                formula_authority: matches!(
-                    f.physical_operation,
-                    Some(crate::PhysicalOperation::Response { .. })
-                )
-                .then(|| pse_quantity::PhysicalFormulaAuthority::response(id.as_id())),
-                quantities: context.quantities,
-                preconditions: context.preconditions,
-                scope: context.scope,
-            };
-            let context = &physical_context;
-            env.extend(f.physical_operation.as_ref().map_or_else(
-                || f.arguments.clone(),
-                |operation| operation.body_arguments(&f.arguments),
-            ));
-            if let Some(external) = &f.external {
-                if f.body.is_some() || f.continuity.is_some() {
-                    return Err(invalid(
-                        *id,
-                        "external function cannot also own an expression body or symbolic continuity claim",
-                    ));
-                }
-                if infer(
-                    &external.output,
-                    &env,
-                    p,
-                    context,
-                    *id,
-                    Some(&Type::Integer),
-                )? != Type::Integer
                 {
-                    return Err(invalid(
-                        *id,
-                        "external output selector requires an exact integer",
-                    ));
+                    return Err(invalid(*id, "regime tie tolerance units"));
                 }
             }
-            // The form layer's predicate and the data layer's generated guards take one
-            // domain-predicate path (ADR-0123 Outcome 4).
-            let domain = f
-                .validity
-                .iter()
-                .chain(f.envelopes.iter().map(|guard| &guard.predicate))
-                .cloned()
-                .reduce(|a, b| Predicate {
-                    kind: PredicateKind::And(Box::new(a), Box::new(b)),
-                    span: Default::default(),
-                });
-            if let Some(validity) = &f.validity {
-                predicate(validity, &env, p, context, *id)?;
+        }
+        if let Some(_eligible) = &scope.eligibility {
+            predicate(
+                p.predicate_at(*id, "scope.eligibility", 0)?,
+                &env,
+                p,
+                context,
+                *id,
+            )?;
+        }
+    }
+    if let Some(scheme) = &row.value.difference_scheme {
+        crate::continuous::Scheme::Difference(scheme).validate(*id)?;
+    }
+    if let Some(scheme) = &row.value.collocation_scheme {
+        crate::continuous::Scheme::Collocation(scheme).validate(*id)?;
+    }
+    if let Some(grid) = &row.value.discretization {
+        let target = p
+            .resolve(*id, &grid.target)
+            .ok_or_else(|| invalid(*id, "discretization target absent"))?;
+        if !matches!(p.types.get(&target), Some(Type::Continuous(..))) {
+            return Err(invalid(*id, "discretization target must be continuous"));
+        }
+        if !matches!(grid.scheme.as_str(), "integrated" | "stationary") {
+            crate::continuous::scheme(p, *id, &grid.scheme)?;
+        }
+        for role in ["discretization.elements", "discretization.order"] {
+            let e = p.expression_at(*id, role, 0)?;
+            if infer(e, &env, p, context, *id, Some(&Type::Integer))? != Type::Integer {
+                return Err(invalid(*id, "mesh sizes must be exact integers"));
             }
-            for guard in &f.envelopes {
-                predicate(&guard.predicate, &env, p, context, *id)?;
+        }
+    }
+    if let Some(policy) = &row.value.realization {
+        use pse_model::generated::enums::ModelingDeclarationKind as K;
+        let target = p
+            .resolve(*id, &policy.target)
+            .ok_or_else(|| invalid(*id, "realization target absent"))?;
+        let target = &p.declarations[&target];
+        if target.value.kind == K::Implicit {
+            crate::specialize::Realization::from_contract(policy, *id)?;
+        } else if !(matches!(
+            target.value.kind,
+            K::Disjunction
+                | K::Sos1
+                | K::Sos2
+                | K::Atmost
+                | K::Atleast
+                | K::Exactly
+                | K::Piecewise
+                | K::Logic
+                | K::Complementarity
+        ) || target
+            .value
+            .equation
+            .as_ref()
+            .is_some_and(|e| e.condition.is_some()))
+        {
+            // ADR-0104: forms and disjunctions admit their realizations at specialization.
+            return Err(invalid(
+                *id,
+                "realization target must be an implicit block, a constraint form or a disjunction",
+            ));
+        }
+    }
+    if let Some(v) = &row.value.relaxation {
+        let target = p
+            .resolve(*id, &v.target)
+            .ok_or_else(|| invalid(*id, "elastic target absent"))?;
+        if p.declarations[&target].value.equation.is_none() {
+            return Err(invalid(*id, "elastic target must be an equation"));
+        }
+        let ty = crate::annotation::target_type(
+            p,
+            context,
+            *id,
+            p.expression_at(*id, "relaxation.target", 0)?,
+            &env,
+        )?;
+        let e = p.expression_at(*id, "relaxation.nominal", 0)?;
+        if infer(e, &env, p, context, *id, Some(&ty))? != ty {
+            return Err(invalid(*id, "elastic nominal must have residual units"));
+        }
+    }
+    if let Some(v) = &row.value.continuation {
+        let target = p
+            .resolve(*id, &v.target)
+            .ok_or_else(|| invalid(*id, "continuation target absent"))?;
+        if p.declarations[&target].value.kind
+            != pse_model::generated::enums::ModelingDeclarationKind::Parameter
+        {
+            return Err(invalid(
+                *id,
+                "continuation target must be a physical runtime parameter",
+            ));
+        }
+        let ty = crate::annotation::target_type(
+            p,
+            context,
+            *id,
+            p.expression_at(*id, "continuation.target", 0)?,
+            &env,
+        )?;
+        if !matches!(ty, Type::Quantity(_)) {
+            return Err(invalid(*id, "continuation cannot change structural facts"));
+        }
+        for role in ["continuation.start", "continuation.end"] {
+            let e = p.expression_at(*id, role, 0)?;
+            if infer(e, &env, p, context, *id, Some(&ty))? != ty {
+                return Err(invalid(*id, "continuation endpoint physical type differs"));
             }
-            let zero = Expr {
-                kind: ExprKind::Number(dsl::Number {
-                    value: 0.,
-                    exact_integer: Some(0),
-                    unit: None,
-                }),
-                span: Default::default(),
-            };
-            let dependency_expression = if let Some(validity) = &domain {
-                Expr {
-                    kind: ExprKind::Conditional {
-                        guard: Box::new(validity.clone()),
-                        then: Box::new(f.body.clone().unwrap_or_else(|| zero.clone())),
-                        otherwise: Box::new(zero),
-                    },
-                    span: Default::default(),
-                }
-            } else {
-                f.body.clone().unwrap_or(zero)
-            };
+        }
+    }
+    if let Some(f) = p.functions.get(id) {
+        let physical_context = TypeContext {
+            admissions: context.admissions,
+            formula_authority: matches!(
+                f.physical_operation,
+                Some(crate::PhysicalOperation::Response { .. })
+            )
+            .then(|| pse_quantity::PhysicalFormulaAuthority::response(id.as_id())),
+            quantities: context.quantities,
+            preconditions: context.preconditions,
+            scope: context.scope,
+        };
+        let context = &physical_context;
+        env.extend(f.physical_operation.as_ref().map_or_else(
+            || f.arguments.clone(),
+            |operation| operation.body_arguments(&f.arguments),
+        ));
+        if let Some(external) = &f.external {
+            if f.body.is_some() || f.continuity.is_some() {
+                return Err(invalid(
+                    *id,
+                    "external function cannot also own an expression body or symbolic continuity claim",
+                ));
+            }
+            if infer(
+                &external.output,
+                &env,
+                p,
+                context,
+                *id,
+                Some(&Type::Integer),
+            )? != Type::Integer
             {
-                // Runtime state is explicit. Immutable package data may be referenced
-                // through the admitted lexical/import closure, in bodies and domains alike.
-                let dependencies = dependency_expression;
-                for path in source_paths(&dependencies) {
-                    if path.segments.len() == 1
-                        && path.segments[0].indices.is_empty()
-                        && matches!(path.segments[0].name.as_str(), "missing" | "true" | "false")
-                    {
-                        continue;
-                    }
-                    let explicit = path
-                        .segments
-                        .first()
-                        .is_some_and(|s| f.arguments.iter().any(|(name, _)| *name == s.name));
-                    let immutable = (1..=path.segments.len())
+                return Err(invalid(
+                    *id,
+                    "external output selector requires an exact integer",
+                ));
+            }
+        }
+        // The form layer's predicate and the data layer's generated guards take one
+        // domain-predicate path (ADR-0123 Outcome 4).
+        let domain = f
+            .validity
+            .iter()
+            .chain(f.envelopes.iter().map(|guard| &guard.predicate))
+            .cloned()
+            .reduce(|a, b| Predicate {
+                kind: PredicateKind::And(Box::new(a), Box::new(b)),
+                span: Default::default(),
+            });
+        if let Some(validity) = &f.validity {
+            predicate(validity, &env, p, context, *id)?;
+        }
+        for guard in &f.envelopes {
+            predicate(&guard.predicate, &env, p, context, *id)?;
+        }
+        let zero = Expr {
+            kind: ExprKind::Number(dsl::Number {
+                value: 0.,
+                exact_integer: Some(0),
+                unit: None,
+            }),
+            span: Default::default(),
+        };
+        let dependency_expression = if let Some(validity) = &domain {
+            Expr {
+                kind: ExprKind::Conditional {
+                    guard: Box::new(validity.clone()),
+                    then: Box::new(f.body.clone().unwrap_or_else(|| zero.clone())),
+                    otherwise: Box::new(zero),
+                },
+                span: Default::default(),
+            }
+        } else {
+            f.body.clone().unwrap_or(zero)
+        };
+        {
+            // Runtime state is explicit. Immutable package data may be referenced
+            // through the admitted lexical/import closure, in bodies and domains alike.
+            let dependencies = dependency_expression;
+            for path in source_paths(&dependencies) {
+                if path.segments.len() == 1
+                    && path.segments[0].indices.is_empty()
+                    && matches!(path.segments[0].name.as_str(), "missing" | "true" | "false")
+                {
+                    continue;
+                }
+                let explicit = path
+                    .segments
+                    .first()
+                    .is_some_and(|s| f.arguments.iter().any(|(name, _)| *name == s.name));
+                let immutable = (1..=path.segments.len())
                         .rev()
                         .find_map(|end| p.resolve_segments(*id, &path.segments[..end]))
                         .is_some_and(|value| {
@@ -1654,349 +1666,344 @@ fn check_declarations(p: &CheckedPackage, context: &TypeContext<'_>) -> Result<(
                                         && owner.parent_id.is_some_and(|package| p.declarations[&package].value.kind == K::Package))
                             })
                         });
-                    let physical = (1..=path.segments.len()).any(|end| {
-                        let name = path.segments[..end]
-                            .iter()
-                            .map(|s| s.name.as_str())
-                            .collect::<Vec<_>>()
-                            .join(".");
-                        p.physical_name(*id, &name).is_some()
-                    });
-                    if !explicit && !immutable && !physical {
-                        return Err(invalid(
-                            *id,
-                            format!(
-                                "pure function requires explicit runtime arguments or immutable package data: {}",
-                                dsl::render_path(path)
-                            ),
-                        ));
-                    }
+                let physical = (1..=path.segments.len()).any(|end| {
+                    let name = path.segments[..end]
+                        .iter()
+                        .map(|s| s.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(".");
+                    p.physical_name(*id, &name).is_some()
+                });
+                if !explicit && !immutable && !physical {
+                    return Err(invalid(
+                        *id,
+                        format!(
+                            "pure function requires explicit runtime arguments or immutable package data: {}",
+                            dsl::render_path(path)
+                        ),
+                    ));
                 }
             }
-            if let Some(body) = &f.body {
-                let actual = infer(
-                    body,
+        }
+        if let Some(body) = &f.body {
+            let actual = infer(
+                body,
+                &env,
+                p,
+                context,
+                *id,
+                if f.physical_operation.is_some() {
+                    None
+                } else {
+                    Some(&f.result)
+                },
+            )?;
+            if let Some(operation) = &f.physical_operation {
+                operation.admit_result(&actual, &f.result, context, *id)?;
+            } else if actual != f.result {
+                return Err(invalid(
+                    *id,
+                    format!(
+                        "function result differs: expected {:?}, got {:?}",
+                        f.result, actual
+                    ),
+                ));
+            }
+        }
+    }
+    if let Some(b) = &row.value.binding
+        && let Some(expected) = p.types.get(id)
+        && expected.quantity_scheme().is_some()
+    {
+        for _source in b.expression.iter() {
+            let expr = p.expression_at(*id, "binding.expression", 0)?;
+            let actual = infer(expr, &env, p, context, *id, Some(expected))?;
+            if &actual != expected {
+                return Err(invalid(
+                    *id,
+                    format!("member physical type differs: expected {expected:?}, got {actual:?}"),
+                ));
+            }
+        }
+    }
+    if let Some(a) = &row.value.annotation {
+        // Whole-family annotations bind the target's coordinates just like
+        // specialization does; their expressions are scalar at each coordinate.
+        use crate::annotation::{AnnotationKind as Kind, Shape};
+        if a.kind == Kind::EngineeringRule {
+            // This package marker names an existing checked constant. It has no
+            // expression target; specialization resolves its stable constant identity.
+            return Ok(());
+        }
+        let mut env = env.clone();
+        let target_declaration = crate::annotation::target_declaration(
+            p,
+            context,
+            *id,
+            p.expression_at(*id, "annotation.target", 0)?,
+            &env,
+        )?;
+        if crate::annotation::shape(a, *id)? == Shape::Connectivity {
+            crate::annotation::connectivity_limits(a, *id)?;
+            let target = match target_declaration {
+                Some(target) => target,
+                None => indexed_declaration_reference(
+                    p.expression_at(*id, "annotation.target", 0)?,
                     &env,
                     p,
                     context,
                     *id,
-                    if f.physical_operation.is_some() {
-                        None
-                    } else {
-                        Some(&f.result)
-                    },
-                )?;
-                if let Some(operation) = &f.physical_operation {
-                    operation.admit_result(&actual, &f.result, context, *id)?;
-                } else if actual != f.result {
-                    return Err(invalid(
-                        *id,
-                        format!(
-                            "function result differs: expected {:?}, got {:?}",
-                            f.result, actual
-                        ),
-                    ));
-                }
+                )?,
+            };
+            use pse_model::generated::enums::ModelingDeclarationKind as K;
+            if !matches!(p.declarations[&target].value.kind, K::Port | K::StatePort) {
+                return Err(invalid(*id, "connectivity target must be a declared port"));
             }
+            return Ok(());
         }
-        if let Some(b) = &row.value.binding
-            && let Some(expected) = p.types.get(id)
-            && expected.quantity_scheme().is_some()
-        {
-            for _source in b.expression.iter() {
-                let expr = p.expression_at(*id, "binding.expression", 0)?;
-                let actual = infer(expr, &env, p, context, *id, Some(expected))?;
-                if &actual != expected {
-                    return Err(invalid(
-                        *id,
-                        format!(
-                            "member physical type differs: expected {expected:?}, got {actual:?}"
-                        ),
-                    ));
-                }
-            }
-        }
-        if let Some(a) = &row.value.annotation {
-            // Whole-family annotations bind the target's coordinates just like
-            // specialization does; their expressions are scalar at each coordinate.
-            use crate::annotation::{AnnotationKind as Kind, Shape};
-            if a.kind == Kind::EngineeringRule {
-                // This package marker names an existing checked constant. It has no
-                // expression target; specialization resolves its stable constant identity.
-                continue;
-            }
-            let mut env = env.clone();
-            let target_declaration = crate::annotation::target_declaration(
-                p,
-                context,
-                *id,
-                p.expression_at(*id, "annotation.target", 0)?,
-                &env,
-            )?;
-            if crate::annotation::shape(a, *id)? == Shape::Connectivity {
-                crate::annotation::connectivity_limits(a, *id)?;
-                let target = match target_declaration {
-                    Some(target) => target,
-                    None => indexed_declaration_reference(
-                        p.expression_at(*id, "annotation.target", 0)?,
-                        &env,
-                        p,
-                        context,
-                        *id,
-                    )?,
+        if let Some(target) = target_declaration {
+            let declaration = &p.declarations[&target];
+            let indices = member_indices(declaration);
+            let mut target_env = declaration_environment(p, context, target)?;
+            for (position, (name, _domain)) in indices.into_iter().enumerate() {
+                let (Type::Set(element) | Type::Continuous(_, element)) =
+                    member_index_type(target, position, &target_env, p, context)?
+                else {
+                    return Err(invalid(*id, "annotation index domain must be a set"));
                 };
-                use pse_model::generated::enums::ModelingDeclarationKind as K;
-                if !matches!(p.declarations[&target].value.kind, K::Port | K::StatePort) {
+                target_env.insert(name.clone(), *element.clone());
+                env.insert(name.clone(), *element);
+            }
+        }
+        let target = crate::annotation::target_type(
+            p,
+            context,
+            *id,
+            p.expression_at(*id, "annotation.target", 0)?,
+            &env,
+        )?;
+        let shape = crate::annotation::shape(a, *id)?;
+        let equation_target = target_declaration
+            .is_some_and(|target| p.declarations[&target].value.equation.is_some());
+        match a.kind {
+            Kind::Scale if !equation_target => {
+                return Err(invalid(*id, "term scaling requires an equation target"));
+            }
+            Kind::Start | Kind::Bounds | Kind::Valid | Kind::Objective if equation_target => {
+                return Err(invalid(*id, "this annotation requires a value target"));
+            }
+            _ => {}
+        }
+        if target.quantity_scheme().is_none() {
+            return Err(invalid(*id, "annotation requires a physical member"));
+        }
+        let numeric = match shape {
+            Shape::Connectivity => {
+                crate::annotation::connectivity_limits(a, *id)?;
+                if target_declaration.is_some_and(|target| {
+                    p.declarations[&target].value.kind
+                        != pse_model::generated::enums::ModelingDeclarationKind::Port
+                }) {
                     return Err(invalid(*id, "connectivity target must be a declared port"));
                 }
-                continue;
+                return Ok(());
             }
-            if let Some(target) = target_declaration {
-                let declaration = &p.declarations[&target];
-                let indices = member_indices(declaration);
-                let mut target_env = declaration_environment(p, context, target)?;
-                for (position, (name, _domain)) in indices.into_iter().enumerate() {
-                    let (Type::Set(element) | Type::Continuous(_, element)) =
-                        member_index_type(target, position, &target_env, p, context)?
-                    else {
-                        return Err(invalid(*id, "annotation index domain must be a set"));
-                    };
-                    target_env.insert(name.clone(), *element.clone());
-                    env.insert(name.clone(), *element);
-                }
-            }
-            let target = crate::annotation::target_type(
-                p,
-                context,
-                *id,
-                p.expression_at(*id, "annotation.target", 0)?,
-                &env,
-            )?;
-            let shape = crate::annotation::shape(a, *id)?;
-            let equation_target = target_declaration
-                .is_some_and(|target| p.declarations[&target].value.equation.is_some());
-            match a.kind {
-                Kind::Scale if !equation_target => {
-                    return Err(invalid(*id, "term scaling requires an equation target"));
-                }
-                Kind::Start | Kind::Bounds | Kind::Valid | Kind::Objective if equation_target => {
-                    return Err(invalid(*id, "this annotation requires a value target"));
-                }
-                _ => {}
-            }
-            if target.quantity_scheme().is_none() {
-                return Err(invalid(*id, "annotation requires a physical member"));
-            }
-            let numeric = match shape {
-                Shape::Connectivity => {
-                    crate::annotation::connectivity_limits(a, *id)?;
-                    if target_declaration.is_some_and(|target| {
-                        p.declarations[&target].value.kind
-                            != pse_model::generated::enums::ModelingDeclarationKind::Port
-                    }) {
-                        return Err(invalid(*id, "connectivity target must be a declared port"));
-                    }
-                    continue;
-                }
-                Shape::AccuracyGoal => {
-                    let goal = a
-                        .accuracy_goal
-                        .as_ref()
-                        .ok_or_else(|| invalid(*id, "accuracy goal members"))?;
-                    let difference = Type::Quantity(Scheme::Concrete(
-                        Scheme::Delta(Box::new(
-                            target
-                                .quantity_scheme()
-                                .ok_or_else(|| invalid(*id, "accuracy goal target is physical"))?
-                                .clone(),
-                        ))
-                        .resolve_with_evidence(
-                            context.quantities,
-                            &Substitution::new(),
-                            context.preconditions,
-                        )
-                        .map_err(|error| invalid(*id, error.to_string()))?,
-                    ));
-                    for (role, expression, expected) in [
-                        ("time", &goal.time, None),
-                        ("resolution", &goal.resolution, Some(&difference)),
-                        ("criterion_lower", &goal.criterion_lower, Some(&target)),
-                        ("criterion_upper", &goal.criterion_upper, Some(&target)),
-                    ] {
-                        let Some(_expression) = expression else {
-                            continue;
-                        };
-                        let expression =
-                            p.expression_at(*id, &format!("annotation.accuracy_goal.{role}"), 0)?;
-                        let actual = infer(expression, &env, p, context, *id, expected)?;
-                        if actual.quantity_scheme().is_none()
-                            || expected.is_some_and(|expected| actual != *expected)
-                        {
-                            return Err(invalid(
-                                *id,
-                                "accuracy goal expression has an incompatible physical type",
-                            ));
-                        }
-                    }
-                    0
-                }
-                Shape::EngineeringScale => {
-                    let _scale = a
-                        .engineering_scale
-                        .as_ref()
-                        .ok_or_else(|| invalid(*id, "engineering scale members"))?;
-                    let difference = Type::Quantity(Scheme::Concrete(
-                        Scheme::Delta(Box::new(
-                            target
-                                .quantity_scheme()
-                                .ok_or_else(|| {
-                                    invalid(*id, "engineering scale target is physical")
-                                })?
-                                .clone(),
-                        ))
-                        .resolve_with_evidence(
-                            context.quantities,
-                            &Substitution::new(),
-                            context.preconditions,
-                        )
-                        .map_err(|error| invalid(*id, error.to_string()))?,
-                    ));
-                    let expression =
-                        p.expression_at(*id, "annotation.engineering_scale.value", 0)?;
-                    if infer(expression, &env, p, context, *id, Some(&difference))? != difference {
-                        return Err(invalid(
-                            *id,
-                            "engineering scale differs from target magnitude type",
-                        ));
-                    }
-                    0
-                }
-                Shape::EngineeringDefault | Shape::EngineeringRule => 0,
-                Shape::Objective => {
-                    objective_members(a, &target, &env, p, context, *id)?;
-                    continue;
-                }
-                Shape::Expressions(count) => count,
-                Shape::Label => {
-                    crate::annotation::label(p.static_at(*id, "annotation.arguments", 0)?, *id)?;
-                    0
-                }
-                Shape::Scheme => 0,
-                Shape::Predicate => {
-                    predicate(
-                        p.predicate_at(*id, "annotation.arguments", 0)?,
-                        &env,
-                        p,
-                        context,
-                        *id,
-                    )?;
-                    0
-                }
-            };
-            for position in 0..numeric {
-                let expression = p.expression_at(*id, "annotation.arguments", position)?;
-                if infer(expression, &env, p, context, *id, Some(&target))? != target {
-                    return Err(invalid(*id, "annotation type differs from target"));
-                }
-            }
-        }
-        if let Some(expectation) = &row.value.expectation {
-            let actual = p.expression_at(*id, "expectation.actual", 0)?;
-            let expected = p.expression_at(*id, "expectation.expected", 0)?;
-            let actual = infer(actual, &env, p, context, *id, None)?;
-            if infer(expected, &env, p, context, *id, Some(&actual))? != actual {
-                return Err(invalid(*id, "test expectation types differ"));
-            }
-            let tolerance = p.expression_at(*id, "expectation.tolerance", 0)?;
-            let delta = Scheme::Delta(Box::new(
-                actual
-                    .quantity_scheme()
-                    .ok_or_else(|| invalid(*id, "test expectation requires quantities"))?
-                    .clone(),
-            ));
-            let delta = Type::Quantity(Scheme::Concrete(
-                delta
+            Shape::AccuracyGoal => {
+                let goal = a
+                    .accuracy_goal
+                    .as_ref()
+                    .ok_or_else(|| invalid(*id, "accuracy goal members"))?;
+                let difference = Type::Quantity(Scheme::Concrete(
+                    Scheme::Delta(Box::new(
+                        target
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "accuracy goal target is physical"))?
+                            .clone(),
+                    ))
                     .resolve_with_evidence(
                         context.quantities,
                         &Substitution::new(),
                         context.preconditions,
                     )
-                    .map_err(|e| invalid(*id, e.to_string()))?,
-            ));
-            if infer(tolerance, &env, p, context, *id, Some(&delta))? != delta {
-                return Err(invalid(*id, "expectation tolerance type differs"));
-            }
-            if let Some(_relative) = &expectation.relative_tolerance {
-                let relative = p.expression_at(*id, "expectation.relative_tolerance", 0)?;
-                let scalar = Type::Quantity(Scheme::Concrete(
-                    context.quantities.neutral_dimensionless().ok_or_else(|| {
-                        invalid(*id, "relative tolerance requires a neutral scalar type")
-                    })?,
+                    .map_err(|error| invalid(*id, error.to_string()))?,
                 ));
-                if infer(relative, &env, p, context, *id, Some(&scalar))? != scalar {
-                    return Err(invalid(*id, "relative tolerance must be dimensionless"));
-                }
-            }
-        }
-        let check_eq = |role: &str| -> Result<()> {
-            let e = p.equation_at(*id, role, 0)?;
-            fn eq(
-                e: &dsl::Equation,
-                env: &BTreeMap<String, Type>,
-                p: &CheckedPackage,
-                c: &TypeContext<'_>,
-                id: DeclarationId,
-            ) -> Result<()> {
-                match &e.kind {
-                    dsl::EquationKind::Relation { lhs, rhs, .. } => {
-                        let a = infer(lhs, env, p, c, id, None)?;
-                        let b = infer(rhs, env, p, c, id, Some(&a))?;
-                        if a != b {
-                            return Err(invalid(id, "equation side physical types differ"));
-                        }
-                    }
-                    dsl::EquationKind::Conditional {
-                        guard,
-                        then,
-                        otherwise,
-                    } => {
-                        predicate(guard, env, p, c, id)?;
-                        eq(then, env, p, c, id)?;
-                        eq(otherwise, env, p, c, id)?;
+                for (role, expression, expected) in [
+                    ("time", &goal.time, None),
+                    ("resolution", &goal.resolution, Some(&difference)),
+                    ("criterion_lower", &goal.criterion_lower, Some(&target)),
+                    ("criterion_upper", &goal.criterion_upper, Some(&target)),
+                ] {
+                    let Some(_expression) = expression else {
+                        return Ok(());
+                    };
+                    let expression =
+                        p.expression_at(*id, &format!("annotation.accuracy_goal.{role}"), 0)?;
+                    let actual = infer(expression, &env, p, context, *id, expected)?;
+                    if actual.quantity_scheme().is_none()
+                        || expected.is_some_and(|expected| actual != *expected)
+                    {
+                        return Err(invalid(
+                            *id,
+                            "accuracy goal expression has an incompatible physical type",
+                        ));
                     }
                 }
-                Ok(())
+                0
             }
-            eq(e, &env, p, context, *id)
+            Shape::EngineeringScale => {
+                let _scale = a
+                    .engineering_scale
+                    .as_ref()
+                    .ok_or_else(|| invalid(*id, "engineering scale members"))?;
+                let difference = Type::Quantity(Scheme::Concrete(
+                    Scheme::Delta(Box::new(
+                        target
+                            .quantity_scheme()
+                            .ok_or_else(|| invalid(*id, "engineering scale target is physical"))?
+                            .clone(),
+                    ))
+                    .resolve_with_evidence(
+                        context.quantities,
+                        &Substitution::new(),
+                        context.preconditions,
+                    )
+                    .map_err(|error| invalid(*id, error.to_string()))?,
+                ));
+                let expression = p.expression_at(*id, "annotation.engineering_scale.value", 0)?;
+                if infer(expression, &env, p, context, *id, Some(&difference))? != difference {
+                    return Err(invalid(
+                        *id,
+                        "engineering scale differs from target magnitude type",
+                    ));
+                }
+                0
+            }
+            Shape::EngineeringDefault | Shape::EngineeringRule => 0,
+            Shape::Objective => {
+                objective_members(a, &target, &env, p, context, *id)?;
+                return Ok(());
+            }
+            Shape::Expressions(count) => count,
+            Shape::Label => {
+                crate::annotation::label(p.static_at(*id, "annotation.arguments", 0)?, *id)?;
+                0
+            }
+            Shape::Scheme => 0,
+            Shape::Predicate => {
+                predicate(
+                    p.predicate_at(*id, "annotation.arguments", 0)?,
+                    &env,
+                    p,
+                    context,
+                    *id,
+                )?;
+                0
+            }
         };
-        if let Some(_e) = &row.value.equation {
-            check_eq("equation.expression")?;
-        }
-        if let Some(_e) = row
-            .value
-            .binding
-            .as_ref()
-            .and_then(|b| b.defined_by.as_ref())
-        {
-            check_eq("binding.defined_by")?;
-        }
-        // A kind's requirement binds its entity and attributes; entity admission types it
-        // (Plan 23 D0).
-        let kind_requirement = row
-            .parent_id
-            .is_some_and(|parent| p.kinds.contains_key(&parent));
-        for (role, present) in [
-            ("guard.predicate", row.value.guard.is_some()),
-            (
-                "requirement.predicate",
-                row.value.requirement.is_some() && !kind_requirement,
-            ),
-        ] {
-            if present {
-                predicate(p.predicate_at(*id, role, 0)?, &env, p, context, *id)?;
+        for position in 0..numeric {
+            let expression = p.expression_at(*id, "annotation.arguments", position)?;
+            if infer(expression, &env, p, context, *id, Some(&target))? != target {
+                return Err(invalid(*id, "annotation type differs from target"));
             }
         }
     }
+    if let Some(expectation) = &row.value.expectation {
+        let actual = p.expression_at(*id, "expectation.actual", 0)?;
+        let expected = p.expression_at(*id, "expectation.expected", 0)?;
+        let actual = infer(actual, &env, p, context, *id, None)?;
+        if infer(expected, &env, p, context, *id, Some(&actual))? != actual {
+            return Err(invalid(*id, "test expectation types differ"));
+        }
+        let tolerance = p.expression_at(*id, "expectation.tolerance", 0)?;
+        let delta = Scheme::Delta(Box::new(
+            actual
+                .quantity_scheme()
+                .ok_or_else(|| invalid(*id, "test expectation requires quantities"))?
+                .clone(),
+        ));
+        let delta = Type::Quantity(Scheme::Concrete(
+            delta
+                .resolve_with_evidence(
+                    context.quantities,
+                    &Substitution::new(),
+                    context.preconditions,
+                )
+                .map_err(|e| invalid(*id, e.to_string()))?,
+        ));
+        if infer(tolerance, &env, p, context, *id, Some(&delta))? != delta {
+            return Err(invalid(*id, "expectation tolerance type differs"));
+        }
+        if let Some(_relative) = &expectation.relative_tolerance {
+            let relative = p.expression_at(*id, "expectation.relative_tolerance", 0)?;
+            let scalar = Type::Quantity(Scheme::Concrete(
+                context.quantities.neutral_dimensionless().ok_or_else(|| {
+                    invalid(*id, "relative tolerance requires a neutral scalar type")
+                })?,
+            ));
+            if infer(relative, &env, p, context, *id, Some(&scalar))? != scalar {
+                return Err(invalid(*id, "relative tolerance must be dimensionless"));
+            }
+        }
+    }
+    let check_eq = |role: &str| -> Result<()> {
+        let e = p.equation_at(*id, role, 0)?;
+        fn eq(
+            e: &dsl::Equation,
+            env: &BTreeMap<String, Type>,
+            p: &CheckedPackage,
+            c: &TypeContext<'_>,
+            id: DeclarationId,
+        ) -> Result<()> {
+            match &e.kind {
+                dsl::EquationKind::Relation { lhs, rhs, .. } => {
+                    let a = infer(lhs, env, p, c, id, None)?;
+                    let b = infer(rhs, env, p, c, id, Some(&a))?;
+                    if a != b {
+                        return Err(invalid(id, "equation side physical types differ"));
+                    }
+                }
+                dsl::EquationKind::Conditional {
+                    guard,
+                    then,
+                    otherwise,
+                } => {
+                    predicate(guard, env, p, c, id)?;
+                    eq(then, env, p, c, id)?;
+                    eq(otherwise, env, p, c, id)?;
+                }
+            }
+            Ok(())
+        }
+        eq(e, &env, p, context, *id)
+    };
+    if let Some(_e) = &row.value.equation {
+        check_eq("equation.expression")?;
+    }
+    if let Some(_e) = row
+        .value
+        .binding
+        .as_ref()
+        .and_then(|b| b.defined_by.as_ref())
+    {
+        check_eq("binding.defined_by")?;
+    }
+    // A kind's requirement binds its entity and attributes; entity admission types it
+    // (Plan 23 D0).
+    let kind_requirement = row
+        .parent_id
+        .is_some_and(|parent| p.kinds.contains_key(&parent));
+    for (role, present) in [
+        ("guard.predicate", row.value.guard.is_some()),
+        (
+            "requirement.predicate",
+            row.value.requirement.is_some() && !kind_requirement,
+        ),
+    ] {
+        if present {
+            predicate(p.predicate_at(*id, role, 0)?, &env, p, context, *id)?;
+        }
+    }
+
     Ok(())
 }
 

@@ -151,23 +151,21 @@ class TestResourceTests(unittest.TestCase):
 
     def test_codec_publication_holds_service_gate_without_startup_ipc(self) -> None:
 
-        metadata = resources.host.metadata
+        registration = resources.resource_store.FileStore.register
 
-        @contextlib.contextmanager
         def gated(
-            directory: Path,
-        ) -> Generator[resources.host.MetadataLedger, None, None]:
+            store: resources.resource_store.FileStore, *args: object, **options: object
+        ) -> str:
             descriptor = os.open(self.state / ".supervisor.lock", os.O_RDWR)
             try:
                 with self.assertRaises(BlockingIOError):
                     fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
             finally:
                 os.close(descriptor)
-            with metadata(directory) as ledger:
-                yield ledger
+            return registration(store, *args, **options)
 
         with (
-            patch.object(resources.host, "metadata", side_effect=gated),
+            patch.object(resources.resource_store.FileStore, "register", gated),
             patch.object(surreal_server, "start") as start,
         ):
             resource = self.register()
@@ -259,8 +257,10 @@ class TestResourceTests(unittest.TestCase):
         admission = surreal_server.context_admission
 
         @contextlib.contextmanager
-        def reference_arrives(state: Path) -> Generator[None, None, None]:
-            with admission(state):
+        def reference_arrives(
+            state: Path, **options: object
+        ) -> Generator[None, None, None]:
+            with admission(state, **options):
                 resources.retain_reference(resource, "new-consumer", "f" * 64)
                 yield
 
@@ -483,6 +483,181 @@ class TestResourceTests(unittest.TestCase):
             self.assertEqual(resources.reclaim(resource), "removed")
             removal.assert_called_once()
 
+    def test_accepted_creation_borrower_survives_freeze_and_late_settlement(
+        self,
+    ) -> None:
+        resource = self.register()
+        before = resources.resource_status(resource)["creation_borrower"]
+        resources.finalize(
+            self.invocation,
+            {"test_module.py::test_assert_after_exit": "pass"},
+            complete=True,
+            terminal_owner="runner",
+        )
+        self.assertEqual(
+            resources.resource_status(resource)["creation_borrower"], before
+        )
+        self.assertEqual(resources.reclaim(resource), "fixture borrowers not drained")
+        with patch.object(resources, "borrower_alive", return_value=False):
+            with self.assertRaisesRegex(
+                surreal_server.SupervisorError, "accepted fixture creation"
+            ):
+                surreal_server.require_borrowers_drained(self.state)
+        with self.assertRaisesRegex(resources.ResourceError, "frozen"):
+            resources.register(
+                {
+                    "state": str(self.state),
+                    "database": "canonical_test_" + "b" * 32,
+                    "test": "test_module.py::test_assert_after_exit",
+                }
+            )
+        resources.record_drain(resource)
+        self.assertNotIn("creation_borrower", resources.resource_status(resource))
+        with patch.object(resources, "remove_owned") as remove:
+            self.assertEqual(resources.reclaim(resource), "removed")
+            remove.assert_called_once()
+
+    def test_creation_effect_already_accepted_settles_after_freeze(self) -> None:
+        entered, release = threading.Event(), threading.Event()
+        result, errors = [], []
+
+        def create(*_args: object) -> None:
+            entered.set()
+            if not release.wait(2):
+                raise TimeoutError("test effect release")
+
+        def register() -> None:
+            try:
+                result.append(
+                    resources.register(
+                        {
+                            "state": str(self.state),
+                            "database": "canonical_test_" + "b" * 32,
+                            "test": "test_module.py::test_assert_after_exit",
+                            "execution_profile": "exclusive-observer",
+                        }
+                    )
+                )
+            except Exception as error:
+                errors.append(error)
+
+        with patch.object(surreal_server, "register_context", side_effect=create):
+            thread = threading.Thread(target=register)
+            thread.start()
+            try:
+                self.assertTrue(entered.wait(2))
+                accepted = next(iter(resources.resource_status()))
+                resources.finalize(
+                    self.invocation,
+                    {"test_module.py::test_assert_after_exit": "pass"},
+                    complete=True,
+                    terminal_owner="runner",
+                )
+                self.assertIn("creation_borrower", resources.resource_status(accepted))
+                self.assertEqual(
+                    resources.reclaim(accepted), "fixture borrowers not drained"
+                )
+            finally:
+                release.set()
+                thread.join(2)
+        self.assertEqual(errors, [])
+        self.assertEqual(result, [accepted])
+        resources.record_drain(accepted)
+        self.assertNotIn("creation_borrower", resources.resource_status(accepted))
+
+    def test_partial_projection_resumes_same_terminal_and_preserves_manual_pin(
+        self,
+    ) -> None:
+        first = self.register()
+        second = resources.register(
+            {
+                "state": str(self.state),
+                "database": "canonical_test_" + "b" * 32,
+                "test": "test_module.py::test_assert_after_exit",
+            }
+        )
+        saved = resources.resource_store.FileStore._save
+        projected = []
+
+        def fail_second(
+            store: resources.resource_store.FileStore,
+            entry: resources.resource_store.Entry,
+        ) -> None:
+            if entry.facts.get("terminal_identity"):
+                if projected:
+                    raise OSError("projection interrupted")
+                projected.append(entry.resource)
+            saved(store, entry)
+
+        with patch.object(resources.resource_store.FileStore, "_save", new=fail_second):
+            with self.assertRaisesRegex(OSError, "projection interrupted"):
+                resources.finalize(
+                    self.invocation,
+                    {"test_module.py::test_assert_after_exit": "pass"},
+                    complete=True,
+                    terminal_owner="runner",
+                    terminal={"workload_exit": 0},
+                )
+        self.assertEqual(len(projected), 1)
+        resources.pin(projected[0], True)
+        resources.resume_projection(self.invocation, terminal_owner="runner")
+        self.assertTrue(resources.resource_status(projected[0])["pin"])
+        for resource in (first, second):
+            self.assertEqual(resources.resource_status(resource)["disposition"], "pass")
+            self.assertIn("creation_borrower", resources.resource_status(resource))
+        with self.assertRaisesRegex(resources.ResourceError, "another immutable"):
+            resources.finalize(
+                self.invocation,
+                {"test_module.py::test_assert_after_exit": "failure"},
+                complete=True,
+                terminal_owner="runner",
+                terminal={"workload_exit": 1},
+            )
+
+    def test_collection_between_terminal_read_and_freeze_refuses_stale_composition(
+        self,
+    ) -> None:
+        path = resources.invocation("python", [])
+        freeze = resources.resource_store.FileStore.freeze
+
+        def collect_then_freeze(store, nonce, terminal, **options):
+            resources.publish_python_collection(path, ["collected.py::test_case"])
+            return freeze(store, nonce, terminal, **options)
+
+        with patch.object(
+            resources.resource_store.FileStore, "freeze", new=collect_then_freeze
+        ):
+            with self.assertRaisesRegex(
+                resources.ResourceError, "terminal selection authority"
+            ):
+                resources.finalize(path, {}, complete=False, terminal_owner="runner")
+        nonce = resources.read_invocation(path)["nonce"]
+        state = resources.resource_store.read(
+            resources.storage().path("invocation-state", nonce)
+        )
+        self.assertEqual(state["phase"], "open")
+        self.assertNotIn("terminal", state)
+        resources.finalize(path, {}, complete=False, terminal_owner="runner")
+        self.assertEqual(resources.resume_projection(path, terminal_owner="runner"), [])
+
+    def test_missing_authority_with_dangling_access_paths_never_proves_disposal(
+        self,
+    ) -> None:
+        resource = self.register()
+        store = resources.storage()
+        identity = store.lookup(resource).identity
+        store.path("resources", resource).unlink()
+        self.assertTrue(store.path("active", resource).exists())
+        self.assertTrue(
+            store.path("identities", resources.resource_store.digest(identity)).exists()
+        )
+        with patch.object(resources, "remove_owned") as remove:
+            with self.assertRaisesRegex(
+                resources.ResourceError, "disposal remains unproved"
+            ):
+                resources.reclaim(resource)
+        remove.assert_not_called()
+
     def test_closed_service_defers_cleanup_until_same_generation_reopens(self) -> None:
         resource = self.register()
         resources.record_drain(resource)
@@ -522,9 +697,11 @@ class TestResourceTests(unittest.TestCase):
         admission = surreal_server.context_admission
 
         @contextlib.contextmanager
-        def close_before_admission(state: Path) -> Generator[None, None, None]:
+        def close_before_admission(
+            state: Path, **options: object
+        ) -> Generator[None, None, None]:
             self.config.update(admission="quiesced", accepting_writes=False)
-            with admission(state):
+            with admission(state, **options):
                 yield
 
         with (
@@ -759,12 +936,12 @@ class TestResourceTests(unittest.TestCase):
 
     def test_cleanup_skips_known_references_and_borrows(self) -> None:
         reports = sorted(self.report(f"protected-{index}") for index in range(5))
-        with resources.resource_metadata() as ledger:
-            for index, (resource, _directory) in enumerate(reports[:4]):
+        for index, (resource, _directory) in enumerate(reports[:4]):
+            with resources.resource_update(resource) as record:
                 if index % 2:
-                    ledger["owners"][resource]["references"] = {"protected": "owner"}
+                    record["references"] = {"protected": "owner"}
                 else:
-                    ledger["owners"][resource]["borrows"] = {
+                    record["borrows"] = {
                         "protected": {
                             "pid": os.getpid(),
                             "start": resources.operation.start_identity(os.getpid()),
@@ -780,9 +957,9 @@ class TestResourceTests(unittest.TestCase):
 
     def test_bounded_cleanup_rotates_past_undrained_reports(self) -> None:
         reports = sorted(self.report(f"rotation-{index}") for index in range(5))
-        with resources.resource_metadata() as ledger:
-            for resource, _directory in reports[:4]:
-                ledger["owners"][resource]["units"] = [{"unit": "retained.scope"}]
+        for resource, _directory in reports[:4]:
+            with resources.resource_update(resource) as record:
+                record["units"] = [{"unit": "retained.scope"}]
         with patch.object(
             resources.operation, "drained", return_value=drain_fixture(False)
         ) as drain:
@@ -868,7 +1045,9 @@ class TestResourceTests(unittest.TestCase):
         resources.release_reference(resource, "current-consumer", "a" * 64)
         self.assertEqual(resources.resource_status(), {})
         with patch.object(
-            resources, "private_record", wraps=resources.private_record
+            resources.resource_store.FileStore,
+            "_entry",
+            side_effect=AssertionError("cold history was read"),
         ) as read:
             self.assertEqual(resources.reclaim_reports(), [])
             self.assertEqual(resources.resource_status(), {})
@@ -975,9 +1154,9 @@ class TestResourceTests(unittest.TestCase):
 
     def test_manifestless_record_stays_protected_after_manual_release(self) -> None:
         resource, directory = self.report("old-policy")
-        with resources.resource_metadata() as ledger:
-            del ledger["owners"][resource]["artifact_manifest"]
-            del ledger["owners"][resource]["artifact_policy_version"]
+        with resources.resource_update(resource) as record:
+            del record["artifact_manifest"]
+            del record["artifact_policy_version"]
         resources.pin(resource, False)
         self.assertEqual(
             resources.reclaim(resource), "missing producer artifact manifest"
@@ -1033,9 +1212,9 @@ class TestResourceTests(unittest.TestCase):
 
     def test_registered_legacy_origin_cannot_bypass_sealed_reuse(self) -> None:
         resource, directory = self.report("legacy-reuse")
-        with resources.resource_metadata() as ledger:
-            del ledger["owners"][resource]["artifact_manifest"]
-            del ledger["owners"][resource]["artifact_policy_version"]
+        with resources.resource_update(resource) as record:
+            del record["artifact_manifest"]
+            del record["artifact_policy_version"]
         with resources.borrow_report(directory):
             self.assertTrue((directory / "checks.json").is_file())
         with (
@@ -1083,8 +1262,8 @@ class TestResourceTests(unittest.TestCase):
 
     def test_legacy_report_without_directory_identity_remains_pinned(self) -> None:
         resource, directory = self.report("unknown-identity")
-        with resources.resource_metadata() as ledger:
-            del ledger["owners"][resource]["directory_identity"]
+        with resources.resource_update(resource) as record:
+            del record["directory_identity"]
         with self.assertRaisesRegex(resources.ResourceError, "ownership changed"):
             resources.reclaim(resource)
         self.assertTrue((directory / "run.log").exists())

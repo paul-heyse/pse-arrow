@@ -15,12 +15,14 @@ publish.workspace = true
 workspace = true
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
 pse-model.workspace = true
 pse-authoring.workspace = true
 pse-quantity.workspace = true
 pse-ids.workspace = true
 pse-diagnostics.workspace = true
 petgraph.workspace = true
+rpds.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 [dev-dependencies]

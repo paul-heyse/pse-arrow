@@ -58,6 +58,7 @@ fn admitted(text: &str, columns: Vec<DocumentColumn>) -> Result<CheckedPackage> 
     let documents = Direct {
         inventory: DocumentInventory {
             field_spans: Default::default(),
+            parsed_fields: Default::default(),
             packages: [(SemanticId::NIL, PACKAGE)].into(),
             documents: [(document.id, Arc::new(document))].into(),
         },

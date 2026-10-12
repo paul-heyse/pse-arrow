@@ -172,6 +172,30 @@ mod tests {
         assert!(matches!(erased.memory_limit(), MemoryLimit::Finite(64)));
     }
     #[tokio::test]
+    async fn zero_byte_spillable_departure_wakes_actual_fair_share_grower() {
+        let pool = Arc::new(ReleaseNotifyingPool::new(Arc::new(FairSpillPool::new(64))));
+        let erased: Arc<dyn MemoryPool> = pool.clone();
+        let growing = MemoryConsumer::new("growing-spiller")
+            .with_can_spill(true)
+            .register(&erased);
+        let departing = MemoryConsumer::new("zero-byte-spiller")
+            .with_can_spill(true)
+            .register(&erased);
+        growing.try_grow(32).unwrap();
+        assert_eq!(departing.size(), 0);
+        let released = pool.released();
+        let notification = released.notified();
+        assert!(growing.try_grow(16).is_err()); // Two registered spillers: share is32.
+        drop(departing); // Reserved bytes remain32, but share becomes64.
+        tokio::time::timeout(std::time::Duration::from_secs(1), notification)
+            .await
+            .unwrap();
+        growing.try_grow(16).unwrap();
+        assert_eq!(erased.reserved(), 48);
+        drop(growing);
+        assert_eq!(erased.reserved(), 0);
+    }
+    #[tokio::test]
     async fn production_runtime_cache_and_platform_use_notifying_pool() {
         let resources = EngineResources::build(
             NonZeroUsize::new(1024).unwrap(),

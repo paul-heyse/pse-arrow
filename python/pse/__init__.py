@@ -34,6 +34,7 @@ from pse._build import (
 )
 from pse._inspection import TableStream, registry_table
 from pse._modeling import (
+    CompactStudyResult,
     ModelingConformance,
     ModelingDiagnostics,
     ModelingDiagnosticSamples,
@@ -138,6 +139,7 @@ __all__ = [
     "CacheReport",
     "CacheSettings",
     "ClarabelSettings",
+    "CompactStudyResult",
     "Completion",
     "CompositionRequest",
     "ConformanceControls",

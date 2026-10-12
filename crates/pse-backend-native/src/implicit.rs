@@ -11,7 +11,7 @@ use crate::{
 use pse_kernels::DerivativeOrder;
 use pse_math::{
     MathError,
-    implicit::{InnerSolver, Options, Problem},
+    implicit::{InnerSolver, InnerWorker, Options, Problem},
 };
 use std::{
     cell::RefCell,
@@ -20,7 +20,7 @@ use std::{
 };
 
 /// Native root capability injected into generic implicit evaluation.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Kinsol;
 
 /// Lower cooperative native time stops before the generic provider error boundary.
@@ -292,8 +292,14 @@ impl InnerSolver for Kinsol {
     fn identity(&self) -> pse_ids::ContentHash {
         pse_math::implicit::solver_identity("sundials.kinsol.v1")
     }
+
+    fn worker(&self) -> Box<dyn InnerWorker> {
+        Box::new(self.clone())
+    }
+}
+impl InnerWorker for Kinsol {
     fn solve(
-        &self,
+        &mut self,
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
@@ -627,7 +633,7 @@ mod tests {
             self.original.jacobian_product(x, direction, out)
         }
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct LateNativeRoot {
         calls: Arc<std::sync::atomic::AtomicUsize>,
         fault: Option<Arc<ProblemError>>,
@@ -640,8 +646,14 @@ mod tests {
         fn identity(&self) -> pse_ids::ContentHash {
             Kinsol.identity()
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for LateNativeRoot {
         fn solve(
-            &self,
+            &mut self,
             problem: Arc<Problem>,
             parameters: &[f64],
             options: &Options,
@@ -938,7 +950,7 @@ mod tests {
             assert!(!factory.cancel.load(std::sync::atomic::Ordering::Acquire));
         }
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct DomainRefusal;
     impl InnerSolver for DomainRefusal {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -947,8 +959,14 @@ mod tests {
         fn identity(&self) -> pse_ids::ContentHash {
             pse_math::implicit::solver_identity("test.authored-domain-refusal.v1")
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for DomainRefusal {
         fn solve(
-            &self,
+            &mut self,
             problem: Arc<Problem>,
             _: &[f64],
             _: &Options,

@@ -3,6 +3,173 @@
 //! External artifact association and fresh outer observation framing.
 use std::{fs, path::Path};
 
+/// Full synchronous observation envelope, including simultaneously live inventories,
+/// bounded proc/configuration buffers, traversal frames and streamed encoding scratch.
+/// Runtime jobs reserve this allowance before entering the observation owner.
+pub const OBSERVATION_WORK_BYTES: usize = 4 << 20;
+/// Supported composition roots bound configuration generation before Rust allocation.
+pub const MAX_CONFIGURATION_BYTES: usize = 64 << 10;
+const METADATA_BYTES: usize = 1 << 20;
+const PATH_BYTES: usize = 4096;
+const PROC_BYTES: usize = 128 << 10;
+const ENVIRONMENT_BYTES: usize = 64 << 10;
+const SOURCE_DEPTH: usize = 64;
+
+// Cumulative conservative growth accounting deliberately does not credit removed
+// entries: container spare capacity and overlapping clones remain covered. Each
+// node charge includes allocator/BTree overhead, vector growth and value headers.
+struct MetadataBudget {
+    used: usize,
+    limit: usize,
+}
+impl Default for MetadataBudget {
+    fn default() -> Self {
+        Self {
+            used: 0,
+            limit: METADATA_BYTES,
+        }
+    }
+}
+impl MetadataBudget {
+    fn take(&mut self, bytes: usize) -> std::io::Result<()> {
+        let next = self
+            .used
+            .checked_add(bytes)
+            .ok_or_else(|| std::io::Error::other("observation metadata extent overflow"))?;
+        if next > self.limit {
+            return Err(std::io::Error::other("observation metadata byte limit"));
+        }
+        self.used = next;
+        Ok(())
+    }
+    fn path(&mut self, path: &Path, copies: usize) -> std::io::Result<()> {
+        let bytes = path.as_os_str().len();
+        if bytes > PATH_BYTES {
+            return Err(std::io::Error::other("observation path byte limit"));
+        }
+        self.take(
+            (bytes + 256)
+                .checked_mul(copies)
+                .ok_or_else(|| std::io::Error::other("observation path extent overflow"))?,
+        )
+    }
+}
+
+fn bounded_read(
+    path: &Path,
+    limit: usize,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    checkpoint()?;
+    let mut file = fs::File::open(path)?;
+    let mut bytes = Vec::with_capacity(limit);
+    let mut chunk = [0_u8; 4096];
+    loop {
+        checkpoint()?;
+        let count = file.read(&mut chunk)?;
+        if count == 0 {
+            break;
+        }
+        if count > limit - bytes.len() {
+            return Err(std::io::Error::other("observation input byte limit"));
+        }
+        bytes.extend_from_slice(&chunk[..count]);
+    }
+    checkpoint()?;
+    Ok(bytes)
+}
+fn bounded_maps(checkpoint: &dyn Fn() -> std::io::Result<()>) -> std::io::Result<String> {
+    String::from_utf8(bounded_read(
+        Path::new("/proc/self/maps"),
+        PROC_BYTES,
+        checkpoint,
+    )?)
+    .map_err(std::io::Error::other)
+}
+
+struct CountWriter<'a> {
+    bytes: u64,
+    checkpoint: &'a dyn Fn() -> std::io::Result<()>,
+}
+impl std::io::Write for CountWriter<'_> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        (self.checkpoint)()?;
+        self.bytes = self
+            .bytes
+            .checked_add(bytes.len() as u64)
+            .ok_or_else(|| std::io::Error::other("observation encoding extent overflow"))?;
+        Ok(bytes.len())
+    }
+    fn write_all(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        // Interrupted is the original operation's stop, not a retryable write.
+        self.write(bytes).map(|_| ())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        (self.checkpoint)()
+    }
+}
+fn framed_json(
+    hash: &mut pse_ids::FramedHasher,
+    value: &impl serde::Serialize,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    let mut count = CountWriter {
+        bytes: 0,
+        checkpoint,
+    };
+    serde_json::to_writer(&mut count, value).map_err(json_error)?;
+    hash.part_writer(count.bytes, checkpoint, |writer| {
+        serde_json::to_writer(writer, value).map_err(json_error)
+    })?;
+    Ok(())
+}
+fn json_error(error: serde_json::Error) -> std::io::Error {
+    std::io::Error::new(
+        error
+            .io_error_kind()
+            .unwrap_or(std::io::ErrorKind::InvalidData),
+        error,
+    )
+}
+fn json_value_digest(
+    value: &impl serde::Serialize,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<String> {
+    use sha2::Digest;
+    struct DigestWriter<'a> {
+        hash: sha2::Sha256,
+        checkpoint: &'a dyn Fn() -> std::io::Result<()>,
+    }
+    impl std::io::Write for DigestWriter<'_> {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            (self.checkpoint)()?;
+            self.hash.update(bytes);
+            Ok(bytes.len())
+        }
+        fn write_all(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+            // Hash writes are complete; retrying a cancelled checkpoint would
+            // conceal cancellation and can loop forever inside serde_json.
+            self.write(bytes).map(|_| ())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            (self.checkpoint)()
+        }
+    }
+    let mut writer = DigestWriter {
+        hash: sha2::Sha256::new(),
+        checkpoint,
+    };
+    serde_json::to_writer(&mut writer, value).map_err(json_error)?;
+    checkpoint()?;
+    Ok(writer
+        .hash
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
+}
+
 /// Current external deployment receipt interpretation. Scientific ProducerV1 keys
 /// are unchanged; this version describes association and admission observations.
 pub const DEPLOYMENT_RECEIPT_VERSION: u32 = 2;
@@ -131,6 +298,7 @@ impl FileObservation {
         checkpoint: &dyn Fn() -> std::io::Result<()>,
     ) -> std::io::Result<Self> {
         checkpoint()?;
+        MetadataBudget::default().path(path, 1)?;
         use sha2::{Digest, Sha256};
         use std::io::Read;
         let mut file = fs::File::open(path)?;
@@ -177,9 +345,11 @@ impl FileObservation {
         }
         #[cfg(not(unix))]
         let mode = u32::from(before.permissions().readonly());
+        let canonical = path.canonicalize()?;
+        MetadataBudget::default().path(&canonical, 1)?;
         Ok(Self {
             path: path.to_path_buf(),
-            canonical: path.canonicalize()?,
+            canonical,
             mode,
             sha256: hash
                 .finalize()
@@ -258,18 +428,28 @@ impl DeploymentAssociation {
     /// Revalidate actual consumed inputs and artifact, without recapturing Cargo or
     /// turning incidental current compiler/tool inventory into a scientific key.
     pub fn verify_current(&self, observed: &Path) -> std::io::Result<FileObservation> {
-        self.artifact.verify()?;
-        self.built_artifact.verify()?;
-        let actual = FileObservation::capture(observed)?;
+        self.verify_current_scoped(observed, &|| Ok(()))
+    }
+    /// Revalidate a strict receipt under its original operation clock and cancellation.
+    pub fn verify_current_scoped(
+        &self,
+        observed: &Path,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<FileObservation> {
+        checkpoint()?;
+        self.artifact.verify_scoped(checkpoint)?;
+        self.built_artifact.verify_scoped(checkpoint)?;
+        let actual = FileObservation::capture_scoped(observed, checkpoint)?;
         if actual.sha256 != self.artifact.sha256 || actual.canonical != self.artifact.canonical {
             return Err(std::io::Error::other(
                 "actual deployed artifact differs from selected capture",
             ));
         }
         for file in &self.files {
-            file.verify()?;
+            file.verify_scoped(checkpoint)?;
         }
         for path in &self.absent_files {
+            checkpoint()?;
             match fs::symlink_metadata(path) {
                 Ok(_) => return Err(std::io::Error::other("reviewed absent input is present")),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -277,11 +457,12 @@ impl DeploymentAssociation {
             }
         }
         for (path, expected) in &self.namespaces {
-            if namespace_digest(path)? != *expected {
+            if namespace_digest_scoped(path, checkpoint)? != *expected {
                 return Err(std::io::Error::other("consumed search namespace changed"));
             }
         }
         for (name, expected) in &self.native_environment {
+            checkpoint()?;
             let actual = std::env::var(name).ok();
             if actual.as_ref().map(|value| value_digest(value.as_bytes())) != *expected {
                 return Err(std::io::Error::other(format!(
@@ -290,12 +471,14 @@ impl DeploymentAssociation {
             }
         }
         for prefix in &self.native_absent_environment_prefixes {
+            checkpoint()?;
             if std::env::vars_os().any(|(name, _)| name.to_string_lossy().starts_with(prefix)) {
                 return Err(std::io::Error::other(
                     "reviewed absent native environment family is present",
                 ));
             }
         }
+        checkpoint()?;
         Ok(actual)
     }
 }
@@ -312,7 +495,16 @@ pub fn value_digest(bytes: &[u8]) -> String {
 /// Bounded raw namespace observation retains names, modes, link topology and file
 /// bytes. Following each canonical directory once closes cycles without losing links.
 pub fn namespace_digest(root: &Path) -> std::io::Result<String> {
+    namespace_digest_scoped(root, &|| Ok(()))
+}
+/// Observe every namespace member with the original operation checkpoint.
+pub fn namespace_digest_scoped(
+    root: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<String> {
     use std::collections::{BTreeMap, BTreeSet};
+    let mut budget = MetadataBudget::default();
+    budget.path(root, 2)?;
     let mut pending = vec![root.to_path_buf()];
     let mut visited = BTreeSet::new();
     let mut entries = BTreeMap::new();
@@ -320,6 +512,11 @@ pub fn namespace_digest(root: &Path) -> std::io::Result<String> {
     #[cfg(unix)]
     let mut aliases = BTreeMap::<(u64, u64), Vec<std::path::PathBuf>>::new();
     while let Some(path) = pending.pop() {
+        checkpoint()?;
+        // Reserve all retained entry keys, JSON nodes and worst-case aliases before
+        // constructing them. File/canonical path scratch is independently path-bounded.
+        budget.path(&path, 8)?;
+        budget.take(4096)?;
         if entries.len() + pending.len() >= 262_144 {
             return Err(std::io::Error::other("deployment namespace entry limit"));
         }
@@ -369,11 +566,20 @@ pub fn namespace_digest(root: &Path) -> std::io::Result<String> {
             if extent > 16 * 1024 * 1024 * 1024 {
                 return Err(std::io::Error::other("deployment namespace content limit"));
             }
-            Some(FileObservation::capture(&path)?)
+            Some(FileObservation::capture_scoped(&path, checkpoint)?)
         } else {
             None
         };
         let canonical = target.as_ref().map(|_| path.canonicalize()).transpose()?;
+        if let Some(canonical) = &canonical {
+            budget.path(canonical, 4)?;
+        }
+        if let Some(link) = &link {
+            budget.path(link, 2)?;
+        }
+        if let Some(file) = &content {
+            budget.path(&file.canonical, 4)?;
+        }
         let directory = target.as_ref().is_some_and(fs::Metadata::is_dir);
         if directory
             && canonical
@@ -381,10 +587,22 @@ pub fn namespace_digest(root: &Path) -> std::io::Result<String> {
                 .is_some_and(|value| visited.insert(value.clone()))
         {
             for entry in fs::read_dir(&path)? {
+                checkpoint()?;
                 if entries.len() + pending.len() >= 262_144 {
                     return Err(std::io::Error::other("deployment namespace entry limit"));
                 }
-                pending.push(entry?.path());
+                let entry = entry?;
+                let name = entry.file_name();
+                let length = path
+                    .as_os_str()
+                    .len()
+                    .checked_add(name.len() + 1)
+                    .ok_or_else(|| std::io::Error::other("namespace path extent overflow"))?;
+                if length > PATH_BYTES {
+                    return Err(std::io::Error::other("observation path byte limit"));
+                }
+                budget.take(2 * (length + 256))?;
+                pending.push(path.join(name));
             }
         }
         if target.is_some() && content.is_none() && !directory {
@@ -403,13 +621,13 @@ pub fn namespace_digest(root: &Path) -> std::io::Result<String> {
         paths.sort();
     }
     groups.sort();
-    Ok(value_digest(
-        &serde_json::to_vec(&(entries, groups)).map_err(std::io::Error::other)?,
-    ))
+    checkpoint()?;
+    json_value_digest(&(entries, groups), checkpoint)
 }
 
-/// Fresh complete outer observation at deployment/run admission. These hashes
-/// record provenance; neither is a scientific producer or compiled all-tree input.
+/// Complete checkout context during this explicit observation operation. A runtime
+/// may retain it as startup context; it does not certify a later run or loaded build.
+/// These hashes are neither a scientific producer nor compiled all-tree input.
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct OuterObservation {
     /// Current dirty source inventory when its authored checkout is available.
@@ -422,12 +640,32 @@ pub struct OuterObservation {
 }
 /// Observe the complete current source/configuration inventory at admission.
 pub fn observe_outer(root: &Path) -> std::io::Result<OuterObservation> {
-    let source = digest(source_files(root)?);
-    let mut configuration = Vec::new();
-    configuration.push((
-        "interpretation".into(),
-        b"deployment-outer-observation.v2".to_vec(),
-    ));
+    observe_outer_scoped(root, &|| Ok(()))
+}
+/// Stream complete dirty checkout bytes under the original stop/clock checkpoint.
+/// Inventory ordering and length framing exactly match the unstreamed v2 digest.
+pub fn observe_outer_scoped(
+    root: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<OuterObservation> {
+    checkpoint()?;
+    let paths = source_paths(root, checkpoint)?;
+    let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+    for (name, path) in &paths {
+        checkpoint()?;
+        source.str(name);
+        stream_file(&mut source, path, checkpoint)?;
+    }
+    if source_paths(root, checkpoint)? != paths {
+        return Err(std::io::Error::other(
+            "outer source inventory changed during observation",
+        ));
+    }
+    let source = source.finish_hash();
+    let git_sha = git_context(root, checkpoint)?;
+    let mut configuration = std::collections::BTreeMap::new();
+    configuration.insert("interpretation", None);
+    configuration.insert("git-context", None);
     for name in [
         "Cargo.toml",
         "Cargo.lock",
@@ -439,24 +677,104 @@ pub fn observe_outer(root: &Path) -> std::io::Result<OuterObservation> {
         ".config/native-cache.cmake",
         ".config/sccache.toml",
     ] {
-        configuration.push((name.into(), fs::read(root.join(name))?));
+        configuration.insert(name, Some(root.join(name)));
     }
-    let git = std::process::Command::new("git")
+    let mut build = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+    for (name, path) in configuration {
+        checkpoint()?;
+        build.str(name);
+        match path {
+            Some(path) => {
+                stream_file(&mut build, &path, checkpoint)?;
+            }
+            None if name == "interpretation" => {
+                build.part(b"deployment-outer-observation.v2");
+            }
+            None => {
+                build.part(git_sha.as_bytes());
+            }
+        }
+    }
+    checkpoint()?;
+    Ok(OuterObservation {
+        source: Some(source),
+        build: build.finish_hash(),
+        git_sha,
+    })
+}
+
+fn git_context(
+    root: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<String> {
+    checkpoint()?;
+    let mut child = std::process::Command::new("git")
         .arg("-C")
         .arg(root)
         .args(["rev-parse", "HEAD"])
-        .output()?;
-    let git_sha = if git.status.success() {
-        String::from_utf8_lossy(&git.stdout).trim().to_owned()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
+    loop {
+        if let Err(error) = checkpoint() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(error);
+        }
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error);
+            }
+        }
+    }
+    let output = child.wait_with_output()?;
+    checkpoint()?;
+    Ok(if output.status.success() {
+        String::from_utf8_lossy(&output.stdout).trim().to_owned()
     } else {
         "sdist".into()
-    };
-    configuration.push(("git-context".into(), git_sha.as_bytes().to_vec()));
-    Ok(OuterObservation {
-        source: Some(source),
-        build: digest(configuration),
-        git_sha,
     })
+}
+
+fn stream_file(
+    hash: &mut pse_ids::FramedHasher,
+    path: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    checkpoint()?;
+    let mut file = fs::File::open(path)?;
+    let before = file.metadata()?;
+    let canonical = path.canonicalize()?;
+    if !before.is_file() || fs::symlink_metadata(path)?.is_symlink() {
+        return Err(std::io::Error::other("unqualified outer source file"));
+    }
+    hash.part_reader(before.len(), &mut file, checkpoint)?;
+    let after = file.metadata()?;
+    let current = fs::symlink_metadata(path)?;
+    if before.len() != after.len()
+        || before.modified()? != after.modified()?
+        || current.is_symlink()
+        || canonical != path.canonicalize()?
+    {
+        return Err(std::io::Error::other(
+            "outer file changed during observation",
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        let identity = |m: &fs::Metadata| (m.dev(), m.ino(), m.mode(), m.ctime(), m.ctime_nsec());
+        if identity(&before) != identity(&after) || identity(&before) != identity(&current) {
+            return Err(std::io::Error::other(
+                "outer file replaced or changed during observation",
+            ));
+        }
+    }
+    checkpoint()
 }
 /// Locate the checkout containing the actual artifact without embedding its path.
 pub fn workspace_root(path: &Path) -> std::io::Result<std::path::PathBuf> {
@@ -479,10 +797,20 @@ pub fn workspace_root(path: &Path) -> std::io::Result<std::path::PathBuf> {
 /// Observe a deployment without requiring installed artifacts to retain a source checkout.
 /// Missing source evidence never grants a scientific producer qualification.
 pub fn observe_deployment(artifact: &Path) -> std::io::Result<OuterObservation> {
+    observe_deployment_scoped(artifact, &|| Ok(()))
+}
+/// Capture startup checkout context or explicit installed source-unavailable evidence
+/// with cooperative chunk cancellation. No observation survives a failed checkpoint.
+pub fn observe_deployment_scoped(
+    artifact: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<OuterObservation> {
+    checkpoint()?;
     match workspace_root(artifact) {
-        Ok(root) => observe_outer(&root),
+        Ok(root) => observe_outer_scoped(&root, checkpoint),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            let observed = FileObservation::capture(artifact)?;
+            let observed = FileObservation::capture_scoped(artifact, checkpoint)?;
+            checkpoint()?;
             Ok(OuterObservation {
                 source: None,
                 build: digest(vec![
@@ -513,7 +841,8 @@ pub fn verify_loaded_module(path: &Path) -> std::io::Result<()> {
         let device = metadata.dev();
         let major = ((device >> 8) & 0xfff) | ((device >> 32) & 0xfffff000);
         let minor = (device & 0xff) | ((device >> 12) & 0xffffff00);
-        let mapped = fs::read_to_string("/proc/self/maps")?.lines().any(|line| {
+        let maps = bounded_maps(&|| Ok(()))?;
+        let mapped = maps.lines().any(|line| {
             let mut parts = line
                 .splitn(6, char::is_whitespace)
                 .filter(|part| !part.is_empty());
@@ -549,7 +878,7 @@ pub fn verify_loaded_module(path: &Path) -> std::io::Result<()> {
 pub fn loaded_module_path(anchor: usize) -> std::io::Result<std::path::PathBuf> {
     #[cfg(target_os = "linux")]
     {
-        let maps = fs::read_to_string("/proc/self/maps")?;
+        let maps = bounded_maps(&|| Ok(()))?;
         for line in maps.lines() {
             let parts = line.split_whitespace().collect::<Vec<_>>();
             let Some((start, end)) = parts.first().and_then(|range| range.split_once('-')) else {
@@ -651,20 +980,40 @@ impl LocalRuntimeObservation {
     /// Observe the actual anchor, executable, every executable-backed ELF and effective
     /// loader/runtime environment. Addresses/inodes establish association but do not enter
     /// restart identity. Unknown executable mappings refuse this narrower guarantee.
-    pub fn capture(role: LocalRuntimeRole, anchor: usize) -> std::io::Result<Self> {
-        Self::capture_scoped(role, anchor, &|| Ok(()))
+    /// # Safety
+    /// The actual controlled composition root supplied an independently captured
+    /// owned environment snapshot outside the loader scope and retains its native
+    /// execution support contract. Capture itself never borrows libc environment.
+    #[allow(
+        unsafe_code,
+        reason = "controlled root forwards its independently owned observation premises"
+    )]
+    pub unsafe fn capture(
+        role: LocalRuntimeRole,
+        anchor: usize,
+        environment: &CurrentEnvironmentSnapshot,
+    ) -> std::io::Result<Self> {
+        // SAFETY: forwarded unchanged from this actual controlled root.
+        unsafe { Self::capture_scoped(role, anchor, environment, &|| Ok(())) }
     }
     /// Capture the receiving boundary under its original stop/clock checkpoint.
     /// Foreign loader-lock acquisition itself remains outside cooperative interruption.
-    pub fn capture_scoped(
+    /// # Safety
+    /// The same controlled-root observation premises as [`Self::capture`] apply.
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0164 controlled root supplies independently owned observation premises"
+    )]
+    pub unsafe fn capture_scoped(
         role: LocalRuntimeRole,
         anchor: usize,
+        environment: &CurrentEnvironmentSnapshot,
         checkpoint: &dyn Fn() -> std::io::Result<()>,
     ) -> std::io::Result<Self> {
         checkpoint()?;
         #[cfg(target_os = "linux")]
         {
-            let before = executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)?;
+            let before = executable_mapping_files(&bounded_maps(checkpoint)?)?;
             // Several authority paths normally name the same running ELF: the
             // caller's anchor, current_exe, and its executable mapping. Observe
             // each exact path once, then retain the independent end-of-capture
@@ -672,11 +1021,17 @@ impl LocalRuntimeObservation {
             // alias needlessly lengthens the loader exclusion held by the caller.
             let mut observations =
                 std::collections::BTreeMap::<std::path::PathBuf, FileObservation>::new();
+            let mut budget = MetadataBudget::default();
             let mut observe = |path: &Path| -> std::io::Result<FileObservation> {
                 if let Some(observation) = observations.get(path) {
+                    budget.path(path, 2)?;
+                    budget.path(&observation.canonical, 2)?;
                     return Ok(observation.clone());
                 }
+                budget.path(path, 4)?;
+                budget.take(512)?;
                 let observation = FileObservation::capture_scoped(path, checkpoint)?;
+                budget.path(&observation.canonical, 4)?;
                 observations.insert(path.to_path_buf(), observation.clone());
                 checkpoint()?;
                 Ok(observation)
@@ -722,30 +1077,35 @@ impl LocalRuntimeObservation {
                 role,
                 // Kernel supplies vDSO/vsyscall executable context. These are actual
                 // process-visible kernel facts, not caller/platform receipt markers.
-                kernel_release: fs::read("/proc/sys/kernel/osrelease")?,
-                kernel_version: fs::read("/proc/sys/kernel/version")?,
+                kernel_release: bounded_read(
+                    Path::new("/proc/sys/kernel/osrelease"),
+                    4096,
+                    checkpoint,
+                )?,
+                kernel_version: bounded_read(
+                    Path::new("/proc/sys/kernel/version"),
+                    4096,
+                    checkpoint,
+                )?,
                 artifact,
                 executable,
                 loaded,
                 loader_files,
                 startup_environment: runtime_environment(
-                    fs::read("/proc/self/environ")?
-                        .split(|byte| *byte == 0)
-                        .filter(|entry| !entry.is_empty())
-                        .map(|entry| entry.to_vec()),
+                    bounded_read(
+                        Path::new("/proc/self/environ"),
+                        ENVIRONMENT_BYTES,
+                        checkpoint,
+                    )?
+                    .split(|byte| *byte == 0)
+                    .filter(|entry| !entry.is_empty()),
                 )?,
-                current_environment: runtime_environment(std::env::vars_os().map(
-                    |(name, value)| {
-                        use std::os::unix::ffi::OsStrExt;
-                        let mut entry = name.as_bytes().to_vec();
-                        entry.push(b'=');
-                        entry.extend_from_slice(value.as_bytes());
-                        entry
-                    },
-                ))?,
+                // Owned snapshot captured by the actual root outside loader scope.
+                // Python ordinary environment mutation cannot invalidate its memory.
+                current_environment: environment.values.clone(),
             };
             checkpoint()?;
-            if before != executable_mapping_files(&fs::read_to_string("/proc/self/maps")?)? {
+            if before != executable_mapping_files(&bounded_maps(checkpoint)?)? {
                 return Err(std::io::Error::other(
                     "loaded executable context changed during observation",
                 ));
@@ -769,92 +1129,242 @@ impl LocalRuntimeObservation {
     }
     /// Reobserve the complete context. This closes changed files/configuration and
     /// persistent late loading, but does not by itself exclude transient late loading.
-    pub fn verify(&self, anchor: usize) -> std::io::Result<()> {
-        self.verify_scoped(anchor, &|| Ok(()))
-    }
-    /// Verify receiving inputs without resetting the enclosing operation clock.
-    pub fn verify_scoped(
+    /// # Safety
+    /// The actual root supplies a newly observed owned environment snapshot and
+    /// retains the controlled native execution support contract.
+    #[allow(
+        unsafe_code,
+        reason = "verification retains the actual controlled-root observation premises"
+    )]
+    pub unsafe fn verify(
         &self,
         anchor: usize,
+        environment: &CurrentEnvironmentSnapshot,
+    ) -> std::io::Result<()> {
+        // SAFETY: the caller supplies the same environment lifetime.
+        unsafe { self.verify_scoped(anchor, environment, &|| Ok(())) }
+    }
+    /// Verify receiving inputs without resetting the enclosing operation clock.
+    /// # Safety
+    /// The same owned-observation premises as [`Self::verify`] are required.
+    #[allow(
+        unsafe_code,
+        reason = "full verification consumes the actual controlled-root snapshot"
+    )]
+    pub unsafe fn verify_scoped(
+        &self,
+        anchor: usize,
+        environment: &CurrentEnvironmentSnapshot,
         checkpoint: &dyn Fn() -> std::io::Result<()>,
     ) -> std::io::Result<()> {
-        if Self::capture_scoped(self.role, anchor, checkpoint)? != *self {
+        // SAFETY: the verification caller retains the controlled root through capture.
+        if unsafe { Self::capture_scoped(self.role, anchor, environment, checkpoint)? } != *self {
             return Err(std::io::Error::other("local runtime observation changed"));
         }
         Ok(())
     }
     /// Exact versioned context identity, without a checkout or compiler-source capture.
     pub fn identity(&self) -> std::io::Result<pse_ids::ContentHash> {
-        Ok(digest(vec![(
-            "local-runtime-observation.v1".into(),
-            serde_json::to_vec(self).map_err(std::io::Error::other)?,
-        )]))
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+        hash.str("local-runtime-observation.v1");
+        framed_json(&mut hash, self, &|| Ok(()))?;
+        Ok(hash.finish_hash())
     }
 }
 
 // A finite supported runtime configuration boundary, not arbitrary build environment.
 // Startup and current values both matter: glibc can consume a startup setting which a
 // Python host later removes from os.environ. Digests keep secret values out of records.
-fn runtime_environment(
-    entries: impl Iterator<Item = Vec<u8>>,
+fn runtime_environment<E: AsRef<[u8]>>(
+    entries: impl Iterator<Item = E>,
 ) -> std::io::Result<std::collections::BTreeMap<String, String>> {
     let mut result = std::collections::BTreeMap::new();
+    let mut raw = 0usize;
+    let mut retained = 0usize;
     for entry in entries {
-        let Some(equal) = entry.iter().position(|byte| *byte == b'=') else {
-            return Err(std::io::Error::other("malformed runtime environment"));
-        };
-        let name = std::str::from_utf8(&entry[..equal]).map_err(std::io::Error::other)?;
-        if ([
-            "LD_",
-            "GLIBC_",
-            "OMP_",
-            "MKL_",
-            "KMP_",
-            "TBB_",
-            "SYMBOLICA_",
-            "NUMERICA_",
-            "PYTHON",
-        ]
-        .iter()
-        .any(|prefix| name.starts_with(prefix))
-            || matches!(name, "LANG" | "LC_ALL" | "LC_NUMERIC" | "TZ"))
-            && result
-                .insert(name.to_owned(), value_digest(&entry[equal + 1..]))
-                .is_some()
+        insert_environment(&mut result, entry.as_ref(), &mut raw, &mut retained)?;
+    }
+    Ok(result)
+}
+fn insert_environment(
+    result: &mut std::collections::BTreeMap<String, String>,
+    entry: &[u8],
+    raw: &mut usize,
+    retained: &mut usize,
+) -> std::io::Result<()> {
+    *raw = raw
+        .checked_add(entry.len() + 1)
+        .ok_or_else(|| std::io::Error::other("environment extent overflow"))?;
+    if *raw > ENVIRONMENT_BYTES {
+        return Err(std::io::Error::other("runtime environment byte limit"));
+    }
+    let Some(equal) = entry.iter().position(|byte| *byte == b'=') else {
+        return Err(std::io::Error::other("malformed runtime environment"));
+    };
+    let name = std::str::from_utf8(&entry[..equal]).map_err(std::io::Error::other)?;
+    if [
+        "LD_",
+        "GLIBC_",
+        "OMP_",
+        "MKL_",
+        "KMP_",
+        "TBB_",
+        "SYMBOLICA_",
+        "NUMERICA_",
+        "PYTHON",
+    ]
+    .iter()
+    .any(|prefix| name.starts_with(prefix))
+        || matches!(name, "LANG" | "LC_ALL" | "LC_NUMERIC" | "TZ")
+    {
+        let next = retained
+            .checked_add(name.len() + 512)
+            .ok_or_else(|| std::io::Error::other("environment metadata overflow"))?;
+        if next > ENVIRONMENT_BYTES {
+            return Err(std::io::Error::other(
+                "runtime environment metadata byte limit",
+            ));
+        }
+        *retained = next;
+        if result
+            .insert(name.to_owned(), value_digest(&entry[equal + 1..]))
+            .is_some()
         {
             return Err(std::io::Error::other("duplicate runtime environment input"));
         }
     }
-    Ok(result)
+    Ok(())
+}
+
+/// Owned exact supported current-environment observation, captured by its actual
+/// exclusion owner before any loader scope. It is evidence, never replay permission.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CurrentEnvironmentSnapshot {
+    values: std::collections::BTreeMap<String, String>,
+}
+impl CurrentEnvironmentSnapshot {
+    /// # Safety
+    /// Exclude all libc environment mutation for this complete bounded walk.
+    /// A worker uses its actual no-writers lifetime. An interpreter owner must
+    /// exclude writers in every interpreter domain as well as foreign native
+    /// writers. Holding one conventional GIL or attaching to a free-threaded
+    /// interpreter does not establish this process-wide exclusion.
+    #[allow(
+        unsafe_code,
+        reason = "actual root supplies a genuine environment exclusion before borrowing libc"
+    )]
+    pub unsafe fn capture_scoped(
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<Self> {
+        #[cfg(target_os = "linux")]
+        {
+            Ok(Self {
+                values: unsafe { current_environment(checkpoint)? },
+            })
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            let _ = checkpoint;
+            Err(std::io::Error::other(
+                "current environment observation requires the supported Linux owner",
+            ))
+        }
+    }
+    /// Retained metadata upper bound; construction enforces this before growth.
+    pub fn retained_bytes(&self) -> usize {
+        self.values
+            .iter()
+            .map(|(name, value)| name.capacity() + value.capacity() + 512)
+            .sum()
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[allow(
+    unsafe_code,
+    reason = "controlled root excludes every libc environment mutation during bounded borrowed traversal"
+)]
+unsafe fn current_environment(
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<std::collections::BTreeMap<String, String>> {
+    unsafe extern "C" {
+        static mut environ: *mut *mut libc::c_char;
+    }
+    let mut result = std::collections::BTreeMap::new();
+    let mut raw = 0usize;
+    let mut retained = 0usize;
+    // SAFETY: the actual root excludes mutation of the libc vector, its entries
+    // and their terminating bytes for this entire operation. The vector is
+    // NUL-terminated by libc; each non-null member is a valid C string.
+    let base = unsafe { environ };
+    if base.is_null() {
+        return Ok(result);
+    }
+    for index in 0..ENVIRONMENT_BYTES {
+        checkpoint()?;
+        // SAFETY: preceding non-null entries establish that this is still within
+        // libc's stable NUL-terminated vector; the count is independently bounded.
+        let entry = unsafe { *base.add(index) };
+        if entry.is_null() {
+            return Ok(result);
+        }
+        let remaining = ENVIRONMENT_BYTES - raw;
+        let mut length = 0usize;
+        loop {
+            if length >= remaining {
+                return Err(std::io::Error::other("runtime environment byte limit"));
+            }
+            if length % 4096 == 0 {
+                checkpoint()?;
+            }
+            // SAFETY: the root lends the stable valid C string through its NUL.
+            if unsafe { *entry.add(length) } == 0 {
+                break;
+            }
+            length += 1;
+        }
+        // SAFETY: the bounded scan established every byte before the terminator.
+        let bytes = unsafe { std::slice::from_raw_parts(entry.cast::<u8>(), length) };
+        insert_environment(&mut result, bytes, &mut raw, &mut retained)?;
+    }
+    Err(std::io::Error::other("runtime environment entry limit"))
 }
 
 fn executable_mapping_files(
     maps: &str,
 ) -> std::io::Result<std::collections::BTreeSet<std::path::PathBuf>> {
+    if maps.len() > PROC_BYTES {
+        return Err(std::io::Error::other("mapping observation byte limit"));
+    }
     let mut files = std::collections::BTreeSet::new();
+    let mut budget = MetadataBudget::default();
     for line in maps.lines() {
-        let parts = line.split_whitespace().collect::<Vec<_>>();
-        if parts.len() < 5 {
+        let mut fields = line.split_whitespace();
+        let parts = std::array::from_fn::<_, 6, _>(|_| fields.next());
+        if parts[..5].iter().any(Option::is_none) {
             return Err(std::io::Error::other("malformed Linux mapping"));
         }
-        if !parts[1].contains('x') {
+        if !parts[1].is_some_and(|part| part.contains('x')) {
             continue;
         }
         // vDSO/vsyscall are kernel-supplied code, governed by the platform support
         // boundary. They have no file-backed artifact to hash and are not JIT code.
-        if parts.len() == 6 && matches!(parts[5], "[vdso]" | "[vsyscall]") {
+        if fields.clone().next().is_none() && matches!(parts[5], Some("[vdso]" | "[vsyscall]")) {
             continue;
         }
-        if parts[1].contains('w')
-            || parts.len() != 6
-            || !parts[5].starts_with('/')
-            || parts[4] == "0"
+        if parts[1].is_some_and(|part| part.contains('w'))
+            || fields.next().is_some()
+            || !parts[5].is_some_and(|part| part.starts_with('/'))
+            || parts[4] == Some("0")
         {
             return Err(std::io::Error::other(
                 "unknown, writable, deleted or ambiguous executable mapping",
             ));
         }
-        files.insert(std::path::PathBuf::from(parts[5]));
+        let path =
+            Path::new(parts[5].ok_or_else(|| std::io::Error::other("missing executable path"))?);
+        budget.path(path, 2)?;
+        files.insert(path.to_path_buf());
     }
     if files.is_empty() {
         return Err(std::io::Error::other("no supported loaded ELF context"));
@@ -897,6 +1407,15 @@ use crate::loader_scope as linux_loader_scope;
 /// Deployment owners observe their artifact first, and revalidate reviewed
 /// consumed inputs whenever a receipt claims scientific eligibility.
 pub fn verify_receipt_artifact(bytes: &[u8], path: &Path) -> std::io::Result<FileObservation> {
+    verify_receipt_artifact_scoped(bytes, path, &|| Ok(()))
+}
+/// Verify strict source/artifact association with cooperative full-content checks.
+pub fn verify_receipt_artifact_scoped(
+    bytes: &[u8],
+    path: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<FileObservation> {
+    checkpoint()?;
     let header: serde_json::Value = serde_json::from_slice(bytes).map_err(std::io::Error::other)?;
     if header
         .get("receipt_version")
@@ -912,7 +1431,7 @@ pub fn verify_receipt_artifact(bytes: &[u8], path: &Path) -> std::io::Result<Fil
         .and_then(serde_json::Value::as_bool)
         == Some(false)
     {
-        return FileObservation::capture(path);
+        return FileObservation::capture_scoped(path, checkpoint);
     }
     let scientific = verify_scientific_producer_identity(&header)?;
     let association = DeploymentAssociation::decode(bytes)?;
@@ -930,13 +1449,30 @@ pub fn verify_receipt_artifact(bytes: &[u8], path: &Path) -> std::io::Result<Fil
             "actual artifact association names another scientific producer",
         ));
     }
-    association.verify_current(path)
+    checkpoint()?;
+    association.verify_current_scoped(path, checkpoint)
 }
 
 /// Complete outer product sources, including the executable worker composition root.
 /// Relevant scientific producer inputs are selected separately by their actual unit DAG.
+#[cfg(test)]
 pub(crate) fn source_files(root: &Path) -> std::io::Result<Vec<(String, Vec<u8>)>> {
+    source_paths(root, &|| Ok(()))?
+        .into_iter()
+        .map(|(name, path)| Ok((name, fs::read(path)?)))
+        .collect()
+}
+
+fn source_paths(
+    root: &Path,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
+) -> std::io::Result<Vec<(String, std::path::PathBuf)>> {
     let mut files = Vec::new();
+    let mut budget = MetadataBudget {
+        used: 0,
+        limit: 3 << 19,
+    };
+    budget.path(root, 1)?;
     for name in ["crates", "vendor", "xtask", "python", "scripts"] {
         let directory = root.join(name);
         // Retired source overrides leave no vendor directory in a fresh checkout.
@@ -944,26 +1480,46 @@ pub(crate) fn source_files(root: &Path) -> std::io::Result<Vec<(String, Vec<u8>)
         if matches!(name, "vendor" | "python" | "scripts") && !directory.try_exists()? {
             continue;
         }
-        collect_sources(root, &directory, &mut files)?;
+        checkpoint()?;
+        collect_sources(root, &directory, &mut files, &mut budget, 0, checkpoint)?;
     }
+    files.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(files)
 }
 
 fn collect_sources(
     root: &Path,
     directory: &Path,
-    files: &mut Vec<(String, Vec<u8>)>,
+    files: &mut Vec<(String, std::path::PathBuf)>,
+    budget: &mut MetadataBudget,
+    depth: usize,
+    checkpoint: &dyn Fn() -> std::io::Result<()>,
 ) -> std::io::Result<()> {
+    if depth >= SOURCE_DEPTH {
+        return Err(std::io::Error::other(
+            "source inventory traversal depth limit",
+        ));
+    }
     for entry in fs::read_dir(directory)? {
+        checkpoint()?;
         let entry = entry?;
-        let path = entry.path();
+        let name = entry.file_name();
+        if directory
+            .as_os_str()
+            .len()
+            .checked_add(name.len() + 1)
+            .is_none_or(|length| length > PATH_BYTES)
+        {
+            return Err(std::io::Error::other("observation path byte limit"));
+        }
+        let path = directory.join(name);
         let kind = entry.file_type()?;
         if kind.is_dir() {
             if !matches!(
                 entry.file_name().to_str(),
                 Some("target" | "__pycache__" | ".git" | ".pytest_cache" | ".ruff_cache")
             ) {
-                collect_sources(root, &path, files)?;
+                collect_sources(root, &path, files, budget, depth + 1, checkpoint)?;
             }
         } else if kind.is_file() {
             // Installed native extension bytes are bound as actual role artifacts;
@@ -975,12 +1531,17 @@ fn collect_sources(
             {
                 continue;
             }
-            let relative = path
-                .strip_prefix(root)
-                .map_err(std::io::Error::other)?
-                .to_string_lossy()
-                .replace('\\', "/");
-            files.push((relative, fs::read(path)?));
+            let relative_path = path.strip_prefix(root).map_err(std::io::Error::other)?;
+            // Lossy UTF-8 replacement can expand each raw byte threefold. Include
+            // that temporary and the replaced name plus vector spare capacity.
+            budget.take(
+                6 * relative_path.as_os_str().len()
+                    + path.as_os_str().len()
+                    + 4 * size_of::<(String, std::path::PathBuf)>()
+                    + 128,
+            )?;
+            let relative = relative_path.to_string_lossy().replace('\\', "/");
+            files.push((relative, path));
         } else if kind.is_symlink() {
             return Err(std::io::Error::other(format!(
                 "unqualified source symlink {}",
@@ -1002,6 +1563,208 @@ pub(crate) fn digest(mut entries: Vec<(String, Vec<u8>)>) -> pse_ids::ContentHas
 #[cfg(test)]
 mod foundation_unit {
     use super::fs;
+    #[test]
+    fn streamed_observation_json_preserves_exact_bytes_and_original_stop_kind() {
+        let value = serde_json::json!({"paths":["a\\b", "α/β", "\u{0000}\n\""],"absent":null,"mode":[1,2,3]});
+        let encoded = serde_json::to_vec(&value).unwrap();
+        assert_eq!(
+            super::json_value_digest(&value, &|| Ok(())).unwrap(),
+            super::value_digest(&encoded)
+        );
+        let mut actual = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+        actual.str("local-runtime-observation.v1");
+        let mut expected = actual.clone();
+        expected.part(&encoded);
+        super::framed_json(&mut actual, &value, &|| Ok(())).unwrap();
+        assert_eq!(actual.finish_hash(), expected.finish_hash());
+        for kind in [
+            std::io::ErrorKind::Interrupted,
+            std::io::ErrorKind::TimedOut,
+        ] {
+            let stop = || Err(std::io::Error::new(kind, "original observation stop"));
+            assert_eq!(
+                super::json_value_digest(&value, &stop).unwrap_err().kind(),
+                kind
+            );
+            let mut framed = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+            let original = framed.clone().finish_hash();
+            assert_eq!(
+                super::framed_json(&mut framed, &value, &stop)
+                    .unwrap_err()
+                    .kind(),
+                kind
+            );
+            assert_eq!(framed.finish_hash(), original);
+        }
+    }
+    #[test]
+    fn observation_metadata_and_input_limits_refuse_before_retained_growth() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("input"), [7; 65]).unwrap();
+        assert_eq!(
+            super::bounded_read(&directory.path().join("input"), 65, &|| Ok(())).unwrap(),
+            [7; 65]
+        );
+        assert!(super::bounded_read(&directory.path().join("input"), 64, &|| Ok(())).is_err());
+        let mut budget = super::MetadataBudget {
+            used: 1023,
+            limit: 1024,
+        };
+        let mut files = Vec::new();
+        assert!(
+            super::collect_sources(
+                directory.path(),
+                directory.path(),
+                &mut files,
+                &mut budget,
+                0,
+                &|| Ok(())
+            )
+            .is_err()
+        );
+        assert!(files.is_empty());
+        assert_eq!(budget.used, 1023);
+        assert!(
+            super::collect_sources(
+                directory.path(),
+                directory.path(),
+                &mut files,
+                &mut super::MetadataBudget::default(),
+                super::SOURCE_DEPTH,
+                &|| Ok(())
+            )
+            .is_err()
+        );
+        let oversized = format!("LD_LONG={}", "x".repeat(super::ENVIRONMENT_BYTES));
+        assert!(super::runtime_environment([oversized.as_bytes()].into_iter()).is_err());
+        let entries = (0..256).map(|n| format!("LD_{n}=x"));
+        assert!(super::runtime_environment(entries).is_err());
+    }
+    fn outer_fixture() -> tempfile::TempDir {
+        let directory = tempfile::tempdir().unwrap();
+        for name in ["crates", "xtask", ".cargo", ".config"] {
+            fs::create_dir(directory.path().join(name)).unwrap();
+        }
+        for name in [
+            "Cargo.toml",
+            "Cargo.lock",
+            "uv.lock",
+            "pyproject.toml",
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+            ".config/build.toml",
+            ".config/native-cache.cmake",
+            ".config/sccache.toml",
+        ] {
+            fs::write(directory.path().join(name), name.as_bytes()).unwrap();
+        }
+        directory
+    }
+
+    #[test]
+    fn outer_streaming_preserves_dirty_source_and_configuration_frames() {
+        let directory = outer_fixture();
+        let root = directory.path();
+        fs::write(root.join("crates/large.rs"), vec![37; 3 * 65_536 + 1]).unwrap();
+        fs::write(root.join("xtask/worker.rs"), b"worker").unwrap();
+        let observed = super::observe_outer_scoped(root, &|| Ok(())).unwrap();
+        assert_eq!(
+            observed.source,
+            Some(super::digest(super::source_files(root).unwrap()))
+        );
+        let mut configuration = vec![
+            (
+                "interpretation".into(),
+                b"deployment-outer-observation.v2".to_vec(),
+            ),
+            ("git-context".into(), observed.git_sha.as_bytes().to_vec()),
+        ];
+        for name in [
+            "Cargo.toml",
+            "Cargo.lock",
+            "uv.lock",
+            "pyproject.toml",
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+            ".config/build.toml",
+            ".config/native-cache.cmake",
+            ".config/sccache.toml",
+        ] {
+            configuration.push((name.into(), fs::read(root.join(name)).unwrap()));
+        }
+        assert_eq!(observed.build, super::digest(configuration));
+        // Same-inode and same-length edits must still consume and distinguish bytes.
+        fs::write(root.join("crates/large.rs"), vec![38; 3 * 65_536 + 1]).unwrap();
+        assert_ne!(observed.source, super::observe_outer(root).unwrap().source);
+        // Retained startup context remains its original observation.
+        assert_eq!(observed.git_sha, "sdist");
+    }
+
+    #[test]
+    fn outer_streaming_cancellation_and_original_deadline_never_seal() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let directory = outer_fixture();
+        let path = directory.path().join("crates/large.rs");
+        fs::write(&path, vec![29; 4 * 65_536]).unwrap();
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+        let polls = AtomicUsize::new(0);
+        let error = super::stream_file(&mut hash, &path, &|| {
+            if polls.fetch_add(1, Ordering::Relaxed) == 3 {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::Interrupted,
+                    "original stop",
+                ))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
+        assert_eq!(polls.load(Ordering::Relaxed), 4);
+        let expired = || {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "original clock",
+            ))
+        };
+        let error =
+            super::observe_deployment_scoped(std::path::Path::new("missing-artifact"), &expired)
+                .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+        assert!(super::observe_outer_scoped(directory.path(), &|| Ok(())).is_ok());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn outer_streaming_refuses_link_and_mode_changes_during_capture() {
+        use std::{
+            os::unix::fs::{PermissionsExt, symlink},
+            sync::atomic::{AtomicUsize, Ordering},
+        };
+        let directory = outer_fixture();
+        let path = directory.path().join("crates/source.rs");
+        fs::write(&path, vec![29; 2 * 65_536]).unwrap();
+        let mode = fs::metadata(&path).unwrap().permissions().mode();
+        let polls = AtomicUsize::new(0);
+        let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::BuildInputsV1);
+        assert!(
+            super::stream_file(&mut hash, &path, &|| {
+                if polls.fetch_add(1, Ordering::Relaxed) == 3 {
+                    fs::set_permissions(&path, fs::Permissions::from_mode(mode ^ 0o100))?;
+                }
+                Ok(())
+            })
+            .is_err()
+        );
+        let alias = directory.path().join("crates/alias.rs");
+        symlink(&path, alias).unwrap();
+        assert!(
+            super::observe_outer_scoped(directory.path(), &|| Ok(()))
+                .unwrap_err()
+                .to_string()
+                .contains("symlink")
+        );
+    }
     #[test]
     fn file_observation_cancellation_checks_each_read_chunk_and_never_seals() {
         use std::sync::atomic::{AtomicUsize, Ordering};
@@ -1033,11 +1796,21 @@ mod foundation_unit {
                 "original deadline",
             ))
         };
-        let error = super::LocalRuntimeObservation::capture_scoped(
-            super::LocalRuntimeRole::Worker,
-            0,
-            &expired,
-        )
+        // SAFETY: the original clock refuses before any borrowed environment read.
+        #[allow(
+            unsafe_code,
+            reason = "expired operation control never reaches borrowed environment"
+        )]
+        let error = unsafe {
+            super::LocalRuntimeObservation::capture_scoped(
+                super::LocalRuntimeRole::Worker,
+                0,
+                &super::CurrentEnvironmentSnapshot {
+                    values: Default::default(),
+                },
+                &expired,
+            )
+        }
         .unwrap_err();
         assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
         let error = super::FileObservation::capture_scoped(
@@ -1202,51 +1975,73 @@ mod foundation_unit {
     }
     #[cfg(target_os = "linux")]
     #[test]
+    #[allow(
+        unsafe_code,
+        reason = "actual controlled test process excludes environment writers during observation"
+    )]
     fn local_runtime_observation_binds_actual_anchor_role_and_loaded_bytes_without_checkout() {
-        fn anchor() {}
-        let anchor = anchor as *const () as usize;
-        let observation =
-            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, anchor)
-                .unwrap();
-        assert_eq!(observation.artifact, observation.executable);
-        assert!(
-            observation
-                .loaded
-                .iter()
-                .any(|file| file.canonical == observation.artifact.canonical)
-        );
-        assert_eq!(
-            observation.identity().unwrap(),
-            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, anchor)
+        // SAFETY: this control does not mutate the process environment or admit
+        // external callbacks during any actual capture or verification below.
+        unsafe {
+            let environment =
+                super::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(())).unwrap();
+            fn anchor() {}
+            let anchor = anchor as *const () as usize;
+            let observation = super::LocalRuntimeObservation::capture(
+                super::LocalRuntimeRole::Worker,
+                anchor,
+                &environment,
+            )
+            .unwrap();
+            assert_eq!(observation.artifact, observation.executable);
+            assert!(
+                observation
+                    .loaded
+                    .iter()
+                    .any(|file| file.canonical == observation.artifact.canonical)
+            );
+            assert_eq!(
+                observation.identity().unwrap(),
+                super::LocalRuntimeObservation::capture(
+                    super::LocalRuntimeRole::Worker,
+                    anchor,
+                    &environment
+                )
                 .unwrap()
                 .identity()
                 .unwrap()
-        );
-        observation.verify(anchor).unwrap();
-        assert!(
-            super::LocalRuntimeObservation::capture(super::LocalRuntimeRole::Worker, 0).is_err()
-        );
-        let mut changed = observation.clone();
-        changed.role = super::LocalRuntimeRole::Python;
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        changed = observation.clone();
-        changed.loaded[0].sha256 = "0".repeat(64);
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        assert!(changed.verify(anchor).is_err());
-        changed = observation.clone();
-        changed.kernel_release.push(b'!');
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        assert!(changed.verify(anchor).is_err());
-        changed = observation.clone();
-        changed.kernel_version.push(b'!');
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        assert!(changed.verify(anchor).is_err());
-        changed = observation.clone();
-        changed
-            .current_environment
-            .insert("LD_PRELOAD".into(), "different".into());
-        assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
-        assert!(changed.verify(anchor).is_err());
+            );
+            observation.verify(anchor, &environment).unwrap();
+            assert!(
+                super::LocalRuntimeObservation::capture(
+                    super::LocalRuntimeRole::Worker,
+                    0,
+                    &environment
+                )
+                .is_err()
+            );
+            let mut changed = observation.clone();
+            changed.role = super::LocalRuntimeRole::Python;
+            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+            changed = observation.clone();
+            changed.loaded[0].sha256 = "0".repeat(64);
+            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+            assert!(changed.verify(anchor, &environment).is_err());
+            changed = observation.clone();
+            changed.kernel_release.push(b'!');
+            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+            assert!(changed.verify(anchor, &environment).is_err());
+            changed = observation.clone();
+            changed.kernel_version.push(b'!');
+            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+            assert!(changed.verify(anchor, &environment).is_err());
+            changed = observation.clone();
+            changed
+                .current_environment
+                .insert("LD_PRELOAD".into(), "different".into());
+            assert_ne!(changed.identity().unwrap(), observation.identity().unwrap());
+            assert!(changed.verify(anchor, &environment).is_err());
+        }
     }
     #[test]
     fn scientific_producer_payload_refuses_identity_substitution_and_preserves_projection() {

@@ -4,9 +4,13 @@
 use super::{MathRuntimeError, MathService};
 use pse_backend_native::ProblemError;
 use pse_columnar::flight::FlightCancellation;
-use pse_math::surrogate::{
-    FidelityCorrespondence, FidelityEvaluator, RetainedSurrogate, SurrogateFailure,
-    SurrogateOptions, SurrogateProposal, SurrogateWork,
+mod library;
+use library::RetainedSurrogate;
+/// Runtime-owned retained library surrogate contracts.
+pub use library::{
+    CorrelationSpec, FidelityCorrespondence, FidelityEvaluator, RegressionSpec, SurrogateAdvance,
+    SurrogateFailure, SurrogateOptions, SurrogateProposal, SurrogateSnapshot,
+    SurrogateStateSummary, SurrogateWork, ThetaTuning,
 };
 use std::{
     sync::{
@@ -25,9 +29,14 @@ struct PhaseReply {
 }
 enum Command {
     Phase(pse_kernels::ExecutionScope, SyncSender<PhaseReply>),
-    Advance(SyncSender<ProposalResult>),
+    Advance(SyncSender<Result<SurrogateAdvance, MathRuntimeError>>),
     Proposal(SyncSender<ProposalResult>),
     Work(SyncSender<Result<SurrogateWork, MathRuntimeError>>),
+    Snapshot(
+        Arc<pse_columnar::AllocationLease>,
+        pse_columnar::CancellationToken,
+        SyncSender<Result<SurrogateSnapshot, MathRuntimeError>>,
+    ),
     Stop,
 }
 struct Actor {
@@ -56,18 +65,56 @@ impl Drop for Actor {
     }
 }
 impl Actor {
-    fn proposal(&self, advance: bool) -> ProposalResult {
+    fn snapshot(
+        &self,
+        owner: Arc<pse_columnar::AllocationLease>,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<SurrogateSnapshot, MathRuntimeError> {
+        let _gate = loop {
+            cancel
+                .checkpoint()
+                .map_err(|_| MathRuntimeError::Cancelled)?;
+            match self.gate.try_lock() {
+                Ok(gate) => break gate,
+                Err(std::sync::TryLockError::Poisoned(_)) => {
+                    return Err(MathRuntimeError::Panic(
+                        "surrogate actor gate poisoned".into(),
+                    ));
+                }
+                Err(std::sync::TryLockError::WouldBlock) => {
+                    std::thread::sleep(std::time::Duration::from_millis(1))
+                }
+            }
+        };
+        let (reply, answer) = mpsc::sync_channel(1);
+        self.sender
+            .send(Command::Snapshot(owner, cancel.clone(), reply))
+            .map_err(|_| MathRuntimeError::Panic("surrogate owning worker exited".into()))?;
+        answer.recv().map_err(|_| {
+            MathRuntimeError::Panic("surrogate owning worker snapshot response lost".into())
+        })?
+    }
+    fn advance(&self) -> Result<SurrogateAdvance, MathRuntimeError> {
         let _gate = self
             .gate
             .lock()
             .map_err(|_| MathRuntimeError::Panic("surrogate actor gate poisoned".into()))?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
-            .send(if advance {
-                Command::Advance(reply)
-            } else {
-                Command::Proposal(reply)
-            })
+            .send(Command::Advance(reply))
+            .map_err(|_| MathRuntimeError::Panic("surrogate owning worker exited".into()))?;
+        answer
+            .recv()
+            .map_err(|_| MathRuntimeError::Panic("surrogate owning worker response lost".into()))?
+    }
+    fn proposal(&self) -> ProposalResult {
+        let _gate = self
+            .gate
+            .lock()
+            .map_err(|_| MathRuntimeError::Panic("surrogate actor gate poisoned".into()))?;
+        let (reply, answer) = mpsc::sync_channel(1);
+        self.sender
+            .send(Command::Proposal(reply))
             .map_err(|_| MathRuntimeError::Panic("surrogate owning worker exited".into()))?;
         answer
             .recv()
@@ -126,6 +173,23 @@ pub struct SurrogateHandle {
     task: pse_ids::ContentHash,
 }
 impl SurrogateHandle {
+    /// Explicitly copy the actual library history under an independent conservative charge.
+    /// Compact advancement never requests or retains this history.
+    /// # Errors
+    /// Cancellation, original task deadline, allocation refusal or owning-worker failure.
+    pub fn snapshot(
+        &self,
+        cancel: &pse_columnar::CancellationToken,
+    ) -> Result<SurrogateSnapshot, MathRuntimeError> {
+        cancel
+            .checkpoint()
+            .map_err(|_| MathRuntimeError::Cancelled)?;
+        self.scope.check().map_err(scope_error)?;
+        let owner = self
+            .service
+            .reserve("math:surrogate-snapshot", self.workspace)?;
+        self.actor.snapshot(owner, cancel)
+    }
     /// Complete actual source/correspondence/options task identity.
     pub fn key(&self) -> pse_ids::ContentHash {
         self.task
@@ -141,7 +205,7 @@ impl SurrogateHandle {
         }
         self.scope.check().map_err(scope_error)?;
         self.actor
-            .proposal(false)?
+            .proposal()?
             .map(|proposal| {
                 let owner = self
                     .service
@@ -220,8 +284,12 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
                 match command {
                     Command::Phase(scope, reply) => {
                         let before = task.work();
-                        let proposal = task.advance_within(scope).map_err(failure);
-                        let after = task.work();
+                        let advance = task.advance_within(scope).map_err(failure);
+                        let after = match &advance {
+                            Ok(advance) => Ok(advance.work),
+                            Err(_) => task.work(),
+                        };
+                        let proposal = advance.map(|advance| advance.proposal);
                         let work = before
                             .and_then(|before| {
                                 after.and_then(|after| {
@@ -269,6 +337,9 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
                     }
                     Command::Work(reply) => {
                         let _ = reply.send(task.work().map_err(Into::into));
+                    }
+                    Command::Snapshot(owner, cancel, reply) => {
+                        let _ = reply.send(task.snapshot(owner, &cancel).map_err(failure));
                     }
                     Command::Stop => break,
                 }
@@ -371,7 +442,7 @@ impl MathService {
         self: &Arc<Self>,
         handle: &SurrogateHandle,
         driver: &crate::CancelSource,
-    ) -> ProposalResult {
+    ) -> Result<SurrogateAdvance, MathRuntimeError> {
         let actor = handle.actor.clone();
         let control = handle.control.clone();
         let owner = handle.owner.clone();
@@ -382,15 +453,16 @@ impl MathService {
             handle.scope.deadline(),
             move |_| {
                 let _owner = owner;
-                let proposal = actor.proposal(true)?;
-                let bytes = proposal
+                let advance = actor.advance()?;
+                let bytes = advance
+                    .proposal
                     .as_ref()
                     .map_or(Ok(0), SurrogateProposal::retained_bytes)?;
-                Ok((proposal, bytes))
+                Ok((advance, bytes))
             },
         );
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result.map(|(proposal,owner)|proposal.map(|p|p.with_owner(owner))),()=driver.cancelled()=>{handle.scope.cancellation().store(true,std::sync::atomic::Ordering::Release);control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {result=&mut operation=>result.map(|(mut advance,owner)|{advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance}),()=driver.cancelled()=>{handle.scope.cancellation().store(true,std::sync::atomic::Ordering::Release);control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
     }
 }
 
@@ -681,8 +753,8 @@ impl MathService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::math::surrogate::FidelityCorrespondence;
     use pse_ids::{ContentHash, SemanticId};
-    use pse_math::surrogate::FidelityCorrespondence;
     use std::sync::atomic::{AtomicBool, Ordering};
     #[derive(Debug)]
     struct Evaluator {
@@ -731,9 +803,9 @@ mod tests {
             iterations: 2,
             evaluations: 20,
             infill_starts: 1,
-            regression: pse_math::surrogate::RegressionSpec::CONSTANT,
-            correlation: pse_math::surrogate::CorrelationSpec::MATERN52,
-            theta: pse_math::surrogate::ThetaTuning::Fixed(vec![0.1].into()),
+            regression: RegressionSpec::CONSTANT,
+            correlation: CorrelationSpec::MATERN52,
+            theta: ThetaTuning::Fixed(vec![0.1].into()),
             gp_starts: 0,
             gp_evaluations: 5,
             seed: 74,
@@ -770,9 +842,9 @@ mod tests {
         )
         .unwrap();
         assert_eq!(task.work().unwrap().evaluations, 0);
-        let first = task.proposal(true).unwrap().unwrap();
+        let first = task.advance().unwrap().proposal.unwrap();
         assert_eq!(task.work().unwrap().evaluations, 3);
-        let second = task.proposal(true).unwrap().unwrap();
+        let second = task.advance().unwrap().proposal.unwrap();
         assert_eq!(first.task, second.task);
         let work = task.work().unwrap();
         assert_eq!(work.initializations, 1);
@@ -896,7 +968,7 @@ mod tests {
         assert_eq!(work.initializations, 1);
         assert_eq!(work.iterations, 0);
         assert!(!cancel.load(Ordering::Acquire));
-        assert!(task.proposal(false).unwrap().is_none());
+        assert!(task.proposal().unwrap().is_none());
     }
 
     #[cfg(feature = "solver-kinsol")]

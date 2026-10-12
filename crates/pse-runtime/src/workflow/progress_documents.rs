@@ -5,6 +5,114 @@ use pse_backend_native::solve::{Event, IncumbentEvent, Metric};
 use pse_model::diagnostic::Observation;
 use std::collections::BTreeMap;
 
+/// Original ordinary telemetry coverage, independent of scientific completion.
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ProgressCoverage {
+    /// Historical or recovered executions did not retain original counters.
+    #[default]
+    Unknown,
+    /// Finite sampling counters retained by the original execution owner.
+    Sampled {
+        /// Callback observations, including events rejected before cloning.
+        observed: u64,
+        /// Events admitted to the finite writer queue.
+        queued: u64,
+        /// Observations rejected before queue admission.
+        dropped_before_queue: u64,
+        /// Events in batches with actual canonical append acknowledgments.
+        acknowledged: u64,
+        /// Queued events without an observed append acknowledgment; storage may be uncertain.
+        unacknowledged: u64,
+        /// Writer completion, separate from the scientific outcome.
+        writer: ProgressWriterOutcome,
+    },
+}
+
+/// Bounded optional writer outcome; none of these authorizes scientific interruption.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(
+    tag = "kind",
+    content = "failure",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub enum ProgressWriterOutcome {
+    /// Every queued event has an actual append acknowledgment.
+    Complete,
+    /// Up-front memory admission refused; no event queue was allocated.
+    MemoryRefused,
+    /// The writer refused or failed; unacknowledged coverage remains explicit.
+    Failed(ProgressWriterFailure),
+    /// The owned writer task failed to join normally.
+    JoinFailed,
+}
+
+/// Original bounded failure of the optional progress writer.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(deny_unknown_fields)]
+pub struct ProgressWriterFailure {
+    /// Exact bounded stage which did not return its promised acknowledgment.
+    pub stage: ProgressWriteStage,
+}
+
+/// Optional writer failure boundary; queued unacknowledged events remain uncertain.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ProgressWriteStage {
+    /// No original native claim was available for the observed event.
+    Claim,
+    /// Bounded scratch could not be allocated.
+    Allocation,
+    /// An admitted DTO could not be encoded within its immutable bound.
+    Encoding,
+    /// The original canonical append did not return an acknowledgment.
+    CanonicalAppend,
+    /// An acknowledgment disagreed with original immutable coverage.
+    Acknowledgment,
+    /// Publication stopped before an original canonical append could be issued.
+    Publication,
+}
+
+/// Conservative bound for the retained DTO and its escaped JSON representation.
+/// Inspect borrowed strings/maps only; native incumbent primal storage is never traversed.
+pub(crate) fn bounded_event(event: &Event, maximum: usize) -> bool {
+    let Some(mut extent) = 1024usize.checked_add(event.phase.len().saturating_mul(6)) else {
+        return false;
+    };
+    if extent > maximum {
+        return false;
+    }
+    for (key, value) in &event.values {
+        let text = match value {
+            Metric::Text(value) => value.len(),
+            _ => 0,
+        };
+        let Some(next) = key
+            .len()
+            .checked_add(text)
+            .and_then(|bytes| bytes.checked_mul(6))
+            .and_then(|bytes| bytes.checked_add(512))
+            .and_then(|bytes| extent.checked_add(bytes))
+        else {
+            return false;
+        };
+        extent = next;
+        if extent > maximum {
+            return false;
+        }
+    }
+    true
+}
+
 /// Portable observation of one native metric, independent of its backend-specific key.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(
@@ -121,6 +229,28 @@ impl From<&Event> for ProgressEventDocument {
 #[cfg(test)]
 mod boundary_unit {
     use super::*;
+    #[test]
+    fn progress_coverage_preserves_original_failure_and_refuses_unknown_boundary_fields() {
+        let original = ProgressCoverage::Sampled {
+            observed: 7,
+            queued: 5,
+            dropped_before_queue: 2,
+            acknowledged: 3,
+            unacknowledged: 2,
+            writer: ProgressWriterOutcome::Failed(ProgressWriterFailure {
+                stage: ProgressWriteStage::CanonicalAppend,
+            }),
+        };
+        let mut encoded = serde_json::to_value(&original).unwrap();
+        let decoded: ProgressCoverage = serde_json::from_value(encoded.clone()).unwrap();
+        assert_eq!(decoded, original);
+        assert_eq!(
+            encoded["writer"]["failure"]["stage"]["kind"],
+            "canonical_append"
+        );
+        encoded["writer"]["failure"]["stage"]["invented"] = serde_json::json!(true);
+        assert!(serde_json::from_value::<ProgressCoverage>(encoded).is_err());
+    }
     #[test]
     fn progress_preserves_exact_counters_and_nonfinite_evidence() {
         let event = Event {

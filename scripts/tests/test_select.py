@@ -13,11 +13,47 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from scripts import select
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class SelectorTests(unittest.TestCase):
+    def test_running_observer_owns_the_single_cargo_resolution(self) -> None:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "PSE_NATIVE_OPERATION": "owned",
+                    "PSE_NEXTEST_ACTION": "run --no-fail-fast",
+                },
+            ),
+            patch.object(select, "resolve") as resolution,
+            patch.object(select, "run_rust", return_value=7) as execution,
+        ):
+            self.assertEqual(
+                select.main(
+                    [
+                        "unit",
+                        "pse-structural",
+                        "a::b",
+                        "-p",
+                        "pse-relations",
+                        "--execution-effects",
+                        "native-local",
+                    ]
+                ),
+                7,
+            )
+        resolution.assert_not_called()
+        execution.assert_called_once_with(
+            select.unit("pse-structural", "a::b", ["-p", "pse-relations"]),
+            effects="native-local",
+            package_scope=True,
+        )
+
     def test_direct_and_module_selection_match(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             scratch = Path(directory)

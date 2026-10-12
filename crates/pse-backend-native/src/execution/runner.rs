@@ -95,6 +95,7 @@ pub fn nlp(
     retained: &mut Retained,
     mut run: Nlp<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    let _original = super::original_scope(&step.execution);
     step.preflight()?;
     if let Some(structure) = step.structure {
         crate::structural::check(
@@ -304,6 +305,7 @@ pub fn roots(
     retained: &mut Retained,
     run: Roots<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    let _original = super::original_scope(&step.execution);
     step.preflight()?;
     let contract = run.oracle.contract().clone();
     let original = if let Some(structure) = step.structure {
@@ -408,6 +410,7 @@ pub fn coefficients(
     retained: &mut Retained,
     mut run: Coefficients<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    let _original = super::original_scope(&step.execution);
     step.preflight()?;
     let transported = Transported::new(&step, &run)?;
     let report = step
@@ -441,6 +444,7 @@ pub fn coefficients_batch(
     let transported: Vec<Result<Transported, ProblemError>> = steps
         .iter()
         .map(|(step, run)| {
+            let _original = super::original_scope(&step.execution);
             step.preflight()?;
             Transported::new(step, run)
         })
@@ -455,6 +459,7 @@ pub fn coefficients_batch(
         .into_iter()
         .zip(&mut steps)
         .map(|(t, (step, run))| {
+            let _original = super::original_scope(&step.execution);
             let t = t?;
             let report = reports
                 .next()
@@ -690,6 +695,7 @@ pub fn recognized(
     retained: &mut Retained,
     run: Recognized<'_>,
 ) -> Result<SolveReport, ProblemError> {
+    let _original = super::original_scope(&step.execution);
     step.preflight()?;
     let lowered = run.lowered;
     if let Some(structure) = step.structure {
@@ -749,6 +755,7 @@ pub fn cone(
     original: &ConicProblem,
     certificate: &dyn QuadraticEvidence,
 ) -> Result<SolveReport, ProblemError> {
+    let _original = super::original_scope(&step.execution);
     step.preflight()?;
     if let Some(structure) = step.structure {
         crate::structural::validate_assessment(

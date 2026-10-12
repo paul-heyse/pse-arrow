@@ -121,6 +121,25 @@ struct Dependencies {
     premises: Vec<Premise>,
 }
 
+/// Decode only the known historical receipt vocabulary without upgrading it.
+/// Current selection and replay still require the current interpretation.
+pub(crate) fn validate_historical_dependency_encoding(
+    bytes: &[u8],
+    original_interpretation: &str,
+) -> Result<(), CanonicalError> {
+    let dependencies: Dependencies = serde_json::from_slice(bytes).map_err(|error| {
+        CanonicalError::Configuration(format!("historical dependency receipt: {error}"))
+    })?;
+    if !crate::canonical::historical_product_interpretation_supported(original_interpretation)
+        || dependencies.interpretation != original_interpretation
+    {
+        return Err(CanonicalError::Configuration(
+            "historical dependency interpretation differs".into(),
+        ));
+    }
+    Ok(())
+}
+
 /// Immutable complete selection premises. This carries no protection or write authority;
 /// every reuse rechecks its meaning under a newly acquired protected revision.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -132,6 +151,206 @@ impl SelectedDependencies {
     /// Conservative owned premise extent; callers reserve this before snapshotting.
     pub fn retained_bytes(&self) -> usize {
         self.retained_bytes
+    }
+}
+
+/// Maximum retained admissions inspected together; history remains unbounded.
+pub const SELECTED_RECHECK_WINDOW: usize = 8;
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum RecheckKey {
+    Logical(String),
+    Name(String, String),
+}
+impl Premise {
+    fn recheck_key(&self, names: bool) -> Option<(RecheckKey, &Option<String>)> {
+        match self {
+            Self::Logical { logical, version } if !names => {
+                Some((RecheckKey::Logical(logical.clone()), version))
+            }
+            Self::Name {
+                scope,
+                name,
+                version,
+            } if names => Some((RecheckKey::Name(scope.clone(), name.clone()), version)),
+            _ => None,
+        }
+    }
+}
+
+/// Transient observations for at most eight candidates under one exact protected
+/// immutable epoch. These observations never become consumer premises themselves.
+/// The owner must reserve `scratch_bytes` before constructing this value.
+#[derive(Debug)]
+pub struct SelectedRecheckWindow {
+    protection: String,
+    revision: crate::canonical::Revision,
+    candidates: Vec<std::sync::Arc<SelectedDependencies>>,
+    actual: BTreeMap<RecheckKey, Option<String>>,
+    inventories: BTreeMap<Premise, bool>,
+    qualified: Option<usize>,
+    #[cfg(test)]
+    counts: RecheckCounts,
+}
+#[cfg(test)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct RecheckCounts {
+    guards: usize,
+    logicals: usize,
+    names: usize,
+    inventory_pages: usize,
+}
+impl SelectedRecheckWindow {
+    /// Conservative transient extent, including adverse present versions of keys
+    /// whose old premises recorded absence. No actual version exceeds 4096 bytes.
+    pub fn scratch_bytes(
+        read: &SelectedRead,
+        candidates: &[std::sync::Arc<SelectedDependencies>],
+    ) -> Result<usize, CanonicalError> {
+        if candidates.is_empty() || candidates.len() > SELECTED_RECHECK_WINDOW {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let keys = candidates.iter().try_fold(0usize, |count, candidate| {
+            count
+                .checked_add(
+                    candidate
+                        .dependencies
+                        .premises
+                        .iter()
+                        .filter(|p| matches!(p, Premise::Name { .. } | Premise::Logical { .. }))
+                        .count(),
+                )
+                .ok_or(CanonicalError::PayloadLimit)
+        })?;
+        let inventory = candidates.iter().any(|candidate| {
+            candidate.dependencies.premises.iter().any(|p| {
+                matches!(
+                    p,
+                    Premise::Scope { .. } | Premise::KindScope { .. } | Premise::References { .. }
+                )
+            })
+        });
+        // A previously empty namespace can return a complete adverse 64-row
+        // page. Logical/name replies also include unrelated membership identity
+        // fields, each bounded by the same 4096-byte identity contract. Reserve
+        // one response/decode workspace, rather than multiplying it by history.
+        let response_rows = keys.min(256).max(if inventory { 64 } else { 0 });
+        let response = response_rows
+            .checked_mul(
+                crate::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH
+                    / crate::canonical_staging::SELECTED_OBJECT_BATCH,
+            )
+            .ok_or(CanonicalError::PayloadLimit)?;
+        let epoch = pse_model::HeapUsage::heap_bytes(read.selection.revision())
+            .checked_mul(4)
+            .and_then(|n| n.checked_add(read.selection.key().len() + 8192))
+            .and_then(|n| n.checked_add(response))
+            .ok_or(CanonicalError::PayloadLimit)?;
+        candidates.iter().try_fold(epoch, |bytes, candidate| {
+            let keys = candidate
+                .dependencies
+                .premises
+                .iter()
+                .filter(|p| matches!(p, Premise::Name { .. } | Premise::Logical { .. }))
+                .count();
+            bytes
+                .checked_add(
+                    candidate
+                        .retained_bytes()
+                        .checked_mul(4)
+                        .ok_or(CanonicalError::PayloadLimit)?,
+                )
+                .and_then(|n| n.checked_add(keys.checked_mul(4096 * 8 + 1024)?))
+                .ok_or(CanonicalError::PayloadLimit)
+        })
+    }
+    /// Construct only after the issued scratch extent has been admitted.
+    pub fn new(
+        read: &SelectedRead,
+        candidates: &[std::sync::Arc<SelectedDependencies>],
+    ) -> Result<Self, CanonicalError> {
+        Self::scratch_bytes(read, candidates)?;
+        Ok(Self {
+            protection: read.selection.key().into(),
+            revision: read.selection.revision().clone(),
+            candidates: candidates.to_vec(),
+            actual: BTreeMap::new(),
+            inventories: BTreeMap::new(),
+            qualified: None,
+            #[cfg(test)]
+            counts: RecheckCounts::default(),
+        })
+    }
+    /// Observation sharing requires both the exact pin/actual row and the same
+    /// ordered candidate population, including complete namespace expectations.
+    pub fn matches(
+        &self,
+        read: &SelectedRead,
+        candidates: &[std::sync::Arc<SelectedDependencies>],
+    ) -> bool {
+        self.protection == read.selection.key()
+            && &self.revision == read.selection.revision()
+            && self.candidates == candidates
+    }
+    fn check_epoch(&self, read: &SelectedRead) -> Result<(), CanonicalError> {
+        read.complete()?;
+        if self.protection != read.selection.key() || &self.revision != read.selection.revision() {
+            return Err(CanonicalError::Configuration(
+                "candidate observations belong to another protected epoch".into(),
+            ));
+        }
+        Ok(())
+    }
+    /// Merge only the complete candidate qualified by the most recent guarded
+    /// search. Callers reserve its retained extent before this allocation.
+    pub fn merge_qualified(
+        &self,
+        read: &mut SelectedRead,
+        index: usize,
+    ) -> Result<(), CanonicalError> {
+        self.check_epoch(read)?;
+        if self.qualified != Some(index) {
+            return Err(CanonicalError::Configuration(
+                "candidate was not completely qualified".into(),
+            ));
+        }
+        let mut delta = SelectedRead::new(read.selection.clone());
+        for premise in &self.candidates[index].dependencies.premises {
+            match premise.clone() {
+                Premise::Name {
+                    scope,
+                    name,
+                    version,
+                } => {
+                    delta.names.insert((scope, name), version);
+                }
+                Premise::Logical { logical, version } => {
+                    delta.logicals.insert(logical, version);
+                }
+                Premise::Scope { scope, members } => {
+                    delta.scopes.insert(scope, members);
+                }
+                Premise::KindScope {
+                    scope,
+                    source_kind,
+                    members,
+                } => {
+                    delta.kinds.insert((scope, source_kind), members);
+                }
+                Premise::References {
+                    scope,
+                    name,
+                    source_kind,
+                    members,
+                } => {
+                    delta.references.insert((scope, name, source_kind), members);
+                }
+                Premise::Interpretation { role, identity } => {
+                    delta.interpretations.insert(role, identity);
+                }
+            }
+        }
+        read.merge_delta(delta)
     }
 }
 
@@ -256,11 +475,24 @@ impl std::io::Write for DependencyCounter {
 /// Logical and immutable version identities selected for each scoped source kind.
 type KindSelections = BTreeMap<(Option<String>, String), Vec<(String, String)>>;
 
+// A clone preserves its exact snapshot token; the first mutation on either branch
+// gets a globally distinct token. Exhaustion refuses capture rather than wrapping.
+fn dependency_epoch() -> Option<u64> {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.try_update(
+        std::sync::atomic::Ordering::Relaxed,
+        std::sync::atomic::Ordering::Relaxed,
+        |value| value.checked_add(1),
+    )
+    .ok()
+}
+
 /// A compiler's protected read session. Recorded premises include absent names and
 /// explicitly enumerated scopes, rather than only positive object references.
 #[derive(Clone, Debug)]
 pub struct SelectedRead {
     selection: ProtectedSelection,
+    dependency_epoch: Option<u64>,
     names: BTreeMap<(String, String), Option<String>>,
     scopes: BTreeMap<String, Vec<(String, String)>>,
     interpretations: BTreeMap<String, String>,
@@ -274,6 +506,7 @@ impl SelectedRead {
     pub fn new(selection: ProtectedSelection) -> Self {
         Self {
             selection,
+            dependency_epoch: dependency_epoch(),
             names: BTreeMap::new(),
             scopes: BTreeMap::new(),
             interpretations: BTreeMap::new(),
@@ -300,6 +533,7 @@ impl SelectedRead {
                 "one role consumed incompatible interpretations".into(),
             ));
         }
+        self.invalidate_material();
         self.interpretations.insert(role, identity);
         Ok(())
     }
@@ -332,6 +566,7 @@ impl SelectedRead {
                 original.entry(key).or_insert(value);
             }
         }
+        self.invalidate_material();
         insert_delta(&mut self.names, delta.names);
         insert_delta(&mut self.scopes, delta.scopes);
         insert_delta(&mut self.interpretations, delta.interpretations);
@@ -339,6 +574,9 @@ impl SelectedRead {
         insert_delta(&mut self.kinds, delta.kinds);
         insert_delta(&mut self.references, delta.references);
         Ok(())
+    }
+    fn invalidate_material(&mut self) {
+        self.dependency_epoch = dependency_epoch();
     }
     /// Exact encoded dependency extent, counted before cloning or allocating JSON.
     pub fn dependency_bytes(&self) -> Result<usize, CanonicalError> {
@@ -491,25 +729,158 @@ impl SelectedRead {
     }
 }
 
-/// Owned exact encoding, independent of a selected pin, revision and write permission.
+/// One complete selected premise snapshot and its exact existing wire encoding.
+/// The caller reserves `allocation_bytes` before capture; the retained opaque owner
+/// keeps that actual allocation charged without introducing a columnar dependency.
+/// This receipt carries no store protection or permission to publish a new root.
+#[derive(Debug)]
+pub struct SelectionMaterial {
+    epoch: u64,
+    protection: String,
+    problem: String,
+    revision: String,
+    dependencies: SelectedDependencies,
+    encoded: Vec<u8>,
+    receipt: crate::canonical_staging::ReceiptBlob,
+    retained_bytes: usize,
+    _owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+}
+impl SelectionMaterial {
+    /// Bound owned premises, encoding and receipt metadata before allocation.
+    pub fn allocation_bytes(read: &SelectedRead) -> Result<usize, CanonicalError> {
+        read.publication_scratch_bytes()?
+            .checked_add(read.dependency_bytes()?)
+            .and_then(|n| n.checked_add(read.selection.key().len()))
+            .and_then(|n| n.checked_add(read.selection.revision().problem.len()))
+            .and_then(|n| n.checked_add(read.selection.revision().key.len()))
+            .and_then(|n| n.checked_add(size_of::<Self>() + 256))
+            .ok_or(CanonicalError::PayloadLimit)
+    }
+    /// Capture after every acquired predicate has merged into this exact read.
+    pub fn capture(
+        read: &SelectedRead,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<std::sync::Arc<Self>, CanonicalError> {
+        let epoch = read.dependency_epoch.ok_or(CanonicalError::PayloadLimit)?;
+        let retained_bytes = Self::allocation_bytes(read)?;
+        let mut encoded = Vec::with_capacity(read.dependency_bytes()?);
+        serde_json::to_writer(&mut encoded, &BorrowedDependencies(read))
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+        let receipt = crate::canonical_staging::ReceiptBlob::capture(&encoded)?;
+        Ok(std::sync::Arc::new(Self {
+            epoch,
+            protection: read.selection.key().to_owned(),
+            problem: read.selection.revision().problem.clone(),
+            revision: read.selection.revision().key.clone(),
+            dependencies: read.snapshot_dependencies()?,
+            encoded,
+            receipt,
+            retained_bytes,
+            _owner: owner,
+        }))
+    }
+    /// Shared allocation extent, counted once by an inventory retaining this Arc.
+    pub fn retained_bytes(&self) -> usize {
+        self.retained_bytes
+    }
+    /// Exact complete premises, without protection or permission.
+    pub fn selected_dependencies(&self) -> &SelectedDependencies {
+        &self.dependencies
+    }
+    fn matches_selection(&self, read: &SelectedRead) -> Result<bool, CanonicalError> {
+        read.complete()?;
+        Ok(read.dependency_epoch == Some(self.epoch)
+            && read.selection.key() == self.protection
+            && read.selection.revision().key == self.revision
+            && read.selection.revision().problem == self.problem)
+    }
+    /// Compare two complete snapshots once before rebinding a body inventory.
+    pub fn rebinding_from(
+        self: &std::sync::Arc<Self>,
+        previous: &std::sync::Arc<Self>,
+        read: &SelectedRead,
+    ) -> Result<Option<SelectionRebinding>, CanonicalError> {
+        if !self.matches_selection(read)? {
+            return Err(CanonicalError::Configuration(
+                "selection material is stale".into(),
+            ));
+        }
+        Ok(
+            (self.problem == previous.problem && self.encoded == previous.encoded).then(|| {
+                SelectionRebinding {
+                    previous: previous.clone(),
+                    current: self.clone(),
+                }
+            }),
+        )
+    }
+}
+
+/// Once-checked equality between two complete premise snapshots. Individual body
+/// bindings check only their source Arc and the current read's mutation identity.
+#[derive(Debug)]
+pub struct SelectionRebinding {
+    previous: std::sync::Arc<SelectionMaterial>,
+    current: std::sync::Arc<SelectionMaterial>,
+}
+
+/// Owned exact encoding, independent of write permission.
 /// Clones share immutable material. Every consumer must recheck `selected_dependencies`
 /// under its current protected read; this value is never replay or publication authority.
 #[derive(Clone, Debug)]
 pub struct ProductDescription {
     material: std::sync::Arc<DescriptionMaterial>,
+    selection: std::sync::Arc<SelectionMaterial>,
 }
 #[derive(Debug)]
 struct DescriptionMaterial {
     proposed_key: String,
     product: Product,
-    dependencies: SelectedDependencies,
     blob: crate::canonical_staging::ProductBlob,
-    edit: crate::canonical::ObjectEdit,
+    payload: std::sync::Arc<Vec<u8>>,
+    _payload_owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
     retained_bytes: usize,
 }
 impl ProductDescription {
     /// Encode a complete selected body once without accessing or admitting to a store.
-    pub fn prepare(read: &SelectedRead, mut product: Product) -> Result<Self, CanonicalError> {
+    pub fn prepare(read: &SelectedRead, product: Product) -> Result<Self, CanonicalError> {
+        let selection = SelectionMaterial::capture(read, std::sync::Arc::new(()))?;
+        Self::prepare_with_selection(read, product, selection)
+    }
+    /// Encode one body using the once-captured complete selected material.
+    pub fn prepare_with_selection(
+        read: &SelectedRead,
+        mut product: Product,
+        selection: std::sync::Arc<SelectionMaterial>,
+    ) -> Result<Self, CanonicalError> {
+        let payload = std::sync::Arc::new(std::mem::take(&mut product.payload).into_vec());
+        Self::prepare_with_shared_payload(
+            read,
+            product,
+            selection,
+            payload,
+            std::sync::Arc::new(()),
+        )
+    }
+    /// Borrow an immutable, already charged scientific encoding. The retained owner
+    /// is the actual allocation owner, not a caller's numeric accounting assertion.
+    pub fn prepare_with_shared_payload(
+        read: &SelectedRead,
+        mut product: Product,
+        selection: std::sync::Arc<SelectionMaterial>,
+        payload: std::sync::Arc<Vec<u8>>,
+        payload_owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Result<Self, CanonicalError> {
+        if !product.payload.is_empty() {
+            return Err(CanonicalError::Configuration(
+                "shared body header must not duplicate payload".into(),
+            ));
+        }
+        if !selection.matches_selection(read)? {
+            return Err(CanonicalError::Configuration(
+                "selection material is stale".into(),
+            ));
+        }
         if [
             &product.key,
             &product.problem,
@@ -530,18 +901,15 @@ impl ProductDescription {
                 "product selection/interpretation mismatch".into(),
             ));
         }
-        if product.payload.len() > 65 * 1024 * 1024 + 4096
+        if payload.len() > 65 * 1024 * 1024 + 4096
             || product.request.len() > crate::canonical::PAYLOAD_BYTES
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        read.dependency_bytes()?;
-        let dependencies = read.snapshot_dependencies()?;
-        let encoded_dependencies = serde_json::to_vec(&BorrowedDependencies(read))
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        let (blob, edit) = crate::canonical_staging::product_blob(
-            product.payload.as_slice(),
-            &encoded_dependencies,
+        let blob = crate::canonical_staging::ProductBlob::with_receipt(
+            payload.as_slice(),
+            &product.producer,
+            selection.receipt.clone(),
         )?;
         product.payload = serde_json::to_vec(&blob)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?
@@ -552,10 +920,9 @@ impl ProductDescription {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let retained_bytes = blob
-            .bytes
-            .checked_add(dependencies.retained_bytes())
-            .and_then(|n| n.checked_add(product.request.len()))
+        let retained_bytes = payload
+            .capacity()
+            .checked_add(product.request.len())
             .and_then(|n| n.checked_add(product.payload.len()))
             .and_then(|n| n.checked_add(8 * crate::canonical_staging::IDENTITY_BYTES))
             .ok_or(CanonicalError::PayloadLimit)?;
@@ -565,20 +932,54 @@ impl ProductDescription {
             material: std::sync::Arc::new(DescriptionMaterial {
                 proposed_key,
                 product,
-                dependencies,
                 blob,
-                edit,
+                payload,
+                _payload_owner: payload_owner,
                 retained_bytes,
             }),
+            selection,
         })
     }
     /// Immutable complete premises, without protection or permission.
     pub fn selected_dependencies(&self) -> &SelectedDependencies {
-        &self.material.dependencies
+        self.selection.selected_dependencies()
     }
     /// Conservative owned encoded material and complete premise allocation extent.
     pub fn retained_bytes(&self) -> usize {
+        self.material.retained_bytes + self.selection.retained_bytes()
+    }
+    /// Per-body extent; the shared selection material is counted by its inventory.
+    pub fn exclusive_retained_bytes(&self) -> usize {
         self.material.retained_bytes
+    }
+    /// Additional owned descriptor/header bytes when the body owner is retained separately.
+    pub fn descriptor_allocation_bytes(&self) -> usize {
+        self.material
+            .retained_bytes
+            .saturating_sub(self.material.payload.capacity())
+    }
+    /// Once-captured shared selected material retained through uncertain settlement.
+    pub fn selection_material(&self) -> &std::sync::Arc<SelectionMaterial> {
+        &self.selection
+    }
+    /// Bind unchanged immutable body/blob bytes to an already checked equivalent
+    /// current receipt. Existing association ACKs still use the original descriptor.
+    pub fn rebind_selection(
+        &self,
+        read: &SelectedRead,
+        binding: &SelectionRebinding,
+    ) -> Result<Self, CanonicalError> {
+        if !std::sync::Arc::ptr_eq(&self.selection, &binding.previous)
+            || !binding.current.matches_selection(read)?
+        {
+            return Err(CanonicalError::Configuration(
+                "selection rebinding is stale".into(),
+            ));
+        }
+        Ok(Self {
+            material: self.material.clone(),
+            selection: binding.current.clone(),
+        })
     }
     /// Exact stored descriptor; acknowledgment does not hydrate its referenced blocks.
     pub fn descriptor(&self) -> &[u8] {
@@ -587,7 +988,10 @@ impl ProductDescription {
     /// Check the exact complete consumer premises without cloning or reencoding them.
     pub fn matches_read(&self, read: &SelectedRead) -> Result<bool, CanonicalError> {
         read.complete()?;
-        let dependencies = &self.material.dependencies.dependencies;
+        if self.selection.matches_selection(read)? {
+            return Ok(true);
+        }
+        let dependencies = &self.selection.dependencies.dependencies;
         let mut premises = dependencies.premises.iter();
         Ok(self.material.product.problem == read.selection().revision().problem
             && dependencies.interpretation == wire::INTERPRETATION
@@ -606,11 +1010,14 @@ impl ProductDescription {
             && premises.next().is_none())
     }
     fn publication(&self, read: &SelectedRead) -> Result<Product, CanonicalError> {
+        if !self.selection.matches_selection(read)? {
+            return Err(CanonicalError::Configuration(
+                "new product root requires current selection material".into(),
+            ));
+        }
         let material = &self.material;
-        let version = material.edit.version.as_ref().ok_or_else(|| {
-            CanonicalError::Configuration("encoded product blob unavailable".into())
-        })?;
-        let (payload, dependencies) = material.blob.encoded_parts(version.payload.as_slice())?;
+        let payload = material.payload.as_slice();
+        let dependencies = self.selection.encoded.as_slice();
         let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalProductV1);
         hash.str(&material.proposed_key)
             .str(read.selection.key())
@@ -750,6 +1157,7 @@ impl CanonicalStore {
             .into_iter()
             .map(wire::decode_canonical_memberships)
             .collect::<Result<Vec<_>, _>>()?;
+        read.invalidate_material();
         for logical in logicals {
             let mut matching = members.iter().filter(|member| &member.logical == logical);
             let version = matching.next().map(|member| member.version.clone());
@@ -846,6 +1254,7 @@ impl CanonicalStore {
             return Err(CanonicalError::PayloadLimit);
         }
         let key = uuid::Uuid::new_v4().simple().to_string();
+        read.invalidate_material();
         read.pending_inventories.insert(key.clone());
         Ok(SelectedMemberships {
             key,
@@ -1012,6 +1421,7 @@ impl CanonicalStore {
                 members.extend(page);
             }
             members.sort();
+            read.invalidate_material();
             if let Some((scope, name)) = &cursor.target {
                 let kind = cursor.source_kind.as_ref().ok_or_else(|| {
                     CanonicalError::Configuration("supplier cursor requires kind".into())
@@ -1088,6 +1498,31 @@ impl CanonicalStore {
         expected: &[(String, String)],
         logical: bool,
     ) -> Result<bool, CanonicalError> {
+        self.same_membership_counted(
+            selection,
+            scope,
+            source_kind,
+            target,
+            expected,
+            logical,
+            &mut 0,
+        )
+        .await
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one exact inventory comparison and its local response count"
+    )]
+    async fn same_membership_counted(
+        &self,
+        selection: &ProtectedSelection,
+        scope: Option<&str>,
+        source_kind: Option<&str>,
+        target: Option<(&str, &str)>,
+        expected: &[(String, String)],
+        logical: bool,
+        _pages: &mut usize,
+    ) -> Result<bool, CanonicalError> {
         if expected.windows(2).any(|pair| pair[0] >= pair[1]) {
             return Ok(false);
         }
@@ -1095,6 +1530,10 @@ impl CanonicalStore {
         let mut count = 0usize;
         let mut after = String::new();
         loop {
+            #[cfg(test)]
+            {
+                *_pages += 1;
+            }
             let page = self
                 .selection_membership_page(selection, scope, source_kind, target, &after)
                 .await?;
@@ -1129,6 +1568,7 @@ impl CanonicalStore {
         names: &[String],
     ) -> Result<Vec<Membership>, CanonicalError> {
         let members = self.select_names(&read.selection, scope, names).await?;
+        read.invalidate_material();
         for name in names {
             let matches = members
                 .iter()
@@ -1217,6 +1657,7 @@ impl CanonicalStore {
                 ));
             }
         }
+        read.invalidate_material();
         for pair in pairs {
             read.names.insert(pair.clone(), present.get(pair).cloned());
         }
@@ -1455,10 +1896,12 @@ impl CanonicalStore {
                 return Err(CanonicalError::Timeout);
             }
             let stage = self
-                .stage_product_blob(
+                .stage_product_parts(
                     &product.problem,
                     &product.key,
-                    description.material.edit.clone(),
+                    &description.material.blob,
+                    &description.material.payload,
+                    &description.selection.encoded,
                 )
                 .await?;
             if let Some(stage) = stage {
@@ -1484,10 +1927,11 @@ impl CanonicalStore {
                 "corruption requires isolated canonical fixture".into(),
             ));
         }
-        let row = crate::canonical::request(self.db.select(("canonical_products", key)))
-            .await?
-            .ok_or_else(|| CanonicalError::Configuration("fixture product missing".into()))?;
-        let product = wire::decode_canonical_products(row)?;
+        let row =
+            crate::canonical::request(self.db.select(("canonical_product_associations", key)))
+                .await?
+                .ok_or_else(|| CanonicalError::Configuration("fixture product missing".into()))?;
+        let product = crate::canonical::decode_product_association(row)?;
         let descriptor = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
         crate::canonical::bounded_query(
             self.db
@@ -1510,7 +1954,7 @@ impl CanonicalStore {
         }
         crate::canonical::bounded_query(
             self.db
-                .query("UPDATE type::record('canonical_products', $key) SET payload = $payload;")
+                .query("UPDATE type::record('canonical_product_associations', $key) SET payload = $payload;")
                 .bind(("key", key.to_owned()))
                 .bind((
                     "payload",
@@ -1540,7 +1984,7 @@ impl CanonicalStore {
             || {
                 Ok(self
                     .db
-                    .query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT VALUE true FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+                    .query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT VALUE true FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
                     .bind(("problem", selection.revision().problem.clone()))
                     .bind(("revision", selection.revision().key.clone()))
                     .bind((
@@ -1548,7 +1992,7 @@ impl CanonicalStore {
                         crate::canonical_codec::encode_uint(selection.revision().sequence)?,
                     ))
                     .bind(("protection", selection.key().to_owned()))
-                    .bind(("producer", producer.to_owned()))
+                    .bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned()))
                     .bind(("request", surrealdb::types::Bytes::from(request.to_vec())))
                     .bind(("after", after.to_owned()))
                     .bind(("interpretation", wire::INTERPRETATION.to_owned())))
@@ -1572,14 +2016,14 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_products WHERE problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
+        let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_selection::product_candidate", || Ok(self.db.query(format!("{PROTECTED_BEGIN}\nLET $rpc_result = SELECT * FROM canonical_product_associations WHERE issuing_store = $issuing_store AND problem = $problem AND producer = $producer AND request = $request AND key > $after AND interpretation = $interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision ORDER BY key LIMIT 1 TIMEOUT $pse_rpc_timeout;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\nIF $pin.expires_at <= time::micros() {{ THROW 'immutable selection protection expired'; }};\nRETURN $rpc_result;\nCOMMIT;"))
             .bind(("problem", selection.revision().problem.clone())).bind(("revision", selection.revision().key.clone())).bind(("sequence", crate::canonical_codec::encode_uint(selection.revision().sequence)?))
-            .bind(("protection", selection.key().to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
+            .bind(("protection", selection.key().to_owned())).bind(("issuing_store", self.issuing_store()?.to_owned())).bind(("producer", producer.to_owned())).bind(("request", surrealdb::types::Bytes::from(request.to_vec()))).bind(("after", after.to_owned())).bind(("interpretation", wire::INTERPRETATION.to_owned())))).await?;
         let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let Some(row) = rows.into_iter().next() else {
             return Ok(None);
         };
-        let product = wire::decode_canonical_products(row)?;
+        let product = crate::canonical::decode_product_association(row)?;
         if !product.dependencies.is_empty() {
             return Err(CanonicalError::Configuration(
                 "unknown inline product format".into(),
@@ -1630,6 +2074,200 @@ impl CanonicalStore {
         product.payload = payload.to_vec().into();
         product.dependencies = dependencies_bytes.to_vec().into();
         Ok(Some(ReusableProduct { product }))
+    }
+    /// Resolve common keys in bounded rounds, rejecting candidates after each
+    /// response. Cached observations are private to this exact protected epoch;
+    /// even a fully cached search performs a new live-pin guard before granting reuse.
+    pub async fn qualify_selection_window(
+        &self,
+        read: &SelectedRead,
+        window: &mut SelectedRecheckWindow,
+    ) -> Result<Option<usize>, CanonicalError> {
+        window.check_epoch(read)?;
+        window.qualified = None;
+        let mut live = [false; SELECTED_RECHECK_WINDOW];
+        for (index, candidate) in window.candidates.iter().enumerate() {
+            live[index] = candidate.dependencies.interpretation == wire::INTERPRETATION
+                && !candidate.dependencies.premises.iter().any(|premise| {
+                    matches!(premise, Premise::Interpretation { role, identity }
+                        if read.interpretations.get(role) != Some(identity))
+                });
+        }
+        if !live.iter().any(|live| *live) {
+            return Ok(None);
+        }
+        // Empty logical resolution deliberately executes PROTECTED_BEGIN, even
+        // when every observed key is cached or the candidate contains no keys.
+        let mut guard = SelectedRead::new(read.selection.clone());
+        #[cfg(test)]
+        {
+            window.counts.guards += 1;
+        }
+        self.resolve_logicals(&mut guard, &[]).await?;
+        drop(guard);
+        for names in [false, true] {
+            let bound = if names { 64 } else { 256 };
+            loop {
+                // Compare all observations from previous rounds before acquiring
+                // more source. A rejected candidate contributes no later keys.
+                for (index, candidate) in window.candidates.iter().enumerate() {
+                    if live[index]
+                        && candidate.dependencies.premises.iter().any(|premise| {
+                            premise.recheck_key(names).is_some_and(|(key, expected)| {
+                                window
+                                    .actual
+                                    .get(&key)
+                                    .is_some_and(|actual| actual != expected)
+                            })
+                        })
+                    {
+                        live[index] = false;
+                    }
+                }
+                let mut keys = std::collections::BTreeSet::new();
+                for (index, candidate) in window.candidates.iter().enumerate() {
+                    if !live[index] {
+                        continue;
+                    }
+                    for premise in &candidate.dependencies.premises {
+                        if let Some((key, _)) = premise.recheck_key(names)
+                            && !window.actual.contains_key(&key)
+                        {
+                            keys.insert(key);
+                            if keys.len() == bound {
+                                break;
+                            }
+                        }
+                    }
+                    if keys.len() == bound {
+                        break;
+                    }
+                }
+                if keys.is_empty() {
+                    break;
+                }
+                let mut observations = SelectedRead::new(read.selection.clone());
+                if names {
+                    let pairs = keys
+                        .into_iter()
+                        .filter_map(|key| match key {
+                            RecheckKey::Name(scope, name) => Some((scope, name)),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    #[cfg(test)]
+                    {
+                        window.counts.names += 1;
+                    }
+                    self.resolve_name_pairs(&mut observations, &pairs).await?;
+                    for ((scope, name), actual) in observations.names {
+                        window.actual.insert(RecheckKey::Name(scope, name), actual);
+                    }
+                } else {
+                    let logicals = keys
+                        .into_iter()
+                        .filter_map(|key| match key {
+                            RecheckKey::Logical(logical) => Some(logical),
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    #[cfg(test)]
+                    {
+                        window.counts.logicals += 1;
+                    }
+                    self.resolve_logicals(&mut observations, &logicals).await?;
+                    for (logical, actual) in observations.logicals {
+                        window.actual.insert(RecheckKey::Logical(logical), actual);
+                    }
+                }
+            }
+        }
+        for (index, candidate) in window.candidates.iter().enumerate() {
+            if !live[index] {
+                continue;
+            }
+            let mut eligible = true;
+            for premise in &candidate.dependencies.premises {
+                if !matches!(
+                    premise,
+                    Premise::Scope { .. } | Premise::KindScope { .. } | Premise::References { .. }
+                ) {
+                    continue;
+                }
+                let same = if let Some(same) = window.inventories.get(premise) {
+                    *same
+                } else {
+                    let mut pages = 0;
+                    let same = match premise {
+                        Premise::Scope { scope, members } => {
+                            self.same_membership_counted(
+                                read.selection(),
+                                Some(scope),
+                                None,
+                                None,
+                                members,
+                                false,
+                                &mut pages,
+                            )
+                            .await?
+                        }
+                        Premise::KindScope {
+                            scope,
+                            source_kind,
+                            members,
+                        } => {
+                            self.same_membership_counted(
+                                read.selection(),
+                                scope.as_deref(),
+                                Some(source_kind),
+                                None,
+                                members,
+                                true,
+                                &mut pages,
+                            )
+                            .await?
+                        }
+                        Premise::References {
+                            scope,
+                            name,
+                            source_kind,
+                            members,
+                        } => {
+                            self.same_membership_counted(
+                                read.selection(),
+                                None,
+                                Some(source_kind),
+                                Some((scope, name)),
+                                members,
+                                true,
+                                &mut pages,
+                            )
+                            .await?
+                        }
+                        _ => {
+                            return Err(CanonicalError::Configuration(
+                                "candidate inventory premise".into(),
+                            ));
+                        }
+                    };
+                    #[cfg(test)]
+                    {
+                        window.counts.inventory_pages += pages;
+                    }
+                    window.inventories.insert(premise.clone(), same);
+                    same
+                };
+                if !same {
+                    eligible = false;
+                    break;
+                }
+            }
+            if eligible {
+                window.qualified = Some(index);
+                return Ok(Some(index));
+            }
+        }
+        Ok(None)
     }
     /// Recheck immutable in-memory premises through the same eligibility mechanism
     /// as durable scientific products. Rejected candidates do not contaminate the read.
@@ -1895,6 +2533,653 @@ mod canonical_server_unit {
             producer: "qualified-fixture".into(),
             interpretation: wire::INTERPRETATION.into(),
         }
+    }
+
+    fn candidate(premises: Vec<Premise>) -> std::sync::Arc<SelectedDependencies> {
+        std::sync::Arc::new(SelectedDependencies {
+            // Test fixtures reserve more than their small manually declared frames.
+            retained_bytes: 64 * 1024,
+            dependencies: Dependencies {
+                interpretation: wire::INTERPRETATION.into(),
+                premises,
+            },
+        })
+    }
+    fn point_candidate(version: &str) -> std::sync::Arc<SelectedDependencies> {
+        candidate(vec![
+            Premise::Logical {
+                logical: "Root".into(),
+                version: Some(version.into()),
+            },
+            Premise::Logical {
+                logical: "shared".into(),
+                version: Some("shared1".into()),
+            },
+            Premise::Logical {
+                logical: "absent".into(),
+                version: None,
+            },
+            Premise::Name {
+                scope: "p".into(),
+                name: "shared".into(),
+                version: Some("shared1".into()),
+            },
+            Premise::Name {
+                scope: "p".into(),
+                name: "absent".into(),
+                version: None,
+            },
+        ])
+    }
+
+    #[tokio::test]
+    async fn canonical_split_products_share_independent_parts_and_keyed_ack_never_revives_roots() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "split-products", &[]).await.unwrap();
+        let selected = read(&store, revision.clone()).await;
+        let material = SelectionMaterial::capture(&selected, std::sync::Arc::new(())).unwrap();
+        let first = ProductDescription::prepare_with_selection(
+            &selected,
+            product(&selected, b"body-one"),
+            material.clone(),
+        )
+        .unwrap();
+        let second = ProductDescription::prepare_with_selection(
+            &selected,
+            product(&selected, b"body-two"),
+            material,
+        )
+        .unwrap();
+        let first_key = store.publish_description(&selected, &first).await.unwrap();
+        let second_key = store.publish_description(&selected, &second).await.unwrap();
+        let mut result=crate::canonical::bounded_query(store.db.query("SELECT * FROM canonical_body_contents; SELECT * FROM canonical_selection_receipts; SELECT * FROM canonical_product_associations; SELECT * FROM canonical_products;")).await.unwrap();
+        assert_eq!(result.take::<Vec<Object>>(0).unwrap().len(), 2);
+        assert_eq!(result.take::<Vec<Object>>(1).unwrap().len(), 1);
+        assert_eq!(result.take::<Vec<Object>>(2).unwrap().len(), 2);
+        assert!(
+            result.take::<Vec<Object>>(3).unwrap().is_empty(),
+            "ordinary publication never writes the historical archive"
+        );
+        assert_eq!(
+            store.acknowledge_description(&first).await.unwrap(),
+            Some(first_key.clone())
+        );
+        store
+            .drop_retained_root(
+                &revision,
+                &crate::canonical_retention::RetentionOwner::Product(first_key.clone()),
+            )
+            .await
+            .unwrap();
+        assert_eq!(store.acknowledge_description(&first).await.unwrap(), None);
+        assert_eq!(
+            store.acknowledge_description(&second).await.unwrap(),
+            Some(second_key)
+        );
+        // A new pin may create a new association, with the same immutable body
+        // and receipt, while the original explicitly released root stays absent.
+        let fresh = read(&store, revision).await;
+        let current = SelectionMaterial::capture(&fresh, std::sync::Arc::new(())).unwrap();
+        let binding = current
+            .rebinding_from(first.selection_material(), &fresh)
+            .unwrap()
+            .unwrap();
+        let rebound = first.rebind_selection(&fresh, &binding).unwrap();
+        let new_key = store.publish_description(&fresh, &rebound).await.unwrap();
+        assert_ne!(new_key, first_key);
+        assert_eq!(
+            store.acknowledge_description(&first).await.unwrap(),
+            Some(new_key)
+        );
+        let old_root: Option<Object> =
+            crate::canonical::request(store.db.select(("canonical_roots", first_key.as_str())))
+                .await
+                .unwrap();
+        assert!(old_root.is_none());
+        let mut result = crate::canonical::bounded_query(store.db.query(
+            "SELECT * FROM canonical_body_contents; SELECT * FROM canonical_selection_receipts;",
+        ))
+        .await
+        .unwrap();
+        assert_eq!(result.take::<Vec<Object>>(0).unwrap().len(), 2);
+        assert_eq!(result.take::<Vec<Object>>(1).unwrap().len(), 1);
+        store.release(selected.selection()).await.unwrap();
+        store.release(fresh.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn shared_selection_material_captures_merged_absence_and_refuses_stale_new_roots() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "shared-material", &[]).await.unwrap();
+        let mut selected = read(&store, revision.clone()).await;
+        let old = SelectionMaterial::capture(&selected, std::sync::Arc::new(())).unwrap();
+        let acquired = candidate(vec![Premise::Logical {
+            logical: "acquired-absence".into(),
+            version: None,
+        }]);
+        let mut window = SelectedRecheckWindow::new(&selected, &[acquired.clone()]).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&selected, &mut window)
+                .await
+                .unwrap(),
+            Some(0)
+        );
+        window.merge_qualified(&mut selected, 0).unwrap();
+        assert!(
+            ProductDescription::prepare_with_selection(&selected, product(&selected, b"body"), old)
+                .is_err()
+        );
+        let material = SelectionMaterial::capture(&selected, std::sync::Arc::new(())).unwrap();
+        assert_eq!(
+            material.selected_dependencies().dependencies,
+            acquired.dependencies
+        );
+        assert_eq!(
+            material.encoded,
+            serde_json::to_vec(&selected.dependencies()).unwrap(),
+            "the shared snapshot preserves the established dependency encoding"
+        );
+        let description = ProductDescription::prepare_with_selection(
+            &selected,
+            product(&selected, b"body"),
+            material.clone(),
+        )
+        .unwrap();
+        let offered = description.material.product.clone();
+        let mut current = read(&store, revision).await;
+        assert!(
+            store
+                .recheck_selection_dependencies(&mut current, material.selected_dependencies())
+                .await
+                .unwrap()
+        );
+        assert!(description.matches_read(&current).unwrap());
+        assert!(
+            store
+                .publish_description(&current, &description)
+                .await
+                .is_err(),
+            "a same-premises prior pin cannot mint a new root without current capture"
+        );
+        assert!(
+            store
+                .product_acknowledged(&offered)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        let current_material =
+            SelectionMaterial::capture(&current, std::sync::Arc::new(())).unwrap();
+        let binding = current_material
+            .rebinding_from(&material, &current)
+            .unwrap()
+            .unwrap();
+        let rebound = description.rebind_selection(&current, &binding).unwrap();
+        assert_eq!(
+            description.descriptor().as_ptr(),
+            rebound.descriptor().as_ptr()
+        );
+        let key = store.publish_description(&current, &rebound).await.unwrap();
+        assert_eq!(
+            store.acknowledge_description(&description).await.unwrap(),
+            Some(key)
+        );
+        let mut pages = store.scope_pages(&mut current, "empty").unwrap();
+        assert!(SelectionMaterial::capture(&current, std::sync::Arc::new(())).is_err());
+        assert!(
+            ProductDescription::prepare_with_selection(
+                &current,
+                product(&current, b"body"),
+                current_material.clone()
+            )
+            .is_err()
+        );
+        while !store
+            .next_membership_page(&mut current, &mut pages)
+            .await
+            .unwrap()
+            .is_empty()
+        {}
+        assert!(
+            ProductDescription::prepare_with_selection(
+                &current,
+                product(&current, b"body"),
+                current_material
+            )
+            .is_err()
+        );
+        selected.finish().await.unwrap();
+        current.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn selected_candidate_windows_share_positive_absence_rounds_and_reject_without_contamination()
+     {
+        let store = fixture().await;
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "window-points",
+                &[
+                    edit("Root", "root1", "definition", Vec::new()),
+                    edit("shared", "shared1", "definition", Vec::new()),
+                ],
+            )
+            .await
+            .unwrap();
+        let mut current = read(&store, revision.clone()).await;
+        let before = current.snapshot_dependencies().unwrap();
+        // E=1 and E=8, early/late/no match: each common positive and absent
+        // logical key is resolved once, irrespective of candidate count.
+        for (count, accepted) in [(1, Some(0)), (8, Some(0)), (8, Some(7)), (8, None)] {
+            let candidates = (0..count)
+                .map(|index| {
+                    point_candidate(if accepted == Some(index) {
+                        "root1"
+                    } else {
+                        "wrong"
+                    })
+                })
+                .collect::<Vec<_>>();
+            let mut window = SelectedRecheckWindow::new(&current, &candidates).unwrap();
+            assert!(
+                SelectedRecheckWindow::scratch_bytes(&current, &candidates).unwrap()
+                    >= 4096 * 8 * 3
+            );
+            assert_eq!(
+                store
+                    .qualify_selection_window(&current, &mut window)
+                    .await
+                    .unwrap(),
+                accepted
+            );
+            assert_eq!(window.counts.logicals, 1);
+            assert_eq!(window.counts.names, usize::from(accepted.is_some()));
+            assert_eq!(window.counts.inventory_pages, 0);
+            assert_eq!(current.snapshot_dependencies().unwrap(), before);
+            assert_eq!(
+                store
+                    .qualify_selection_window(&current, &mut window)
+                    .await
+                    .unwrap(),
+                accepted
+            );
+            assert_eq!(
+                window.counts.guards, 2,
+                "cached searches still guard the live pin"
+            );
+            assert_eq!(window.counts.logicals, 1);
+            assert_eq!(window.counts.names, usize::from(accepted.is_some()));
+            if let Some(index) = accepted {
+                window.merge_qualified(&mut current, index).unwrap();
+                assert_eq!(
+                    current.snapshot_dependencies().unwrap().dependencies,
+                    candidates[index].dependencies
+                );
+                current.finish().await.unwrap();
+                current = read(&store, revision.clone()).await;
+            } else {
+                assert!(window.merge_qualified(&mut current, 0).is_err());
+            }
+        }
+        // An observed presence with the maximum admitted version length must fit
+        // scratch issued from a previously absent premise, and reject that premise.
+        let large = "v".repeat(4096);
+        let changed = store
+            .edit(
+                "p",
+                Some("window-points"),
+                "window-adverse",
+                &[edit("absent", &large, "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let adverse = read(&store, changed).await;
+        let candidates = [candidate(vec![Premise::Logical {
+            logical: "absent".into(),
+            version: None,
+        }])];
+        let mut window = SelectedRecheckWindow::new(&adverse, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&adverse, &mut window)
+                .await
+                .unwrap(),
+            None
+        );
+        assert!(adverse.logicals.is_empty());
+        adverse.finish().await.unwrap();
+        current.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn selected_candidate_windows_memo_exact_inventory_expectations_and_merge_only_winner() {
+        let store = fixture().await;
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "window-inventories",
+                &[edit("Root", "root1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let mut current = read(&store, revision).await;
+        let rejected = candidate(vec![
+            Premise::Logical {
+                logical: "rejected-only-absence".into(),
+                version: None,
+            },
+            Premise::Scope {
+                scope: "p".into(),
+                members: Vec::new(),
+            },
+        ]);
+        let winner = candidate(vec![
+            Premise::Scope {
+                scope: "p".into(),
+                members: vec![("Root".into(), "root1".into())],
+            },
+            Premise::KindScope {
+                scope: Some("p".into()),
+                source_kind: "missing-kind".into(),
+                members: Vec::new(),
+            },
+            Premise::References {
+                scope: "p".into(),
+                name: "Root".into(),
+                source_kind: "definition".into(),
+                members: Vec::new(),
+            },
+        ]);
+        let mut candidates = vec![rejected; 7];
+        candidates.push(winner.clone());
+        let mut window = SelectedRecheckWindow::new(&current, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .unwrap(),
+            Some(7)
+        );
+        assert_eq!(window.counts.logicals, 1);
+        // One rejecting scope page, two complete accepting scope pages, and one
+        // terminal page each for absent kind and absent inverse references.
+        assert_eq!(window.counts.inventory_pages, 5);
+        assert!(
+            current
+                .snapshot_dependencies()
+                .unwrap()
+                .dependencies
+                .premises
+                .is_empty()
+        );
+        assert!(window.merge_qualified(&mut current, 0).is_err());
+        window.merge_qualified(&mut current, 7).unwrap();
+        assert_eq!(
+            current.snapshot_dependencies().unwrap().dependencies,
+            winner.dependencies
+        );
+        assert!(!current.logicals.contains_key("rejected-only-absence"));
+        assert_eq!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .unwrap(),
+            Some(7)
+        );
+        assert_eq!(window.counts.inventory_pages, 5);
+        current.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn selected_candidate_windows_bound_each_round_and_stop_after_early_mismatch() {
+        let store = fixture().await;
+        let revision = store
+            .edit(
+                "p",
+                None,
+                "window-rounds",
+                &[edit("key000", "present", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let current = read(&store, revision).await;
+        let logicals = (0..300)
+            .map(|index| Premise::Logical {
+                logical: format!("key{index:03}"),
+                version: if index == 0 {
+                    Some("present".into())
+                } else {
+                    None
+                },
+            })
+            .collect::<Vec<_>>();
+        let names = (0..65)
+            .map(|index| Premise::Name {
+                scope: "p".into(),
+                name: format!("missing{index:03}"),
+                version: None,
+            })
+            .collect::<Vec<_>>();
+        let all = candidate(logicals.iter().chain(&names).cloned().collect());
+        let candidates = vec![all; 8];
+        let mut window = SelectedRecheckWindow::new(&current, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .unwrap(),
+            Some(0)
+        );
+        assert_eq!(
+            window.counts.logicals, 2,
+            "300 shared keys require two bounded rounds"
+        );
+        assert_eq!(
+            window.counts.names, 2,
+            "65 shared sparse pairs require two bounded rounds"
+        );
+        let mut rejected = logicals;
+        rejected[0] = Premise::Logical {
+            logical: "key000".into(),
+            version: None,
+        };
+        rejected.extend(names);
+        rejected.push(Premise::Scope {
+            scope: "p".into(),
+            members: Vec::new(),
+        });
+        let candidates = vec![candidate(rejected); 8];
+        let mut window = SelectedRecheckWindow::new(&current, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(window.counts.logicals, 1);
+        assert_eq!(window.counts.names, 0);
+        assert_eq!(window.counts.inventory_pages, 0);
+        assert!(
+            current
+                .snapshot_dependencies()
+                .unwrap()
+                .dependencies
+                .premises
+                .is_empty()
+        );
+        current.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn selected_candidate_window_observations_require_exact_live_epoch() {
+        let store = fixture().await;
+        let revision = store.edit("p", None, "window-epoch", &[]).await.unwrap();
+        let current = read(&store, revision.clone()).await;
+        let candidates = [candidate(vec![Premise::Logical {
+            logical: "absent".into(),
+            version: None,
+        }])];
+        let mut window = SelectedRecheckWindow::new(&current, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .unwrap(),
+            Some(0)
+        );
+        let other = read(&store, revision.clone()).await;
+        assert!(!window.matches(&other, &candidates));
+        assert!(
+            store
+                .qualify_selection_window(&other, &mut window)
+                .await
+                .is_err()
+        );
+        store.release(current.selection()).await.unwrap();
+        assert!(
+            store
+                .qualify_selection_window(&current, &mut window)
+                .await
+                .is_err()
+        );
+        let mut expired = SelectedRecheckWindow::new(&other, &candidates).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&other, &mut expired)
+                .await
+                .unwrap(),
+            Some(0)
+        );
+        crate::canonical::bounded_query(
+            store
+                .db
+                .query("UPDATE type::record('canonical_protections', $pin) SET expires_at = 0;")
+                .bind(("pin", other.selection().key().to_owned())),
+        )
+        .await
+        .unwrap();
+        assert!(
+            store
+                .qualify_selection_window(&other, &mut expired)
+                .await
+                .is_err()
+        );
+        let empty_candidates = [candidate(Vec::new())];
+        let mut empty = SelectedRecheckWindow::new(&other, &empty_candidates).unwrap();
+        assert!(
+            store
+                .qualify_selection_window(&other, &mut empty)
+                .await
+                .is_err()
+        );
+        let incompatible = [candidate(vec![Premise::Interpretation {
+            role: "physical".into(),
+            identity: "foreign".into(),
+        }])];
+        let mut mismatch = SelectedRecheckWindow::new(&other, &incompatible).unwrap();
+        assert_eq!(
+            store
+                .qualify_selection_window(&other, &mut mismatch)
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(mismatch.counts, RecheckCounts::default());
+        store.release(other.selection()).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn selected_candidate_windows_refuse_new_scope_kind_and_inverse_reference_members() {
+        let store = fixture().await;
+        let first = store
+            .edit(
+                "p",
+                None,
+                "window-namespaces-a",
+                &[edit("Root", "root1", "definition", Vec::new())],
+            )
+            .await
+            .unwrap();
+        let source = read(&store, first.clone()).await;
+        let absent = [
+            candidate(vec![Premise::Scope {
+                scope: "empty".into(),
+                members: Vec::new(),
+            }]),
+            candidate(vec![Premise::KindScope {
+                scope: Some("p".into()),
+                source_kind: "new-kind".into(),
+                members: Vec::new(),
+            }]),
+            candidate(vec![Premise::References {
+                scope: "p".into(),
+                name: "Root".into(),
+                source_kind: "new-kind".into(),
+                members: Vec::new(),
+            }]),
+        ];
+        for dependency in &absent {
+            let mut window = SelectedRecheckWindow::new(&source, &[dependency.clone()]).unwrap();
+            assert_eq!(
+                store
+                    .qualify_selection_window(&source, &mut window)
+                    .await
+                    .unwrap(),
+                Some(0)
+            );
+        }
+        let mut extra = edit("Extra", "extra1", "definition", Vec::new());
+        extra.scope = "empty".into();
+        let changed = store
+            .edit(
+                "p",
+                Some("window-namespaces-a"),
+                "window-namespaces-b",
+                &[
+                    extra,
+                    edit(
+                        "Supplier",
+                        "supplier1",
+                        "new-kind",
+                        vec![("p".into(), "Root".into())],
+                    ),
+                ],
+            )
+            .await
+            .unwrap();
+        let current = read(&store, changed).await;
+        for dependency in absent {
+            let mut window = SelectedRecheckWindow::new(&current, &[dependency]).unwrap();
+            assert_eq!(
+                store
+                    .qualify_selection_window(&current, &mut window)
+                    .await
+                    .unwrap(),
+                None
+            );
+            assert!(
+                current
+                    .snapshot_dependencies()
+                    .unwrap()
+                    .dependencies
+                    .premises
+                    .is_empty()
+            );
+        }
+        source.finish().await.unwrap();
+        current.finish().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
     }
 
     #[tokio::test]
@@ -2173,9 +3458,10 @@ mod canonical_server_unit {
         wire::decode_canonical_problems(row.unwrap()).unwrap().head
     }
     fn stored_product(mut product: Product) -> Product {
-        let (descriptor, _) = crate::canonical_staging::product_blob(
+        let descriptor = crate::canonical_staging::ProductBlob::from_parts(
             product.payload.as_slice(),
             product.dependencies.as_slice(),
+            &product.producer,
         )
         .unwrap();
         product.payload = serde_json::to_vec(&descriptor).unwrap().into();
@@ -3177,11 +4463,26 @@ mod canonical_server_unit {
                 .unwrap(),
             Some(key.clone())
         );
-        let (descriptor, reserved_edit) = crate::canonical_staging::product_blob(
+        let dependencies = serde_json::to_vec(&first.dependencies()).unwrap();
+        let descriptor = crate::canonical_staging::ProductBlob::from_parts(
             &payload,
-            &serde_json::to_vec(&first.dependencies()).unwrap(),
+            &dependencies,
+            &candidate.product.producer,
         )
         .unwrap();
+        let reserved_edit = ObjectEdit {
+            logical: crate::canonical_staging::BODY_CONTENT_KIND.into(),
+            scope: crate::canonical_staging::BODY_CONTENT_KIND.into(),
+            name: crate::canonical_staging::BODY_CONTENT_KIND.into(),
+            references: vec![],
+            version: Some(pse_model::generated::runtime::canonical_versions::Row {
+                key: descriptor.version.clone(),
+                logical: crate::canonical_staging::BODY_CONTENT_KIND.into(),
+                kind: crate::canonical_staging::BODY_CONTENT_KIND.into(),
+                interpretation: wire::INTERPRETATION.into(),
+                payload: payload.clone().into(),
+            }),
+        };
         assert_eq!(descriptor.version, candidate.descriptor.version);
         // Simulate concurrent discoveries which both staged before either observed
         // the equivalent root. The losing candidate is activated but remains an
@@ -3189,7 +4490,7 @@ mod canonical_server_unit {
         let mut raced = candidate.product.clone();
         raced.key = "raced-publication".into();
         let raced_stage = store
-            .stage_product_blob("p", &raced.key, reserved_edit.clone())
+            .stage_product_parts("p", &raced.key, &descriptor, &payload, &dependencies)
             .await
             .unwrap()
             .unwrap();
@@ -3283,8 +4584,11 @@ mod canonical_server_unit {
         assert_eq!(
             blocks,
             descriptor
-                .bytes
+                .payload_bytes
                 .div_ceil(crate::canonical_staging::SOURCE_BLOCK_BYTES)
+                + descriptor
+                    .dependency_bytes
+                    .div_ceil(crate::canonical_staging::SOURCE_BLOCK_BYTES)
         );
         assert!(
             store
@@ -3431,7 +4735,7 @@ mod canonical_server_unit {
         crate::canonical::bounded_query(
             store
                 .db
-                .query("UPDATE type::record('canonical_products', $key) SET payload = $pointer;")
+                .query("UPDATE type::record('canonical_product_associations', $key) SET payload = $pointer;")
                 .bind(("key", key.clone()))
                 .bind((
                     "pointer",
@@ -3455,7 +4759,7 @@ mod canonical_server_unit {
         crate::canonical::bounded_query(
             store
                 .db
-                .query("UPDATE type::record('canonical_products', $key) SET payload = $pointer;")
+                .query("UPDATE type::record('canonical_product_associations', $key) SET payload = $pointer;")
                 .bind(("key", key.clone()))
                 .bind((
                     "pointer",
@@ -3485,7 +4789,7 @@ mod canonical_server_unit {
                 .bind(("key", candidate.descriptor.version.clone()))
                 .bind((
                     "kind",
-                    crate::canonical_staging::PRODUCT_BLOB_KIND.to_owned(),
+                    crate::canonical_staging::BODY_CONTENT_KIND.to_owned(),
                 )),
         )
         .await
@@ -3520,12 +4824,22 @@ mod canonical_server_unit {
         let mut proposed = product(&fresh, b"fenced payload");
         proposed.key = "fenced-product".into();
         let dependencies = serde_json::to_vec(&fresh.dependencies()).unwrap();
-        let (descriptor, edit) =
-            crate::canonical_staging::product_blob(proposed.payload.as_slice(), &dependencies)
-                .unwrap();
+        let payload = proposed.payload.clone();
+        let descriptor = crate::canonical_staging::ProductBlob::from_parts(
+            payload.as_slice(),
+            &dependencies,
+            &proposed.producer,
+        )
+        .unwrap();
         proposed.payload = serde_json::to_vec(&descriptor).unwrap().into();
         let stage = store
-            .stage_product_blob("p", &proposed.key, edit)
+            .stage_product_parts(
+                "p",
+                &proposed.key,
+                &descriptor,
+                payload.as_slice(),
+                &dependencies,
+            )
             .await
             .unwrap()
             .unwrap();

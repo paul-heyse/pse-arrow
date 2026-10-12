@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import fcntl
 import hashlib
 import json
 import os
@@ -27,19 +26,17 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict, cast, overload
 
 from scripts import host_admission as host
 from scripts import native_operation as operation
+from scripts import resource_store
+from scripts.resource_store import StoreError as ResourceError
 
 if TYPE_CHECKING:
-    from collections.abc import Generator, Mapping, Sequence
+    from collections.abc import Callable, Generator, Mapping, Sequence
     from io import BufferedReader
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "PSE_TEST_INVOCATION"
 IDENTIFIER = re.compile(r"[a-f0-9]{32}")
 DATABASE = re.compile(r"canonical_test_(?:[a-z0-9_]{1,48}_)?[a-f0-9]{32}")
-
-
-class ResourceError(ValueError):
-    """Ownership, outcome or retention could not be established."""
 
 
 class ProcessIdentity(TypedDict):
@@ -97,12 +94,8 @@ class ResourceRecord(TypedDict, total=False):
     artifact_policy_version: int
     artifact_manifest: ReportManifest
     provenance_verified: bool
-
-
-class ResourceLedger(TypedDict):
-    version: int
-    owners: dict[str, ResourceRecord]
-    report_cleanup_cursor: NotRequired[str]
+    creation_borrower: NotRequired[ProcessIdentity]
+    terminal_identity: NotRequired[str]
 
 
 class InvocationRecord(TypedDict):
@@ -114,95 +107,89 @@ class InvocationRecord(TypedDict):
     collection_owner: NotRequired[ProcessIdentity]
 
 
-def completed_record(resource: str) -> Path:
-    if not IDENTIFIER.fullmatch(resource):
-        raise ResourceError("Invalid resource identity")
-    return registry() / "completed" / f"{resource}.json"
+def storage() -> resource_store.FileStore:
+    return resource_store.FileStore(registry())
 
 
-def report_index(directory: Path) -> Path:
-    key = hashlib.sha256(str(directory.resolve()).encode()).hexdigest()
-    return registry() / "reports" / f"{key}.json"
+def resource_phase(record: ResourceRecord) -> str:
+    settled = (
+        record.get("drained") is True
+        and record.get("pin") is False
+        and record.get("references") == {}
+        and record.get("borrows") == {}
+        and not record.get("creation_borrower")
+        and (record.get("disposition") == "pass" or record.get("explicit_release"))
+    )
+    if settled and record.get("cleanup") == "removed":
+        return "disposed"
+    if (
+        settled
+        and record.get("cleanup") == "compacted"
+        and record.get("kind") == "evidence"
+    ):
+        return "cold"
+    return "active"
 
 
-def private_record(path: Path) -> dict[str, object]:
-    host.protected(path.parent)
-    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-    with os.fdopen(descriptor) as source:
-        host.validate_private_file(os.fstat(source.fileno()), "resource record")
-        value = json.load(source)
-    if not isinstance(value, dict):
-        raise ResourceError("Invalid exact resource record")
-    return value
+def validate_resource(record: object) -> ResourceRecord:
+    if not isinstance(record, dict):
+        raise ResourceError("Invalid resource authority")
+    if (
+        any(
+            not isinstance(record.get(key), str)
+            for key in ("state", "database", "kind", "cleanup", "disposition")
+        )
+        or type(record.get("pin")) is not bool
+        or type(record.get("drained")) is not bool
+        or record["kind"] not in {"database", "controls", "evidence"}
+        or record["cleanup"] not in {"retained", "removing", "removed", "compacted"}
+        or record["disposition"] not in {"incomplete", "pass", "failure"}
+        or not isinstance(record.get("references"), dict)
+        or not isinstance(record.get("borrows"), dict)
+        or not isinstance(record.get("units"), list)
+    ):
+        raise ResourceError("Unknown resource ownership or disposition information")
+    for key in ("references", "borrows", "artifacts"):
+        if key in record and not isinstance(record[key], dict):
+            raise ResourceError("Unknown resource reference or artifact information")
+    if "units" in record and not isinstance(record["units"], list):
+        raise ResourceError("Invalid resource drain owners")
+    return cast("ResourceRecord", record)
 
 
-def write_report_index(resource: str, record: ResourceRecord) -> None:
-    path = report_index(Path(record["state"]))
-    host.protected(path.parent)
-    if path.exists():
-        if private_record(path) != {"resource": resource, "state": record["state"]}:
-            raise ResourceError("Report directory has another ownership identity")
-        return
-    operation.write_json(path, {"resource": resource, "state": record["state"]})
+def entry_facts(entry: resource_store.Entry) -> ResourceRecord:
+    record = validate_resource(entry.facts)
+    if [record["state"], record["database"], record["kind"]] != entry.identity:
+        raise ResourceError("Resource facts contradict logical identity")
+    return record
 
 
 @contextlib.contextmanager
-def resource_metadata(
-    selected: str | None = None,
-) -> Generator[ResourceLedger, None, None]:
-    """Hot coordination owns active resources; completed evidence has exact lookup.
-
-    No completed-history scan occurs here. A referenced report is promoted while
-    it is in use; its sealed ownership remains available without burdening every
-    fixture registration/finalization. Removed disposable resources have no
-    remaining consumer and leave no record.
-    """
-    with host.metadata(registry()) as ledger:
-        owners = ledger.get("owners")
-        if not isinstance(owners, dict) or any(
-            not isinstance(value, dict) for value in owners.values()
-        ):
-            raise ResourceError("Invalid resource ledger ownership records")
-        if selected is not None and selected not in owners:
-            path = completed_record(selected)
-            if path.exists():
-                owners[selected] = private_record(path)
-        for record in owners.values():
-            for key in ("references", "borrows", "artifacts"):
-                if key in record and not isinstance(record[key], dict):
-                    raise ResourceError(
-                        "Unknown resource reference or artifact information"
-                    )
-            if "units" in record and not isinstance(record["units"], list):
-                raise ResourceError("Invalid resource drain owners")
-        yield cast("ResourceLedger", ledger)
-        for resource, record in list(owners.items()):
-            settled = (
-                record.get("drained") is True
-                and record.get("pin") is False
-                and record.get("references") == {}
-                and record.get("borrows") == {}
-                and (
-                    record.get("disposition") == "pass"
-                    or record.get("explicit_release")
-                )
-            )
-            cold = completed_record(resource)
-            if settled and record.get("cleanup") == "removed":
-                del owners[resource]
-                cold.unlink(missing_ok=True)
-            elif (
-                settled
-                and record.get("cleanup") == "compacted"
-                and record.get("kind") == "evidence"
-            ):
-                write_report_index(resource, cast("ResourceRecord", record))
-                host.protected(cold.parent)
-                operation.write_json(cold, record)
-                del owners[resource]
-    # A promoted owner may retain its previous completed snapshot. The committed
-    # hot record is authoritative until demotion overwrites that exact snapshot.
-    # Deleting it after releasing metadata exclusion could race with demotion.
+def resource_update(
+    resource: str, *, deadline: float | None = None
+) -> Generator[ResourceRecord, None, None]:
+    try:
+        with storage().edit(resource, deadline=deadline) as entry:
+            if entry.phase == "disposed":
+                raise ResourceError("Unknown resource identity")
+            record = entry_facts(entry)
+            identity = [
+                str(record["state"]),
+                str(record["database"]),
+                str(record["kind"]),
+            ]
+            if identity != entry.identity:
+                raise ResourceError("Resource facts contradict logical identity")
+            yield record
+            if [
+                str(record["state"]),
+                str(record["database"]),
+                str(record["kind"]),
+            ] != identity:
+                raise ResourceError("Resource update cannot replace logical identity")
+            entry.phase = resource_phase(record)
+    except FileNotFoundError as error:
+        raise ResourceError("Unknown resource identity") from error
 
 
 def cli_json(
@@ -238,6 +225,14 @@ def cli_json(
 
 
 def registry() -> Path:
+    selected = os.environ.get("PSE_TEST_RESOURCE_STATE")
+    if selected:
+        path = Path(selected)
+        if not path.is_absolute():
+            raise ResourceError(
+                "PSE_TEST_RESOURCE_STATE must be an absolute private directory"
+            )
+        return path
     return host.root_path().parent / "test-resources"
 
 
@@ -252,16 +247,15 @@ def invocation(
     host.protected(directory)
     nonce = uuid.uuid4().hex
     path = directory / f"{nonce}.json"
-    operation.write_json(
-        path,
-        {
-            "version": 1,
-            "nonce": nonce,
-            "kind": kind,
-            "selected": list(selected),
-            "terminal_owner": terminal_owner,
-        },
-    )
+    declaration = {
+        "version": 1,
+        "nonce": nonce,
+        "kind": kind,
+        "selected": list(selected),
+        "terminal_owner": terminal_owner,
+    }
+    storage().create_invocation(declaration)
+    resource_store.publish(path, declaration)
     return path
 
 
@@ -293,18 +287,29 @@ def read_invocation(path: Path) -> InvocationRecord:
     return cast("InvocationRecord", record)
 
 
+def publish_selection(path: Path, selected: Sequence[Mapping[str, str]]) -> None:
+    declaration = read_invocation(path)
+    with storage().invocation_edit(declaration["nonce"]) as state:
+        if state["phase"] != "open":
+            raise ResourceError("Frozen invocation cannot change selection")
+        current = state["declaration"]
+        if current != declaration:
+            raise ResourceError("Invocation selection differs from its authority")
+        if current["selected"] and current["selected"] != list(selected):
+            raise ResourceError("Runner inventory differs from selected invocation")
+        declaration["selected"] = [dict(item) for item in selected]
+        resource_store.publish(path, declaration)
+        state["declaration"] = dict(declaration)
+
+
 def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
-    """Freeze one collector's catalog; nested collectors may only consume subsets."""
-    descriptor = os.open(
-        path.with_suffix(".collection.lock"),
-        os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC,
-        0o600,
-    )
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
-        record = read_invocation(path)
-        if record["kind"] != "python":
-            raise ResourceError("Python collector requires its Python invocation")
+    """Publish through the same invocation exclusion as registration and freeze."""
+    record = read_invocation(path)
+    with storage().invocation_edit(record["nonce"]) as state:
+        if state["phase"] != "open" or record["kind"] != "python":
+            raise ResourceError("Python collector requires an open Python invocation")
+        if state["declaration"] != record:
+            raise ResourceError("Invocation declaration differs from its authority")
         selected = [{"name": identity} for identity in identities]
         if len(set(identities)) != len(identities):
             raise ResourceError("Python collection contains duplicate identities")
@@ -320,7 +325,8 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
                     "Python collector differs from its selected invocation"
                 )
             record.update(selected=selected, collection_owner=collector)
-            operation.write_json(path, record)
+            resource_store.publish(path, record)
+            state["declaration"] = dict(record)
             return True
         if owner == collector:
             if record["selected"] != selected:
@@ -333,15 +339,15 @@ def publish_python_collection(path: Path, identities: Sequence[str]) -> bool:
                 "Nested Python collection is outside its owning invocation"
             )
         return False
-    finally:
-        os.close(descriptor)
 
 
-def selected_test(payload: Mapping[str, object]) -> tuple[str | None, str | None]:
+def selected_test(
+    payload: Mapping[str, object], *, declaration: InvocationRecord | None = None
+) -> tuple[str | None, str | None]:
     path = os.environ.get(MARKER)
     if not path:
         return None, None
-    record = read_invocation(Path(path))
+    record = declaration if declaration is not None else read_invocation(Path(path))
     test = str(payload.get("test", ""))
     if record["kind"] == "rust":
         parent = os.getppid()
@@ -371,10 +377,13 @@ def selected_test(payload: Mapping[str, object]) -> tuple[str | None, str | None
     return record["nonce"], test
 
 
-def register(payload: Mapping[str, object]) -> str:
+def register(payload: Mapping[str, object], *, deadline: float | None = None) -> str:
+    deadline = resource_store.clock(deadline)
     if os.environ.get("PSE_TEST_EXECUTION_EFFECTS") == "native-local":
         raise ResourceError("Canonical fixture requires --execution-effects canonical")
-    nonce, test = selected_test(payload)
+    marker = os.environ.get(MARKER)
+    declaration = read_invocation(Path(marker)) if marker else None
+    nonce, test = selected_test(payload, declaration=declaration)
     state = Path(str(payload["state"])).resolve(strict=True)
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
@@ -387,7 +396,6 @@ def register(payload: Mapping[str, object]) -> str:
     kind = str(payload.get("kind", "database"))
     if kind not in {"database", "controls", "evidence"}:
         raise ResourceError("Unknown retention class")
-    resource = uuid.uuid4().hex
     control = payload.get("directory")
     if control is not None:
         path = Path(str(control))
@@ -414,7 +422,9 @@ def register(payload: Mapping[str, object]) -> str:
             config = surreal_server.config_for(state)
     # Demand/startup IPC precedes publication. The short service admission gate
     # makes every borrower visible before a lifecycle reservation can begin.
-    with surreal_server.context_admission(state):
+    with surreal_server.context_admission(
+        state, deadline=deadline, wait_for_lifecycle=False
+    ):
         current = surreal_server.config_for(state)
         if current != config:
             raise ResourceError(
@@ -425,36 +435,40 @@ def register(payload: Mapping[str, object]) -> str:
         generation, namespace = current["instance_id"], current["namespace"]
         if not isinstance(generation, str) or not isinstance(namespace, str):
             raise ResourceError("Invalid service generation or namespace")
-        with resource_metadata() as ledger:
-            for existing in ledger["owners"].values():
-                if (
-                    existing["state"] == str(state)
-                    and existing["database"] == database
-                    and existing["kind"] == kind
-                ):
-                    raise ResourceError("Fixture identity already registered")
-            ledger["owners"][resource] = {
-                "pid": os.getppid() if payload.get("executable") else os.getpid(),
-                "start": operation.start_identity(
-                    os.getppid() if payload.get("executable") else os.getpid()
-                ),
-                "boot": host.boot(),
-                "invocation": nonce,
-                "test": test,
-                "state": str(state),
-                "service_generation": generation,
-                "namespace": namespace,
-                "database": database,
-                "kind": kind,
-                "directory": str(control) if control else None,
-                "units": units,
-                "drained": False,
-                "disposition": "incomplete",
-                "pin": True,
-                "references": {},
-                "borrows": {},
-                "cleanup": "retained",
-            }
+        facts = {
+            "pid": os.getppid() if payload.get("executable") else os.getpid(),
+            "start": operation.start_identity(
+                os.getppid() if payload.get("executable") else os.getpid()
+            ),
+            "boot": host.boot(),
+            "invocation": nonce,
+            "test": test,
+            "state": str(state),
+            "service_generation": generation,
+            "namespace": namespace,
+            "database": database,
+            "kind": kind,
+            "directory": str(control) if control else None,
+            "units": units,
+            "drained": False,
+            "disposition": "incomplete",
+            "pin": True,
+            "references": {},
+            "borrows": {},
+            "cleanup": "retained",
+        }
+        facts["creation_borrower"] = {
+            "pid": facts["pid"],
+            "start": facts["start"],
+            "boot": facts["boot"],
+        }
+        resource = storage().register(
+            [str(state), database, kind],
+            facts,
+            invocation=nonce,
+            declaration=declaration,
+            deadline=deadline,
+        )
     profile = payload.get("execution_profile")
     if profile is not None:
         worker = payload.get("worker")
@@ -478,66 +492,149 @@ def borrower_alive(record: Mapping[str, object]) -> bool:
 
 
 def record_drain(
-    resource: str, *, units: Sequence[Mapping[str, str | int]] = ()
+    resource: str,
+    *,
+    units: Sequence[Mapping[str, str | int]] = (),
+    deadline: float | None = None,
 ) -> None:
-    with resource_metadata() as ledger:
-        record = ledger["owners"].get(resource)
-        if not isinstance(record, dict):
-            raise ResourceError("Unknown fixture resource")
+    with resource_update(resource, deadline=deadline) as record:
         record["drained"] = True
+        record.pop("creation_borrower", None)
         record["units"] = [
             cast("ResourceUnit", dict(unit)) for unit in units
         ] or record["units"]
 
 
 def finalize(
-    path: Path, outcomes: Mapping[str, str], *, complete: bool, terminal_owner: str
+    path: Path,
+    outcomes: Mapping[str, str],
+    *,
+    complete: bool,
+    terminal_owner: str,
+    terminal: Mapping[str, object] | None = None,
+    deadline: float | None = None,
+    on_frozen: Callable[[], None] | None = None,
 ) -> list[str]:
-    invocation_record = read_invocation(path)
-    if invocation_record["terminal_owner"] != terminal_owner:
+    deadline = resource_store.clock(deadline)
+    declaration = read_invocation(path)
+    if declaration["terminal_owner"] != terminal_owner:
         raise ResourceError(
             "Only the selected terminal reconciler may finalize resources"
         )
+    selected = {
+        item["binary_id"] + "::" + item["name"]
+        if declaration["kind"] == "rust"
+        else item["name"]
+        for item in declaration["selected"]
+    }
+    if set(outcomes) - selected or any(
+        value not in {"pass", "failure", "incomplete"} for value in outcomes.values()
+    ):
+        raise ResourceError("Terminal outcomes differ from selected catalog")
+    frozen = {
+        "selection": resource_store.digest(declaration["selected"]),
+        "terminal_owner": terminal_owner,
+        "complete": complete,
+        "outcomes": dict(outcomes),
+        "evidence": dict(terminal or {}),
+    }
+    members = storage().freeze(
+        declaration["nonce"],
+        frozen,
+        declaration=declaration,
+        deadline=deadline,
+        **({"on_frozen": on_frozen} if on_frozen is not None else {}),
+    )
+    identity = resource_store.digest(frozen)
     eligible = []
-    with resource_metadata() as ledger:
-        for resource, record in ledger["owners"].items():
-            if record["invocation"] != invocation_record["nonce"]:
-                continue
-            disposition = (
-                outcomes.get(record["test"] or "", "incomplete")
-                if complete
-                else "incomplete"
-            )
-            record["disposition"] = disposition
-            record["pin"] = disposition != "pass" or bool(record.get("manual_pin"))
-            if disposition == "pass" and record["drained"]:
+    for resource in members:
+        with storage().edit(resource, deadline=deadline) as entry:
+            record = entry_facts(entry)
+            if record.get("invocation") != declaration["nonce"]:
+                raise ResourceError(
+                    "Invocation membership contradicts resource association"
+                )
+            prior = record.get("terminal_identity")
+            if prior is not None and prior != identity:
+                raise ResourceError(
+                    "Resource already projected another terminal identity"
+                )
+            if prior is None:
+                disposition = (
+                    outcomes.get(record.get("test") or "", "incomplete")
+                    if complete
+                    else "incomplete"
+                )
+                record.update(
+                    disposition=disposition,
+                    pin=disposition != "pass" or bool(record.get("manual_pin")),
+                    terminal_identity=identity,
+                )
+            entry.phase = resource_phase(record)
+            if (
+                entry.phase != "disposed"
+                and record["disposition"] == "pass"
+                and record["drained"]
+                and not record.get("creation_borrower")
+            ):
                 eligible.append(resource)
+    with storage().invocation_edit(declaration["nonce"], deadline=deadline) as state:
+        state["projection"] = "complete"
     return eligible
 
 
-@overload
-def resource_status(resource: str) -> ResourceRecord: ...
+def resume_projection(
+    path: Path, *, terminal_owner: str, deadline: float | None = None
+) -> list[str]:
+    """Project the authentic frozen composition without collecting a newer report."""
+    deadline = resource_store.clock(deadline)
+    declaration = read_invocation(path)
+    _identity, frozen = storage().terminal(declaration["nonce"], deadline=deadline)
+    return finalize(
+        path,
+        frozen["outcomes"],
+        complete=frozen["complete"],
+        terminal_owner=terminal_owner,
+        terminal=frozen["evidence"],
+        deadline=deadline,
+    )
 
 
 @overload
-def resource_status(resource: None = None) -> dict[str, ResourceRecord]: ...
+def resource_status(
+    resource: str, *, deadline: float | None = None
+) -> ResourceRecord: ...
+
+
+@overload
+def resource_status(
+    resource: None = None, *, deadline: float | None = None
+) -> dict[str, ResourceRecord]: ...
 
 
 def resource_status(
-    resource: str | None = None,
+    resource: str | None = None, *, deadline: float | None = None
 ) -> ResourceRecord | dict[str, ResourceRecord]:
-    with resource_metadata(resource) as ledger:
-        owners = ledger["owners"]
-        if resource is not None:
-            if resource not in owners:
-                raise ResourceError("Unknown resource identity")
-            return owners[resource].copy()
-        return dict(owners)
+    deadline = resource_store.clock(deadline)
+    store = storage()
+    if resource is not None:
+        try:
+            entry = store.lookup(resource, deadline=deadline)
+        except FileNotFoundError as error:
+            raise ResourceError("Unknown resource identity") from error
+        if entry.phase == "disposed":
+            raise ResourceError("Unknown resource identity")
+        return entry_facts(entry).copy()
+    result = {}
+    for resource in store.active_ids(deadline=deadline):
+        entry = store.lookup(resource, deadline=deadline)
+        if entry.phase == "active":
+            result[resource] = entry_facts(entry).copy()
+    return result
 
 
-def pin(resource: str, retain: bool) -> None:
-    with resource_metadata(resource) as ledger:
-        record = ledger["owners"].get(resource)
+def pin(resource: str, retain: bool, *, deadline: float | None = None) -> None:
+    with resource_update(resource, deadline=deadline) as record:
         if not isinstance(record, dict) or record["cleanup"] == "removing":
             raise ResourceError("Unknown resource or reclamation already owns it")
         record["pin"] = retain
@@ -546,10 +643,12 @@ def pin(resource: str, retain: bool) -> None:
 
 
 @contextlib.contextmanager
-def borrow(resource: str) -> Generator[str, None, None]:
+def borrow(
+    resource: str, *, deadline: float | None = None
+) -> Generator[str, None, None]:
+    deadline = resource_store.clock(deadline)
     token = uuid.uuid4().hex
-    with resource_metadata(resource) as ledger:
-        record = ledger["owners"].get(resource)
+    with resource_update(resource, deadline=deadline) as record:
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError(
                 "Origin is unknown or unavailable for reference acquisition"
@@ -561,24 +660,26 @@ def borrow(resource: str) -> Generator[str, None, None]:
     try:
         yield token
     finally:
-        with resource_metadata(resource) as ledger:
-            ledger["owners"][resource]["borrows"].pop(token, None)
+        with resource_update(resource, deadline=deadline) as record:
+            record["borrows"].pop(token, None)
 
 
-def retain_reference(resource: str, receipt: str, digest: str) -> None:
+def retain_reference(
+    resource: str, receipt: str, digest: str, *, deadline: float | None = None
+) -> None:
     if not re.fullmatch(r"[a-f0-9]{64}", digest):
         raise ResourceError("Reference requires original receipt digest")
-    with resource_metadata(resource) as ledger:
-        record = ledger["owners"].get(resource)
+    with resource_update(resource, deadline=deadline) as record:
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
             raise ResourceError("Origin reference information is unavailable")
         record["references"][receipt] = digest
 
 
-def release_reference(resource: str, receipt: str, digest: str) -> None:
+def release_reference(
+    resource: str, receipt: str, digest: str, *, deadline: float | None = None
+) -> None:
     """Explicitly retire one exact evidence dependency; pins/drain still apply."""
-    with resource_metadata(resource) as ledger:
-        record = ledger["owners"].get(resource)
+    with resource_update(resource, deadline=deadline) as record:
         if not isinstance(record, dict) or record["cleanup"] == "removing":
             raise ResourceError("Unknown origin or reclamation already owns it")
         if record["references"].get(receipt) != digest:
@@ -586,8 +687,11 @@ def release_reference(resource: str, receipt: str, digest: str) -> None:
         del record["references"][receipt]
 
 
-def register_report(directory: Path, *, root: Path = ROOT) -> str:
+def register_report(
+    directory: Path, *, root: Path = ROOT, deadline: float | None = None
+) -> str:
     """Register this new assessment's owned evidence, preserving unknown old reports."""
+    deadline = resource_store.clock(deadline)
     selected = directory.absolute()
     if (
         not selected.is_relative_to(root.resolve() / "build")
@@ -596,84 +700,71 @@ def register_report(directory: Path, *, root: Path = ROOT) -> str:
         or not selected.is_dir()
     ):
         raise ResourceError("Assessment evidence must be a new owned build directory")
-    resource = uuid.uuid4().hex
-    with resource_metadata() as ledger:
-        if report_index(selected).exists() or any(
-            record.get("state") == str(selected) for record in ledger["owners"].values()
-        ):
-            raise ResourceError("Assessment evidence already has an owner")
-        identity = selected.stat()
-        ledger["owners"][resource] = {
-            "pid": os.getpid(),
-            "start": operation.start_identity(os.getpid()),
-            "boot": host.boot(),
-            "invocation": None,
-            "test": None,
-            "state": str(selected),
-            "kind": "evidence",
-            "owner_root": str(root.resolve()),
-            "directory_identity": [identity.st_dev, identity.st_ino],
-            "database": "",
-            "directory": None,
-            "units": [],
-            "drained": False,
-            "disposition": "incomplete",
-            "pin": True,
-            "references": {},
-            "borrows": {},
-            "cleanup": "retained",
-            "artifacts": {},
-            "artifact_policy_version": 1,
-            "provenance_verified": False,
-        }
-        write_report_index(resource, ledger["owners"][resource])
-    return resource
+    identity = selected.stat()
+    facts = {
+        "pid": os.getpid(),
+        "start": operation.start_identity(os.getpid()),
+        "boot": host.boot(),
+        "invocation": None,
+        "test": None,
+        "state": str(selected),
+        "kind": "evidence",
+        "owner_root": str(root.resolve()),
+        "directory_identity": [identity.st_dev, identity.st_ino],
+        "database": "",
+        "directory": None,
+        "units": [],
+        "drained": False,
+        "disposition": "incomplete",
+        "pin": True,
+        "references": {},
+        "borrows": {},
+        "cleanup": "retained",
+        "artifacts": {},
+        "artifact_policy_version": 1,
+        "provenance_verified": False,
+    }
+    return storage().register(
+        [str(selected), "", "evidence"], facts, invocation=None, deadline=deadline
+    )
 
 
-def report_resource(directory: Path) -> str | None:
-    selected = str(directory.resolve())
-    with resource_metadata() as ledger:
-        matches = [
-            resource
-            for resource, record in ledger["owners"].items()
-            if record.get("kind") == "evidence" and record["state"] == selected
-        ]
-        index = report_index(directory)
-        if index.exists():
-            indexed = private_record(index)
-            resource = indexed.get("resource")
-            if indexed.get("state") != selected or not isinstance(resource, str):
-                raise ResourceError("Invalid report ownership index")
-            if resource not in matches:
-                matches.append(resource)
-    if len(matches) > 1:
-        raise ResourceError("Ambiguous report ownership")
-    return matches[0] if matches else None
+def report_resource(directory: Path, *, deadline: float | None = None) -> str | None:
+    return storage().identity_lookup(
+        [str(directory.resolve()), "", "evidence"], deadline=deadline
+    )
 
 
 @contextlib.contextmanager
-def borrow_report(directory: Path) -> Generator[None, None, None]:
+def borrow_report(
+    directory: Path, *, deadline: float | None = None
+) -> Generator[None, None, None]:
     """Protect a bounded display read without creating a retained dependency."""
-    resource = report_resource(directory)
+    deadline = resource_store.clock(deadline)
+    resource = report_resource(directory, deadline=deadline)
     if resource is None:
         yield  # Historical unknown reports cannot be reclaimed by this owner.
     else:
-        with borrow(resource):
+        with borrow(resource, deadline=deadline):
             yield
 
 
 @contextlib.contextmanager
 def reference_report(
-    directory: Path, consumer: Path | None
+    directory: Path,
+    consumer: Path | None,
+    *,
+    deadline: float | None = None,
 ) -> Generator[None, None, None]:
     """Borrow a registered origin before reading; transfer protection before release."""
-    resource = report_resource(directory)
+    deadline = resource_store.clock(deadline)
+    resource = report_resource(directory, deadline=deadline)
     if resource is None:
         raise ResourceError(
             "Origin requires qualified ownership and a sealed receipt before reuse"
         )
-    with borrow(resource):
-        selected = resource_status(resource)
+    with borrow(resource, deadline=deadline):
+        selected = resource_status(resource, deadline=deadline)
         manifest = report_manifest(selected)
         if selected.get("artifact_policy_version") != 1 or manifest is None:
             raise ResourceError("Origin lacks an unchanged sealed receipt")
@@ -687,7 +778,9 @@ def reference_report(
             digest = file_digest(directory / "checks.json")
             if digest != original_digest:
                 raise ResourceError("Origin receipt changed during reference transfer")
-            retain_reference(resource, str(consumer.resolve()), digest)
+            retain_reference(
+                resource, str(consumer.resolve()), digest, deadline=deadline
+            )
 
 
 ARTIFACT_ROLES = frozenset({"receipt", "provenance", "evidence", "scratch", "unknown"})
@@ -901,9 +994,11 @@ def finish_report(
     *,
     roles: Mapping[str, str],
     required_provenance: Sequence[str],
+    deadline: float | None = None,
 ) -> None:
     """Seal producer-declared meaning once; no suffix or filename disposal policy."""
-    selected = resource_status(resource)
+    deadline = resource_store.clock(deadline)
+    selected = resource_status(resource, deadline=deadline)
     directory = Path(selected["state"])
     if (
         selected.get("artifact_policy_version") != 1
@@ -973,13 +1068,14 @@ def finish_report(
     units: list[ResourceUnit] = []
     allocation = host.inherit(os.environ)
     if allocation is not None:
-        with host.allocation_metadata(allocation.directory) as owners:
+        with host.allocation_metadata(
+            allocation.directory, deadline=deadline
+        ) as owners:
             units = [
                 {"unit": name, **bound}
                 for name, bound in owners["owners"][allocation.nonce]["units"].items()
             ]
-    with resource_metadata(resource) as ledger:
-        record = ledger["owners"][resource]
+    with resource_update(resource, deadline=deadline) as record:
         if "artifact_manifest" in record or record["cleanup"] != "retained":
             raise ResourceError("Report manifest was concurrently sealed or reserved")
         record.update(
@@ -994,38 +1090,52 @@ def finish_report(
 
 
 def reclaim_reports() -> list[str]:
-    """Bounded opportunities to compact new successful, actually drained reports."""
-    deadline = __import__("time").monotonic() + 5
-    with resource_metadata() as ledger:
-        available = sorted(
-            resource
-            for resource, record in ledger["owners"].items()
-            if record.get("kind") == "evidence"
-            and record.get("disposition") == "pass"
-            and not record.get("pin", True)
-            and record.get("cleanup") == "retained"
-            and record.get("references") == {}
-            and record.get("borrows") == {}
+    """Explicit bounded retry of eligible reports and deferred database cleanup."""
+    deadline = resource_store.clock()
+    store = storage()
+    store.ensure(deadline)
+    cursor_path = registry() / "cleanup-cursor.json"
+    with store.lock("sweeps", "cleanup", deadline):
+        cursor = (
+            resource_store.read(cursor_path).get("after", "")
+            if cursor_path.exists()
+            else ""
         )
-        cursor = ledger.get("report_cleanup_cursor", "")
-        candidates = (
-            [resource for resource in available if resource > cursor]
-            + [resource for resource in available if resource <= cursor]
-        )[:4]
+        candidates = []
+        visited = store.active_ids(limit=64, after=str(cursor), deadline=deadline)
+        for resource in visited:
+            record = resource_status(resource, deadline=deadline)
+            if (
+                record.get("disposition") == "pass"
+                and not record.get("pin", True)
+                and not record.get("references")
+                and not record.get("borrows")
+            ):
+                candidates.append(resource)
+                if len(candidates) == 4:
+                    break
         if candidates:
-            ledger["report_cleanup_cursor"] = candidates[-1]
+            resource_store.publish(cursor_path, {"after": candidates[-1]})
+        elif visited:
+            resource_store.publish(cursor_path, {"after": visited[-1]})
     errors = []
     for resource in candidates:
-        if __import__("time").monotonic() >= deadline:
-            break
         try:
-            reclaim(resource)
+            record = resource_status(resource, deadline=deadline)
+            if (
+                record.get("disposition") != "pass"
+                or record.get("pin", True)
+                or record.get("references")
+                or record.get("borrows")
+            ):
+                continue
+            reclaim(resource, deadline=deadline)
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             errors.append(f"{resource}: {error}")
     return errors
 
 
-def remove_report(record: ResourceRecord) -> None:
+def remove_report(record: ResourceRecord, *, deadline: float | None = None) -> None:
     """Remove only sealed scratch, after checking all retained provenance and evidence."""
     manifest = report_manifest(record)
     if manifest is None:
@@ -1035,6 +1145,8 @@ def remove_report(record: ResourceRecord) -> None:
         # is allowed only for resuming an earlier interrupted cleanup.
         verify_manifest_files(descriptor, manifest)
         for relative, expected in manifest["entries"].items():
+            if deadline is not None:
+                host.remaining(deadline, 1)
             if expected["role"] != "scratch":
                 continue
             try:
@@ -1062,7 +1174,11 @@ def remove_report(record: ResourceRecord) -> None:
                 continue
 
 
-def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
+def eligible(
+    record: ResourceRecord, *, check_units: bool = True, deadline: float | None = None
+) -> str | None:
+    if record.get("creation_borrower"):
+        return "fixture borrowers not drained"
     if record["pin"]:
         return "retention pin"
     if record["disposition"] != "pass" and not record.get("explicit_release"):
@@ -1079,7 +1195,10 @@ def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
         return "protected reference or active borrow"
     if check_units:
         for owner in record["units"]:
-            observed = operation.drained({"scope": owner})
+            observed = operation.drained(
+                {"scope": owner},
+                **({"deadline": deadline} if deadline is not None else {}),
+            )
             if not observed.complete:
                 return "supervised descendant not drained: " + observed.diagnostic()
     if record["kind"] == "evidence" and "owner_root" in record:
@@ -1100,14 +1219,16 @@ def eligible(record: ResourceRecord, *, check_units: bool = True) -> str | None:
     return None
 
 
-def remove_owned(record: ResourceRecord) -> None:
+def remove_owned(record: ResourceRecord, *, deadline: float | None = None) -> None:
     if record["kind"] == "evidence":
-        remove_report(record)
+        remove_report(record, deadline=deadline)
         return
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     state = Path(record["state"])
-    config = surreal_server.config_for(state)
+    config = surreal_server.config_for(
+        state, **({"deadline": deadline} if deadline is not None else {})
+    )
     if (
         config["instance_id"] != record["service_generation"]
         or config["namespace"] != record["namespace"]
@@ -1117,7 +1238,9 @@ def remove_owned(record: ResourceRecord) -> None:
             "Service generation or disposable database ownership changed"
         )
     if record["kind"] == "database":
-        remove_database(record, config)
+        remove_database(
+            record, config, **({"deadline": deadline} if deadline is not None else {})
+        )
     directory = record.get("directory")
     if directory:
         path = Path(directory)
@@ -1133,10 +1256,18 @@ def remove_owned(record: ResourceRecord) -> None:
     context.unlink(missing_ok=True)
 
 
-def remove_database(record: Mapping[str, object], config: Mapping[str, object]) -> None:
+def remove_database(
+    record: Mapping[str, object],
+    config: Mapping[str, object],
+    *,
+    deadline: float | None = None,
+) -> None:
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
-    credentials = surreal_server.read_json(Path(str(config["credentials_file"])))
+    credentials = surreal_server.read_json(
+        Path(str(config["credentials_file"])),
+        **({"deadline": deadline} if deadline is not None else {}),
+    )
     environment = {
         key: value
         for key, value in os.environ.items()
@@ -1167,7 +1298,7 @@ def remove_database(record: Mapping[str, object], config: Mapping[str, object]) 
         capture_output=True,
         text=True,
         check=False,
-        timeout=90,
+        timeout=90 if deadline is None else host.remaining(deadline, 90),
     )
     try:
         completed = cli_json(result.stdout, namespace=str(config["namespace"])) == [
@@ -1179,7 +1310,9 @@ def remove_database(record: Mapping[str, object], config: Mapping[str, object]) 
         raise ResourceError("Owned database cleanup failed; resource remains pinned")
 
 
-def cleanup_reason(record: ResourceRecord, *, check_units: bool = True) -> str | None:
+def cleanup_reason(
+    record: ResourceRecord, *, check_units: bool = True, deadline: float | None = None
+) -> str | None:
     if record["cleanup"] in {"removed", "compacted"}:
         return str(record["cleanup"])
     if record["cleanup"] == "removing":
@@ -1188,24 +1321,27 @@ def cleanup_reason(record: ResourceRecord, *, check_units: bool = True) -> str |
             return "unknown cleanup owner"
         if borrower_alive(cleaner):
             return "active cleanup owner"
-    return eligible(record, check_units=check_units)
+    return eligible(record, check_units=check_units, deadline=deadline)
 
 
-def reclaim(resource: str) -> str:
+def reclaim(resource: str, *, deadline: float | None = None) -> str:
+    bounded = deadline is not None
+    deadline = resource_store.clock(deadline)
     if not IDENTIFIER.fullmatch(resource):
         raise ResourceError("Release/reclaim selects an exact resource identity")
     try:
-        snapshot = resource_status(resource)
-    except ResourceError as error:
-        if str(error) != "Unknown resource identity":
-            raise
-        # Exact cleanup is idempotent after complete disposal, without retaining
-        # a tombstone. An absent identity grants no reference or write authority.
+        entry = storage().lookup(resource, deadline=deadline)
+    except FileNotFoundError as error:
+        raise ResourceError(
+            "Missing resource authority; disposal remains unproved"
+        ) from error
+    if entry.phase == "disposed":
+        # The stable resource authority, rather than absence, proves disposal.
         return "removed"
-    reason = cleanup_reason(snapshot)
+    snapshot = entry_facts(entry).copy()
+    reason = cleanup_reason(snapshot, deadline=deadline)
     if reason == "no disposable report artifacts":
-        with resource_metadata(resource) as ledger:
-            record = ledger["owners"].get(resource)
+        with resource_update(resource, deadline=deadline) as record:
             if record is None or record.get("units") != snapshot.get("units"):
                 raise ResourceError("Report drain ownership changed")
             current_reason = cleanup_reason(record, check_units=False)
@@ -1217,11 +1353,13 @@ def reclaim(resource: str) -> str:
         return reason
     if reason:
         return reason
+    if bounded and snapshot["kind"] != "evidence" and snapshot.get("directory"):
+        return "directory cleanup deferred outside the bounded terminal path"
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     state = Path(snapshot["state"])
     evidence = snapshot["kind"] == "evidence"
-    config = None if evidence else surreal_server.config_for(state)
+    config = None if evidence else surreal_server.config_for(state, deadline=deadline)
     if config is not None and (
         config.get("admission") != "open" or not config.get("accepting_writes")
     ):
@@ -1231,11 +1369,13 @@ def reclaim(resource: str) -> str:
     admission = (
         contextlib.nullcontext()
         if evidence
-        else surreal_server.context_admission(state)
+        else surreal_server.context_admission(
+            state, deadline=deadline, wait_for_lifecycle=False
+        )
     )
     with admission:
         if not evidence:
-            current = surreal_server.config_for(state)
+            current = surreal_server.config_for(state, deadline=deadline)
             if (
                 current != config
                 or current["instance_id"] != snapshot["service_generation"]
@@ -1248,8 +1388,7 @@ def reclaim(resource: str) -> str:
                 "accepting_writes"
             ):
                 raise ResourceError("Cleanup context admission is closed")
-        with resource_metadata(resource) as ledger:
-            record = ledger["owners"].get(resource)
+        with resource_update(resource, deadline=deadline) as record:
             if not isinstance(record, dict):
                 raise ResourceError("Unknown resource")
             reason = cleanup_reason(record, check_units=False)
@@ -1273,6 +1412,8 @@ def reclaim(resource: str) -> str:
                 if record.get(key) != snapshot.get(key):
                     raise ResourceError("Cleanup ownership changed during admission")
             record["cleanup"] = "removing"
+            if bounded:
+                record["pin"] = True
             record["cleaner"] = {
                 "pid": os.getpid(),
                 "start": operation.start_identity(os.getpid()),
@@ -1280,17 +1421,14 @@ def reclaim(resource: str) -> str:
             }
             selected = record.copy()
     try:
-        remove_owned(selected)
+        remove_owned(selected, **({"deadline": deadline} if bounded else {}))
     except Exception as error:
-        with resource_metadata(resource) as ledger:
-            ledger["owners"][resource].update(
-                cleanup="retained", pin=True, cleanup_error=str(error)
-            )
+        with resource_update(resource, deadline=deadline) as record:
+            record.update(cleanup="retained", pin=True, cleanup_error=str(error))
         raise
-    with resource_metadata(resource) as ledger:
-        ledger["owners"][resource]["cleanup"] = (
-            "compacted" if selected["kind"] == "evidence" else "removed"
-        )
+    with resource_update(resource, deadline=deadline) as record:
+        record["cleanup"] = "compacted" if selected["kind"] == "evidence" else "removed"
+        record["pin"] = False
     return "removed"
 
 
@@ -1307,13 +1445,36 @@ def main() -> int:
             "release",
             "release-reference",
             "reclaim",
+            "migrate",
+            "resume",
         ),
     )
     parser.add_argument("resource", nargs="?")
     parser.add_argument("--receipt")
     parser.add_argument("--digest")
+    parser.add_argument(
+        "--terminal-owner", choices=("runner", "standalone", "assessment")
+    )
     args = parser.parse_args()
-    if args.action in {"register", "drain"}:
+    if args.action == "migrate":
+        if not os.environ.get("PSE_TEST_RESOURCE_STATE"):
+            parser.error(
+                "migration requires an explicitly selected PSE_TEST_RESOURCE_STATE; inspect and authorize its existing content first"
+            )
+        storage().migrate()
+    elif args.action == "resume":
+        if not args.resource or not args.terminal_owner:
+            parser.error(
+                "resume requires the exact invocation path and --terminal-owner"
+            )
+        print(
+            json.dumps(
+                resume_projection(
+                    Path(args.resource), terminal_owner=args.terminal_owner
+                )
+            )
+        )
+    elif args.action in {"register", "drain"}:
         payload = json.load(sys.stdin)
         if args.action == "register":
             print(json.dumps({"resource": register(payload)}))

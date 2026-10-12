@@ -15,10 +15,10 @@ impl RunResult {
         }
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut header = super::result_export::Rows::<computation_runs::Row>::new(
             request,
-            &self.runtime.registry,
+            self.runtime.registry(),
             &pool,
             &cancel,
             &validation,
@@ -46,12 +46,12 @@ impl RunResult {
         let RunRequest::Shooting { problem, .. } = &self.request else {
             return Err(contract("shooting request mismatch"));
         };
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let report = match &self.report {
             Ok(RunReport::Shooting(report)) => Some(report.as_ref()),
             _ => None,
         };
-        let registry = &self.runtime.registry;
+        let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
         if super::ModelingTrajectory::relation_ids().contains(&request.relation)

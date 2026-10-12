@@ -127,17 +127,23 @@ impl Response {
 /// Peak declared matrix and library scratch capacity, checked before allocation.
 pub fn workspace_bytes(n: usize, np: usize) -> Option<usize> {
     use faer::linalg::temp_mat_scratch;
-    let scratch = rank_scratch(n)
-        .size_bytes()
-        .max(response_scratch(n, np).size_bytes());
-    temp_mat_scratch::<f64>(n, n)
-        .size_bytes()
-        .checked_mul(3)
-        .and_then(|b| b.checked_add(temp_mat_scratch::<f64>(n, np).size_bytes().checked_mul(5)?))
-        .and_then(|b| b.checked_add(n.checked_mul(4 * size_of::<usize>())?))
-        .and_then(|b| b.checked_add(scratch))
-        .and_then(|b| b.checked_add(n.checked_add(np)?.checked_mul(size_of::<SemanticId>())?))
-        .and_then(|b| b.checked_add(n.checked_mul(2 * size_of::<f64>())?))
+    n.checked_mul(np)?.checked_mul(5 * size_of::<f64>())?;
+    // Dense spectrum is explicitly bounded by the admitted workspace. Opaque
+    // sparse LU fill retains its conservative quadratic allowance independently.
+    SparseFactor::allowance(n)?
+        .checked_add(temp_mat_scratch::<f64>(n, n).size_bytes())?
+        .checked_add(temp_mat_scratch::<f64>(n, np).size_bytes().checked_mul(5)?)?
+        .checked_add(
+            faer::sparse::linalg::lu::supernodal::solve_in_place_scratch::<usize, f64>(
+                n,
+                np,
+                faer::Par::Seq,
+            )
+            .size_bytes(),
+        )?
+        .checked_add(rank_scratch(n).size_bytes())?
+        .checked_add(n.checked_add(np)?.checked_mul(size_of::<SemanticId>())?)?
+        .checked_add(n.checked_mul(2 * size_of::<f64>())?)
 }
 /// Numerical inputs from a qualified original point. `evaluate` must evaluate admitted
 /// First physical partials at this point, retaining compiler guard/selector checks.
@@ -162,13 +168,189 @@ pub struct Request<'a> {
     /// Maximum retained/scratch bytes.
     pub bytes: usize,
 }
-/// Solve `F_x X_p = -F_p`, then back-map to physical coordinates.
-/// # Errors
-/// Original feasibility/structure/neighborhood, rank, resource or backward-error failure.
-pub fn response(
+/// The independently withheld public response and optionally demanded predictor.
+#[derive(Debug)]
+pub struct Products {
+    /// Singular-value-qualified public physical response.
+    pub response: Result<Response, Withheld>,
+    /// Same-point sparse prediction product, absent unless explicitly demanded.
+    pub predictor: Option<Result<SparsePredictor, Withheld>>,
+}
+impl Products {
+    fn withheld(cause: Withheld, retain: bool) -> Self {
+        Self {
+            response: Err(cause.clone()),
+            predictor: retain.then_some(Err(cause)),
+        }
+    }
+}
+/// Evaluate original partials once and share one same-point sparse numeric factor.
+/// Spectrum admission remains independent of estimated predictor actions.
+pub fn products(
     request: Request<'_>,
-    evaluate: impl FnOnce() -> Result<(Mat<f64>, Mat<f64>), ProblemError>,
-) -> Result<Response, Withheld> {
+    key: pse_model::strategy::SemanticProductKey,
+    parameter_values: &[f64],
+    retain: bool,
+    evaluate: impl FnOnce() -> Result<
+        (
+            faer::sparse::SparseColMat<usize, f64>,
+            faer::sparse::SparseColMat<usize, f64>,
+        ),
+        ProblemError,
+    >,
+    execution: &crate::solve::Execution,
+) -> Products {
+    if let Err(cause) = execution.check() {
+        return Products::withheld(Withheld::Cause(std::sync::Arc::new(cause)), retain);
+    }
+    if let Err(cause) = admit_response(&request) {
+        return Products::withheld(cause, retain);
+    }
+    let n = request.scope.contract.variables.len();
+    let np = request.parameters.len();
+    if parameter_values.len() != np || parameter_values.iter().any(|value| !value.is_finite()) {
+        return Products::withheld(Withheld::Numerical("parameter base values".into()), retain);
+    }
+    if let Err(cause) = SparseFactor::check(&SparseRequest {
+        scope: request.scope,
+        point: request.point,
+        values: request.residual_values,
+        tolerances: request.tolerances,
+        normalization: request.normalization,
+        key,
+        bytes: request.bytes,
+    }) {
+        return Products::withheld(cause, retain);
+    }
+    let (fx, fp) = match evaluate() {
+        Ok(partials) => partials,
+        Err(cause) => return Products::withheld(evaluation_failure(&cause), retain),
+    };
+    if fx.nrows() != n
+        || fx.ncols() != n
+        || fp.nrows() != n
+        || fp.ncols() != np
+        || fx
+            .val()
+            .iter()
+            .chain(fp.val())
+            .any(|value| !value.is_finite())
+    {
+        return Products::withheld(
+            Withheld::Numerical("physical Jacobian dimensions or values".into()),
+            retain,
+        );
+    }
+    if (0..n).any(|column| {
+        !fx.symbolic().row_idx_of_col(column).eq(request
+            .scope
+            .pattern
+            .as_ref()
+            .row_idx_of_col(column))
+    }) {
+        return Products::withheld(
+            Withheld::Structural(
+                "fresh partials differ from admitted complete original support".into(),
+            ),
+            retain,
+        );
+    }
+    let rank = (|| {
+        execution
+            .check()
+            .map_err(|cause| Withheld::Cause(std::sync::Arc::new(cause)))?;
+        let mut a = Mat::zeros(n, n);
+        for column in 0..n {
+            for entry in fx.symbolic().col_range(column) {
+                let row = fx.symbolic().row_idx()[entry];
+                a[(row, column)] = fx.val()[entry] * request.normalization.variables[column]
+                    / request.normalization.rows[row];
+            }
+        }
+        if a.col_iter()
+            .any(|column| column.iter().any(|value| !value.is_finite()))
+        {
+            return Err(Withheld::Numerical(
+                "nonfinite normalized response Jacobian".into(),
+            ));
+        }
+        let singular =
+            spectrum(&a, request.bytes).map_err(|cause| Withheld::Numerical(cause.to_string()))?;
+        let cutoff = singular.first().copied().unwrap_or(0.) * request.rank_tolerance;
+        let rank = singular.iter().filter(|value| **value > cutoff).count();
+        if rank != n {
+            return Err(Withheld::Rank {
+                rank,
+                dimension: n,
+                cutoff,
+            });
+        }
+        Ok((rank, cutoff))
+    })();
+    if !retain && let Err(cause) = &rank {
+        return Products {
+            response: Err(cause.clone()),
+            predictor: None,
+        };
+    }
+    let factor = match SparseFactor::prepare(
+        SparseRequest {
+            scope: request.scope,
+            point: request.point,
+            values: request.residual_values,
+            tolerances: request.tolerances,
+            normalization: request.normalization,
+            key,
+            bytes: request.bytes,
+        },
+        || Ok(fx),
+        execution,
+    ) {
+        Ok(factor) => factor,
+        Err(cause) => {
+            return Products {
+                response: match rank {
+                    Err(rank) => Err(rank),
+                    Ok(_) => Err(cause.clone()),
+                },
+                predictor: retain.then_some(Err(cause)),
+            };
+        }
+    };
+    let response = rank.and_then(|(rank, cutoff)| {
+        let mut rhs = Mat::zeros(n, np);
+        for column in 0..np {
+            for entry in fp.symbolic().col_range(column) {
+                rhs[(fp.symbolic().row_idx()[entry], column)] = -fp.val()[entry] * request.parameter_scales[column];
+            }
+        }
+        let (scaled, evidence) = factor.actions(rhs.as_ref(), request.bytes, execution).map_err(|cause| Withheld::Cause(std::sync::Arc::new(cause)))?;
+        let values = Mat::from_fn(n, np, |row, column| scaled[(row, column)] / request.parameter_scales[column]);
+        if values.col_iter().any(|column| column.iter().any(|value| !value.is_finite())) { return Err(Withheld::Numerical("nonfinite response in physical coordinates".into())); }
+        Ok(Response { owner: None, states: factor.states().to_vec(), parameters: request.parameters.to_vec(), values,
+            evidence: Evidence { rank, cutoff, relative_cutoff: request.rank_tolerance,
+                backward_error: evidence.backward_error, backward_error_limit: evidence.limit,
+                neighborhood: "compiled-first-partials/guard-selector-interior; inactive-physical-state-bounds" } })
+    });
+    let predictor = retain.then(|| {
+        SparsePredictor::new(
+            factor,
+            request
+                .parameters
+                .iter()
+                .copied()
+                .zip(parameter_values.iter().copied())
+                .collect(),
+            fp,
+        )
+        .map_err(|cause| Withheld::Cause(std::sync::Arc::new(cause)))
+    });
+    Products {
+        response,
+        predictor,
+    }
+}
+fn admit_response(request: &Request<'_>) -> Result<(), Withheld> {
     let c = &request.scope.contract;
     let n = c.variables.len();
     let np = request.parameters.len();
@@ -235,70 +417,14 @@ pub fn response(
             "parameter identities/scales or rank cutoff".into(),
         ));
     }
-    let matrices = workspace_bytes(n, np)
+    workspace_bytes(n, np)
         .filter(|b| *b <= request.bytes)
         .ok_or(Withheld::Memory)?;
-    let (fx, fp) = evaluate().map_err(partial_failure)?;
-    if fx.nrows() != n
-        || fx.ncols() != n
-        || fp.nrows() != n
-        || fp.ncols() != np
-        || fx
-            .col_iter()
-            .chain(fp.col_iter())
-            .any(|c| c.iter().any(|v| !v.is_finite()))
-    {
-        return Err(Withheld::Numerical(
-            "physical Jacobian dimensions or values".into(),
-        ));
-    }
-    let a = Mat::from_fn(n, n, |i, j| {
-        fx[(i, j)] * request.normalization.variables[j] / request.normalization.rows[i]
-    });
-    let b = Mat::from_fn(n, np, |i, j| {
-        -fp[(i, j)] * request.parameter_scales[j] / request.normalization.rows[i]
-    });
-    let spectrum = spectrum(&a, matrices).map_err(|e| Withheld::Numerical(e.to_string()))?;
-    let cutoff = spectrum.first().copied().unwrap_or(0.) * request.rank_tolerance;
-    let rank = spectrum.iter().filter(|s| **s > cutoff).count();
-    if rank != n {
-        return Err(Withheld::Rank {
-            rank,
-            dimension: n,
-            cutoff,
-        });
-    }
-    let x =
-        solve_regular(&a, b.clone(), matrices).map_err(|e| Withheld::Numerical(e.to_string()))?;
-    let backward_error =
-        check_response(&a, &x, &b).map_err(|e| Withheld::Numerical(e.to_string()))?;
-    let values = Mat::from_fn(n, np, |i, j| {
-        x[(i, j)] * request.normalization.variables[i] / request.parameter_scales[j]
-    });
-    if values
-        .col_iter()
-        .any(|column| column.iter().any(|v| !v.is_finite()))
-    {
-        return Err(Withheld::Numerical(
-            "nonfinite response in physical coordinates".into(),
-        ));
-    }
-    Ok(Response {
-        owner: None,
-        states: c.variables.iter().map(|v| v.id).collect(),
-        parameters: request.parameters.to_vec(),
-        values,
-        evidence: Evidence {
-            rank,
-            cutoff,
-            relative_cutoff: request.rank_tolerance,
-            backward_error,
-            backward_error_limit: 64. * n.max(1) as f64 * f64::EPSILON,
-            neighborhood: "compiled-first-partials/guard-selector-interior; inactive-physical-state-bounds",
-        },
-    })
+    Ok(())
 }
-fn partial_failure(cause: ProblemError) -> Withheld {
+/// Classify a failed fresh response evaluation without discarding the producer
+/// cause retained independently by a predictor.
+pub fn evaluation_failure(cause: &ProblemError) -> Withheld {
     fn memory(cause: &pse_math::MathError) -> bool {
         match cause {
             pse_math::MathError::Instance { cause, .. } => memory(cause),
@@ -310,7 +436,7 @@ fn partial_failure(cause: ProblemError) -> Withheld {
         }
     }
     if matches!(cause, ProblemError::Limit { .. })
-        || matches!(&cause, ProblemError::Math(cause) if memory(cause))
+        || matches!(cause, ProblemError::Math(cause) if memory(cause))
     {
         Withheld::Memory
     } else {
@@ -353,85 +479,57 @@ fn spectrum(a: &Mat<f64>, bytes: usize) -> Result<Vec<f64>, ProblemError> {
     .map_err(|e| ProblemError::numerical(format!("{e:?}")))?;
     Ok(s.column_vector().iter().copied().collect())
 }
-/// Library-declared LU/backsolve scratch for response capacity planning.
-pub fn response_scratch(n: usize, np: usize) -> faer::dyn_stack::StackReq {
-    use faer::{
-        Par,
-        linalg::lu::partial_pivoting::{factor, solve},
-    };
-    factor::lu_in_place_scratch::<usize, f64>(n, n, Par::Seq, Default::default())
-        .or(solve::solve_in_place_scratch::<usize, f64>(n, np, Par::Seq))
-}
-fn solve_regular(a: &Mat<f64>, mut rhs: Mat<f64>, limit: usize) -> Result<Mat<f64>, ProblemError> {
-    use faer::{
-        Par,
-        dyn_stack::{MemBuffer, MemStack},
-        linalg::lu::partial_pivoting::{factor, solve},
-    };
-    let n = a.nrows();
-    let mut lu = a.clone();
-    let mut perm = vec![0usize; n];
-    let mut inverse = vec![0usize; n];
-    let req = response_scratch(n, rhs.ncols());
-    if req.size_bytes() > limit {
-        return Err(ProblemError::memory("response solve scratch allowance"));
-    }
-    let mut memory = MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-    let (_, permutation) = factor::lu_in_place(
-        lu.as_mut(),
-        &mut perm,
-        &mut inverse,
-        Par::Seq,
-        MemStack::new(&mut memory),
-        Default::default(),
-    );
-    solve::solve_in_place(
-        lu.as_ref(),
-        lu.as_ref(),
-        permutation,
-        rhs.as_mut(),
-        Par::Seq,
-        MemStack::new(&mut memory),
-    );
-    if rhs
-        .as_ref()
-        .col_iter()
-        .any(|c| c.iter().any(|v| !v.is_finite()))
-    {
-        return Err(ProblemError::numerical("nonfinite implicit response solve"));
-    }
-    Ok(rhs)
-}
-/// Normwise backward error in the same scaled coordinates used for rank admission.
-fn check_response(a: &Mat<f64>, x: &Mat<f64>, b: &Mat<f64>) -> Result<f64, ProblemError> {
-    let mut residual = -b;
-    faer::linalg::matmul::matmul(
-        residual.as_mut(),
-        faer::Accum::Add,
-        a.as_ref(),
-        x.as_ref(),
-        1.0,
-        faer::Par::Seq,
-    );
-    let numerator = residual.as_ref().norm_l2();
-    let denominator = a.as_ref().norm_l2() * x.as_ref().norm_l2() + b.as_ref().norm_l2();
-    let error_bound = 64.0 * a.nrows().max(1) as f64 * f64::EPSILON;
-    let backward_error = if denominator == 0.0 {
-        numerator
-    } else {
-        numerator / denominator
-    };
-    if !denominator.is_finite() || !backward_error.is_finite() || backward_error > error_bound {
-        return Err(ProblemError::numerical(format!(
-            "implicit response backward error {backward_error} exceeds {error_bound}"
-        )));
-    }
-    Ok(backward_error)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    fn sparse(matrix: &Mat<f64>) -> faer::sparse::SparseColMat<usize, f64> {
+        let mut entries = Vec::new();
+        for column in 0..matrix.ncols() {
+            for row in 0..matrix.nrows() {
+                entries.push(faer::sparse::Triplet::new(
+                    row,
+                    column,
+                    matrix[(row, column)],
+                ));
+            }
+        }
+        faer::sparse::SparseColMat::try_new_from_triplets(matrix.nrows(), matrix.ncols(), &entries)
+            .unwrap()
+    }
+    fn key(request: &Request<'_>) -> pse_model::strategy::SemanticProductKey {
+        let hash = pse_ids::ContentHash::from_bytes([4; 32]);
+        pse_model::strategy::SemanticProductKey {
+            structure: request.scope.contract.identity,
+            binding: hash,
+            numerical_policy: Some(hash),
+            normalization: Some(request.normalization.key()),
+            point: Some(point_key(request.point)),
+            parameters: Some(hash),
+            derivation: None,
+            branch: Some(hash),
+            accuracy: Some(hash),
+        }
+    }
+    fn public_response(
+        request: Request<'_>,
+        evaluate: impl FnOnce() -> Result<(Mat<f64>, Mat<f64>), ProblemError>,
+    ) -> Result<Response, Withheld> {
+        let key = key(&request);
+        let base = vec![0.; request.parameters.len()];
+        let execution = crate::solve::Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        products(
+            request,
+            key,
+            &base,
+            false,
+            || evaluate().map(|(state, parameters)| (sparse(&state), sparse(&parameters))),
+            &execution,
+        )
+        .response
+    }
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
     }
@@ -484,7 +582,7 @@ mod tests {
             rank_tolerance: 1e-12,
             bytes: 1 << 20,
         };
-        let result = response(req, || {
+        let result = public_response(req, || {
             Ok((faer::mat![[4., 3.], [1., 1.]], faer::mat![[1.], [-1.]]))
         })
         .unwrap();
@@ -527,17 +625,17 @@ mod tests {
             bytes: 1 << 20,
         };
         assert!(matches!(
-            response(req(), || Ok((Mat::ones(2, 2), Mat::ones(2, 1)))),
+            public_response(req(), || Ok((Mat::ones(2, 2), Mat::ones(2, 1)))),
             Err(Withheld::Rank { .. })
         ));
         for detail in ["guard boundary", "unstable branch selector"] {
             assert!(matches!(
-                response(req(), || Err(ProblemError::unsupported(detail))),
+                public_response(req(), || Err(ProblemError::unsupported(detail))),
                 Err(Withheld::Neighborhood(_))
             ));
         }
         assert!(matches!(
-            response(req(), || Err(ProblemError::memory(
+            public_response(req(), || Err(ProblemError::memory(
                 "partial callback budget"
             ))),
             Err(Withheld::Memory)
@@ -545,19 +643,19 @@ mod tests {
         let mut r = req();
         r.point = &[100., 1.];
         assert!(matches!(
-            response(r, || panic!("active bound must refuse before derivatives")),
+            public_response(r, || panic!("active bound must refuse before derivatives")),
             Err(Withheld::Neighborhood(_))
         ));
         let mut r = req();
         r.residual_values = &[1., 0.];
         assert!(matches!(
-            response(r, || panic!("infeasible point")),
+            public_response(r, || panic!("infeasible point")),
             Err(Withheld::Infeasible(_))
         ));
         let mut r = req();
         r.bytes = 1;
         assert!(matches!(
-            response(r, || panic!("unreserved allocation")),
+            public_response(r, || panic!("unreserved allocation")),
             Err(Withheld::Memory)
         ));
         let extreme = pse_math::normalization::Normalization {
@@ -569,7 +667,7 @@ mod tests {
         r.normalization = &extreme;
         r.parameter_scales = &[1e-308];
         assert!(matches!(
-            response(r, || Ok((
+            public_response(r, || Ok((
                 faer::mat![[1e-308, 0.], [0., 1e-308]],
                 Mat::full(2, 1, 1e308)
             ))),
@@ -587,13 +685,261 @@ mod tests {
             Err(Withheld::Structural(_))
         ));
     }
+    #[derive(Debug, Default)]
+    struct ConstructionCount(std::sync::atomic::AtomicU64);
+    impl crate::solve::WorkAdmission for ConstructionCount {
+        fn admit(&self, _: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+            Ok(())
+        }
+        fn observe(&self, work: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+            self.0.fetch_add(
+                work.factorizations.unwrap_or(0),
+                std::sync::atomic::Ordering::Relaxed,
+            );
+            Ok(())
+        }
+    }
     #[test]
-    fn square_response_backward_error_rejects_an_incorrect_solve() {
-        let a = faer::mat![[2., 1.], [1., 3.]];
-        let b = faer::mat![[4.], [7.]];
-        let x = solve_regular(&a, b.clone(), 1 << 20).unwrap();
-        assert!(check_response(&a, &x, &b).unwrap() < 1e-14);
-        assert!(check_response(&a, &Mat::ones(2, 1), &b).is_err());
-        assert!(check_response(&a, &faer::mat![[f64::NAN], [1.]], &b).is_err());
+    fn same_point_products_evaluate_once_and_share_factor_for_multi_rhs_and_prediction() {
+        let scope = scope();
+        let tolerance = crate::quality::Tolerances {
+            variables: vec![1e-8; 2],
+            rows: vec![1e-8; 2],
+            integrality: 1e-8,
+        };
+        let normalization = pse_math::normalization::Normalization {
+            variables: vec![100., 0.01],
+            rows: vec![2., 400.],
+            objective: 1.,
+        };
+        let parameters = [id(5), id(6)];
+        let request = Request {
+            scope: &scope,
+            point: &[2., 1.],
+            residual_values: &[0., 0.],
+            tolerances: &tolerance,
+            normalization: &normalization,
+            parameters: &parameters,
+            parameter_scales: &[1e6, 0.25],
+            rank_tolerance: 1e-12,
+            bytes: 1 << 20,
+        };
+        let source = key(&request);
+        let constructed = std::cell::Cell::new(0);
+        let counts = std::sync::Arc::new(ConstructionCount::default());
+        let mut execution = crate::solve::Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        execution.work_admission = Some(counts.clone());
+        let product = products(
+            request,
+            source,
+            &[3., 7.],
+            true,
+            || {
+                constructed.set(constructed.get() + 1);
+                Ok((
+                    sparse(&faer::mat![[4., 3.], [1., 1.]]),
+                    sparse(&faer::mat![[1., 2.], [-1., 3.]]),
+                ))
+            },
+            &execution,
+        );
+        let response = product.response.unwrap();
+        let expected = faer::mat![[-4., 7.], [5., -10.]];
+        for column in 0..2 {
+            for row in 0..2 {
+                assert!((response.values[(row, column)] - expected[(row, column)]).abs() < 1e-11);
+            }
+        }
+        let predictor = product.predictor.unwrap().unwrap();
+        let (direction, evidence) = predictor
+            .action(&[(id(5), 3.01), (id(6), 7.02)], &execution)
+            .unwrap();
+        assert!((direction[0] - 0.1).abs() < 1e-11);
+        assert!((direction[1] + 0.15).abs() < 1e-11);
+        assert!(evidence.backward_error <= evidence.limit);
+        assert_eq!(constructed.get(), 1);
+        assert_eq!(counts.0.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(predictor.factor().key(), source);
+    }
+    #[test]
+    fn singular_value_withholding_is_independent_of_predictor_and_retention_demand() {
+        let scope = scope();
+        let tolerance = crate::quality::Tolerances {
+            variables: vec![1e-8; 2],
+            rows: vec![1e-8; 2],
+            integrality: 1e-8,
+        };
+        let normalization = pse_math::normalization::Normalization::identity(2, 2);
+        let parameters = [id(5)];
+        let request = || Request {
+            scope: &scope,
+            point: &[2., 1.],
+            residual_values: &[0., 0.],
+            tolerances: &tolerance,
+            normalization: &normalization,
+            parameters: &parameters,
+            parameter_scales: &[1.],
+            rank_tolerance: 1e-8,
+            bytes: 1 << 20,
+        };
+        let evaluation = || {
+            Ok((
+                sparse(&faer::mat![[1., 0.], [0., 2f64.powi(-30)]]),
+                sparse(&faer::mat![[1.], [0.]]),
+            ))
+        };
+        let execution = crate::solve::Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let product = products(
+            request(),
+            key(&request()),
+            &[3.],
+            true,
+            evaluation,
+            &execution,
+        );
+        assert!(matches!(
+            product.response,
+            Err(Withheld::Rank {
+                rank: 1,
+                dimension: 2,
+                ..
+            })
+        ));
+        let predictor = product.predictor.unwrap().unwrap();
+        assert_eq!(
+            predictor.action(&[(id(5), 4.)], &execution).unwrap().0,
+            [-1., 0.]
+        );
+        let product = products(
+            request(),
+            key(&request()),
+            &[3.],
+            false,
+            evaluation,
+            &execution,
+        );
+        assert!(matches!(product.response, Err(Withheld::Rank { .. })));
+        assert!(product.predictor.is_none());
+        let product = products(
+            request(),
+            key(&request()),
+            &[3.],
+            true,
+            || Ok((sparse(&Mat::ones(2, 2)), sparse(&Mat::ones(2, 1)))),
+            &execution,
+        );
+        assert!(matches!(
+            product.response,
+            Err(Withheld::Rank { rank: 1, .. })
+        ));
+        assert!(match product.predictor.unwrap() {
+            Err(_) => true,
+            Ok(predictor) => predictor.action(&[(id(5), 4.)], &execution).is_err(),
+        });
+    }
+    #[test]
+    fn same_point_products_refuse_changed_keys_scales_support_and_provider_branch() {
+        let scope = scope();
+        let tolerance = crate::quality::Tolerances {
+            variables: vec![1e-8; 2],
+            rows: vec![1e-8; 2],
+            integrality: 1e-8,
+        };
+        let normalization = pse_math::normalization::Normalization::identity(2, 2);
+        let parameters = [id(5)];
+        let request = || Request {
+            scope: &scope,
+            point: &[2., 1.],
+            residual_values: &[0., 0.],
+            tolerances: &tolerance,
+            normalization: &normalization,
+            parameters: &parameters,
+            parameter_scales: &[1.],
+            rank_tolerance: 1e-10,
+            bytes: 1 << 20,
+        };
+        let source = key(&request());
+        for changed in [
+            pse_model::strategy::SemanticProductKey {
+                point: Some(point_key(&[2., -0.])),
+                ..source
+            },
+            pse_model::strategy::SemanticProductKey {
+                normalization: Some(pse_ids::ContentHash::from_bytes([9; 32])),
+                ..source
+            },
+            pse_model::strategy::SemanticProductKey {
+                structure: pse_ids::ContentHash::from_bytes([9; 32]),
+                ..source
+            },
+            pse_model::strategy::SemanticProductKey {
+                accuracy: None,
+                ..source
+            },
+        ] {
+            let execution = crate::solve::Execution::new(
+                std::sync::Arc::default(),
+                &crate::solve::Controls::default(),
+            );
+            let product = products(
+                request(),
+                changed,
+                &[3.],
+                true,
+                || panic!("foreign context must refuse before partial construction"),
+                &execution,
+            );
+            assert!(product.response.is_err());
+            assert!(product.predictor.unwrap().is_err());
+        }
+        let execution = crate::solve::Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
+        let diagonal = faer::sparse::SparseColMat::try_new_from_triplets(
+            2,
+            2,
+            &[
+                faer::sparse::Triplet::new(0, 0, 1.),
+                faer::sparse::Triplet::new(1, 1, 1.),
+            ],
+        )
+        .unwrap();
+        let product = products(
+            request(),
+            source,
+            &[3.],
+            true,
+            || Ok((diagonal, sparse(&Mat::ones(2, 1)))),
+            &execution,
+        );
+        assert!(matches!(product.response, Err(Withheld::Structural(_))));
+        assert!(matches!(
+            product.predictor.unwrap(),
+            Err(Withheld::Structural(_))
+        ));
+        let product = products(
+            request(),
+            source,
+            &[3.],
+            true,
+            || {
+                Err(ProblemError::unsupported(
+                    "provider branch is outside its qualified neighborhood",
+                ))
+            },
+            &execution,
+        );
+        assert!(matches!(product.response, Err(Withheld::Neighborhood(_))));
+        assert!(matches!(
+            product.predictor.unwrap(),
+            Err(Withheld::Neighborhood(_))
+        ));
     }
 }

@@ -83,8 +83,25 @@ pub(crate) fn runtime_with(
     )
 }
 pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtime {
+    let shared = shared_runtime_on(memory, math);
+    let registry = pse_schema::shared_registry().unwrap();
+    let sessions = Arc::new(
+        shared
+            .session_factory(pse_engine::session::native_engine_profile())
+            .unwrap(),
+    );
+    Runtime::from_shared(
+        shared,
+        sessions.bind_model(registry).unwrap(),
+        canonical_deployment(),
+    )
+    .unwrap()
+    .with_durability(DurabilitySelection::Ephemeral)
+    .unwrap()
+}
+fn shared_runtime_on(memory: usize, math: crate::math::MathPolicy) -> Arc<SharedRuntime> {
     let n = |v| NonZeroUsize::new(v).unwrap();
-    let shared = SharedRuntime::build(crate::ResourceBudget {
+    SharedRuntime::build(crate::ResourceBudget {
         memory_limit_bytes: n(memory),
         spill_dir: std::env::temp_dir(),
         max_temp_dir_bytes: 1 << 30,
@@ -98,17 +115,7 @@ pub(crate) fn runtime_on(memory: usize, math: crate::math::MathPolicy) -> Runtim
         math,
         hashing_may_use_pool: false,
     })
-    .unwrap();
-    let registry = pse_schema::shared_registry().unwrap();
-    let sessions = Arc::new(
-        shared
-            .session_factory(pse_engine::session::native_engine_profile())
-            .unwrap(),
-    );
-    Runtime::from_shared(shared, registry, sessions, canonical_deployment())
-        .unwrap()
-        .with_durability(DurabilitySelection::Ephemeral)
-        .unwrap()
+    .unwrap()
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
     let store = match std::env::var("PSE_TEST_EXECUTION_PROFILE") {
@@ -127,11 +134,13 @@ pub(crate) fn canonical_deployment() -> CanonicalDeployment {
 }
 
 #[test]
-fn workflow_composition_preserves_custom_same_owner_factory_and_partition_demand() {
+fn deployment_check_preserves_custom_same_owner_factory_and_partition_demand() {
     #[derive(Debug)]
     struct Custom;
-    let runtime = runtime();
-    let shared = runtime.shared.clone();
+    let shared = shared_runtime_on(16 << 30, Default::default());
+    let sessions = shared
+        .session_factory(pse_engine::session::native_engine_profile())
+        .unwrap();
     let env = shared.runtime_env();
     // A distinct outer wrapper is valid when its consumed services are unchanged.
     let wrapper = Arc::new(datafusion::execution::runtime_env::RuntimeEnv {
@@ -141,29 +150,23 @@ fn workflow_composition_preserves_custom_same_owner_factory_and_partition_demand
         object_store_registry: env.object_store_registry.clone(),
     });
     let builder = datafusion::execution::session_state::SessionStateBuilder::new_from_existing(
-        runtime.sessions.native_state().clone(),
+        sessions.native_state().clone(),
     );
     let factory = EngineFactory::from_builder(wrapper, shared.pool(), "custom", builder)
         .with_extension(Arc::new(Custom))
         .with_target_partitions(NonZeroUsize::new(3).unwrap());
-    let checked = Runtime::from_shared(
-        shared,
-        runtime.registry.clone(),
-        Arc::new(factory),
-        runtime.canonical.clone(),
-    )
-    .unwrap();
+    assert!(!Arc::ptr_eq(factory.native_state().runtime_env(), &env));
+    assert!(Arc::ptr_eq(factory.pool(), &shared.pool()));
+    Runtime::check_deployment(&shared, &factory).unwrap();
     assert!(
-        checked
-            .sessions
+        factory
             .native_state()
             .config()
             .get_extension::<Custom>()
             .is_some()
     );
     assert_eq!(
-        checked
-            .sessions
+        factory
             .native_state()
             .config()
             .options()
@@ -174,65 +177,68 @@ fn workflow_composition_preserves_custom_same_owner_factory_and_partition_demand
 }
 
 #[test]
-fn workflow_composition_refuses_foreign_consumed_owners_and_width() {
-    let foreign = runtime();
-    let runtime = runtime();
-    let shared = &runtime.shared;
-    let check = |factory| {
-        Runtime::from_shared(
-            shared.clone(),
-            runtime.registry.clone(),
-            Arc::new(factory),
-            runtime.canonical.clone(),
-        )
-    };
-    assert!(matches!(
-        check(foreign.sessions.as_ref().clone()),
-        Err(WorkflowError::Input(_))
-    ));
-    let factory = runtime.sessions.as_ref().clone();
-    assert!(matches!(
-        check(
-            factory
-                .clone()
-                .with_extension(foreign.shared.caches().clone())
+fn deployment_check_refuses_foreign_consumed_owners_and_width() {
+    let foreign = shared_runtime_on(16 << 30, Default::default());
+    let shared = shared_runtime_on(16 << 30, Default::default());
+    let check = |factory: &EngineFactory| Runtime::check_deployment(&shared, factory);
+    let refuses_owner = |factory: &EngineFactory, owner: &str| match check(factory) {
+        Err(WorkflowError::Input(message)) => assert_eq!(
+            message,
+            format!("workflow factory {owner} belongs to another deployment")
         ),
-        Err(WorkflowError::Input(_))
-    ));
+        other => panic!("expected foreign {owner} refusal, got {other:?}"),
+    };
+    refuses_owner(
+        &foreign
+            .session_factory(pse_engine::session::native_engine_profile())
+            .unwrap(),
+        "allocation pool",
+    );
+    let factory = shared
+        .session_factory(pse_engine::session::native_engine_profile())
+        .unwrap();
+    refuses_owner(
+        &factory.clone().with_extension(foreign.caches().clone()),
+        "cache service",
+    );
     let cpu = |permits, workers| Arc::new(pse_engine::resources::CpuAdmission { permits, workers });
     let width =
         std::num::NonZeroU32::new(shared.budget().threads.pool_threads.get() as u32).unwrap();
-    assert!(matches!(
-        check(
-            factory
-                .clone()
-                .with_extension(cpu(foreign.shared.compiler_cpu(), width))
-        ),
-        Err(WorkflowError::Input(_))
-    ));
-    assert!(matches!(
-        check(factory.clone().with_extension(cpu(
-            shared.compiler_cpu(),
-            std::num::NonZeroU32::new(width.get() + 1).unwrap()
-        ))),
-        Err(WorkflowError::Input(_))
-    ));
+    refuses_owner(
+        &factory
+            .clone()
+            .with_extension(cpu(foreign.compiler_cpu(), width)),
+        "CPU admission",
+    );
+    for configured in [width.get() - 1, width.get() + 1] {
+        refuses_owner(
+            &factory.clone().with_extension(cpu(
+                shared.compiler_cpu(),
+                std::num::NonZeroU32::new(configured).unwrap(),
+            )),
+            "CPU deployment width",
+        );
+    }
     let original = shared.runtime_env();
-    let other = foreign.shared.runtime_env();
-    for changed in 0..3 {
+    let other = foreign.runtime_env();
+    for changed in 0..4 {
         let env = Arc::new(datafusion::execution::runtime_env::RuntimeEnv {
-            memory_pool: original.memory_pool.clone(),
-            disk_manager: if changed == 0 {
+            memory_pool: if changed == 0 {
+                other.memory_pool.clone()
+            } else {
+                original.memory_pool.clone()
+            },
+            disk_manager: if changed == 1 {
                 other.disk_manager.clone()
             } else {
                 original.disk_manager.clone()
             },
-            cache_manager: if changed == 1 {
+            cache_manager: if changed == 2 {
                 other.cache_manager.clone()
             } else {
                 original.cache_manager.clone()
             },
-            object_store_registry: if changed == 2 {
+            object_store_registry: if changed == 3 {
                 other.object_store_registry.clone()
             } else {
                 original.object_store_registry.clone()
@@ -241,30 +247,105 @@ fn workflow_composition_refuses_foreign_consumed_owners_and_width() {
         let builder = datafusion::execution::session_state::SessionStateBuilder::new_from_existing(
             factory.native_state().clone(),
         );
-        assert!(matches!(
-            check(EngineFactory::from_builder(
-                env,
-                shared.pool(),
-                "foreign-service",
-                builder
-            )),
-            Err(WorkflowError::Input(_))
+        // The explicit factory pool is consumed by native operators and application
+        // allocations alike. A foreign RuntimeEnv pool alone is normalized away by
+        // from_builder, so it cannot establish a foreign consumed owner.
+        let pool = if changed == 0 {
+            foreign.pool()
+        } else {
+            shared.pool()
+        };
+        let candidate = EngineFactory::from_builder(env, pool.clone(), "foreign-service", builder);
+        assert!(Arc::ptr_eq(candidate.pool(), &pool));
+        assert!(Arc::ptr_eq(
+            &candidate.native_state().runtime_env().memory_pool,
+            &pool
         ));
+        refuses_owner(
+            &candidate,
+            [
+                "allocation pool",
+                "spill manager",
+                "native cache manager",
+                "object store registry",
+            ][changed],
+        );
     }
+    // An unused incoming pool is replaced during factory assembly. Judge the
+    // resulting consumed owners rather than the discarded wrapper's services.
+    let incoming = Arc::new(datafusion::execution::runtime_env::RuntimeEnv {
+        memory_pool: other.memory_pool.clone(),
+        disk_manager: original.disk_manager.clone(),
+        cache_manager: original.cache_manager.clone(),
+        object_store_registry: original.object_store_registry.clone(),
+    });
+    let normalized = EngineFactory::from_builder(
+        incoming.clone(),
+        shared.pool(),
+        "normalized-unused-pool",
+        datafusion::execution::session_state::SessionStateBuilder::new_from_existing(
+            factory.native_state().clone(),
+        ),
+    );
+    assert!(!Arc::ptr_eq(&incoming.memory_pool, normalized.pool()));
+    assert!(Arc::ptr_eq(
+        &normalized.native_state().runtime_env().memory_pool,
+        normalized.pool()
+    ));
+    check(&normalized).unwrap();
     // In-flight permits do not change configured deployment width.
     let permits = shared.compiler_cpu();
-    let _permit = permits.try_acquire().unwrap();
-    assert!(check(factory).is_ok());
+    let held = permits.try_acquire_many(width.get()).unwrap();
+    assert_eq!(permits.available_permits(), 0);
+    check(&factory).unwrap();
+    drop(held);
+    assert_eq!(permits.available_permits(), width.get() as usize);
 }
 
 #[test]
-fn workflow_durability_selection_uses_this_deployment_and_refuses_zero_intervals() {
+fn workflow_composition_binds_same_owner_factory_to_canonical_deployment() {
     let runtime = runtime();
+    let sessions = runtime.sessions().clone();
+    let checked = Runtime::from_shared(
+        runtime.shared.clone(),
+        sessions.bind_model(runtime.registry().clone()).unwrap(),
+        runtime.canonical.clone(),
+    )
+    .unwrap();
+    assert!(Arc::ptr_eq(checked.sessions(), &sessions));
+    assert!(Arc::ptr_eq(&checked.shared, &runtime.shared));
+    assert!(Arc::ptr_eq(
+        &checked.validation_context(),
+        &runtime.validation_context()
+    ));
+    assert_eq!(
+        checked.canonical.store().endpoint(),
+        runtime.canonical.store().endpoint()
+    );
+    assert_eq!(
+        checked.canonical.store().namespace(),
+        runtime.canonical.store().namespace()
+    );
+    assert_eq!(
+        checked.canonical.store().database(),
+        runtime.canonical.store().database()
+    );
+}
+
+#[test]
+fn workflow_durability_selection_uses_this_deployment() {
+    let runtime = runtime();
+    let policy = LeasePolicy {
+        lease: std::time::Duration::from_secs(17),
+        heartbeat: std::time::Duration::from_secs(3),
+        batch: 11,
+        flush: std::time::Duration::from_millis(71),
+    };
     let durable = runtime
         .clone()
         .with_durability(DurabilitySelection::Durable {
             worker: "checked-owner".into(),
-            policy: LeasePolicy::default(),
+            policy,
         })
         .unwrap();
     let Durability::Durable(operations) = durable.durability() else {
@@ -272,26 +353,64 @@ fn workflow_durability_selection_uses_this_deployment_and_refuses_zero_intervals
     };
     assert!(Arc::ptr_eq(&operations.pool, &runtime.shared.pool()));
     assert_eq!(
+        operations.store().endpoint(),
+        runtime.canonical.store().endpoint()
+    );
+    assert_eq!(
+        operations.store().namespace(),
+        runtime.canonical.store().namespace()
+    );
+    assert_eq!(
         operations.store().database(),
         runtime.canonical.store().database()
     );
     assert_eq!(operations.worker(), "checked-owner");
-    for lease in [true, false] {
-        let mut policy = LeasePolicy::default();
-        if lease {
-            policy.lease = std::time::Duration::ZERO;
-        } else {
-            policy.heartbeat = std::time::Duration::ZERO;
+    assert_eq!(operations.policy(), policy);
+    let ephemeral = durable
+        .with_durability(DurabilitySelection::Ephemeral)
+        .unwrap();
+    assert!(matches!(ephemeral.durability(), Durability::Ephemeral));
+    assert!(Arc::ptr_eq(ephemeral.sessions(), runtime.sessions()));
+    assert!(Arc::ptr_eq(&ephemeral.shared, &runtime.shared));
+    assert_eq!(
+        ephemeral.canonical.store().database(),
+        runtime.canonical.store().database()
+    );
+}
+
+#[test]
+fn durability_selection_validates_positive_lease_and_heartbeat_intervals() {
+    assert!(DurabilitySelection::Ephemeral.validate().is_ok());
+    assert!(
+        DurabilitySelection::Durable {
+            worker: "valid".into(),
+            policy: LeasePolicy::default(),
         }
-        assert!(matches!(
-            runtime
-                .clone()
-                .with_durability(DurabilitySelection::Durable {
-                    worker: "invalid".into(),
-                    policy
-                }),
-            Err(WorkflowError::Input(_))
-        ));
+        .validate()
+        .is_ok()
+    );
+    // Positivity is the production contract; validation must not round a positive
+    // sub-millisecond duration to zero or impose an unstated lease/heartbeat order.
+    for (lease, heartbeat) in [(1, 1), (1, 2), (2, 1), (0, 1), (1, 0), (0, 0)] {
+        let selection = DurabilitySelection::Durable {
+            worker: "interval-policy".into(),
+            policy: LeasePolicy {
+                lease: std::time::Duration::from_nanos(lease),
+                heartbeat: std::time::Duration::from_nanos(heartbeat),
+                ..Default::default()
+            },
+        };
+        match selection.validate() {
+            Ok(()) => assert!(lease > 0 && heartbeat > 0),
+            Err(WorkflowError::Input(message)) => {
+                assert!(lease == 0 || heartbeat == 0);
+                assert_eq!(
+                    message,
+                    "durable heartbeat and lease intervals must be positive"
+                );
+            }
+            other => panic!("unexpected interval validation: {other:?}"),
+        }
     }
 }
 pub(crate) fn physical() -> PhysicalContext {

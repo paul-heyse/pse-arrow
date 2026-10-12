@@ -8,8 +8,8 @@ import os
 import sys
 from pathlib import Path
 
-from scripts import native_tests, surreal_server
-from scripts.test_run import run_python
+from scripts import native_tests, python_extension, surreal_server
+from scripts.test_run import python_observer, run_python
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -28,16 +28,25 @@ def main() -> int:
 
         worker = native_tests.worker_binary([], os.environ)
         with native_tests.worker_binding(worker):
-            status = surreal_server.observer(
-                surreal_server.reference_state(Path(state)),
-                [
-                    sys.executable,
-                    "-m",
-                    "scripts.python_tests",
-                    *extra,
-                    "--managed-primary-child",
-                ],
-                profile="reference",
+            command = [
+                sys.executable,
+                "-m",
+                "scripts.python_tests",
+                *extra,
+                "--managed-primary-child",
+            ]
+            status = python_observer(
+                command,
+                extra,
+                lambda observation: surreal_server.observer(
+                    surreal_server.reference_state(Path(state)),
+                    command,
+                    profile="reference",
+                    observation=observation,
+                ),
+                terminal_owner="runner",
+                default_report=True,
+                artifact=python_extension.capture(os.environ),
             )
     elif (
         not managed
@@ -46,16 +55,25 @@ def main() -> int:
         and os.environ.get("PSE_NATIVE_OPERATION")
     ):
         state = Path(os.environ["PSE_SURREAL_STATE"])
-        status = surreal_server.observer(
-            state,
-            [
-                sys.executable,
-                "-m",
-                "scripts.python_tests",
-                *extra,
-                "--functional-observer-child",
-            ],
-            profile="exclusive-observer",
+        command = [
+            sys.executable,
+            "-m",
+            "scripts.python_tests",
+            *extra,
+            "--functional-observer-child",
+        ]
+        status = python_observer(
+            command,
+            extra,
+            lambda observation: surreal_server.observer(
+                state,
+                command,
+                profile="exclusive-observer",
+                observation=observation,
+            ),
+            terminal_owner="runner",
+            default_report=True,
+            artifact=python_extension.capture(os.environ),
         )
     else:
         extra = [
@@ -78,7 +96,12 @@ def main() -> int:
             extra.remove("--unit-only")
         command = native_tests.python_command(["-m", selected, *extra], managed=managed)
 
-        status = run_python(command)
+        artifact = python_extension.capture(os.environ)
+        status = run_python(
+            command,
+            env=python_extension.execution_environment(os.environ, artifact),
+            artifact=artifact,
+        )
     # Match shell signal exit semantics rather than SystemExit's 256-N conversion.
     return 128 - status if status < 0 else status
 

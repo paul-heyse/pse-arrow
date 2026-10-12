@@ -52,7 +52,7 @@ def declared(name: str) -> Gate:
             "clippy-no-default",
         }
         else "python-product"
-        if name in {"native-python", "py-sync-native", "python-stubs"}
+        if name in {"native-python", "py-sync-native-correctness", "python-stubs"}
         else "tooling"
     )
     return _declared(name, scope)
@@ -102,6 +102,7 @@ GROUPS = {
     "adr-lint": ("adr-frontmatter-check", "adr-index-check", "register-lint"),
     "codegen-check": (
         "codegen-relations-check",
+        "codegen-physical-check",
         "codegen-rust-contracts-check",
         "codegen-python-check",
         "python-contracts-check",
@@ -110,7 +111,6 @@ GROUPS = {
         "codegen-surreal-check",
         "codegen-bindgen-check",
         "codegen-schemas-check",
-        "codegen-hakari-check",
     ),
     "codegen-contracts-check": (
         "codegen-rust-contracts-check",
@@ -214,7 +214,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             Gate(
                 "producer-deployment",
                 ("{output}/deployment",),
-                dependencies=("py-sync-native",),
+                dependencies=("py-sync-native-correctness",),
                 mode="source-bound-production-capture",
                 profile="producer",
                 input_scope="deployment-capture",
@@ -250,7 +250,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
     )
     return [
         Gate(
-            "py-sync-native",
+            "py-sync-native-correctness",
             (python_profile,),
             profile=python_profile,
             input_scope="python-product",
@@ -259,7 +259,7 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
         Gate(
             "python-stubs",
             ("--check",),
-            dependencies=("py-sync-native",),
+            dependencies=("py-sync-native-correctness",),
             input_scope="python-product",
         ),
         Gate(
@@ -303,9 +303,9 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             "native-python",
             ("{output}", "--producer-deployment") if deployment else ("{output}",),
             "{output}/native-python.xml",
-            dependencies=("py-sync-native", "python-deployment-association")
+            dependencies=("py-sync-native-correctness", "python-deployment-association")
             if deployment
-            else ("py-sync-native",),
+            else ("py-sync-native-correctness",),
             mode="python-native",
             input_scope="python-product",
         ),
@@ -319,9 +319,9 @@ def comprehensive(python_profile: str = "dev") -> list[Gate]:
             if deployment
             else ("{output}/managed-python", "--managed-primary-route"),
             "{output}/managed-python/native-python.xml",
-            dependencies=("py-sync-native", "python-deployment-association")
+            dependencies=("py-sync-native-correctness", "python-deployment-association")
             if deployment
-            else ("py-sync-native",),
+            else ("py-sync-native-correctness",),
             recipe="native-python",
             mode="python-native",
             input_scope="python-product",

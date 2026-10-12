@@ -5,7 +5,7 @@
 use crate::{CoefficientProblem, NleOracle, NlpOracle, OracleContract, ProblemError, Variable};
 use pse_kernels::DerivativeOrder;
 use pse_math::{
-    assembly::{CasePlan, CaseWorker},
+    assembly::{BoundValues, CasePlan, CaseWorker},
     binding::CaseValues,
     coefficients::Coefficients,
 };
@@ -15,7 +15,8 @@ use pse_model::generated::enums::ModelingVariableDomain;
 #[derive(Debug)]
 pub struct AlgebraicOracle {
     worker: CaseWorker,
-    values: CaseValues,
+    values: Option<CaseValues>,
+    bound: BoundValues,
     contract: OracleContract,
     bounds: Vec<(f64, f64)>,
     facts: crate::DerivativeFacts,
@@ -63,6 +64,26 @@ impl AlgebraicOracle {
         }
         Self::over_columns(worker, values)
     }
+    /// An operation-owned conditional oracle with compact fixed inputs. No complete
+    /// semantic map is retained or reconstructed for native trials.
+    pub fn compact(
+        worker: CaseWorker,
+        value: impl Fn(pse_ids::SemanticId) -> Option<f64>,
+    ) -> Result<Self, ProblemError> {
+        if worker
+            .assembly()
+            .structure()
+            .variables()
+            .iter()
+            .any(|v| !v.fixed && v.domain != ModelingVariableDomain::Continuous)
+        {
+            return Err(ProblemError::unsupported(
+                "continuous oracle cannot admit integer variables",
+            ));
+        }
+        let bound = worker.assembly().bind_inputs(value)?;
+        Self::over_bound(worker, bound, None)
+    }
     /// The callbacks of a mixed-integer case over every column, its discrete domains
     /// relaxed to their declared boxes, for [`crate::transform::Pinned::discrete`] to pin
     /// under a discrete assignment (ADR-0118 item 9). Candidates, normalization and
@@ -93,13 +114,21 @@ impl AlgebraicOracle {
         crate::transform::Relaxed::new(Box::new(oracle), domains)
     }
     fn over_columns(worker: CaseWorker, values: CaseValues) -> Result<Self, ProblemError> {
+        worker.assembly().structure().validate_values(&values)?;
+        let bound = worker.assembly().bind_values(&values)?;
+        Self::over_bound(worker, bound, Some(values))
+    }
+    fn over_bound(
+        worker: CaseWorker,
+        bound: BoundValues,
+        values: Option<CaseValues>,
+    ) -> Result<Self, ProblemError> {
         let assembly = worker.assembly();
         if assembly.structure().lexicographic_levels() {
             return Err(ProblemError::Unsupported(
                 "NLP callbacks have one objective; select one lexicographic level".into(),
             ));
         }
-        assembly.structure().validate_values(&values)?;
         let contract = contract(assembly);
         contract.validate(assembly.order())?;
         let bounds = assembly
@@ -111,6 +140,7 @@ impl AlgebraicOracle {
         Ok(Self {
             worker,
             values,
+            bound,
             contract,
             bounds,
             facts: Default::default(),
@@ -206,7 +236,10 @@ impl AlgebraicOracle {
     /// and fixed/parameter values. Replacing values clears these assumptions.
     pub fn with_coefficient_facts(mut self, c: &Coefficients) -> Result<Self, ProblemError> {
         if c.structure() != self.worker.assembly().structure().key()
-            || !c.matches_values(&self.values)
+            || self
+                .values
+                .as_ref()
+                .is_none_or(|values| !c.matches_values(values))
         {
             return Err(ProblemError::Contract(
                 "stale derivative coefficient proof".into(),
@@ -224,7 +257,11 @@ impl AlgebraicOracle {
         mut self,
         facts: pse_math::SharedAllocation<pse_math::presolve::Facts>,
     ) -> Result<Self, ProblemError> {
-        if !facts.matches(self.worker.assembly(), &self.values) {
+        if self
+            .values
+            .as_ref()
+            .is_none_or(|values| !facts.matches(self.worker.assembly(), values))
+        {
             return Err(ProblemError::Contract("stale presolve facts".into()));
         }
         self.presolve = Some(facts);
@@ -256,21 +293,162 @@ impl AlgebraicOracle {
             .assembly()
             .structure()
             .validate_values(&values)?;
+        let bound = self.worker.assembly().bind_values(&values)?;
         self.facts = Default::default();
         self.presolve = None;
-        self.values = values;
+        self.values = Some(values);
+        self.bound = bound;
         Ok(())
+    }
+    /// Refill a conditional oracle's compact frame and discard all previous trial and
+    /// coefficient assumptions. Native allocation and immutable sparse support survive.
+    pub fn refill_inputs(
+        &mut self,
+        updates: &[(pse_ids::SemanticId, f64)],
+    ) -> Result<(), ProblemError> {
+        self.worker.invalidate_trial();
+        self.facts = Default::default();
+        self.presolve = None;
+        self.values = None;
+        self.bound.refill(updates)?;
+        Ok(())
+    }
+    /// Exact consumed fixed values for native refresh compatibility.
+    pub fn input_identity(&self) -> pse_ids::ContentHash {
+        self.bound.input_identity()
     }
     fn trial(&mut self, x: &[f64]) -> Result<(), ProblemError> {
         if x.len() != self.contract.variables.len() || x.iter().any(|v| !v.is_finite()) {
+            self.worker.invalidate_trial();
             return Err(ProblemError::numerical("native trial dimensions or values"));
-        }
-        for (v, &x) in self.contract.variables.iter().zip(x) {
-            self.values.scalars.insert(v.id, x);
         }
         Ok(())
     }
 }
+/// A private same-thread handle to one operation-owned root evaluator. Clones lend
+/// callbacks to retained native state without constructing another evaluator. Its
+/// enclosing owner retains storage charges through destruction of every callback.
+#[derive(Clone, Debug)]
+pub struct SharedRootOracle(std::rc::Rc<SharedRootState>);
+#[derive(Debug)]
+struct SharedRootState {
+    oracle: std::cell::RefCell<AlgebraicOracle>,
+    contract: OracleContract,
+    pattern: faer::sparse::SymbolicSparseColMat<usize>,
+    structure: Option<pse_math::SharedAllocation<pse_structural::incidence::StructuralAnalysis>>,
+    operations: crate::RootOperations,
+    guards: std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign>,
+}
+impl SharedRootOracle {
+    /// Construct after the operation owner reserves evaluator and wrapper storage.
+    /// # Errors
+    /// Nonsquare contract or sparse allocation failure.
+    pub fn new(oracle: AlgebraicOracle) -> Result<Self, ProblemError> {
+        oracle.admit_nle()?;
+        let state = SharedRootState {
+            contract: NleOracle::contract(&oracle).clone(),
+            pattern: NleOracle::jacobian_pattern(&oracle)
+                .to_owned()
+                .map_err(|error| ProblemError::memory(error.to_string()))?,
+            structure: oracle.structure.clone(),
+            operations: NleOracle::operations(&oracle),
+            guards: NleOracle::guard_signs(&oracle),
+            oracle: std::cell::RefCell::new(oracle),
+        };
+        Ok(Self(std::rc::Rc::new(state)))
+    }
+    /// Refill only between completed synchronous native calls.
+    /// # Errors
+    /// Invalid inputs or overlapping access to the evaluator.
+    pub fn refill_inputs(
+        &self,
+        updates: &[(pse_ids::SemanticId, f64)],
+    ) -> Result<(), ProblemError> {
+        self.0
+            .oracle
+            .try_borrow_mut()
+            .map_err(|_| ProblemError::Internal("overlapping conditional oracle refill".into()))?
+            .refill_inputs(updates)
+    }
+    /// Exact consumed fixed inputs; layout and profile remain separate identities.
+    /// # Errors
+    /// A callback still has the evaluator borrowed.
+    pub fn input_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
+        Ok(self
+            .0
+            .oracle
+            .try_borrow()
+            .map_err(|_| {
+                ProblemError::Internal("overlapping conditional input observation".into())
+            })?
+            .input_identity())
+    }
+}
+impl NleOracle for SharedRootOracle {
+    fn operations(&self) -> crate::RootOperations {
+        self.0.operations
+    }
+    fn structural_analysis(&self) -> Option<&pse_structural::incidence::StructuralAnalysis> {
+        self.0.structure.as_deref()
+    }
+    fn guard_signs(
+        &self,
+    ) -> std::collections::BTreeMap<pse_ids::SemanticId, pse_math::presolve::GuardSign> {
+        self.0.guards.clone()
+    }
+    fn observe(&self, residual: Vec<f64>) -> Result<crate::quality::Observation, ProblemError> {
+        NleOracle::observe(
+            &*self.0.oracle.try_borrow().map_err(|_| {
+                ProblemError::Internal("overlapping conditional observation".into())
+            })?,
+            residual,
+        )
+    }
+    fn contract(&self) -> &OracleContract {
+        &self.0.contract
+    }
+    fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+        self.0.pattern.as_ref()
+    }
+    fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        NleOracle::residual(
+            &mut *self
+                .0
+                .oracle
+                .try_borrow_mut()
+                .map_err(|_| ProblemError::Internal("overlapping conditional residual".into()))?,
+            x,
+            out,
+        )
+    }
+    fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+        NleOracle::jacobian(
+            &mut *self
+                .0
+                .oracle
+                .try_borrow_mut()
+                .map_err(|_| ProblemError::Internal("overlapping conditional Jacobian".into()))?,
+            x,
+            out,
+        )
+    }
+    fn jacobian_product(
+        &mut self,
+        x: &[f64],
+        direction: &[f64],
+        out: &mut [f64],
+    ) -> Result<(), ProblemError> {
+        NleOracle::jacobian_product(
+            &mut *self.0.oracle.try_borrow_mut().map_err(|_| {
+                ProblemError::Internal("overlapping conditional Jacobian product".into())
+            })?,
+            x,
+            direction,
+            out,
+        )
+    }
+}
+
 fn copy(source: &[f64], target: &mut [f64]) -> Result<(), ProblemError> {
     if source.len() != target.len() {
         return Err(ProblemError::Internal("native output dimensions".into()));
@@ -312,19 +490,19 @@ impl NlpOracle for AlgebraicOracle {
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
         self.trial(x)?;
-        Ok(self.worker.objective(&self.values)?)
+        Ok(self.worker.objective(self.bound.trial(x)?)?)
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
-        copy(&self.worker.constraints(&self.values)?, out)
+        copy(&self.worker.constraints(self.bound.trial(x)?)?, out)
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
-        copy(&self.worker.gradient(&self.values)?, out)
+        copy(&self.worker.gradient(self.bound.trial(x)?)?, out)
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.trial(x)?;
-        copy(self.worker.jacobian(&self.values)?.val(), out)
+        copy(self.worker.jacobian(self.bound.trial(x)?)?.val(), out)
     }
     fn hessian(
         &mut self,
@@ -336,7 +514,7 @@ impl NlpOracle for AlgebraicOracle {
         self.trial(x)?;
         copy(
             self.worker
-                .hessian(&self.values, objective_weight, multipliers)?
+                .hessian(self.bound.trial(x)?, objective_weight, multipliers)?
                 .val(),
             out,
         )
@@ -385,7 +563,7 @@ impl NleOracle for AlgebraicOracle {
     fn residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
         self.admit_nle()?;
         self.trial(x)?;
-        let mut values = self.worker.constraints(&self.values)?;
+        let mut values = self.worker.constraints(self.bound.trial(x)?)?;
         for (v, (l, _)) in values.iter_mut().zip(&self.bounds) {
             *v -= l;
         }
@@ -401,7 +579,7 @@ impl NleOracle for AlgebraicOracle {
         self.trial(x)?;
         let mut result = vec![0.0; out.len()];
         self.worker
-            .jacobian_product(&self.values, direction, &mut result)?;
+            .jacobian_product(self.bound.trial(x)?, direction, &mut result)?;
         copy(&result, out)
     }
 }

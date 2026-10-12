@@ -1000,6 +1000,10 @@ impl MathService {
                 artifacts.push(artifact);
             }
             let plan = Arc::new(block.plan.as_ref().clone().with_owner(owner.clone()));
+            let layout = self.reserve(
+                "case_operation_layout",
+                plan.operation_layout_allocation_bound()?,
+            )?;
             let assembly =
                 Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
             let pattern = assembly.jacobian_pattern();
@@ -1070,6 +1074,7 @@ impl MathService {
                 executable: Arc::new(ExecutableCase {
                     assembly,
                     _artifacts: artifacts,
+                    _layout: layout,
                     _owner: owner.clone(),
                 }),
                 values: compact,

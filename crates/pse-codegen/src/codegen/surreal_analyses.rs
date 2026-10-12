@@ -44,6 +44,7 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         RETURN $rpc_result;
     };
     FOR $source IN $sources {
+        fn::pse_execution_v1::source_creator($rpc_expiry,$source.problem,$source.key);
         LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$source.problem) FOR UPDATE;
         IF $guard=NONE { THROW 'analysis source authority unavailable'; };
         LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$source.revision);
@@ -55,11 +56,13 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
     FOR $input IN $inputs {
         LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$input.run) FOR UPDATE;
         IF $guard=NONE { THROW 'analysis run authority unavailable'; };
+        fn::pse_execution_v1::result_creator($rpc_expiry,$input.run);
+        SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key) FOR UPDATE;
         fn::pse_execution_v1::available($rpc_expiry, $input.run);
         LET $run=SELECT * FROM ONLY type::record('canonical_runs',$input.run);
         LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);
         LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$input.manifest);
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection);
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
         LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
         IF $selected_pin=NONE OR $selected_pin.run!=$input.run OR $selected_pin.attempt!=$input.attempt OR $selected_pin.manifest!=$input.manifest { THROW 'analysis result protection differs'; };
         IF $run=NONE OR $attempt=NONE OR $manifest=NONE OR $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$run.revision OR $attempt.run!=$input.run OR !$attempt.terminal OR !$attempt.closed OR $attempt.ingestion_open OR $attempt.closed_manifest!=$input.manifest OR $manifest.attempt!=$input.attempt OR $manifest.generation!=$attempt.generation OR $input.analysis!=$row.key { THROW 'analysis input not admitted'; };

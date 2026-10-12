@@ -114,6 +114,7 @@ fn request(
             terminal: BTreeMap::from([(c.outputs[2], 1.)]),
             integral: BTreeMap::from([(c.quadratures[0], 1.)]),
         },
+        evaluation: ShootingEvaluationPolicy::default(),
         solver: solver(),
     }
 }
@@ -132,6 +133,251 @@ fn quadratic() -> ([f64; 3], [f64; 2]) {
     let r1 = e1 + c * c + 1.5 * ta;
     let r2 = e1 + 1.5 * tb;
     ([a11, a12, a22], [r1, r2])
+}
+
+/// Actual native reports expose empty sensitivity products for demanded value trials;
+/// an accepted point is reintegrated once at First, including scheduled control changes.
+#[tokio::test]
+async fn shooting_demand_upgrade_preserves_analytic_rows_terminal_and_integral() {
+    for method in methods() {
+        let simulation = tracking(method).await;
+        let state = simulation
+            .contract()
+            .differential
+            .iter()
+            .position(|d| *d)
+            .unwrap();
+        for (shooting, nodes, mut x) in [
+            (ShootingMethod::Single, vec![], vec![0.4, 1.2]),
+            (ShootingMethod::Multiple, vec![1.], vec![0.4, 1.2, 0.3]),
+        ] {
+            let mut profile = request(&simulation, shooting, nodes, true);
+            profile.path.push(PathBound {
+                output: simulation.contract().outputs[state],
+                lower: None,
+                upper: Some(2.),
+            });
+            let problem = Arc::new(simulation.shooting(profile).unwrap());
+            let mut execution = Execution::new(Arc::default(), &solver().controls);
+            execution.memory = Some(
+                problem
+                    .runtime
+                    .shared
+                    .budget()
+                    .math
+                    .foreign_allowance(&solver().controls),
+            );
+            let started = execution.started;
+            let abandonment = execution.abandonment.clone();
+            let mut oracle = ShootingOracle {
+                problem: problem.clone(),
+                execution,
+                point: None,
+            };
+            let mut rows = vec![0.; problem.rows.len()];
+            let value = oracle.objective(&x).unwrap();
+            oracle.constraints(&x, &mut rows).unwrap();
+            let point = oracle.point.as_ref().unwrap();
+            assert_eq!(point.achieved, DerivativeOrder::Value);
+            assert!(
+                point.jacobian.is_empty() && point.gradient.is_empty() && point.adjoint.is_none()
+            );
+            assert!(
+                point
+                    .reports
+                    .iter()
+                    .flat_map(|r| &r.samples)
+                    .all(|s| s.state_sensitivities.is_empty() && s.output_sensitivities.is_empty())
+            );
+            assert_eq!(oracle.execution.progress.snapshot().0.len(), 1);
+
+            // A rejected value-only trial leaves no first-order integration products.
+            let accepted = x[0];
+            x[0] = accepted + 0.1;
+            oracle.objective(&x).unwrap();
+            assert_eq!(
+                oracle.point.as_ref().unwrap().achieved,
+                DerivativeOrder::Value
+            );
+            assert!(
+                oracle
+                    .point
+                    .as_ref()
+                    .unwrap()
+                    .reports
+                    .iter()
+                    .flat_map(|r| &r.samples)
+                    .all(|s| s.state_sensitivities.is_empty())
+            );
+            x[0] = accepted;
+            oracle.objective(&x).unwrap();
+            assert_eq!(oracle.execution.progress.snapshot().0.len(), 3);
+            let mut jacobian = vec![0.; problem.pattern.row_idx().len()];
+            oracle.jacobian(&x, &mut jacobian).unwrap();
+            let point = oracle.point.as_ref().unwrap();
+            assert_eq!(point.achieved, DerivativeOrder::First);
+            assert!(
+                point.adjoint.is_none(),
+                "a Jacobian never demands an integral adjoint"
+            );
+            assert!(
+                point
+                    .reports
+                    .iter()
+                    .flat_map(|r| &r.samples)
+                    .all(|s| !s.state_sensitivities.is_empty())
+            );
+            assert_eq!(oracle.execution.progress.snapshot().0.len(), 4);
+            // Sensitivity error control may select different primal steps. The modes are
+            // compared with the declared integration accuracy, never bit identity.
+            let tolerance = 64. * simulation.profile().rtol;
+            assert!((point.objective - value).abs() <= tolerance * value.abs().max(1.));
+            for (a, b) in point.constraints.iter().zip(&rows) {
+                assert!((a - b).abs() <= tolerance * b.abs().max(1.));
+            }
+            let e = (-1f64).exp();
+            let c = 1. - e;
+            for col in 0..problem.pattern.ncols() {
+                for index in problem.pattern.col_range(col) {
+                    let row = &problem.rows[problem.pattern.row_idx()[index]];
+                    let expected = match row {
+                        Row::Continuity { .. } => [c, 0., -1.][col],
+                        Row::Path { sample, .. } => {
+                            let (window, local) = problem.samples[*sample];
+                            let t = point.reports[window].samples[local].time;
+                            let derivatives = if shooting == ShootingMethod::Single {
+                                if t <= 1. {
+                                    vec![1. - (-t).exp(), 0.]
+                                } else {
+                                    vec![c * (-(t - 1.)).exp(), 1. - (-(t - 1.)).exp()]
+                                }
+                            } else if window == 0 {
+                                vec![1. - (-t).exp(), 0., 0.]
+                            } else {
+                                let decay = (-(t - 1.)).exp();
+                                vec![0., 1. - decay, decay]
+                            };
+                            derivatives[col]
+                        }
+                    };
+                    assert!(
+                        (jacobian[index] - expected).abs() <= tolerance * expected.abs().max(1.),
+                        "{method:?} {shooting:?} row {row:?} col {col}: {} vs {expected}",
+                        jacobian[index]
+                    );
+                }
+            }
+            let mut gradient = vec![0.; x.len()];
+            oracle.gradient(&x, &mut gradient).unwrap();
+            let expected = if shooting == ShootingMethod::Single {
+                let ([a, b, d], [r, s]) = quadratic();
+                vec![
+                    2. * (a * x[0] + b * x[1] - r),
+                    2. * (b * x[0] + d * x[1] - s),
+                ]
+            } else {
+                let d = (1. - e * e) / 2.;
+                let du = |u: f64, anchor: f64| {
+                    2. * (u - 1.) + 2. * (anchor - 2. * u + 1.) * c - 2. * (anchor - u) * d
+                };
+                let da = 2. * (x[1] - 1.) * c + 2. * (x[2] - x[1]) * d;
+                let miss = x[2] * e + x[1] * c - 1.5;
+                vec![
+                    du(x[0], 0.),
+                    du(x[1], x[2]) + 2. * miss * c,
+                    da + 2. * miss * e,
+                ]
+            };
+            for (actual, expected) in gradient.iter().zip(expected) {
+                assert!(
+                    (actual - expected).abs() <= tolerance * expected.abs().max(1.),
+                    "{method:?} {shooting:?}: {actual} vs {expected}"
+                );
+            }
+            assert!(oracle.point.as_ref().unwrap().adjoint.is_some());
+            assert_eq!(oracle.execution.progress.snapshot().0.len(), 4);
+            let cached = oracle.point.as_ref().unwrap().adjoint.clone();
+            oracle.gradient(&x, &mut gradient).unwrap();
+            assert_eq!(oracle.point.as_ref().unwrap().adjoint, cached);
+            assert_eq!(oracle.execution.started, started);
+            assert!(Arc::ptr_eq(&oracle.execution.abandonment, &abandonment));
+        }
+    }
+}
+
+#[tokio::test]
+async fn shooting_order_policy_exact_cache_and_original_stop_are_explicit() {
+    use std::sync::atomic::Ordering;
+    let simulation = tracking(Method::Diffsol).await;
+    let mut profile = request(&simulation, ShootingMethod::Single, vec![], true);
+    let demanded = Arc::new(simulation.shooting(profile.clone()).unwrap());
+    profile.evaluation = ShootingEvaluationPolicy::EagerFirst;
+    let eager = Arc::new(simulation.shooting(profile).unwrap());
+    assert_ne!(demanded.profile_key, eager.profile_key);
+    assert_ne!(
+        demanded.strategy_profile().unwrap(),
+        eager.strategy_profile().unwrap()
+    );
+    let mut oracle = ShootingOracle {
+        problem: demanded.clone(),
+        execution: Execution::new(Arc::default(), &solver().controls),
+        point: None,
+    };
+    oracle.objective(&[0., 1.]).unwrap();
+    oracle.objective(&[-0., 1.]).unwrap();
+    assert_eq!(
+        oracle.execution.progress.snapshot().0.len(),
+        2,
+        "signed zero is an exact-x cache miss"
+    );
+    let old_source = oracle.point.as_ref().unwrap().source.clone();
+    oracle.problem = eager;
+    oracle.objective(&[-0., 1.]).unwrap();
+    assert!(!Arc::ptr_eq(
+        &old_source,
+        &oracle.point.as_ref().unwrap().source
+    ));
+    assert_eq!(
+        oracle.point.as_ref().unwrap().achieved,
+        DerivativeOrder::First
+    );
+    assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
+    let count = oracle.execution.progress.snapshot().0.len();
+    oracle.objective(&[-0., 1.]).unwrap();
+    assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
+    oracle.execution.cancel.store(true, Ordering::Release);
+    assert!(matches!(
+        oracle.objective(&[-0., 1.]),
+        Err(ProblemError::Cancelled)
+    ));
+    oracle.execution.cancel.store(false, Ordering::Release);
+    // A scope change cannot use an old point or renew the enclosing deadline.
+    oracle.execution.enclosing_scope = Some(pse_kernels::ExecutionScope::new(
+        oracle.execution.cancel.clone(),
+        Some(Instant::now()),
+    ));
+    assert!(matches!(
+        oracle.evaluate(&[-0., 1.], DerivativeOrder::First),
+        Err(ProblemError::Limit {
+            kind: native::LimitKind::Time,
+            ..
+        })
+    ));
+    assert_eq!(oracle.execution.progress.snapshot().0.len(), count);
+    // Adjoint access itself checks x and the original scope, independently of callbacks.
+    assert!(oracle.adjoint(&[0.3, 1.]).is_err());
+    oracle.execution.enclosing_scope = None;
+    oracle.problem = demanded;
+    oracle.objective(&[0.3, 1.]).unwrap();
+    oracle.execution.cancel.store(true, Ordering::Release);
+    assert!(matches!(
+        oracle.evaluate(&[0.3, 1.], DerivativeOrder::First),
+        Err(ProblemError::Cancelled)
+    ));
+    assert_eq!(
+        oracle.point.as_ref().unwrap().achieved,
+        DerivativeOrder::Value
+    );
 }
 fn original_objective(u: &[f64]) -> f64 {
     assert_eq!(u.len(), 2);

@@ -47,10 +47,18 @@ impl BatchStream {
     pub fn schema(&self) -> SchemaRef {
         Arc::clone(&self.schema)
     }
+    /// Request interruption without waiting for a producer's stream-state lock.
+    /// The consumption owner still drains the original pull before releasing it.
+    pub fn cancellation_token(&self) -> CancellationToken {
+        self.cancel.clone()
+    }
     /// Export once. Requested-schema conversion belongs before this boundary.
     /// # Errors
     /// Closed, cancelled, already exported or poisoned state.
     pub fn reader(&self) -> Result<Box<dyn RecordBatchReader + Send>, EngineError> {
+        if self.consumed.swap(true, Ordering::AcqRel) {
+            return Err(invalid("stream is closed or already consumed"));
+        }
         let state = self
             .state
             .lock()
@@ -58,7 +66,7 @@ impl BatchStream {
         if let Some(error) = &state.failure {
             return Err(EngineError::Semantic(error.clone()));
         }
-        if state.next.is_none() || self.consumed.swap(true, Ordering::AcqRel) {
+        if state.next.is_none() {
             return Err(invalid("stream is closed or already consumed"));
         }
         Ok(Box::new(Reader {
@@ -219,6 +227,37 @@ mod arrow_stream_unit {
         },
         execution::memory_pool::{GreedyMemoryPool, MemoryPool},
     };
+
+    #[test]
+    fn active_pull_refuses_second_consumption_without_waiting_for_producer() {
+        use std::{sync::mpsc, time::Duration};
+        let (entered, observed) = mpsc::channel();
+        let (release, waiting) = mpsc::channel();
+        let handle = Arc::new(BatchStream::new(
+            Arc::new(Schema::empty()),
+            CancellationToken::new(),
+            Box::new(move || {
+                entered.send(()).unwrap();
+                waiting.recv().unwrap();
+                Ok(None)
+            }),
+        ));
+        let mut first = handle.reader().unwrap();
+        let worker = std::thread::spawn(move || first.next());
+        observed.recv_timeout(Duration::from_secs(5)).unwrap();
+        let second = handle.clone();
+        let (refused, refusal) = mpsc::channel();
+        let contender = std::thread::spawn(move || refused.send(second.reader().is_err()).unwrap());
+        let immediate = refusal.recv_timeout(Duration::from_secs(1));
+        // Cancel does not borrow stream state and must be possible while next owns it.
+        let token = handle.cancellation_token();
+        token.cancel();
+        assert!(token.is_cancelled());
+        release.send(()).unwrap();
+        assert!(worker.join().unwrap().is_none());
+        contender.join().unwrap();
+        assert!(immediate.unwrap());
+    }
 
     #[test]
     fn ffi_consumer_keeps_original_allocations_after_close() {

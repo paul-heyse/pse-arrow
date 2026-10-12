@@ -40,10 +40,7 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-from scripts import (  # noqa: E402 -- direct-script path routing
-    build_environment,
-    test_resources,
-)
+from scripts import build_environment  # noqa: E402 -- direct-script path routing
 from scripts import host_admission as host  # noqa: E402 -- placement owner
 from scripts import native_operation as operation  # noqa: E402 -- same routing
 
@@ -51,6 +48,7 @@ FAILURE = 125
 LOCAL = ".envrc.local"
 DEFAULT_SLICE = "pse.slice"
 CARGO_DEFAULT_JOBS = "PSE_CARGO_DEFAULT_JOBS"
+NEXTEST_DEFAULT_THREADS = "PSE_NEXTEST_DEFAULT_THREADS"
 RESOURCE_CLASSES = (
     "light",
     "compile",
@@ -157,6 +155,12 @@ def compose(
     root: Path, caller: Mapping[str, str], local: Mapping[str, str] | None = None
 ) -> dict[str, str]:
     env = base_environment(root, caller, local)
+    inherited_threads = env.pop(NEXTEST_DEFAULT_THREADS, None)
+    if (
+        inherited_threads is not None
+        and env.get("NEXTEST_TEST_THREADS") == inherited_threads
+    ):
+        env.pop("NEXTEST_TEST_THREADS", None)
     inherited_default = env.get(CARGO_DEFAULT_JOBS)
     explicit_jobs = "CARGO_BUILD_JOBS" in env and (
         inherited_default is None or env["CARGO_BUILD_JOBS"] != inherited_default
@@ -445,11 +449,25 @@ def manager_available() -> bool:
 
 
 def admitted_cargo_jobs(env: dict[str, str], allocation: host.Allocation) -> None:
-    """Limit only our declared default, using the verified allocation's CPU lane."""
+    """Derive defaults from physical lanes, logical affinity and enforced quota.
+
+    The allocation enforces one CPU of quota per declared physical lane. SMT
+    siblings provide affinity, not extra CPU quota. Explicit runner/compiler
+    overrides remain inside that same enforced enclosing allocation.
+    """
+    physical = len(allocation.profile.cores)
+    logical = len(host.cpu_set(allocation.profile.cores))
+    width = min(physical, logical)
+    if width < 1:
+        raise BoundaryError("Admitted CPU allocation has no usable lane")
+    previous = env.get(NEXTEST_DEFAULT_THREADS)
+    if "NEXTEST_TEST_THREADS" not in env or env["NEXTEST_TEST_THREADS"] == previous:
+        env["NEXTEST_TEST_THREADS"] = str(width)
+        env[NEXTEST_DEFAULT_THREADS] = str(width)
     declared = env.get(CARGO_DEFAULT_JOBS)
     if declared is None or env.get("CARGO_BUILD_JOBS") != declared:
         return
-    jobs = str(min(int(declared), len(host.cpu_set(allocation.profile.cores))))
+    jobs = str(min(int(declared), width))
     env["CARGO_BUILD_JOBS"] = jobs
     env[CARGO_DEFAULT_JOBS] = jobs
 
@@ -655,6 +673,118 @@ def execute(command: Sequence[str], env: Mapping[str, str]) -> int:
         return 126
 
 
+def owned_scope(command: Sequence[str], env: dict[str, str]) -> int:
+    """Run a newly placed scope and settle only its acquired allocation.
+
+    Call only with a nonempty placement prefix. Inherited placement returns no
+    prefix and never enters this terminal owner. Release refusal is a boundary
+    failure; diagnostics retain the independent raw and normalized child status.
+    """
+    allocation = host.inherit(env)
+    if allocation is None:
+        raise BoundaryError("New scope has no acquired allocation to settle")
+    raw_status: int | None = None
+    child_status: int | None = None
+    cancellation_deadline: float | None = None
+    try:
+        units = [
+            value.removeprefix("--unit=")
+            for value in command
+            if value.startswith("--unit=")
+        ]
+        if (
+            command[0] == "systemd-run"
+            and len(units) == 1
+            and re.fullmatch(r"pse-native-[a-f0-9]{32}\.scope", units[0])
+        ):
+            # The admission owner already registered this exact fresh placement.
+            # Its external observer survives the child's mandatory whole-scope
+            # kill and carries cancellation through the existing bound handoff.
+            with host.allocation_metadata(allocation.directory) as ledger:
+                registered = ledger["owners"].get(allocation.nonce)
+                if (
+                    not isinstance(registered, dict)
+                    or registered["units"].get(units[0]) != {}
+                ):
+                    raise BoundaryError(
+                        "Native placement lost its fresh allocation registration"
+                    )
+            from scripts import (
+                native_cache as cache,
+            )
+
+            observation: dict[str, object] = {}
+            with operation.Operation(cache.cache_root(env)) as observer:
+                handoff = operation.prepare_handoff(units[0], foreground=True)
+                if handoff is None:
+                    raise BoundaryError(
+                        "Native placement lacks its exact foreground handoff"
+                    )
+                child_env = dict(env)
+                child_env.pop(operation.MARKER, None)
+                child_env["PSE_NATIVE_HANDOFF"] = str(handoff)
+                try:
+                    child_status = operation.run(
+                        list(command),
+                        child_env,
+                        observation=observation,
+                        foreground=handoff,
+                    )
+                    raw_status = observation.get("child_status")
+                    return child_status
+                finally:
+                    child = operation._record(handoff)
+                    clocks = [
+                        child.get("cancel_deadline"),
+                        observation.get("cancellation_deadline"),
+                        operation._record(observer.path).get("cancel_deadline"),
+                    ]
+                    clocks = [value for value in clocks if value is not None]
+                    cancellation_deadline = min(clocks) if clocks else None
+                    if cancellation_deadline is not None:
+                        with operation.record_lock(
+                            observer.path, deadline=cancellation_deadline
+                        ):
+                            registered = operation._record(observer.path)
+                            registered["cancel_deadline"] = cancellation_deadline
+                            operation.write_json(observer.path, registered)
+                    completion = operation.drained(
+                        child,
+                        **(
+                            {"deadline": cancellation_deadline}
+                            if cancellation_deadline is not None
+                            else {}
+                        ),
+                    )
+                    if not completion.complete:
+                        raise BoundaryError(
+                            completion.diagnostic()
+                            + "; native placement remains charged"
+                        )
+        raw_status = subprocess.call(command, env=env)
+        child_status = 128 - raw_status if raw_status < 0 else raw_status
+        return child_status
+    finally:
+        outcome = f"child_exit={child_status!r}; raw_child_status={raw_status!r}"
+        identity = env.get(host.MARKER, "<acquired allocation identity unavailable>")
+        try:
+            released = allocation.release(
+                **(
+                    {"deadline": cancellation_deadline}
+                    if cancellation_deadline is not None
+                    else {}
+                )
+            )
+        except Exception as error:
+            raise BoundaryError(
+                f"own allocation release failed: {identity}; {outcome}; {error}"
+            ) from error
+        if not released:
+            raise BoundaryError(
+                f"own allocation retained until actual drain: {identity}; {outcome}"
+            )
+
+
 def native(
     root: Path,
     requested: list[str],
@@ -669,29 +799,18 @@ def native(
         return execute(command, operation.environment(requested, env))
     prefix = placement(env, native=True) if scope else []
     if prefix:
-        try:
-            status = subprocess.call(
-                [
-                    *prefix,
-                    setup_python(root, env),
-                    str(root / "scripts/pse_env.py"),
-                    "--no-scope",
-                    "--native=" + ",".join(requested),
-                    "--",
-                    *command,
-                ],
-                env=env,
-            )
-            return 128 - status if status < 0 else status
-        finally:
-            allocation = host.inherit(env)
-            if allocation is not None:
-                allocation.release()
-            for error in test_resources.reclaim_reports():
-                print(
-                    f"test-resources: report remains pinned after cleanup error: {error}",
-                    file=sys.stderr,
-                )
+        return owned_scope(
+            [
+                *prefix,
+                setup_python(root, env),
+                str(root / "scripts/pse_env.py"),
+                "--no-scope",
+                "--native=" + ",".join(requested),
+                "--",
+                *command,
+            ],
+            env,
+        )
     from scripts import native_cache as cache  # noqa: PLC0415 -- owner cycle
 
     os.environ.clear()
@@ -973,21 +1092,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         prefix = [] if args.no_scope else placement(env, native=False)
         if not prefix:
             return execute(command, env)
-        try:
-            status = subprocess.call([*prefix, *command], env=env)
-            return 128 - status if status < 0 else status
-        finally:
-            allocation = host.inherit(env)
-            if allocation is not None and not allocation.release():
-                print(
-                    f"pse-env: allocation retained until actual drain: {env[host.MARKER]}",
-                    file=sys.stderr,
-                )
-            for error in test_resources.reclaim_reports():
-                print(
-                    f"test-resources: report remains pinned after cleanup error: {error}",
-                    file=sys.stderr,
-                )
+        return owned_scope([*prefix, *command], env)
     except BoundaryError as error:
         print(f"pse-env: {error}", file=sys.stderr)
         return FAILURE

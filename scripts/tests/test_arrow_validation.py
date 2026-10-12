@@ -73,24 +73,6 @@ class ScopedValidationTests(unittest.TestCase):
         self.assertEqual(compose(command, run=cargo), command)
         self.assertEqual(len(cargo.commands), 2)
 
-    def test_incidental_unifier_is_not_a_semantic_consumer(self) -> None:
-        cargo = Cargo(
-            [
-                package("quantity"),
-                package("pse-workspace-hack"),
-                package("arrow-array", "force_validate"),
-            ],
-            graph(
-                [
-                    unit("quantity", [1]),
-                    unit("pse-workspace-hack", [2]),
-                    unit("arrow-array"),
-                ]
-            ),
-        )
-        command = ["cargo", "test", "-p", "quantity", "--lib"]
-        self.assertEqual(compose(command, run=cargo), command)
-
     def test_direct_transitive_and_selected_dev_arrow_closures_activate_owner(
         self,
     ) -> None:

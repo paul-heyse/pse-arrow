@@ -613,6 +613,23 @@ pub struct RouteChannelEngine {
     control: Option<std::sync::Arc<tokio::sync::Semaphore>>,
 }
 
+/// The response queue is actual byte ownership, unlike retired sender metadata.
+/// Closing a channel alone leaves queued values alive while a sender exists.
+/// Drain it before the immutable allocation holds are dropped, including when
+/// cancellation abandons a successfully queued response.
+struct ResponseReceiver<T> {
+    receiver: async_channel::Receiver<T>,
+    _retained: Option<request::PayloadRetention>,
+}
+impl<T> Drop for ResponseReceiver<T> {
+    fn drop(&mut self) {
+        self.receiver.close();
+        while let Ok(value) = self.receiver.try_recv() {
+            drop(value);
+        }
+    }
+}
+
 impl RouteChannelEngine {
     /// Construct a driver with an observable physical shutdown boundary.
     pub fn with_shutdown(sender: Sender<Route>, shutdown: async_channel::Receiver<()>) -> Self {
@@ -641,92 +658,129 @@ impl RouteChannelEngine {
     /// An empty reply reads as [`Value::None`]: the route protocol lets an
     /// engine answer a no-result operation with either an empty vector or a
     /// single `Value::None`, and both mean the same thing.
-    async fn value(&self, command: Command, ctx: EngineContext) -> Result<Value, Error> {
-        single_result(self.results(command, ctx).await?)
-    }
-
-    /// Sends one command and awaits its single response.
-    async fn results(
+    fn value(
         &self,
         command: Command,
         ctx: EngineContext,
-    ) -> Result<Vec<QueryResult>, Error> {
-        let _lifetime = request::CancelOnDrop(ctx.request_context.clone());
-        let admission = if let Some(application) = &self.application {
-            let context = ctx.request_context.as_ref().ok_or_else(|| {
-                Error::configuration(
-                    "Bounded requests require an original lifecycle".to_string(),
-                    None,
+    ) -> impl std::future::Future<Output = Result<Value, Error>> + Send + '_ {
+        let results = self.results(command, ctx);
+        async move { single_result(results.await?) }
+    }
+
+    /// Sends one command and awaits its single response.
+    fn results(
+        &self,
+        command: Command,
+        ctx: EngineContext,
+    ) -> impl std::future::Future<Output = Result<Vec<QueryResult>, Error>> + Send + '_ {
+        // The tuple drops the actual command before its guard even if never polled.
+        let owned = (
+            command,
+            request::UndispatchedPayloadDrain::caller(ctx.request_context.clone()),
+        );
+        async move {
+            let (mut command, _drain) = owned;
+            // Locals drop in reverse order: move bytes after the drain guard.
+            let command = std::mem::replace(&mut command, Command::Health);
+            let _lifetime = request::CancelOnDrop(ctx.request_context.clone());
+            let admission = if let Some(application) = &self.application {
+                let context = ctx.request_context.as_ref().ok_or_else(|| {
+                    Error::configuration(
+                        "Bounded requests require an original lifecycle".to_string(),
+                        None,
+                    )
+                })?;
+                let semaphore = if context.is_control() {
+                    self.control.as_ref().unwrap_or(application)
+                } else {
+                    application
+                };
+                let acquire = std::sync::Arc::clone(semaphore).acquire_owned();
+                let permit = tokio::select! { biased;
+                    _ = context.interrupted() => return Err(context.interruption_error()),
+                    result = acquire => result.map_err(|_| Error::internal("Connection admission closed".to_string()))?,
+                };
+                Some(std::sync::Arc::new(request::AdmissionPermit::new(
+                    permit,
+                    context.payload_owner(),
+                )))
+            } else {
+                None
+            };
+            let retained = ctx
+                .request_context
+                .as_ref()
+                .and_then(RequestContext::payload_owner)
+                .map(|owner| owner.retain());
+            let (response, receiver) = async_channel::bounded(1);
+            let receiver = ResponseReceiver {
+                receiver,
+                _retained: retained,
+            };
+            let route = Route {
+                admission,
+                request: RequestData {
+                    command,
+                    session_id: ctx.session,
+                    request_context: ctx.request_context.clone(),
+                },
+                response,
+            };
+            // Both failure modes mean the engine task is gone, which callers
+            // distinguish from a database error with `Error::is_connection()` to
+            // decide whether reconnecting is worth trying.
+            let context = ctx.request_context;
+            let send = self.sender.send(route);
+            let admitted = if let Some(context) = &context {
+                tokio::select! { biased;
+                    _ = context.interrupted() => return Err(context.interruption_error()),
+                    result = send => result,
+                }
+            } else {
+                send.await
+            };
+            admitted.map_err(|e| {
+                Error::connection(
+                    format!("Failed to send command: {e}"),
+                    ConnectionError::ConnectionFailed,
                 )
             })?;
-            let semaphore = if context.is_control() {
-                self.control.as_ref().unwrap_or(application)
+            if let Some(context) = &context {
+                context.mark_enqueued();
+            }
+            let receive = receiver.receiver.recv();
+            let outcome = if let Some(context) = &context {
+                tokio::select! { biased;
+                    _ = context.interrupted() => return Err(context.interruption_error()),
+                    result = receive => result,
+                }
             } else {
-                application
+                receive.await
             };
-            let acquire = std::sync::Arc::clone(semaphore).acquire_owned();
-            let permit = tokio::select! { biased;
-                _ = context.interrupted() => return Err(context.interruption_error()),
-                result = acquire => result.map_err(|_| Error::internal("Connection admission closed".to_string()))?,
-            };
-            Some(std::sync::Arc::new(request::AdmissionPermit::new(permit)))
-        } else {
-            None
-        };
-        let (response, receiver) = async_channel::bounded(1);
-        let route = Route {
-            admission,
-            request: RequestData {
-                command,
-                session_id: ctx.session,
-                request_context: ctx.request_context.clone(),
-            },
-            response,
-        };
-        // Both failure modes mean the engine task is gone, which callers
-        // distinguish from a database error with `Error::is_connection()` to
-        // decide whether reconnecting is worth trying.
-        let context = ctx.request_context;
-        let send = self.sender.send(route);
-        let admitted = if let Some(context) = &context {
-            tokio::select! { biased;
-                _ = context.interrupted() => return Err(context.interruption_error()),
-                result = send => result,
-            }
-        } else {
-            send.await
-        };
-        admitted.map_err(|e| {
-            Error::connection(
-                format!("Failed to send command: {e}"),
-                ConnectionError::ConnectionFailed,
-            )
-        })?;
-        let receive = receiver.recv();
-        let outcome = if let Some(context) = &context {
-            tokio::select! { biased;
-                _ = context.interrupted() => return Err(context.interruption_error()),
-                result = receive => result,
-            }
-        } else {
-            receive.await
-        };
-        outcome.map_err(|_| {
-            Error::connection(
-                "The engine dropped the request without answering".to_string(),
-                ConnectionError::ConnectionFailed,
-            )
-        })?
+            outcome.map_err(|_| {
+                Error::connection(
+                    "The engine dropped the request without answering".to_string(),
+                    ConnectionError::ConnectionFailed,
+                )
+            })?
+        }
     }
 
     /// Sends one command whose response carries nothing of interest.
-    async fn unit(&self, command: Command, ctx: EngineContext) -> Result<(), Error> {
-        match self.value(command, ctx).await? {
-            Value::None | Value::Null => Ok(()),
-            Value::Array(array) if array.is_empty() => Ok(()),
-            _ => Err(Error::internal(
-                "expected the database to return nothing".to_string(),
-            )),
+    fn unit(
+        &self,
+        command: Command,
+        ctx: EngineContext,
+    ) -> impl std::future::Future<Output = Result<(), Error>> + Send + '_ {
+        let value = self.value(command, ctx);
+        async move {
+            match value.await? {
+                Value::None | Value::Null => Ok(()),
+                Value::Array(array) if array.is_empty() => Ok(()),
+                _ => Err(Error::internal(
+                    "expected the database to return nothing".to_string(),
+                )),
+            }
         }
     }
 }
@@ -979,9 +1033,277 @@ impl SurrealEngine for RouteChannelEngine {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use surrealdb_types::Value;
 
     use super::*;
+
+    #[derive(Debug)]
+    struct ChargedBytes {
+        bytes: Vec<u8>,
+        reserved: Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl Drop for ChargedBytes {
+        fn drop(&mut self) {
+            self.reserved
+                .fetch_sub(self.bytes.len(), std::sync::atomic::Ordering::AcqRel);
+        }
+    }
+    impl ChargedBytes {
+        fn reserve(
+            reserved: &Arc<std::sync::atomic::AtomicUsize>,
+            bytes: usize,
+            limit: usize,
+        ) -> Option<Arc<Self>> {
+            reserved
+                .try_update(
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                    |current| current.checked_add(bytes).filter(|next| *next <= limit),
+                )
+                .ok()?;
+            Some(Arc::new(Self {
+                bytes: vec![0; bytes],
+                reserved: reserved.clone(),
+            }))
+        }
+    }
+
+    #[tokio::test]
+    async fn queued_response_abandonment_drains_bytes_with_retired_sender_alive() {
+        let (sender, routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_payload_owner(ChargedBytes::reserve(&reserved, 4096, 4096).unwrap());
+        let mut request = Box::pin(engine.results(
+            Command::Health,
+            EngineContext::new(Uuid::nil()).with_request_context(Some(context.clone())),
+        ));
+        let route = tokio::select! {
+            route = routes.recv() => route.unwrap(),
+            result = &mut request => panic!("request ended before enqueue: {result:?}"),
+        };
+        context.mark_dispatched();
+        let retired_sender = route.response.clone();
+        drop(route.request);
+        route
+            .response
+            .send(Ok(vec![QueryResult {
+                time: std::time::Duration::ZERO,
+                result: Ok(Value::String("queued bytes".repeat(128))),
+                query_type: surrealdb_rpc::QueryType::Other,
+            }]))
+            .await
+            .unwrap();
+        context.mark_completed();
+        context.release_payload_after_drain();
+        assert_eq!(retired_sender.len(), 1);
+        assert!(ChargedBytes::reserve(&reserved, 4096, 4096).is_none());
+        drop(request);
+        assert_eq!(
+            retired_sender.len(),
+            0,
+            "receiver cleanup destroys values, not just channel access"
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert_eq!(context.dispatch_state(), request::DispatchState::Completed);
+    }
+
+    #[tokio::test]
+    async fn successful_response_transfers_to_callers_actual_decode_owner() {
+        let (sender, routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let caller_owner = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
+        let context =
+            RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_payload_owner(caller_owner.clone());
+        let request = engine.results(
+            Command::Health,
+            EngineContext::new(Uuid::nil()).with_request_context(Some(context.clone())),
+        );
+        let driver = async {
+            let route = routes.recv().await.unwrap();
+            context.mark_dispatched();
+            drop(route.request);
+            route
+                .response
+                .send(Ok(vec![QueryResult {
+                    time: std::time::Duration::ZERO,
+                    result: Ok(Value::String("actual output".repeat(128))),
+                    query_type: surrealdb_rpc::QueryType::Other,
+                }]))
+                .await
+                .unwrap();
+            context.mark_completed();
+            context.release_payload_after_drain();
+        };
+        let (output, ()) = futures::future::join(request, driver).await;
+        let output = output.unwrap();
+        assert!(ChargedBytes::reserve(&reserved, 4096, 4096).is_none());
+        drop(output);
+        drop(caller_owner);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = ChargedBytes::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+    }
+
+    #[test]
+    fn queued_values_drop_before_response_receiver_grant() {
+        struct CheckedValue(Arc<std::sync::atomic::AtomicUsize>);
+        impl Drop for CheckedValue {
+            fn drop(&mut self) {
+                assert_eq!(self.0.load(std::sync::atomic::Ordering::Acquire), 4096);
+            }
+        }
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_payload_owner(ChargedBytes::reserve(&reserved, 4096, 4096).unwrap());
+        let retained = context.payload_owner().unwrap().retain();
+        let (sender, receiver) = async_channel::bounded(1);
+        let receiver = ResponseReceiver {
+            receiver,
+            _retained: Some(retained),
+        };
+        sender
+            .try_send(CheckedValue(reserved.clone()))
+            .ok()
+            .unwrap();
+        context.release_payload_after_drain();
+        drop(receiver);
+        assert_eq!(sender.len(), 0);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+    }
+
+    #[tokio::test]
+    async fn timed_out_route_retains_actual_payload_budget_until_driver_drain() {
+        let (sender, routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(4096));
+        let owner = Arc::new(ChargedBytes {
+            bytes: vec![0; 4096],
+            reserved: reserved.clone(),
+        });
+        let context = request::RequestContext::new(
+            std::time::Instant::now() + std::time::Duration::from_millis(20),
+        )
+        .with_payload_owner(owner.clone());
+        drop(owner);
+        let mut request = Box::pin(engine.results(
+            Command::Health,
+            EngineContext::new(Uuid::nil()).with_request_context(Some(context)),
+        ));
+        let mut route = tokio::select! {
+            route = routes.recv() => route.unwrap(),
+            result = &mut request => panic!("request ended before driver received it: {result:?}"),
+        };
+        route
+            .request
+            .request_context
+            .as_ref()
+            .unwrap()
+            .mark_dispatched();
+        assert!((&mut request).await.is_err());
+        drop(request);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+        // Holding a routed copy is actual pending driver ownership even though
+        // the caller has already observed its original deadline.
+        route.request.request_context.take();
+        drop(route);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+    }
+
+    #[tokio::test]
+    async fn never_enqueued_payload_restores_capacity_with_live_context() {
+        for mode in 0..3 {
+            let blocked_admission = mode == 1;
+            let (sender, routes) = async_channel::bounded(1);
+            let mut engine = RouteChannelEngine::new(sender.clone());
+            if blocked_admission {
+                engine.application = Some(Arc::new(tokio::sync::Semaphore::new(0)));
+            } else if mode == 0 {
+                let (response, _receiver) = async_channel::bounded(1);
+                sender
+                    .send(Route {
+                        admission: None,
+                        request: RequestData {
+                            command: Command::Health,
+                            session_id: Uuid::nil(),
+                            request_context: None,
+                        },
+                        response,
+                    })
+                    .await
+                    .unwrap();
+            } else {
+                routes.close();
+            }
+            let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(4096));
+            let owner = Arc::new(ChargedBytes {
+                bytes: vec![0; 4096],
+                reserved: reserved.clone(),
+            });
+            let context =
+                RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                    .with_payload_owner(owner);
+            let request = engine.results(
+                Command::Query {
+                    txn: None,
+                    query: Cow::Borrowed("RETURN $payload"),
+                    variables: Variables::default(),
+                },
+                EngineContext::new(Uuid::nil()).with_request_context(Some(context.clone())),
+            );
+            let interrupt = async {
+                tokio::task::yield_now().await;
+                if mode != 2 {
+                    assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+                }
+                context.cancel();
+            };
+            let (result, ()) = tokio::join!(request, interrupt);
+            assert!(result.is_err());
+            assert_eq!(
+                context.dispatch_state(),
+                request::DispatchState::NotDispatched
+            );
+            assert_eq!(
+                reserved.load(std::sync::atomic::Ordering::Acquire),
+                0,
+                "actual canceled command/send future drained despite live caller metadata"
+            );
+            assert_eq!(routes.len(), usize::from(mode == 0));
+        }
+    }
+
+    #[test]
+    fn unpolled_request_drops_bytes_before_never_enqueued_guard() {
+        let (sender, _routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(4096));
+        let context =
+            RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
+                .with_payload_owner(Arc::new(ChargedBytes {
+                    bytes: vec![0; 4096],
+                    reserved: reserved.clone(),
+                }));
+        let request = engine.results(
+            Command::Health,
+            EngineContext::new(Uuid::nil()).with_request_context(Some(context.clone())),
+        );
+        drop(request);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert_eq!(
+            context.dispatch_state(),
+            request::DispatchState::NotDispatched
+        );
+    }
 
     /// The buffered adaptation produces the same items a streaming engine
     /// would, so a caller cannot tell which one answered.

@@ -82,64 +82,8 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<Self, Withheld> {
         execution.check().map_err(partial)?;
+        let allowance = Self::check(&request)?;
         let n = request.scope.contract.variables.len();
-        request
-            .tolerances
-            .validate(n, n)
-            .map_err(|e| Withheld::Infeasible(e.to_string()))?;
-        request
-            .normalization
-            .validate(n, n)
-            .map_err(|e| Withheld::Numerical(e.to_string()))?;
-        if n == 0
-            || request.point.len() != n
-            || request.values.len() != n
-            || request
-                .point
-                .iter()
-                .chain(request.values)
-                .any(|x| !x.is_finite())
-        {
-            return Err(Withheld::Infeasible(
-                "fresh sparse response point/row shape or values".into(),
-            ));
-        }
-        if request
-            .values
-            .iter()
-            .zip(&request.scope.bounds)
-            .zip(&request.tolerances.rows)
-            .any(|((value, (bound, _)), tol)| (value - bound).abs() > *tol)
-        {
-            return Err(Withheld::Infeasible(
-                "fresh sparse response original physical residual".into(),
-            ));
-        }
-        if request
-            .scope
-            .contract
-            .variables
-            .iter()
-            .zip(request.point)
-            .zip(&request.tolerances.variables)
-            .any(|((variable, x), tol)| *x - variable.lower <= *tol || variable.upper - *x <= *tol)
-        {
-            return Err(Withheld::Neighborhood(
-                "fresh sparse response requires inactive physical bounds".into(),
-            ));
-        }
-        if request.key.point != Some(point_key(request.point))
-            || request.key.normalization != Some(request.normalization.key())
-            || request.key.accuracy.is_none()
-            || request.key.structure != request.scope.contract.identity
-        {
-            return Err(Withheld::Numerical("fresh sparse factor key does not bind point, normalization and derivative accuracy".into()));
-        }
-        // Conservative shape reservation for private library fill; this is not an
-        // observation of opaque factor allocation, nor an allocator-enforced hard cap.
-        let allowance = Self::allowance(n)
-            .filter(|bytes| *bytes <= request.bytes)
-            .ok_or(Withheld::Memory)?;
         let physical = evaluate().map_err(partial)?;
         execution.check().map_err(partial)?;
         if physical.nrows() != n
@@ -231,6 +175,69 @@ impl SparseFactor {
             })
             .map_err(partial)
     }
+    /// Check the complete original point/key and admission before derivatives.
+    /// # Errors
+    /// Physical feasibility, neighborhood, consumed key or allowance refusal.
+    pub fn check(request: &SparseRequest<'_>) -> Result<usize, Withheld> {
+        let n = request.scope.contract.variables.len();
+        request
+            .tolerances
+            .validate(n, n)
+            .map_err(|e| Withheld::Infeasible(e.to_string()))?;
+        request
+            .normalization
+            .validate(n, n)
+            .map_err(|e| Withheld::Numerical(e.to_string()))?;
+        if n == 0
+            || request.point.len() != n
+            || request.values.len() != n
+            || request
+                .point
+                .iter()
+                .chain(request.values)
+                .any(|x| !x.is_finite())
+        {
+            return Err(Withheld::Infeasible(
+                "fresh sparse response point/row shape or values".into(),
+            ));
+        }
+        if request
+            .values
+            .iter()
+            .zip(&request.scope.bounds)
+            .zip(&request.tolerances.rows)
+            .any(|((value, (bound, _)), tol)| (value - bound).abs() > *tol)
+        {
+            return Err(Withheld::Infeasible(
+                "fresh sparse response original physical residual".into(),
+            ));
+        }
+        if request
+            .scope
+            .contract
+            .variables
+            .iter()
+            .zip(request.point)
+            .zip(&request.tolerances.variables)
+            .any(|((variable, x), tol)| *x - variable.lower <= *tol || variable.upper - *x <= *tol)
+        {
+            return Err(Withheld::Neighborhood(
+                "fresh sparse response requires inactive physical bounds".into(),
+            ));
+        }
+        if request.key.point != Some(point_key(request.point))
+            || request.key.normalization != Some(request.normalization.key())
+            || request.key.accuracy.is_none()
+            || request.key.structure != request.scope.contract.identity
+        {
+            return Err(Withheld::Numerical("fresh sparse factor key does not bind point, normalization and derivative accuracy".into()));
+        }
+        // Conservative shape reservation for private library fill; this is not an
+        // observation of opaque factor allocation, nor an allocator-enforced hard cap.
+        Self::allowance(n)
+            .filter(|bytes| *bytes <= request.bytes)
+            .ok_or(Withheld::Memory)
+    }
     /// Conservative opaque-library allowance. Dense response matrices are not allocated.
     pub fn allowance(n: usize) -> Option<usize> {
         n.checked_mul(n)?
@@ -240,7 +247,7 @@ impl SparseFactor {
     }
     /// Bind the actual escaping reservation, without reporting it as measured bytes.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.owner = Some(owner);
+        self.owner = Some(pse_math::retain_allocation_owner(self.owner.take(), owner));
         self
     }
     /// Retained original consumed dependencies; target parameter transport is separate.
@@ -273,8 +280,30 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
         execution.check()?;
+        if rhs.len() != self.held.point.len() || rhs.iter().any(|value| !value.is_finite()) {
+            return Err(ProblemError::Contract(
+                "sparse response action shape or nonfinite values".into(),
+            ));
+        }
+        let rhs = Mat::from_fn(rhs.len(), 1, |row, _| rhs[row]);
+        let (values, evidence) = self.actions(rhs.as_ref(), self.held.allowance, execution)?;
+        Ok((values.col(0).iter().copied().collect(), evidence))
+    }
+    /// Apply all admitted physical RHS columns using this one numeric factor.
+    pub(super) fn actions(
+        &self,
+        rhs: faer::MatRef<'_, f64>,
+        bytes: usize,
+        execution: &Execution,
+    ) -> Result<(Mat<f64>, ActionEvidence), ProblemError> {
+        execution.check()?;
         let n = self.held.point.len();
-        if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
+        if rhs.nrows() != n
+            || rhs.ncols() == 0
+            || rhs
+                .col_iter()
+                .any(|column| column.iter().any(|value| !value.is_finite()))
+        {
             return Err(ProblemError::Contract(
                 "sparse response action shape or nonfinite values".into(),
             ));
@@ -282,13 +311,22 @@ impl SparseFactor {
         let req = self
             .held
             .symbolic
-            .solve_in_place_scratch::<f64>(1, Par::Seq);
-        if req.size_bytes() > self.held.allowance {
+            .solve_in_place_scratch::<f64>(rhs.ncols(), Par::Seq);
+        if req.size_bytes() > bytes {
             return Err(ProblemError::memory("sparse response action scratch"));
         }
         let mut memory =
             MemBuffer::try_new(req).map_err(|e| ProblemError::memory(e.to_string()))?;
-        let b = Mat::from_fn(n, 1, |i, _| rhs[i] / self.held.scales.rows[i]);
+        let b = Mat::from_fn(n, rhs.ncols(), |row, column| {
+            rhs[(row, column)] / self.held.scales.rows[row]
+        });
+        if b.col_iter()
+            .any(|column| column.iter().any(|value| !value.is_finite()))
+        {
+            return Err(ProblemError::numerical(
+                "nonfinite normalized sparse response RHS",
+            ));
+        }
         let mut x = b.clone();
         // Numeric/symbolic fields are private, installed together by the constructor.
         let lu = LuRef::new_unchecked(&self.held.symbolic, &self.held.numeric);
@@ -300,7 +338,9 @@ impl SparseFactor {
         let mut backsolves = 1;
         loop {
             execution.check()?;
-            if x.col(0).iter().any(|v| !v.is_finite()) {
+            if x.col_iter()
+                .any(|column| column.iter().any(|value| !value.is_finite()))
+            {
                 return Err(ProblemError::numerical("nonfinite sparse response action"));
             }
             let mut residual = b.clone();
@@ -319,10 +359,13 @@ impl SparseFactor {
                 residual.as_ref(),
             );
             if error.is_finite() && error <= limit {
-                let values = (0..n)
-                    .map(|i| x[(i, 0)] * self.held.scales.variables[i])
-                    .collect::<Vec<_>>();
-                if values.iter().any(|v| !v.is_finite()) {
+                let values = Mat::from_fn(n, rhs.ncols(), |row, column| {
+                    x[(row, column)] * self.held.scales.variables[row]
+                });
+                if values
+                    .col_iter()
+                    .any(|column| column.iter().any(|value| !value.is_finite()))
+                {
                     return Err(ProblemError::numerical(
                         "nonfinite physical sparse response",
                     ));
@@ -350,8 +393,10 @@ impl SparseFactor {
                     Par::Seq,
                     MemStack::new(&mut memory),
                 );
-                for i in 0..n {
-                    x[(i, 0)] += residual[(i, 0)];
+                for column in 0..rhs.ncols() {
+                    for row in 0..n {
+                        x[(row, column)] += residual[(row, column)];
+                    }
                 }
                 backsolves += 1;
                 Ok(())
@@ -474,7 +519,15 @@ fn backward(
     b: faer::MatRef<'_, f64>,
     r: faer::MatRef<'_, f64>,
 ) -> f64 {
-    let norm = |m: faer::MatRef<'_, f64>| m.col(0).iter().map(|v| v.abs()).fold(0., f64::max);
+    let norm = |m: faer::MatRef<'_, f64>| {
+        (0..m.nrows())
+            .map(|row| {
+                (0..m.ncols())
+                    .map(|column| m[(row, column)].abs())
+                    .sum::<f64>()
+            })
+            .fold(0., f64::max)
+    };
     let mut rows = vec![0.; a.nrows()];
     for c in 0..a.ncols() {
         for k in a.symbolic().col_range(c) {
@@ -482,7 +535,9 @@ fn backward(
         }
     }
     let denominator = rows.into_iter().fold(0., f64::max) * norm(x) + norm(b);
-    if denominator == 0. {
+    if !denominator.is_finite() {
+        f64::INFINITY
+    } else if denominator == 0. {
         norm(r)
     } else {
         norm(r) / denominator
@@ -560,7 +615,10 @@ impl SparsePredictor {
     /// Attach the reservation for actual retained parameter storage; the factor retains
     /// its own independently admitted allocation anchor.
     pub fn with_owner(mut self, owner: Arc<dyn pse_math::AllocationOwner>) -> Self {
-        self.owner = Some(owner);
+        if self.factor.owner.is_none() {
+            self.factor = self.factor.with_owner(owner.clone());
+        }
+        self.owner = Some(pse_math::retain_allocation_owner(self.owner.take(), owner));
         self
     }
     /// Actual factor at the original point, shared by all related target actions.
@@ -912,5 +970,56 @@ mod tests {
                 .action(&[(parameter, f64::INFINITY)], &execution)
                 .is_err()
         );
+    }
+    #[test]
+    fn escaped_shared_factors_retain_original_and_combined_allocation_owners() {
+        let execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
+        let matrix = || {
+            SparseColMat::try_new_from_triplets(
+                2,
+                1,
+                &[
+                    faer::sparse::Triplet::new(0, 0, 1.),
+                    faer::sparse::Triplet::new(1, 0, -1.),
+                ],
+            )
+            .unwrap()
+        };
+        let factor_owner = Arc::new(());
+        let parameter_owner = Arc::new(());
+        let factor_weak = Arc::downgrade(&factor_owner);
+        let parameter_weak = Arc::downgrade(&parameter_owner);
+        let predictor = SparsePredictor::new(
+            factor(1 << 20, &[2., 1.], &execution)
+                .unwrap()
+                .with_owner(factor_owner.clone()),
+            vec![(SemanticId::NIL, 3.)],
+            matrix(),
+        )
+        .unwrap()
+        .with_owner(parameter_owner.clone());
+        let escaped = predictor.factor().clone();
+        drop(factor_owner);
+        drop(parameter_owner);
+        drop(predictor);
+        assert!(factor_weak.upgrade().is_some());
+        assert!(parameter_weak.upgrade().is_none());
+        drop(escaped);
+        assert!(factor_weak.upgrade().is_none());
+        let combined = Arc::new(());
+        let weak = Arc::downgrade(&combined);
+        let predictor = SparsePredictor::new(
+            factor(1 << 20, &[2., 1.], &execution).unwrap(),
+            vec![(SemanticId::NIL, 3.)],
+            matrix(),
+        )
+        .unwrap()
+        .with_owner(combined.clone());
+        let escaped = predictor.factor().clone();
+        drop(combined);
+        drop(predictor);
+        assert!(weak.upgrade().is_some());
+        drop(escaped);
+        assert!(weak.upgrade().is_none());
     }
 }

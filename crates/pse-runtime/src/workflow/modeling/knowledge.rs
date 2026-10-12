@@ -136,8 +136,8 @@ impl ModelingPackage {
             .math()
             .reserve("modeling:knowledge-projection", bytes)?;
         let pool = self.runtime.shared.pool();
-        let validation = self.runtime.validation_context()?;
-        let mut columns = Collection::new(&self.runtime.registry, &pool, cancel, &validation);
+        let validation = self.runtime.validation_context();
+        let mut columns = Collection::new(self.runtime.registry(), &pool, cancel, &validation);
         columns.ensure::<Row>().map_err(relation)?;
         visit(&mut |cell| {
             let mut keys = Vec::new();

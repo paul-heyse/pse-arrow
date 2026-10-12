@@ -19,6 +19,11 @@ pub(crate) struct Source<'a> {
     pub(crate) original: ContentHash,
     pub(crate) preparation: ContentHash,
     pub(crate) profile: ContentHash,
+    /// Source-owned operation policy projected onto each actually offered solver profile.
+    /// Borrowed only for this callable invocation; absent uses the ordinary solver key.
+    pub(crate) profile_projection: Option<
+        &'a dyn Fn(&super::super::solves::SolverProfile) -> Result<ContentHash, ProblemError>,
+    >,
     pub(crate) backend: Option<Backend>,
     pub(crate) solver: Option<&'a super::super::solves::SolverProfile>,
     pub(crate) controls: &'a Controls,
@@ -26,6 +31,17 @@ pub(crate) struct Source<'a> {
     pub(crate) request: &'a pse_model::strategy::CompositionRequest,
     pub(crate) start: StartOrigin,
     pub(crate) start_identity: Option<ContentHash>,
+}
+impl Source<'_> {
+    fn offered_profile(
+        &self,
+        profile: &super::super::solves::SolverProfile,
+    ) -> Result<ContentHash, ProblemError> {
+        match self.profile_projection {
+            Some(project) => project(profile),
+            None => super::super::solves::profile_key(profile).map(|key| key.as_id()),
+        }
+    }
 }
 
 /// Mechanical projection of the same frozen callable contract used at execution.
@@ -115,9 +131,7 @@ pub(crate) fn callable<T>(
             .enumerate()
             .map(|(index, profile)| {
                 let key = match profile {
-                    Some(profile) if index > 0 => {
-                        super::super::solves::profile_key(profile).map(|key| key.as_id())
-                    }
+                    Some(profile) if index > 0 => source.offered_profile(profile),
                     _ => Ok(source.profile),
                 }?;
                 let mut binding = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV2);
@@ -240,9 +254,9 @@ pub(crate) fn callable<T>(
         } else {
             profiles[index]
                 .as_ref()
-                .map(super::super::solves::profile_key)
+                .map(|profile| source.offered_profile(profile))
                 .transpose()?
-                .map_or(source.profile, |key| key.as_id())
+                .unwrap_or(source.profile)
         };
         operation.mechanisms[0].profile =
             source
@@ -381,7 +395,7 @@ pub(crate) fn callable<T>(
                 profile.controls = offered.controls;
                 profile.backend =
                     pse_backend_native::execution::BackendSettings::Pounce(offered.settings);
-                let key = super::super::solves::profile_key(&profile)?.as_id();
+                let key = source.offered_profile(&profile)?;
                 if known_profiles.insert(key) {
                     profiles.push(Some(profile));
                 }
@@ -585,6 +599,7 @@ mod tests {
             original: hash(1),
             preparation: hash(2),
             profile: hash(3),
+            profile_projection: None,
             backend: None,
             solver: None,
             controls: &controls,
@@ -623,18 +638,36 @@ mod tests {
     #[cfg(feature = "solver-pounce")]
     #[test]
     fn callable_runs_actual_same_backend_profile_after_recoverable_observation() {
+        callable_profile_recovery(false);
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[test]
+    fn callable_recovery_projects_actual_operation_policy_for_every_offered_profile() {
+        callable_profile_recovery(true);
+    }
+    #[cfg(feature = "solver-pounce")]
+    fn callable_profile_recovery(projected: bool) {
         use pse_backend_native::solve::{
             Assurance, Execution, NativeTermination, SolveReport, Termination,
         };
         let service = crate::math::tests::service();
         let solver = super::super::super::solves::SolverProfile::default();
         let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
+        let project = |profile: &super::super::super::solves::SolverProfile| {
+            let ordinary = super::super::super::solves::profile_key(profile)?.as_id();
+            if projected {
+                let mut key = pse_ids::FramedHasher::new(pse_ids::Frame::ShootingProblemV1);
+                key.str("eager-first").hash(&ordinary);
+                Ok(key.finish_hash())
+            } else {
+                Ok(ordinary)
+            }
+        };
         let source = Source {
             original: hash(1),
             preparation: hash(2),
-            profile: super::super::super::solves::profile_key(&solver)
-                .unwrap()
-                .as_id(),
+            profile: project(&solver).unwrap(),
+            profile_projection: if projected { Some(&project) } else { None },
             backend: Some(Backend::Pounce),
             solver: Some(&solver),
             controls: &solver.controls,
@@ -649,7 +682,7 @@ mod tests {
             &scope,
             |profile, _| {
                 let profile = profile.unwrap();
-                profiles.push(super::super::super::solves::profile_key(profile).unwrap());
+                profiles.push(project(profile).unwrap());
                 let execution = Execution::new(Arc::default(), &profile.controls);
                 let contract = pse_backend_native::OracleContract {
                     identity: hash(1),
@@ -699,6 +732,9 @@ mod tests {
         assert_eq!(profiles.len(), 2);
         assert_ne!(profiles[0], profiles[1]);
         assert_eq!(trace.declaration.mechanisms.len(), 2);
+        for (mechanism, actual) in trace.declaration.mechanisms.iter().zip(&profiles) {
+            assert_eq!(mechanism.profile.as_ref().unwrap().key, *actual);
+        }
         assert_eq!(
             trace.declaration.mechanisms[1].kind,
             pse_model::strategy::MechanismKind::NativeGlobalization

@@ -323,6 +323,17 @@ impl ModelingPackage {
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        self.initialize_model_with_prepared(analysis, policy, None, cancel)
+            .await
+    }
+    /// Run initialization from an exact retained declared preparation.
+    pub(in crate::workflow) async fn initialize_model_with_prepared(
+        &self,
+        analysis: &ModelingAnalysis,
+        policy: ModelingInitialization,
+        prepared: Option<ModelingPreparation>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingInitializationReport, WorkflowError> {
         policy.validate()?;
         if analysis
             .bindings
@@ -337,26 +348,44 @@ impl ModelingPackage {
         let deadline = Instant::now()
             .checked_add(policy.time_limit)
             .ok_or_else(|| contract("initialization deadline overflow"))?;
-        let (base, interruption) = bounded(
-            pse_diagnostics::DiagnosticStage::Initialization,
-            Some(deadline),
-            cancel,
-            |child| async move {
-                self.prepare(
-                    analysis.root,
-                    analysis.instance,
-                    analysis.bindings.clone(),
-                    analysis.limits,
-                    &child,
-                )
-                .await
-            },
-        )
-        .await;
-        if let Some(error) = interruption {
-            return Err(error.into());
-        }
-        let base = base?;
+        let base = if let Some(base) = prepared {
+            if cancel.token().is_cancelled() {
+                return Err(crate::math::MathRuntimeError::Cancelled.into());
+            }
+            base
+        } else {
+            let (base, interruption) = bounded(
+                pse_diagnostics::DiagnosticStage::Initialization,
+                Some(deadline),
+                cancel,
+                |child| async move {
+                    let mut bindings = analysis.bindings.clone();
+                    bindings.demand.extend(
+                        analysis
+                            .case
+                            .values
+                            .keys()
+                            .chain(analysis.case.variables.keys())
+                            .cloned(),
+                    );
+                    bindings.demand.sort();
+                    bindings.demand.dedup();
+                    self.prepare(
+                        analysis.root,
+                        analysis.instance,
+                        bindings,
+                        analysis.limits,
+                        &child,
+                    )
+                    .await
+                },
+            )
+            .await;
+            if let Some(error) = interruption {
+                return Err(error.into());
+            }
+            base?
+        };
         let stages = base
             .compiled()
             .model
@@ -376,11 +405,15 @@ impl ModelingPackage {
         // ADR-0103 item 6: resolved once, before any attempt, so every stage and homotopy
         // step fixes the same assignment.
         let discrete = &policy.discrete;
+        let base_ref = &base;
         let (assignment, interruption) = bounded(
             pse_diagnostics::DiagnosticStage::Initialization,
             Some(deadline),
             cancel,
-            |child| async move { self.discrete_assignment(analysis, discrete, &child).await },
+            |child| async move {
+                self.discrete_assignment(analysis, base_ref, discrete, &child)
+                    .await
+            },
         )
         .await;
         if let Some(error) = interruption {
@@ -423,6 +456,7 @@ impl ModelingPackage {
             staged: Staged::open(&self.runtime, None)?,
             accepted: None,
             original: base.compiled().model.clone(),
+            prepared_original: base,
             report: ModelingInitializationReport {
                 run_id: pse_operations::mint_id(),
                 runtime: self.runtime.clone(),
@@ -454,6 +488,7 @@ struct Initializer<'a> {
     accepted: Option<usize>,
     /// Unmodified members used to attribute a stage's replacements.
     original: pse_math::SharedAllocation<pse_modeling::specialize::SpecializedModel>,
+    prepared_original: ModelingPreparation,
     report: ModelingInitializationReport,
 }
 impl Initializer<'_> {
@@ -493,6 +528,8 @@ impl Initializer<'_> {
             .step(
                 self.package,
                 self.analysis,
+                (step == ModelingInitializationStep::Original)
+                    .then(|| self.prepared_original.clone()),
                 &overlay,
                 self.accepted.map_or(Start::Specification, Start::Accepted),
                 obligations,

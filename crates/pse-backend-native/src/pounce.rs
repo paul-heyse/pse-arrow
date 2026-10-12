@@ -168,6 +168,15 @@ impl Drop for Admission {
         ADMITTED.with(|a| a.set(self.0));
     }
 }
+/// Install the qualified serial admission without moving its owner or native state.
+pub(crate) fn serial_scope(stack: usize) -> Result<Box<dyn std::any::Any>, ProblemError> {
+    if stack == 0 {
+        return Err(ProblemError::Contract(
+            "POUNCE serial stack admission".into(),
+        ));
+    }
+    Ok(Box::new(Admission(ADMITTED.with(|a| a.replace(1)))))
+}
 /// Enter a local admitted pool for the complete finite sequence, including native teardown.
 pub fn with_threads<T: Send, E: From<ProblemError> + Send>(
     threads: usize,
@@ -1609,6 +1618,37 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+    #[test]
+    fn serial_scope_inventory_restores_admission_after_retained_state_drain() {
+        struct NativeWitness;
+        impl Drop for NativeWitness {
+            fn drop(&mut self) {
+                assert_eq!(ADMITTED.with(|a| a.get()), 1);
+            }
+        }
+        assert_eq!(ADMITTED.with(|a| a.get()), 0);
+        {
+            let mut scopes = crate::execution::SerialScopes::default();
+            scopes
+                .enter(crate::execution::adapter(Backend::Pounce), 1024)
+                .unwrap();
+            scopes
+                .enter(crate::execution::adapter(Backend::PounceConvex), 1024)
+                .unwrap();
+            let mut retained = crate::execution::Retained::default();
+            retained
+                .session(
+                    Backend::Pounce,
+                    ReusePolicy::AllowRebuild,
+                    |_: &mut NativeWitness| Ok(true),
+                    || Ok(NativeWitness),
+                )
+                .unwrap();
+            retained.clear();
+            drop(scopes);
+        }
+        assert_eq!(ADMITTED.with(|a| a.get()), 0);
     }
     #[test]
     fn local_pool_admission_does_not_accept_the_global_pool() {

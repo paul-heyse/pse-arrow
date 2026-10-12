@@ -54,7 +54,8 @@ impl PreparedInitializationStrategy {
 struct UnitProgram {
     declaration: CausalUnitRequest,
     program: Arc<ExecutableCase>,
-    values: CaseValues,
+    values: Arc<CaseValues>,
+    initial_inputs: Vec<(SemanticId, f64)>,
     inputs: Vec<(SemanticId, SemanticId, pse_quantity::UnitConvertSpec)>,
     outputs: Vec<(SemanticId, usize, pse_quantity::UnitConvertSpec)>,
     conditional: Option<crate::math::initialization::PreparedConditionalUnit>,
@@ -62,14 +63,79 @@ struct UnitProgram {
 #[derive(Debug)]
 struct UnitWorker {
     program: UnitProgram,
-    /// The unit evaluator with its share of the declared-root job reservation.
     worker: crate::math::ExecutionWorker,
+    bound: pse_math::assembly::BoundValues,
+    conditional: Option<crate::math::initialization::ConditionalUnitSession>,
     input_ids: Vec<SemanticId>,
     output_ids: Vec<SemanticId>,
-    service: Arc<crate::math::MathService>,
-    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     budget: Arc<crate::math::WorkerBudget>,
+    trial: Vec<(SemanticId, f64)>,
+    output_updates: Vec<(SemanticId, f64)>,
     last_values: Option<CaseValues>,
+}
+impl UnitWorker {
+    fn new(
+        program: UnitProgram,
+        service: &crate::math::MathService,
+        providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+        execution: &Execution,
+        budget: Arc<crate::math::WorkerBudget>,
+    ) -> Result<Self, native::ProblemError> {
+        let worker = service
+            .worker(
+                program.program.clone(),
+                providers,
+                execution.scope()?,
+                &budget,
+            )
+            .map_err(MathRuntimeError::into_problem)?;
+        let bound = program
+            .program
+            .assembly
+            .bind_inputs(|id| program.values.scalars.get(&id).copied())?;
+        let conditional = program
+            .conditional
+            .as_ref()
+            .map(|prepared| {
+                service.conditional_unit_session(
+                    prepared,
+                    |id| {
+                        program
+                            .initial_inputs
+                            .iter()
+                            .find(|(input, _)| *input == id)
+                            .map(|(_, value)| *value)
+                            .or_else(|| program.values.scalars.get(&id).copied())
+                    },
+                    providers,
+                    execution,
+                    &budget,
+                )
+            })
+            .transpose()?;
+        let capacity = program
+            .inputs
+            .len()
+            .checked_add(
+                program
+                    .conditional
+                    .as_ref()
+                    .map_or(0, |prepared| prepared.view.boundary.members.columns.len()),
+            )
+            .ok_or_else(|| native::ProblemError::memory("causal compact trial extent"))?;
+        Ok(Self {
+            input_ids: program.inputs.iter().map(|x| x.0).collect(),
+            output_ids: program.outputs.iter().map(|x| x.0).collect(),
+            trial: Vec::with_capacity(capacity),
+            output_updates: Vec::with_capacity(capacity),
+            program,
+            worker,
+            bound,
+            conditional,
+            budget,
+            last_values: None,
+        })
+    }
 }
 impl CausalUnit for UnitWorker {
     fn id(&self) -> SemanticId {
@@ -87,15 +153,9 @@ impl CausalUnit for UnitWorker {
         execution: &Execution,
     ) -> Result<BTreeMap<SemanticId, f64>, native::ProblemError> {
         self.last_values = None;
-        if let Some(stop) = execution.stopped() {
-            return Err(native::ProblemError::stopped(
-                stop,
-                "conditional causal unit stopped",
-            ));
-        }
-        // An evaluation is an immutable-original overlay. Every exit drops the
-        // temporary inputs and solved coordinates, including a native refusal.
-        let mut trial = self.program.values.clone();
+        self.trial.clear();
+        self.output_updates.clear();
+        execution.check()?;
         for (port, symbol, conversion) in &self.program.inputs {
             let value = inputs
                 .get(port)
@@ -106,23 +166,29 @@ impl CausalUnit for UnitWorker {
                     "nonfinite causal boundary input",
                 ));
             }
-            trial.scalars.insert(*symbol, value);
+            self.trial.push((*symbol, value));
         }
-        if let Some(conditional) = &self.program.conditional {
-            trial = self.service.evaluate_conditional_unit(
-                conditional,
-                trial,
-                &self.providers,
-                execution,
-                &self.budget,
-            )?;
+        if let (Some(prepared), Some(session)) = (&self.program.conditional, &mut self.conditional)
+        {
+            let solved = session.evaluate(prepared, &self.trial, execution)?;
+            self.trial.extend(solved);
         }
+        // Synthetic conditional boundary parameters belong only to their admitted
+        // residual frame. The output program reads original coordinates and constants.
+        self.output_updates.extend(
+            self.trial
+                .iter()
+                .filter(|(id, _)| self.bound.input_ids().binary_search(id).is_ok())
+                .copied(),
+        );
+        self.worker.worker().invalidate_trial();
+        self.bound.refill(&self.output_updates)?;
         let values = self
             .budget
             .evaluate(|| {
                 self.worker
                     .worker()
-                    .constraints(&trial)
+                    .constraints(self.bound.trial(&[])?)
                     .map_err(MathRuntimeError::from)
             })
             .map_err(MathRuntimeError::into_problem)?;
@@ -132,25 +198,20 @@ impl CausalUnit for UnitWorker {
             .iter()
             .map(|(port, row, c)| (*port, values[*row] * c.scale + c.offset))
             .collect();
-        if outputs.values().any(|v| !v.is_finite()) {
+        if outputs.values().any(|value| !value.is_finite()) {
             return Err(native::ProblemError::numerical("nonfinite causal output"));
         }
-        let mut original = CaseValues {
-            scalars: BTreeMap::new(),
-        };
-        for (_, symbol, _) in &self.program.inputs {
-            if let Some(value) = trial.scalars.get(symbol) {
-                original.scalars.insert(*symbol, *value);
-            }
-        }
-        if let Some(conditional) = &self.program.conditional {
-            for column in &conditional.view.boundary.members.columns {
-                if let Some(value) = trial.scalars.get(column) {
-                    original.scalars.insert(*column, *value);
-                }
-            }
-        }
-        self.last_values = Some(original);
+        execution.check()?;
+        // Only the compact changed original-coordinate overlay leaves this unit.
+        // Full semantic hydration belongs to CausalMap's independent original observer.
+        self.last_values = Some(CaseValues {
+            scalars: self
+                .trial
+                .iter()
+                .filter(|(id, _)| self.program.values.scalars.contains_key(id))
+                .copied()
+                .collect(),
+        });
         Ok(outputs)
     }
     fn original_values(&self) -> CaseValues {
@@ -163,7 +224,7 @@ impl CausalUnit for UnitWorker {
 struct RecycleSource {
     model: crate::math::modeling::ModelingCasePreparation,
     providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-    numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
 }
 #[derive(Debug)]
 struct AutomaticRecycle {
@@ -243,7 +304,7 @@ impl crate::math::solves::causal::CausalSupplier for AutomaticRecycle {
                 scope,
                 key.finish_hash(),
                 Arc::new(prepared),
-            ))
+            )?)
         })
     }
 }
@@ -301,8 +362,10 @@ pub struct PreparedRecycle {
     /// Stopping budgets resolved from the map's numerical policy.
     accuracy: ResolvedAccuracy,
     tolerances: Tolerances,
-    numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
-    original_numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
+    original_numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
+    native_backends: Vec<Backend>,
+    resident_foreign_bytes: usize,
 }
 impl PreparedRecycle {
     /// Source-owned numerical magnitudes projected onto selected tear coordinates.
@@ -424,6 +487,8 @@ impl PreparedRecycle {
             self.profile_key,
             Some(candidate),
             factory_bytes,
+            self.native_backends.clone(),
+            self.resident_foreign_bytes,
             move |execution, budget| prepared.function(execution, budget, observed),
         )?)
     }
@@ -435,29 +500,13 @@ impl PreparedRecycle {
     ) -> Result<kinsol::Function, native::ProblemError> {
         let mut units: BTreeMap<SemanticId, Box<dyn CausalUnit>> = BTreeMap::new();
         for program in self.programs {
-            // Every unit evaluator lives for the whole sweep: each is charged to
-            // the job reservation, and its providers observe the attempt's
-            // cancellation (F31).
-            let worker = self
-                .runtime
-                .native()
-                .worker(
-                    program.program.clone(),
-                    &self.providers,
-                    execution.scope()?,
-                    &budget,
-                )
-                .map_err(MathRuntimeError::into_problem)?;
-            let unit = UnitWorker {
-                input_ids: program.inputs.iter().map(|x| x.0).collect(),
-                output_ids: program.outputs.iter().map(|x| x.0).collect(),
+            let unit = UnitWorker::new(
                 program,
-                worker,
-                service: self.runtime.native().clone(),
-                providers: self.providers.clone(),
-                budget: budget.clone(),
-                last_values: None,
-            };
+                self.runtime.native(),
+                &self.providers,
+                &execution,
+                budget.clone(),
+            )?;
             units.insert(unit.id(), Box::new(unit));
         }
         let mut original_worker = self
@@ -545,6 +594,13 @@ impl PreparedRecycle {
     }
 }
 impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
+    fn backends(&self) -> &[Backend] {
+        &self.native_backends
+    }
+    fn resident_foreign_bytes(&self) -> usize {
+        self.resident_foreign_bytes
+    }
+
     fn execute(
         &self,
         service: &crate::math::MathService,
@@ -629,7 +685,7 @@ impl ModelingPackage {
         &self,
         model: &crate::math::modeling::ModelingCasePreparation,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
-        numerics: &Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+        numerics: &pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
         profile: &SolverProfile,
         compiler: pse_compiler::workspace::Profile,
         original: &PreparedSolve,
@@ -803,6 +859,7 @@ impl ModelingPackage {
             .flat_map(|n| n.ports.iter().map(|p| (p.id, p)))
             .collect();
         let mut programs = Vec::new();
+        let unit_values = Arc::new(resolved.model.values.clone());
         let mut all_inputs = BTreeMap::new();
         let mut all_outputs = BTreeSet::new();
         let units = request
@@ -856,6 +913,7 @@ impl ModelingPackage {
                 .chain(source.parameters().iter().map(|p| (p.id, p)))
                 .collect();
             let mut inputs = Vec::new();
+            let mut initial_boundary = Vec::new();
             let source_ports = &resolved.model.model.compiled().model.ports;
             let input_program = self
                 .runtime
@@ -945,6 +1003,14 @@ impl ModelingPackage {
                     &q.quantity_type(row.quantity).map_err(&quantity_error)?.key,
                 )
                 .map_err(&quantity_error)?;
+                let local = inputs
+                    .last()
+                    .ok_or_else(|| unit_contract(unit, &request, "missing admitted input"))?;
+                initial_boundary.push((
+                    local.1,
+                    (initial_inputs[index] * to_port.scale + to_port.offset) * conversion.scale
+                        + conversion.offset,
+                ));
                 if all_inputs
                     .insert(
                         *port,
@@ -1084,7 +1150,8 @@ impl ModelingPackage {
             programs.push(UnitProgram {
                 declaration: unit.clone(),
                 program,
-                values: resolved.model.values.clone(),
+                values: unit_values.clone(),
+                initial_inputs: initial_boundary,
                 inputs,
                 outputs: mapped,
                 conditional,
@@ -1139,6 +1206,11 @@ impl ModelingPackage {
             derivatives: DerivativeOrder::Value,
             smoothness: DerivativeOrder::Value,
         };
+        let derivation = self
+            .runtime
+            .native()
+            .policy_resolution_owner()
+            .derivation(&resolved.numerics, tears.len().saturating_mul(3))?;
         let mut projection_source = resolved.numerics.as_ref().clone();
         let missing: BTreeMap<_, _> = tears
             .iter()
@@ -1200,10 +1272,10 @@ impl ModelingPackage {
                 })
             })
             .collect();
-        let numerics = Arc::new(
+        let numerics = derivation.finish(
             pse_math::numerics::project(q, &projection_source, &targets)
                 .map_err(crate::workflow::math)?,
-        );
+        )?;
         let ids: Vec<_> = tears.into_iter().collect();
         let tolerances = Tolerances::from_policy(&numerics, &ids, &contract.rows)
             .map_err(MathRuntimeError::from)?;
@@ -1240,6 +1312,19 @@ impl ModelingPackage {
             .native()
             .assemble(resolved.model.case.clone())
             .await?;
+        let mut native_backends = vec![Backend::Kinsol];
+        let mut resident_foreign_bytes = 0usize;
+        for conditional in programs
+            .iter()
+            .filter_map(|program| program.conditional.as_ref())
+        {
+            if !native_backends.contains(&conditional.backend()) {
+                native_backends.push(conditional.backend());
+            }
+            resident_foreign_bytes = resident_foreign_bytes
+                .checked_add(conditional.foreign_bytes)
+                .ok_or(MathRuntimeError::Limit("causal resident foreign extent"))?;
+        }
         Ok(PreparedRecycle {
             runtime: self.runtime.clone(),
             providers: resolved.providers,
@@ -1258,6 +1343,8 @@ impl ModelingPackage {
             tolerances,
             numerics,
             original_numerics: resolved.numerics,
+            native_backends,
+            resident_foreign_bytes,
         })
     }
 }

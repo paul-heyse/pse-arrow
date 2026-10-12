@@ -19,6 +19,7 @@ workspace = true
 
 [features]
 force-validate = [
+  "pse-admission/force-validate",
   "pse-columnar/force-validate",
   "pse-engine/force-validate",
   "pse-operations/force-validate",
@@ -46,6 +47,7 @@ sundials-sys = { workspace = true, optional = true }
 diffsol = { workspace = true, optional = true }
 
 [dev-dependencies]
+pse-admission.workspace = true
 object_store.workspace = true
 pse-runtime.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }

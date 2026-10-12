@@ -249,23 +249,26 @@ mod tests {
             Ok(dynamics::Evaluation {
                 values: vec![state[0] * state[0] * parameters[0]],
                 jacobian: derivatives.then(|| {
-                    SparseColMat::try_new_from_triplets(
-                        1,
-                        2,
-                        &[
-                            Triplet::new(
-                                0,
-                                0,
-                                if self.wrong {
-                                    0.
-                                } else {
-                                    2. * state[0] * parameters[0]
-                                },
-                            ),
-                            Triplet::new(0, 1, state[0] * state[0]),
-                        ],
+                    Arc::new(
+                        SparseColMat::try_new_from_triplets(
+                            1,
+                            2,
+                            &[
+                                Triplet::new(
+                                    0,
+                                    0,
+                                    if self.wrong {
+                                        0.
+                                    } else {
+                                        2. * state[0] * parameters[0]
+                                    },
+                                ),
+                                Triplet::new(0, 1, state[0] * state[0]),
+                            ],
+                        )
+                        .unwrap(),
                     )
-                    .unwrap()
+                    .into()
                 }),
             })
         }

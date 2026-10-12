@@ -18,6 +18,8 @@ from pse.contracts import values as v
 
 AnalysisDirection = Literal["upstream", "downstream"]
 
+Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+
 FiniteBound = float
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
@@ -329,6 +331,24 @@ class AuthoredAccuracyGoalsRow(msgspec.Struct, frozen=True, forbid_unknown_field
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.criterion_lower), v.optional_key(v.scalar_key)(self.criterion_upper), v.optional_key(v.scalar_key)(self.fit_id), v.scalar_key(self.goal_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.observation), v.scalar_key(self.priority), v.scalar_key(self.provenance), v.scalar_key(self.quantity_id), v.scalar_key(self.refine), v.scalar_key(self.required_class), v.optional_key(v.scalar_key)(self.resolution), v.scalar_key(self.source), v.scalar_key(self.subject), v.scalar_key(self.target_id), v.scalar_key(self.target_kind), v.optional_key(v.scalar_key)(self.time), v.scalar_key(self.unit_id), v.scalar_key(self.use_policy),))
+
+
+class AuthoredDocumentsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: Exact original bytes of a package data document (ADR-0125); absent for a text document.
+    content: Bytes | None = None
+    #: `named_id(package_id, path)` (blueprint §11).
+    document_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The owning package.
+    package_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: The document path, relative to the package root.
+    path: str
+    #: Exact original UTF-8 source of a text document, including whitespace and comments (ADR-0068); absent for a data document.
+    source_text: str | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.content), v.scalar_key(self.document_id), v.scalar_key(self.package_id), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.source_text),))
 
 
 class AuthoredEngineeringDefaultRulesRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5093,8 +5113,8 @@ class ProfileControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
     points: PositiveCount = 40
     #: Relative tolerance on the signed-root statistic at a threshold end.
     tolerance: Fraction = 0.001
-    #: Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
-    #: the cores of all of them. Absent solves as many at once as one job's cores admit.
+    #: Chains solved at once, each pinned fit on the fit's own threads. Their phase admits
+    #: the team after estimation relinquishes active capacity. Absent uses available cores.
     workers: PositiveCount | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
@@ -5198,6 +5218,33 @@ class ProfileWorkerFailureScheduling(msgspec.Struct, frozen=True, forbid_unknown
         return (type(self), (v.scalar_key(self.detail),))
 
 
+class ProgressCoverageSampled(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="sampled"):
+    """Finite sampling counters retained by the original execution owner."""
+
+    #: Events in batches with actual canonical append acknowledgments.
+    acknowledged: Annotated[int, msgspec.Meta(ge=0)]
+    #: Observations rejected before queue admission.
+    dropped_before_queue: Annotated[int, msgspec.Meta(ge=0)]
+    #: Callback observations, including events rejected before cloning.
+    observed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Events admitted to the finite writer queue.
+    queued: Annotated[int, msgspec.Meta(ge=0)]
+    #: Queued events without an observed append acknowledgment; storage may be uncertain.
+    unacknowledged: Annotated[int, msgspec.Meta(ge=0)]
+    #: Writer completion, separate from the scientific outcome.
+    writer: ProgressWriterOutcome
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.acknowledged), v.scalar_key(self.dropped_before_queue), v.scalar_key(self.observed), v.scalar_key(self.queued), v.scalar_key(self.unacknowledged), v.record_key(self.writer),))
+
+
+class ProgressCoverageUnknown(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="unknown"):
+    """Historical or recovered executions did not retain original counters."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
 class ProgressEventDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An owned event from memory or from a durable attempt's selected stream."""
 
@@ -5263,6 +5310,88 @@ class ProgressMetricDocumentUnavailable(msgspec.Struct, frozen=True, forbid_unkn
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.value),))
+
+
+class ProgressWriteStageAcknowledgment(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="acknowledgment"):
+    """An acknowledgment disagreed with original immutable coverage."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriteStageAllocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="allocation"):
+    """Bounded scratch could not be allocated."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriteStageCanonicalAppend(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="canonical_append"):
+    """The original canonical append did not return an acknowledgment."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriteStageClaim(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="claim"):
+    """No original native claim was available for the observed event."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriteStageEncoding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="encoding"):
+    """An admitted DTO could not be encoded within its immutable bound."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriteStagePublication(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="publication"):
+    """Publication stopped before an original canonical append could be issued."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriterFailure(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original bounded failure of the optional progress writer."""
+
+    #: Exact bounded stage which did not return its promised acknowledgment.
+    stage: ProgressWriteStage
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.stage),))
+
+
+class ProgressWriterOutcomeComplete(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="complete"):
+    """Every queued event has an actual append acknowledgment."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriterOutcomeFailed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="failed"):
+    """The writer refused or failed; unacknowledged coverage remains explicit."""
+
+    failure: ProgressWriterFailure
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.failure),))
+
+
+class ProgressWriterOutcomeJoinFailed(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="join_failed"):
+    """The owned writer task failed to join normally."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ProgressWriterOutcomeMemoryRefused(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="memory_refused"):
+    """Up-front memory admission refused; no event queue was allocated."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class Propagation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5982,6 +6111,56 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         v.unique(v.scalar_key)(self, None, self.required_passes)
 
 
+class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """An atomic source edit against one exact canonical parent. Omission retains
+    inherited objects; deletion must be named explicitly.
+    """
+
+    #: New declarations, appended in this order after retained parent rows.
+    additions: tuple[AuthoredModelingDeclarationsRow, ...] = msgspec.field(default_factory=tuple)
+    #: Explicit document ownership changes, including their data payloads.
+    documents: SourceDocumentDelta = msgspec.field(default_factory=lambda: msgspec.convert({"additions": [], "removals": [], "replacements": []}, type=SourceDocumentDelta))
+    #: Explicit fit ownership changes; omitted fits remain inherited.
+    fits: SourceFitDelta = msgspec.field(default_factory=lambda: msgspec.convert({"additions": [], "removals": [], "replacements": []}, type=SourceFitDelta))
+    #: Exact canonical revision key of the receiver, also used for publication CAS.
+    parent: str
+    #: Existing declarations explicitly removed.
+    removals: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] = msgspec.field(default_factory=tuple)
+    #: Existing declarations replaced in their original ordered positions.
+    replacements: tuple[AuthoredModelingDeclarationsRow, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.additions), v.record_key(self.documents), v.record_key(self.fits), v.scalar_key(self.parent), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
+class SourceDocumentDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Parent-qualified document additions, replacements and removals."""
+
+    #: Newly owned documents.
+    additions: tuple[AuthoredDocumentsRow, ...] = msgspec.field(default_factory=tuple)
+    #: Documents whose ownership and optional data payload are explicitly removed.
+    removals: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] = msgspec.field(default_factory=tuple)
+    #: Complete replacement of an existing document and its optional data bytes.
+    replacements: tuple[AuthoredDocumentsRow, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.additions), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
+class SourceFitDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Parent-qualified fitting declaration changes."""
+
+    #: New fitting declarations.
+    additions: tuple[AuthoredFitCasesRow, ...] = msgspec.field(default_factory=tuple)
+    #: Explicitly removed fit identities.
+    removals: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] = msgspec.field(default_factory=tuple)
+    #: Existing fitting declarations replaced in full.
+    replacements: tuple[AuthoredFitCasesRow, ...] = msgspec.field(default_factory=tuple)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.additions), v.sequence_key(v.scalar_key)(self.removals), v.sequence_key(v.record_key)(self.replacements),))
+
+
 class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Authored location attached by the owner that has the source map."""
 
@@ -6151,14 +6330,14 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 8 of a study's definition: the store's `definition` document and the content of
+    """Version 9 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 8
+    _pse_required_version: ClassVar[int] = 9
 
     #: Document version.
-    version: Literal[8] = 8
+    version: Literal[9] = 9
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
@@ -6170,24 +6349,111 @@ class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, k
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points),))
 
 
+class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact named relations with a finite per-occurrence materialization allowance.
+    Exceeding the allowance refuses detail capture; it never silently truncates rows.
+    """
+
+    #: Maximum retained physical detail bytes across these relations.
+    maximum_bytes: Annotated[int, msgspec.Meta(ge=0)]
+    #: Maximum total rows across these relations, including failed detail.
+    maximum_rows: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact scientific members. Selected rows retain every original column.
+    members: tuple[StudyMemberDemand, ...]
+    #: Registry-owned result relations; an empty list requests no detail.
+    relations: tuple[str, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_rows), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.scalar_key)(self.relations),))
+
+
+class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constraint"):
+    """One algebraic constraint at its original absolute solve step."""
+
+    row_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    step: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.row_id), v.scalar_key(self.step),))
+
+
+class StudyMemberDemandFitObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit_observation"):
+    """One observation in its original experiment."""
+
+    experiment_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    observation_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.experiment_id), v.scalar_key(self.observation_id),))
+
+
+class StudyMemberDemandFitParameter(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fit_parameter"):
+    """One fitted parameter."""
+
+    parameter_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.parameter_id),))
+
+
+class StudyMemberDemandTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trajectory"):
+    """The original samples of one trajectory symbol."""
+
+    symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.symbol_id),))
+
+
+class StudyMemberDemandVariable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="variable"):
+    """One algebraic variable at its original absolute solve step."""
+
+    step: int
+    symbol_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.step), v.scalar_key(self.symbol_id),))
+
+
 class StudyOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Immutable request recorded by a study occurrence and replayed by either executor."""
 
-    _pse_required_version: ClassVar[int] = 5
+    _pse_required_version: ClassVar[int] = 6
 
     #: Interpretation of this operation descriptor.
-    version: Literal[5] = 5
+    version: Literal[6] = 6
     #: Canonical physical assignments; required for every horizon descriptor.
     admitted_horizon: AdmittedHorizonValues | None = None
     #: Existing operation-owned input document.
     operation: OperationRequest
+    #: Explicit occurrence detail retained independently of original completion.
+    output: StudyOutputDemand
     #: Complete preparation controls using existing owners' remote projections.
     preparation: PreparationSettings
     #: Exact source/context reconstruction precondition.
     source: OperationSource
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.preparation), v.record_key(self.source),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.record_key)(self.admitted_horizon), v.record_key(self.operation), v.record_key(self.output), v.record_key(self.preparation), v.record_key(self.source),))
+
+
+class StudyOutputDemandCompact(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="compact"):
+    """Retain mandatory summaries and only the explicitly bounded selected detail."""
+
+    #: Selected detail for usable occurrences, including requested KPI relations.
+    detail: StudyDetailDemand
+    #: Independently bounded detail for failed, flagged or cancelled occurrences.
+    failed_detail: StudyDetailDemand
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.detail), v.record_key(self.failed_detail),))
+
+
+class StudyOutputDemandFull(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="full"):
+    """Retain the complete original occurrence report and its public relations."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
 
 
 class StudyPoint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6241,15 +6507,17 @@ class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Raw request admitted once into the immutable executable definition."""
 
-    _pse_required_version: ClassVar[int] = 4
+    _pse_required_version: ClassVar[int] = 5
 
     #: Document version.
-    version: Literal[4] = 4
+    version: Literal[5] = 5
+    #: Explicit original-summary and occurrence-detail demand.
+    output: StudyOutputDemand
     #: Ordered occurrence requests.
     points: tuple[StudyPoint, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.points),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.output), v.sequence_key(v.record_key)(self.points),))
 
 
 class StudyResults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6662,13 +6930,23 @@ OperationRequest = OperationRequestDeclaredCase | OperationRequestSimulation | O
 
 ProfileWorkerFailure = ProfileWorkerFailurePanic | ProfileWorkerFailureScheduling | ProfileWorkerFailureEnvironment
 
+ProgressCoverage = ProgressCoverageUnknown | ProgressCoverageSampled
+
 ProgressMetricDocument = ProgressMetricDocumentInteger | ProgressMetricDocumentReal | ProgressMetricDocumentText | ProgressMetricDocumentBoolean | ProgressMetricDocumentUnavailable
+
+ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | ProgressWriteStageEncoding | ProgressWriteStageCanonicalAppend | ProgressWriteStageAcknowledgment | ProgressWriteStagePublication
+
+ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
 
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
 StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvenanceContinuation | StartProvenanceExplicit | StartProvenanceFreshFallback
+
+StudyMemberDemand = StudyMemberDemandVariable | StudyMemberDemandConstraint | StudyMemberDemandFitParameter | StudyMemberDemandFitObservation | StudyMemberDemandTrajectory
+
+StudyOutputDemand = StudyOutputDemandFull | StudyOutputDemandCompact
 
 TerminationCause = TerminationCauseError | TerminationCauseInfrastructure | TerminationCauseAssessment
 
@@ -6693,6 +6971,7 @@ __all__ = [
     "ArrivalDocument",
     "AssemblyLimits",
     "AuthoredAccuracyGoalsRow",
+    "AuthoredDocumentsRow",
     "AuthoredEngineeringDefaultRulesRow",
     "AuthoredEngineeringScalesRow",
     "AuthoredFitCasesFieldExperimentsItem",
@@ -6823,6 +7102,7 @@ __all__ = [
     "BoundaryDiagnostic",
     "BranchPolicy",
     "BuildInfo",
+    "Bytes",
     "CacheReport",
     "CaseOperation",
     "CausalUnitRealization",
@@ -7021,6 +7301,9 @@ __all__ = [
     "ProfileWorkerFailureEnvironment",
     "ProfileWorkerFailurePanic",
     "ProfileWorkerFailureScheduling",
+    "ProgressCoverage",
+    "ProgressCoverageSampled",
+    "ProgressCoverageUnknown",
     "ProgressEventDocument",
     "ProgressMetricDocument",
     "ProgressMetricDocumentBoolean",
@@ -7028,6 +7311,19 @@ __all__ = [
     "ProgressMetricDocumentReal",
     "ProgressMetricDocumentText",
     "ProgressMetricDocumentUnavailable",
+    "ProgressWriteStage",
+    "ProgressWriteStageAcknowledgment",
+    "ProgressWriteStageAllocation",
+    "ProgressWriteStageCanonicalAppend",
+    "ProgressWriteStageClaim",
+    "ProgressWriteStageEncoding",
+    "ProgressWriteStagePublication",
+    "ProgressWriterFailure",
+    "ProgressWriterOutcome",
+    "ProgressWriterOutcomeComplete",
+    "ProgressWriterOutcomeFailed",
+    "ProgressWriterOutcomeJoinFailed",
+    "ProgressWriterOutcomeMemoryRefused",
     "Propagation",
     "PseudoTime",
     "PureConformanceControls",
@@ -7058,6 +7354,9 @@ __all__ = [
     "SimulationOperation",
     "SolveControls",
     "SolveSettings",
+    "SourceDelta",
+    "SourceDocumentDelta",
+    "SourceFitDelta",
     "SourceLocation",
     "SparseMatrix",
     "StartPolicy",
@@ -7074,7 +7373,17 @@ __all__ = [
     "StudyCancel",
     "StudyCompilerProfile",
     "StudyDefinition",
+    "StudyDetailDemand",
+    "StudyMemberDemand",
+    "StudyMemberDemandConstraint",
+    "StudyMemberDemandFitObservation",
+    "StudyMemberDemandFitParameter",
+    "StudyMemberDemandTrajectory",
+    "StudyMemberDemandVariable",
     "StudyOperation",
+    "StudyOutputDemand",
+    "StudyOutputDemandCompact",
+    "StudyOutputDemandFull",
     "StudyPoint",
     "StudyPointDefinition",
     "StudyPointPolicy",

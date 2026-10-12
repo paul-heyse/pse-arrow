@@ -184,12 +184,17 @@ fn ttl_cannot_be_extended_beyond_declared_freshness() {
 }
 
 #[test]
-fn failed_construction_releases_preceding_reservations() {
+fn file_cache_activation_checks_headroom_before_reserving() {
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(512));
     let mut policy = CacheBudget::disabled(1);
     policy.metadata_bytes = 256;
     policy.statistics_bytes = 512;
-    assert!(NativeCacheService::new(policy, &pool).is_err());
+    let service = NativeCacheService::new(policy, &pool).unwrap();
+    assert!(matches!(
+        service.activate(FileCacheDemand::MetadataStatistics),
+        Err(datafusion::common::DataFusionError::ResourcesExhausted(_))
+    ));
+    assert!(service.file_caches().metadata.is_none());
     assert_eq!(pool.reserved(), 0);
 }
 
@@ -225,7 +230,11 @@ fn bounded_inspection_does_not_touch_lru_counters_or_allocate_when_refused() {
     assert!(service.inspect_entries(0).unwrap().rows().is_empty());
     assert!(service.inspect_entries(1).is_err());
     assert_eq!(service.report(), before);
-    assert_eq!(pool.reserved(), 1024);
+    assert_eq!(
+        pool.reserved(),
+        0,
+        "inspection does not activate file capacity"
+    );
     let mut policy = CacheBudget::disabled(1);
     policy.metadata_bytes = 1024;
     policy.inspection_bytes = 4096;
@@ -268,4 +277,226 @@ fn store_bindings_report_their_owned_reservations_and_actual_reuse() {
     assert!(bindings.retained_bytes > 1024);
     drop(service);
     assert_eq!(pool.reserved(), 0);
+}
+
+#[test]
+fn lazy_file_caches_default_and_inspection_remain_inactive() {
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 30));
+    let policy = CacheBudget::for_memory(1 << 30);
+    let service = NativeCacheService::new(policy.clone(), &pool).unwrap();
+    assert_eq!(pool.reserved(), policy.syntax_bytes);
+    let before = service.report();
+    assert!(service.inspect_entries(1).unwrap().rows().is_empty());
+    service.invalidate();
+    assert_eq!(service.report(), before);
+    for (name, limit) in [
+        ("pse.cache.metadata", policy.metadata_bytes),
+        ("pse.cache.statistics", policy.statistics_bytes),
+        ("pse.cache.listing", policy.listing_bytes),
+    ] {
+        let row = before.iter().find(|row| row.name == name).unwrap();
+        assert_eq!(row.policy_limit_bytes, limit);
+        assert_eq!(
+            (row.capacity_bytes, row.retained_bytes, row.entries),
+            (0, 0, 0)
+        );
+    }
+    assert_eq!(pool.reserved(), policy.syntax_bytes);
+}
+
+#[test]
+fn lazy_file_caches_qualified_binding_activates_only_demand_once() {
+    use datafusion::execution::{runtime_env::RuntimeEnv, session_state::SessionStateBuilder};
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(16384));
+    let mut policy = CacheBudget::disabled(1024);
+    policy.metadata_bytes = 1024;
+    policy.statistics_bytes = 2048;
+    policy.listing_bytes = 4096;
+    policy.inspection_bytes = 4096;
+    let service = NativeCacheService::new(policy, &pool).unwrap();
+    let root = url::Url::parse("memory:///lazy").unwrap();
+    let runtime = Arc::new(RuntimeEnv::default());
+    runtime.register_object_store(&root, Arc::new(object_store::memory::InMemory::new()));
+    let state = SessionStateBuilder::new().with_runtime_env(runtime).build();
+    let unqualified = service
+        .bind_state_with_generation(&root, &state, None)
+        .unwrap();
+    assert_eq!(pool.reserved(), 0);
+    assert!(service.file_caches().metadata.is_none());
+    assert!(
+        unqualified
+            .runtime_env()
+            .cache_manager
+            .get_metadata_cache_limit()
+            == 0
+    );
+    let first = service
+        .bind_state_with_generation(&root, &state, Some("v1"))
+        .unwrap();
+    let capacity = pool.reserved();
+    assert!(first.runtime_env().cache_manager.get_metadata_cache_limit() == 1024);
+    assert!(service.file_caches().listing.is_none());
+    assert_eq!(
+        service
+            .report()
+            .iter()
+            .find(|row| row.name == "pse.cache.listing")
+            .unwrap()
+            .capacity_bytes,
+        0
+    );
+    let original = service.file_caches();
+    let second = service
+        .bind_state_with_generation(&root, &state, Some("v1"))
+        .unwrap();
+    assert_eq!(pool.reserved(), capacity);
+    assert!(Arc::ptr_eq(
+        original.metadata.as_ref().unwrap(),
+        service.file_caches().metadata.as_ref().unwrap()
+    ));
+    assert!(
+        second
+            .runtime_env()
+            .cache_manager
+            .get_metadata_cache_limit()
+            == 1024
+    );
+    let listed = service.bind_state(&root, &state).unwrap();
+    assert!(
+        listed
+            .runtime_env()
+            .cache_manager
+            .get_list_files_cache()
+            .is_some()
+    );
+    assert_eq!(
+        service
+            .report()
+            .iter()
+            .find(|row| row.name == "pse.cache.listing")
+            .unwrap()
+            .capacity_bytes,
+        4096
+    );
+    let reserved = pool.reserved();
+    service.invalidate();
+    assert_eq!(
+        pool.reserved(),
+        reserved,
+        "clear evicts entries while retaining activated capacity"
+    );
+}
+
+#[test]
+fn lazy_file_caches_partial_activation_rolls_back_and_retries() {
+    use datafusion::execution::memory_pool::MemoryConsumer;
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(4096));
+    let mut policy = CacheBudget::disabled(1024);
+    policy.metadata_bytes = 1024;
+    policy.statistics_bytes = 1024;
+    policy.listing_bytes = 1024;
+    let service = NativeCacheService::new(policy, &pool).unwrap();
+    let pressure = MemoryConsumer::new("lazy:pressure").register(&pool);
+    pressure.try_grow(2500).unwrap();
+    assert!(
+        service
+            .activate(FileCacheDemand::MetadataStatistics)
+            .is_err()
+    );
+    assert_eq!(
+        pool.reserved(),
+        2500,
+        "a staged metadata grant rolls back when statistics refuses"
+    );
+    assert!(service.file_caches().metadata.is_none());
+    assert!(service.file_caches().statistics.is_none());
+    drop(pressure);
+    let first = service
+        .activate(FileCacheDemand::MetadataStatistics)
+        .unwrap();
+    assert_eq!(pool.reserved(), 2048);
+    let pressure = MemoryConsumer::new("lazy:upgrade-pressure").register(&pool);
+    pressure.try_grow(1500).unwrap();
+    assert!(service.activate(FileCacheDemand::WithListing).is_err());
+    assert!(service.file_caches().listing.is_none());
+    assert!(Arc::ptr_eq(
+        first.metadata.as_ref().unwrap(),
+        service.file_caches().metadata.as_ref().unwrap()
+    ));
+    assert_eq!(pool.reserved(), 3548);
+    drop(pressure);
+    service.activate(FileCacheDemand::WithListing).unwrap();
+    assert_eq!(pool.reserved(), 3072);
+}
+
+#[test]
+fn lazy_file_caches_racing_first_activation_share_capacity_owners() {
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(8192));
+    let mut policy = CacheBudget::disabled(1024);
+    policy.metadata_bytes = 1024;
+    policy.statistics_bytes = 1024;
+    let service = NativeCacheService::new(policy, &pool).unwrap();
+    let barrier = Arc::new(std::sync::Barrier::new(8));
+    let threads = (0..8)
+        .map(|_| {
+            let service = service.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                service
+                    .activate(FileCacheDemand::MetadataStatistics)
+                    .unwrap()
+            })
+        })
+        .collect::<Vec<_>>();
+    let results = threads
+        .into_iter()
+        .map(|thread| thread.join().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(pool.reserved(), 2048);
+    assert!(results.iter().all(|binding| Arc::ptr_eq(
+        results[0].metadata.as_ref().unwrap(),
+        binding.metadata.as_ref().unwrap()
+    )));
+    assert!(service.file_caches().listing.is_none());
+}
+
+#[test]
+fn lazy_file_caches_failed_qualified_bind_retains_namespace_without_reporting_reuse() {
+    use datafusion::execution::{
+        memory_pool::MemoryConsumer, runtime_env::RuntimeEnv, session_state::SessionStateBuilder,
+    };
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(8192));
+    let mut policy = CacheBudget::disabled(1024);
+    policy.metadata_bytes = 1024;
+    policy.statistics_bytes = 1024;
+    policy.inspection_bytes = 4096;
+    let service = NativeCacheService::new(policy, &pool).unwrap();
+    let root = url::Url::parse("memory:///refused").unwrap();
+    let runtime = Arc::new(RuntimeEnv::default());
+    runtime.register_object_store(&root, Arc::new(object_store::memory::InMemory::new()));
+    let state = SessionStateBuilder::new().with_runtime_env(runtime).build();
+    let pressure = MemoryConsumer::new("lazy:qualified-refusal").register(&pool);
+    pressure.try_grow(6500).unwrap();
+    for _ in 0..2 {
+        assert!(matches!(
+            service.bind_state_with_generation(&root, &state, Some("v1")),
+            Err(datafusion::common::DataFusionError::ResourcesExhausted(_))
+        ));
+        assert!(service.file_caches().metadata.is_none());
+    }
+    let namespace = service.store_report();
+    assert_eq!(namespace.entries, 1);
+    assert_eq!(
+        namespace.hits, 0,
+        "failed state construction is not successful cache reuse"
+    );
+    assert_eq!(namespace.misses, 1);
+    assert_eq!(pool.reserved(), 6500 + namespace.retained_bytes);
+    drop(pressure);
+    service
+        .bind_state_with_generation(&root, &state, Some("v1"))
+        .unwrap();
+    assert_eq!(service.store_report().hits, 1);
+    assert_eq!(pool.reserved(), 2048 + namespace.retained_bytes);
 }

@@ -69,16 +69,13 @@ pub(super) fn from_documents(
         async {
             let pool = runtime.owner.shared.pool();
             let token = cancel.token();
-            let validation = runtime
-                .owner
-                .sessions
-                .validation_context(&runtime.owner.registry)?;
+            let validation = runtime.owner.model.validation_context();
             let bundles = documents
                 .iter()
                 .map(|documents| {
-                    pse_runtime::authoring_driver::document::load_package_documents_owned(
+                    pse_admission::authoring_driver::document::load_package_documents_owned(
                         documents,
-                        &runtime.owner.registry,
+                        runtime.owner.model.registry(),
                         pse_authoring::ParseBudget::default(),
                         &pool,
                         &token,
@@ -87,7 +84,7 @@ pub(super) fn from_documents(
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let owned =
-                pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
                     bundles, &pool, &token,
                 )?;
             runtime
@@ -208,6 +205,50 @@ impl NativeModelingPackage {
             || {},
         )?;
         // The changed declarations now have their own immutable canonical revision.
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+            limits: self.limits,
+            physical_sources: self.physical_sources.clone(),
+        })
+    }
+    fn with_delta(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
+        let delta: native::SourceDelta = documents::decode(
+            py,
+            "source delta",
+            source,
+            self.owner.shared.budget().math.workspace_bytes / 2,
+        )?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.with_delta(delta, &cancel),
+            || cancel.cancel(),
+        )?;
+        Ok(Self {
+            owner: self.owner.clone(),
+            inner,
+            limits: self.limits,
+            physical_sources: self.physical_sources.clone(),
+        })
+    }
+    fn reload_from_parent(
+        &self,
+        py: Python<'_>,
+        documents: Vec<BTreeMap<String, DocumentContent>>,
+    ) -> PyResult<Self> {
+        let documents = documents
+            .into_iter()
+            .map(document_bytes)
+            .collect::<Vec<_>>();
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.reload_from_parent(&documents, &cancel),
+            || cancel.cancel(),
+        )?;
         Ok(Self {
             owner: self.owner.clone(),
             inner,
@@ -659,7 +700,7 @@ impl NativeModelingPackage {
     }
     /// Admit the generated request once under this immutable selected revision.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
-        let request = documents::decode_versioned::<native::StudyRequest, 4>(
+        let request = documents::decode_versioned::<native::StudyRequest, 5>(
             py,
             "operation",
             request,
@@ -676,7 +717,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner
-                .admit_study_sources(physical, &request.points, &cancel),
+                .admit_study_sources(physical, &request.points, &request.output, &cancel),
             || cancel.cancel(),
         )?;
         documents::encode(py, &definition)
@@ -1083,6 +1124,41 @@ impl NativeModelingPackage {
         Ok(NativePreparedOperation {
             owner: self.owner.clone(),
             inner: PreparedOperation::Modeling(Box::new(inner)),
+        })
+    }
+    /// Apply typed transient coordinates without exporting or editing source declarations.
+    #[pyo3(signature=(case_id, overlay, settings, *, preparation=None))]
+    fn solve_bound(
+        &self,
+        py: Python<'_>,
+        case_id: &str,
+        overlay: &[u8],
+        settings: &[u8],
+        preparation: Option<&[u8]>,
+    ) -> PyResult<NativeModelingResult> {
+        let allowance = self.owner.shared.budget().math.workspace_bytes;
+        let preparation = preparation_settings(py, preparation, self.limits, allowance)?;
+        let overlay: native::PointOverlay =
+            documents::decode(py, "point overlay", overlay, allowance / 4)?;
+        let settings = settings::solve_profile(py, settings)?;
+        let root = declaration(py, case_id)?;
+        let cancel = CancelSource::new();
+        let inner = blocking(
+            py,
+            &self.owner,
+            self.inner.solve_bound(
+                root,
+                &overlay,
+                preparation.compiler,
+                settings,
+                Default::default(),
+                preparation.limits,
+                &cancel,
+            ),
+            || cancel.cancel(),
+        )?;
+        Ok(NativeModelingResult {
+            inner: Arc::new(inner),
         })
     }
     #[pyo3(signature=(case_id, settings, *, preparation=None))]
@@ -1601,6 +1677,63 @@ impl NativeStudyReport {
             .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
         documents::encode(py, outcome)
     }
+    fn is_compact(&self, py: Python<'_>, index: usize) -> PyResult<bool> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        Ok(matches!(
+            result,
+            Some(native::StudyOccurrenceResult::Compact(_))
+        ))
+    }
+    fn compact_completion(&self, py: Python<'_>, index: usize) -> PyResult<Vec<u8>> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        let Some(native::StudyOccurrenceResult::Compact(result)) = result else {
+            return Err(invalid(py, "occurrence did not select compact output"));
+        };
+        let completion = result
+            .completion()
+            .map_err(|error| errors::diagnostic(py, error))?;
+        documents::encode(py, completion)
+    }
+    fn compact_table_names(&self, py: Python<'_>, index: usize) -> PyResult<Vec<String>> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        let Some(native::StudyOccurrenceResult::Compact(result)) = result else {
+            return Err(invalid(py, "occurrence did not select compact output"));
+        };
+        result
+            .table_names()
+            .map(|names| names.into_iter().map(str::to_owned).collect())
+            .map_err(|error| errors::diagnostic(py, error))
+    }
+    fn compact_table(
+        &self,
+        py: Python<'_>,
+        index: usize,
+        name: &str,
+    ) -> PyResult<inspection::TableStream> {
+        let result = self
+            .inner
+            .results
+            .get(index)
+            .ok_or_else(|| invalid(py, "study occurrence outside report"))?;
+        let Some(native::StudyOccurrenceResult::Compact(result)) = result else {
+            return Err(invalid(py, "occurrence did not select compact output"));
+        };
+        py.detach(|| result.clone().into_table_cursor(name))
+            .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, error.as_ref()))
+    }
     fn result(&self, py: Python<'_>, index: usize) -> PyResult<Option<NativeRunResult>> {
         let result = self
             .inner
@@ -1611,6 +1744,10 @@ impl NativeStudyReport {
             Some(native::StudyOccurrenceResult::Ephemeral(inner)) => Ok(Some(NativeRunResult {
                 inner: inner.clone(),
             })),
+            Some(native::StudyOccurrenceResult::Compact(_)) => Err(invalid(
+                py,
+                "compact occurrence uses original completion and selected detail APIs",
+            )),
             Some(native::StudyOccurrenceResult::Retained { .. }) => Err(invalid(
                 py,
                 "retained occurrence uses its stored result handle",
@@ -1827,6 +1964,23 @@ pub(crate) struct NativeModelingResult {
 }
 #[pymethods]
 impl NativeModelingResult {
+    /// Exact selected parent/context and submitted attribution for a transient solve.
+    fn bound_source(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        self.inner
+            .prepared
+            .bound_source
+            .as_ref()
+            .map(|binding| documents::encode(py, &***binding))
+            .transpose()
+    }
+    #[getter]
+    fn binding_identity(&self) -> Option<String> {
+        self.inner
+            .prepared
+            .bound_source
+            .as_ref()
+            .map(|binding| binding.identity().to_string())
+    }
     #[getter]
     fn accepted(&self) -> bool {
         self.inner.accepted

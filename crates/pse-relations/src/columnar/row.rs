@@ -67,6 +67,9 @@ pub trait RelationView {
     type Row: RelationRow;
     /// The checked native columns.
     fn batch(&self) -> &crate::RecordBatch;
+    /// Actual retained checked owner, when the view was borrowed from one.
+    /// Raw admitted views retain no transferable owner.
+    fn checked(&self) -> Option<&FieldCheckedBatch>;
 }
 
 /// Shared construction mechanics for all registry-generated relation declarations.
@@ -132,7 +135,10 @@ impl<R: RelationRow> RowBuilder<R> {
     /// # Errors
     /// A foreign field contract or invalid Arrow extent.
     pub fn append_view(&mut self, view: &impl RelationView<Row = R>) -> Result<(), RelationError> {
-        self.columns.append_batch(view.batch())
+        match view.checked() {
+            Some(checked) => self.columns.append_checked(checked),
+            None => self.columns.append_batch(view.batch()),
+        }
     }
     /// Establish complete local field evidence over the completed columns.
     /// # Errors

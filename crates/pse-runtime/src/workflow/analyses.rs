@@ -142,8 +142,8 @@ impl AnalysisHandle {
             .try_grow(12 * 1024 * 1024)
             .map_err(pse_engine::EngineError::from)?;
         let row = self.runtime.canonical_store().analysis(&self.key).await?;
-        let validation = self.runtime.validation_context()?;
-        let mut builder = rows::Builder::with_registry(&self.runtime.registry, 1, &validation)
+        let validation = self.runtime.validation_context();
+        let mut builder = rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
             .map_err(relation)?;
         builder.push(row).map_err(relation)?;
         builder
@@ -168,9 +168,9 @@ impl AnalysisHandle {
             .canonical_store()
             .analysis_node_page(&self.key, after)
             .await?;
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut builder =
-            rows::Builder::with_registry(&self.runtime.registry, page.len(), &validation)
+            rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
                 .map_err(relation)?;
         for row in page {
             builder.push(row).map_err(relation)?;
@@ -197,9 +197,9 @@ impl AnalysisHandle {
             .canonical_store()
             .analysis_edge_page(&self.key, after)
             .await?;
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut builder =
-            rows::Builder::with_registry(&self.runtime.registry, page.len(), &validation)
+            rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
                 .map_err(relation)?;
         for row in page {
             builder.push(row).map_err(relation)?;
@@ -219,11 +219,7 @@ impl Runtime {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
-        self.operations()?
-            .record(run, attempt)
-            .await?
-            .completion
-            .ok_or_else(|| contract("stored completion metadata absent"))
+        self.operations()?.completion(run, attempt).await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
@@ -411,7 +407,7 @@ impl Runtime {
         ] {
             cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
             let spec = self
-                .registry
+                .registry()
                 .relation(relation_name)
                 .ok_or_else(|| contract("analysis relation unavailable"))?;
             if !input

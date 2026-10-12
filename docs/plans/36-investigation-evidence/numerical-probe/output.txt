@@ -1,0 +1,16 @@
+   Compiling plan36-numerical-probe v0.0.0 (/tmp/plan36-numerical-cargo)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.07s
+     Running `/tmp/plan36-numerical-cargo/target/debug/plan36-numerical-probe`
+cubic three distinct=3 multiplicity=3
+guarded exact fallback three endpoint-root
+cubic one distinct=1 multiplicity=1
+cubic triple distinct=1 multiplicity=3
+cubic quadratic distinct=2 multiplicity=2
+cubic linear distinct=1 multiplicity=1
+cubic near-critical distinct=3 multiplicity=3
+guarded exact fallback near-critical endpoint-root
+guarded exact fallback near-critical endpoint-root
+cubic zero-root distinct=1 multiplicity=1
+sparse n=128 nnz=382 factor_scratch=4096 solve2_scratch=2048 error=0.000000000000014210854715202004
+sparse n=512 nnz=1534 factor_scratch=16384 solve2_scratch=8192 error=0.00000000000005684341886080802
+rank comparison sigma=[1.414213562373095, 6.585445079827192e-10] qrdiag=[1,0.0000000009313225746154785]

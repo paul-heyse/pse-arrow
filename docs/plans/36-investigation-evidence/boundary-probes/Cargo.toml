@@ -1,0 +1,19 @@
+[package]
+name = "plan36-boundary-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[workspace]
+[dependencies]
+arrow = { version = "=59.3.0", default-features = false, features = [
+  "ipc",
+  "force_validate",
+] }
+bytes = "=1.12.1"
+serde_json = "=1.0.151"
+[features]
+default = ["float-roundtrip"]
+float-roundtrip = ["serde_json/float_roundtrip"]
+[profile.dev]
+debug = 0
+panic = "unwind"

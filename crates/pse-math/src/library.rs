@@ -152,18 +152,6 @@ impl Default for Optimization {
         }
     }
 }
-/// Build one multi-output block. All control/domain barriers are outside this block.
-/// # Errors
-/// Invalid capacities or an unsupported library expression.
-pub(crate) fn evaluator(
-    expressions: &[Atom],
-    parameters: &[Atom],
-    options: Optimization,
-    cancelled: &std::sync::Arc<std::sync::atomic::AtomicBool>,
-) -> Result<ExpressionEvaluator<f64>, MathError> {
-    Ok(exact_evaluator(expressions, parameters, options, cancelled)?.map_coeff(&|c| c.re.to_f64()))
-}
-
 fn exact_evaluator(
     expressions: &[Atom],
     parameters: &[Atom],
@@ -207,7 +195,9 @@ fn exact_evaluator(
 }
 
 mod admission;
-pub(crate) use admission::{bounded_evaluator, evaluator_construction};
+pub(crate) use admission::{
+    ScalarCache, bounded_evaluator, bounded_scalar_evaluator, evaluator_construction,
+};
 
 /// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.
 pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathError> {

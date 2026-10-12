@@ -280,10 +280,10 @@ IF $selected = NONE OR $selected.problem != $problem { THROW 'retained revision 
 IF $selected.interpretation != $interpretation { THROW 'retained revision interpretation mismatch'; };
 LET $pruned = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $selected.sequence AND to_sequence > $selected.sequence LIMIT 1;
 IF array::len($pruned) != 0 { THROW 'revision source history has been reclaimed'; };
-LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);
+LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
 IF $old != NONE AND ($old.problem != $problem OR $old.owner_kind != $owner_kind OR $old.owner != $owner) { THROW 'retention owner identity collision'; };
 UPSERT type::record('canonical_roots', $root) SET key = $root, problem = $problem, revision = $selected.key, sequence = $selected.sequence, owner_kind = $owner_kind, owner = $owner;
-UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
@@ -291,28 +291,47 @@ const DROP_ROOT: &str = r#"BEGIN;
 IF $owner_kind IN ['run','analysis','active_attempt'] { THROW 'lifecycle roots are released only by their owning retirement'; };
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root);
+LET $old = SELECT * FROM ONLY type::record('canonical_roots', $root) FOR UPDATE;
 IF $old != NONE {
     IF $old.problem != $problem OR $old.revision != $revision OR $old.owner_kind != $owner_kind OR $old.owner != $owner { THROW 'retained owner selection changed'; };
     DELETE ONLY type::record('canonical_roots', $root);
+    IF $owner_kind = 'product' {
+        LET $association = SELECT * FROM ONLY type::record('canonical_product_associations',$root);
+        IF $association != NONE {
+            LET $descriptor = SELECT * FROM ONLY type::record('canonical_product_descriptors',$association.descriptor) FOR UPDATE;
+            IF $descriptor != NONE {
+                IF $descriptor.issuing_store != $association.issuing_store OR $descriptor.problem != $association.problem OR $descriptor.request != $association.request OR $descriptor.payload != $association.payload OR $descriptor.dependencies != $association.dependencies OR $descriptor.content != $association.content OR $descriptor.receipt != $association.receipt OR $descriptor.producer != $association.producer OR $descriptor.interpretation != $association.interpretation { THROW 'released association descriptor equality differs'; };
+                LET $remaining = SELECT key FROM canonical_product_associations WHERE descriptor = $association.descriptor AND issuing_store = $association.issuing_store AND problem = $association.problem AND request = $association.request AND payload = $association.payload AND dependencies = $association.dependencies AND content = $association.content AND receipt = $association.receipt AND producer = $association.producer AND interpretation = $association.interpretation AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key ORDER BY key LIMIT 1;
+                UPDATE type::record('canonical_product_descriptors',$association.descriptor) SET association = IF array::len($remaining) = 0 { NONE } ELSE { $remaining[0].key };
+            };
+        };
+    };
 };
-UPSERT $guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
+fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 COMMIT;"#;
 
 const RECLAIM: &str = r#"BEGIN;
+fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate);
+LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate) FOR UPDATE;
 LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_sequence = NONE {
     {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
 } ELSE {
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
     IF $head = NONE { THROW 'reclamation problem head unavailable'; };
     LET $roots = SELECT key FROM canonical_roots WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence LIMIT 1;
-    LET $pins = SELECT key FROM canonical_protections WHERE problem = $problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released = false AND expires_at > time::micros() LIMIT 1;
+    LET $pin_page=SELECT key,expires_at FROM canonical_protections WHERE problem=$problem AND sequence >= $member.from_sequence AND sequence < $member.to_sequence AND released=false ORDER BY key LIMIT 64;
+    FOR $pin_key IN $pin_page {
+        SELECT * FROM ONLY type::record('canonical_protections',$pin_key.key) FOR UPDATE;
+        IF $pin_key.expires_at<=time::micros() { UPDATE ONLY type::record('canonical_protections',$pin_key.key) SET released=true; };
+    };
+    LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros());
     IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 {
         {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
+    } ELSE IF array::len($pin_page)=64 {
+        {membership:false,version:false,edges:0dec,blocks:0dec,pending:true}
     } ELSE {
         UPSERT type::record('canonical_reclaimed_ranges', $candidate) SET key = $candidate, problem = $problem, from_sequence = $member.from_sequence, to_sequence = $member.to_sequence;
         LET $version = $member.version;
@@ -520,7 +539,14 @@ mod canonical_server_unit {
         );
         store.release(&pin).await.unwrap();
         store
-            .append_result_batch(&fence, "still-live", "values", 0, &[1], 1)
+            .append_result_batch(
+                &fence,
+                "still-live",
+                "values",
+                0,
+                crate::canonical_execution::ResultPayload::new((&[1]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let history = RetentionOwner::History("movable-history".into());
@@ -813,3 +839,7 @@ mod canonical_server_unit {
         remove(&store, &database).await;
     }
 }
+
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "canonical_conflict_tests.rs"]
+mod canonical_server_unit_exact_conflicts;

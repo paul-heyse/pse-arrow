@@ -565,6 +565,23 @@ equivalence. Scientific completion and result meaning remain owned by
 
 ### 20.4 Reproduction, reuse and retention
 
+> Decision: [ADR-0177](../../adr/0177-exact-conflicts-and-settled-retirement.md) (proposed amendment; Plan 36 P-B1/P-B7).
+
+Source creators register/check exact reclaim authority and reclaimed intervals, install
+their exact root/pin and write a creator fence atomically. Collection registers the creator
+fence before scanning roots/pins, registers affected exact authorities, and publishes
+reclamation atomically with its reclaim fence. Both commit orders invalidate the stale
+opposing decision; rebuilt creation refuses reclaimed history. Result retirement uses the
+analogous result-creator/retirement pair. Result pins, analysis input edges, summary-study
+headers and point/run associations all participate, including association installation on
+an existing run. Absence at registration is not permanent absence unless the complete
+association is immutable there and every later creator verifies it. Continued reads and
+renewal check exact live pin plus reclaim/retirement authority, and result manifest where
+applicable; expiry/release cannot revive. Grant settlement closes the original authority
+incarnation/nonce/deadline through a monotone floor before bounded residue collection.
+Unresolved effects and run lineage retain their borrowers. Production deletion remains a
+separately authorized operation; implementation race controls remain Plan 36-owned.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). Semantic reuse, allocation ownership and durable retention are independent lifetimes.
 
 | Lifetime | Owner | Governs |
@@ -717,6 +734,53 @@ must receive explicit current readmission or a typed refusal without invented fi
 qualification or policy. Generated contracts remain declarations, never inferred layouts.
 
 ### 20.6 Operational store and durable execution
+
+> Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
+
+> Decision: [ADR-0177](../../adr/0177-exact-conflicts-and-settled-retirement.md), [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendments; Plan 36).
+
+Cancellation alone writes its exact authority; claim, start, append, heartbeat, observe,
+close, seal and finalize register it before their decision. Checked immutable problem and
+study association travel with capabilities, while server effects verify current identity
+and generation. Local turns follow actual written domains in stable order and release
+before hydration, native work and retry backoff. Definite conflicts rebuild the complete
+decision under the original clock. Uncertain dispatch settles its original receipt/fence
+without blind application replay or renewed identity/expiry. Valid earlier effects remain
+in the retained prefix. A complete cancelled export preserves original assessment under
+its cancelled outcome; incomplete export grants no scientific or seed permission.
+
+Immutable body content, complete interpretation/dependency receipts and store-issued
+product associations are distinct from eligible roots. Shared material retains one charged
+owner, full equality and collision checks; exact acknowledgment verifies the original
+association/root. A live preparation engagement owns synchronous once-per-engagement
+settlement, exact protection and already-issued uncertainty through drain. Controlled
+schema/history activation fences writers, settles old uncertainty, materializes reachable
+derived records without changing bytes/predicates/provenance, and verifies them before
+switching all consumers together. Interrupted backfill retains old authority; undecodable
+history refuses activation. This target authorizes neither production activation nor
+history deletion, and does not select optional publication.
+
+Recognized historical result activation preserves original run/attempt/result, study,
+analysis and source/root records. Typed row locators are rebuilt from original IPC using
+the registry-bound decoder and projection. Exact `canonical_historical_results`
+admissions bind supported sealed terminal attempts to their original manifest and frozen
+store/migration snapshot. Historical readers still acquire current protection and obey
+retirement; these admissions grant no execution, write or new seed permission. Known
+terminal incomplete prefixes remain incomplete. Unknown or mutable histories refuse
+activation, and server writes independently require the current interpretation. Original
+snapshot and derived coverage verification precede the final marker switch; interrupted
+work resumes its existing migration identity.
+
+> Decision: [ADR-0173](../../adr/0173-seal-seed-eligibility-before-discovery.md) (proposed). Seed discovery separates terminal lifecycle from complete-original scientific inventory permission.
+
+A controlled seal explicitly declares seed eligibility. Only complete acknowledged original
+scientific inventory can issue the bounded attempt-level witness, bound to the frozen closed
+manifest in that same seal. Recovery, summaries and unavailable cancellation prefixes issue
+no eligibility. Candidate discovery filters this witness, exact compatibility and retirement
+before its deterministic bounded cutoff. Protected acquisition independently verifies the
+chosen seed's inventory membership and per-step scientific permission; discovery does not
+confer future storage permission. Old terminal records are never upgraded by inference.
+
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed). `pse-operations` owns the thin authenticated native WebSocket client and typed guarded operations under Plan 30 implementation. Native science stays outside database transactions.
 

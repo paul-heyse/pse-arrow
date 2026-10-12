@@ -7,6 +7,278 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+// Independent spawned tasks do not inherit a resident lane.
+tokio::task_local! { static POPULATION: Arc<PopulationLane>; }
+/// One resident population owner, with an exclusive loan through actual child join.
+#[derive(Debug)]
+pub(super) struct PopulationLane {
+    jobs: Arc<tokio::sync::Semaphore>,
+    _ticket: Arc<tokio::sync::OwnedSemaphorePermit>,
+    in_use: std::sync::atomic::AtomicBool,
+    closed: std::sync::atomic::AtomicBool,
+    drained: tokio::sync::Notify,
+}
+impl PopulationLane {
+    pub(super) fn new(
+        jobs: Arc<tokio::sync::Semaphore>,
+        ticket: Arc<tokio::sync::OwnedSemaphorePermit>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            jobs,
+            _ticket: ticket,
+            in_use: false.into(),
+            closed: false.into(),
+            drained: tokio::sync::Notify::new(),
+        })
+    }
+    pub(super) fn claim(self: &Arc<Self>) -> Result<PopulationUse, MathRuntimeError> {
+        if self.closed.load(Ordering::Acquire) {
+            return Err(MathRuntimeError::Limit("native population lane closed"));
+        }
+        self.in_use
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .map_err(|_| MathRuntimeError::Limit("concurrent native population loan"))?;
+        let usage = PopulationUse(self.clone());
+        if self.closed.load(Ordering::Acquire) {
+            return Err(MathRuntimeError::Limit("native population lane closed"));
+        }
+        Ok(usage)
+    }
+    pub(super) fn idle(&self) -> bool {
+        !self.in_use.load(Ordering::Acquire) && !self.closed.load(Ordering::Acquire)
+    }
+    pub(super) fn close(&self) {
+        self.closed.store(true, Ordering::Release);
+    }
+    pub(super) async fn drain(&self) {
+        loop {
+            let notified = self.drained.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if !self.in_use.load(Ordering::Acquire) {
+                return;
+            }
+            notified.await;
+        }
+    }
+}
+#[derive(Debug)]
+pub(super) struct PopulationUse(Arc<PopulationLane>);
+impl Drop for PopulationUse {
+    fn drop(&mut self) {
+        self.0.in_use.store(false, Ordering::Release);
+        self.0.drained.notify_waiters();
+    }
+}
+/// Explicit propagation into a sanctioned dependent loader. Concurrent children refuse;
+/// captured scopes close with the resident owner and cannot start later independent work.
+#[derive(Clone)]
+pub(crate) struct PopulationScope(Option<Arc<PopulationLane>>);
+impl PopulationScope {
+    pub(crate) fn capture() -> Self {
+        Self(POPULATION.try_with(Clone::clone).ok())
+    }
+    pub(crate) async fn run<T>(self, work: impl Future<Output = T>) -> T {
+        match self.0 {
+            Some(lane) => population_scope(lane, work).await,
+            None => work.await,
+        }
+    }
+}
+pub(super) async fn population_scope<T>(
+    lane: Arc<PopulationLane>,
+    work: impl Future<Output = T>,
+) -> T {
+    POPULATION.scope(lane, work).await
+}
+#[derive(Debug)]
+enum PopulationEntry {
+    Owned {
+        _ticket: tokio::sync::OwnedSemaphorePermit,
+    },
+    Borrowed {
+        _usage: PopulationUse,
+    },
+}
+/// Both active resources are acquired tentatively, never held while awaiting another.
+#[derive(Debug)]
+pub(super) struct ActivePermits {
+    _job: tokio::sync::OwnedSemaphorePermit,
+    _cpu: tokio::sync::OwnedSemaphorePermit,
+}
+impl MathService {
+    /// A genuine synchronous phase boundary lends its population to the nested team.
+    /// Parent resident memory remains charged, but active resources are released before
+    /// complete additional construction admission. Failed full-team attempts release
+    /// temporary memory and permits so smaller ready stages remain eligible.
+    pub(crate) fn quiescent_phase<T>(
+        &self,
+        cores: usize,
+        bytes: usize,
+        execution: &pse_backend_native::solve::Execution,
+        work: impl FnOnce() -> T,
+    ) -> Result<T, MathRuntimeError> {
+        self.quiescent_phase_owned(cores, bytes, execution, |_| work())
+    }
+    pub(super) fn quiescent_phase_owned<T>(
+        &self,
+        cores: usize,
+        bytes: usize,
+        execution: &pse_backend_native::solve::Execution,
+        work: impl FnOnce(Arc<datafusion::execution::memory_pool::MemoryReservation>) -> T,
+    ) -> Result<T, MathRuntimeError> {
+        if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
+            return Err(MathRuntimeError::Limit("optimizer cores"));
+        }
+        self.check_entry_extent(bytes)?;
+        let runtime = tokio::runtime::Handle::try_current()
+            .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+        pse_backend_native::execution::pause_compute();
+        let admitted = runtime.block_on(async {
+            let lease = Arc::new(
+                datafusion::execution::memory_pool::MemoryConsumer::new("math:phase")
+                    .register(&self.pool),
+            );
+            let mut pressure = None;
+            loop {
+                execution.check()?;
+                let released = self.released.notified();
+                tokio::pin!(released);
+                released.as_mut().enable();
+                let reserved = match lease.try_grow(bytes) {
+                    Ok(()) => true,
+                    Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
+                        pressure.get_or_insert_with(|| self.pressure.demand());
+                        match self.pressure.retry_growth(&lease, bytes) {
+                            Ok(()) => true,
+                            Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
+                                false
+                            }
+                            Err(error) => return Err(error.into()),
+                        }
+                    }
+                    Err(error) => return Err(MathRuntimeError::from(error)),
+                };
+                if reserved {
+                    if let Some(active) = self.try_active(cores as u32)? {
+                        return Ok((lease, active));
+                    }
+                    lease.shrink(bytes);
+                }
+                tokio::select! {
+                    () = released => {},
+                    () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
+                }
+            }
+        });
+        let result = admitted.and_then(|(lease, active)| {
+            execution.check()?;
+            let compute = super::staged::ComputeOwner::new(
+                self.active_jobs.clone(),
+                self.cpu.clone(),
+                cores as u32,
+                active,
+                runtime,
+            );
+            let result = pse_backend_native::execution::compute_scoped(Box::new(compute), || {
+                work(lease.clone())
+            });
+            drop(lease);
+            Ok(result)
+        });
+        // All nested workers/scopes have joined before the estimate's allowance returns.
+        let resumed = pse_backend_native::execution::resume_compute(execution);
+        match result {
+            Err(error) => Err(error),
+            Ok(result) => {
+                resumed?;
+                Ok(result)
+            }
+        }
+    }
+    pub(super) async fn reserve_active(
+        &self,
+        name: &str,
+        cores: u32,
+        bytes: usize,
+        cancel: &FlightCancellation,
+        at: std::time::Instant,
+    ) -> Result<
+        (
+            Arc<datafusion::execution::memory_pool::MemoryReservation>,
+            ActivePermits,
+        ),
+        MathRuntimeError,
+    > {
+        self.check_entry_extent(bytes)?;
+        let lease = Arc::new(
+            datafusion::execution::memory_pool::MemoryConsumer::new(name).register(&self.pool),
+        );
+        let mut pressure = None;
+        let active = loop {
+            let released = self.released.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
+            if cancel.flag().load(Ordering::Acquire) {
+                return Err(MathRuntimeError::Cancelled);
+            }
+            if std::time::Instant::now() >= at {
+                return Err(Self::admission_timeout());
+            }
+            // Complete construction demand precedes both active resources.
+            let reserved = match lease.try_grow(bytes) {
+                Ok(()) => true,
+                Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
+                    pressure.get_or_insert_with(|| self.pressure.demand());
+                    match self.pressure.retry_growth(&lease, bytes) {
+                        Ok(()) => true,
+                        Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => false,
+                        Err(error) => return Err(error.into()),
+                    }
+                }
+                Err(error) => return Err(error.into()),
+            };
+            if reserved {
+                if let Some(active) = self.try_active(cores)? {
+                    break active;
+                }
+                lease.shrink(bytes);
+            }
+            // No tentative memory, job or CPU owner survives this retry wait.
+            tokio::select! {
+                biased;
+                () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+                () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
+                () = released => {},
+                () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {},
+            }
+        };
+        Ok((lease, active))
+    }
+    pub(super) fn try_active(&self, cores: u32) -> Result<Option<ActivePermits>, MathRuntimeError> {
+        try_active(&self.active_jobs, &self.cpu, cores)
+    }
+}
+pub(super) fn try_active(
+    jobs: &Arc<tokio::sync::Semaphore>,
+    cpu: &Arc<tokio::sync::Semaphore>,
+    cores: u32,
+) -> Result<Option<ActivePermits>, MathRuntimeError> {
+    use tokio::sync::TryAcquireError;
+    let job = match jobs.clone().try_acquire_owned() {
+        Ok(job) => job,
+        Err(TryAcquireError::NoPermits) => return Ok(None),
+        Err(TryAcquireError::Closed) => return Err(MathRuntimeError::Limit("active jobs closed")),
+    };
+    match cpu.clone().try_acquire_many_owned(cores) {
+        Ok(cpu) => Ok(Some(ActivePermits {
+            _job: job,
+            _cpu: cpu,
+        })),
+        Err(TryAcquireError::NoPermits) => Ok(None),
+        Err(TryAcquireError::Closed) => Err(MathRuntimeError::Limit("CPU admission closed")),
+    }
+}
 /// Additional known numeric constructor payload grows the same admitted pool
 /// reservation immediately. No CPU/native owner waits for memory at this boundary.
 #[derive(Debug)]
@@ -169,8 +441,13 @@ impl WorkerBudget {
             }
         }
         Ok(WorkerCharge {
-            budget: self.clone(),
-            bytes,
+            allocation: Arc::new(WorkerAllocation {
+                capacity: self.capacity,
+                used: self.used.clone(),
+                pool: self.pool.clone(),
+                pressure: self.pressure.clone(),
+                bytes,
+            }),
         })
     }
     /// The worker share of the job's reservation.
@@ -185,15 +462,59 @@ impl WorkerBudget {
 /// One live worker's share of its job's reservation.
 #[derive(Debug)]
 pub struct WorkerCharge {
-    budget: Arc<WorkerBudget>,
+    allocation: Arc<WorkerAllocation>,
+}
+/// Passive residency only: an idle allocation must not retain an old task ledger,
+/// cancellation owner or deadline through the budget that admitted its construction.
+#[derive(Debug)]
+struct WorkerAllocation {
+    capacity: usize,
+    used: Arc<AtomicUsize>,
+    pool: Option<Arc<datafusion::execution::memory_pool::MemoryReservation>>,
+    pressure: Option<Arc<super::retention::Pressure>>,
     bytes: usize,
 }
-impl Drop for WorkerCharge {
+impl WorkerCharge {
+    pub(super) fn share(&self) -> Self {
+        Self {
+            allocation: self.allocation.clone(),
+        }
+    }
+    pub(super) fn exclusive(&self) -> bool {
+        Arc::strong_count(&self.allocation) == 1
+    }
+    pub(super) fn belongs_to(&self, budget: &WorkerBudget) -> bool {
+        Arc::ptr_eq(&self.allocation.used, &budget.used)
+            && match (&self.allocation.pool, &budget.pool) {
+                (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
+    }
+    pub(super) fn compatible(&self, budget: &WorkerBudget, bytes: usize) -> bool {
+        self.belongs_to(budget)
+            && self.allocation.bytes == bytes
+            && self.allocation.used.load(Ordering::Acquire) <= budget.capacity
+    }
+    /// Reset's public consuming map temporarily owns both numeric stacks. Charge
+    /// that overlap against the same resident lane, without an attempt admission.
+    pub(super) fn reset_overlap(&self) -> Result<Self, MathRuntimeError> {
+        Arc::new(WorkerBudget {
+            capacity: self.allocation.capacity,
+            used: self.allocation.used.clone(),
+            pool: self.allocation.pool.clone(),
+            pressure: self.allocation.pressure.clone(),
+            admission: None,
+        })
+        .charge(self.allocation.bytes)
+    }
+}
+impl Drop for WorkerAllocation {
     fn drop(&mut self) {
-        if let Some(pool) = &self.budget.pool {
+        if let Some(pool) = &self.pool {
             pool.shrink(self.bytes);
         }
-        self.budget.used.fetch_sub(self.bytes, Ordering::AcqRel);
+        self.used.fetch_sub(self.bytes, Ordering::AcqRel);
     }
 }
 /// Cancels on future abandonment while the detached supervisor retains all resource owners.
@@ -235,7 +556,7 @@ pub(super) struct AdmissionEntry {
     at: std::time::Instant,
     bytes: usize,
     construction_bytes: usize,
-    slot: tokio::sync::OwnedSemaphorePermit,
+    slot: PopulationEntry,
 }
 impl MathService {
     /// Submit one finite operation under the existing admission, teardown and join owner.
@@ -428,11 +749,28 @@ impl MathService {
         if std::time::Instant::now() >= at {
             return Err(Self::admission_timeout());
         }
-        let slot = self
-            .jobs
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
+        let slot =
+            match POPULATION
+                .try_with(|lane| Arc::ptr_eq(&lane.jobs, &self.jobs).then(|| lane.clone()))
+                .ok()
+                .flatten()
+            {
+                Some(lane) => PopulationEntry::Borrowed {
+                    _usage: lane.claim()?,
+                },
+                None => PopulationEntry::Owned {
+                    _ticket: self.jobs.clone().try_acquire_owned().map_err(
+                        |error| match error {
+                            tokio::sync::TryAcquireError::Closed => {
+                                MathRuntimeError::Limit("native population closed")
+                            }
+                            tokio::sync::TryAcquireError::NoPermits => {
+                                MathRuntimeError::Limit("native jobs")
+                            }
+                        },
+                    )?,
+                },
+            };
         Ok(AdmissionEntry {
             at,
             bytes,
@@ -553,63 +891,52 @@ impl MathService {
         let (tx, rx) = tokio::sync::oneshot::channel();
         tokio::spawn(async move {
             let result = async {
-                let lease = Arc::new(datafusion::execution::memory_pool::MemoryConsumer::new("math:native-job").register(&service.pool));
-                let mut pressure = None;
-                let cpu = loop {
-                    let released = service.released.notified();
-                    tokio::pin!(released);
-                    released.as_mut().enable();
-                    let cpu = tokio::select! {
-                        biased;
-                        () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
-                        () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
-                        p = service.cpu.clone().acquire_many_owned(cores as u32) =>
-                            p.map_err(|_| MathRuntimeError::Limit("CPU admission closed"))?,
-                    };
-                    if lease.size() == bytes { break cpu; }
-                    match lease.try_grow(bytes) {
-                        Ok(()) => break cpu,
-                        Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {},
-                        Err(error) => return Err(error.into()),
-                    }
-                    drop(cpu);
-                    pressure.get_or_insert_with(|| service.pressure.demand());
-                    match service.pressure.retry_growth(&lease, bytes) {
-                        Ok(()) => continue,
-                        Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {},
-                        Err(error) => return Err(error.into()),
-                    }
-                    tokio::select! {
-                        biased;
-                        () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
-                        () = tokio::time::sleep_until(at.into()) => return Err(Self::admission_timeout()),
-                        () = released => {},
-                    }
-                };
-                drop(pressure);
-                if cancel.flag().load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
-                if std::time::Instant::now() >= at { return Err(Self::admission_timeout()); }
-                if let Some(admitted) = admitted { let _ = admitted.send(()); }
+                let (lease, active) = service
+                    .reserve_active("math:native-job", cores as u32, bytes, &cancel, at)
+                    .await?;
+                if cancel.flag().load(Ordering::Acquire) {
+                    return Err(MathRuntimeError::Cancelled);
+                }
+                if std::time::Instant::now() >= at {
+                    return Err(Self::admission_timeout());
+                }
+                if let Some(admitted) = admitted {
+                    let _ = admitted.send(());
+                }
                 let flag = cancel.flag();
                 let compute = super::staged::ComputeOwner::new(
-                    service.cpu.clone(), cores as u32, cpu, tokio::runtime::Handle::current(),
+                    service.active_jobs.clone(),
+                    service.cpu.clone(),
+                    cores as u32,
+                    active,
+                    tokio::runtime::Handle::current(),
                 );
                 let native_compute = compute.clone();
                 let construction = Arc::new(ConstructionOwner {
-                    reservation: lease.clone(), initial: construction_bytes,
-                    capacity: service.policy.worker_bytes, additional: std::sync::Mutex::new(0),
-                    cancelled: flag.clone(), pressure: service.pressure.clone(),
+                    reservation: lease.clone(),
+                    initial: construction_bytes,
+                    capacity: service.policy.worker_bytes,
+                    additional: std::sync::Mutex::new(0),
+                    cancelled: flag.clone(),
+                    pressure: service.pressure.clone(),
                 });
                 let sessions = service.policy.inner_session_bytes;
-                let handle = std::thread::Builder::new().name("pse-math".into())
-                    .stack_size(service.policy.stack_bytes).spawn(move || {
+                let runtime = tokio::runtime::Handle::current();
+                let handle = std::thread::Builder::new()
+                    .name("pse-math".into())
+                    .stack_size(service.policy.stack_bytes)
+                    .spawn(move || {
+                        let _runtime = runtime.enter();
                         #[cfg(feature = "solver-kinsol")]
                         pse_backend_native::implicit::budget_sessions(sessions);
                         #[cfg(not(feature = "solver-kinsol"))]
                         let _ = sessions;
-                        pse_backend_native::execution::compute_scoped(Box::new(native_compute), ||
-                            pse_math::construction::scoped(construction, || work(flag)))
-                    }).map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
+                        pse_backend_native::execution::compute_scoped(
+                            Box::new(native_compute),
+                            || pse_math::construction::scoped(construction, || work(flag)),
+                        )
+                    })
+                    .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
                 // Joining witnesses thread-local and native destructor completion.
                 let mut joining = tokio::task::spawn_blocking(move || handle.join());
                 let result = match deadline {
@@ -630,7 +957,8 @@ impl MathService {
                             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
                             .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                     },
-                    None => joining.await
+                    None => joining
+                        .await
                         .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
                         .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
                 };
@@ -638,7 +966,9 @@ impl MathService {
                 // before optional retention yields for the escaped result's growth.
                 drop(compute);
                 let result = result.and_then(|(value, retained)| {
-                    if cancel.flag().load(Ordering::Acquire) { return Err(MathRuntimeError::Cancelled); }
+                    if cancel.flag().load(Ordering::Acquire) {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
                     // The admission-only clock ends at dispatch. Preserve actual task expiry.
                     if deadline.is_some_and(|at| std::time::Instant::now() >= at) {
                         return Err(Self::admission_timeout());
@@ -646,11 +976,15 @@ impl MathService {
                     if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) {
                         service.pressure.try_grow(&lease, more)?;
                     }
-                    Ok((value, pse_columnar::AllocationLease::new(lease.split(retained))))
+                    Ok((
+                        value,
+                        pse_columnar::AllocationLease::new(lease.split(retained)),
+                    ))
                 });
                 drop(lease);
                 result
-            }.await;
+            }
+            .await;
             drop(slot);
             let _ = tx.send(result);
         });
@@ -793,6 +1127,291 @@ mod construction_tests {
         drop(cpu);
         assert_eq!(service.cpu.available_permits(), 2);
     }
+    #[tokio::test]
+    async fn saturated_residents_lend_population_only_to_direct_preparation() {
+        let service = super::super::tests::service();
+        let mut sessions = (0..service.policy.jobs)
+            .map(|_| service.open_session().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(service.jobs.available_permits(), 0);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        let independent = service.clone();
+        sessions[0]
+            .prepare(async move {
+                let task =
+                    tokio::spawn(async move { independent.submit(1, 0, |_, _| Ok(((), 0))) });
+                assert!(matches!(
+                    task.await.unwrap(),
+                    Err(MathRuntimeError::Limit("native jobs"))
+                ));
+            })
+            .await
+            .unwrap();
+        let borrowed = service.clone();
+        let answer = sessions[0]
+            .prepare(async move {
+                borrowed
+                    .job(1, 0, FlightCancellation::default(), |_| Ok(42))
+                    .await
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(answer, 42);
+        assert_eq!(service.jobs.available_permits(), 0);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        for session in sessions {
+            session.close().await;
+        }
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+    #[tokio::test]
+    async fn borrowed_population_survives_lender_close_and_abandoned_child_until_join() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                jobs: 1,
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let mut session = service.open_session().unwrap();
+        let (entered, observed) = tokio::sync::oneshot::channel();
+        let (release, wait) = std::sync::mpsc::channel();
+        let child_service = service.clone();
+        let handle = session
+            .prepare(async move {
+                // Explicit single-flight propagation is the same dependent-loader seam as
+                // selected admission, frontier, basis and program artifact construction.
+                let population = PopulationScope::capture();
+                tokio::spawn(population.run(async move {
+                    child_service.submit(1, 0, move |_, _| {
+                        entered.send(()).unwrap();
+                        wait.recv().unwrap();
+                        Ok(((), 0))
+                    })
+                }))
+                .await
+                .unwrap()
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        observed.await.unwrap();
+        let captured = session.prepare(async { PopulationScope::capture() }).await;
+        assert!(captured.is_err()); // A live child still owns this lane.
+        let mut close = Box::pin(session.close());
+        assert!(futures_util::poll!(close.as_mut()).is_pending());
+        assert_eq!(service.jobs.available_permits(), 0);
+        drop(handle);
+        assert_eq!(service.jobs.available_permits(), 0);
+        release.send(()).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(1), close)
+            .await
+            .unwrap();
+        let drained = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            service.jobs.clone().acquire_owned(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        drop(drained);
+    }
+    #[tokio::test]
+    async fn population_loan_is_exclusive_and_closed_capture_cannot_restart() {
+        let service = super::super::tests::service();
+        let mut session = service.open_session().unwrap();
+        let scope = session
+            .prepare(async { PopulationScope::capture() })
+            .await
+            .unwrap();
+        let lane = scope.0.as_ref().unwrap();
+        let usage = lane.claim().unwrap();
+        assert!(matches!(
+            lane.claim(),
+            Err(MathRuntimeError::Limit("concurrent native population loan"))
+        ));
+        drop(usage);
+        session.close().await;
+        let child = service.clone();
+        let refused = scope
+            .run(async move { child.submit(1, 0, |_, _| Ok(((), 0))) })
+            .await;
+        assert!(matches!(
+            refused,
+            Err(MathRuntimeError::Limit("native population lane closed"))
+        ));
+    }
+    #[tokio::test]
+    async fn unavailable_active_stage_releases_tentative_memory_and_population_on_cancel() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let active = service
+            .active_jobs
+            .clone()
+            .acquire_many_owned(service.policy.jobs as u32)
+            .await
+            .unwrap();
+        let control = FlightCancellation::default();
+        let stop = control.clone();
+        let pending_service = service.clone();
+        let pending = tokio::spawn(async move {
+            pending_service
+                .job(1, 1024, control, |_| -> Result<(), MathRuntimeError> {
+                    panic!("undispatched operation")
+                })
+                .await
+        });
+        while service.jobs.available_permits() == service.policy.jobs {
+            tokio::task::yield_now().await;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(15)).await;
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        stop.cancel();
+        assert!(matches!(
+            pending.await.unwrap(),
+            Err(MathRuntimeError::Cancelled)
+        ));
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        drop(active);
+    }
+    #[tokio::test]
+    async fn contending_quiescent_fit_teams_release_estimation_and_preserve_population() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let barrier = Arc::new(std::sync::Barrier::new(2));
+        let mut handles = Vec::new();
+        for _ in 0..2 {
+            let phase_service = service.clone();
+            let barrier = barrier.clone();
+            handles.push(
+                service
+                    .submit(1, 0, move |flag, _| {
+                        let execution =
+                            pse_backend_native::solve::Execution::new(flag, &Default::default());
+                        barrier.wait();
+                        let observed =
+                            phase_service.quiescent_phase(2, 4096, &execution, || {
+                                assert_eq!(phase_service.cpu.available_permits(), 0);
+                                assert!(phase_service.pool.reserved() >= baseline + 4096);
+                                // Both fit populations remain finite while the nested team borrows its parent's ticket.
+                                assert!((1..=2).contains(
+                                    &(phase_service.policy.jobs
+                                        - phase_service.jobs.available_permits())
+                                ));
+                                7
+                            })?;
+                        Ok((observed, 0))
+                    })
+                    .unwrap(),
+            );
+        }
+        let results = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            let mut results = Vec::new();
+            for handle in handles {
+                results.push(handle.finish().await.unwrap().0);
+            }
+            results
+        })
+        .await
+        .unwrap();
+        assert_eq!(results, vec![7, 7]);
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+    #[tokio::test]
+    async fn quiescent_full_team_retry_allows_smaller_ready_work() {
+        let service = super::super::tests::service();
+        let occupied = service.cpu.clone().acquire_owned().await.unwrap();
+        let phase = service.clone();
+        let (entered, observed) = tokio::sync::oneshot::channel();
+        let parent = service
+            .submit(1, 0, move |flag, _| {
+                entered.send(()).unwrap();
+                let execution =
+                    pse_backend_native::solve::Execution::new(flag, &Default::default());
+                phase.quiescent_phase(2, 4096, &execution, || ())?;
+                Ok(((), 0))
+            })
+            .unwrap();
+        let mut parent = Box::pin(parent.finish());
+        assert!(futures_util::poll!(parent.as_mut()).is_pending());
+        observed.await.unwrap();
+        let small = service.submit(1, 0, |_, _| Ok((19, 0))).unwrap();
+        assert_eq!(
+            tokio::time::timeout(std::time::Duration::from_secs(1), small.finish())
+                .await
+                .unwrap()
+                .unwrap()
+                .0,
+            19
+        );
+        assert!(futures_util::poll!(parent.as_mut()).is_pending());
+        drop(occupied);
+        tokio::time::timeout(std::time::Duration::from_secs(1), parent)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+    }
+    #[test]
+    fn passive_worker_allocation_retains_idle_charge_without_original_task_admission() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(4096));
+        let lane = WorkerBudget::drawing(1024, &pool);
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let old_stop = Arc::downgrade(&stop);
+        let admission = super::super::strategy::admission::TaskAdmission::new(
+            pse_model::strategy::WorkLimits {
+                attempts: 1,
+                evaluations: None,
+                iterations: None,
+                factorizations: None,
+                proof_steps: None,
+            },
+            pse_kernels::ExecutionScope::new(stop.clone(), None),
+            None,
+            false,
+        );
+        let original = Arc::downgrade(&admission);
+        let budget = lane.with_admission(admission.clone());
+        let charge = budget.charge(256).unwrap();
+        let callback = charge.share();
+        assert!(!callback.exclusive());
+        drop(charge);
+        drop(budget);
+        drop(admission);
+        drop(stop);
+        assert!(original.upgrade().is_none());
+        assert!(old_stop.upgrade().is_none());
+        assert!(callback.exclusive());
+        assert_eq!(lane.used(), 256);
+        assert_eq!(pool.reserved(), 256);
+        assert!(callback.compatible(&lane, 256));
+        let other = WorkerBudget::drawing(1024, &pool);
+        assert!(!callback.compatible(&other, 256));
+        let overlap = callback.reset_overlap().unwrap();
+        assert_eq!(pool.reserved(), 512);
+        drop(overlap);
+        assert_eq!(pool.reserved(), 256);
+        drop(callback);
+        assert_eq!(lane.used(), 0);
+        assert_eq!(pool.reserved(), 0);
+        let small = WorkerBudget::drawing(300, &pool);
+        let held = small.charge(256).unwrap();
+        assert!(held.reset_overlap().is_err());
+        assert_eq!(small.used(), 256);
+        drop(held);
+        assert_eq!(pool.reserved(), 0);
+    }
+
     #[test]
     fn constructor_growth_uses_same_reservation_and_checks_worker_capacity() {
         let pool: Arc<dyn MemoryPool> = Arc::new(FairSpillPool::new(32));

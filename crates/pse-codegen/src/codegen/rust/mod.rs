@@ -144,7 +144,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     emit(
         &mut tree,
-        "crates/pse-runtime/src/generated/document_adapters.rs",
+        "crates/pse-admission/src/generated/document_adapters.rs",
         document_adapters,
     )?;
     emit(
@@ -160,7 +160,7 @@ pub(super) fn generate(reg: &Registry) -> Result<GeneratedTree, SchemaError> {
     )?;
     emit(
         &mut tree,
-        "crates/pse-runtime/src/generated/mod.rs",
+        "crates/pse-admission/src/generated/mod.rs",
         quote! {
             //! Mechanical declared document bridges.
             pub(crate) mod document_adapters;

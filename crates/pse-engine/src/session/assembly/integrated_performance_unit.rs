@@ -417,3 +417,205 @@ async fn terminal_count_sample_and_existence_have_distinct_completion_contracts(
             .unwrap()
     );
 }
+
+#[test]
+fn bound_model_retains_validation_after_sessions_drop_and_releases_without_cycles() {
+    let (factory, registry, initial) = fixture();
+    drop(initial);
+    let caches = crate::cache_service::NativeCacheService::new(
+        crate::cache_service::CacheBudget::disabled(1024),
+        factory.pool(),
+    )
+    .unwrap();
+    let factory = Arc::new(factory.with_cache_service(caches.clone()));
+    let bound = factory.bind_model(registry.clone()).unwrap();
+    let validation = bound.validation_context();
+    let native = factory.model_assembly(&registry).unwrap();
+    let weak = Arc::downgrade(&native);
+    let validation_weak = Arc::downgrade(&validation);
+    drop(native);
+    let schema = Arc::new(Schema::new(vec![Field::new("n", DataType::Int64, false)]));
+    let prepared = validation.prepare(&registry, schema.clone()).unwrap();
+    for _ in 0..3 {
+        let session = bound
+            .candidate(BTreeMap::new(), &CancellationToken::new())
+            .unwrap();
+        assert!(Arc::ptr_eq(
+            &validation,
+            &session.native.validation_context()
+        ));
+        assert!(!Arc::ptr_eq(
+            &validation,
+            &session.validation_context().unwrap()
+        ));
+        drop(session);
+        assert!(Arc::ptr_eq(
+            &validation,
+            &factory
+                .bind_model(registry.clone())
+                .unwrap()
+                .validation_context()
+        ));
+        assert!(Arc::ptr_eq(
+            &prepared,
+            &bound
+                .validation_context()
+                .prepare(&registry, schema.clone())
+                .unwrap()
+        ));
+    }
+    assert_eq!(validation.prepared_count().unwrap(), 1);
+    assert_eq!(
+        caches
+            .metrics
+            .assembly_builds
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    let session = bound
+        .candidate(BTreeMap::new(), &CancellationToken::new())
+        .unwrap();
+    drop(bound);
+    drop(validation);
+    assert!(
+        weak.upgrade().is_some(),
+        "selected consumers retain the actual native assembly"
+    );
+    drop(session);
+    assert!(
+        weak.upgrade().is_none(),
+        "validation snapshots do not retain their enclosing assembly"
+    );
+    assert!(validation_weak.upgrade().is_none());
+    assert!(
+        factory.model_assembly(&registry).is_ok(),
+        "a weak registry cache permits rebuilding after release"
+    );
+    assert_eq!(
+        caches
+            .metrics
+            .assembly_builds
+            .load(std::sync::atomic::Ordering::Relaxed),
+        2
+    );
+}
+
+#[test]
+fn bound_model_registry_reflection_reuses_admission_only_within_actual_binding() {
+    let (factory, _, initial) = fixture();
+    drop(initial);
+    let registry = pse_schema::shared_registry().unwrap();
+    let factory = Arc::new(factory);
+    let bound = factory.bind_model(registry.clone()).unwrap();
+    let name = registry.schema_batches()[0].0.qualified_name();
+    let validation = bound.validation_context();
+    let first = bound
+        .registry_relation(&name, &CancellationToken::new())
+        .unwrap();
+    let prepared = validation
+        .prepare(&registry, first.batch().schema())
+        .unwrap();
+    let evaluations = prepared.evaluation_count();
+    let preparations = validation.prepared_count().unwrap();
+    assert!(evaluations > 0);
+    let next = factory
+        .bind_model(registry.clone())
+        .unwrap()
+        .registry_relation(&name, &CancellationToken::new())
+        .unwrap();
+    assert!(first.same_source(&next));
+    assert_eq!(prepared.evaluation_count(), evaluations);
+    assert_eq!(validation.prepared_count().unwrap(), preparations);
+    let changed = Arc::new(
+        factory
+            .as_ref()
+            .clone()
+            .with_target_partitions(std::num::NonZeroUsize::MIN),
+    )
+    .bind_model(registry.clone())
+    .unwrap();
+    assert!(!Arc::ptr_eq(&validation, &changed.validation_context()));
+    let changed_row = changed
+        .registry_relation(&name, &CancellationToken::new())
+        .unwrap();
+    assert_eq!(
+        changed
+            .validation_context()
+            .prepare(&registry, changed_row.batch().schema())
+            .unwrap()
+            .evaluation_count(),
+        1
+    );
+    assert_eq!(changed.validation_context().prepared_count().unwrap(), 1);
+    let foreign = factory
+        .bind_model(Arc::new(
+            pse_schema::RegistryBuilder::new().build().unwrap(),
+        ))
+        .unwrap();
+    assert!(
+        foreign
+            .validation_context()
+            .prepare(&registry, first.batch().schema())
+            .is_err()
+    );
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    assert!(
+        bound.registry_relation(&name, &cancel).is_err(),
+        "cache hits retain operation cancellation"
+    );
+}
+
+#[test]
+fn bound_model_native_checks_use_actual_same_named_implementations() {
+    use datafusion::{
+        arrow::array::{Int64Array, RecordBatch},
+        common::ScalarValue,
+        logical_expr::{ColumnarValue, Volatility, create_udf},
+    };
+    let (factory, registry, initial) = fixture();
+    drop(initial);
+    let bind = |accepted| {
+        let implementation = create_udf(
+            "same_name",
+            vec![],
+            DataType::Boolean,
+            Volatility::Immutable,
+            Arc::new(move |_| Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(accepted))))),
+        );
+        Arc::new(EngineFactory::from_builder(
+            factory.native_state().runtime_env().clone(),
+            factory.pool().clone(),
+            "unit",
+            SessionStateBuilder::new_from_existing(factory.native_state().clone())
+                .with_scalar_functions(vec![Arc::new(implementation)]),
+        ))
+        .bind_model(registry.clone())
+        .unwrap()
+    };
+    let checks = BTreeMap::from([("actual".to_owned(), "same_name()".to_owned())]);
+    let schema = Arc::new(Schema::new_with_metadata(
+        vec![Field::new("n", DataType::Int64, false)],
+        [(
+            pse_schema::arrow::KEY_CHECKS.into(),
+            serde_json::to_string(&checks).unwrap(),
+        )]
+        .into(),
+    ));
+    let batch =
+        RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![1]))]).unwrap();
+    let accepted = bind(true);
+    let refused = bind(false);
+    let good = accepted
+        .validation_context()
+        .prepare(&registry, schema.clone())
+        .unwrap();
+    let bad = refused
+        .validation_context()
+        .prepare(&registry, schema)
+        .unwrap();
+    assert!(!Arc::ptr_eq(&good, &bad));
+    let cancel = CancellationToken::new();
+    assert!(good.evaluate(&batch, 16, &cancel).unwrap().is_valid());
+    assert!(!bad.evaluate(&batch, 16, &cancel).unwrap().is_valid());
+}

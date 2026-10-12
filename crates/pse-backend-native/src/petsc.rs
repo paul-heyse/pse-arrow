@@ -1002,6 +1002,13 @@ mod tests {
             fn pause(&mut self) {
                 self.0.send(()).unwrap();
             }
+            fn try_resume(
+                &mut self,
+                execution: &Execution,
+            ) -> Result<crate::execution::ComputeAvailability, ProblemError> {
+                self.resume(execution)?;
+                Ok(crate::execution::ComputeAvailability::Acquired)
+            }
             fn resume(&mut self, execution: &Execution) -> Result<(), ProblemError> {
                 execution.check()?;
                 self.1.fetch_add(1, Ordering::Release);

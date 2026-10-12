@@ -394,9 +394,13 @@ async fn automatic_refusal_only_trace_publishes_without_admitting_empty_executio
     );
     let pool = runtime.shared.pool();
     let cancelled = pse_columnar::CancellationToken::new();
-    let validation = runtime.validation_context().unwrap();
-    let mut published =
-        pse_relations::columnar::Collection::new(&runtime.registry, &pool, &cancelled, &validation);
+    let validation = runtime.validation_context();
+    let mut published = pse_relations::columnar::Collection::new(
+        runtime.registry(),
+        &pool,
+        &cancelled,
+        &validation,
+    );
     published
         .ensure::<pse_model::generated::runtime::solve_strategy_events::Row>()
         .unwrap();

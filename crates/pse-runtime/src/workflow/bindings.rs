@@ -166,18 +166,28 @@ impl ModelingPackage {
         binding: &AdmittedBinding,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
+            .await
+    }
+    /// The lane retains the existing membership authority; point values remain fresh.
+    pub(in crate::workflow) async fn prepare_bound_operation_with_admission(
+        &self,
+        operation: &super::StudyOperation,
+        binding: &AdmittedBinding,
+        admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
+        cancel: &crate::CancelSource,
+    ) -> Result<super::PreparedStudyOperation, WorkflowError> {
         operation.source.check(self)?;
         if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
-            let mut execution = self
-                .declared_execution(
-                    case.case,
-                    operation.preparation.compiler,
-                    case.settings.clone().profile()?,
-                    Default::default(),
-                    operation.preparation.limits,
-                    cancel,
-                )
+            operation
+                .admit_binding_seed_need(self, binding, admission, cancel)
                 .await?;
+            let mut execution = admission
+                .as_ref()
+                .ok_or_else(|| super::contract("declared lane admission absent"))?
+                .execution
+                .clone();
+            execution.prepared_model(self)?;
             if execution.route != case.route
                 || !matches!(execution.procedure, super::DeclaredProcedure::Solve)
             {
@@ -190,9 +200,26 @@ impl ModelingPackage {
                 .into());
             }
             self.validate_binding(execution.model.compiled(), binding)?;
+            let bound_source = self.retain_bound_source(binding)?;
             execution.analysis.case.members = binding.values();
+            let analysis = execution.analysis;
+            let resolution = self
+                .resolve_prepared_case(
+                    execution.model,
+                    analysis.case,
+                    analysis.order,
+                    analysis.compiler,
+                    analysis.solver,
+                    analysis.numerical,
+                    super::modeling::cases::CaseOverrides::default(),
+                    false,
+                    cancel,
+                )
+                .await?;
+            let mut prepared = self.finish_case(resolution, cancel).await?;
+            prepared.bound_source = Some(bound_source);
             return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
-                self.prepare_declared(&execution, cancel).await?,
+                prepared,
             )));
         }
         if !binding.entries.is_empty()
@@ -364,18 +391,8 @@ impl ModelingPackage {
                 supplied: assignment.target.clone(),
                 supplied_unit: assignment.value.unit,
             };
-            if let Some(previous) = entries.get(&member) {
-                if previous.quantity != entry.quantity
-                    || previous.canonical.into_inner().to_bits()
-                        != entry.canonical.into_inner().to_bits()
-                    || previous.parameter != entry.parameter
-                {
-                    return Err(
-                        failure(member, R::StudyBindingDuplicate, &assignment.target).into(),
-                    );
-                }
-            } else {
-                entries.insert(member, entry);
+            if entries.insert(member, entry).is_some() {
+                return Err(failure(member, R::StudyBindingDuplicate, &assignment.target).into());
             }
         }
         Ok(AdmittedBinding {
@@ -620,7 +637,7 @@ mod binding_admission_unit {
             .unwrap();
     }
     #[tokio::test]
-    async fn conflicting_path_and_member_aliases_refuse_without_last_write_wins() {
+    async fn all_path_and_member_aliases_refuse_without_last_write_wins() {
         let (package, model) = fixture("temperature").await;
         let first = assignment(
             &package,
@@ -644,10 +661,10 @@ mod binding_admission_unit {
                         assignments: vec![first.clone(), identical]
                     }
                 )
-                .unwrap()
-                .entries
-                .len(),
-            1
+                .unwrap_err()
+                .boundary_diagnostic()
+                .rule,
+            DiagnosticRule::StudyBindingDuplicate
         );
         let conflicting = assignment(
             &package,

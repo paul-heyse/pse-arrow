@@ -109,16 +109,15 @@ async fn package(
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
     let runtime = Runtime::from_shared(
         shared.clone(),
-        registry.clone(),
-        sessions.clone(),
+        sessions.bind_model(registry.clone()).unwrap(),
         crate::workflow::tests::canonical_deployment(),
     )?;
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
-    let validation = sessions.validation_context(&registry)?;
+    let validation = runtime.validation_context();
     let load = |name: &str| -> TestResult<_> {
         Ok(
-            crate::authoring_driver::document::load_package_documents_owned(
+            pse_admission::authoring_driver::document::load_package_documents_owned(
                 &documents(&root.join(name))?,
                 &registry,
                 Default::default(),
@@ -128,11 +127,12 @@ async fn package(
             )?,
         )
     };
-    let physical_documents = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-        vec![load(&source.physical)?],
-        &pool,
-        &token,
-    )?;
+    let physical_documents =
+        pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+            vec![load(&source.physical)?],
+            &pool,
+            &token,
+        )?;
     let physical = runtime
         .physical_from_documents(&physical_documents, &token)
         .await?;
@@ -140,7 +140,7 @@ async fn package(
         .chain(&source.dependencies)
         .map(|name| load(name))
         .collect::<TestResult<Vec<_>>>()?;
-    let closure = crate::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+    let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
     )?;
     Ok((

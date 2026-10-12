@@ -177,6 +177,33 @@ pub(crate) const fn evaluation_unit() -> crate::solve::WorkEvidence {
         proof_steps: Some(0),
     }
 }
+/// Allocation-free callback accounting identity; block ordinals retain their
+/// existing metric names when measurements are published.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CallbackKey {
+    /// One statically named callback operation.
+    Named(&'static str),
+    /// A statically named operation on one admitted block.
+    Block {
+        /// The admitted block's stable ordinal.
+        index: usize,
+        /// The callback operation within that block.
+        demand: &'static str,
+    },
+}
+impl From<&'static str> for CallbackKey {
+    fn from(name: &'static str) -> Self {
+        Self::Named(name)
+    }
+}
+impl std::fmt::Display for CallbackKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Named(name) => f.write_str(name),
+            Self::Block { index, demand } => write!(f, "block.{index}.{demand}"),
+        }
+    }
+}
 /// Worker-local failure state; recoverable history never becomes a terminal latch.
 #[derive(Debug)]
 pub struct CallbackState {
@@ -195,9 +222,9 @@ pub struct CallbackState {
     /// Only terminal failures latch. Successful later trials preserve native success.
     pub terminal: Option<(Termination, String)>,
     /// Per-demand call count, including rejected trials.
-    pub counts: BTreeMap<String, i64>,
+    pub counts: BTreeMap<CallbackKey, i64>,
     /// Per-demand wall seconds, including rejected trials.
-    pub seconds: BTreeMap<String, f64>,
+    pub seconds: BTreeMap<CallbackKey, f64>,
     /// Trials refused for crossing a nested implicit stage's bound regime.
     pub regime_crossings: usize,
     /// Of those, the crossings since the adapter last reported a completed outer iteration.
@@ -227,9 +254,10 @@ impl CallbackState {
     /// only after this returns `Some`, so a failed trial cannot publish partial buffers.
     pub fn evaluate<T>(
         &mut self,
-        demand: &str,
+        demand: impl Into<CallbackKey>,
         work: impl FnOnce() -> Result<T, ProblemError>,
     ) -> Option<T> {
+        let demand = demand.into();
         if self.terminal.is_some() {
             return None;
         }
@@ -267,7 +295,10 @@ impl CallbackState {
             }
         }
         let start = std::time::Instant::now();
-        let result = catch_unwind(AssertUnwindSafe(work));
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            let _original = crate::execution::original_scope(&self.execution);
+            work()
+        }));
         if let Some(admission) = &self.execution.work_admission
             && self.execution.callback_work_owner
         {
@@ -288,8 +319,8 @@ impl CallbackState {
                 }
             }
         }
-        *self.counts.entry(demand.into()).or_default() += 1;
-        *self.seconds.entry(demand.into()).or_default() += start.elapsed().as_secs_f64();
+        *self.counts.entry(demand).or_default() += 1;
+        *self.seconds.entry(demand).or_default() += start.elapsed().as_secs_f64();
         if self.terminal.is_some() {
             self.rejected_evaluations = self.rejected_evaluations.saturating_add(1);
             return None;
@@ -465,6 +496,20 @@ pub fn retryable_evaluation(report: &crate::solve::SolveReport) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn callback_transports_exact_original_execution_only_for_its_synchronous_work() {
+        use std::sync::Arc;
+        let execution = Execution::new(Arc::default(), &Default::default());
+        let mut callback = CallbackState::new(execution.clone());
+        let result = callback.evaluate("original-control", || {
+            let inherited = crate::execution::current_execution(&execution.cancel).unwrap();
+            assert_eq!(inherited.started, execution.started);
+            assert!(Arc::ptr_eq(&inherited.abandonment, &execution.abandonment));
+            Ok(17)
+        });
+        assert_eq!(result, Some(17));
+        assert!(crate::execution::current_execution(&execution.cancel).is_none());
+    }
     fn report(execution: &Execution) -> crate::solve::SolveReport {
         use crate::solve::{Assurance, Backend, NativeTermination, SolveReport};
         SolveReport::new(

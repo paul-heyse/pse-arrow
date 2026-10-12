@@ -114,6 +114,7 @@ fn track(
     limits: Limits,
     execution: Execution,
 ) -> Result<PathPrediction, Arc<ProblemError>> {
+    let _original = crate::execution::original_scope(&execution);
     if segments == 0
         || parameters.len() != point.parameters.len()
         || parameters

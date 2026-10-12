@@ -81,14 +81,27 @@ pub fn check_record_link(
 }
 /// Encode opaque bytes using the native binary value kind.
 pub fn encode_bytes(value: pse_model::Bytes) -> Result<Value, CodecError> {
-    Ok(Value::Bytes(Bytes::from(value.as_slice().to_vec())))
+    Ok(Value::Bytes(Bytes::from(value.into_vec())))
 }
 /// Decode native binary values without JSON conversion.
 pub fn decode_bytes(value: Value) -> Result<pse_model::Bytes, CodecError> {
     match value {
-        Value::Bytes(value) => Ok(value.to_vec().into()),
+        Value::Bytes(value) => Ok(Vec::from(value.into_inner()).into()),
         _ => Err(CodecError::Domain("bytes")),
     }
+}
+/// Encode a registry-declared 16-byte identity without text or numeric coercion.
+pub fn encode_id(value: impl Into<pse_ids::SemanticId>) -> Result<Value, CodecError> {
+    Ok(Value::Bytes(Bytes::from(value.into().as_bytes().to_vec())))
+}
+/// Decode the exact binary identity into its registry-generated semantic role.
+pub fn decode_id<T: From<pse_ids::SemanticId>>(value: Value) -> Result<T, CodecError> {
+    let Value::Bytes(bytes) = value else {
+        return Err(CodecError::Domain("16-byte semantic identity"));
+    };
+    pse_ids::SemanticId::try_from_slice(bytes.as_ref())
+        .map(T::from)
+        .map_err(|_| CodecError::Domain("16-byte semantic identity"))
 }
 /// Encode a signed integer or microsecond timestamp.
 pub fn encode_int(value: i64) -> Result<Value, CodecError> {
@@ -159,6 +172,45 @@ pub fn decode_finite(value: Value) -> Result<f64, CodecError> {
 #[cfg(test)]
 mod canonical_codec_unit {
     use super::*;
+    #[test]
+    fn semantic_identity_codec_requires_exact_binary_width_and_preserves_role() {
+        let id = pse_ids::SemanticId::from_bytes([0x81; 16]);
+        let run = pse_model::generated::identities::RunId::from(id);
+        let decoded: pse_model::generated::identities::RunId =
+            decode_id(encode_id(run).unwrap()).unwrap();
+        assert_eq!(decoded, run);
+        for width in [0, 15, 17, 32] {
+            assert!(
+                decode_id::<pse_ids::SemanticId>(Value::Bytes(Bytes::from(vec![0; width])))
+                    .is_err()
+            );
+        }
+        assert!(decode_id::<pse_ids::SemanticId>(Value::String(id.to_string())).is_err());
+        assert!(decode_id::<pse_ids::SemanticId>(encode_uint(1).unwrap()).is_err());
+    }
+    #[test]
+    fn native_byte_codec_transfers_unique_storage_and_isolates_shared_storage() {
+        let mut bytes = Vec::with_capacity(1024);
+        bytes.extend_from_slice(&[0, 1, 127, 128, 255]);
+        let pointer = bytes.as_ptr();
+        let encoded = encode_bytes(bytes.into()).unwrap();
+        let Value::Bytes(native) = &encoded else {
+            panic!("native binary value")
+        };
+        assert_eq!(native.as_ptr(), pointer, "encode transfers its Vec");
+        let decoded = decode_bytes(encoded).unwrap().into_vec();
+        assert_eq!(decoded.as_ptr(), pointer, "unique decode reclaims its Vec");
+        assert_eq!(decoded.capacity(), 1024);
+        let encoded = encode_bytes(decoded.into()).unwrap();
+        let alias = encoded.clone();
+        let mut decoded = decode_bytes(encoded).unwrap().into_vec();
+        decoded[0] = 17;
+        assert_eq!(
+            decode_bytes(alias).unwrap().as_slice(),
+            &[0, 1, 127, 128, 255]
+        );
+        assert!(decode_bytes(Value::String("binary".into())).is_err());
+    }
     #[test]
     fn unsigned_native_boundaries_and_invalid_values() {
         for value in [

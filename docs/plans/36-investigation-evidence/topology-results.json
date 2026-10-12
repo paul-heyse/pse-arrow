@@ -1,0 +1,185 @@
+{
+  "external_resolution_unchanged": true,
+  "math_baseline": {
+    "units": 368,
+    "packages": 250,
+    "egobox": [
+      "egobox-doe",
+      "egobox-ego",
+      "egobox-gp",
+      "egobox-moe"
+    ],
+    "native": [],
+    "arrow_leaf_features": {}
+  },
+  "math_surrogate_moved": {
+    "units": 264,
+    "packages": 175,
+    "egobox": [],
+    "native": [],
+    "arrow_leaf_features": {}
+  },
+  "engine_baseline": {
+    "units": 423,
+    "packages": 285,
+    "egobox": [],
+    "native": [],
+    "arrow_leaf_features": {
+      "arrow-array@59.3.0:None": [
+        "chrono-tz",
+        "ffi"
+      ],
+      "arrow-cast@59.3.0:None": [
+        "comfy-table",
+        "prettyprint"
+      ],
+      "arrow-data@59.3.0:None": [
+        "ffi"
+      ]
+    }
+  },
+  "math_no_hack": {
+    "units": 264,
+    "packages": 175,
+    "egobox": [],
+    "native": [],
+    "arrow_leaf_features": {}
+  },
+  "engine_no_hack": {
+    "units": 382,
+    "packages": 273,
+    "egobox": [],
+    "native": [],
+    "arrow_leaf_features": {
+      "arrow-array@59.3.0:None": [
+        "chrono-tz",
+        "ffi"
+      ],
+      "arrow-cast@59.3.0:None": [
+        "comfy-table",
+        "prettyprint"
+      ],
+      "arrow-data@59.3.0:None": [
+        "ffi"
+      ]
+    }
+  },
+  "engine_test_force_validate_no_hack": {
+    "units": 378,
+    "packages": 273,
+    "egobox": [],
+    "native": [],
+    "arrow_leaf_features": {
+      "arrow-array@59.3.0:None": [
+        "chrono-tz",
+        "ffi",
+        "force_validate"
+      ],
+      "arrow-cast@59.3.0:None": [
+        "comfy-table",
+        "force_validate",
+        "prettyprint"
+      ],
+      "arrow-data@59.3.0:None": [
+        "ffi",
+        "force_validate"
+      ]
+    }
+  },
+  "engine_removed_packages": [
+    "approx",
+    "lazy_static",
+    "matchers",
+    "matrixmultiply",
+    "nu-ansi-term",
+    "rawpointer",
+    "sharded-slab",
+    "thread_local",
+    "tracing-log",
+    "tracing-subscriber",
+    "unicase",
+    "winnow"
+  ],
+  "ids_unused_blake3_rayon": {
+    "before_units": 78,
+    "after_units": 78,
+    "removed_packages": []
+  },
+  "math_removed_packages": [
+    "adler2",
+    "anstream",
+    "anstyle-parse",
+    "anyhow",
+    "argmin",
+    "argmin-math",
+    "bincode",
+    "bincode_derive",
+    "bumpalo",
+    "cfg_aliases",
+    "clap",
+    "clap_builder",
+    "clap_derive",
+    "clap_lex",
+    "cobyla",
+    "colorchoice",
+    "crc32fast",
+    "ctrlc",
+    "displaydoc",
+    "doc-comment",
+    "dyn-clonable",
+    "dyn-clonable-impl",
+    "egobox-doe",
+    "egobox-ego",
+    "egobox-gp",
+    "egobox-moe",
+    "env_filter",
+    "env_logger",
+    "erased-serde",
+    "finitediff",
+    "flate2",
+    "is_terminal_polyfill",
+    "jiff",
+    "jiff-core",
+    "kdtree",
+    "linfa",
+    "linfa-clustering",
+    "linfa-linalg",
+    "linfa-nn",
+    "linfa-pls",
+    "matrixmultiply",
+    "miniz_oxide",
+    "nalgebra",
+    "ndarray",
+    "ndarray-einsum",
+    "ndarray-npy",
+    "ndarray-rand",
+    "ndarray-stats",
+    "nix",
+    "noisy_float",
+    "num",
+    "num-iter",
+    "num-rational",
+    "order-stat",
+    "pgat",
+    "rand_xoshiro",
+    "rawpointer",
+    "regex",
+    "simd-adler32",
+    "slsqp",
+    "space",
+    "sprs",
+    "statrs",
+    "strsim",
+    "typeid",
+    "typenum",
+    "typetag",
+    "typetag-impl",
+    "unty",
+    "utf8parse",
+    "virtue",
+    "web-time",
+    "zip",
+    "zlib-rs",
+    "zopfli"
+  ]
+}

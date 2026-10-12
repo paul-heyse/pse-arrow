@@ -13,6 +13,7 @@
 //! first order; the nested realization needs the KINSOL capability (`native-process`), and
 //! without it that workload records an infrastructure refusal. A typed resource refusal,
 //! such as the formal-slot allowance, is a recorded result.
+#![recursion_limit = "256"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -85,17 +86,19 @@ fn package_documents(root: &Path) -> BTreeMap<String, Vec<u8>> {
 /// The seed reference closure, loaded through the declared package document paths, with the
 /// bench package from its authored texts.
 async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> ModelingPackage {
-    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+    use pse_admission::authoring_driver::document::{
+        OwnedDocumentSet, load_package_documents_owned,
+    };
     let root = repository().join("packages/reference");
     let pool = owner.runtime.pool();
-    let validation = owner.sessions.validation_context(&owner.registry).unwrap();
+    let validation = owner.model.validation_context();
     let documents = |names: &[&str], bench: Option<&BTreeMap<String, String>>| {
         let mut bundles = names
             .iter()
             .map(|name| {
                 load_package_documents_owned(
                     &package_documents(&root.join(name)),
-                    &owner.registry,
+                    owner.model.registry(),
                     Default::default(),
                     &pool,
                     &owner.cancel,
@@ -111,7 +114,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
                         .iter()
                         .map(|(path, text)| (path.clone(), text.as_bytes().to_vec()))
                         .collect(),
-                    &owner.registry,
+                    owner.model.registry(),
                     Default::default(),
                     &pool,
                     &owner.cancel,
@@ -126,8 +129,7 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
-        owner.registry.clone(),
-        owner.sessions.clone(),
+        owner.model.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
@@ -175,17 +177,13 @@ async fn seed(owner: &WorkflowRuntime, bench: &BTreeMap<String, String>) -> Mode
 /// Ordered membership of the published bank, read from its authored set declaration.
 fn bank_members(owner: &WorkflowRuntime) -> Vec<String> {
     use pse_authoring::language::{StaticValue, parse_static};
-    let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
+    let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
         &package_documents(&repository().join("packages/reference/data/gross-sadowski-2001")),
-        &owner.registry,
+        owner.model.registry(),
         Default::default(),
         &owner.runtime.pool(),
         &owner.cancel,
-        owner
-            .sessions
-            .validation_context(&owner.registry)
-            .unwrap()
-            .as_ref(),
+        owner.model.validation_context().as_ref(),
     )
     .unwrap();
     let row = bundle

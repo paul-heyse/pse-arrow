@@ -3,7 +3,7 @@
 //! Current selected effects around independently retained pure preparation.
 use super::*;
 use crate::math::{modeling::PreparedBasis, portable};
-use pse_operations::canonical_selection::SelectedRead;
+use pse_operations::canonical_selection::{SelectedRead, SelectedRecheckWindow};
 use std::{
     future::Future,
     sync::atomic::{AtomicBool, Ordering},
@@ -11,6 +11,12 @@ use std::{
 };
 
 struct StopWatch(tokio::task::JoinHandle<()>);
+struct EstablishedDescriptions {
+    selection: Arc<pse_operations::canonical_selection::SelectionMaterial>,
+    descriptions: Vec<Arc<portable::BodyDescription>>,
+    unsettled: Vec<pse_ids::roles::SemanticBodyHash>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
 impl Drop for StopWatch {
     fn drop(&mut self) {
         self.0.abort();
@@ -137,6 +143,7 @@ impl ModelingPackage {
             result = &mut operation => result,
         }
     }
+    #[cfg(test)]
     #[expect(
         clippy::too_many_arguments,
         reason = "one current consumer owns the exact selected specialization request, stop and original clock"
@@ -151,6 +158,24 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        self.prepare_selected_basis(selected, root, instance, bindings, limits, cancel, deadline)
+            .await
+            .map(|(model, _)| model)
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the exact protected specialization also returns its retained settled basis"
+    )]
+    pub(super) async fn prepare_selected_basis(
+        &self,
+        selected: &mut canonical::CheckedSelection,
+        root: DeclarationId,
+        instance: InstanceId,
+        bindings: Bindings,
+        limits: Limits,
+        cancel: &crate::CancelSource,
+        deadline: Instant,
+    ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
         let math = self.runtime.shared.math();
         let store = self.runtime.canonical.store();
         let context = compiler_context(&self.physical, &self.providers);
@@ -166,12 +191,28 @@ impl ModelingPackage {
         let basis = if let Some(basis) = cached
             && (basis.acquisition_dependencies == selected.admission.dependencies
                 || scoped(cancel, deadline, async {
-                    Ok(store
-                        .recheck_selection_dependencies(
-                            &mut selected.read,
-                            &basis.acquisition_dependencies,
-                        )
-                        .await?)
+                    let dependencies = [basis.acquisition_dependencies.clone()];
+                    let _scratch = math.reserve(
+                        "modeling:basis-premise-window",
+                        SelectedRecheckWindow::scratch_bytes(&selected.read, &dependencies)?,
+                    )?;
+                    let mut window = SelectedRecheckWindow::new(&selected.read, &dependencies)?;
+                    if let Some(index) = store
+                        .qualify_selection_window(&selected.read, &mut window)
+                        .await?
+                    {
+                        let bytes = selected
+                            .read
+                            .publication_scratch_bytes()?
+                            .checked_add(basis.acquisition_dependencies.retained_bytes())
+                            .ok_or_else(|| contract("basis premise metadata extent"))?;
+                        let metadata = math.reserve("modeling:basis-premise-merge", bytes)?;
+                        window.merge_qualified(&mut selected.read, index)?;
+                        selected._premises_metadata = Some(metadata);
+                        Ok(true)
+                    } else {
+                        Ok(false)
+                    }
                 })
                 .await?)
         {
@@ -258,8 +299,8 @@ impl ModelingPackage {
             .await?
         };
 
-        let descriptions = self
-            .settle_preparation(
+        let established = self
+            .establish_preparation(
                 &basis,
                 &selected.read,
                 &context,
@@ -269,22 +310,42 @@ impl ModelingPackage {
                 deadline,
             )
             .await?;
-        let retained = Arc::new(basis.with_descriptions(math, descriptions)?);
+        let retained = Arc::new(basis.with_descriptions(
+            math,
+            established.selection,
+            established.descriptions,
+        )?);
         math.modeling_cache
             .retain_basis(generation, key, retained.clone());
-        Ok(retained
+        // Exact immutable descriptions and their single selected allocation are
+        // retained before any new publication can return an uncertain outcome.
+        for identity in established.unsettled {
+            let description = retained
+                .description(identity)
+                .ok_or_else(|| contract("established body description missing"))?;
+            receiving(cancel, &flag, deadline, async {
+                #[cfg(test)]
+                math.record_preparation_publication();
+                portable::publish_description(store, &selected.read, description, deadline.into())
+                    .await
+                    .map_err(portable)
+            })
+            .await?;
+        }
+        let model = retained
             .bind(&selected.admission.revision, root, instance)?
             .with_consumed_source_versions(
                 selected.admission.versions.clone(),
                 selected.admission.metadata.clone(),
-            ))
+            );
+        Ok((model, retained))
     }
 
     #[expect(
         clippy::too_many_arguments,
         reason = "exact selected publication shares one receiving admission and original consumer stop/clock across its complete body inventory"
     )]
-    async fn settle_preparation(
+    async fn establish_preparation(
         &self,
         basis: &PreparedBasis,
         read: &SelectedRead,
@@ -293,16 +354,38 @@ impl ModelingPackage {
         receiving_checked: &mut bool,
         cancel: &crate::CancelSource,
         deadline: Instant,
-    ) -> Result<Vec<Arc<portable::BodyDescription>>, WorkflowError> {
+    ) -> Result<EstablishedDescriptions, WorkflowError> {
         let math = self.runtime.shared.math();
+        #[cfg(test)]
+        math.record_preparation_settlement();
         let store = self.runtime.canonical.store();
-        let mut descriptions = Vec::new();
+        let selection = scoped(cancel, deadline, async {
+            portable::selection_material(math, read).map_err(portable)
+        })
+        .await?;
+        let rebinding = basis
+            .selection_material
+            .as_ref()
+            .map(|previous| selection.rebinding_from(previous, read))
+            .transpose()?
+            .flatten();
+        let count = basis.compiled().portable_bodies().count();
+        let inventory_bytes = count
+            .checked_mul(
+                size_of::<Arc<portable::BodyDescription>>()
+                    + size_of::<pse_ids::roles::SemanticBodyHash>(),
+            )
+            .and_then(|bytes| bytes.checked_add(size_of::<EstablishedDescriptions>() + 256))
+            .ok_or_else(|| contract("description inventory extent"))?;
+        let owner = math.reserve("modeling:description-establishment", inventory_bytes)?;
+        let mut descriptions = Vec::with_capacity(count);
+        let mut unsettled = Vec::with_capacity(count);
         for body in basis.compiled().portable_bodies() {
             let identity = body
                 .semantic_identity()
                 .ok_or_else(|| contract("portable body is not sealed"))?;
             if let Some(old) = basis.description(identity)
-                && old.description.matches_read(read)?
+                && let Some(binding) = &rebinding
                 && scoped(cancel, deadline, async {
                     Ok(store
                         .acknowledge_description_until(&old.description, deadline.into())
@@ -311,7 +394,10 @@ impl ModelingPackage {
                 })
                 .await?
             {
-                descriptions.push(old.clone());
+                descriptions.push(
+                    old.rebind_selection(math, read, binding)
+                        .map_err(portable)?,
+                );
                 continue;
             }
             if !*receiving_checked {
@@ -334,18 +420,29 @@ impl ModelingPackage {
                 |current| current.producer_key().to_owned(),
             );
             let description = scoped(cancel, deadline, async {
-                portable::describe_body(math, read, producer, body, context).map_err(portable)
+                if let Some(old) = basis.description(identity)
+                    && let Some(binding) = &rebinding
+                    && old.has_producer(&producer)
+                {
+                    // A missing ACK grants nothing. Current receiving qualification
+                    // above and the fresh selected receipt authorize a new attempt;
+                    // its unchanged exact bytes may still share the uncertain body.
+                    old.rebind_selection(math, read, binding).map_err(portable)
+                } else {
+                    portable::describe_body(math, read, selection.clone(), producer, body, context)
+                        .map_err(portable)
+                }
             })
             .await?;
-            scoped(cancel, deadline, async {
-                portable::publish_description(store, read, &description, deadline.into())
-                    .await
-                    .map_err(portable)
-            })
-            .await?;
+            unsettled.push(identity);
             descriptions.push(description);
         }
-        Ok(descriptions)
+        Ok(EstablishedDescriptions {
+            selection,
+            descriptions,
+            unsettled,
+            _owner: owner,
+        })
     }
 }
 

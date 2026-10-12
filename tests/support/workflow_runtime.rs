@@ -7,7 +7,7 @@ mod workflow_budget;
 use pse_columnar::CancellationToken;
 use pse_engine::{
     ExecutionSettings, ThreadBudget,
-    session::{EngineFactory, native_engine_profile},
+    session::{BoundModel, native_engine_profile},
 };
 use pse_runtime::{ResourceBudget, SharedRuntime};
 use std::{
@@ -20,8 +20,7 @@ use std::{
     reason = "shared domain owner has different consumers in tests and tooling"
 )]
 pub(crate) struct WorkflowRuntime {
-    pub registry: Arc<pse_schema::Registry>,
-    pub sessions: Arc<EngineFactory>,
+    pub model: BoundModel,
     pub cancel: CancellationToken,
     pub cancellation: pse_runtime::CancelSource,
     pub runtime: Arc<SharedRuntime>,
@@ -154,10 +153,10 @@ impl WorkflowRuntime {
             hashing_may_use_pool: false,
         })?;
         let sessions = Arc::new(runtime.session_factory(native_engine_profile())?);
+        let model = sessions.bind_model(registry)?;
         let cancellation = pse_runtime::CancelSource::new();
         Ok(Self {
-            registry,
-            sessions,
+            model,
             runtime,
             cancel: cancellation.token(),
             cancellation,

@@ -1,0 +1,19 @@
+[package]
+name = "plan36-preparation-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[workspace]
+
+[dependencies]
+salsa = { version = "=0.28.4", default-features = false, features = [
+  "macros",
+  "inventory",
+  "salsa_unstable",
+] }
+salsa-macro-rules = "=0.28.4"
+petgraph = { version = "=0.8.3", default-features = false }
+
+[profile.dev]
+panic = "unwind"

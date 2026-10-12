@@ -148,6 +148,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, observations: &mut observations
                 terminal: BTreeMap::from([(contract.outputs[2], 1.)]),
                 integral: BTreeMap::from([(contract.quadratures[0], 1.)]),
             },
+            evaluation: Default::default(),
             solver,
         })
         .unwrap();

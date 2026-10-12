@@ -224,6 +224,7 @@ pub mod columns {
 #[derive(Debug)]
 pub struct ReferenceArtifactProfilesView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     kind_column: &'a arrow_array::StringArray,
     required_relations_column: &'a arrow_array::ListArray,
 }
@@ -249,7 +250,7 @@ impl<'a> ReferenceArtifactProfilesView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -260,13 +261,16 @@ impl<'a> ReferenceArtifactProfilesView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -352,5 +356,8 @@ impl crate::columnar::RelationView for ReferenceArtifactProfilesView<'_> {
     type Row = ReferenceArtifactProfilesRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

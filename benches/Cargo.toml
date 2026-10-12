@@ -19,6 +19,7 @@ workspace = true
 
 [features]
 force-validate = [
+  "pse-admission/force-validate",
   "arrow/force_validate",
   "pse-codegen/force-validate",
   "pse-columnar/force-validate",
@@ -33,6 +34,7 @@ force-validate = [
 native-process = ["pse-runtime/native-solvers"]
 
 [dev-dependencies]
+pse-admission.workspace = true
 pse-diagnostics.workspace = true
 pse-runtime.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }

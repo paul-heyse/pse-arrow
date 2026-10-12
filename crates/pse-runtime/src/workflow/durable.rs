@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-use super::{RunReport, RunRequest, RunResult, WorkflowError, contract};
+use super::{RunReport, RunRequest, RunResult, WorkflowError, contract, relation};
 use datafusion::execution::memory_pool::{MemoryConsumer, MemoryPool};
 use pse_backend_native::solve::{Compatibility, Event, ProgressTap, WarmPayload, WarmStart};
-use pse_ids::{ContentHash, Frame, FramedHasher};
+use pse_ids::{ContentHash, Frame, FramedHasher, SemanticId};
 use pse_model::generated::{
     enums::{AttemptState, CandidateUse, NativeBackend},
     identities::{AttemptId, RunId, SolutionId},
@@ -12,8 +12,9 @@ use pse_model::generated::{
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, Revision},
     canonical_execution::{
-        AttemptFence, CanonicalAttempt, CanonicalRun, ClosedAttempt, RESULT_BATCH_BYTES,
-        ResultManifest, TerminalClass, execution_attempt_key, result_batch_key,
+        AppendAck, AttemptFence, CanonicalAttempt, CanonicalRun, ClosedAttempt, EmptySetAck,
+        RESULT_ACKNOWLEDGMENT_BYTES, RESULT_BATCH_BYTES, ResultAcknowledgments, ResultManifest,
+        SeedAck, SeedEligibility, TerminalClass, execution_attempt_key, result_batch_key,
         result_payload_digest, result_set_key,
     },
 };
@@ -21,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     sync::{
         Arc, Mutex, OnceLock,
-        atomic::{AtomicBool, AtomicI32, Ordering},
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -148,39 +149,9 @@ impl Operations {
             .store
             .read_results(run, attempt, Duration::from_secs(60))
             .await?;
-        let header: CompletionReceipt = serde_json::from_slice(
-            read.attempt()
-                .completion
-                .as_ref()
-                .ok_or_else(|| contract("terminal completion absent"))?
-                .as_slice(),
-        )
-        .map_err(|e| contract(e.to_string()))?;
-        let (completion, owner) = match header.inline {
-            Some(completion) => {
-                let bytes = serde_json::to_vec(&completion).map_err(|e| contract(e.to_string()))?;
-                (*completion, reserve(&self.pool, bytes.len())?)
-            }
-            None => {
-                let (bytes, owner) = read_chunks(
-                    &self.store,
-                    &self.pool,
-                    &read,
-                    "__completion",
-                    0,
-                    header.batch_count,
-                    header.payload_bytes,
-                    &header.digest,
-                    false,
-                )
-                .await?;
-                (
-                    serde_json::from_slice(&bytes).map_err(|e| contract(e.to_string()))?,
-                    owner,
-                )
-            }
-        };
-        let completion = Arc::new(pse_columnar::Leased::new(Arc::new(completion), owner));
+        let completion = self
+            .decode_completion(CompletionSelection::Full(&read))
+            .await?;
         let mut solutions = Vec::new();
         let mut after = None;
         loop {
@@ -219,8 +190,89 @@ impl Operations {
             manifest: Some(read.manifest().clone()),
             completion: Some(completion),
             solutions,
+            _solutions_owner: None,
         })
     }
+    /// Reopen only the original completion under fresh exact terminal permission.
+    pub async fn completion(
+        &self,
+        run: &str,
+        attempt: &str,
+    ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
+        let read = self
+            .store
+            .read_completion(run, attempt, Duration::from_secs(60))
+            .await?;
+        self.decode_completion(CompletionSelection::Slim(&read))
+            .await
+    }
+
+    pub(super) async fn progress_coverage(
+        &self,
+        read: &pse_operations::canonical_results::ResultRead,
+    ) -> Result<super::ProgressCoverage, WorkflowError> {
+        Ok(self
+            .decode_completion(CompletionSelection::Full(read))
+            .await?
+            .progress
+            .clone())
+    }
+
+    async fn decode_completion(
+        &self,
+        read: CompletionSelection<'_>,
+    ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
+        let header: CompletionReceipt = serde_json::from_slice(
+            read.attempt()
+                .completion
+                .as_ref()
+                .ok_or_else(|| contract("terminal completion absent"))?
+                .as_slice(),
+        )
+        .map_err(|e| contract(e.to_string()))?;
+        if header.version != 1 {
+            return Err(contract("stored completion receipt interpretation"));
+        }
+        let (mut completion, owner) = match header.inline {
+            Some(completion) => {
+                if header.batch_count != 0 || header.payload_bytes != 0 || !header.digest.is_empty()
+                {
+                    return Err(contract("inline completion carries chunk coverage"));
+                }
+                let bytes = serde_json::to_vec(&completion).map_err(|e| contract(e.to_string()))?;
+                (*completion, reserve(&self.pool, bytes.len())?)
+            }
+            None => {
+                let (bytes, owner) = read_chunks_selection(
+                    &self.store,
+                    &self.pool,
+                    read,
+                    "__completion",
+                    0,
+                    header.batch_count,
+                    header.payload_bytes,
+                    &header.digest,
+                    false,
+                )
+                .await?;
+                (
+                    serde_json::from_slice(&bytes).map_err(|e| contract(e.to_string()))?,
+                    owner,
+                )
+            }
+        };
+        if !matches!(completion.version, 1 | 2) {
+            return Err(contract("stored completion interpretation"));
+        }
+        if completion.version == 1 {
+            completion.progress = super::ProgressCoverage::Unknown;
+        }
+        Ok(Arc::new(pse_columnar::Leased::new(
+            Arc::new(completion),
+            owner,
+        )))
+    }
+
     /// Admit this exact closed selection and reopen the acknowledged immutable receipt.
     #[allow(
         unsafe_code,
@@ -232,6 +284,7 @@ impl Operations {
         operation: &str,
         class: TerminalClass,
         receipt: &CompletionReceipt,
+        seeds: SeedEligibility,
         heartbeat: Option<Heartbeat>,
     ) -> Result<DurableRecord, WorkflowError> {
         let prepared = async {
@@ -265,7 +318,7 @@ impl Operations {
         // no scientific completion. Both refer to this exact frozen manifest.
         unsafe {
             self.store
-                .seal_attempt(&manifest, operation, class, &completion)
+                .seal_attempt(&manifest, operation, class, &completion, seeds)
                 .await
         }?;
         self.record(closed.fence().run(), closed.fence().attempt())
@@ -320,11 +373,12 @@ impl Operations {
         outcome.retryable = true;
         outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
         let stored = StoredCompletion {
-            version: 1,
+            version: 2,
             attempt_id,
             completion: None,
             termination: outcome.detail,
             state: outcome.state,
+            progress: super::ProgressCoverage::Unknown,
         };
         let receipt = CompletionReceipt {
             version: 1,
@@ -343,6 +397,7 @@ impl Operations {
             &format!("{operation}:terminal"),
             class,
             &receipt,
+            SeedEligibility::Unavailable,
             None,
         )
         .await?;
@@ -386,6 +441,7 @@ pub struct DurableRecord {
     pub completion: Option<Arc<pse_columnar::Leased<StoredCompletion>>>,
     /// Eligible final seeds by their scientific step and artifact identity.
     pub solutions: Vec<(usize, SolutionId)>,
+    _solutions_owner: Option<Arc<pse_columnar::AllocationLease>>,
 }
 /// Typed scientific completion; data lives in bounded immutable chunks.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -401,6 +457,9 @@ pub struct StoredCompletion {
     pub termination: TerminationDetail,
     /// Truthful execution state, distinct from individual candidate permissions.
     pub state: AttemptState,
+    /// Original sampled telemetry coverage; absence never means complete coverage.
+    #[serde(default)]
+    pub progress: super::ProgressCoverage,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -426,6 +485,7 @@ enum FinishExportPhase {
     Table,
     Seed,
     Completion,
+    AcknowledgedSeal,
 }
 #[cfg(all(test, feature = "canonical-tests"))]
 #[derive(Debug)]
@@ -465,8 +525,130 @@ impl FinishExportGate {
         }
     }
 }
+fn uncertain_progress_queue(progress: &super::ProgressCoverage) -> Option<u64> {
+    use super::{
+        ProgressCoverage, ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
+    };
+    match progress {
+        ProgressCoverage::Sampled {
+            queued,
+            unacknowledged,
+            writer,
+            ..
+        } if *unacknowledged > 0
+            && matches!(
+                writer,
+                ProgressWriterOutcome::JoinFailed
+                    | ProgressWriterOutcome::Failed(ProgressWriterFailure {
+                        stage: ProgressWriteStage::CanonicalAppend
+                            | ProgressWriteStage::Acknowledgment
+                    })
+            ) =>
+        {
+            Some(*queued)
+        }
+        _ => None,
+    }
+}
+/// Attempt-owned precharged receipt storage. Only the asynchronous publication
+/// owners enter this short mutex; native Tap callbacks only try their queue.
+#[derive(Debug)]
+pub(super) struct PublicationAcks {
+    state: Mutex<Option<ResultAcknowledgments>>,
+    frozen: AtomicBool,
+    memory: Result<Arc<pse_columnar::AllocationLease>, Arc<WorkflowError>>,
+}
+impl PublicationAcks {
+    pub(super) fn new(pool: &Arc<dyn MemoryPool>) -> Arc<Self> {
+        let reservation =
+            MemoryConsumer::new("canonical:publication-acknowledgments").register(pool);
+        let memory = reservation
+            .try_grow(RESULT_ACKNOWLEDGMENT_BYTES)
+            .map(|()| pse_columnar::AllocationLease::new(reservation))
+            .map_err(|error| Arc::new(WorkflowError::from(pse_engine::EngineError::from(error))));
+        Arc::new(Self {
+            state: Mutex::new(None),
+            frozen: AtomicBool::new(false),
+            memory,
+        })
+    }
+    fn admitted(&self) -> Result<(), WorkflowError> {
+        self.memory
+            .as_ref()
+            .map(|_| ())
+            .map_err(|error| WorkflowError::Shared(error.clone()))
+    }
+    fn update<T>(
+        &self,
+        fence: &AttemptFence,
+        action: impl FnOnce(
+            &mut ResultAcknowledgments,
+        ) -> Result<T, pse_operations::canonical::CanonicalError>,
+    ) -> Result<T, WorkflowError> {
+        self.admitted()?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| contract("publication acknowledgment lock poisoned"))?;
+        if self.frozen.load(Ordering::Acquire) {
+            return Err(contract("publication acknowledgment owner already frozen"));
+        }
+        let acknowledgments = state.get_or_insert_with(|| ResultAcknowledgments::new(fence));
+        if acknowledgments.fence() != fence {
+            return Err(contract("publication acknowledgment attempt changed"));
+        }
+        Ok(action(acknowledgments)?)
+    }
+    pub(super) fn expect(&self, fence: &AttemptFence, name: &str) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.expect(name))
+    }
+    pub(super) fn append(&self, fence: &AttemptFence, ack: AppendAck) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.append(ack))
+    }
+    pub(super) fn empty(
+        &self,
+        fence: &AttemptFence,
+        ack: EmptySetAck,
+    ) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.empty(ack))
+    }
+    pub(super) fn complete(&self, fence: &AttemptFence, name: &str) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.complete(name))
+    }
+    fn complete_present(&self, fence: &AttemptFence, name: &str) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.complete_present(name))
+    }
+    fn seed(&self, fence: &AttemptFence, ack: SeedAck) -> Result<(), WorkflowError> {
+        self.update(fence, |acks| acks.seed(ack))
+    }
+    fn rows(&self, fence: &AttemptFence, name: &str) -> Result<u64, WorkflowError> {
+        self.update(fence, |acks| Ok(acks.rows(name)))
+    }
+    pub(super) fn freeze(
+        &self,
+        fence: &AttemptFence,
+    ) -> Result<ResultAcknowledgments, WorkflowError> {
+        self.admitted()?;
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| contract("publication acknowledgment lock poisoned"))?;
+        if self.frozen.swap(true, Ordering::AcqRel) {
+            return Err(contract("publication acknowledgment owner already frozen"));
+        }
+        Ok(state
+            .take()
+            .unwrap_or_else(|| ResultAcknowledgments::new(fence)))
+    }
+}
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
+    horizon_prefix: Option<
+        std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
+    >,
+    horizon_seed_next: u64,
+    horizon_prefix_failure: Option<Arc<WorkflowError>>,
+    output: super::StudyOutputDemand,
     operations: Operations,
     attempt: AttemptId,
     run_id: Option<RunId>,
@@ -474,18 +656,31 @@ pub(crate) struct DurableAttempt {
     fence: Arc<OnceLock<AttemptFence>>,
     run: OnceLock<CanonicalRun>,
     stream: Streamer,
+    acknowledgments: Arc<PublicationAcks>,
+    solutions: Vec<(usize, SolutionId)>,
+    solutions_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    completion_owner: Option<Arc<pse_columnar::AllocationLease>>,
     heartbeat: Option<Heartbeat>,
 }
 impl DurableAttempt {
     pub(super) fn new(operations: &Operations) -> Self {
         let attempt: AttemptId = pse_operations::mint_id();
         let fence = Arc::new(OnceLock::new());
+        let acknowledgments = PublicationAcks::new(&operations.pool);
         Self {
+            horizon_prefix: None,
+            horizon_seed_next: 0,
+            horizon_prefix_failure: None,
+            output: super::StudyOutputDemand::Full,
             operations: operations.clone(),
             attempt,
             run_id: None,
             claim_operation: format!("claim:{attempt}"),
-            stream: Streamer::new(operations, fence.clone()),
+            stream: Streamer::new(operations, fence.clone(), acknowledgments.clone()),
+            acknowledgments,
+            solutions: Vec::new(),
+            solutions_owner: None,
+            completion_owner: None,
             fence,
             run: OnceLock::new(),
             heartbeat: None,
@@ -499,12 +694,21 @@ impl DurableAttempt {
     ) -> Self {
         let shared = Arc::new(OnceLock::new());
         let _ = shared.set(fence);
+        let acknowledgments = PublicationAcks::new(&operations.pool);
         Self {
+            horizon_prefix: None,
+            horizon_seed_next: 0,
+            horizon_prefix_failure: None,
+            output: super::StudyOutputDemand::Full,
             operations: operations.clone(),
             attempt,
             run_id: Some(run_id),
             claim_operation: format!("claimed:{attempt}"),
-            stream: Streamer::new(operations, shared.clone()),
+            stream: Streamer::new(operations, shared.clone(), acknowledgments.clone()),
+            acknowledgments,
+            solutions: Vec::new(),
+            solutions_owner: None,
+            completion_owner: None,
             fence: shared,
             run: OnceLock::new(),
             heartbeat: None,
@@ -667,7 +871,209 @@ impl DurableAttempt {
         self.stream.ready.notify_one();
         Ok(())
     }
+    pub(crate) fn set_output(&mut self, output: super::StudyOutputDemand) {
+        self.output = output;
+    }
+    pub(super) fn begin_horizon_prefix(
+        &mut self,
+        output: super::StudyOutputDemand,
+        maximum_solves: usize,
+    ) -> Result<(), WorkflowError> {
+        if self.horizon_prefix.is_some() {
+            return Err(contract("horizon prefix owner already established"));
+        }
+        let owner = reserve(
+            &self.operations.pool,
+            maximum_solves
+                .checked_mul(size_of::<(usize, SolutionId)>())
+                .ok_or_else(|| contract("horizon seed identity extent"))?,
+        )?;
+        self.output = output;
+        self.solutions_owner = Some(owner);
+        self.horizon_prefix = Some(Default::default());
+        Ok(())
+    }
+    pub(super) fn refuse_horizon_prefix(&mut self, error: Arc<WorkflowError>) {
+        if self.horizon_prefix_failure.is_none() {
+            self.horizon_prefix_failure = Some(error);
+        }
+    }
+    pub(super) async fn publish_horizon_step(
+        &mut self,
+        result: &RunResult,
+    ) -> Result<(), WorkflowError> {
+        let fence = self.fence()?.clone();
+        let full = matches!(self.output, super::StudyOutputDemand::Full);
+        let relations = if full {
+            result.table_ids()
+        } else {
+            result.summary_table_ids()
+        };
+        let positions = self
+            .horizon_prefix
+            .as_mut()
+            .ok_or_else(|| contract("horizon prefix owner absent"))?;
+        for id in relations {
+            if id == pse_relations::generated::runtime::modeling_findings::RELATION_ID {
+                continue;
+            }
+            let position = positions.entry(id).or_default();
+            let cursor = result
+                .cursor_by_id(id, 1024, super::ResultOrder::Canonical)
+                .map_err(WorkflowError::Shared)?;
+            super::result_projection::append_result_table_prefix(
+                &self.operations.store,
+                &fence,
+                id,
+                cursor,
+                &self.operations.pool,
+                &self.acknowledgments,
+                position,
+                None,
+            )
+            .await?;
+        }
+        let (solutions, _owner) = append_seeds(
+            &self.operations,
+            &fence,
+            result,
+            &self.acknowledgments,
+            &mut self.horizon_seed_next,
+            #[cfg(all(test, feature = "canonical-tests"))]
+            &self.stream.export_gate,
+        )
+        .await?;
+        self.solutions.extend(solutions);
+        Ok(())
+    }
+    async fn finish_horizon_prefix(
+        &mut self,
+        result: &RunResult,
+    ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+        if let Some(error) = &self.horizon_prefix_failure {
+            return Err(WorkflowError::Shared(error.clone()));
+        }
+        let fence = self.fence()?.clone();
+        let mut positions = self
+            .horizon_prefix
+            .take()
+            .ok_or_else(|| contract("horizon prefix owner absent"))?;
+        let findings = pse_relations::generated::runtime::modeling_findings::RELATION_ID;
+        let position = positions.entry(findings).or_default();
+        let cursor = result
+            .cursor_by_id(findings, 1024, super::ResultOrder::Canonical)
+            .map_err(WorkflowError::Shared)?;
+        super::result_projection::append_result_table_prefix(
+            &self.operations.store,
+            &fence,
+            findings,
+            cursor,
+            &self.operations.pool,
+            &self.acknowledgments,
+            position,
+            None,
+        )
+        .await?;
+        // A zero-solve/refused horizon still closes each advertised mandatory
+        // relation coherently. Relations already appended are never reopened.
+        let advertised = if matches!(self.output, super::StudyOutputDemand::Full) {
+            result.table_ids()
+        } else {
+            result.summary_table_ids()
+        };
+        for id in advertised {
+            if positions.contains_key(&id) {
+                continue;
+            }
+            let cursor = result
+                .cursor_by_id(id, 1024, super::ResultOrder::Canonical)
+                .map_err(WorkflowError::Shared)?;
+            let position = positions.entry(id).or_default();
+            super::result_projection::append_result_table_prefix(
+                &self.operations.store,
+                &fence,
+                id,
+                cursor,
+                &self.operations.pool,
+                &self.acknowledgments,
+                position,
+                None,
+            )
+            .await?;
+        }
+        if let Some(report) = &result.horizon_output {
+            let detail = report
+                .detail
+                .as_ref()
+                .map_err(|error| WorkflowError::Shared(error.clone()))?;
+            for (id, batches) in detail {
+                // Mandatory summaries were already streamed in original step order.
+                if positions.contains_key(id) {
+                    continue;
+                }
+                let spec = result
+                    .runtime
+                    .registry()
+                    .relation_by_id(*id)
+                    .ok_or_else(|| contract("horizon selected relation absent"))?;
+                let schema =
+                    pse_schema::arrow::relation_schema_ref(result.runtime.registry(), spec)
+                        .map_err(|error| relation(error.into()))?;
+                let cursor = super::ResultCursor::from_retained(schema, *id, batches)?;
+                let position = positions.entry(*id).or_default();
+                super::result_projection::append_result_table_prefix(
+                    &self.operations.store,
+                    &fence,
+                    *id,
+                    cursor,
+                    &self.operations.pool,
+                    &self.acknowledgments,
+                    position,
+                    None,
+                )
+                .await?;
+            }
+        }
+        for (id, position) in positions {
+            super::result_projection::finish_result_table_prefix(
+                &self.operations.store,
+                &fence,
+                id,
+                &self.acknowledgments,
+                position,
+            )
+            .await?;
+        }
+        self.acknowledgments.complete_present(&fence, "__seeds")?;
+        Ok((
+            std::mem::take(&mut self.solutions),
+            self.solutions_owner
+                .take()
+                .ok_or_else(|| contract("horizon seed identity owner absent"))?,
+        ))
+    }
+    #[cfg(all(test, feature = "canonical-tests"))]
+    pub(in crate::workflow) fn pause_completion_export(
+        &self,
+    ) -> (
+        tokio::sync::oneshot::Receiver<()>,
+        tokio::sync::oneshot::Sender<()>,
+    ) {
+        let (reached, receiver) = tokio::sync::oneshot::channel();
+        let (release, resume) = tokio::sync::oneshot::channel();
+        self.stream
+            .export_gate
+            .set(FinishExportGate {
+                phase: FinishExportPhase::Completion,
+                reached: Mutex::new(Some(reached)),
+                release: Mutex::new(Some(resume)),
+                failure: None,
+            })
+            .unwrap();
+        (receiver, release)
+    }
     pub(crate) async fn start(&mut self, cancel: Canceller) -> Result<(), WorkflowError> {
+        self.acknowledgments.admitted()?;
         if self.operations.policy.heartbeat.is_zero() || self.operations.policy.lease.is_zero() {
             return Err(contract(
                 "durable heartbeat and lease intervals must be positive",
@@ -681,28 +1087,37 @@ impl DurableAttempt {
             .get()
             .ok_or_else(|| contract("no native claim before admission"))?
             .clone();
-        self.stream.tap.set_cancel(cancel.clone());
         self.heartbeat = Some(Heartbeat::spawn(&self.operations, fence, cancel));
         Ok(())
     }
     pub(super) async fn finish(mut self, result: &RunResult, cancelled: bool) -> DurableRecord {
         // Keep renewal alive through every export phase, including progress drain.
+        let progress = self.stream.finish().await;
         let ingestion = async {
-            self.stream.finish().await?;
+            if self.horizon_prefix.is_some() {
+                return self.finish_horizon_prefix(result).await;
+            }
             self.store_tables(result).await?;
             store_seeds(
                 &self.operations,
                 self.fence()?,
                 result,
+                &self.acknowledgments,
                 #[cfg(all(test, feature = "canonical-tests"))]
                 &self.stream.export_gate,
             )
-            .await?;
-            Ok::<(), WorkflowError>(())
+            .await
         }
         .await;
         let tables_complete = ingestion.is_ok();
-        let ingestion_error = ingestion.err().map(Arc::new);
+        let ingestion_error = match ingestion {
+            Ok((solutions, owner)) => {
+                self.solutions = solutions;
+                self.solutions_owner = Some(owner);
+                None
+            }
+            Err(error) => Some(Arc::new(error)),
+        };
         let error = ingestion_error;
         let mut outcome = classify(result, cancelled);
         if let Some(error) = &error {
@@ -717,32 +1132,42 @@ impl DurableAttempt {
                 outcome = failure(error, true);
             }
         }
-        let stored = StoredCompletion {
-            version: 1,
-            attempt_id: self.attempt,
-            completion: if tables_complete {
-                result.completion().ok().cloned()
-            } else {
-                None
-            },
-            termination: outcome.detail.clone(),
-            state: outcome.state,
+        let original = if tables_complete {
+            result.completion().ok()
+        } else {
+            None
         };
-        match self.terminate(&stored).await {
+        let (completion, owner) = match copy_original_completion(
+            &self.operations.pool,
+            original,
+            &(&outcome.detail, &progress),
+        ) {
+            Ok(prepared) => prepared,
+            Err(error) => return self.reject_export(Arc::new(error)).await,
+        };
+        self.completion_owner = Some(owner);
+        let stored = StoredCompletion {
+            version: 2,
+            attempt_id: self.attempt,
+            completion,
+            termination: outcome.detail,
+            state: outcome.state,
+            progress,
+        };
+        match self.terminate(stored).await {
             Ok(record) => record,
             Err(error) => self.reject_export(Arc::new(error)).await,
         }
     }
     pub(crate) async fn abandon(mut self, error: &Arc<WorkflowError>) -> DurableRecord {
-        let stream = self.stream.finish().await;
+        let progress = self.stream.finish().await;
         if self.fence.get().is_none() {
             return self.failed_record(error.clone());
         }
-        let export_error = stream.err().map(Arc::new);
         let export_error = if is_canonical_failure(error) {
-            export_failure(Some(error.clone()), export_error, self.fence.get())
+            export_failure(Some(error.clone()), None, self.fence.get())
         } else {
-            export_error
+            None
         };
         if let Some(error) = &export_error
             && !self.cancelled_refusal(error)
@@ -751,13 +1176,14 @@ impl DurableAttempt {
         }
         let outcome = failure(error, export_error.is_some());
         let stored = StoredCompletion {
-            version: 1,
+            version: 2,
             attempt_id: self.attempt,
             completion: None,
-            termination: outcome.detail.clone(),
+            termination: outcome.detail,
             state: outcome.state,
+            progress,
         };
-        match self.terminate(&stored).await {
+        match self.terminate(stored).await {
             Ok(record) => record,
             Err(error) => self.reject_export(Arc::new(error)).await,
         }
@@ -802,6 +1228,7 @@ impl DurableAttempt {
             manifest: None,
             completion: None,
             solutions: Vec::new(),
+            _solutions_owner: None,
         }
     }
     fn fence(&self) -> Result<&AttemptFence, WorkflowError> {
@@ -811,26 +1238,93 @@ impl DurableAttempt {
     }
     async fn store_tables(&self, result: &RunResult) -> Result<(), WorkflowError> {
         let fence = self.fence()?.clone();
-        for relation in result.table_ids() {
-            let cursor = result
-                .cursor_by_id(relation, 1024, super::ResultOrder::Canonical)
-                .map_err(WorkflowError::Shared)?;
+        let detail = self.output.detail(result.usable());
+        let mut allowance = detail.map(super::study_demand::DetailAllowance::new);
+        let summary = result.summary_table_ids();
+        let selected = detail
+            .map(|detail| {
+                detail
+                    .relation_names()
+                    .map(|name| {
+                        result
+                            .runtime
+                            .registry()
+                            .relation(name)
+                            .map(|spec| spec.id)
+                            .ok_or_else(|| contract("study output relation disappeared"))
+                    })
+                    .collect::<Result<std::collections::BTreeSet<_>, _>>()
+            })
+            .transpose()?;
+        let advertised = result.table_ids();
+        if selected
+            .as_ref()
+            .is_some_and(|selected| selected.iter().any(|id| !advertised.contains(id)))
+        {
+            return Err(contract(
+                "selected study relation is unavailable for this operation",
+            ));
+        }
+        let mut queue = super::result_projection::ResultAppendQueue::new(
+            &self.operations.store,
+            &fence,
+            &self.operations.pool,
+            &self.acknowledgments,
+        );
+        for relation in advertised.into_iter().filter(|id| {
+            selected
+                .as_ref()
+                .is_none_or(|selected| summary.contains(id) || selected.contains(id))
+        }) {
             #[cfg(all(test, feature = "canonical-tests"))]
             FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Table).await?;
-            super::result_projection::store_result_table(
-                &self.operations.store,
-                &fence,
+            let selected_detail = selected
+                .as_ref()
+                .is_some_and(|selected| selected.contains(&relation));
+            let selector = if selected_detail {
+                let name = result
+                    .runtime
+                    .registry()
+                    .relation_by_id(relation)
+                    .ok_or_else(|| contract("selected study relation disappeared"))?
+                    .key
+                    .qualified_name();
+                let detail =
+                    detail.ok_or_else(|| contract("selected study detail demand absent"))?;
+                Some(
+                    match detail.selector(&name, relation, self.operations.pool.clone()) {
+                        Ok(selector) => selector,
+                        Err(error)
+                            if queue.has_optional_retention()
+                                && super::result_projection::projection_memory_refusal(&error) =>
+                        {
+                            queue.yield_optional().await?;
+                            detail.selector(&name, relation, self.operations.pool.clone())?
+                        }
+                        Err(error) => return Err(error),
+                    },
+                )
+            } else {
+                None
+            };
+            super::result_projection::store_run_result_table_queued(
+                &mut queue,
+                result,
                 relation,
-                cursor,
-                &self.operations.pool,
+                selector.as_ref(),
+                if selected_detail {
+                    allowance.as_mut()
+                } else {
+                    None
+                },
             )
             .await?;
         }
-        Ok(())
+        queue.flush().await
     }
     async fn terminate(
         &mut self,
-        stored: &StoredCompletion,
+        mut stored: StoredCompletion,
     ) -> Result<DurableRecord, WorkflowError> {
         let fence = self.fence()?.clone();
         let current = self
@@ -849,17 +1343,30 @@ impl DurableAttempt {
             .canonical_run(fence.run())
             .await?
             .ok_or_else(|| contract("completion run absent"))?;
-        let mut stored = stored.clone();
         if current_run.cancelled {
             stored.state = AttemptState::Cancelled;
         }
+        let owner = match self.completion_owner.take() {
+            Some(owner) => owner,
+            None => completion_copy_owner(&self.operations.pool, &stored)?,
+        };
         let bytes = serde_json::to_vec(&stored).map_err(|e| contract(e.to_string()))?;
         let mut receipt = if stored.state == AttemptState::Cancelled || !current.ingestion_open {
             inline_completion(stored.clone())
         } else {
             #[cfg(all(test, feature = "canonical-tests"))]
             FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Completion).await?;
-            match write_chunks(&self.operations.store, &fence, "__completion", 0, &bytes).await {
+            match write_chunks(
+                &self.operations.store,
+                &fence,
+                "__completion",
+                0,
+                &bytes,
+                &self.acknowledgments,
+                owner.clone(),
+            )
+            .await
+            {
                 Ok(receipt) => receipt,
                 Err(error) if self.cancelled_refusal(&error) => {
                     stored.state = AttemptState::Cancelled;
@@ -868,6 +1375,7 @@ impl DurableAttempt {
                 Err(error) => return Err(error),
             }
         };
+        let mut acknowledged_manifest = None;
         let closed = if stored.state == AttemptState::Cancelled {
             if let Some(error) = self.stop_heartbeat().await
                 && !self.cancelled_refusal(&error)
@@ -885,13 +1393,46 @@ impl DurableAttempt {
                 .recover_closed_attempt(fence.run(), &format!("recovery:{}", fence.attempt()))
                 .await?
         } else {
-            match self
-                .operations
-                .store
-                .close_result_ingestion(&fence, &format!("close:{}", fence.attempt()))
-                .await
+            if let super::ProgressCoverage::Sampled { acknowledged, .. } = &stored.progress
+                && *acknowledged != self.acknowledgments.rows(&fence, "__progress")?
             {
-                Ok(closed) => closed,
+                return Err(contract(
+                    "original progress coverage differs from actual append acknowledgments",
+                ));
+            }
+            let acknowledgments = self.acknowledgments.freeze(&fence)?;
+            let admission = match uncertain_progress_queue(&stored.progress) {
+                Some(queued) => match self
+                    .operations
+                    .store
+                    .close_result_ingestion(&fence, &format!("close-readback:{}", fence.attempt()))
+                    .await
+                {
+                    Ok(closed) => {
+                        self.operations
+                            .store
+                            .reconcile_progress_uncertainty(&closed, acknowledgments, queued)
+                            .await
+                    }
+                    Err(error) => Err(error),
+                },
+                None => {
+                    self.operations
+                        .store
+                        .close_acknowledged(
+                            &fence,
+                            &format!("close:{}", fence.attempt()),
+                            acknowledgments,
+                        )
+                        .await
+                }
+            };
+            match admission {
+                Ok(manifest) => {
+                    let closed = manifest.closed().clone();
+                    acknowledged_manifest = Some(manifest);
+                    closed
+                }
                 Err(error) if canonical_cancellation(&error, &fence) => {
                     if let Some(error) = self.stop_heartbeat().await
                         && !self.cancelled_refusal(&error)
@@ -917,6 +1458,89 @@ impl DurableAttempt {
             AttemptState::Cancelled => TerminalClass::Cancelled,
             _ => TerminalClass::Failed,
         };
+        let seeds = if stored.completion.is_some() {
+            SeedEligibility::CompleteOriginalInventory
+        } else {
+            SeedEligibility::Unavailable
+        };
+        if let Some(manifest) = acknowledged_manifest {
+            // The owner keeps original completion and seed identities. No protected
+            // result reopen, payload reread or inventory reconstruction follows success.
+            let completion =
+                serde_json::to_vec(&receipt).map_err(|error| contract(error.to_string()))?;
+            if let Some(error) = self.stop_heartbeat().await {
+                return Err(WorkflowError::Shared(error));
+            }
+            // SAFETY: native work and all publication children joined; the original
+            // scientific assessments and exact actual ACK inventory are retained here.
+            #[allow(
+                unsafe_code,
+                reason = "joined scientific owner admits original complete export"
+            )]
+            let sealed = unsafe {
+                self.operations
+                    .store
+                    .seal_acknowledged(
+                        &manifest,
+                        &format!("seal:{}", fence.attempt()),
+                        class,
+                        &completion,
+                        seeds,
+                    )
+                    .await
+            };
+            match sealed {
+                Ok(ack) => {
+                    let (attempt, run) = ack.into_parts();
+                    #[cfg(all(test, feature = "canonical-tests"))]
+                    FinishExportGate::at(
+                        &self.stream.export_gate,
+                        FinishExportPhase::AcknowledgedSeal,
+                    )
+                    .await?;
+                    return Ok(DurableRecord {
+                        attempt_id: self.attempt,
+                        attempt_key: Some(attempt.key.clone()),
+                        run: Some(run),
+                        attempt: Ok(attempt),
+                        manifest: Some(manifest.row().clone()),
+                        completion: Some(Arc::new(pse_columnar::Leased::new(
+                            Arc::new(stored),
+                            owner,
+                        ))),
+                        solutions: if seeds == SeedEligibility::CompleteOriginalInventory {
+                            std::mem::take(&mut self.solutions)
+                        } else {
+                            Vec::new()
+                        },
+                        _solutions_owner: self.solutions_owner.take(),
+                    });
+                }
+                Err(error) if canonical_cancellation(&error, &fence) => {
+                    stored.state = AttemptState::Cancelled;
+                    let closed = self
+                        .operations
+                        .store
+                        .recover_closed_attempt(
+                            fence.run(),
+                            &format!("recovery:{}", fence.attempt()),
+                        )
+                        .await?;
+                    return self
+                        .operations
+                        .settle(
+                            &closed,
+                            &format!("seal-cancel:{}", fence.attempt()),
+                            TerminalClass::Cancelled,
+                            &inline_completion(stored),
+                            seeds,
+                            None,
+                        )
+                        .await;
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
         let heartbeat = self.heartbeat.take();
         match self
             .operations
@@ -925,6 +1549,7 @@ impl DurableAttempt {
                 &format!("seal:{}", fence.attempt()),
                 class,
                 &receipt,
+                seeds,
                 heartbeat,
             )
             .await
@@ -945,6 +1570,7 @@ impl DurableAttempt {
                         &format!("seal-cancel:{}", fence.attempt()),
                         TerminalClass::Cancelled,
                         &inline_completion(stored),
+                        seeds,
                         None,
                     )
                     .await
@@ -1068,6 +1694,7 @@ fn identities(request: &RunRequest) -> Result<(ContentHash, Option<ContentHash>)
         WorkflowError::Math(crate::math::MathRuntimeError::from(e))
     };
     Ok(match request {
+        RunRequest::Horizon(horizon) => (horizon.identity, None),
         RunRequest::Modeling(steps) => {
             let mut h = FramedHasher::new(Frame::DurableModelingRequestV3);
             h.u64(steps.len() as u64);
@@ -1091,6 +1718,11 @@ fn identities(request: &RunRequest) -> Result<(ContentHash, Option<ContentHash>)
 }
 fn request_inputs(request: &RunRequest) -> Result<Vec<Revision>, WorkflowError> {
     let mut revisions = match request {
+        RunRequest::Horizon(horizon) => horizon
+            .sources
+            .iter()
+            .map(|source| source.revision.canonical.clone())
+            .collect(),
         RunRequest::Modeling(steps) => steps
             .iter()
             .map(|s| s.source.revision.canonical.clone())
@@ -1110,6 +1742,10 @@ fn request_context(
     request: &RunRequest,
 ) -> Result<(&super::Runtime, &super::PhysicalContext), WorkflowError> {
     let source = match request {
+        RunRequest::Horizon(horizon) => horizon
+            .sources
+            .first()
+            .ok_or_else(|| contract("horizon source absent"))?,
         RunRequest::Modeling(steps) => {
             &steps
                 .first()
@@ -1126,11 +1762,19 @@ fn request_context(
 fn request_provenance(request: &RunRequest) -> Result<Vec<serde_json::Value>, WorkflowError> {
     let encode = |value| serde_json::to_value(value).map_err(|e| contract(e.to_string()));
     match request {
+        RunRequest::Horizon(horizon) => Ok(vec![
+            serde_json::from_slice(&horizon.provenance)
+                .map_err(|error| contract(error.to_string()))?,
+        ]),
         RunRequest::Modeling(steps) => steps
             .iter()
             .map(|step| {
-                serde_json::to_value((&step.starts, step.solve.numerical_strategy()))
-                    .map_err(|e| contract(e.to_string()))
+                serde_json::to_value((
+                    &step.starts,
+                    step.solve.numerical_strategy(),
+                    step.bound_source.as_deref().map(|bound| &**bound),
+                ))
+                .map_err(|e| contract(e.to_string()))
             })
             .collect(),
         RunRequest::Simulation(simulation) => Ok(vec![encode(simulation.profile())?]),
@@ -1230,111 +1874,187 @@ impl Heartbeat {
         }
     }
 }
+const PROGRESS_EVENT_BYTES: usize = 16 * 1024;
+
+fn progress_memory(
+    pool: &Arc<dyn MemoryPool>,
+    capacity: usize,
+) -> Option<Arc<pse_columnar::AllocationLease>> {
+    let extent = (2 * capacity + 1) * PROGRESS_EVENT_BYTES + 8 * RESULT_BATCH_BYTES;
+    let reservation = MemoryConsumer::new("canonical:ordinary-progress").register(pool);
+    reservation
+        .try_grow(extent)
+        .ok()
+        .map(|()| pse_columnar::AllocationLease::new(reservation))
+}
+
 struct Tap {
     step: AtomicI32,
-    runtime: tokio::runtime::Handle,
-    wait: Duration,
     sender: Mutex<Option<tokio::sync::mpsc::Sender<super::ProgressEventDocument>>>,
-    overflow: AtomicBool,
-    cancel: Mutex<Option<Canceller>>,
+    observed: AtomicU64,
+    queued: AtomicU64,
+    dropped: AtomicU64,
+    acknowledged: AtomicU64,
+    counter_overflow: AtomicBool,
+    // Escaped taps and the owned writer share the original admission lifetime.
+    _memory: Option<Arc<pse_columnar::AllocationLease>>,
 }
 impl std::fmt::Debug for Tap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Tap")
-            .field("overflow", &self.overflow)
+            .field("observed", &self.observed)
             .finish_non_exhaustive()
     }
 }
 impl Tap {
-    fn set_cancel(&self, cancel: Canceller) {
-        if self.overflow.load(Ordering::Acquire) {
-            cancel();
+    fn close(&self) {
+        // A poisoned callback-control mutex cannot keep the writer channel alive.
+        match self.sender.lock() {
+            Ok(mut sender) => {
+                sender.take();
+            }
+            Err(poisoned) => {
+                poisoned.into_inner().take();
+            }
         }
-        if let Ok(mut slot) = self.cancel.lock() {
-            *slot = Some(cancel);
+    }
+    fn new(
+        sender: Option<tokio::sync::mpsc::Sender<super::ProgressEventDocument>>,
+        memory: Option<Arc<pse_columnar::AllocationLease>>,
+    ) -> Self {
+        Self {
+            step: AtomicI32::new(0),
+            sender: Mutex::new(sender),
+            observed: AtomicU64::new(0),
+            queued: AtomicU64::new(0),
+            dropped: AtomicU64::new(0),
+            acknowledged: AtomicU64::new(0),
+            counter_overflow: AtomicBool::new(false),
+            _memory: memory,
+        }
+    }
+    fn count(&self, counter: &AtomicU64, amount: u64) -> Option<u64> {
+        match counter.try_update(Ordering::AcqRel, Ordering::Acquire, |value| {
+            value.checked_add(amount)
+        }) {
+            Ok(previous) => Some(previous),
+            Err(_) => {
+                self.counter_overflow.store(true, Ordering::Release);
+                None
+            }
+        }
+    }
+    fn coverage(&self, writer: super::ProgressWriterOutcome) -> super::ProgressCoverage {
+        if self.counter_overflow.load(Ordering::Acquire) {
+            return super::ProgressCoverage::Unknown;
+        }
+        let queued = self.queued.load(Ordering::Acquire);
+        let acknowledged = self.acknowledged.load(Ordering::Acquire);
+        super::ProgressCoverage::Sampled {
+            observed: self.observed.load(Ordering::Acquire),
+            queued,
+            dropped_before_queue: self.dropped.load(Ordering::Acquire),
+            acknowledged,
+            unacknowledged: queued.saturating_sub(acknowledged),
+            writer,
         }
     }
 }
 impl ProgressTap for Tap {
     fn observe(&self, event: &Event) {
-        let mut document = super::ProgressEventDocument::from(event);
-        document.step = Some(self.step.load(Ordering::Acquire));
-        document.at = Some(chrono::Utc::now().timestamp_micros());
-        // Clone the bounded sender under its lock, then release every lock before waiting.
-        let sender = self.sender.lock().ok().and_then(|sender| sender.clone());
-        let Some(sender) = sender else {
+        // No callback waits for a mutex, channel, runtime or canonical request.
+        // The successful producer retains this short exclusion through send, so
+        // its observed sequence cannot be overtaken by another queued producer.
+        let Ok(sender_guard) = self.sender.try_lock() else {
+            let _ = self.count(&self.observed, 1);
+            let _ = self.count(&self.dropped, 1);
             return;
         };
-        let failed = match sender.try_send(document) {
-            Ok(()) => false,
-            Err(tokio::sync::mpsc::error::TrySendError::Full(document))
-                if tokio::runtime::Handle::try_current().is_err() =>
-            {
-                // NativeMathService's isolated synchronous producer can yield to the
-                // asynchronous writer without growing its queue. A stalled receiver
-                // must not keep native cancellation waiting indefinitely.
-                self.runtime.block_on(async {
-                    !matches!(
-                        tokio::time::timeout(self.wait, sender.send(document)).await,
-                        Ok(Ok(()))
-                    )
-                })
-            }
-            Err(_) => true,
+        let sequence = self.count(&self.observed, 1);
+        let Some(sender) = sender_guard.as_ref() else {
+            let _ = self.count(&self.dropped, 1);
+            return;
         };
-        if failed {
-            self.overflow.store(true, Ordering::Release);
-            let cancel = self.cancel.lock().ok().and_then(|cancel| cancel.clone());
-            if let Some(cancel) = cancel {
-                cancel();
-            }
+        let Ok(permit) = sender.clone().try_reserve_owned() else {
+            let _ = self.count(&self.dropped, 1);
+            return;
+        };
+        let Some(sequence) = sequence.and_then(|value| i64::try_from(value).ok()) else {
+            self.counter_overflow.store(true, Ordering::Release);
+            let _ = self.count(&self.dropped, 1);
+            return;
+        };
+        if !super::progress_documents::bounded_event(event, PROGRESS_EVENT_BYTES) {
+            let _ = self.count(&self.dropped, 1);
+            return;
         }
+        let mut document = super::ProgressEventDocument::from(event);
+        document.step = Some(self.step.load(Ordering::Acquire));
+        document.sequence = Some(sequence);
+        document.at = Some(chrono::Utc::now().timestamp_micros());
+        let _ = self.count(&self.queued, 1);
+        permit.send(document);
     }
 }
 #[derive(Debug)]
 struct Streamer {
     tap: Arc<Tap>,
     ready: Arc<tokio::sync::Notify>,
-    task: Option<tokio::task::JoinHandle<Result<(), WorkflowError>>>,
+    task: Option<tokio::task::JoinHandle<Result<(), super::ProgressWriteStage>>>,
+    outcome: super::ProgressWriterOutcome,
+    acknowledgments: Arc<PublicationAcks>,
+    fence: Arc<OnceLock<AttemptFence>>,
     #[cfg(all(test, feature = "canonical-tests"))]
     export_gate: Arc<OnceLock<FinishExportGate>>,
 }
 impl Streamer {
-    fn new(operations: &Operations, fence: Arc<OnceLock<AttemptFence>>) -> Self {
+    fn new(
+        operations: &Operations,
+        fence: Arc<OnceLock<AttemptFence>>,
+        acknowledgments: Arc<PublicationAcks>,
+    ) -> Self {
         let capacity = operations.policy.batch.clamp(1, 512);
+        // Queue + retained batch + one producer permit, including DTO tree nodes,
+        // and bounded serialization/append/receipt scratch are admitted up front.
+        let memory = progress_memory(&operations.pool, capacity);
+        let ready = Arc::new(tokio::sync::Notify::new());
+        #[cfg(all(test, feature = "canonical-tests"))]
+        let export_gate = Arc::new(OnceLock::new());
+        if memory.is_none() {
+            return Self {
+                tap: Arc::new(Tap::new(None, None)),
+                ready,
+                task: None,
+                outcome: super::ProgressWriterOutcome::MemoryRefused,
+                acknowledgments,
+                fence,
+                #[cfg(all(test, feature = "canonical-tests"))]
+                export_gate,
+            };
+        }
         let (sender, mut receiver) =
             tokio::sync::mpsc::channel::<super::ProgressEventDocument>(capacity);
-        let tap = Arc::new(Tap {
-            step: AtomicI32::new(0),
-            runtime: tokio::runtime::Handle::current(),
-            wait: operations.policy.heartbeat,
-            sender: Mutex::new(Some(sender)),
-            overflow: AtomicBool::new(false),
-            cancel: Mutex::new(None),
-        });
-        let ready = Arc::new(tokio::sync::Notify::new());
+        let tap = Arc::new(Tap::new(Some(sender), memory));
+        let writer_tap = tap.clone();
         let signal = ready.clone();
         let operations = operations.clone();
         #[cfg(all(test, feature = "canonical-tests"))]
-        let export_gate = Arc::new(OnceLock::new());
-        #[cfg(all(test, feature = "canonical-tests"))]
         let writer_gate = export_gate.clone();
+        let writer_acknowledgments = acknowledgments.clone();
+        let writer_fence = fence.clone();
         let task = tokio::spawn(async move {
+            let fence = writer_fence;
             while fence.get().is_none() {
-                tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(contract("native progress observed before claim"));}return Ok(());}}
+                tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim);}return Ok(());}}
             }
-            let fence = fence
-                .get()
-                .ok_or_else(|| contract("progress native claim absent"))?
-                .clone();
-            let (mut ordinal, mut sequence) = (0_u64, 0_i64);
+            let fence = fence.get().ok_or(super::ProgressWriteStage::Claim)?.clone();
+            let mut ordinal = 0_u64;
             while let Some(event) = receiver.recv().await {
-                let _owner = reserve(&operations.pool, RESULT_BATCH_BYTES)?;
                 let mut events = Vec::with_capacity(capacity);
                 events.push(event);
                 let deadline = std::time::Instant::now()
                     .checked_add(operations.policy.flush)
-                    .ok_or_else(|| contract("progress flush deadline extent"))?;
+                    .ok_or(super::ProgressWriteStage::Encoding)?;
                 while events.len() < capacity {
                     let remaining = deadline.saturating_duration_since(std::time::Instant::now());
                     let limit = capacity - events.len();
@@ -1345,12 +2065,6 @@ impl Streamer {
                         Ok(_) => {}
                     }
                 }
-                for event in &mut events {
-                    event.sequence = Some(sequence);
-                    sequence = sequence
-                        .checked_add(1)
-                        .ok_or_else(|| contract("progress sequence overflow"))?;
-                }
                 let mut ranges = std::collections::VecDeque::from([(0, events.len())]);
                 while let Some((start, end)) = ranges.pop_front() {
                     let mut output = ProgressBuffer {
@@ -1360,25 +2074,43 @@ impl Streamer {
                     output
                         .bytes
                         .try_reserve_exact(RESULT_BATCH_BYTES)
-                        .map_err(|_| contract("progress payload allocation refused"))?;
+                        .map_err(|_| super::ProgressWriteStage::Allocation)?;
                     match serde_json::to_writer(&mut output, &events[start..end]) {
                         Ok(()) => {
                             #[cfg(all(test, feature = "canonical-tests"))]
-                            FinishExportGate::at(&writer_gate, FinishExportPhase::Progress).await?;
-                            operations
+                            FinishExportGate::at(&writer_gate, FinishExportPhase::Progress)
+                                .await
+                                .map_err(|_| super::ProgressWriteStage::Publication)?;
+                            let acknowledged = operations
                                 .store
                                 .append_result_batch(
                                     &fence,
                                     &format!("progress:{}:{ordinal}", fence.attempt()),
                                     "__progress",
                                     ordinal,
-                                    &output.bytes,
+                                    pse_operations::canonical_execution::ResultPayload::new_owned(
+                                        output.bytes,
+                                        writer_tap
+                                            ._memory
+                                            .clone()
+                                            .ok_or(super::ProgressWriteStage::Allocation)?,
+                                    )
+                                    .map_err(|_| super::ProgressWriteStage::Encoding)?,
                                     (end - start) as u64,
                                 )
-                                .await?;
+                                .await
+                                .map_err(|_| super::ProgressWriteStage::CanonicalAppend)?;
+                            if acknowledged.row_count != (end - start) as u64 {
+                                return Err(super::ProgressWriteStage::Acknowledgment);
+                            }
+                            let rows = acknowledged.row_count;
+                            writer_acknowledgments
+                                .append(&fence, acknowledged)
+                                .map_err(|_| super::ProgressWriteStage::Acknowledgment)?;
+                            let _ = writer_tap.count(&writer_tap.acknowledged, rows);
                             ordinal = ordinal
                                 .checked_add(1)
-                                .ok_or_else(|| contract("progress batch ordinal overflow"))?;
+                                .ok_or(super::ProgressWriteStage::Acknowledgment)?;
                         }
                         Err(_) if output.full && end - start > 1 => {
                             let middle = start + (end - start) / 2;
@@ -1386,11 +2118,9 @@ impl Streamer {
                             ranges.push_front((start, middle));
                         }
                         Err(_) if output.full => {
-                            return Err(contract(
-                                "one progress observation exceeds immutable batch extent",
-                            ));
+                            return Err(super::ProgressWriteStage::Encoding);
                         }
-                        Err(error) => return Err(contract(error.to_string())),
+                        Err(_) => return Err(super::ProgressWriteStage::Encoding),
                     }
                 }
             }
@@ -1400,24 +2130,44 @@ impl Streamer {
             tap,
             ready,
             task: Some(task),
+            outcome: super::ProgressWriterOutcome::Complete,
+            acknowledgments,
+            fence,
             #[cfg(all(test, feature = "canonical-tests"))]
             export_gate,
         }
     }
-    async fn finish(&mut self) -> Result<(), WorkflowError> {
-        if let Ok(mut sender) = self.tap.sender.lock() {
-            sender.take();
-        }
+    async fn finish(&mut self) -> super::ProgressCoverage {
+        self.tap.close();
         if let Some(task) = self.task.take() {
-            task.await
-                .map_err(|error| contract(format!("progress writer: {error}")))??;
+            // Each append already settles under its original bounded canonical
+            // request clock. Joining does not start a new request or cancel science.
+            self.outcome = match task.await {
+                Ok(Ok(())) => super::ProgressWriterOutcome::Complete,
+                Ok(Err(stage)) => {
+                    super::ProgressWriterOutcome::Failed(super::ProgressWriterFailure { stage })
+                }
+                Err(_) => super::ProgressWriterOutcome::JoinFailed,
+            };
         }
-        if self.tap.overflow.load(Ordering::Acquire) {
-            return Err(contract(
-                "durable progress admission failed; scientific run cancelled",
-            ));
+        if let Some(fence) = self.fence.get()
+            && self
+                .acknowledgments
+                .complete_present(fence, "__progress")
+                .is_err()
+        {
+            self.outcome = super::ProgressWriterOutcome::Failed(super::ProgressWriterFailure {
+                stage: super::ProgressWriteStage::Acknowledgment,
+            });
         }
-        Ok(())
+        self.tap.coverage(self.outcome)
+    }
+}
+impl Drop for Streamer {
+    fn drop(&mut self) {
+        // A dropped workflow still closes the owned queue; the detached writer
+        // retains its admitted memory only through its bounded pending appends.
+        self.tap.close();
     }
 }
 struct ProgressBuffer {
@@ -1456,10 +2206,13 @@ async fn write_chunks(
     name: &str,
     first: u64,
     bytes: &[u8],
+    acknowledgments: &PublicationAcks,
+    owner: Arc<pse_columnar::AllocationLease>,
 ) -> Result<CompletionReceipt, WorkflowError> {
+    acknowledgments.expect(fence, name)?;
     let mut count = 0;
     for (ordinal, chunk) in bytes.chunks(RESULT_BATCH_BYTES).enumerate() {
-        store
+        let acknowledged = store
             .append_result_batch(
                 fence,
                 &format!(
@@ -1469,11 +2222,18 @@ async fn write_chunks(
                 ),
                 name,
                 first + ordinal as u64,
-                chunk,
+                pse_operations::canonical_execution::ResultPayload::new_owned(
+                    chunk.to_vec(),
+                    owner.clone(),
+                )?,
                 chunk.len() as u64,
             )
             .await?;
+        acknowledgments.append(fence, acknowledged)?;
         count += 1;
+    }
+    if name != "__seeds" {
+        acknowledgments.complete(fence, name)?;
     }
     Ok(CompletionReceipt {
         version: 1,
@@ -1483,9 +2243,22 @@ async fn write_chunks(
         inline: None,
     })
 }
+#[derive(Clone, Copy)]
+enum CompletionSelection<'a> {
+    Full(&'a pse_operations::canonical_results::ResultRead),
+    Slim(&'a pse_operations::canonical_results::CompletionRead),
+}
+impl CompletionSelection<'_> {
+    fn attempt(&self) -> &CanonicalAttempt {
+        match self {
+            Self::Full(read) => read.attempt(),
+            Self::Slim(read) => read.attempt(),
+        }
+    }
+}
 #[allow(
     clippy::too_many_arguments,
-    reason = "the protected result selection, chunk window, extent and digest are separate admission premises checked before pooled allocation"
+    reason = "exact chunk identity, coverage, and extent are independently checked"
 )]
 async fn read_chunks(
     store: &CanonicalStore,
@@ -1498,19 +2271,61 @@ async fn read_chunks(
     digest: &str,
     subset: bool,
 ) -> Result<(Vec<u8>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
-    let set = result_set_key(&read.attempt().key, name);
-    let descriptor = read
-        .sets()
-        .iter()
-        .find(|s| s.key == set)
-        .ok_or_else(|| contract("stored chunk set absent"))?;
-    if (!subset && (descriptor.batch_count != count || descriptor.row_count != length))
-        || first
-            .checked_add(count)
-            .is_none_or(|end| end > descriptor.batch_count)
-        || count != length.div_ceil(RESULT_BATCH_BYTES as u64)
-    {
-        return Err(contract("stored chunk descriptor differs"));
+    read_chunks_selection(
+        store,
+        pool,
+        CompletionSelection::Full(read),
+        name,
+        first,
+        count,
+        length,
+        digest,
+        subset,
+    )
+    .await
+}
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the protected result selection, chunk window, extent and digest are separate admission premises checked before pooled allocation"
+)]
+async fn read_chunks_selection(
+    store: &CanonicalStore,
+    pool: &Arc<dyn MemoryPool>,
+    read: CompletionSelection<'_>,
+    name: &str,
+    first: u64,
+    count: u64,
+    length: u64,
+    digest: &str,
+    subset: bool,
+) -> Result<(Vec<u8>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+    match read {
+        CompletionSelection::Full(full) => {
+            let set = result_set_key(&full.attempt().key, name);
+            let descriptor = full
+                .sets()
+                .iter()
+                .find(|s| s.key == set)
+                .ok_or_else(|| contract("stored chunk set absent"))?;
+            if (!subset && (descriptor.batch_count != count || descriptor.row_count != length))
+                || first
+                    .checked_add(count)
+                    .is_none_or(|end| end > descriptor.batch_count)
+                || count != length.div_ceil(RESULT_BATCH_BYTES as u64)
+            {
+                return Err(contract("stored chunk descriptor differs"));
+            }
+        }
+        CompletionSelection::Slim(slim) => {
+            if name != "__completion"
+                || first != 0
+                || subset
+                || slim.chunk_coverage() != Some((count, length))
+                || count != length.div_ceil(RESULT_BATCH_BYTES as u64)
+            {
+                return Err(contract("stored completion chunk coverage differs"));
+            }
+        }
     }
     let extent = usize::try_from(length).map_err(|_| contract("stored extent overflow"))?;
     let owner = reserve(pool, extent)?;
@@ -1519,8 +2334,17 @@ async fn read_chunks(
         .try_reserve_exact(extent)
         .map_err(|_| contract("stored chunk allocation refused"))?;
     for ordinal in 0..count {
-        read.renew(Duration::from_secs(60)).await?;
-        let payload = store.result_payload(read, &set, first + ordinal).await?;
+        let payload = match read {
+            CompletionSelection::Full(full) => {
+                full.renew(Duration::from_secs(60)).await?;
+                let set = result_set_key(&full.attempt().key, name);
+                store.result_payload(full, &set, first + ordinal).await?
+            }
+            CompletionSelection::Slim(slim) => {
+                slim.renew(Duration::from_secs(60)).await?;
+                store.completion_payload(slim, first + ordinal).await?
+            }
+        };
         let expected =
             (length - ordinal * RESULT_BATCH_BYTES as u64).min(RESULT_BATCH_BYTES as u64);
         if payload.batch.payload.len() as u64 != expected || payload.batch.row_count != expected {
@@ -1559,6 +2383,40 @@ struct SeedDocument {
     version: u8,
     warm: SeedPayload,
     prediction: Option<super::modeling::results::PortablePrediction>,
+}
+/// One freshly admitted original seed, sharing its decoded payload and allocation.
+/// Retaining this value permits consuming its immutable bytes; a later acquisition
+/// still has to establish current original-manifest and scientific permission.
+#[derive(Clone, Debug)]
+pub struct AdmittedSeed {
+    solution: SolutionId,
+    header: pse_model::generated::runtime::canonical_result_seeds::Row,
+    completion: Arc<pse_columnar::Leased<StoredCompletion>>,
+    pub(crate) start: Arc<pse_columnar::Leased<WarmStart>>,
+    pub(crate) prediction:
+        Option<Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>>,
+}
+impl AdmittedSeed {
+    /// The selected original solution identity.
+    pub fn solution(&self) -> SolutionId {
+        self.solution
+    }
+    /// Original compatibility and occurrence coordinates checked at acquisition.
+    pub fn header(&self) -> &pse_model::generated::runtime::canonical_result_seeds::Row {
+        &self.header
+    }
+    /// The immutable warm start, retaining its decode allocation through clones.
+    pub fn start(&self) -> &Arc<pse_columnar::Leased<WarmStart>> {
+        &self.start
+    }
+    /// Copied original assessment at acquisition, not authority for a future read.
+    pub fn assessment(&self) -> Option<&pse_model::generated::runtime::candidate_assessments::Row> {
+        self.completion
+            .completion
+            .as_ref()?
+            .assessments
+            .get(self.header.step as usize)
+    }
 }
 fn bits(values: &[f64]) -> Vec<u64> {
     values.iter().map(|v| v.to_bits()).collect()
@@ -1678,15 +2536,48 @@ async fn store_seeds(
     operations: &Operations,
     fence: &AttemptFence,
     result: &RunResult,
+    acknowledgments: &PublicationAcks,
     #[cfg(all(test, feature = "canonical-tests"))] export_gate: &OnceLock<FinishExportGate>,
-) -> Result<Vec<(usize, SolutionId)>, WorkflowError> {
+) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+    let mut next = 0;
+    let result = append_seeds(
+        operations,
+        fence,
+        result,
+        acknowledgments,
+        &mut next,
+        #[cfg(all(test, feature = "canonical-tests"))]
+        export_gate,
+    )
+    .await?;
+    acknowledgments.complete_present(fence, "__seeds")?;
+    Ok(result)
+}
+async fn append_seeds(
+    operations: &Operations,
+    fence: &AttemptFence,
+    result: &RunResult,
+    acknowledgments: &PublicationAcks,
+    next: &mut u64,
+    #[cfg(all(test, feature = "canonical-tests"))] export_gate: &OnceLock<FinishExportGate>,
+) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+    let reservation =
+        MemoryConsumer::new("canonical:acknowledged-seed-identities").register(&operations.pool);
     let (Ok(RunReport::Modeling(steps)), RunRequest::Modeling(requests)) =
         (result.report(), result.request())
     else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), pse_columnar::AllocationLease::new(reservation)));
     };
-    let mut stored = Vec::new();
-    let mut next = 0_u64;
+    reservation
+        .try_grow(
+            steps
+                .len()
+                .checked_mul(size_of::<(usize, SolutionId)>())
+                .ok_or_else(|| contract("seed identity extent overflow"))?,
+        )
+        .map_err(pse_engine::EngineError::from)?;
+    let owner = pse_columnar::AllocationLease::new(reservation);
+    let mut stored = Vec::with_capacity(steps.len());
     let run = operations
         .store
         .canonical_run(fence.run())
@@ -1733,7 +2624,7 @@ async fn store_seeds(
             .and_then(|n| n.checked_add(materialization_extent))
             .ok_or_else(|| contract("portable seed document extent"))?;
         let serialization = reserve(&operations.pool, extent)?;
-        let seed = seed.materialize(serialization)?;
+        let seed = seed.materialize(serialization.clone())?;
         let prediction = step.portable_prediction()?;
         if matches!(&step.outcome, crate::math::solves::Outcome::Constant(_))
             && prediction.is_some()
@@ -1750,12 +2641,21 @@ async fn store_seeds(
             prediction,
         })
         .map_err(|e| contract(e.to_string()))?;
-        let receipt = write_chunks(&operations.store, fence, name, next, &bytes).await?;
+        let receipt = write_chunks(
+            &operations.store,
+            fence,
+            name,
+            *next,
+            &bytes,
+            acknowledgments,
+            serialization,
+        )
+        .await?;
         let set = result_set_key(fence.attempt(), name);
         let row = pse_model::generated::runtime::canonical_result_seeds::Row {
             key: solution.to_string(),
-            batch: result_batch_key(fence.attempt(), &set, next),
-            first_ordinal: next,
+            batch: result_batch_key(fence.attempt(), &set, *next),
+            first_ordinal: *next,
             result_set: set,
             attempt: fence.attempt().into(),
             run: fence.run().into(),
@@ -1764,7 +2664,7 @@ async fn store_seeds(
             profile: seed.warm().compatibility.profile.to_string(),
             data: seed.warm().compatibility.data.to_string(),
             backend: seed.warm().compatibility.backend.as_str().into(),
-            step: index as u64,
+            step: result.modeling_step(index) as u64,
             batch_count: receipt.batch_count,
             payload_bytes: receipt.payload_bytes,
             digest: receipt.digest,
@@ -1773,41 +2673,43 @@ async fn store_seeds(
         };
         #[cfg(all(test, feature = "canonical-tests"))]
         FinishExportGate::at(export_gate, FinishExportPhase::Seed).await?;
-        operations
+        let acknowledged = operations
             .store
             .register_result_seed(fence, &format!("seed:{}:{solution}", fence.attempt()), &row)
             .await?;
-        stored.push((index, solution));
-        next += receipt.batch_count;
+        acknowledgments.seed(fence, acknowledged)?;
+        stored.push((result.modeling_step(index), solution));
+        *next += receipt.batch_count;
     }
-    Ok(stored)
+    Ok((stored, owner))
 }
 impl Operations {
-    async fn seed_document(
+    async fn admit_seed(
         &self,
         solution: SolutionId,
-    ) -> Result<
-        (
-            pse_model::generated::runtime::canonical_result_seeds::Row,
-            SeedDocument,
-            Arc<pse_columnar::AllocationLease>,
-        ),
-        WorkflowError,
-    > {
-        let row = self
-            .store
-            .result_seed(&solution.to_string())
-            .await?
-            .ok_or(SeedReadError::Missing { solution })?;
+        row: pse_model::generated::runtime::canonical_result_seeds::Row,
+    ) -> Result<AdmittedSeed, WorkflowError> {
+        if row.key != solution.to_string() {
+            return Err(contract("stored seed identity differs from selection"));
+        }
         let read = self
             .store
             .read_results(&row.run, &row.attempt, Duration::from_secs(60))
             .await?;
-        let completed = self.record(&row.run, &row.attempt).await?;
+        if read.attempt().seed_manifest.as_deref() != Some(read.manifest().key.as_str())
+            || row.attempt_generation != read.attempt().generation
+            || row.run_sequence != read.run().sequence
+        {
+            return Err(contract(
+                "stored seed is outside the admitted original inventory",
+            ));
+        }
+        let completed = self
+            .decode_completion(CompletionSelection::Full(&read))
+            .await?;
         let assessment = completed
             .completion
             .as_ref()
-            .and_then(|c| c.completion.as_ref())
             .and_then(|c| c.assessments.get(row.step as usize))
             .ok_or_else(|| contract("stored seed scientific completion absent"))?;
         if !assessment.permits_seed {
@@ -1816,7 +2718,9 @@ impl Operations {
             ));
         }
         let name = "__seeds";
-        if result_set_key(&row.attempt, name) != row.result_set {
+        if result_set_key(&row.attempt, name) != row.result_set
+            || row.batch != result_batch_key(&row.attempt, &row.result_set, row.first_ordinal)
+        {
             return Err(contract("stored seed set coordinates differ"));
         }
         let (bytes, owner) = read_chunks(
@@ -1845,20 +2749,6 @@ impl Operations {
                 "retained prediction differs from admitted scientific permission",
             ));
         }
-        Ok((row, payload, owner))
-    }
-    /// One explicitly selected retained seed and its original compatibility stamps.
-    pub async fn seed(
-        &self,
-        solution: SolutionId,
-    ) -> Result<
-        (
-            pse_model::generated::runtime::canonical_result_seeds::Row,
-            Arc<pse_columnar::Leased<WarmStart>>,
-        ),
-        WorkflowError,
-    > {
-        let (row, payload, owner) = self.seed_document(solution).await?;
         let backend = NativeBackend::try_from(row.backend.as_str())
             .map_err(|error| contract(error.to_string()))?;
         let start = WarmStart {
@@ -1874,28 +2764,24 @@ impl Operations {
             },
             payload: warm_payload(payload.warm),
         };
-        Ok((
-            row,
-            Arc::new(pse_columnar::Leased::new(Arc::new(start), owner)),
-        ))
+        Ok(AdmittedSeed {
+            solution,
+            header: row,
+            completion: completed,
+            start: Arc::new(pse_columnar::Leased::new(Arc::new(start), owner.clone())),
+            prediction: payload
+                .prediction
+                .map(|point| Arc::new(pse_columnar::Leased::new(Arc::new(point), owner.clone()))),
+        })
     }
-    pub(crate) async fn prediction(
-        &self,
-        solution: SolutionId,
-    ) -> Result<
-        Option<(
-            pse_model::generated::runtime::canonical_result_seeds::Row,
-            Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>,
-        )>,
-        WorkflowError,
-    > {
-        let (row, payload, owner) = self.seed_document(solution).await?;
-        Ok(payload.prediction.map(|point| {
-            (
-                row,
-                Arc::new(pse_columnar::Leased::new(Arc::new(point), owner)),
-            )
-        }))
+    /// Acquire one explicitly selected original seed and its optional prediction once.
+    pub async fn seed(&self, solution: SolutionId) -> Result<AdmittedSeed, WorkflowError> {
+        let row = self
+            .store
+            .result_seed(&solution.to_string())
+            .await?
+            .ok_or(SeedReadError::Missing { solution })?;
+        self.admit_seed(solution, row).await
     }
     /// Bounded eligible index pages use recorded order and then exact scientific admission.
     pub async fn latest_seed(
@@ -1903,7 +2789,7 @@ impl Operations {
         target: &Compatibility,
         preparation: &ContentHash,
         attempt: Option<&str>,
-    ) -> Result<Option<SolutionId>, WorkflowError> {
+    ) -> Result<Option<AdmittedSeed>, WorkflowError> {
         let rows = self
             .store
             .result_seed_candidates(
@@ -1913,22 +2799,13 @@ impl Operations {
                 attempt,
             )
             .await?;
-        for row in rows {
-            let solution: SolutionId = pse_ids::SemanticId::parse_hex(&row.key)
-                .map(SolutionId::from_id)
-                .map_err(|e| contract(format!("seed identity: {e}")))?;
-            let attempt = self
-                .store
-                .canonical_attempt(&row.attempt)
-                .await?
-                .ok_or_else(|| contract("seed attempt header absent"))?;
-            if !attempt.terminal {
-                continue;
-            }
-            self.seed(solution).await?;
-            return Ok(Some(solution));
-        }
-        Ok(None)
+        let Some(row) = rows.into_iter().next() else {
+            return Ok(None);
+        };
+        let solution: SolutionId = pse_ids::SemanticId::parse_hex(&row.key)
+            .map(SolutionId::from_id)
+            .map_err(|e| contract(format!("seed identity: {e}")))?;
+        self.admit_seed(solution, row).await.map(Some)
     }
 }
 
@@ -2074,6 +2951,64 @@ impl Operations {
     }
 }
 
+/// Count borrowed serialization without a temporary completion tree or payload.
+struct CompletionExtent(usize);
+impl std::io::Write for CompletionExtent {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0 = self.0.checked_add(bytes.len()).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::OutOfMemory,
+                "completion extent overflow",
+            )
+        })?;
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+fn copy_original_completion<T: Serialize + Clone, U: Serialize>(
+    pool: &Arc<dyn MemoryPool>,
+    original: Option<&T>,
+    context: &U,
+) -> Result<(Option<T>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
+    let owner = completion_copy_owner(pool, &(original, context))?;
+    Ok((original.cloned(), owner))
+}
+pub(super) fn completion_retention_owner<T: Serialize>(
+    pool: &Arc<dyn MemoryPool>,
+    original: &T,
+) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
+    let mut extent = CompletionExtent(0);
+    serde_json::to_writer(&mut extent, original).map_err(|error| contract(error.to_string()))?;
+    let bytes = extent
+        .0
+        .checked_mul(16)
+        .and_then(|n| n.checked_add(1024))
+        .ok_or_else(|| contract("completion retention extent"))?;
+    let reservation = MemoryConsumer::new("study:original-summary").register(pool);
+    reservation
+        .try_grow(bytes)
+        .map_err(pse_engine::EngineError::from)?;
+    Ok(pse_columnar::AllocationLease::new(reservation))
+}
+fn completion_copy_owner<T: Serialize>(
+    pool: &Arc<dyn MemoryPool>,
+    original: &T,
+) -> Result<Arc<pse_columnar::AllocationLease>, WorkflowError> {
+    let mut extent = CompletionExtent(0);
+    serde_json::to_writer(&mut extent, original).map_err(|error| contract(error.to_string()))?;
+    // Field names and the owned completion envelope are additional to the exact
+    // borrowed payload count. reserve includes owned tree and encoding scratch.
+    reserve(
+        pool,
+        extent
+            .0
+            .checked_add(1024)
+            .ok_or_else(|| contract("completion copy extent overflow"))?,
+    )
+}
+
 fn reserve(
     pool: &Arc<dyn MemoryPool>,
     bytes: usize,
@@ -2134,6 +3069,159 @@ mod canonical_durable_codec {
             .await
             .unwrap();
         (operations, fence)
+    }
+    #[tokio::test]
+    async fn canonical_acknowledged_finish_returns_original_without_protected_reopen() {
+        let (operations, fence) = claimed().await;
+        let attempt_id = pse_operations::mint_id();
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            attempt_id,
+        );
+        attempt.stream.finish().await;
+        let detail = failure(&Arc::new(contract("synthetic partial original")), false).detail;
+        let stored = StoredCompletion {
+            version: 2,
+            attempt_id,
+            completion: Some(super::super::Completion::default()),
+            termination: detail,
+            state: AttemptState::Partial,
+            progress: super::super::ProgressCoverage::Sampled {
+                observed: 0,
+                queued: 0,
+                dropped_before_queue: 0,
+                acknowledged: 0,
+                unacknowledged: 0,
+                writer: super::super::ProgressWriterOutcome::Complete,
+            },
+        };
+        let (reached, waiting) = tokio::sync::oneshot::channel();
+        let (release, resume) = tokio::sync::oneshot::channel();
+        attempt
+            .stream
+            .export_gate
+            .set(FinishExportGate {
+                phase: FinishExportPhase::AcknowledgedSeal,
+                reached: Mutex::new(Some(reached)),
+                release: Mutex::new(Some(resume)),
+                failure: None,
+            })
+            .unwrap();
+        let finished = tokio::spawn(async move { attempt.terminate(stored).await });
+        waiting.await.unwrap();
+        // The actual seal already committed. Explicit fixture retirement removes
+        // permission for any protected result reopen before the local return.
+        operations
+            .store
+            .forget_run_results(fence.run())
+            .await
+            .unwrap();
+        assert!(
+            operations
+                .record(fence.run(), fence.attempt())
+                .await
+                .is_err()
+        );
+        release.send(()).unwrap();
+        let record = finished.await.unwrap().unwrap();
+        assert_eq!(record.attempt_id, attempt_id);
+        assert_eq!(
+            record.completion.as_ref().unwrap().state,
+            AttemptState::Partial
+        );
+        assert!(record.completion.as_ref().unwrap().completion.is_some());
+        assert_eq!(
+            record.run.as_ref().unwrap().terminal_attempt.as_deref(),
+            Some(fence.attempt())
+        );
+        assert_eq!(
+            record.attempt.as_ref().unwrap().closed_manifest.as_deref(),
+            record
+                .manifest
+                .as_ref()
+                .map(|manifest| manifest.key.as_str())
+        );
+    }
+    #[tokio::test]
+    async fn canonical_progress_uncertainty_retains_original_sampled_counters() {
+        use super::super::{
+            ProgressCoverage, ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
+        };
+        let (operations, fence) = claimed().await;
+        let attempt_id = pse_operations::mint_id();
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            pse_operations::mint_id(),
+            attempt_id,
+        );
+        attempt.stream.finish().await;
+        let event = Event {
+            phase: "uncertain".into(),
+            elapsed: Duration::ZERO,
+            values: Default::default(),
+            incumbent: None,
+        };
+        let mut document = super::super::ProgressEventDocument::from(&event);
+        document.sequence = Some(0);
+        let bytes = serde_json::to_vec(&[document]).unwrap();
+        // Deliberately discard the actual producer ACK to model a committed
+        // operation whose response was never observed by the original writer.
+        operations
+            .store
+            .append_result_batch(
+                &fence,
+                "unobserved-progress",
+                "__progress",
+                0,
+                pse_operations::canonical_execution::ResultPayload::new((&bytes).to_vec()).unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let progress = ProgressCoverage::Sampled {
+            observed: 1,
+            queued: 1,
+            dropped_before_queue: 0,
+            acknowledged: 0,
+            unacknowledged: 1,
+            writer: ProgressWriterOutcome::Failed(ProgressWriterFailure {
+                stage: ProgressWriteStage::CanonicalAppend,
+            }),
+        };
+        let stored = StoredCompletion {
+            version: 2,
+            attempt_id,
+            completion: None,
+            termination: failure(&Arc::new(contract("original failed science")), false).detail,
+            state: AttemptState::Failed,
+            progress: progress.clone(),
+        };
+        let record = attempt.terminate(stored).await.unwrap();
+        assert_eq!(record.completion.as_ref().unwrap().progress, progress);
+        let descriptors = pse_operations::canonical_execution::decode_result_descriptors(
+            record.manifest.as_ref().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            descriptors
+                .iter()
+                .find(|set| set.name == "__progress")
+                .unwrap()
+                .row_count,
+            1
+        );
+        let reopened = operations
+            .record(fence.run(), fence.attempt())
+            .await
+            .unwrap();
+        assert_eq!(reopened.completion.as_ref().unwrap().progress, progress);
+        assert_eq!(
+            reopened.completion.as_ref().unwrap().state,
+            AttemptState::Failed
+        );
     }
     async fn study_claimed() -> (Operations, AttemptFence) {
         let (operations, claim) = study_claim().await;
@@ -2279,7 +3367,8 @@ mod canonical_durable_codec {
                     &format!("accepted-prefix:{}", fence.attempt()),
                     "__prefix",
                     0,
-                    &[7],
+                    pse_operations::canonical_execution::ResultPayload::new((&[7]).to_vec())
+                        .unwrap(),
                     1,
                 )
                 .await
@@ -2636,7 +3725,14 @@ mod canonical_durable_codec {
         let (operations, fence) = study_claimed().await;
         operations
             .store
-            .append_result_batch(&fence, "prefix", "observations", 0, &[7], 1)
+            .append_result_batch(
+                &fence,
+                "prefix",
+                "observations",
+                0,
+                pse_operations::canonical_execution::ResultPayload::new((&[7]).to_vec()).unwrap(),
+                1,
+            )
             .await
             .unwrap();
         let attempt_id = pse_operations::mint_id();
@@ -2694,9 +3790,10 @@ mod canonical_durable_codec {
             completion: None,
             termination: outcome.detail,
             state: AttemptState::Cancelled,
+            progress: super::super::ProgressCoverage::Unknown,
         };
-        attempt.stream.finish().await.unwrap();
-        let record = attempt.terminate(&stored).await.unwrap();
+        attempt.stream.finish().await;
+        let record = attempt.terminate(stored.clone()).await.unwrap();
         assert_eq!(record.attempt_id, attempt_id);
         assert_eq!(
             record.attempt.as_ref().unwrap().outcome.as_deref(),
@@ -2717,7 +3814,7 @@ mod canonical_durable_codec {
         changed.attempt_id = pse_operations::mint_id();
         changed.state = AttemptState::Failed;
         changed.completion = Some(super::super::Completion::default());
-        let repeated = attempt.terminate(&changed).await.unwrap();
+        let repeated = attempt.terminate(changed).await.unwrap();
         assert_eq!(repeated.attempt_id, attempt_id);
         assert!(repeated.completion.as_ref().unwrap().completion.is_none());
         assert_eq!(
@@ -2725,6 +3822,91 @@ mod canonical_durable_codec {
             AttemptState::Cancelled
         );
     }
+    #[tokio::test]
+    async fn canonical_slim_completion_matches_inline_and_chunked_originals() {
+        for chunked in [false, true] {
+            let (operations, fence) = claimed().await;
+            let original = StoredCompletion {
+                version: 1,
+                attempt_id: pse_operations::mint_id(),
+                completion: Some(super::super::Completion::default()),
+                termination: detail(
+                    TerminationCause::Assessment {
+                        usable: false,
+                        candidate_use: vec![],
+                        diagnostics: vec![],
+                    },
+                    false,
+                ),
+                state: AttemptState::Failed,
+                progress: super::super::ProgressCoverage::Unknown,
+            };
+            let bytes = serde_json::to_vec(&original).unwrap();
+            let receipt = if chunked {
+                write_chunks(
+                    &operations.store,
+                    &fence,
+                    "__completion",
+                    0,
+                    &bytes,
+                    &PublicationAcks::new(&operations.pool),
+                    reserve(&operations.pool, bytes.len()).unwrap(),
+                )
+                .await
+                .unwrap()
+            } else {
+                inline_completion(original)
+            };
+            // An unrelated result set is not part of a completion property read.
+            write_chunks(
+                &operations.store,
+                &fence,
+                "unrelated",
+                0,
+                &[7; 31],
+                &PublicationAcks::new(&operations.pool),
+                reserve(&operations.pool, 31).unwrap(),
+            )
+            .await
+            .unwrap();
+            let closed = operations
+                .store
+                .close_result_ingestion(&fence, "slim-close")
+                .await
+                .unwrap();
+            let record = operations
+                .settle(
+                    &closed,
+                    "slim-seal",
+                    TerminalClass::Failed,
+                    &receipt,
+                    SeedEligibility::Unavailable,
+                    None,
+                )
+                .await
+                .unwrap();
+            let slim = operations
+                .completion(fence.run(), fence.attempt())
+                .await
+                .unwrap();
+            assert_eq!(serde_json::to_vec(&**slim).unwrap(), bytes);
+            let full: &StoredCompletion = record.completion.as_ref().unwrap();
+            assert_eq!(serde_json::to_vec(full).unwrap(), bytes);
+            operations.store.remove_isolated_fixture().await.unwrap();
+            assert!(
+                operations
+                    .completion(fence.run(), fence.attempt())
+                    .await
+                    .is_err()
+            );
+            assert_eq!(
+                serde_json::to_vec(&**slim).unwrap(),
+                bytes,
+                "previously copied completion does not grant a fresh read"
+            );
+        }
+    }
+
     #[tokio::test]
     async fn canonical_complete_export_cancelled_at_seal_preserves_original_completion() {
         let (operations, fence) = study_claimed().await;
@@ -2747,6 +3929,7 @@ mod canonical_durable_codec {
                 false,
             ),
             state: AttemptState::Failed,
+            progress: super::super::ProgressCoverage::Unknown,
         };
         operations.store.cancel_study("cancel-study").await.unwrap();
         let refusal = operations
@@ -2755,6 +3938,7 @@ mod canonical_durable_codec {
                 "original-seal",
                 TerminalClass::Failed,
                 &inline_completion(original.clone()),
+                SeedEligibility::CompleteOriginalInventory,
                 None,
             )
             .await
@@ -2762,8 +3946,8 @@ mod canonical_durable_codec {
         assert!(acknowledged_cancellation(&refusal, &fence));
         let mut attempt =
             DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id);
-        attempt.stream.finish().await.unwrap();
-        let record = attempt.terminate(&original).await.unwrap();
+        attempt.stream.finish().await;
+        let record = attempt.terminate(original.clone()).await.unwrap();
         assert_eq!(
             record.completion.as_ref().unwrap().state,
             AttemptState::Cancelled
@@ -2857,6 +4041,7 @@ mod canonical_durable_codec {
                     false,
                 ),
                 state: AttemptState::Failed,
+                progress: super::super::ProgressCoverage::Unknown,
             };
             let (stop, stopped) = tokio::sync::oneshot::channel();
             let failure = Arc::new(Mutex::new(None));
@@ -2898,8 +4083,8 @@ mod canonical_durable_codec {
                 task,
                 failure,
             });
-            attempt.stream.finish().await.unwrap();
-            let settled = attempt.terminate(&original).await;
+            attempt.stream.finish().await;
+            let settled = attempt.terminate(original.clone()).await;
             if final_failure == 2 {
                 let error = settled.unwrap_err();
                 assert!(!acknowledged_cancellation(&error, &fence));
@@ -2958,7 +4143,13 @@ mod canonical_durable_codec {
         unsafe {
             operations
                 .store
-                .seal_attempt(&manifest, "codec-seal", TerminalClass::Failed, &[9])
+                .seal_attempt(
+                    &manifest,
+                    "codec-seal",
+                    TerminalClass::Failed,
+                    &[9],
+                    SeedEligibility::Unavailable,
+                )
                 .await
         }
         .unwrap();
@@ -2968,13 +4159,156 @@ mod canonical_durable_codec {
             .await
             .unwrap()
     }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn canonical_private_horizon_prefix_does_not_admit_a_seed_before_final_coverage() {
+        use super::super::durable_tests::{LINEAR, package_on};
+        let runtime = super::super::tests::runtime_with_workspace(32 << 20);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
+        let result = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        assert!(result.usable());
+        let (operations, fence) = claimed().await;
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            result.run_id,
+            pse_operations::mint_id(),
+        );
+        attempt.start(Arc::new(|| {})).await.unwrap();
+        attempt
+            .begin_horizon_prefix(super::super::StudyOutputDemand::Full, 1)
+            .unwrap();
+        attempt.publish_horizon_step(&result).await.unwrap();
+        let solution = attempt.solutions[0].1;
+        assert!(
+            operations
+                .store
+                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+        assert!(operations.seed(solution).await.is_err());
+        let refusal = Arc::new(contract("exact horizon prefix publication refusal"));
+        attempt.refuse_horizon_prefix(refusal.clone());
+        let record = attempt.finish(&result, false).await;
+        assert!(record.attempt.is_err());
+        assert!(record.completion.is_none());
+        let retained = operations
+            .store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !retained.terminal
+                && retained.closed_manifest.is_none()
+                && retained.seed_manifest.is_none()
+        );
+        assert!(operations.seed(solution).await.is_err());
+    }
+
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
+    async fn canonical_detail_refusal_preserves_original_scientific_completion() {
+        use super::super::durable_tests::{LINEAR, package_on};
+        let runtime = super::super::tests::runtime_with_workspace(32 << 20);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
+        let original = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap()
+            .start()
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
+        assert!(original.usable());
+        let RunRequest::Modeling(requests) = original.request() else {
+            unreachable!()
+        };
+        let RunReport::Modeling(steps) = original.report().unwrap() else {
+            unreachable!()
+        };
+        let result = RunResult::joined(
+            original.run_id,
+            runtime,
+            RunRequest::Modeling(requests.clone()),
+            None,
+            Ok(RunReport::Modeling(steps.clone())),
+        )
+        .completed();
+        let captured = serde_json::to_value(result.completion().unwrap()).unwrap();
+        let (operations, fence) = claimed().await;
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            result.run_id,
+            pse_operations::mint_id(),
+        );
+        let detail = super::super::StudyDetailDemand {
+            relations: vec!["runtime.solve_variables".into()],
+            members: Vec::new(),
+            maximum_rows: 1,
+            maximum_bytes: 1,
+        };
+        attempt.set_output(super::super::StudyOutputDemand::Compact {
+            detail,
+            failed_detail: Default::default(),
+        });
+        attempt.start(Arc::new(|| {})).await.unwrap();
+        let result = result.finished(Some(attempt), false).await;
+        assert!(result.report().is_err() && !result.usable());
+        assert_eq!(
+            serde_json::to_value(result.completion().unwrap()).unwrap(),
+            captured
+        );
+        assert!(
+            result
+                .completion()
+                .unwrap()
+                .assessments
+                .iter()
+                .all(|assessment| assessment.permits_result)
+        );
+        let RunDurability::Durable(record) = result.durability() else {
+            unreachable!()
+        };
+        assert!(record.attempt.is_err() && record.completion.is_none());
+        let retained = operations
+            .store
+            .canonical_attempt(fence.attempt())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !retained.terminal
+                && retained.closed_manifest.is_none()
+                && retained.seed_manifest.is_none()
+        );
+        assert!(
+            operations
+                .store
+                .read_results(fence.run(), fence.attempt(), Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+    }
+
     #[tokio::test]
     async fn canonical_failed_export_prefix_remains_unsealed_and_unreadable() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
         let (operations, fence) = claimed().await;
         let runtime = super::super::durable_tests::durable_runtime();
-        let registry = &runtime.registry;
-        let validation = runtime.validation_context().unwrap();
+        let registry = runtime.registry();
+        let validation = runtime.validation_context();
         let pool = operations.pool.clone();
         let schema = pse_schema::arrow::relation_schema_ref(
             registry,
@@ -3022,6 +4356,7 @@ mod canonical_durable_codec {
             solve_metrics::RELATION_ID,
             cursor,
             &operations.pool,
+            &PublicationAcks::new(&operations.pool),
         )
         .await
         .unwrap_err();
@@ -3044,7 +4379,7 @@ mod canonical_durable_codec {
             pse_operations::mint_id(),
             attempt_id,
         );
-        attempt.stream.finish().await.unwrap();
+        attempt.stream.finish().await;
         let record = attempt.reject_export(Arc::new(failure)).await;
         assert!(record.attempt.is_err());
         assert!(record.completion.is_none());
@@ -3081,15 +4416,26 @@ mod canonical_durable_codec {
         let bytes =
             serde_json::to_vec(&seed_payload(&WarmPayload::Root(original.clone()))).unwrap();
         assert!(bytes.len() > RESULT_BATCH_BYTES);
-        let first = write_chunks(&operations.store, &fence, "__seeds", 0, &bytes)
-            .await
-            .unwrap();
+        let acknowledgments = PublicationAcks::new(&operations.pool);
+        let first = write_chunks(
+            &operations.store,
+            &fence,
+            "__seeds",
+            0,
+            &bytes,
+            &acknowledgments,
+            reserve(&operations.pool, bytes.len()).unwrap(),
+        )
+        .await
+        .unwrap();
         let second = write_chunks(
             &operations.store,
             &fence,
             "__seeds",
             first.batch_count,
             &bytes,
+            &acknowledgments,
+            reserve(&operations.pool, bytes.len()).unwrap(),
         )
         .await
         .unwrap();
@@ -3153,13 +4499,117 @@ mod canonical_durable_codec {
         );
     }
     #[tokio::test]
+    async fn canonical_progress_writer_refusal_retains_original_science_and_uncertain_coverage() {
+        use super::super::durable_tests::{LINEAR, package_on};
+        use super::super::{RunDurability, tests};
+        let runtime = tests::runtime_with_workspace(32 << 20);
+        let (package, analysis) = package_on(&runtime, LINEAR).await;
+        let prepared = package
+            .prepare_analysis(&analysis, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let handle = prepared.start().unwrap();
+        let result = handle.wait().await.unwrap();
+        assert!(matches!(result.durability(), RunDurability::Ephemeral));
+        assert!(result.usable(), "{:?}", result.report());
+        let scientific = serde_json::to_value(result.completion().unwrap()).unwrap();
+        let (operations, fence) = claimed().await;
+        // An actual immutable original request already exists. Reusing its
+        // operation with different bytes must refuse the optional append.
+        let old = super::super::ProgressEventDocument::from(&Event {
+            phase: "prior-original".into(),
+            elapsed: Duration::ZERO,
+            values: BTreeMap::new(),
+            incumbent: None,
+        });
+        operations
+            .store
+            .append_result_batch(
+                &fence,
+                &format!("progress:{}:0", fence.attempt()),
+                "__progress",
+                0,
+                pse_operations::canonical_execution::ResultPayload::new(
+                    (&serde_json::to_vec(&[old]).unwrap()).to_vec(),
+                )
+                .unwrap(),
+                1,
+            )
+            .await
+            .unwrap();
+        let mut attempt = DurableAttempt::claimed(
+            &operations,
+            fence.clone(),
+            result.run_id,
+            pse_operations::mint_id(),
+        );
+        attempt.start(Arc::new(|| {})).await.unwrap();
+        attempt.stream.tap.observe(&Event {
+            phase: "counter".into(),
+            elapsed: Duration::ZERO,
+            values: BTreeMap::from([("counter".into(), Metric::Integer((1_i64 << 53) + 1))]),
+            incumbent: None,
+        });
+        let record = attempt.finish(&result, false).await;
+        let stored = record.completion.as_ref().unwrap();
+        assert_eq!(stored.version, 2);
+        assert_eq!(
+            serde_json::to_value(stored.completion.as_ref().unwrap()).unwrap(),
+            scientific
+        );
+        assert_eq!(stored.state, classify(&result, false).state);
+        assert_eq!(
+            stored.progress,
+            super::super::ProgressCoverage::Sampled {
+                observed: 1,
+                queued: 1,
+                dropped_before_queue: 0,
+                acknowledged: 0,
+                unacknowledged: 1,
+                writer: super::super::ProgressWriterOutcome::Failed(
+                    super::super::ProgressWriterFailure {
+                        stage: super::super::ProgressWriteStage::CanonicalAppend
+                    }
+                )
+            }
+        );
+        let reopened = operations
+            .record(fence.run(), fence.attempt())
+            .await
+            .unwrap();
+        assert_eq!(
+            reopened.completion.as_ref().unwrap().progress,
+            stored.progress
+        );
+        assert_eq!(
+            serde_json::to_value(result.completion().unwrap()).unwrap(),
+            scientific
+        );
+        drop(reopened);
+        drop(record);
+        operations.store.remove_isolated_fixture().await.unwrap();
+        drop(result);
+        drop(handle);
+        drop(package);
+        runtime
+            .canonical_store()
+            .remove_isolated_fixture()
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn canonical_progress_batches_exact_integral_events_under_one_receipt() {
         let (mut operations, fence) = claimed().await;
         operations.policy.batch = 8;
         operations.policy.flush = Duration::from_millis(10);
         let admitted = Arc::new(OnceLock::new());
         admitted.set(fence.clone()).unwrap();
-        let mut stream = Streamer::new(&operations, admitted);
+        let mut stream = Streamer::new(
+            &operations,
+            admitted,
+            PublicationAcks::new(&operations.pool),
+        );
         for index in 0..3 {
             stream.tap.observe(&Event {
                 phase: "counter".into(),
@@ -3171,7 +4621,17 @@ mod canonical_durable_codec {
                 incumbent: None,
             });
         }
-        stream.finish().await.unwrap();
+        assert_eq!(
+            stream.finish().await,
+            super::super::ProgressCoverage::Sampled {
+                observed: 3,
+                queued: 3,
+                dropped_before_queue: 0,
+                acknowledged: 3,
+                unacknowledged: 0,
+                writer: super::super::ProgressWriterOutcome::Complete
+            }
+        );
         let read = admit(&operations, &fence).await;
         let descriptor = read
             .sets()
@@ -3195,13 +4655,17 @@ mod canonical_durable_codec {
         }
     }
     #[tokio::test]
-    async fn canonical_progress_native_burst_waits_for_writer_and_preserves_order() {
+    async fn canonical_progress_native_burst_samples_without_waiting_for_writer() {
         let (mut operations, fence) = claimed().await;
         operations.policy.batch = 2;
         operations.policy.flush = Duration::from_millis(1);
         let admitted = Arc::new(OnceLock::new());
         admitted.set(fence.clone()).unwrap();
-        let mut stream = Streamer::new(&operations, admitted);
+        let mut stream = Streamer::new(
+            &operations,
+            admitted,
+            PublicationAcks::new(&operations.pool),
+        );
         let tap = stream.tap.clone();
         let producer = std::thread::spawn(move || {
             for index in 0..12 {
@@ -3219,8 +4683,23 @@ mod canonical_durable_codec {
         tokio::task::spawn_blocking(move || producer.join().unwrap())
             .await
             .unwrap();
-        stream.finish().await.unwrap();
-        assert!(!stream.tap.overflow.load(Ordering::Acquire));
+        let coverage = stream.finish().await;
+        let super::super::ProgressCoverage::Sampled {
+            observed,
+            queued,
+            dropped_before_queue,
+            acknowledged,
+            unacknowledged,
+            writer,
+        } = coverage
+        else {
+            unreachable!()
+        };
+        assert_eq!(observed, 12);
+        assert_eq!(queued + dropped_before_queue, 12);
+        assert_eq!(acknowledged, queued);
+        assert_eq!(unacknowledged, 0);
+        assert_eq!(writer, super::super::ProgressWriterOutcome::Complete);
         let read = admit(&operations, &fence).await;
         let descriptor = read
             .sets()
@@ -3236,100 +4715,25 @@ mod canonical_durable_codec {
                 .unwrap();
             events.extend(decode_progress(&payload.batch.payload).unwrap());
         }
-        assert_eq!(events.len(), 12);
-        for (index, event) in events.iter().enumerate() {
-            assert_eq!(event.sequence, Some(index as i64));
+        assert_eq!(events.len() as u64, queued);
+        for event in &events {
+            let index = event.sequence.unwrap();
             assert!(
-                matches!(event.values["counter"], super::super::ProgressMetricDocument::Integer(value) if value == (1_i64 << 53) + index as i64)
+                matches!(event.values["counter"], super::super::ProgressMetricDocument::Integer(value) if value == (1_i64 << 53) + index)
             );
         }
     }
-    fn isolated_tap(
-        wait: Duration,
-    ) -> (
-        Arc<Tap>,
-        tokio::sync::mpsc::Receiver<super::super::ProgressEventDocument>,
-        Arc<AtomicBool>,
-    ) {
-        let (sender, receiver) = tokio::sync::mpsc::channel(1);
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let tap = Arc::new(Tap {
-            step: AtomicI32::new(0),
-            runtime: tokio::runtime::Handle::current(),
-            wait,
-            sender: Mutex::new(Some(sender)),
-            overflow: AtomicBool::new(false),
-            cancel: Mutex::new(None),
-        });
-        let flag = cancelled.clone();
-        tap.set_cancel(Arc::new(move || {
-            flag.store(true, Ordering::Release);
-        }));
-        (tap, receiver, cancelled)
-    }
     #[tokio::test]
-    async fn canonical_progress_stalled_receiver_bounds_native_cancellation_wait() {
-        let (tap, receiver, cancelled) = isolated_tap(Duration::from_millis(20));
-        let native = tap.clone();
-        let producer = std::thread::spawn(move || {
-            let event = Event {
-                phase: "counter".into(),
-                elapsed: Duration::ZERO,
-                values: BTreeMap::new(),
-                incumbent: None,
-            };
-            native.observe(&event);
-            native.observe(&event);
-        });
-        // Keep the saturated receiver alive and unscheduled: receiver liveness alone
-        // cannot hang a native run (including one cancelled while waiting).
-        tokio::time::timeout(
-            Duration::from_secs(1),
-            tokio::task::spawn_blocking(move || producer.join().unwrap()),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert!(cancelled.load(Ordering::Acquire));
-        assert!(tap.overflow.load(Ordering::Acquire));
-        drop(receiver);
-    }
-    #[tokio::test]
-    async fn canonical_progress_closed_receiver_releases_native_producer() {
-        let (tap, receiver, cancelled) = isolated_tap(Duration::from_secs(10));
-        drop(receiver);
-        let native = tap.clone();
-        let producer = std::thread::spawn(move || {
-            native.observe(&Event {
-                phase: "counter".into(),
-                elapsed: Duration::ZERO,
-                values: BTreeMap::new(),
-                incumbent: None,
-            })
-        });
-        tokio::time::timeout(
-            Duration::from_secs(1),
-            tokio::task::spawn_blocking(move || producer.join().unwrap()),
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert!(cancelled.load(Ordering::Acquire));
-        assert!(tap.overflow.load(Ordering::Acquire));
-    }
-
-    #[tokio::test]
-    async fn canonical_progress_backpressure_cancels_and_retains_integral_observation() {
+    async fn canonical_progress_saturation_records_loss_and_retains_integral_observation() {
         let (mut operations, fence) = claimed().await;
         operations.policy.batch = 1;
         let admitted = Arc::new(OnceLock::new());
         admitted.set(fence.clone()).unwrap();
-        let mut stream = Streamer::new(&operations, admitted);
-        let cancelled = Arc::new(AtomicBool::new(false));
-        let flag = cancelled.clone();
-        stream.tap.set_cancel(Arc::new(move || {
-            flag.store(true, Ordering::Release);
-        }));
+        let mut stream = Streamer::new(
+            &operations,
+            admitted,
+            PublicationAcks::new(&operations.pool),
+        );
         let event = Event {
             phase: "counter".into(),
             elapsed: Duration::from_millis(1),
@@ -3338,8 +4742,17 @@ mod canonical_durable_codec {
         };
         stream.tap.observe(&event);
         stream.tap.observe(&event);
-        assert!(cancelled.load(Ordering::Acquire));
-        assert!(stream.finish().await.is_err());
+        assert_eq!(
+            stream.finish().await,
+            super::super::ProgressCoverage::Sampled {
+                observed: 2,
+                queued: 1,
+                dropped_before_queue: 1,
+                acknowledged: 1,
+                unacknowledged: 0,
+                writer: super::super::ProgressWriterOutcome::Complete
+            }
+        );
         let read = admit(&operations, &fence).await;
         let descriptor = read
             .sets()
@@ -3356,6 +4769,325 @@ mod canonical_durable_codec {
         assert!(
             matches!(restored[0].values["counter"],super::super::ProgressMetricDocument::Integer(value) if value==(1_i64<<53)+17)
         );
+    }
+}
+
+#[cfg(test)]
+mod ordinary_progress_tests {
+    #![allow(
+        clippy::unwrap_used,
+        reason = "bounded telemetry controls inspect exact owned queue state"
+    )]
+    use super::super::{ProgressCoverage, ProgressWriterOutcome};
+    use super::*;
+    use pse_backend_native::solve::{IncumbentEvent, Metric};
+
+    #[test]
+    fn original_completion_precharge_refusal_precedes_clone_and_retains_owner() {
+        #[derive(Serialize)]
+        struct Original {
+            payload: String,
+            #[serde(skip)]
+            clones: Arc<AtomicU64>,
+        }
+        impl Clone for Original {
+            fn clone(&self) -> Self {
+                self.clones.fetch_add(1, Ordering::AcqRel);
+                Self {
+                    payload: self.payload.clone(),
+                    clones: self.clones.clone(),
+                }
+            }
+        }
+        let clones = Arc::new(AtomicU64::new(0));
+        let original = Original {
+            payload: "exact original".repeat(128),
+            clones: clones.clone(),
+        };
+        let tiny: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(1024),
+        );
+        assert!(copy_original_completion(&tiny, Some(&original), &()).is_err());
+        assert_eq!(clones.load(Ordering::Acquire), 0);
+        assert_eq!(tiny.reserved(), 0);
+        let pool: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(16 << 20),
+        );
+        let (copy, owner) = copy_original_completion(&pool, Some(&original), &()).unwrap();
+        assert_eq!(clones.load(Ordering::Acquire), 1);
+        assert_eq!(copy.as_ref().unwrap().payload, original.payload);
+        assert!(pool.reserved() > original.payload.len());
+        drop(copy);
+        assert!(pool.reserved() > 0);
+        drop(owner);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn publication_acknowledgment_owner_precharges_before_set_allocation() {
+        let tiny: Arc<dyn MemoryPool> =
+            Arc::new(datafusion::execution::memory_pool::GreedyMemoryPool::new(
+                RESULT_ACKNOWLEDGMENT_BYTES - 1,
+            ));
+        let refused = PublicationAcks::new(&tiny);
+        assert!(refused.admitted().is_err());
+        assert!(refused.state.lock().unwrap().is_none());
+        assert_eq!(tiny.reserved(), 0);
+        let pool: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(RESULT_ACKNOWLEDGMENT_BYTES),
+        );
+        let admitted = PublicationAcks::new(&pool);
+        assert_eq!(pool.reserved(), RESULT_ACKNOWLEDGMENT_BYTES);
+        assert!(admitted.state.lock().unwrap().is_none());
+        let writer = admitted.clone();
+        drop(admitted);
+        assert_eq!(pool.reserved(), RESULT_ACKNOWLEDGMENT_BYTES);
+        drop(writer);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn progress_readback_is_reserved_for_uncertain_publication_not_known_queue_loss() {
+        use super::super::{ProgressWriteStage, ProgressWriterFailure};
+        let coverage = |writer| ProgressCoverage::Sampled {
+            observed: 3,
+            queued: 2,
+            dropped_before_queue: 1,
+            acknowledged: 1,
+            unacknowledged: 1,
+            writer,
+        };
+        assert_eq!(
+            uncertain_progress_queue(&coverage(ProgressWriterOutcome::Failed(
+                ProgressWriterFailure {
+                    stage: ProgressWriteStage::CanonicalAppend
+                }
+            ))),
+            Some(2)
+        );
+        assert_eq!(
+            uncertain_progress_queue(&coverage(ProgressWriterOutcome::JoinFailed)),
+            Some(2)
+        );
+        assert_eq!(
+            uncertain_progress_queue(&coverage(ProgressWriterOutcome::Failed(
+                ProgressWriterFailure {
+                    stage: ProgressWriteStage::Encoding
+                }
+            ))),
+            None
+        );
+        assert_eq!(
+            uncertain_progress_queue(&ProgressCoverage::Sampled {
+                observed: 1,
+                queued: 1,
+                dropped_before_queue: 0,
+                acknowledged: 1,
+                unacknowledged: 0,
+                writer: ProgressWriterOutcome::Complete
+            }),
+            None
+        );
+        assert_eq!(uncertain_progress_queue(&ProgressCoverage::Unknown), None);
+    }
+    fn event() -> Event {
+        Event {
+            phase: "counter".into(),
+            elapsed: Duration::ZERO,
+            values: [("counter".into(), Metric::Integer((1_i64 << 53) + 7))].into(),
+            incumbent: None,
+        }
+    }
+    fn tap() -> (
+        Arc<Tap>,
+        tokio::sync::mpsc::Receiver<super::super::ProgressEventDocument>,
+    ) {
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        (Arc::new(Tap::new(Some(sender), None)), receiver)
+    }
+    fn loss(tap: &Tap, observed: u64, queued: u64, dropped: u64) {
+        assert_eq!(
+            tap.coverage(ProgressWriterOutcome::Complete),
+            ProgressCoverage::Sampled {
+                observed,
+                queued,
+                dropped_before_queue: dropped,
+                acknowledged: 0,
+                unacknowledged: queued,
+                writer: ProgressWriterOutcome::Complete
+            }
+        );
+    }
+    #[test]
+    fn ordinary_progress_synchronous_saturation_never_waits_for_receiver() {
+        let (tap, mut receiver) = tap();
+        let native = tap.clone();
+        let (finished, received) = std::sync::mpsc::channel();
+        let producer = std::thread::spawn(move || {
+            for _ in 0..1000 {
+                native.observe(&event());
+            }
+            finished.send(()).unwrap();
+        });
+        received.recv_timeout(Duration::from_secs(1)).unwrap();
+        producer.join().unwrap();
+        loss(&tap, 1000, 1, 999);
+        let retained = receiver.try_recv().unwrap();
+        assert_eq!(retained.sequence, Some(0));
+        assert!(
+            matches!(retained.values["counter"], super::super::ProgressMetricDocument::Integer(value) if value == (1_i64 << 53) + 7)
+        );
+    }
+    #[test]
+    fn ordinary_progress_concurrent_producers_preserve_recorded_sequence_order() {
+        let (sender, mut receiver) = tokio::sync::mpsc::channel(512);
+        let tap = Arc::new(Tap::new(Some(sender), None));
+        let barrier = Arc::new(std::sync::Barrier::new(8));
+        let producers = (0..8)
+            .map(|_| {
+                let tap = tap.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    for _ in 0..1000 {
+                        tap.observe(&event());
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        for producer in producers {
+            producer.join().unwrap();
+        }
+        let mut sequences = Vec::new();
+        while let Ok(event) = receiver.try_recv() {
+            sequences.push(event.sequence.unwrap());
+        }
+        assert!(!sequences.is_empty());
+        assert!(
+            sequences.windows(2).all(|pair| pair[0] < pair[1]),
+            "concurrent callbacks cannot overtake a retained observation"
+        );
+        let queued = sequences.len() as u64;
+        loss(&tap, 8000, queued, 8000 - queued);
+    }
+    #[tokio::test]
+    async fn ordinary_progress_async_saturation_and_closed_receiver_are_sampled_loss() {
+        let (tap, receiver) = tap();
+        tap.observe(&event());
+        tap.observe(&event());
+        drop(receiver);
+        tap.observe(&event());
+        loss(&tap, 3, 1, 2);
+    }
+    #[test]
+    fn ordinary_progress_oversized_strings_maps_and_lock_contention_drop_before_clone() {
+        let (tap, mut receiver) = tap();
+        let mut large = event();
+        large.phase = "x".repeat(PROGRESS_EVENT_BYTES);
+        tap.observe(&large);
+        large = event();
+        large.values.insert(
+            "text".into(),
+            Metric::Text("x".repeat(PROGRESS_EVENT_BYTES)),
+        );
+        tap.observe(&large);
+        large = event();
+        large.values = (0..1024)
+            .map(|index| (index.to_string(), Metric::Integer(index)))
+            .collect();
+        tap.observe(&large);
+        let guard = tap.sender.lock().unwrap();
+        tap.observe(&event());
+        drop(guard);
+        loss(&tap, 4, 0, 4);
+        assert!(receiver.try_recv().is_err());
+        // Rejected borrowed events do not consume a slot or an owned DTO.
+        let mut scalar = event();
+        scalar.incumbent = Some(IncumbentEvent {
+            objective: -0.,
+            dual_bound: None,
+            gap: None,
+            nodes: (1_i64 << 53) + 9,
+            seconds: 0.,
+            primal: Some(vec![1.; 100_000]),
+        });
+        tap.observe(&scalar);
+        let retained = receiver.try_recv().unwrap();
+        assert_eq!(retained.sequence, Some(4));
+        assert!(serde_json::to_vec(&retained).unwrap().len() < 2048);
+        assert_eq!(
+            scalar
+                .incumbent
+                .as_ref()
+                .unwrap()
+                .primal
+                .as_ref()
+                .unwrap()
+                .len(),
+            100_000
+        );
+    }
+    #[test]
+    fn ordinary_progress_refused_memory_disables_queue_and_escaped_tap_retains_admission() {
+        let tiny: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(1024),
+        );
+        assert!(progress_memory(&tiny, 1).is_none());
+        assert_eq!(tiny.reserved(), 0);
+        let disabled = Tap::new(None, None);
+        disabled.observe(&event());
+        assert_eq!(
+            disabled.coverage(ProgressWriterOutcome::MemoryRefused),
+            ProgressCoverage::Sampled {
+                observed: 1,
+                queued: 0,
+                dropped_before_queue: 1,
+                acknowledged: 0,
+                unacknowledged: 0,
+                writer: ProgressWriterOutcome::MemoryRefused
+            }
+        );
+        let pool: Arc<dyn MemoryPool> = Arc::new(
+            datafusion::execution::memory_pool::GreedyMemoryPool::new(16 << 20),
+        );
+        let memory = progress_memory(&pool, 1).unwrap();
+        let admitted = pool.reserved();
+        let tap = Arc::new(Tap::new(None, Some(memory)));
+        let escaped = tap.clone();
+        drop(tap);
+        assert_eq!(pool.reserved(), admitted);
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+    #[test]
+    fn ordinary_progress_counter_exhaustion_does_not_invent_complete_coverage() {
+        let (tap, _receiver) = tap();
+        tap.observed.store(u64::MAX, Ordering::Release);
+        tap.observe(&event());
+        assert_eq!(
+            tap.coverage(ProgressWriterOutcome::Complete),
+            ProgressCoverage::Unknown
+        );
+    }
+    #[test]
+    fn ordinary_progress_historical_completion_without_coverage_is_unknown() {
+        let stored = StoredCompletion {
+            version: 1,
+            attempt_id: pse_operations::mint_id(),
+            completion: None,
+            termination: detail(
+                TerminationCause::Assessment {
+                    usable: false,
+                    candidate_use: vec![],
+                    diagnostics: vec![],
+                },
+                false,
+            ),
+            state: AttemptState::Failed,
+            progress: ProgressCoverage::Unknown,
+        };
+        let mut historical = serde_json::to_value(stored).unwrap();
+        historical.as_object_mut().unwrap().remove("progress");
+        let decoded: StoredCompletion = serde_json::from_value(historical).unwrap();
+        assert_eq!(decoded.progress, ProgressCoverage::Unknown);
     }
 }
 

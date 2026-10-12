@@ -9,7 +9,9 @@ pub use controls::{
 };
 mod completion;
 mod connected_results;
+mod historical_results;
 pub mod result_blocks;
+pub use historical_results::HistoricalResultRebuilder;
 mod result_export;
 mod result_projection;
 pub use connected_results::CanonicalResultReader;
@@ -28,11 +30,14 @@ mod diagnostics;
 mod durable;
 pub use completion::Completion;
 pub use durable::{
-    Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability, SeedReadError,
-    TerminationCause, TerminationDetail,
+    AdmittedSeed, Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability,
+    SeedReadError, TerminationCause, TerminationDetail,
 };
 mod progress_documents;
-pub use progress_documents::{IncumbentDocument, ProgressEventDocument, ProgressMetricDocument};
+pub use progress_documents::{
+    IncumbentDocument, ProgressCoverage, ProgressEventDocument, ProgressMetricDocument,
+    ProgressWriteStage, ProgressWriterFailure, ProgressWriterOutcome,
+};
 mod progress;
 pub use progress::ProgressStream;
 mod bindings;
@@ -47,6 +52,10 @@ pub use native_deployment::{
     ManagedPrimaryReceiver, NativeAllocation, NativeExecutionAllocation, NativeExecutionSelection,
 };
 pub use worker::{PhysicalSource, Processed, WorkerSettings};
+mod study_demand;
+pub use study_demand::{
+    CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
+};
 mod study;
 mod study_execution;
 mod study_tables;
@@ -90,12 +99,14 @@ pub use strategies::{PreparedInitializationStrategy, PreparedRecycle};
     )
 )]
 mod dynamics;
+pub(crate) use dynamics::SnapshotAllocator;
 mod fitting;
 mod horizon;
 mod integrated;
 pub use horizon::{
     AdvancedStep, Arrival, Horizon, HorizonController, HorizonDecision, HorizonEstimator,
-    HorizonInput, HorizonReport, HorizonSignal, HorizonStep, WindowInput,
+    HorizonInput, HorizonOutcome, HorizonReport, HorizonRequest, HorizonSignal, HorizonStep,
+    WindowInput,
 };
 #[cfg(feature = "solver-diffsol")]
 mod shooting;
@@ -108,8 +119,8 @@ pub use fitting::{
 };
 #[cfg(feature = "solver-diffsol")]
 pub use shooting::{
-    PathBound, ShootingControl, ShootingMethod, ShootingObjective, ShootingProblem,
-    ShootingProfile, ShootingReport,
+    PathBound, ShootingControl, ShootingEvaluationPolicy, ShootingMethod, ShootingObjective,
+    ShootingProblem, ShootingProfile, ShootingReport,
 };
 mod physical;
 pub use physical::PhysicalContext;
@@ -119,7 +130,8 @@ pub use modeling::documents::{
     ConformanceControls, DeclarationEdit, DeclarationInventory, DiagnosticSamplesControls,
     InspectionConnection, InspectionExecution, InspectionInstance, InspectionLineage,
     InspectionMember, InspectionPort, JacobianDiagnosticControls, KnowledgeControls,
-    LinearDiagnosticControls, ModelingInspection, PureConformanceControls,
+    LinearDiagnosticControls, ModelingInspection, PureConformanceControls, SourceDelta,
+    SourceDocumentDelta, SourceFitDelta,
 };
 pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
@@ -155,7 +167,10 @@ pub(crate) mod tests;
 #[cfg(test)]
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
-use pse_engine::{EngineError, session::EngineFactory};
+use pse_engine::{
+    EngineError,
+    session::{BoundModel, EngineFactory},
+};
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 mod canonical;
@@ -203,7 +218,7 @@ pub enum WorkflowError {
     Engine(#[from] EngineError),
     /// Source document syntax or declared boundary failure.
     #[error(transparent)]
-    Authoring(#[from] crate::authoring_driver::DriverError),
+    Authoring(#[from] pse_admission::authoring_driver::DriverError),
     /// Shared immutable encoding failure with its full diagnostic cause.
     #[error(transparent)]
     Shared(Arc<WorkflowError>),
@@ -246,8 +261,7 @@ fn relation(error: pse_relations::RelationError) -> WorkflowError {
 #[derive(Clone, Debug)]
 pub struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
-    pub(crate) registry: Arc<pse_schema::Registry>,
-    pub(crate) sessions: Arc<EngineFactory>,
+    pub(crate) model: BoundModel,
     pub(crate) canonical: CanonicalDeployment,
     /// Application runs retain scientific outcomes; ephemerality is an explicit choice.
     pub(crate) durability: Durability,
@@ -266,11 +280,22 @@ pub enum DurabilitySelection {
         policy: LeasePolicy,
     },
 }
+impl DurabilitySelection {
+    fn validate(&self) -> Result<(), WorkflowError> {
+        if let Self::Durable { policy, .. } = self
+            && (policy.heartbeat.is_zero() || policy.lease.is_zero())
+        {
+            return Err(contract(
+                "durable heartbeat and lease intervals must be positive",
+            ));
+        }
+        Ok(())
+    }
+}
 impl Runtime {
-    pub(crate) fn validation_context(
-        &self,
-    ) -> Result<Arc<pse_relations::validate::ValidationContext>, WorkflowError> {
-        Ok(self.sessions.validation_context(&self.registry)?)
+    /// Actual immutable native admission owner retained by this runtime's bound model.
+    pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.model.validation_context()
     }
 
     /// Clear retained executable programs. Existing workers keep their owners and remain valid.
@@ -284,11 +309,10 @@ impl Runtime {
     /// A consumed factory service belongs to another deployment.
     pub fn from_shared(
         shared: Arc<SharedRuntime>,
-        registry: Arc<pse_schema::Registry>,
-        sessions: Arc<EngineFactory>,
+        model: BoundModel,
         canonical: CanonicalDeployment,
     ) -> Result<Self, WorkflowError> {
-        Self::check_deployment(&shared, &sessions)?;
+        Self::check_deployment(&shared, model.factory())?;
         let durability = Durability::Durable(Box::new(Operations::from_store(
             canonical.store().clone(),
             Operations::process_worker("runtime"),
@@ -300,8 +324,7 @@ impl Runtime {
         shared.caches().register_component(&component);
         Ok(Self {
             shared,
-            registry,
-            sessions,
+            model,
             canonical,
             durability,
             physical_cache,
@@ -376,14 +399,10 @@ impl Runtime {
         mut self,
         selection: DurabilitySelection,
     ) -> Result<Self, WorkflowError> {
+        selection.validate()?;
         self.durability = match selection {
             DurabilitySelection::Ephemeral => Durability::Ephemeral,
             DurabilitySelection::Durable { worker, policy } => {
-                if policy.heartbeat.is_zero() || policy.lease.is_zero() {
-                    return Err(contract(
-                        "durable heartbeat and lease intervals must be positive",
-                    ));
-                }
                 Durability::Durable(Box::new(Operations::from_store(
                     self.canonical.store().clone(),
                     worker,
@@ -412,12 +431,16 @@ impl Runtime {
     pub fn native(&self) -> &Arc<crate::math::MathService> {
         self.shared.math()
     }
+    /// Actual immutable native admission binding retained by this runtime.
+    pub fn bound_model(&self) -> &BoundModel {
+        &self.model
+    }
     /// The complete schema authority for generated declaration/result rows.
     pub fn registry(&self) -> &Arc<pse_schema::Registry> {
-        &self.registry
+        self.model.registry()
     }
     /// The engine factory sessions, artifacts and publications of this runtime use.
     pub fn sessions(&self) -> &Arc<EngineFactory> {
-        &self.sessions
+        self.model.factory()
     }
 }

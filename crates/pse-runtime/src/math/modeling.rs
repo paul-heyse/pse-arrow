@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite generic preparation uses the existing worker, cancellation and allocation owner.
-pub(crate) use super::preparation::{BasisKey, OwnedModelingFrontier, PreparedBasis};
+pub(crate) use super::preparation::{
+    BasisKey, OwnedModelingFrontier, PreparedBasis, bindings_bytes,
+};
 use super::{MathRuntimeError, MathService, Workspace};
 use pse_authoring::language::Declaration;
 use pse_columnar::{AllocationLease, flight::FlightCancellation};
@@ -74,15 +76,33 @@ pub(crate) fn source_revision(
     physical: &pse_ids::ContentHash,
     names: &BTreeMap<String, SemanticId>,
 ) -> pse_ids::roles::SourceRevisionHash {
+    source_revision_frame(
+        rows,
+        documents
+            .documents
+            .iter()
+            .map(|(id, document)| (*id, document.content_hash)),
+        physical,
+        names,
+    )
+}
+/// The same V4 stream over already authenticated immutable document identities.
+/// Editing source metadata does not require decoding unchanged data tables.
+pub(crate) fn source_revision_frame(
+    rows: &[Declaration],
+    documents: impl ExactSizeIterator<Item = (SemanticId, pse_ids::ContentHash)>,
+    physical: &pse_ids::ContentHash,
+    names: &BTreeMap<String, SemanticId>,
+) -> pse_ids::roles::SourceRevisionHash {
     use pse_model::SemanticFrame;
     let mut source = pse_ids::FramedHasher::new(pse_ids::Frame::ModelingSourceRevisionV4);
     source.u64(rows.len() as u64);
     for row in rows {
         row.frame(&mut source);
     }
-    source.u64(documents.documents.len() as u64);
-    for (id, document) in &documents.documents {
-        source.id(id).hash(&document.content_hash);
+    source.u64(documents.len() as u64);
+    for (id, content_hash) in documents {
+        source.id(&id).hash(&content_hash);
     }
     source.hash(physical);
     source.u64(names.len() as u64);
@@ -162,7 +182,7 @@ pub struct ModelingInner {
     pub configurations: BTreeMap<SemanticId, pse_math::implicit::Configuration>,
 }
 #[cfg(not(feature = "solver-kinsol"))]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct MissingInnerSolver;
 #[cfg(not(feature = "solver-kinsol"))]
 impl pse_math::implicit::InnerSolver for MissingInnerSolver {
@@ -172,8 +192,15 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
     fn minimum_order(&self) -> pse_kernels::DerivativeOrder {
         pse_kernels::DerivativeOrder::First
     }
+
+    fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+        Box::new(self.clone())
+    }
+}
+#[cfg(not(feature = "solver-kinsol"))]
+impl pse_math::implicit::InnerWorker for MissingInnerSolver {
     fn solve(
-        &self,
+        &mut self,
         _: Arc<pse_math::implicit::Problem>,
         _: &[f64],
         _: &pse_math::implicit::Options,
@@ -186,17 +213,10 @@ impl pse_math::implicit::InnerSolver for MissingInnerSolver {
 }
 impl MathService {
     /// Run authored pure expectations through the compiler without acquiring a solver.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one compiler job receives the workspace and revision with the specialization request, profile and cancellation driver"
-    )]
-    pub async fn modeling_point(
+    pub async fn modeling_point_prepared(
         self: &Arc<Self>,
         workspace: Workspace,
-        revision: ModelingRevision,
-        root: DeclarationId,
-        bindings: Bindings,
-        limits: Limits,
+        model: ModelingPreparation,
         profile: pse_compiler::workspace::Profile,
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::ModelingPointChecks, MathRuntimeError> {
@@ -208,15 +228,13 @@ impl MathService {
             driver.deadline(),
             move |flag| {
                 let _lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
+                let compiler = workspace.compiler.lock().map_err(|_| {
                     MathRuntimeError::Infrastructure("compiler lock poisoned".into())
                 })?;
-                compiler.publish_modeling_revision(revision.admitted.clone())?;
-                Ok(compiler.check_modeling_point(
-                    root,
-                    pse_modeling::specialize::root_instance(root),
-                    bindings,
-                    limits,
+                Ok(compiler.check_prepared_modeling_point(
+                    model.compiled(),
+                    model.solved().model(),
+                    model.solved().instance(),
                     &pse_math::binding::CaseValues {
                         scalars: BTreeMap::new(),
                     },
@@ -713,18 +731,13 @@ impl MathService {
     ) -> Result<super::Preparation, MathRuntimeError> {
         self.rebind_scoped(prepared, values, driver, None).await
     }
-    async fn rebind_scoped(
+    pub(super) async fn rebind_scoped(
         self: &Arc<Self>,
         prepared: &super::Preparation,
         values: pse_math::binding::CaseValues,
         driver: &crate::CancelSource,
         deadline: Option<std::time::Instant>,
     ) -> Result<super::Preparation, MathRuntimeError> {
-        enum Comparison {
-            Unchanged,
-            Sharing(Box<pse_compiler::workspace::PreparedCase>),
-            Rebuild(pse_math::binding::CaseValues),
-        }
         // Both phases share the enclosing clock or one admission-only cutoff.
         // A comparison needing Derived::complete or frozen-value validation copies
         // metadata only after bounded population/CPU/pool admission.
@@ -744,33 +757,16 @@ impl MathService {
             control.clone(),
             deadline,
             entry,
-            move |flag| {
-                if compiled.values_match(&values) {
-                    let completed = compiled.derived.complete(&values);
-                    if compiled.coefficient_values.iter().all(|(id, bits)| {
-                        completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits)
-                    }) {
-                        compiled
-                            .plan
-                            .structure()
-                            .validate_frozen_values(&completed)?;
-                        return Ok((Comparison::Unchanged, 0));
-                    }
-                    let rebound = compiled.rebind(&values, &flag)?;
-                    let bytes = rebound.rebind_allocation_bytes(&compiled);
-                    return Ok((Comparison::Sharing(Box::new(rebound)), bytes));
-                }
-                Ok((Comparison::Rebuild(values), 0))
-            },
+            move |flag| compare_rebind(&compiled, values, &flag),
         );
         tokio::pin!(comparison);
         let (comparison, lease) = tokio::select! {result=&mut comparison=>result?,()=driver.cancelled()=>{control.cancel();let _=comparison.await;return Err(MathRuntimeError::Cancelled);}};
         let values = match comparison {
-            Comparison::Unchanged => {
+            RebindComparison::Unchanged => {
                 self.count(|p| &p.shared);
                 return Ok(prepared.clone());
             }
-            Comparison::Sharing(rebound) => {
+            RebindComparison::Sharing(rebound) => {
                 self.count(|p| &p.shared);
                 // Release the temporary box before own_rebind allocates its two
                 // retained PreparedCase owners under the same binding lease.
@@ -780,7 +776,7 @@ impl MathService {
                 };
                 return self.own_rebind(prepared, rebound, lease);
             }
-            Comparison::Rebuild(values) => values,
+            RebindComparison::Rebuild(values) => values,
         };
         drop(lease);
         let compiled = prepared.prepared.clone();
@@ -803,28 +799,34 @@ impl MathService {
         self.count(|p| &p.rebuilt);
         self.own_rebind(prepared, rebound, lease)
     }
-    /// Rebind inside an existing attempt, including CPU waiting and late completion.
+    /// Rebind on an enclosing serial owner after its complete constructor envelope
+    /// has been reserved. Product comparison is shared with ordinary async rebinds.
     #[cfg(feature = "solver-kinsol")]
-    pub(crate) async fn rebind_within(
-        self: &Arc<Self>,
+    pub(super) fn rebind_local(
+        &self,
         prepared: &super::Preparation,
         values: pse_math::binding::CaseValues,
-        driver: &crate::CancelSource,
-        scope: pse_kernels::ExecutionScope,
+        flag: &Arc<std::sync::atomic::AtomicBool>,
+        lease: Arc<AllocationLease>,
     ) -> Result<super::Preparation, MathRuntimeError> {
-        // This direct job owns its original deadline and completion drain. A
-        // shared-loader waiter may abandon a loader; a rebind must await its own
-        // admitted operation so deadline refusal has released the population ticket.
-        scope
-            .check()
-            .map_err(pse_backend_native::ProblemError::Provider)?;
-        let result = self
-            .rebind_scoped(prepared, values, driver, scope.deadline())
-            .await?;
-        scope
-            .check()
-            .map_err(pse_backend_native::ProblemError::Provider)?;
-        Ok(result)
+        let compiled = &prepared.prepared;
+        let (comparison, _) = compare_rebind(compiled, values, flag)?;
+        let rebound = match comparison {
+            RebindComparison::Unchanged => {
+                self.count(|p| &p.shared);
+                return Ok(prepared.clone());
+            }
+            RebindComparison::Sharing(rebound) => {
+                self.count(|p| &p.shared);
+                *rebound
+            }
+            RebindComparison::Rebuild(values) => {
+                self.count(|p| &p.rebuilt);
+                compiled.rebind(&values, flag)?
+            }
+        };
+        let bytes = rebound.rebind_allocation_bytes(compiled);
+        self.own_rebind(prepared, rebound, retained_construction(lease, bytes)?)
     }
     /// Own immutable generated declarations and their package data documents under the
     /// deployment pool.
@@ -836,44 +838,76 @@ impl MathService {
         documents: Arc<pse_modeling::document::DocumentInventory>,
         physical: &pse_ids::ContentHash,
     ) -> Result<ModelingRevision, MathRuntimeError> {
+        let reservation =
+            pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
+        self.pressure
+            .try_grow(&reservation, self.policy.workspace_bytes / 2)?;
+        self.admit_modeling_revision(
+            workspace,
+            rows,
+            scope,
+            documents,
+            physical,
+            reservation,
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            &BTreeMap::new(),
+        )
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one precharged source candidate owns its workspace, exact context and cooperative cancellation"
+    )]
+    fn admit_modeling_revision(
+        &self,
+        workspace: &Workspace,
+        rows: Vec<Declaration>,
+        scope: pse_modeling::PhysicalScope,
+        documents: Arc<pse_modeling::document::DocumentInventory>,
+        physical: &pse_ids::ContentHash,
+        reservation: datafusion::execution::memory_pool::MemoryReservation,
+        cancel: Arc<std::sync::atomic::AtomicBool>,
+        suppliers: &BTreeMap<DeclarationId, DeclarationId>,
+    ) -> Result<ModelingRevision, MathRuntimeError> {
         let bytes = rows
             .owned_bytes()
-            .saturating_add(
-                scope
-                    .documents
-                    .as_ref()
-                    .map_or(0, |d| d.len() * (size_of::<SemanticId>() + 32)),
-            )
             .saturating_add(documents.retained_bytes());
         if bytes > self.policy.workspace_bytes / 2 {
             return Err(MathRuntimeError::Limit("modeling source bytes"));
         }
-        // The source rows are charged before building checked state inside the
-        // workspace's lease; the retained lease then takes the revision's actual extent.
-        let reservation =
-            pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
-        self.pressure.try_grow(&reservation, bytes)?;
+        let mut supplier_refused = false;
         let admitted = workspace
             .compiler
             .lock()
             .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
-            .publish_modeling_with(rows, scope, documents)?;
+            .publish_modeling_with_validation(rows, scope, documents, cancel, |candidate| {
+                for (record, supplier) in suppliers {
+                    if candidate.record(*record).map(|record| record.origin) != Some(*supplier) {
+                        supplier_refused = true;
+                        return Err(pse_compiler::workspace::CompileError::Missing(
+                            "canonical record supplier differs from admitted scientific identity"
+                                .into(),
+                        ));
+                    }
+                }
+                Ok(())
+            });
+        if supplier_refused {
+            return Err(MathRuntimeError::Infrastructure(
+                "canonical record supplier differs from admitted scientific identity".into(),
+            ));
+        }
+        let admitted = admitted?;
         let identity = source_revision(
             admitted.declarations(),
             admitted.documents(),
             physical,
             &admitted.physical_bindings(),
         );
-        if admitted.retained_bytes() > self.policy.workspace_bytes / 2 {
-            return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
-        }
         let retained = admitted.retained_bytes();
         if retained > reservation.size() {
-            self.pressure
-                .try_grow(&reservation, retained - reservation.size())?;
-        } else {
-            reservation.try_resize(retained)?;
+            return Err(MathRuntimeError::Limit("modeling admitted source bytes"));
         }
+        reservation.try_resize(retained)?;
         Ok(ModelingRevision {
             identity,
             admitted,
@@ -895,6 +929,7 @@ impl MathService {
         limits: Limits,
         driver: &crate::CancelSource,
     ) -> Result<pse_compiler::workspace::SemanticModeling, MathRuntimeError> {
+        let service = self.clone();
         let control = FlightCancellation::default();
         let operation = self.job_retained_scoped(
             1,
@@ -902,14 +937,12 @@ impl MathService {
             control.clone(),
             driver.deadline(),
             move |flag| {
-                let _workspace_lease = workspace.lease;
-                let mut compiler = workspace.compiler.lock().map_err(|_| {
-                    MathRuntimeError::Infrastructure("compiler lock poisoned".into())
-                })?;
-                compiler.publish_modeling_revision(revision.admitted.clone())?;
-                let product = compiler.prepare_semantic_modeling_cancellable(
-                    root, instance, bindings, limits, flag,
-                )?;
+                let product =
+                    service.with_modeling_compiler(&workspace, &revision, |compiler| {
+                        Ok(compiler.prepare_semantic_modeling_cancellable(
+                            root, instance, bindings, limits, flag,
+                        )?)
+                    })?;
                 let bytes = product.retained_bytes();
                 Ok((product, bytes))
             },
@@ -980,6 +1013,7 @@ mod tests {
         let id = pse_ids::named_id(SemanticId::from_bytes([5; 16]), "data/t.parquet");
         DocumentInventory {
             field_spans: BTreeMap::new(),
+            parsed_fields: Default::default(),
             packages: BTreeMap::new(),
             documents: BTreeMap::from([(
                 id,
@@ -1053,3 +1087,311 @@ mod tests {
         );
     }
 }
+
+/// The one value-dependent product comparison, used by async and local owners.
+enum RebindComparison {
+    Unchanged,
+    Sharing(Box<pse_compiler::workspace::PreparedCase>),
+    Rebuild(pse_math::binding::CaseValues),
+}
+fn compare_rebind(
+    compiled: &pse_compiler::workspace::PreparedCase,
+    values: pse_math::binding::CaseValues,
+    flag: &Arc<std::sync::atomic::AtomicBool>,
+) -> Result<(RebindComparison, usize), MathRuntimeError> {
+    if compiled.values_match(&values) {
+        let completed = compiled.derived.complete(&values);
+        if compiled
+            .coefficient_values
+            .iter()
+            .all(|(id, bits)| completed.scalars.get(id).map(|v| v.to_bits()) == Some(*bits))
+        {
+            compiled
+                .plan
+                .structure()
+                .validate_frozen_values(&completed)?;
+            return Ok((RebindComparison::Unchanged, 0));
+        }
+        let rebound = compiled.rebind(&values, flag)?;
+        let bytes = rebound.rebind_allocation_bytes(compiled);
+        return Ok((RebindComparison::Sharing(Box::new(rebound)), bytes));
+    }
+    Ok((RebindComparison::Rebuild(values), 0))
+}
+/// Retained products receive their part of the preconstruction lease without a gap.
+#[cfg(feature = "solver-kinsol")]
+pub(super) fn retained_construction(
+    lease: Arc<AllocationLease>,
+    bytes: usize,
+) -> Result<Arc<AllocationLease>, MathRuntimeError> {
+    let mut parts = lease.partition(&[bytes]).map_err(|_| {
+        MathRuntimeError::Infrastructure(
+            "local retained payload exceeds its unique construction lease".into(),
+        )
+    })?;
+    parts
+        .pop()
+        .ok_or_else(|| MathRuntimeError::Infrastructure("local construction lease missing".into()))
+}
+
+/// Exact issuing-store and local interpretation owners of a live compiler lineage.
+#[derive(Clone, Debug)]
+pub(crate) struct CompilerLineage {
+    endpoint: String,
+    namespace: String,
+    database: String,
+    issuing_store: String,
+    problem: String,
+    interpretation: String,
+    validation: usize,
+    registry: Arc<pse_schema::Registry>,
+    _validation_owner: pse_engine::session::BoundModel,
+}
+impl PartialEq for CompilerLineage {
+    fn eq(&self, other: &Self) -> bool {
+        self.endpoint == other.endpoint
+            && self.namespace == other.namespace
+            && self.database == other.database
+            && self.issuing_store == other.issuing_store
+            && self.problem == other.problem
+            && self.interpretation == other.interpretation
+            && self.validation == other.validation
+            && Arc::ptr_eq(&self.registry, &other.registry)
+    }
+}
+impl CompilerLineage {
+    pub(crate) fn new(
+        store: &pse_operations::canonical::CanonicalStore,
+        problem: &str,
+        interpretation: &str,
+        validation: &Arc<pse_engine::session::EngineFactory>,
+        registry: Arc<pse_schema::Registry>,
+        owner: pse_engine::session::BoundModel,
+    ) -> Result<Self, MathRuntimeError> {
+        Ok(Self {
+            endpoint: store.endpoint().into(),
+            namespace: store.namespace().into(),
+            database: store.database().into(),
+            issuing_store: store
+                .issuing_store()
+                .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
+                .into(),
+            problem: problem.into(),
+            interpretation: interpretation.into(),
+            validation: Arc::as_ptr(validation) as usize,
+            registry,
+            _validation_owner: owner,
+        })
+    }
+    fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.endpoint.capacity()
+            + self.namespace.capacity()
+            + self.database.capacity()
+            + self.issuing_store.capacity()
+            + self.problem.capacity()
+            + self.interpretation.capacity()
+            + 256
+    }
+}
+/// Protected canonical ordering, separate from source/mathematical equality.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct LaneStamp {
+    sequence: u64,
+    revision: String,
+}
+impl LaneStamp {
+    pub(crate) fn new(revision: &pse_operations::canonical::Revision) -> Self {
+        Self {
+            sequence: revision.sequence,
+            revision: revision.key.clone(),
+        }
+    }
+    fn precedes(&self, head: &Self) -> bool {
+        self.sequence < head.sequence
+            || self.sequence == head.sequence && self.revision != head.revision
+    }
+}
+pub(super) struct CompilerLane {
+    lineage: CompilerLineage,
+    inputs: pse_compiler::workspace::CompilerContext,
+    workspace: Workspace,
+    _metadata: Arc<AllocationLease>,
+}
+impl MathService {
+    /// Drop idle retained generations; products retain their own original allocation owners.
+    pub(crate) fn trim_compiler_lanes(&self) {
+        if let Ok(mut lanes) = self.compiler_lanes.lock() {
+            lanes.retain(|lane| Arc::strong_count(&lane.workspace.compiler) > 1);
+        }
+    }
+    /// Retain one bounded idle generation per complete live lineage/context.
+    /// Active borrowers may outlive eviction, charged by their workspace owner.
+    pub(crate) fn compiler_lane(
+        self: &Arc<Self>,
+        lineage: CompilerLineage,
+        inputs: pse_compiler::workspace::CompilerContext,
+    ) -> Result<Workspace, MathRuntimeError> {
+        {
+            let mut lanes = self.compiler_lanes.lock().map_err(|_| {
+                MathRuntimeError::Infrastructure("compiler lane map poisoned".into())
+            })?;
+            if let Some(index) = lanes
+                .iter()
+                .position(|lane| lane.lineage == lineage && lane.inputs == inputs)
+            {
+                let lane = lanes.remove(index);
+                let result = lane.workspace.clone();
+                lanes.push(lane);
+                return Ok(result);
+            }
+            // Each resident owns a policy-sized charged generation. Preserve idle
+            // reuse until bounded capacity or actual allocation pressure requires trim.
+            if lanes.len() >= self.policy.jobs.max(1)
+                && lanes
+                    .iter()
+                    .all(|lane| Arc::strong_count(&lane.workspace.compiler) > 1)
+            {
+                return Err(MathRuntimeError::Limit(
+                    "retained compiler lane capacity is borrowed",
+                ));
+            }
+        }
+        let metadata = self.reserve("modeling:compiler-lineage", lineage.retained_bytes())?;
+        let workspace = match self.workspace(
+            inputs.clone(),
+            pse_compiler::workspace::WorkspaceLimits::default(),
+        ) {
+            Ok(workspace) => workspace,
+            Err(error) => {
+                self.trim_compiler_lanes();
+                return Err(error);
+            }
+        };
+        let mut lanes = self
+            .compiler_lanes
+            .lock()
+            .map_err(|_| MathRuntimeError::Infrastructure("compiler lane map poisoned".into()))?;
+        if let Some(lane) = lanes
+            .iter()
+            .find(|lane| lane.lineage == lineage && lane.inputs == inputs)
+        {
+            return Ok(lane.workspace.clone());
+        }
+        // A borrowed resident is the sole writer for its exact lineage. Evicting it
+        // would allow a later request to manufacture a second concurrent writer.
+        while lanes.len() >= self.policy.jobs.max(1) {
+            let Some(index) = lanes
+                .iter()
+                .position(|lane| Arc::strong_count(&lane.workspace.compiler) == 1)
+            else {
+                return Err(MathRuntimeError::Limit(
+                    "retained compiler lane capacity is borrowed",
+                ));
+            };
+            lanes.remove(index);
+        }
+        lanes.push(CompilerLane {
+            lineage,
+            inputs,
+            workspace: workspace.clone(),
+            _metadata: metadata,
+        });
+        Ok(workspace)
+    }
+    /// Run preparation under the exact head, or a separately charged detached lane.
+    /// The comparison and current-lane operation share the same exclusive compiler guard.
+    pub(crate) fn with_modeling_compiler<T>(
+        self: &Arc<Self>,
+        workspace: &Workspace,
+        revision: &ModelingRevision,
+        operation: impl FnOnce(
+            &mut pse_compiler::workspace::CompilerWorkspace,
+        ) -> Result<T, MathRuntimeError>,
+    ) -> Result<T, MathRuntimeError> {
+        let mut compiler = workspace
+            .compiler
+            .lock()
+            .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?;
+        if !compiler.has_modeling_revision()
+            || compiler.selects_modeling_revision(&revision.admitted)
+        {
+            if !compiler.has_modeling_revision() {
+                compiler.publish_modeling_revision(revision.admitted.clone())?;
+            }
+            return operation(&mut compiler);
+        }
+        let inputs = compiler.context();
+        drop(compiler);
+        let detached =
+            self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
+        let mut compiler = detached.compiler.lock().map_err(|_| {
+            MathRuntimeError::Infrastructure("detached compiler lock poisoned".into())
+        })?;
+        compiler.publish_modeling_revision(revision.admitted.clone())?;
+        operation(&mut compiler)
+    }
+    /// Admit a freshly protected source without letting an older/branch request rewind the live head.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "protected source admission carries its complete context, ordering, cancellation and supplier obligations"
+    )]
+    pub(crate) fn modeling_revision_at(
+        self: &Arc<Self>,
+        workspace: &Workspace,
+        rows: Vec<Declaration>,
+        scope: pse_modeling::PhysicalScope,
+        documents: Arc<pse_modeling::document::DocumentInventory>,
+        physical: &pse_ids::ContentHash,
+        stamp: LaneStamp,
+        cancel: Arc<std::sync::atomic::AtomicBool>,
+        suppliers: &BTreeMap<DeclarationId, DeclarationId>,
+    ) -> Result<ModelingRevision, MathRuntimeError> {
+        // Reserve retained source capacity before taking publication ownership.
+        let reservation =
+            pse_columnar::MemoryConsumer::new("modeling:source-revision").register(&self.pool);
+        self.pressure
+            .try_grow(&reservation, self.policy.workspace_bytes / 2)?;
+        let mut head = workspace
+            .lane_head
+            .lock()
+            .map_err(|_| MathRuntimeError::Infrastructure("compiler lane head poisoned".into()))?;
+        if head.as_ref().is_some_and(|prior| stamp.precedes(prior)) {
+            drop(head);
+            let inputs = workspace
+                .compiler
+                .lock()
+                .map_err(|_| MathRuntimeError::Infrastructure("compiler lock poisoned".into()))?
+                .context();
+            let detached =
+                self.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
+            return self.admit_modeling_revision(
+                &detached,
+                rows,
+                scope,
+                documents,
+                physical,
+                reservation,
+                cancel,
+                suppliers,
+            );
+        }
+        let result = self.admit_modeling_revision(
+            workspace,
+            rows,
+            scope,
+            documents,
+            physical,
+            reservation,
+            cancel,
+            suppliers,
+        );
+        if result.is_ok() {
+            *head = Some(stamp);
+        }
+        result
+    }
+}
+
+#[cfg(test)]
+mod lane_tests;

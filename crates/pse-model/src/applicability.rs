@@ -378,6 +378,15 @@ impl Node {
             Outcome::Applicable
         }
     }
+    /// Test the same required-claim gates as full assessment without cloning
+    /// declaration metadata. Numerical callers retain inputs for later hydration.
+    pub fn admits(&self, predicates: &[bool]) -> bool {
+        let mut admitted = true;
+        self.visit(predicates, true, &mut |_, _, _, _, _, allowed| {
+            admitted &= allowed
+        });
+        admitted
+    }
     fn observe(
         &self,
         predicates: &[bool],
@@ -385,61 +394,83 @@ impl Node {
         required: bool,
         assessment: &mut Assessment,
     ) {
+        self.visit(
+            predicates,
+            required,
+            &mut |node, outcome, required, unknown_allowed, extrapolation_allowed, admitted| {
+                if !admitted {
+                    assessment.refused.push(assessment.observations.len());
+                }
+                assessment.observations.push(Observation {
+                    claim: node.claim.clone(),
+                    instance: None,
+                    inputs: node
+                        .inputs
+                        .iter()
+                        .filter_map(|(name, i, quantity_type)| {
+                            values.get(*i).map(|value| Input {
+                                name: name.clone(),
+                                value: *value,
+                                quantity_type: *quantity_type,
+                            })
+                        })
+                        .collect(),
+                    outcome,
+                    required,
+                    permissions: node
+                        .permissions
+                        .iter()
+                        .filter(|p| p.covers(&node.claim))
+                        .cloned()
+                        .collect(),
+                    unknown_allowed,
+                    extrapolation_allowed,
+                    admitted,
+                });
+            },
+        );
+    }
+    fn visit(
+        &self,
+        predicates: &[bool],
+        required: bool,
+        visit: &mut impl FnMut(&Self, Outcome, bool, bool, bool, bool),
+    ) {
         let outcome = self.classification(predicates);
-        let permissions = self
+        let (unknown_allowed, extrapolation_allowed) = self
             .permissions
             .iter()
             .filter(|p| p.covers(&self.claim))
-            .cloned()
-            .collect::<Vec<_>>();
-        let unknown_allowed = permissions.iter().any(|p| p.allow_unknown);
-        let extrapolation_allowed = permissions.iter().any(|p| p.allow_extrapolation);
+            .fold((false, false), |(unknown, outside), permission| {
+                (
+                    unknown || permission.allow_unknown,
+                    outside || permission.allow_extrapolation,
+                )
+            });
         let admitted = !required
             || match outcome {
                 Outcome::Applicable => true,
                 Outcome::UnknownEvidence => unknown_allowed,
                 Outcome::OutsideRegion => extrapolation_allowed,
             };
-        if !admitted {
-            assessment.refused.push(assessment.observations.len());
-        }
-        assessment.observations.push(Observation {
-            claim: self.claim.clone(),
-            instance: None,
-            inputs: self
-                .inputs
-                .iter()
-                .filter_map(|(name, i, quantity_type)| {
-                    values.get(*i).map(|value| Input {
-                        name: name.clone(),
-                        value: *value,
-                        quantity_type: *quantity_type,
-                    })
-                })
-                .collect(),
+        visit(
+            self,
             outcome,
             required,
-            permissions,
             unknown_allowed,
             extrapolation_allowed,
             admitted,
-        });
+        );
         if let Region::Union(children) = &self.region {
-            // Nonwinning fit regions are retained, but do not individually gate a union.
             let winner = children
                 .iter()
                 .position(|n| n.effective_classification(predicates) == outcome);
             for (i, child) in children.iter().enumerate() {
-                child.observe(
-                    predicates,
-                    values,
-                    required && winner == Some(i),
-                    assessment,
-                );
+                child.visit(predicates, required && winner == Some(i), visit);
             }
         }
         for dependency in &self.dependencies {
-            dependency.observe(predicates, values, required, assessment);
+            dependency.visit(predicates, required, visit);
         }
     }
 }

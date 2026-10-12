@@ -28,8 +28,7 @@ pub(crate) fn runtime(owner: &WorkflowRuntime) -> Runtime {
     owner.register_fixture(store.clone()).unwrap();
     Runtime::from_shared(
         owner.runtime.clone(),
-        owner.registry.clone(),
-        owner.sessions.clone(),
+        owner.model.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
@@ -79,16 +78,16 @@ pub(crate) async fn physical(owner: &WorkflowRuntime) -> pse_runtime::workflow::
         .join("packages/reference/physical");
     let texts = package_documents(&root);
     let pool = owner.runtime.pool();
-    let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
+    let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
         &texts,
-        &owner.registry,
+        owner.model.registry(),
         Default::default(),
         &pool,
         &owner.cancel,
-        &owner.sessions.validation_context(&owner.registry).unwrap(),
+        &owner.model.validation_context(),
     )
     .unwrap();
-    let documents = pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+    let documents = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         vec![bundle],
         &pool,
         &owner.cancel,
@@ -161,7 +160,9 @@ pub(crate) async fn seed_package_on(
     owner: &WorkflowRuntime,
     runtime: Runtime,
 ) -> pse_runtime::workflow::ModelingPackage {
-    use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+    use pse_admission::authoring_driver::document::{
+        OwnedDocumentSet, load_package_documents_owned,
+    };
 
     let root = fixture("")
         .ancestors()
@@ -191,11 +192,11 @@ pub(crate) async fn seed_package_on(
     .map(|name| {
         load_package_documents_owned(
             &package_documents(&root.join(name)),
-            &owner.registry,
+            owner.model.registry(),
             Default::default(),
             &pool,
             &owner.cancel,
-            &owner.sessions.validation_context(&owner.registry).unwrap(),
+            &owner.model.validation_context(),
         )
         .unwrap()
     })

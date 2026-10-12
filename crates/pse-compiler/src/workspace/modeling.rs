@@ -9,6 +9,7 @@ use pse_modeling::{
     TypeContext,
 };
 use salsa::Setter;
+pub(super) mod granular;
 
 /// Bounded immutable body retention owned by the mathematics service. No database
 /// handles or attempt workers cross this interface; cache state never defines meaning.
@@ -72,7 +73,7 @@ fn document_table_heap(v: &Result<Arc<DocumentTable>>) -> usize {
 /// yet published is checked (`pending`), rows are admitted against it without a memo, so no
 /// result of the previous registry is read.
 struct TrackedDocuments<'a> {
-    db: &'a CompilerDatabase,
+    db: &'a dyn CompilerDb,
     inventory: Inventory,
     documents: &'a DocumentInventory,
     inputs: &'a BTreeMap<SemanticId, DataDocumentInput>,
@@ -89,12 +90,18 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
     ) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> {
         self.documents.field_spans.get(&declaration)
     }
+    fn parsed_fields(
+        &self,
+        declaration: DeclarationId,
+    ) -> Option<&Arc<pse_modeling::expression::occurrences::ParsedFields>> {
+        self.documents.parsed_fields.get(&declaration)
+    }
     fn preflight(
         &self,
         _at: DeclarationId,
         bytes: usize,
     ) -> std::result::Result<(), pse_modeling::ModelingError> {
-        if self.db.cancel.load(Ordering::Relaxed) {
+        if self.db.cancel().load(Ordering::Relaxed) {
             return Err(pse_modeling::ModelingError::Cancelled);
         }
         let next = self.admission_bytes.get().saturating_add(bytes);
@@ -153,15 +160,17 @@ impl pse_modeling::document::Documents for TrackedDocuments<'_> {
         let key = PlanKey::new(self.db, Arc::clone(plan));
         let db = self.db;
         let inventory = self.inventory;
-        salsa::Cancelled::catch(|| document_table(db, inventory, key, *input))
-            .map_err(|_| pse_modeling::ModelingError::Cancelled)?
-            .map_err(|error| match error {
-                CompileError::Modeling(error) => error,
-                other => pse_modeling::ModelingError::Contract {
-                    declaration: plan.dataset.into(),
-                    message: other.to_string(),
-                },
-            })
+        salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
+            document_table(db, inventory, key, *input)
+        }))
+        .map_err(|_| pse_modeling::ModelingError::Cancelled)?
+        .map_err(|error| match error {
+            CompileError::Modeling(error) => error,
+            other => pse_modeling::ModelingError::Contract {
+                declaration: plan.dataset.into(),
+                message: other.to_string(),
+            },
+        })
     }
 }
 
@@ -384,6 +393,42 @@ impl CompilerWorkspace {
         scope: impl Into<Arc<PhysicalScope>>,
         documents: Arc<DocumentInventory>,
     ) -> Result<Arc<ModelingRevision>> {
+        self.publish_modeling_with_cancellable(
+            rows,
+            scope,
+            documents,
+            Arc::new(AtomicBool::new(false)),
+        )
+    }
+    /// Stage and publish one candidate under the caller's cooperative cancellation scope.
+    /// # Errors
+    /// Cancellation and all normal admission refusals preserve the preceding head.
+    pub fn publish_modeling_with_cancellable(
+        &mut self,
+        rows: impl Into<Arc<Vec<Declaration>>>,
+        scope: impl Into<Arc<PhysicalScope>>,
+        documents: Arc<DocumentInventory>,
+        cancel: Arc<AtomicBool>,
+    ) -> Result<Arc<ModelingRevision>> {
+        self.publish_modeling_with_validation(rows, scope, documents, cancel, |_| Ok(()))
+    }
+    /// Validate consumer-owned source obligations before the admitted head commits.
+    /// The validation receives an immutable complete candidate and cannot query this lane.
+    /// # Errors
+    /// Semantic, consumer-validation and cancellation failures preserve the previous head.
+    pub fn publish_modeling_with_validation(
+        &mut self,
+        rows: impl Into<Arc<Vec<Declaration>>>,
+        scope: impl Into<Arc<PhysicalScope>>,
+        documents: Arc<DocumentInventory>,
+        cancel: Arc<AtomicBool>,
+        validate_candidate: impl FnOnce(&CheckedPackage) -> Result<()>,
+    ) -> Result<Arc<ModelingRevision>> {
+        if cancel.load(Ordering::Acquire) {
+            return Err(CompileError::Cancelled);
+        }
+        self.db.cancel = cancel;
+
         use pse_model::HeapUsage;
         let rows = rows.into();
         let scope = scope.into();
@@ -392,6 +437,7 @@ impl CompilerWorkspace {
             && state.revision.scope == scope
             && state.revision.documents == documents
         {
+            validate_candidate(&state.revision.checked)?;
             return Ok(state.revision.clone());
         }
         if rows
@@ -405,78 +451,82 @@ impl CompilerWorkspace {
         if rows.len() > self.limits.query_values.saturating_mul(1024) {
             return Err(CompileError::Limit("modeling declarations"));
         }
-        let checked = Arc::new(self.check_modeling(&rows, &scope, &documents, None)?);
-        let revision = revision(rows, scope, documents, checked);
-        if revision.input_bytes > self.limits.input_bytes {
-            return Err(CompileError::Limit("modeling input bytes"));
+        let prior = self.modeling.as_ref().map(|state| state.revision.clone());
+        let candidate = (|| {
+            let checked = Arc::new(self.check_modeling(&rows, &scope, &documents)?);
+            validate_candidate(&checked)?;
+            let revision = revision(rows, scope, documents, checked);
+            if revision.input_bytes > self.limits.input_bytes {
+                return Err(CompileError::Limit("modeling input bytes"));
+            }
+            if self.db.cancel.load(Ordering::Acquire) {
+                return Err(CompileError::Cancelled);
+            }
+            self.publish_modeling_revision(revision.clone())?;
+            if self.retention_exceeded() {
+                self.rebuild(self.inputs.clone())?;
+            }
+            if self.db.cancel.load(Ordering::Acquire) {
+                return Err(CompileError::Cancelled);
+            }
+            Ok(revision)
+        })();
+        if candidate.is_err() {
+            // Setters are not a transaction. A failed or cancelled batch cannot
+            // expose candidate-only inputs: rotate, reset cancellation and republish
+            // the exact detached admitted head without running the checker again.
+            let generation = self.generation.saturating_add(1);
+            let mut restored = Self::new(self.inputs.clone(), self.limits)?;
+            restored.db.body_retention = self.db.body_retention.clone();
+            if let Some(prior) = prior {
+                restored.publish_modeling_revision(prior)?;
+            }
+            restored.generation = generation;
+            *self = restored;
         }
-        self.publish_modeling_revision(revision.clone())?;
-        Ok(revision)
+        candidate
     }
-    /// Check `rows` with their data documents, updating each input when its interpreted
-    /// identity or rows change, so equal plans reuse their admitted rows.
+    /// Whether this generation currently selects the exact detached admitted source.
+    pub fn selects_modeling_revision(&self, revision: &Arc<ModelingRevision>) -> bool {
+        self.modeling.as_ref().is_some_and(|state| {
+            Arc::ptr_eq(&state.revision, revision)
+                || state.revision.rows == revision.rows
+                    && state.revision.scope == revision.scope
+                    && state.revision.documents == revision.documents
+        })
+    }
+    /// Whether a generation has an admitted live head, independently of retained query entries.
+    pub fn has_modeling_revision(&self) -> bool {
+        self.modeling.is_some()
+    }
+    /// Complete immutable physical and provider context for a separately charged historical lane.
+    pub fn context(&self) -> CompilerContext {
+        self.inputs.clone()
+    }
+    /// Stage document inputs while the candidate exclusively owns this generation.
     fn check_modeling(
         &mut self,
         rows: &[Declaration],
-        scope: &PhysicalScope,
-        documents: &DocumentInventory,
-        physical: Option<(&QuantityRegistry, &PhysicalPreconditions)>,
+        scope: &Arc<PhysicalScope>,
+        documents: &Arc<DocumentInventory>,
     ) -> Result<CheckedPackage> {
-        use pse_model::HeapUsage;
-        let retained_bytes = self.retention_usage().1;
         for (id, document) in &documents.documents {
             match self.documents.get(id) {
-                Some(input)
-                    if Arc::ptr_eq(input.document(&self.db), document)
-                        || input.document(&self.db).as_ref() == document.as_ref() => {}
+                Some(input) if input.document(&self.db) == document => {}
                 Some(input) => {
-                    input.set_document(&mut self.db).to(Arc::clone(document));
+                    input.set_document(&mut self.db).to(document.clone());
                 }
                 None => {
-                    let input = DataDocumentInput::new(&self.db, Arc::clone(document));
-                    self.documents.insert(*id, input);
+                    self.documents
+                        .insert(*id, DataDocumentInput::new(&self.db, document.clone()));
                 }
             }
         }
-        let (quantities, preconditions) = physical.unwrap_or((
-            self.inputs.quantities.as_ref(),
-            self.inputs.preconditions.as_ref(),
-        ));
-        let context = TypeContext {
-            admissions: None,
-            formula_authority: None,
-            quantities,
-            preconditions,
-            scope,
-        };
-        let tracked = TrackedDocuments {
-            db: &self.db,
-            inventory: self.inventory,
-            documents,
-            inputs: &self.documents,
-            pending: physical.map(|(quantities, _)| quantities),
-            admission_bytes: std::cell::Cell::new(
-                rows.iter()
-                    .map(HeapUsage::owned_bytes)
-                    .sum::<usize>()
-                    .saturating_add(documents.retained_bytes())
-                    .saturating_add(scope_bytes(scope)),
-            ),
-            admission_limit: self.limits.input_bytes,
-            memo_bytes: std::cell::Cell::new(retained_bytes),
-            memo_limit: self.limits.retained_bytes,
-        };
-        // Source indexing, checked declarations and parsed contracts coexist with the
-        // immutable source. Reserve their copies before constructing the checked package.
-        pse_modeling::document::Documents::preflight(
-            &tracked,
-            DeclarationId::from_id(SemanticId::NIL),
-            rows.iter()
-                .map(HeapUsage::owned_bytes)
-                .fold(0usize, usize::saturating_add)
-                .saturating_mul(3),
-        )?;
-        Ok(pse_modeling::check_with(rows, &context, &tracked)?)
+        granular::configure(&mut self.db, self.limits.query_values);
+        salsa::Cancelled::catch(std::panic::AssertUnwindSafe(|| {
+            granular::check(self, rows, scope, documents)
+        }))
+        .map_err(|_| CompileError::Cancelled)?
     }
     /// Select an already admitted revision without rechecking its declarations.
     /// # Errors
@@ -694,3 +744,6 @@ mod tests;
 
 #[cfg(test)]
 mod reuse_tests;
+
+#[cfg(test)]
+mod granular_tests;

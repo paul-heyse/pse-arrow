@@ -120,6 +120,8 @@ pub enum StoredStart {
 /// Mathematical report variants share one joined public job lifecycle.
 #[derive(Debug)]
 pub enum RunReport {
+    /// Explicit compact horizon outcome; full modeling history was not requested.
+    Horizon(Arc<super::HorizonOutcome>),
     /// Authored steady or simultaneous solve with original-model qualification.
     Modeling(Vec<super::ModelingResult>),
     /// A completed or partial native integration.
@@ -133,6 +135,8 @@ pub enum RunReport {
 /// Immutable request representation, with no mutable native objects.
 #[derive(Clone, Debug)]
 pub enum RunRequest {
+    /// Immutable compact horizon identity and original source owners.
+    Horizon(super::HorizonRequest),
     /// One immutable authored algebraic case.
     Modeling(Vec<super::ModelingSolvePreparation>),
     /// One already-prepared physical simulation.
@@ -151,6 +155,12 @@ pub enum RunRequest {
 /// Immutable joined outcome. Table encoding and retention never invoke a solver again.
 #[derive(Debug)]
 pub struct RunResult {
+    pub(super) modeling_origin: usize,
+    pub(super) original_completion_captured: bool,
+    pub(super) horizon_output: Option<Arc<super::HorizonOutcome>>,
+    pub(super) horizon_owners: Vec<Arc<pse_columnar::AllocationLease>>,
+    pub(super) horizon_tightenings: Option<Vec<pse_modeling::DomainTightening>>,
+    pub(super) horizon_unmerged: Option<Box<RunResult>>,
     /// The run: an execution identity, not mathematical content identity. A retried
     /// job's tries share it; each try is its own attempt.
     pub run_id: RunId,
@@ -183,6 +193,12 @@ impl RunResult {
         report: Result<RunReport, Arc<WorkflowError>>,
     ) -> Self {
         Self {
+            modeling_origin: 0,
+            original_completion_captured: false,
+            horizon_output: None,
+            horizon_owners: Vec::new(),
+            horizon_tightenings: None,
+            horizon_unmerged: None,
             run_id,
             runtime,
             request,
@@ -214,6 +230,12 @@ impl RunResult {
             _ => None,
         }
     }
+    pub(super) fn modeling_step(&self, index: usize) -> usize {
+        self.modeling_result(index)
+            .map_or(self.modeling_origin + index, |result| {
+                result.original_attempt
+            })
+    }
     pub(super) fn modeling_error(&self, step: usize) -> Option<&WorkflowError> {
         let failed = self
             .modeling_failure
@@ -223,7 +245,10 @@ impl RunResult {
             .then(|| self.report.as_ref().err().map(AsRef::as_ref))
             .flatten()
     }
-    fn completed(mut self) -> Self {
+    pub(super) fn completed(mut self) -> Self {
+        if self.original_completion_captured || self.horizon_unmerged.is_some() {
+            return self;
+        }
         if let Ok(RunReport::Fit(r)) = &mut self.report
             && let Some(seed) = r.solve.as_mut().and_then(|s| s.warm_start.as_mut())
         {
@@ -243,7 +268,6 @@ impl RunResult {
             let record = attempt.finish(&result, cancelled).await;
             if let Err(error) = &record.attempt {
                 result.report = Err(error.clone());
-                result.completion = Err(error.clone());
             }
             result.durability = RunDurability::Durable(Box::new(record));
         }
@@ -376,15 +400,41 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
 impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and durable lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None)
+        self.start_owned(None, self.admission_deadline()?)
     }
-    pub(crate) fn start_attempt(
+    pub(crate) async fn start_attempt(
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(Some(attempt))
+        let admission = self.admission_deadline().and_then(|deadline| {
+            if matches!(self.runtime.durability(), Durability::Ephemeral) {
+                Err(contract(
+                    "a claimed simulation runs only on a durable runtime",
+                ))
+            } else {
+                Ok(deadline)
+            }
+        });
+        let deadline = match admission {
+            Ok(deadline) => deadline,
+            Err(error) => {
+                let error = Arc::new(error);
+                let _ = attempt.abandon(&error).await;
+                return Err(WorkflowError::Shared(error));
+            }
+        };
+        self.start_owned(Some(attempt), deadline)
     }
-    fn start_owned(&self, attempt: Option<DurableAttempt>) -> Result<RunHandle, WorkflowError> {
+    fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
+        std::time::Instant::now()
+            .checked_add(self.profile().time_limit)
+            .ok_or_else(|| contract("submitted task deadline extent"))
+    }
+    fn start_owned(
+        &self,
+        attempt: Option<DurableAttempt>,
+        deadline: std::time::Instant,
+    ) -> Result<RunHandle, WorkflowError> {
         let runtime = self.runtime.clone();
         let run_id: RunId = pse_operations::mint_id();
         let mut durable = attempt_for(&runtime, attempt)?;
@@ -394,9 +444,6 @@ impl super::ModelingSimulation {
             .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
-        let deadline = std::time::Instant::now()
-            .checked_add(self.profile().time_limit)
-            .ok_or_else(|| contract("submitted task deadline extent"))?;
         let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
         let dispatch_source = self.clone();
         let mut dispatch = Some(move || dispatch_source.submit(run_id, submission));
@@ -660,15 +707,39 @@ impl super::ShootingProblem {
 impl super::PreparedFit {
     /// Start one native fitting attempt under the existing joined job lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None)
+        self.start_owned(None, self.admission_deadline()?)
     }
-    pub(crate) fn start_attempt(
+    pub(crate) async fn start_attempt(
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(Some(attempt))
+        let admission = self.admission_deadline().and_then(|deadline| {
+            if matches!(self.problem.runtime.durability(), Durability::Ephemeral) {
+                Err(contract("a claimed fit runs only on a durable runtime"))
+            } else {
+                Ok(deadline)
+            }
+        });
+        let deadline = match admission {
+            Ok(deadline) => deadline,
+            Err(error) => {
+                let error = Arc::new(error);
+                let _ = attempt.abandon(&error).await;
+                return Err(WorkflowError::Shared(error));
+            }
+        };
+        self.start_owned(Some(attempt), deadline)
     }
-    fn start_owned(&self, attempt: Option<DurableAttempt>) -> Result<RunHandle, WorkflowError> {
+    fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
+        std::time::Instant::now()
+            .checked_add(self.problem.profile.solver.controls.time_limit)
+            .ok_or_else(|| contract("submitted task deadline extent"))
+    }
+    fn start_owned(
+        &self,
+        attempt: Option<DurableAttempt>,
+        deadline: std::time::Instant,
+    ) -> Result<RunHandle, WorkflowError> {
         let runtime = self.problem.runtime.clone();
         let prepared = self.clone();
         let run_id: RunId = pse_operations::mint_id();
@@ -679,25 +750,12 @@ impl super::PreparedFit {
             .unwrap_or(run_id);
         let progress = progress_for(256, durable.as_ref());
         let cancel = FlightCancellation::default();
-        let deadline = std::time::Instant::now()
-            .checked_add(self.problem.profile.solver.controls.time_limit)
-            .ok_or_else(|| contract("submitted task deadline extent"))?;
         let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
-        // Profile chains solved at once each need the fit's threads and a solve's memory.
+        // Estimation admits only its own demand. Profile teams acquire their next
+        // stage after the estimate reaches the quiescent phase boundary.
         let workers = self.problem.profile_workers(runtime.native().cores());
-        let cores = self
-            .problem
-            .profile
-            .solver
-            .controls
-            .threads
-            .checked_mul(workers)
-            .ok_or(MathRuntimeError::Limit("optimizer cores"))?;
-        let bytes = self
-            .problem
-            .bytes
-            .checked_mul(workers)
-            .ok_or(MathRuntimeError::Limit("fit profile extent"))?;
+        let cores = self.problem.profile.solver.controls.threads;
+        let bytes = self.problem.bytes;
         let native = runtime.native().clone();
         let mut dispatch = Some(move || {
             native.submit_with(cores, bytes, submission, move |flag, progress| {
@@ -860,7 +918,7 @@ impl super::ModelingSolvePreparation {
             .compatibility()
             .cloned()
             .ok_or_else(|| contract("a constant evaluation consumes no stored seed"))?;
-        let solution = match which {
+        let admitted = match which {
             StoredStart::Latest => {
                 let preparation = self
                     .solve
@@ -871,25 +929,28 @@ impl super::ModelingSolvePreparation {
                     .await?
                     .ok_or_else(|| contract("no retained seed matches preparation"))?
             }
-            StoredStart::Solution(id) => id,
+            StoredStart::Solution(id) => operations.seed(id).await?,
         };
-        let (_, warm) = operations.seed(solution).await?;
-        let solution = solution.as_id();
+        self.with_admitted_start(&admitted)
+    }
+    pub(crate) fn with_admitted_start(
+        mut self,
+        admitted: &super::AdmittedSeed,
+    ) -> Result<Self, WorkflowError> {
+        let solution = admitted.solution().as_id();
         let columns: Vec<SemanticId> = self.model.case.compiled().plan.columns().to_vec();
-        let owner = warm.owner();
-        let mut seeded = self;
-        seeded.solve = seeded
+        let owner = admitted.start.owner();
+        self.solve = self
             .solve
-            .with_start_owned((*warm).clone(), owner.clone())
+            .with_start_shared(admitted.start.clone())
             .map_err(MathRuntimeError::from)?;
-        seeded.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
-        seeded.stored_seed_owner = Some(owner);
+        self.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
+        self.stored_seed_owner = Some(owner);
         for column in columns {
-            seeded
-                .starts
+            self.starts
                 .insert(column, super::StartSource::Stored { solution });
         }
-        Ok(seeded)
+        Ok(self)
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
@@ -913,12 +974,23 @@ impl Runtime {
     }
     /// Run a claimed job's prepared steps as its attempt, which the worker already holds
     /// under its lease; the attempt ends through the job's retry policy.
-    pub(crate) fn start_attempt(
+    pub(crate) async fn start_attempt(
         &self,
         steps: Vec<super::ModelingSolvePreparation>,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        self.check_sequence(&steps)?;
+        let admission = self.check_sequence(&steps).and_then(|()| {
+            if matches!(self.durability(), Durability::Ephemeral) {
+                Err(contract("a claimed solve runs only on a durable runtime"))
+            } else {
+                Ok(())
+            }
+        });
+        if let Err(error) = admission {
+            let error = Arc::new(error);
+            let _ = attempt.abandon(&error).await;
+            return Err(WorkflowError::Shared(error));
+        }
         self.launch(steps, false, Some(attempt))
     }
     fn check_sequence(

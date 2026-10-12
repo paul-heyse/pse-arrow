@@ -320,6 +320,21 @@ formulations. Parity does not establish numerical IDAES equivalence
   historical resources remain pinned until explicit release. Reference acquisition and
   receipt publication coordinate with reclamation, preserving original paths/digests.
 
+> Decision: [ADR-0174](../../adr/0174-exact-resource-metadata-and-terminal-freeze.md)
+> (proposed; maintainer-authorized Plan 36 target).
+
+Test-resource metadata has one exact resource authority, full-identity indexes and
+invocation-owned membership. Registration publishes durable Pending membership before
+resource authority and refuses after terminal freeze. Stable exclusion follows invocation,
+identity, resource order and the original deadline; it never spans external effects or
+physical drain. The selected composer freezes authentic terminal identity and membership,
+then projects exact resources resumably. A terminal result does not prove drain or dispose
+an accepted late effect. Bounded maintenance follows active/unresolved paths. Versioned
+cutover excludes legacy writers and durably publishes their refusal fence before v2
+activation. Fenced-but-unactivated recovery validates the same staged imports before
+activation, preserving uncertainty/evidence and never restoring writable legacy metadata. Plan 36e owns the
+implementation and actual-file/race qualification of this amendment.
+
 **Commands.** During implementation: `just check-package <pkg>`, `just unit-package
 <pkg> <filter>` and `just codegen` when declarations change. On request: `just test`
 (default feature graph), `just native-test` (full linked native feature graph),

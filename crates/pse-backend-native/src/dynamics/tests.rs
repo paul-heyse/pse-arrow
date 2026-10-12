@@ -124,7 +124,10 @@ impl Oracle for Toy {
             )
             .unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 fn profile(dae: bool) -> Profile {
@@ -706,7 +709,10 @@ impl Oracle for ResetToy {
                 )
                 .unwrap()
             });
-            Ok(Evaluation { values, jacobian })
+            Ok(Evaluation {
+                values,
+                jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+            })
         } else {
             self.0.evaluate(m, f, t, x, p, d)
         }
@@ -862,16 +868,19 @@ impl Oracle for Unsolvable {
         if f == Function::Rhs {
             e.values[1] = x[1] * x[1] + 1.0;
             e.jacobian = d.then(|| {
-                faer::sparse::SparseColMat::try_new_from_triplets(
-                    2,
-                    3,
-                    &[
-                        faer::sparse::Triplet::new(0, 0, -p[0]),
-                        faer::sparse::Triplet::new(0, 2, -x[0]),
-                        faer::sparse::Triplet::new(1, 1, 2.0 * x[1]),
-                    ],
+                Arc::new(
+                    faer::sparse::SparseColMat::try_new_from_triplets(
+                        2,
+                        3,
+                        &[
+                            faer::sparse::Triplet::new(0, 0, -p[0]),
+                            faer::sparse::Triplet::new(0, 2, -x[0]),
+                            faer::sparse::Triplet::new(1, 1, 2.0 * x[1]),
+                        ],
+                    )
+                    .unwrap(),
                 )
-                .unwrap()
+                .into()
             });
         }
         Ok(e)

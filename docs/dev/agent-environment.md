@@ -90,6 +90,14 @@ in `.config/agent-capacity.toml` (16 MiB), preserve an explicit positive finite 
 count, and record it in native provenance. This libtest thread setting is separate
 from production native-job stack policy.
 
+Cargo and Nextest default their widths to the allocation's physical-core count,
+bounded by its actual affinity width. SMT siblings remain visible in affinity but
+do not increase the physical-core CPU quota or these defaults. An explicit caller
+environment or CLI width remains an override inside the kernel allocation. Nested
+allocations recompute repository-supplied defaults for their own narrower placement.
+Nextest's timing-sensitive exclusive controls reserve `num-test-threads`, the actual
+configured scheduler width, so changing the allocation does not weaken exclusion.
+
 The managed `scripts/sccache` wrapper gives the shared cache daemon its own finite
 light-service allocation. Its immutable binary/configuration identity selects a private
 socket; readiness verifies the actual process, unit invocation and socket peer. Compiler
@@ -161,6 +169,12 @@ limits. It is not a lock: a bare Cargo lock owner is reported as unknown.
 
 ## Builds in one checkout
 
+`PSE_TEST_RESOURCE_STATE=/absolute/private/directory` selects an isolated test-resource
+metadata registry without changing shared host admission. A fresh empty private directory
+initializes its own exact registry. Existing legacy metadata requires explicit fenced
+migration/recovery; ordinary tests refuse it rather than silently importing or resetting
+live ownership. This selector does not select or initialize a canonical database.
+
 Cargo locks individual build units (`[unstable] fine-grain-locking` in `.cargo/config.toml`),
 so concurrent check-type commands on independent crates do not wait for each other. Builds
 and tests that produce artifacts still contend for the package cache and the artifact
@@ -220,6 +234,13 @@ Rust edits, use `just py-sync` for the default extension or `just py-sync-native
 the linked extension before inspecting Python behavior. Read-only queries do not trigger
 an automatic rebuild.
 
+These interactive builds omit `force-validate`. `just py-unit` and `just py-test` first
+build the explicitly validated correctness extension, preserving the installed ordinary or
+linked selection. `just py-sync-correctness dev` and `just py-sync-native-correctness`
+select it directly. Native qualification builds it before deployment capture; observers
+then refuse a mismatched imported path, binary digest or actual Rust feature report rather
+than rebuilding beneath a receipt. Environment text never certifies compiled features.
+
 Discover the native grammar with `just --usage check-package` and inspect composition
 with `just --show codegen`. For a focused machine-readable view, filter a transient
 `just --dump --dump-format json` result, for example
@@ -235,7 +256,7 @@ built linked worker when creating state:
 ```bash
 export PSE_SURREAL_STATE=/absolute/path/to/private/reference-state
 scripts/pse-env --native -- cargo build -p xtask --bin pse-worker --locked --features native-solvers
-just surreal setup --interpretation pse.substrate.v3 --execution-profile plan28-reference \
+just surreal setup --interpretation pse.substrate.v4 --execution-profile plan28-reference \
   --worker-executable "$PWD/target/debug/pse-worker"
 just surreal start
 just canonical-init "$PSE_SURREAL_STATE"

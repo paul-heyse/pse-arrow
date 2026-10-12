@@ -19,6 +19,128 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class RecipeArgumentTests(unittest.TestCase):
+    def test_native_unit_launches_choose_outer_class_and_preserve_filter_arguments(
+        self,
+    ) -> None:
+        literal = 'test(a space; $HOME `pwd` $(touch injected) "quote")'
+        cases = [
+            (
+                "unit-package",
+                ["pse-runtime", literal],
+                ["unit", "pse-runtime", literal],
+            ),
+            ("unit-libraries", [literal], ["workspace", literal]),
+            (
+                "unit-native-selected",
+                [literal],
+                ["--features", "pse-py/native-solvers", "workspace", literal],
+            ),
+            (
+                "unit-native-package",
+                ["pse-runtime", "pse-runtime/solver-kinsol", literal],
+                [
+                    "--execution-effects",
+                    "canonical",
+                    "--features",
+                    "pse-runtime/solver-kinsol",
+                    "unit",
+                    "pse-runtime",
+                    literal,
+                ],
+            ),
+            (
+                "unit-native-capability-package",
+                ["pse-runtime", "pse-runtime/solver-kinsol", "solver", literal],
+                [
+                    "--execution-effects",
+                    "native-local",
+                    "--features",
+                    "pse-runtime/solver-kinsol",
+                    "unit",
+                    "pse-runtime",
+                    literal,
+                ],
+            ),
+        ]
+        for recipe, arguments, expected in cases:
+            with (
+                self.subTest(recipe=recipe),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                environment = self.fixture(root)
+                (root / "scripts/select.py").write_text(
+                    "import json, pathlib, sys\n"
+                    "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+                )
+                result = subprocess.run(
+                    ["just", recipe, *arguments],
+                    cwd=root,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    json.loads((root / "arguments.json").read_text()), expected
+                )
+                self.assertEqual(
+                    (root / "wrapper.txt").read_text().splitlines()[:2],
+                    ["--recipe-default-class", "exclusive"],
+                )
+                self.assertFalse((root / "injected").exists())
+
+    def test_py_test_dispatches_directly_with_store_and_literal_arguments(self) -> None:
+        literal = 'a space; $HOME `pwd` $(touch injected) "quote"'
+        extra = ["-m", "component", "-k", literal, "--junitxml=chosen report.xml"]
+        for status in [0, 7, 143]:
+            with (
+                self.subTest(status=status),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                root = Path(directory)
+                env = self.fixture(root)
+                (root / ".venv/bin").mkdir(parents=True)
+                (root / ".venv/bin/python").symlink_to(sys.executable)
+                env["UV_PROJECT_ENVIRONMENT"] = str(root / ".venv")
+                env["PSE_SURREAL_STATE"] = str(root / "selected-store")
+                env["SELECTED_TEST_STATUS"] = str(status)
+                (root / "scripts/python_extension.py").write_text(
+                    "import pathlib, sys\n"
+                    "assert sys.argv[1:] == ['sync', 'auto']\n"
+                    "pathlib.Path('validated-build.txt').write_text('requested')\n"
+                )
+                (root / "scripts/python_tests.py").write_text(
+                    "import json, os, pathlib, sys\n"
+                    "pathlib.Path('arguments.json').write_text(json.dumps(sys.argv[1:]))\n"
+                    "pathlib.Path('store.txt').write_text(os.environ['PSE_SURREAL_STATE'])\n"
+                    "raise SystemExit(int(os.environ['SELECTED_TEST_STATUS']))\n"
+                )
+                result = subprocess.run(
+                    ["just", "py-test", *extra],
+                    cwd=root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, status, result.stderr)
+                self.assertEqual(
+                    (root / "validated-build.txt").read_text(), "requested"
+                )
+                self.assertEqual(
+                    json.loads((root / "arguments.json").read_text()), extra
+                )
+                self.assertEqual(
+                    (root / "store.txt").read_text(), env["PSE_SURREAL_STATE"]
+                )
+                self.assertIn(
+                    "--store\n--\n" + str(root / ".venv/bin/python"),
+                    (root / "wrapper.txt").read_text(),
+                )
+                self.assertFalse((root / "injected").exists())
+
     def fixture(self, root: Path) -> dict[str, str]:
         """Use the complete Just composition, replacing only external effects."""
         (root / "justfile").write_text((ROOT / "justfile").read_text())
@@ -34,7 +156,11 @@ class RecipeArgumentTests(unittest.TestCase):
         )
         bin_dir = root / "bin"
         bin_dir.mkdir()
-        return {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+        return {
+            **os.environ,
+            "PATH": f"{bin_dir}:{os.environ['PATH']}",
+            "PSE_TEST_RESOURCE_STATE": str(root / "test-resources"),
+        }
 
     def test_composed_compile_arguments_and_outer_class(self) -> None:
         literal = 'a space; $HOME `pwd` $(touch injected) "quote"'

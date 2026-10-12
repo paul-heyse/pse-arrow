@@ -38,8 +38,8 @@ pub(super) struct Location {
     pub row: usize,
     pub path: Arc<PathCoordinate>,
 }
-// Persistent compact coordinates keep only active traversal paths alive. No
-// successful value renders a string; field components are escaped at preparation.
+// Coordinates are constructed only for retained diagnostic samples.
+// Field components are escaped once at preparation.
 pub(super) struct PathCoordinate {
     parent: Option<Arc<Self>>,
     segment: PathSegment,
@@ -79,6 +79,127 @@ impl PathCoordinate {
         result
     }
 }
+// Traversal stores bounded integer mappings, never one diagnostic path per value.
+// Locations are materialized only for findings retained by the sample budget.
+pub(super) enum Traversal {
+    Root {
+        start: usize,
+        field: Arc<str>,
+    },
+    Range {
+        parent: Arc<Self>,
+        start: usize,
+    },
+    Select {
+        parent: Arc<Self>,
+        indices: Arc<[usize]>,
+    },
+    Field {
+        parent: Arc<Self>,
+        field: Arc<str>,
+    },
+    List {
+        parent: Arc<Self>,
+        entries: Vec<(usize, usize)>,
+    },
+}
+impl Traversal {
+    pub(super) fn row(&self, index: usize) -> usize {
+        match self {
+            Self::Root { start, .. } => start + index,
+            Self::Range { parent, start } => parent.row(start + index),
+            Self::Select { parent, indices } => parent.row(indices[index]),
+            Self::Field { parent, .. } => parent.row(index),
+            Self::List { parent, entries } => parent.row(entries[index].0),
+        }
+    }
+    pub(super) fn location(&self, index: usize) -> Location {
+        match self {
+            Self::Root { start, field } => Location {
+                row: start + index,
+                path: PathCoordinate::field(None, field.clone()),
+            },
+            Self::Range { parent, start } => parent.location(start + index),
+            Self::Select { parent, indices } => parent.location(indices[index]),
+            Self::Field { parent, field } => {
+                let mut location = parent.location(index);
+                location.path = PathCoordinate::field(Some(location.path), field.clone());
+                location
+            }
+            Self::List { parent, entries } => {
+                let (row, ordinal) = entries[index];
+                let mut location = parent.location(row);
+                location.path = PathCoordinate::index(location.path, ordinal);
+                location
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum Selection {
+    All,
+    Range { start: usize, length: usize },
+    Indices(Arc<[usize]>),
+}
+impl Selection {
+    fn indices(indices: Vec<usize>, extent: usize) -> Self {
+        if indices.len() == extent && indices.iter().copied().eq(0..extent) {
+            Self::All
+        } else if indices
+            .windows(2)
+            .all(|pair| pair[0].checked_add(1) == Some(pair[1]))
+        {
+            Self::Range {
+                start: indices.first().copied().unwrap_or(0),
+                length: indices.len(),
+            }
+        } else {
+            Self::Indices(indices.into())
+        }
+    }
+    fn apply(&self, array: &ArrayRef) -> Result<ArrayRef, RelationError> {
+        match self {
+            Self::All => Ok(array.clone()),
+            Self::Range { start, length } => {
+                if start
+                    .checked_add(*length)
+                    .is_none_or(|end| end > array.len())
+                {
+                    return Err(invalid("occurrence range outside array"));
+                }
+                Ok(array.slice(*start, *length))
+            }
+            Self::Indices(indices) => {
+                let indices = indices
+                    .iter()
+                    .map(|index| {
+                        u64::try_from(*index).map_err(|_| invalid("occurrence index overflow"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(take(
+                    array.as_ref(),
+                    &UInt64Array::from(indices),
+                    Some(TakeOptions { check_bounds: true }),
+                )?)
+            }
+        }
+    }
+    fn map(&self, parent: Arc<Traversal>) -> Arc<Traversal> {
+        match self {
+            Self::All => parent,
+            Self::Range { start, .. } => Arc::new(Traversal::Range {
+                parent,
+                start: *start,
+            }),
+            Self::Indices(indices) => Arc::new(Traversal::Select {
+                parent,
+                indices: indices.clone(),
+            }),
+        }
+    }
+}
+
 impl Node {
     pub(super) fn prepare(
         registry: &Registry,
@@ -145,14 +266,14 @@ impl Node {
         start: usize,
         findings: &mut Findings<'_>,
     ) -> Result<(), RelationError> {
-        let path = PathCoordinate::field(None, self.path_name.clone());
-        let locations = (start..start + array.len())
-            .map(|row| Location {
-                row,
-                path: path.clone(),
-            })
-            .collect();
-        self.visit(array, locations, findings)
+        self.visit(
+            array,
+            Arc::new(Traversal::Root {
+                start,
+                field: self.path_name.clone(),
+            }),
+            findings,
+        )
     }
     #[allow(
         clippy::too_many_lines,
@@ -161,31 +282,38 @@ impl Node {
     fn visit(
         &self,
         array: &ArrayRef,
-        locations: Vec<Location>,
+        traversal: Arc<Traversal>,
         findings: &mut Findings<'_>,
     ) -> Result<(), RelationError> {
         findings.cancel.checkpoint()?;
-        let nulls = array.logical_nulls();
-        let mut indices = Vec::with_capacity(array.len());
-        let mut visible = Vec::with_capacity(array.len());
-        for (index, location) in locations.into_iter().enumerate() {
-            if nulls.as_ref().is_some_and(|nulls| nulls.is_null(index)) {
-                if !self.field.is_nullable() {
-                    findings.add("nonnull", &self.field, array, index, &location)?;
+        let visibility = if let Some(nulls) = array
+            .logical_nulls()
+            .filter(|nulls| nulls.null_count() != 0)
+        {
+            let mut indices = Vec::with_capacity(array.len() - nulls.null_count());
+            for index in 0..array.len() {
+                if nulls.is_null(index) {
+                    if !self.field.is_nullable() {
+                        findings.add("nonnull", &self.field, array, index, &traversal)?;
+                    }
+                } else {
+                    indices.push(index);
                 }
-            } else {
-                indices.push(index);
-                visible.push(location);
             }
-        }
-        if indices.is_empty() {
+            Selection::indices(indices, array.len())
+        } else {
+            Selection::All
+        };
+        let traversal = visibility.map(traversal);
+        let array = visibility.apply(array)?;
+        if array.is_empty() {
             return Ok(());
         }
-        // Encoded containers are resolved through native child selection, not scalar decoding.
+        // Encoded storage is selected through Arrow mappings, without scalar decoding.
         match self.field.data_type() {
             DataType::Dictionary(_, value) => {
                 let decoded = arrow::compute::cast(&array, value)?;
-                return self.children[0].visit(&gather(&decoded, &indices)?, visible, findings);
+                return self.children[0].visit(&decoded, traversal, findings);
             }
             DataType::RunEndEncoded(runs, _) => {
                 macro_rules! run {
@@ -193,13 +321,13 @@ impl Node {
                         let run = array
                             .as_run_opt::<$ty>()
                             .ok_or_else(|| invalid("invalid run-end storage"))?;
-                        let selected = indices
-                            .iter()
-                            .map(|index| run.get_physical_index(*index))
-                            .collect::<Vec<_>>();
+                        let selected = (0..array.len())
+                            .map(|index| run.get_physical_index(index))
+                            .collect();
                         return self.children[0].visit(
-                            &gather(run.values(), &selected)?,
-                            visible,
+                            &Selection::indices(selected, run.values().len())
+                                .apply(run.values())?,
+                            traversal,
                             findings,
                         );
                     }};
@@ -217,31 +345,34 @@ impl Node {
                     .ok_or_else(|| invalid("invalid union storage"))?;
                 for ((id, _), child) in fields.iter().zip(&self.children) {
                     let mut offsets = Vec::new();
-                    let mut places = Vec::new();
-                    for (&index, place) in indices.iter().zip(&visible) {
+                    let mut parents = Vec::new();
+                    for index in 0..array.len() {
                         if union.type_id(index) == id {
                             offsets.push(union.value_offset(index));
-                            places.push(Location {
-                                row: place.row,
-                                path: PathCoordinate::field(
-                                    Some(place.path.clone()),
-                                    child.path_name.clone(),
-                                ),
-                            });
+                            parents.push(index);
                         }
                     }
                     if !offsets.is_empty() {
-                        child.visit(&gather(union.child(id), &offsets)?, places, findings)?;
+                        let parent =
+                            Selection::indices(parents, array.len()).map(traversal.clone());
+                        let child_traversal = Arc::new(Traversal::Field {
+                            parent,
+                            field: child.path_name.clone(),
+                        });
+                        child.visit(
+                            &Selection::indices(offsets, union.child(id).len())
+                                .apply(union.child(id))?,
+                            child_traversal,
+                            findings,
+                        )?;
                     }
                 }
                 return Ok(());
             }
             _ => {}
         }
-        let array = gather(array, &indices)?;
         if let Some(predicate) = &self.predicate {
-            let schema = Arc::clone(&self.schema);
-            let batch = RecordBatch::try_new(schema, vec![Arc::clone(&array)])?;
+            let batch = RecordBatch::try_new(self.schema.clone(), vec![array.clone()])?;
             let values = predicate
                 .evaluate(&batch)
                 .and_then(|value| value.into_array(array.len()))
@@ -249,9 +380,9 @@ impl Node {
             let flags = values
                 .as_boolean_opt()
                 .ok_or_else(|| invalid("local predicate is not Boolean"))?;
-            for (index, place) in visible.iter().enumerate() {
+            for index in 0..array.len() {
                 if flags.is_null(index) || !flags.value(index) {
-                    findings.add("field-domain", &self.field, &array, index, place)?;
+                    findings.add("field-domain", &self.field, &array, index, &traversal)?;
                 }
             }
         }
@@ -271,35 +402,36 @@ impl Node {
                     })
                     .transpose()?;
                 for (child, values) in self.children.iter().zip(structure.columns()) {
-                    let mut indices = Vec::new();
-                    let mut places = Vec::new();
-                    for (index, place) in visible.iter().enumerate() {
-                        if let (Some(alternative), Some(tags)) = (&self.alternative, &tags)
-                            && alternative.payloads().contains(child.field.name().as_str())
-                        {
-                            let tags = tags.as_string::<i32>();
-                            if tags.is_null(index)
-                                || alternative
-                                    .arms
-                                    .get(tags.value(index))
-                                    .and_then(Option::as_deref)
-                                    != Some(child.field.name())
-                            {
-                                continue;
-                            }
-                        }
-                        indices.push(index);
-                        places.push(Location {
-                            row: place.row,
-                            path: PathCoordinate::field(
-                                Some(place.path.clone()),
-                                child.path_name.clone(),
-                            ),
-                        });
-                    }
-                    if !indices.is_empty() {
-                        child.visit(&gather(values, &indices)?, places, findings)?;
-                    }
+                    let selection = if let (Some(alternative), Some(tags)) =
+                        (&self.alternative, &tags)
+                        && alternative.payloads().contains(child.field.name().as_str())
+                    {
+                        let tags = tags.as_string::<i32>();
+                        Selection::indices(
+                            (0..array.len())
+                                .filter(|&index| {
+                                    !tags.is_null(index)
+                                        && alternative
+                                            .arms
+                                            .get(tags.value(index))
+                                            .and_then(Option::as_deref)
+                                            == Some(child.field.name())
+                                })
+                                .collect(),
+                            array.len(),
+                        )
+                    } else {
+                        Selection::All
+                    };
+                    let parent = selection.map(traversal.clone());
+                    child.visit(
+                        &selection.apply(values)?,
+                        Arc::new(Traversal::Field {
+                            parent,
+                            field: child.path_name.clone(),
+                        }),
+                        findings,
+                    )?;
                 }
             }
             DataType::List(_)
@@ -310,26 +442,37 @@ impl Node {
             | DataType::Map(..) => {
                 let (values, ranges) = ranges(&array)?;
                 let mut indices = Vec::with_capacity(CHUNK);
-                let mut places = Vec::with_capacity(CHUNK);
-                for (place, range) in visible.iter().zip(ranges) {
+                let mut entries = Vec::with_capacity(CHUNK);
+                for (parent, range) in ranges.into_iter().enumerate() {
                     for (ordinal, index) in range.enumerate() {
                         indices.push(index);
-                        places.push(Location {
-                            row: place.row,
-                            path: PathCoordinate::index(place.path.clone(), ordinal),
-                        });
+                        entries.push((parent, ordinal));
                         if indices.len() == CHUNK {
+                            let selected = Selection::indices(
+                                std::mem::replace(&mut indices, Vec::with_capacity(CHUNK)),
+                                values.len(),
+                            );
+                            let child_traversal = Arc::new(Traversal::List {
+                                parent: traversal.clone(),
+                                entries: std::mem::replace(&mut entries, Vec::with_capacity(CHUNK)),
+                            });
                             self.children[0].visit(
-                                &gather(&values, &indices)?,
-                                std::mem::take(&mut places),
+                                &selected.apply(&values)?,
+                                child_traversal,
                                 findings,
                             )?;
-                            indices.clear();
                         }
                     }
                 }
                 if !indices.is_empty() {
-                    self.children[0].visit(&gather(&values, &indices)?, places, findings)?;
+                    self.children[0].visit(
+                        &Selection::indices(indices, values.len()).apply(&values)?,
+                        Arc::new(Traversal::List {
+                            parent: traversal,
+                            entries,
+                        }),
+                        findings,
+                    )?;
                 }
             }
             _ => {}
@@ -337,20 +480,7 @@ impl Node {
         Ok(())
     }
 }
-fn gather(array: &ArrayRef, indices: &[usize]) -> Result<ArrayRef, RelationError> {
-    if indices.len() == array.len() && indices.iter().copied().eq(0..array.len()) {
-        return Ok(Arc::clone(array));
-    }
-    let indices = indices
-        .iter()
-        .map(|index| u64::try_from(*index).map_err(|_| invalid("occurrence index overflow")))
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(take(
-        array.as_ref(),
-        &UInt64Array::from(indices),
-        Some(TakeOptions { check_bounds: true }),
-    )?)
-}
+
 fn ranges(array: &ArrayRef) -> Result<(ArrayRef, Vec<std::ops::Range<usize>>), RelationError> {
     macro_rules! offsets {
         ($array:expr) => {{
@@ -424,4 +554,59 @@ fn pointer(value: &str) -> String {
 }
 fn invalid(reason: &str) -> RelationError {
     super::mismatch("native occurrence", reason)
+}
+
+#[cfg(test)]
+mod selection_unit {
+    use super::*;
+    use crate::native::arrow::array::Int64Array;
+    #[test]
+    fn whole_range_and_scattered_selection_preserve_values_nulls_and_mapping() {
+        let array: ArrayRef = Arc::new(Int64Array::from(vec![Some(7), None, Some(9), Some(11)]));
+        let all = Selection::indices(vec![0, 1, 2, 3], 4);
+        assert!(matches!(all, Selection::All));
+        assert!(Arc::ptr_eq(&array, &all.apply(&array).unwrap()));
+        let range = Selection::indices(vec![1, 2], 4);
+        assert!(matches!(
+            range,
+            Selection::Range {
+                start: 1,
+                length: 2
+            }
+        ));
+        let scattered = Selection::indices(vec![2, 1, 2], 4);
+        assert!(matches!(scattered, Selection::Indices(_)));
+        assert_eq!(
+            range
+                .apply(&array)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap(),
+            &Int64Array::from(vec![None, Some(9)])
+        );
+        assert_eq!(
+            scattered
+                .apply(&array)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap(),
+            &Int64Array::from(vec![Some(9), None, Some(9)])
+        );
+        let root = Arc::new(Traversal::Root {
+            start: 40,
+            field: "a~1b".into(),
+        });
+        let selected = scattered.map(root);
+        let nested = Traversal::List {
+            parent: selected,
+            entries: vec![(0, 3), (1, 0), (2, 1)],
+        };
+        assert_eq!(nested.row(0), 42);
+        assert_eq!(nested.location(0).path.render(), "/a~1b/3");
+        assert_eq!(nested.row(1), 41);
+        assert_eq!(nested.location(1).path.render(), "/a~1b/0");
+        assert!(Selection::indices(vec![4], 4).apply(&array).is_err());
+    }
 }

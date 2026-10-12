@@ -345,7 +345,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     );
     analysis.case.values.insert("p".into(), 4.4);
     // A declared approximate fidelity follows the same original screening/correction path.
-    use pse_math::surrogate::{FidelityCorrespondence, FidelityEvaluator, SurrogateOptions};
+    use crate::math::surrogate::{FidelityCorrespondence, FidelityEvaluator, SurrogateOptions};
     #[derive(Debug)]
     struct ApproximateRootMerit(FidelityCorrespondence);
     impl FidelityEvaluator for ApproximateRootMerit {
@@ -382,9 +382,9 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         iterations: 2,
         evaluations: 20,
         infill_starts: 1,
-        regression: pse_math::surrogate::RegressionSpec::CONSTANT,
-        correlation: pse_math::surrogate::CorrelationSpec::MATERN52,
-        theta: pse_math::surrogate::ThetaTuning::Fixed(vec![0.1].into()),
+        regression: crate::math::surrogate::RegressionSpec::CONSTANT,
+        correlation: crate::math::surrogate::CorrelationSpec::MATERN52,
+        theta: crate::math::surrogate::ThetaTuning::Fixed(vec![0.1].into()),
         gp_starts: 0,
         gp_evaluations: 5,
         seed: 74,
@@ -415,6 +415,7 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
         .advance_surrogate(&handle, &cancel)
         .await
         .unwrap()
+        .proposal
         .unwrap();
     let proposal = target
         .solve

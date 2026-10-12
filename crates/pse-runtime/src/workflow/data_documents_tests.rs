@@ -3,14 +3,14 @@
 //! Package data documents (ADR-0125, Plan 23 KR9): Parquet bytes loaded with a package,
 //! decoded by Arrow type and admitted through the relation a dataset declaration names.
 use super::*;
-use crate::authoring_driver::document::{
-    OwnedDocumentSet, UNIT_METADATA, load_package_documents_owned, package_checksum,
-};
 use datafusion::arrow::array::{
     ArrayRef, BooleanArray, DictionaryArray, FixedSizeBinaryArray, Float64Array, Int64Array,
     RecordBatch, StringArray,
 };
 use datafusion::arrow::datatypes::{Field, Int32Type, Schema};
+use pse_admission::authoring_driver::document::{
+    OwnedDocumentSet, UNIT_METADATA, load_package_documents_owned, package_checksum,
+};
 use pse_modeling::specialize::Value;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -109,11 +109,11 @@ async fn load(
     let pool = rt.shared.pool();
     let bundle = load_package_documents_owned(
         sources,
-        &rt.registry,
+        rt.registry(),
         pse_authoring::ParseBudget::default(),
         &pool,
         &token,
-        &rt.validation_context().unwrap(),
+        &rt.validation_context(),
     )?;
     let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
     rt.modeling_from_documents(&documents, physical(), &crate::CancelSource::new())
@@ -382,11 +382,11 @@ async fn data_bytes_enter_package_checksum_and_source_revision() {
     let header = |sources: &BTreeMap<String, Vec<u8>>| {
         load_package_documents_owned(
             sources,
-            &rt.registry,
+            rt.registry(),
             pse_authoring::ParseBudget::default(),
             &rt.shared.pool(),
             &pse_columnar::CancellationToken::new(),
-            &rt.validation_context().unwrap(),
+            &rt.validation_context(),
         )
         .unwrap()
         .bundle()

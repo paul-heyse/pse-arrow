@@ -862,7 +862,7 @@ pub struct Trace {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RungProducts {
     pub(crate) provider: Option<ProviderEvidence>,
-    pub(crate) statistical: Option<Arc<pse_math::surrogate::SurrogateProposal>>,
+    pub(crate) statistical: Option<Arc<crate::math::surrogate::SurrogateProposal>>,
     pub(crate) derived: Option<ContentHash>,
     pub(crate) start: Option<ContentHash>,
     pub(crate) transport: Option<ContentHash>,

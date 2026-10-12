@@ -79,7 +79,10 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
     )
     .unwrap()
     .with_cache_service(caches.clone());
-    let validation = factory.validation_context(&registry).unwrap();
+    let model = Arc::new(factory.clone())
+        .bind_model(registry.clone())
+        .unwrap();
+    let validation = model.validation_context();
     let cancel = CancellationToken::new();
     let empty = FieldCheckedBatch::admit(
         &registry,

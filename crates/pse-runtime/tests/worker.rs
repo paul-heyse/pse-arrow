@@ -9,6 +9,7 @@
     clippy::panic,
     reason = "integration assertions and child-process protocol"
 )]
+use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_backend_native::{
     presolve::PolicyKind,
     solve::{Backend, SolveIntent},
@@ -16,7 +17,6 @@ use pse_backend_native::{
 use pse_model::study::{OccurrenceKey, StartPolicy};
 use pse_runtime::{
     CancelSource, SharedRuntime,
-    authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned},
     math::{settings::SolveSettings, solves::Outcome},
     workflow::{
         CaseOperation, Durability, DurabilitySelection, LeasePolicy, ModelingPackage,
@@ -403,8 +403,7 @@ fn runtime_with_store(
         shared.clone(),
         Runtime::from_shared(
             shared,
-            registry,
-            sessions,
+            sessions.bind_model(registry.clone()).unwrap(),
             pse_runtime::workflow::CanonicalDeployment::new(
                 store,
                 pse_runtime::workflow::OuterAttestation {
@@ -426,10 +425,7 @@ async fn package(
 ) -> (ModelingPackage, PhysicalContext) {
     let pool = shared.pool();
     let cancel = pse_columnar::CancellationToken::new();
-    let validation = runtime
-        .sessions()
-        .validation_context(runtime.registry())
-        .unwrap();
+    let validation = runtime.validation_context();
     let load = |texts| {
         load_package_documents_owned(
             texts,
@@ -620,8 +616,7 @@ fn scip_runtime() -> (Arc<SharedRuntime>, Runtime) {
         shared.clone(),
         Runtime::from_shared(
             shared,
-            registry,
-            sessions,
+            sessions.bind_model(registry.clone()).unwrap(),
             pse_runtime::workflow::CanonicalDeployment::new(
                 pse_operations::testing::canonical_fixture_store().unwrap(),
                 pse_runtime::workflow::OuterAttestation {
@@ -711,6 +706,7 @@ async fn submit_single(
     let handle = local
         .start_study(
             StudyPlan {
+                output: pse_runtime::workflow::StudyOutputDemand::Full,
                 sources: PackageSources {
                     physical,
                     modeling: vec![modeling],
@@ -757,10 +753,7 @@ async fn assert_value(local: &Runtime, run: &str, attempt: &str, wanted: f64) {
         )
         .await
         .unwrap();
-    let validation = local
-        .sessions()
-        .validation_context(local.registry())
-        .unwrap();
+    let validation = local.validation_context();
     let mut variables = 0;
     while let Some(batch) = stream.next_batch().await.unwrap() {
         let view =
@@ -841,6 +834,7 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
         let handle = local
             .start_study(
                 StudyPlan {
+                    output: pse_runtime::workflow::StudyOutputDemand::Full,
                     sources: PackageSources {
                         physical: physical.clone(),
                         modeling: vec![modeling.clone()],
@@ -1375,6 +1369,7 @@ async fn study_parallel_workers_admit_one_summary_and_exact_point_attempts() {
     let handle = local
         .start_study(
             StudyPlan {
+                output: pse_runtime::workflow::StudyOutputDemand::Full,
                 sources: PackageSources {
                     physical,
                     modeling: vec![modeling],

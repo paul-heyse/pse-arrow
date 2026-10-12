@@ -187,6 +187,88 @@ pub struct CaseValues {
     pub scalars: BTreeMap<SemanticId, f64>,
 }
 
+/// Immutable gather for one admitted numerical operation. Formal order and aliases
+/// are retained; semantic lookup and duplicate checks belong to construction.
+#[derive(Clone, Debug)]
+pub(crate) struct EvalBindings {
+    slots: Arc<Vec<SlotBinding>>,
+    selected: Vec<(usize, EvalOffset)>,
+}
+#[derive(Clone, Copy, Debug)]
+enum EvalOffset {
+    Coordinate(usize),
+    Fixed(usize),
+}
+impl EvalBindings {
+    pub(crate) fn new(
+        binding: &InstanceBinding,
+        formals: &[usize],
+        coordinates: &BTreeMap<SemanticId, usize>,
+        fixed: &BTreeMap<SemanticId, usize>,
+    ) -> Result<Self, MathError> {
+        if formals.iter().collect::<BTreeSet<_>>().len() != formals.len() {
+            return Err(MathError::Contract("duplicate selected formal".into()));
+        }
+        let selected = formals
+            .iter()
+            .map(|formal| {
+                let slot = binding
+                    .slots
+                    .get(*formal)
+                    .ok_or_else(|| MathError::Contract("unknown selected formal".into()))?;
+                let offset = if let Some(&index) = coordinates.get(&slot.source) {
+                    EvalOffset::Coordinate(index)
+                } else {
+                    EvalOffset::Fixed(
+                        *fixed
+                            .get(&slot.source)
+                            .ok_or_else(|| MathError::Contract("missing case scalar".into()))?,
+                    )
+                };
+                Ok((*formal, offset))
+            })
+            .collect::<Result<_, MathError>>()?;
+        Ok(Self {
+            slots: Arc::clone(&binding.slots),
+            selected,
+        })
+    }
+    pub(crate) fn allocation_bound(inputs: usize) -> Option<usize> {
+        inputs
+            .checked_mul(2 * size_of::<(usize, EvalOffset)>())
+            .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
+    }
+    pub(crate) fn len(&self) -> usize {
+        self.selected.len()
+    }
+    pub(crate) fn fill(
+        &self,
+        values: Option<&CaseValues>,
+        coordinates: &[f64],
+        fixed: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        if output.len() != self.selected.len() {
+            return Err(MathError::Contract("selected input extent".into()));
+        }
+        for ((formal, offset), output) in self.selected.iter().zip(output) {
+            let slot = &self.slots[*formal];
+            let value = match values {
+                Some(values) => *values
+                    .scalars
+                    .get(&slot.source)
+                    .ok_or_else(|| MathError::Contract("missing case scalar".into()))?,
+                None => match offset {
+                    EvalOffset::Coordinate(index) => coordinates[*index],
+                    EvalOffset::Fixed(index) => fixed[*index],
+                },
+            };
+            *output = slot.conversion.apply(value)?.value();
+        }
+        Ok(())
+    }
+}
+
 /// One physically checked formal binding. Repeated sources are intentional aliases.
 #[derive(Clone, Debug)]
 pub struct SlotBinding {
@@ -847,6 +929,52 @@ impl CaseStructure {
                 .binary_search_by_key(id, |parameter| parameter.id)
                 .is_ok()
     }
+    /// Validate one declared scalar without requiring a complete semantic value map.
+    /// The effective conditional fixed flag retains the same domain and bound rules.
+    pub fn validate_scalar(&self, id: SemanticId, value: f64) -> Result<(), MathError> {
+        if !value.is_finite() {
+            return Err(MathError::Contract("nonfinite case value".into()));
+        }
+        if let Ok(index) = self
+            .coordinates
+            .variables
+            .binary_search_by_key(&id, |v| v.port.id)
+        {
+            let variable = self
+                .variables()
+                .get(index)
+                .ok_or_else(|| MathError::Contract("unknown case variable".into()))?;
+            if variable.fixed
+                && !variable.domain.contains(
+                    value,
+                    variable.lower.unwrap_or(f64::NEG_INFINITY),
+                    variable.upper.unwrap_or(f64::INFINITY),
+                )
+            {
+                return Err(MathError::Contract(
+                    "fixed value outside declared integer domain".into(),
+                ));
+            }
+            if !(variable.domain.is_semi() && value == 0.)
+                && (variable.lower.is_some_and(|lower| value < lower)
+                    || variable.upper.is_some_and(|upper| value > upper))
+            {
+                return Err(MathError::Contract(
+                    "case value outside declared bounds".into(),
+                ));
+            }
+            Ok(())
+        } else if self
+            .coordinates
+            .parameters
+            .binary_search_by_key(&id, |p| p.id)
+            .is_ok()
+        {
+            Ok(())
+        } else {
+            Err(MathError::Contract("undeclared case value".into()))
+        }
+    }
     /// Shared original-coordinate payload identity and retained extent.
     pub fn coordinate_allocation(&self) -> (usize, usize) {
         (
@@ -919,27 +1047,8 @@ impl CaseStructure {
                 ));
             }
         }
-        for variable in self.variables().iter() {
-            let value = values.scalars[&variable.port.id];
-            if variable.fixed
-                && !variable.domain.contains(
-                    value,
-                    variable.lower.unwrap_or(f64::NEG_INFINITY),
-                    variable.upper.unwrap_or(f64::INFINITY),
-                )
-            {
-                return Err(MathError::Contract(
-                    "fixed value outside declared integer domain".into(),
-                ));
-            }
-            if !(variable.domain.is_semi() && value == 0.0)
-                && (variable.lower.is_some_and(|l| value < l)
-                    || variable.upper.is_some_and(|u| value > u))
-            {
-                return Err(MathError::Contract(
-                    "case value outside declared bounds".into(),
-                ));
-            }
+        for (id, value) in &values.scalars {
+            self.validate_scalar(*id, *value)?;
         }
         Ok(())
     }

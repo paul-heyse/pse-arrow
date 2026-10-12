@@ -53,10 +53,7 @@ pub(super) fn bind_candidates(
     cancel: &CancellationToken,
 ) -> Result<EngineSession, EngineError> {
     let native = factory.model_assembly(&registry)?;
-    let validation = pse_relations::validate::ValidationContext::new(
-        &registry,
-        crate::validation::NativeValidation(native.context.state()),
-    );
+    let validation = native.validation_context();
     let mut tables = BTreeMap::new();
     for (key, batch) in rows {
         cancel.checkpoint()?;
@@ -297,6 +294,7 @@ impl EngineSession {
         *state.config_mut() = config;
         let native = Arc::make_mut(&mut self.native);
         native.validation = Default::default();
+        native.reflection = Default::default();
         native.context = SessionContext::new_with_state(state);
         native.settings = restored;
         self.policies = Arc::new(
@@ -468,10 +466,7 @@ impl EngineSession {
         rows: BTreeMap<RelationKey, RecordBatch>,
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
-        let validation = pse_relations::validate::ValidationContext::new(
-            &self.registry,
-            crate::validation::NativeValidation(self.native.context.state()),
-        );
+        let validation = self.native.validation_context();
         let mut result = self.clone();
         for (key, batch) in rows {
             cancel.checkpoint()?;
@@ -616,6 +611,7 @@ impl EngineSession {
         captured.register_catalog_list(catalogs);
         let native = Arc::make_mut(&mut self.native);
         native.validation = Default::default();
+        native.reflection = Default::default();
         if functions_changed {
             native.function_bindings = super::functions::Functions::from_state(&captured);
             (native.functions, native.function_names) = function_inventory(&captured);

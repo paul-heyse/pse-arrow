@@ -343,6 +343,7 @@ impl ModelingSimulation {
                         original: prepared.contract.identity,
                         preparation: prepared.contract.identity,
                         profile: profile_identity(&request, &controls)?,
+                        profile_projection: None,
                         backend: None,
                         solver: None,
                         controls: &controls,

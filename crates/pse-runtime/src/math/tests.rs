@@ -921,13 +921,12 @@ async fn general_rebind_admits_small_projection_with_generous_worker_capacity() 
 
     let pressure = hold();
     let deadline = std::time::Instant::now() + std::time::Duration::from_millis(20);
-    let scope = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), Some(deadline));
     let refused = math
-        .rebind_within(
+        .rebind_scoped(
             &prepared.model.case,
             changed.clone(),
             &crate::CancelSource::new(),
-            scope,
+            Some(deadline),
         )
         .await;
     assert!(matches!(
@@ -1022,7 +1021,13 @@ pub(super) fn component_fixture_source(
             Default::default(),
             &Default::default(),
             pse_kernels::DerivativeOrder::First,
-            Default::default(),
+            pse_compiler::workspace::Profile {
+                evaluation: pse_math::jets::EvaluationLimits {
+                    scratch_bytes: service.policy.worker_bytes,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
             Arc::new(AtomicBool::new(false)),
         )
         .unwrap();

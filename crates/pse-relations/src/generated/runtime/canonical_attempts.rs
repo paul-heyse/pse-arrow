@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    117u8, 87u8, 158u8, 243u8, 75u8, 254u8, 235u8, 63u8, 91u8, 89u8, 20u8, 139u8, 103u8,
-    25u8, 190u8, 159u8, 105u8, 52u8, 212u8, 117u8, 131u8, 20u8, 71u8, 193u8, 160u8, 39u8,
-    120u8, 135u8, 193u8, 43u8, 141u8, 16u8,
+    231u8, 166u8, 147u8, 151u8, 37u8, 163u8, 249u8, 179u8, 115u8, 141u8, 228u8, 50u8,
+    106u8, 182u8, 39u8, 109u8, 157u8, 120u8, 30u8, 188u8, 81u8, 57u8, 98u8, 19u8, 172u8,
+    55u8, 11u8, 144u8, 249u8, 109u8, 125u8, 58u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
     fn append(
@@ -73,6 +73,14 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
             &self.r#completion,
             children[13usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#seed_manifest,
+            children[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#finalization_study,
+            children[15usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -107,6 +115,12 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
         <Option<
             pse_model::Bytes,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -179,6 +193,18 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAttemptsRow {
                 pse_model::Bytes,
             > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
+                index,
+            )?,
+            r#seed_manifest: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(14usize).as_ref(),
+                index,
+            )?,
+            r#finalization_study: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(15usize).as_ref(),
                 index,
             )?,
         })
@@ -275,6 +301,14 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
             &self.r#completion,
             columns[13usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#seed_manifest,
+            columns[14usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#finalization_study,
+            columns[15usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -310,10 +344,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        28_672_usize + size_of::<Self::Builder>()
+        32_768_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        224usize
+        256usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -401,6 +435,28 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAttemptsRow {
                 Ok::<usize, crate::RelationError>(1)
             }?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#seed_manifest).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#finalization_study).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
         Ok(bytes)
     }
 }
@@ -411,7 +467,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 16usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -482,6 +538,16 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
         name: "completion",
         position: 13usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "seed_manifest",
+        position: 14usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "finalization_study",
+        position: 15usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -513,12 +579,17 @@ pub mod columns {
     pub const CLOSED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///completion
     pub const COMPLETION: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    ///seed_manifest
+    pub const SEED_MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    ///finalization_study
+    pub const FINALIZATION_STUDY: crate::columnar::ColumnReference = super::COLUMNS[15usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct RuntimeCanonicalAttemptsView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     run_column: &'a arrow_array::StringArray,
     generation_column: &'a arrow_array::UInt64Array,
@@ -533,6 +604,8 @@ pub struct RuntimeCanonicalAttemptsView<'a> {
     outcome_column: &'a arrow_array::StringArray,
     closed_manifest_column: &'a arrow_array::StringArray,
     completion_column: &'a arrow_array::BinaryArray,
+    seed_manifest_column: &'a arrow_array::StringArray,
+    finalization_study_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalAttemptsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -556,7 +629,7 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -567,13 +640,16 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             key_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -616,6 +692,12 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
             completion_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
             >(batch.column(13usize).as_ref())?,
+            seed_manifest_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(14usize).as_ref())?,
+            finalization_study_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(15usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -798,6 +880,34 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
     pub fn completion_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[13usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "seed_manifest",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn seed_manifest_column(&self) -> &'a arrow_array::StringArray {
+        self.seed_manifest_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "seed_manifest", "`.")]
+    pub fn seed_manifest_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[14usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "finalization_study",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn finalization_study_column(&self) -> &'a arrow_array::StringArray {
+        self.finalization_study_column
+    }
+    #[doc = concat!(
+        "Borrows the exact declared field for `",
+        "finalization_study",
+        "`.",
+    )]
+    pub fn finalization_study_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[15usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -845,6 +955,14 @@ impl<'a> RuntimeCanonicalAttemptsView<'a> {
                 self.completion_column,
                 index,
             )?,
+            r#seed_manifest: crate::columnar::ArrowValue::read(
+                self.seed_manifest_column,
+                index,
+            )?,
+            r#finalization_study: crate::columnar::ArrowValue::read(
+                self.finalization_study_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.
@@ -865,5 +983,8 @@ impl crate::columnar::RelationView for RuntimeCanonicalAttemptsView<'_> {
     type Row = RuntimeCanonicalAttemptsRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

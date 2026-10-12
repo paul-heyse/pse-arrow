@@ -204,6 +204,24 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `outcome` | `Utf8` | true | `payload` | — | — |
 | `closed_manifest` | `Utf8` | true | `payload` | — | — |
 | `completion` | `Binary` | true | `payload` | — | — |
+| `seed_manifest` | `Utf8` | true | `payload` | — | — |
+| `finalization_study` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_body_contents`
+
+Immutable body bytes and complete reconstruction meaning, independent of selection receipts.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `bytes` | `UInt64` | false | `payload` | — | — |
+| `producer` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `format` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_edges`
 
@@ -246,6 +264,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `incarnation` | `Utf8` | true | `payload` | — | — |
 | `analysis_creation_closed_through` | `UInt64` | true | `payload` | — | — |
+| `protection_closed_through` | `UInt64` | true | `payload` | — | — |
 
 ## `canonical_interpretations`
 
@@ -258,6 +277,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `key` | `Utf8` | false | `key` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_memberships`
 
@@ -314,6 +334,48 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `head` | `Utf8` | false | `payload` | — | — |
 | `sequence` | `UInt64` | false | `payload` | — | — |
 
+## `canonical_product_associations`
+
+Original immutable publication provenance; payload is a bounded physical descriptor, never scientific body bytes.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `dependencies` | `Binary` | false | `payload` | — | — |
+| `content` | `Utf8` | false | `payload` | — | — |
+| `receipt` | `Utf8` | false | `payload` | — | — |
+| `descriptor` | `Utf8` | false | `payload` | — | — |
+| `producer` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `historical_blob` | `Utf8` | true | `payload` | — | — |
+
+## `canonical_product_descriptors`
+
+Fully checked exact descriptor with the lowest currently rooted association; hashes only index equality.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `problem` | `Utf8` | false | `payload` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `dependencies` | `Binary` | false | `payload` | — | — |
+| `content` | `Utf8` | false | `payload` | — | — |
+| `receipt` | `Utf8` | false | `payload` | — | — |
+| `producer` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `association` | `Utf8` | true | `payload` | — | — |
+
 ## `canonical_products`
 
 Portable admitted scientific description and complete dependency witness; contains no native handles.
@@ -345,6 +407,9 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `sequence` | `UInt64` | false | `payload` | — | — |
 | `expires_at` | `Timestamp(µs, "UTC")` | false | `payload` | — | — |
 | `released` | `Boolean` | false | `payload` | — | — |
+| `grant_deadline` | `Timestamp(µs, "UTC")` | true | `payload` | — | — |
+| `grant_nonce` | `Utf8` | true | `payload` | — | — |
+| `authority_incarnation` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_reclaimed_ranges`
 
@@ -418,26 +483,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `payload_digest` | `Utf8` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 
-## `canonical_result_cells`
-
-Exact scientific scalar or explicitly tagged diagnostic; finite projection never replaces its authoritative payload.
-
-Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
-
-| Field path | Type | Nullable | Role | Reference | Quantity |
-|---|---|---|---|---|---|
-| `key` | `Utf8` | false | `key` | — | — |
-| `result_set` | `Utf8` | false | `payload` | — | — |
-| `batch` | `Utf8` | false | `payload` | — | — |
-| `output` | `Utf8` | false | `payload` | — | — |
-| `partition` | `Utf8` | false | `payload` | — | — |
-| `row` | `UInt64` | false | `payload` | — | — |
-| `coordinate` | `Utf8` | false | `payload` | — | — |
-| `cell_kind` | `Utf8` | false | `payload` | — | — |
-| `bits` | `Binary` | true | `payload` | — | — |
-| `projection` | `Float64` | true | `payload` | — | — |
-| `interpretation` | `Utf8` | false | `payload` | — | — |
-
 ## `canonical_result_manifests`
 
 Closed exact result-set descriptor with frozen batch extents and coverage; does not imply scientific success.
@@ -477,6 +522,29 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `run` | `Utf8` | false | `payload` | — | — |
 | `after_generation` | `UInt64` | false | `payload` | — | — |
 | `complete` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_result_rows`
+
+One exact typed scientific row locator in its original immutable attempt/set/block; output and partition are derived access selectors, never scientific key authority.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `result_set` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `batch` | `Utf8` | false | `payload` | — | — |
+| `relation_id` | `semantic_id` | false | `payload` | — | — |
+| `run_id` | `semantic_id` | false | `payload` | — | — |
+| `owner` | `semantic_id` | false | `payload` | — | — |
+| `step` | `Int64` | true | `payload` | — | — |
+| `experiment_id` | `semantic_id` | true | `payload` | — | — |
+| `output` | `Utf8` | false | `payload` | — | — |
+| `partition` | `Utf8` | false | `payload` | — | — |
+| `row` | `UInt64` | false | `payload` | — | — |
+| `offset` | `UInt64` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_result_seeds`
 
@@ -585,6 +653,21 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `terminal_attempt` | `Utf8` | true | `payload` | — | — |
 | `terminal_class` | `Utf8` | true | `payload` | — | — |
 
+## `canonical_selection_receipts`
+
+Immutable complete selected and acquired predicates; not permission to publish.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `version` | `Utf8` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `bytes` | `UInt64` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `format` | `Utf8` | false | `payload` | — | — |
+
 ## `canonical_staged_edits`
 
 Source edit metadata activated atomically after immutable payload staging closes.
@@ -678,6 +761,43 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `settled` | `Boolean` | false | `payload` | — | — |
 | `attempt` | `Utf8` | true | `payload` | — | — |
 | `start` | `Binary` | true | `payload` | — | — |
+
+## `canonical_study_readiness`
+
+Derived discovery only: complete observed premise revisions, pending predecessor observations and pure-policy eligibility. Durable bounded outgoing notification never grants a scientific claim.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `point` | `Utf8` | false | `payload` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `source_revision` | `UInt64` | false | `payload` | — | — |
+| `pending` | `UInt64` | false | `payload` | — | — |
+| `eligible` | `Boolean` | false | `payload` | — | — |
+| `premises` | `Binary` | true | `payload` | — | — |
+| `dirty` | `Boolean` | false | `payload` | — | — |
+| `notify` | `Boolean` | false | `payload` | — | — |
+| `notify_revision` | `UInt64` | false | `payload` | — | — |
+| `notify_after` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_study_readiness_cursors`
+
+Derived per-study round-robin notification and resumable rebuild/verification cursors. Scientific state transitions never write this row.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `revision` | `UInt64` | false | `payload` | — | — |
+| `rebuild_pending` | `Boolean` | false | `payload` | — | — |
+| `rebuild_after` | `UInt64` | true | `payload` | — | — |
+| `notify_after` | `UInt64` | true | `payload` | — | — |
+| `verify_after` | `UInt64` | true | `payload` | — | — |
 
 ## `canonical_study_retirements`
 

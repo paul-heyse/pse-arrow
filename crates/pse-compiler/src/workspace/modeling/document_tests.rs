@@ -62,6 +62,7 @@ fn document(path: &str, magnitudes: &[f64]) -> Arc<DataDocument> {
 fn inventory(first: &[f64], second: &[f64]) -> Arc<DocumentInventory> {
     Arc::new(DocumentInventory {
         field_spans: Default::default(),
+        parsed_fields: Default::default(),
         packages: [(SOURCE, PACKAGE)].into(),
         documents: [
             document("data/first.parquet", first),

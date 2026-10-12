@@ -32,6 +32,8 @@ pub struct Query<'r, C: Connection> {
     pub(crate) client: Cow<'r, Surreal<C>>,
     pub(crate) queries: Vec<Cow<'r, str>>,
     pub(crate) variables: Result<Variables>,
+    // Last field: builder bytes die before never-enqueued ownership cleanup.
+    pub(crate) payload_drain: Option<surrealdb_engine_api::request::UndispatchedPayloadDrain>,
 }
 
 impl<C> WithTransaction for Query<'_, C>
@@ -78,7 +80,48 @@ where
 {
     /// Attach the original operation clock without changing the session.
     pub fn request_context(mut self, context: crate::opt::RequestContext) -> Self {
+        let context = match self.request_context.as_ref() {
+            Some(previous) => context.inherit_payload_ownership(previous),
+            None => context,
+        };
+        if let Some(drain) = &mut self.payload_drain {
+            drain.update_context(Some(context.clone()));
+        } else if context.payload_owner().is_some() {
+            self.payload_drain = Some(
+                surrealdb_engine_api::request::UndispatchedPayloadDrain::caller(Some(
+                    context.clone(),
+                )),
+            );
+        }
         self.request_context = Some(context);
+        self
+    }
+
+    /// Attach an actual prepaid allocation to the original local request lifetime.
+    /// A missing original context is refused before constructing a route.
+    pub fn payload_owner(
+        mut self,
+        owner: std::sync::Arc<dyn std::fmt::Debug + Send + Sync>,
+    ) -> Self {
+        match self.request_context.take() {
+            Some(context) => self.request_context = Some(context.with_payload_owner(owner)),
+            None => {
+                self.variables = Err(Error::configuration(
+                    "Payload ownership requires an original request context".to_string(),
+                    None,
+                ))
+            }
+        }
+        match &mut self.payload_drain {
+            Some(drain) => drain.update_context(self.request_context.clone()),
+            slot @ None => {
+                *slot = Some(
+                    surrealdb_engine_api::request::UndispatchedPayloadDrain::caller(
+                        self.request_context.clone(),
+                    ),
+                )
+            }
+        }
         self
     }
 
@@ -95,6 +138,7 @@ where
                 .map(|q| Cow::Owned(q.into_owned()))
                 .collect(),
             variables: self.variables,
+            payload_drain: self.payload_drain,
         }
     }
 
@@ -174,13 +218,21 @@ where
     /// # Ok(())
     /// # }
     /// ```
-    pub fn stream_items(self) -> Result<ItemStream> {
+    pub fn stream_items(mut self) -> Result<ItemStream> {
+        if self.payload_drain.is_some() {
+            return Err(Error::configuration(
+                "Payload ownership is not qualified for streaming queries".to_string(),
+                None,
+            ));
+        }
+        let _payload_drain = self.payload_drain.take();
         let Self {
             request_context,
             txn,
             client,
             queries,
             variables,
+            payload_drain: _,
         } = self;
         let engine = Arc::clone(&client.inner.router.extract()?.engine);
         let query = join_queries(&queries);
@@ -387,17 +439,33 @@ where
     type IntoFuture = BoxFuture<'r, Self::Output>;
 
     fn into_future(self) -> Self::IntoFuture {
-        let Self {
-            request_context,
-            txn,
-            client,
-            queries,
-            variables,
-        } = self;
-
+        // Capture the complete builder, whose bytes precede its cleanup field,
+        // so even an unpolled future releases an undispatched allocation safely.
         Box::pin(async move {
+            let mut owned = self;
+            let _payload_drain = owned.payload_drain.take();
+            let Self {
+                request_context,
+                txn,
+                client,
+                queries,
+                variables,
+                payload_drain: _,
+            } = owned;
             // Extract the router from the client
             let router = client.inner.router.extract()?;
+            if request_context
+                .as_ref()
+                .is_some_and(|context| context.payload_owner().is_some())
+                && !router
+                    .features
+                    .contains(&crate::ExtraFeatures::PayloadOwnership)
+            {
+                return Err(Error::configuration(
+                    "Payload ownership is not qualified for this engine transport".to_string(),
+                    None,
+                ));
+            }
             let query = join_queries(&queries);
 
             let results = router
@@ -532,6 +600,7 @@ where
             client: self.client,
             queries: self.queries,
             variables,
+            payload_drain: self.payload_drain,
         }
     }
 }
@@ -943,6 +1012,146 @@ impl WithStats<IndexedResults> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn request_context_override_preserves_prepaid_payload_owner() {
+        let db = crate::Surreal::<crate::engine::any::Any>::init();
+        let owner = std::sync::Arc::new(vec![0u8; 4096]);
+        let weak = std::sync::Arc::downgrade(&owner);
+        let old = crate::opt::RequestContext::new(
+            std::time::Instant::now() + std::time::Duration::from_secs(10),
+        );
+        let current = crate::opt::RequestContext::new(old.deadline());
+        let query = db
+            .query("RETURN $value")
+            .request_context(old)
+            .payload_owner(owner.clone())
+            .bind(("value", 1))
+            .into_owned()
+            .request_context(current.clone());
+        drop(owner);
+        assert!(
+            query
+                .request_context
+                .as_ref()
+                .unwrap()
+                .payload_owner()
+                .is_some()
+        );
+        assert_eq!(
+            query.request_context.as_ref().unwrap().deadline(),
+            current.deadline()
+        );
+        assert!(weak.upgrade().is_some());
+        let retired = query.request_context.clone().unwrap();
+        retired.release_payload_after_drain();
+        assert!(
+            weak.upgrade().is_none(),
+            "overridden context and query share the same drain cell"
+        );
+        drop(query);
+    }
+
+    #[derive(Debug)]
+    struct BuilderBudget {
+        bytes: Vec<u8>,
+        reserved: Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl Drop for BuilderBudget {
+        fn drop(&mut self) {
+            self.reserved
+                .fetch_sub(self.bytes.len(), std::sync::atomic::Ordering::AcqRel);
+        }
+    }
+
+    #[tokio::test]
+    async fn never_enqueued_builder_and_sdk_failures_restore_exact_capacity() {
+        for path in 0..4 {
+            let db = crate::Surreal::<crate::engine::any::Any>::init();
+            let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(4096));
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + std::time::Duration::from_secs(30),
+            );
+            let query = db
+                .query("RETURN $payload")
+                .request_context(context)
+                .payload_owner(Arc::new(BuilderBudget {
+                    bytes: vec![0; 4096],
+                    reserved: reserved.clone(),
+                }))
+                .bind(("payload", "actual binding bytes"));
+            let retired = query.request_context.clone().unwrap();
+            match path {
+                0 => drop(query),
+                1 => drop(query.into_future()),
+                2 => {
+                    assert!(query.await.is_err());
+                } // Router was never initialized.
+                _ => {
+                    assert!(query.stream_items().is_err());
+                } // Unqualified transport refused before effects.
+            }
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+            assert_eq!(
+                retired.dispatch_state(),
+                crate::opt::DispatchState::NotDispatched
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn unqualified_transport_refuses_owned_payload_but_dispatches_ordinary_query() {
+        let (sender, routes) = async_channel::bounded(1);
+        let router =
+            crate::conn::Router::from_route_sender(sender, Default::default(), Default::default());
+        let db: crate::Surreal<crate::engine::any::Any> = (
+            router,
+            tokio::sync::watch::channel(None),
+            crate::SessionClone::new(),
+        )
+            .into();
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(4096));
+        let query = db
+            .query("RETURN $payload")
+            .request_context(crate::opt::RequestContext::new(
+                std::time::Instant::now() + std::time::Duration::from_secs(30),
+            ))
+            .payload_owner(Arc::new(BuilderBudget {
+                bytes: vec![0; 4096],
+                reserved: reserved.clone(),
+            }))
+            .bind(("payload", "actual binding bytes"));
+        let retired = query.request_context.clone().unwrap();
+        assert!(
+            query
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("not qualified for this engine transport")
+        );
+        assert!(
+            routes.is_empty(),
+            "refusal occurs before dispatch or transport copies"
+        );
+        assert_eq!(
+            retired.dispatch_state(),
+            crate::opt::DispatchState::NotDispatched
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let serve = async {
+            let route = routes.recv().await.unwrap();
+            route
+                .response
+                .send(Ok(vec![surrealdb_rpc::QueryResultBuilder::instant_none()]))
+                .await
+                .unwrap();
+        };
+        let (ordinary, ()) = tokio::join!(db.query("RETURN 1").into_future(), serve);
+        assert!(
+            ordinary.is_ok(),
+            "ordinary no-owner queries retain existing engine behavior"
+        );
+    }
 
     #[derive(Debug, Clone, SurrealValue)]
     #[surreal(crate = "crate::types")]

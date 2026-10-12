@@ -71,6 +71,7 @@ impl ModelingPackage {
             derivatives,
             exact_parameters,
             &BTreeSet::new(),
+            None,
             cancel,
         )
         .await
@@ -92,6 +93,7 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         exact_parameters: &BTreeSet<SemanticId>,
         provisional_quadratures: &BTreeSet<SemanticId>,
+        prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if bindings
@@ -113,9 +115,21 @@ impl ModelingPackage {
             .extend(case.values.keys().chain(case.variables.keys()).cloned());
         bindings.demand.sort();
         bindings.demand.dedup();
-        let authored = self
-            .prepare(root, instance, bindings.clone(), limits, cancel)
-            .await?
+        let base = match prepared {
+            Some(model)
+                if bindings
+                    .demand
+                    .iter()
+                    .all(|path| model.compiled().model.paths.contains_key(path)) =>
+            {
+                model
+            }
+            _ => {
+                self.prepare(root, instance, bindings.clone(), limits, cancel)
+                    .await?
+            }
+        };
+        let authored = base
             .compiled()
             .model
             .fixtures
@@ -147,6 +161,7 @@ impl ModelingPackage {
             exact_parameters,
             provisional_quadratures,
             &snapshot,
+            base,
             cancel,
         )
         .await
@@ -170,6 +185,7 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
+        base: ModelingPreparation,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         if modes.is_empty()
@@ -196,12 +212,20 @@ impl ModelingPackage {
                     pse_modeling::specialize::Value::Boolean(*value),
                 );
             }
+            let original = super::engagement::OriginalPreparationInputs::capture(
+                self, root, instance, &bindings, limits,
+            )?;
+            let model = if mode.facts.is_empty() {
+                base.clone()
+            } else {
+                self.prepare(root, instance, bindings, limits, cancel)
+                    .await?
+            };
             let mut next = self
                 .prepare_simulation_mode(
-                    root,
+                    model,
+                    original,
                     instance,
-                    bindings,
-                    limits,
                     case.clone(),
                     compiler,
                     profile.clone(),

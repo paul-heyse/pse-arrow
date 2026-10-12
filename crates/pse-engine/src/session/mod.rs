@@ -74,7 +74,7 @@ pub mod scalar;
 pub use engine_session::engine;
 
 pub use engine_session::{EngineSession, SessionSemantics};
-pub use factory::EngineFactory;
+pub use factory::{BoundModel, EngineFactory};
 pub use facts::RelationFacts;
 pub use profile::{EngineProfile, EngineRules, native_engine_profile};
 

@@ -38,9 +38,8 @@ feature-unification = true
 fine-grain-locking = true
 
 [resolver]
-# Read only with `-Z feature-unification` (above); stable Cargo ignores it and resolves
-# per selection. pse-workspace-hack (cargo-hakari) carries the same unification for
-# Cargo that does not read [unstable].
+# Read only with `-Z feature-unification` (above). The pinned nightly is the supported
+# Cargo path; stable Cargo's per-selection fallback is retired (ADR-0175).
 feature-unification = "workspace"
 
 [alias]

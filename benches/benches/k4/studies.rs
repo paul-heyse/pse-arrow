@@ -171,7 +171,12 @@ async fn definition(
         })
         .collect();
     let admitted = package
-        .admit_study_sources(&sources.physical, &points, &CancelSource::new())
+        .admit_study_sources(
+            &sources.physical,
+            &points,
+            &pse_runtime::workflow::StudyOutputDemand::Full,
+            &CancelSource::new(),
+        )
         .await
         .unwrap();
     assert_eq!(

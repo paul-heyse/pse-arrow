@@ -115,6 +115,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    # The observer prepares the actual binaries, force-validation closure and
+    # inventory together. Resolving here first would repeat that Cargo work and
+    # leave two independently prepared scopes in the same invocation.
+    if "run" in command and os.environ.get("PSE_NATIVE_OPERATION"):
+        return run_rust(command, effects=effects, package_scope=argv[:1] == ["unit"])
     resolved = resolve(command)
     command = resolved.command
     if argv[:1] == ["unit"]:

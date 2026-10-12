@@ -200,3 +200,112 @@ def test_authored_solve_join_warm_start_checks_and_retention(
     assert partial.run_id == cancelled.wait().run_id
     assert not partial.usable
     assert pa.table(partial.table("runtime.solve_runs")).num_rows == 1
+
+
+@pytest.mark.integration
+def test_typed_bound_solve_preserves_parent_and_returns_exact_admission(
+    inspection_settings: pse.EngineSettings,
+    canonical_substrate: CanonicalFixture,
+) -> None:
+    from pse.contracts.documents import (
+        BindingAssignment,
+        BindingQuantity,
+        BindingTargetMember,
+        BindingTargetPath,
+        PointOverlay,
+    )
+
+    runtime = canonical_substrate.runtime(inspection_settings)
+    root = Path(__file__).resolve().parents[3]
+    primitives = root / "tests/fixtures/packages/physical-primitives"
+    physical = runtime.physical_from_documents(
+        {
+            str(path.relative_to(primitives)): path.read_text()
+            for path in primitives.rglob("*")
+            if path.is_file()
+        }
+    )
+    manifest = (
+        (root / "tests/fixtures/packages/minimal_explicit/package.toml")
+        .read_text()
+        .replace('id_policy = "explicit"', 'id_policy = "named"')
+        .replace("dependencies = []", PRIMITIVES)
+    )
+    source = """package binding {
+        test Root fixture {dof 0; fix f=2;} {
+            param p:Scalar=3; var f:Scalar; var x:Scalar;
+            eq e:x==p*f; annotation start x(1);
+            annotation report x("solution"); annotation check x(x==p*f);
+        }
+    }"""
+    package = runtime.modeling_from_documents(
+        [{"package.toml": manifest, "models/root.pse": source}], physical
+    )
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "Root"
+    )
+    original_revision = package.canonical_revision
+    settings = pse.SolveSettings(
+        backend=NativeBackend.KINSOL,
+        intent=NativeSolveIntent.ROOT,
+        presolve=PresolvePolicyKind.OFF,
+    )
+
+    def assignment(path: str, value: float) -> BindingAssignment:
+        return BindingAssignment(
+            target=BindingTargetPath(value=path),
+            value=BindingQuantity(
+                magnitude=value,
+                quantity="1f" * 16,
+                unit="0a" * 16,
+            ),
+        )
+
+    bound = package.solve_bound(
+        case,
+        PointOverlay(
+            assignments=(
+                assignment("p", 4.0),
+                assignment("f", 5.0),
+                assignment("x", 7.0),
+            )
+        ),
+        settings,
+    )
+    assert bound.accepted
+    receipt = bound.bound_source
+    assert receipt is not None
+    assert bound.binding_identity is not None
+    assert len(receipt.entries) == 3
+    admitted = {entry.supplied.value: entry for entry in receipt.entries.values()}
+    assert admitted["p"].parameter
+    assert admitted["p"].canonical == 4.0
+    assert admitted["f"].canonical == 5.0
+    assert admitted["x"].canonical == 7.0
+    assert not admitted["f"].parameter
+    assert not admitted["x"].parameter
+    reports = pa.table(bound.table("runtime.modeling_reports")).to_pylist()
+    assert next(
+        row["value"] for row in reports if row["label"] == "solution"
+    ) == pytest.approx(20.0)
+    assert package.canonical_revision == original_revision
+    reopened = package.solve_case(case, settings)
+    reports = pa.table(reopened.table("runtime.modeling_reports")).to_pylist()
+    assert next(
+        row["value"] for row in reports if row["label"] == "solution"
+    ) == pytest.approx(6.0)
+    assert reopened.bound_source is None
+    same_member = BindingAssignment(
+        target=BindingTargetMember(value=admitted["p"].member),
+        value=assignment("p", 4.0).value,
+    )
+    with pytest.raises(pse.InspectionError):
+        package.solve_bound(
+            case,
+            PointOverlay(assignments=(assignment("p", 4.0), same_member)),
+            settings,
+        )
+    with pytest.raises(pse.InspectionError):
+        package.solve_bound(
+            case, PointOverlay(assignments=(assignment("missing", 1.0),)), settings
+        )

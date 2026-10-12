@@ -124,6 +124,10 @@ impl RouterState {
     async fn update_connection(&self, sink: MessageSink, stream: MessageStream) {
         *self.sink.write().await = sink;
         *self.stream.write().await = stream;
+        // The serial router has joined its old dispatch future. Both old
+        // split halves are now dropped, so their byte grants may drain before
+        // setup replay on this new physical connection.
+        reset_sessions(&self.sessions).await;
     }
 }
 
@@ -192,18 +196,12 @@ pub(crate) async fn run_router(
     }
 
     let (socket_sink, socket_stream) = socket.split();
-    // The wasm socket halves are neither `Send` nor `Sync`, so this `Arc` buys no
-    // cross-thread sharing over an `Rc`. It mirrors the native router's shape,
-    // which shares the same state across genuinely concurrent tasks.
-    #[allow(clippy::arc_with_non_send_sync)]
-    let state = Arc::new(RouterState::new(socket_sink, socket_stream));
+    let state = RouterState::new(socket_sink, socket_stream);
 
     'router: loop {
         let mut interval = time::interval(PING_INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut pinger = IntervalStream::new(interval);
-
-        reset_sessions(&state.sessions).await;
 
         loop {
             futures::select! {
@@ -211,7 +209,10 @@ pub(crate) async fn run_router(
                     let Ok(session_id) = session else {
                         break 'router
                     };
-                    handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                        route_rx.close();
+                        break 'router;
+                    }
                 }
                 route = route_rx.recv().fuse() => {
                     let Ok(route) = route else {
@@ -227,7 +228,11 @@ pub(crate) async fn run_router(
                     // receiving this route establishes a happens-before with the sender, so
                     // those earlier events are now observable and one drain pass suffices.
                     while let Ok(session_id) = session_rx.try_recv() {
-                        handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                            route_rx.close();
+                            super::refuse_undispatched_route(route, Error::connection("Physical connection closed".to_string(), surrealdb_types::ConnectionError::ConnectionFailed));
+                            break 'router;
+                        }
                     }
 
                     match handle_route::<Message, _, _>(
@@ -275,5 +280,23 @@ pub(crate) async fn run_router(
                 }
             }
         }
+    }
+    let RouterState {
+        sessions,
+        sink,
+        stream,
+    } = state;
+    drop(sink);
+    drop(stream);
+    reset_sessions(&sessions).await;
+    route_rx.close();
+    while let Ok(route) = route_rx.try_recv() {
+        super::refuse_undispatched_route(
+            route,
+            Error::connection(
+                "Physical connection closed".to_string(),
+                surrealdb_types::ConnectionError::ConnectionFailed,
+            ),
+        );
     }
 }

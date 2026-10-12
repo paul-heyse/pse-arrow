@@ -2402,3 +2402,346 @@ fn conditional_blocks_share_original_coordinates_and_binding_inputs() {
         assert!(slots.upgrade().is_none());
     }
 }
+
+#[test]
+fn dense_trials_preserve_aliases_axes_fixed_rebinding_and_original_assessment() {
+    for alias in [false, true] {
+        for fixed in [false, true] {
+            let (assembly, values) = fixture(alias, fixed);
+            let bound = assembly.bind_values(&values).unwrap();
+            let coordinates: Vec<_> = assembly
+                .columns()
+                .iter()
+                .map(|id| values.scalars[id])
+                .collect();
+            let trial = bound.trial(&coordinates).unwrap();
+            let cancel = Arc::new(AtomicBool::new(false));
+            let mut original = assembly.worker(BTreeMap::new(), cancel.clone());
+            let mut dense = assembly.worker(BTreeMap::new(), cancel);
+            assert_eq!(
+                dense.objective(trial).unwrap().to_bits(),
+                original.objective(&values).unwrap().to_bits()
+            );
+            assert_eq!(
+                dense.constraints(trial).unwrap(),
+                original.constraints(&values).unwrap()
+            );
+            assert_eq!(
+                dense.gradient(trial).unwrap(),
+                original.gradient(&values).unwrap()
+            );
+            assert_eq!(
+                dense.jacobian(trial).unwrap().val(),
+                original.jacobian(&values).unwrap().val()
+            );
+            assert_eq!(
+                dense.hessian(trial, 2.0, &[3.0, 5.0]).unwrap().val(),
+                original.hessian(&values, 2.0, &[3.0, 5.0]).unwrap().val()
+            );
+            let mut changed = values.clone();
+            changed.scalars.insert(id(1), -0.0);
+            let rebound = assembly.bind_values(&changed).unwrap();
+            let coordinates: Vec<_> = assembly
+                .columns()
+                .iter()
+                .map(|id| changed.scalars[id])
+                .collect();
+            assert_eq!(
+                dense
+                    .objective(rebound.trial(&coordinates).unwrap())
+                    .unwrap()
+                    .to_bits(),
+                original.objective(&changed).unwrap().to_bits()
+            );
+            assert!(bound.trial(&[f64::NAN]).is_err());
+            assert!(
+                bound
+                    .trial(&vec![0.0; assembly.columns().len() + 1])
+                    .is_err()
+            );
+            changed.scalars.remove(&id(1));
+            assert!(assembly.bind_values(&changed).is_err());
+        }
+    }
+}
+
+#[test]
+fn dense_trials_refuse_other_layout_and_failed_values_clear_observations() {
+    let (assembly, values) = fixture(false, false);
+    let (other, _) = fixture(false, false);
+    let bound = other.bind_values(&values).unwrap();
+    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    assert!(worker.objective(bound.trial(&[2.0, 3.0]).unwrap()).is_err());
+    worker.objective(&values).unwrap();
+    let mut missing = values;
+    missing.scalars.remove(&id(1));
+    assert!(worker.objective(&missing).is_err());
+    assert!(worker.constraint_sources().is_err());
+    assert!(worker.applicability_observations().is_empty());
+}
+
+#[test]
+fn compiled_gathers_refuse_duplicate_and_unknown_formals_before_evaluation() {
+    let (assembly, _) = fixture(true, false);
+    let binding = &assembly.structure().instances()[0];
+    let columns = BTreeMap::from([(id(1), 0), (id(2), 1)]);
+    assert!(EvalBindings::new(binding, &[0, 0], &columns, &BTreeMap::new()).is_err());
+    assert!(EvalBindings::new(binding, &[2], &columns, &BTreeMap::new()).is_err());
+    assert!(EvalBindings::new(binding, &[0], &BTreeMap::new(), &BTreeMap::new()).is_err());
+}
+
+#[test]
+fn assembly_first_order_callbacks_leave_second_order_workers_cold() {
+    let (assembly, values) = fixture(false, false);
+    let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    assert!(worker.instantiated_orders().iter().all(Vec::is_empty));
+    assert_eq!(worker.objective(&values).unwrap(), 6.0);
+    assert_eq!(worker.gradient(&values).unwrap(), vec![3.0, 2.0]);
+    assert_eq!(worker.constraints(&values).unwrap(), vec![25.0, 0.0]);
+    assert_eq!(worker.jacobian(&values).unwrap().to_dense()[(0, 0)], 5.0);
+    let orders = worker.instantiated_orders();
+    assert_eq!(orders.iter().filter(|orders| !orders.is_empty()).count(), 2);
+    assert!(
+        orders
+            .iter()
+            .flatten()
+            .all(|order| *order <= DerivativeOrder::First)
+    );
+    assert_eq!(
+        worker
+            .hessian(&values, 1.0, &[0.0, 0.0])
+            .unwrap()
+            .to_dense()[(1, 0)],
+        1.0
+    );
+    let orders = worker.instantiated_orders();
+    assert_eq!(
+        orders
+            .iter()
+            .filter(|orders| orders.contains(&DerivativeOrder::Second))
+            .count(),
+        1
+    );
+    assert_eq!(orders.iter().filter(|orders| !orders.is_empty()).count(), 3);
+    let mut independent = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    assert!(independent.instantiated_orders().iter().all(Vec::is_empty));
+    assert_eq!(independent.gradient(&values).unwrap(), vec![3.0, 2.0]);
+    assert!(
+        independent
+            .instantiated_orders()
+            .iter()
+            .flatten()
+            .all(|order| *order == DerivativeOrder::First)
+    );
+}
+
+#[test]
+fn operation_demands_use_consumed_ceilings_and_upgrade_all_products() {
+    let (assembly, _) = fixture(false, false);
+    let demands = assembly.demands();
+    assert_eq!(
+        demands
+            .iter()
+            .filter(|d| d.order == DerivativeOrder::First)
+            .count(),
+        2
+    );
+    assert_eq!(
+        demands
+            .iter()
+            .filter(|d| d.order == DerivativeOrder::Second)
+            .count(),
+        1
+    );
+    for (demand, support) in demands.iter().zip(assembly.supports()) {
+        assert_eq!(demand.order, support.order());
+    }
+    let registry = standard_registry().unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let value = CasePlan::prepare(
+        Arc::new(assembly.structure().clone()),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let upgraded = value
+        .prepare_order(DerivativeOrder::Second, &cancel)
+        .unwrap();
+    assert_eq!(upgraded.demands(), assembly.demands());
+    for (demand, support) in upgraded.demands().iter().zip(upgraded.supports()) {
+        assert_eq!(demand.order, support.order());
+    }
+    // Selecting only constraints makes Constraints and All the same actual demand.
+    // Their single product must retain the maximum Second ceiling.
+    let rows = assembly.structure().rows().to_vec();
+    let mut bindings = assembly.structure().instances().to_vec();
+    for binding in &mut bindings {
+        binding
+            .contributions
+            .retain(|c| matches!(c.target, Target::Row(_)));
+    }
+    let structure = CaseStructure::new(
+        assembly.structure().variables().to_vec(),
+        vec![],
+        bindings,
+        rows,
+        None,
+        CaseLimits::default(),
+    )
+    .unwrap();
+    let only_constraints = CasePlan::prepare(
+        Arc::new(structure),
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Second,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    assert_eq!(only_constraints.demands().len(), 1);
+    assert_eq!(only_constraints.demands()[0].order, DerivativeOrder::Second);
+}
+
+#[test]
+fn compact_refill_is_atomic_and_hashes_only_consumed_inputs() {
+    for alias in [false, true] {
+        let (assembly, values) = fixture(alias, true);
+        let reads = std::cell::Cell::new(0usize);
+        let mut bound = assembly
+            .bind_inputs(|id| {
+                reads.set(reads.get() + 1);
+                values.scalars.get(&id).copied()
+            })
+            .unwrap();
+        assert_eq!(reads.get(), if alias { 1 } else { 2 });
+        let mut worker = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+        let before = bound.input_identity();
+        let expected = worker.objective(bound.trial(&[]).unwrap()).unwrap();
+        assert!(bound.refill(&[(id(1), 7.0), (id(1), 8.0)]).is_err());
+        assert!(bound.refill(&[(id(1), 7.0), (id(250), 8.0)]).is_err());
+        assert!(bound.refill(&[(id(1), f64::NAN)]).is_err());
+        assert_eq!(bound.input_identity(), before);
+        assert_eq!(
+            worker.objective(bound.trial(&[]).unwrap()).unwrap(),
+            expected
+        );
+        if alias {
+            bound.refill(&[(id(2), 99.0)]).unwrap();
+            assert_eq!(bound.input_identity(), before);
+        }
+        bound.refill(&[(id(1), 7.0)]).unwrap();
+        assert_ne!(bound.input_identity(), before);
+        let mut original = values.clone();
+        original.scalars.insert(id(1), 7.0);
+        assert_eq!(
+            worker.objective(bound.trial(&[]).unwrap()).unwrap(),
+            worker.objective(&original).unwrap()
+        );
+        // A separate operation owner keeps its own compact frame.
+        let other = assembly
+            .bind_inputs(|id| values.scalars.get(&id).copied())
+            .unwrap();
+        assert_eq!(other.input_identity(), before);
+    }
+}
+
+#[test]
+fn exclusive_case_scratch_is_one_shot_exact_and_clears_trial_caches() {
+    crate::initialize().unwrap();
+    let (assembly, mut values) = fixture(false, false);
+    let stop = Arc::new(AtomicBool::new(false));
+    let old_stop = Arc::downgrade(&stop);
+    #[derive(Debug)]
+    struct DepartingProvider {
+        spec: pse_kernels::ProviderSpec,
+        dropped: Arc<AtomicBool>,
+    }
+    impl Drop for DepartingProvider {
+        fn drop(&mut self) {
+            self.dropped
+                .store(true, std::sync::atomic::Ordering::Release);
+        }
+    }
+    impl pse_kernels::Provider for DepartingProvider {
+        fn spec(&self) -> &pse_kernels::ProviderSpec {
+            &self.spec
+        }
+        fn evaluate(
+            &mut self,
+            _: &[f64],
+            _: &pse_kernels::ProviderRequest,
+            _: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<pse_kernels::ProviderValues, pse_kernels::ProviderError> {
+            Err(pse_kernels::ProviderError::Trial(
+                "unused provider in arithmetic assembly".into(),
+            ))
+        }
+    }
+    let dropped = Arc::new(AtomicBool::new(false));
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let port = |n| Port {
+        id: id(n),
+        quantity,
+        unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+    };
+    let spec = pse_kernels::ProviderSpec {
+        id: id(90),
+        revision: ContentHash::from_bytes([91; 32]),
+        data: ContentHash::from_bytes([92; 32]),
+        shapes: Default::default(),
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        inputs: vec![port(93)],
+        outputs: vec![port(94)],
+        derivatives: DerivativeOrder::Value,
+        smoothness: DerivativeOrder::Value,
+    };
+    let provider: Box<dyn pse_kernels::Provider> = Box::new(DepartingProvider {
+        spec: spec.clone(),
+        dropped: dropped.clone(),
+    });
+    let returned = Arc::new(std::sync::Mutex::new(None));
+    let output = returned.clone();
+    let mut worker = assembly.worker(BTreeMap::from([(spec.key(), provider)]), stop.clone());
+    worker.recycle_on_drop(move |scratch| {
+        assert!(
+            dropped.load(std::sync::atomic::Ordering::Acquire),
+            "provider destruction precedes detachment"
+        );
+        *output.lock().unwrap() = Some(scratch);
+    });
+    assert_eq!(worker.objective(&values).unwrap(), 6.0);
+    worker.jacobian(&values).unwrap();
+    worker.hessian(&values, 1., &[0., 0.]).unwrap();
+    let warmed = worker.instantiated_orders();
+    values.scalars.insert(id(1), f64::NAN);
+    assert!(worker.objective(&values).is_err());
+    drop(worker);
+    drop(stop);
+    assert!(old_stop.upgrade().is_none());
+    let raw = returned.lock().unwrap().take().unwrap();
+    assert!(raw.compatible(&assembly));
+    let (other, _) = fixture(false, false);
+    assert!(
+        !raw.compatible(&other),
+        "structural equality is insufficient"
+    );
+    let scratch = raw.reset().unwrap();
+    let mut next = assembly
+        .worker_from_scratch(
+            scratch,
+            BTreeMap::new(),
+            pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), None),
+        )
+        .unwrap();
+    assert_eq!(next.instantiated_orders(), warmed);
+    values.scalars.insert(id(1), 4.0);
+    assert_eq!(next.objective(&values).unwrap(), 12.0);
+    assert_eq!(next.constraints(&values).unwrap(), vec![35.0, 0.0]);
+    let reference = assembly.worker(BTreeMap::new(), Arc::new(AtomicBool::new(false)));
+    assert!(reference.instantiated_orders().iter().all(Vec::is_empty));
+    assert!(returned.lock().unwrap().is_none());
+}

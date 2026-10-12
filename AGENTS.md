@@ -108,8 +108,10 @@ remains diagnosable. This exception accepts observer options, never an arbitrary
 Direnv and Claude
 sessions load the same environment, and Codex commands prefix `scripts/pse-env --`.
 
-For Python, `just py-sync` refreshes the editable dev extension (`just py-sync-native` the
-linked one); `just py-unit` routes to the right environment for whichever is installed, and
+For Python, `just py-sync` refreshes the interactive editable extension (`just py-sync-native` the
+linked one), without force-validation. `just py-unit` and `just py-test` first build the explicitly
+validated correctness extension; `just py-sync-correctness` selects that build directly. `just py-unit`
+routes to the right environment for whichever is installed, and
 `just py-test` runs unit and component tests against the canonical store at
 `$PSE_SURREAL_STATE`. `just parity` runs the IDAES comparisons on this machine. Full wheel
 builds are manual (`just wheels-check <ref>`). Git hooks are not installed by bootstrap, and
@@ -125,9 +127,7 @@ GitHub check workflows run only when manually dispatched.
    generated paths are `docs/generated/`, `crates/*/src/generated/` (the operational
    store's `crates/pse-operations/src/generated/` included), `crates/pse-operations-queries/`,
    `crates/pse-ipopt-sys/src/bindings.rs`, `python/pse/contracts/` and
-   `python/pse/_native.pyi`, plus the cargo-hakari section of
-   `crates/pse-workspace-hack/Cargo.toml` and each member's `pse-workspace-hack` line
-   (`.config/hakari.toml` is their source). `just codegen-check` covers every generated
+   `python/pse/_native.pyi`. `just codegen-check` covers every generated
    output; a hand edit there is a red diff, not a fix.
 3. **One authoritative declaration per meaning.** A dependency is declared once, in
    `Cargo.toml` (`[workspace.dependencies]`) or `pyproject.toml`, and a pin's reason once
@@ -180,11 +180,9 @@ authority.
   correctness check/test closure explicitly activates validation, including normal/build
   and selected-root dev dependencies in target and host contexts (ADR-0170). Scope-aware
   routes verify Arrow leaf activation and refuse unknown coverage; pure closures do not
-  select unrelated relation targets. Bare invocations carry the same obligation. The
-  workspace-hack must never switch validation on; opt-in paths are excluded from hakari
-  traversal in `.config/hakari.toml`.
+  select unrelated relation targets. Bare invocations carry the same obligation.
 - **One feature set per dependency, whatever `-p` selects** (ADR-0122). Cargo's workspace
-  feature unification on the pinned nightly and `pse-workspace-hack` keep it; only opt-in
+  feature unification on the supported pinned nightly keeps it; only opt-in
   features (`force-validate`, `native-solvers`) change a dependency's build.
 - **`panic = "unwind"`** in every profile. PyO3 turns unwinds into Python exceptions and
   the Ipopt callbacks `catch_unwind`; `abort` would take the interpreter down.

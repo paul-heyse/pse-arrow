@@ -31,7 +31,7 @@ struct Pending {
 pub(super) struct PointAccuracySink {
     /// Frozen scientific/numerical context; the actual point and work demand are separate.
     source: SemanticProductKey,
-    numerics: Arc<ResolvedNumericalPolicy>,
+    numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     pending: Mutex<Option<Pending>>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }

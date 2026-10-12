@@ -35,6 +35,8 @@ pub enum StudyOccurrenceResult {
     },
     /// Explicitly selected ephemeral numerical workflow.
     Ephemeral(Arc<RunResult>),
+    /// Mandatory original completion and explicitly selected bounded relation detail.
+    Compact(Arc<super::CompactStudyResult>),
 }
 impl StudyOccurrenceResult {
     /// Semantic execution identity, distinct from the opaque native attempt key.
@@ -42,13 +44,28 @@ impl StudyOccurrenceResult {
         match self {
             Self::Retained { run_id, .. } => *run_id,
             Self::Ephemeral(result) => result.run_id,
+            Self::Compact(result) => result.run_id,
+        }
+    }
+    /// Original completion is mandatory for full and compact in-memory occurrences.
+    /// Persisted occurrences require a fresh connected completion selection.
+    pub fn completion(&self) -> Result<&super::Completion, WorkflowError> {
+        match self {
+            Self::Ephemeral(result) => result
+                .completion
+                .as_ref()
+                .map_err(|error| WorkflowError::Shared(error.clone())),
+            Self::Compact(result) => result.completion_shared().map_err(WorkflowError::Shared),
+            Self::Retained { .. } => Err(super::contract(
+                "persisted occurrence requires a connected completion selection",
+            )),
         }
     }
     /// Exact connected selection for persisted scientific rows.
     pub fn stored_keys(&self) -> Option<(&str, &str)> {
         match self {
             Self::Retained { run, attempt, .. } => Some((run, attempt)),
-            Self::Ephemeral(_) => None,
+            Self::Ephemeral(_) | Self::Compact(_) => None,
         }
     }
     /// Original native report is available only in explicit kernel mode. Applications
@@ -62,6 +79,7 @@ impl StudyOccurrenceResult {
             Self::Retained { .. } => Err(super::contract(
                 "persisted occurrence requires a connected result selection",
             )),
+            Self::Compact(_) => Err(super::contract("full occurrence report was not selected")),
         }
     }
 }
@@ -236,14 +254,6 @@ impl ModelingPackage {
         {
             return Err(super::contract("bounded study extent"));
         }
-        // Existing operation preparation can own a worker while entering the native
-        // sequence. Refuse before issuance unless both population owners can coexist.
-        if !definition.points.is_empty() && self.runtime.shared.budget().math.jobs < 2 {
-            return Err(crate::math::MathRuntimeError::Limit(
-                "study preparation and native sequence population",
-            )
-            .into());
-        }
         let graph = definition.graph();
         let admitted =
             pse_operations::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
@@ -325,19 +335,27 @@ impl ModelingPackage {
                 attempts: vec![],
             })
             .collect();
-        let mut results: Vec<Option<Arc<RunResult>>> = vec![None; graph.points.len()];
+        let mut results: Vec<Option<StudyOccurrenceResult>> = vec![None; graph.points.len()];
+        let mut continuation = ContinuationRetention::new(&graph, &positions)?;
         let width = self
             .runtime
             .shared
             .math()
             .cores()
-            .min(self.runtime.shared.budget().math.jobs / 2)
+            .min(self.runtime.shared.budget().math.jobs)
             .max(1);
         let work_cancel = cancel.child_with_deadline(None);
         let mut pending: futures_util::stream::FuturesUnordered<
             futures_util::future::BoxFuture<'_, LaneCompletion>,
         > = futures_util::stream::FuturesUnordered::new();
         let mut inflight = BTreeSet::new();
+        let _lane_owner = self.runtime.shared.math().reserve(
+            "study:held-input-lanes",
+            width * (size_of::<super::study_operations::StudyPreparationLane>() + 128),
+        )?;
+        let mut available = (0..width)
+            .map(|_| super::study_operations::StudyPreparationLane::new())
+            .collect::<Vec<_>>();
         let mut ready = BTreeMap::<usize, ReadyOperation>::new();
         let mut retained = BTreeMap::<usize, Staged>::new();
         // A single continuation successor may inherit private native state. Fan-out
@@ -366,17 +384,20 @@ impl ModelingPackage {
                 while !completed.is_empty() {
                     let completion = completed.remove(0);
                     match completion {
-                        LaneCompletion::Prepared { index, operation, mut staged } => {
+                        LaneCompletion::Prepared { index, operation, mut staged, lane } => {
                             inflight.remove(&index);
                             match operation {
                                 Ok(operation) => {
-                                    ready.insert(index, ReadyOperation { operation, staged });
+                                    ready.insert(index, ReadyOperation { operation, staged, lane });
                                     frontier.insert(index);
                                 }
                                 Err(error) => {
+                                    available.push(lane);
                                     if let Some(staged) = staged.take() { staged.close().await; }
                                     record_preparation_failure(index, &error, definition,
                                         &mut facts, &mut outcomes);
+                                    continuation.terminal(index, &graph.points[index], &facts[index],
+                                        work_cancel.token().is_cancelled());
                                     if matches!(error.boundary_diagnostic().class,
                                         BoundaryClass::Infrastructure | BoundaryClass::Internal) {
                                         return Err(error);
@@ -387,13 +408,14 @@ impl ModelingPackage {
                                 }
                             }
                         }
-                        LaneCompletion::Executed { points, mut staged } => {
+                        LaneCompletion::Executed { points, mut staged, lanes } => {
+                            available.extend(lanes);
                             let only = (points.len() == 1).then(|| points[0].index);
                             for point in points {
                                 let index = point.index;
                                 inflight.remove(&index);
                                 if let Some(error) = record_execution(point, definition,
-                                    &work_cancel, &mut facts, &mut outcomes, &mut results) {
+                                    &work_cancel, &mut facts, &mut outcomes, &mut results, &mut continuation, &owner).await {
                                     if let Some(staged) = staged.take() { staged.close().await; }
                                     return Err(error);
                                 }
@@ -441,7 +463,7 @@ impl ModelingPackage {
                             StartPolicy::Continuation(edge) => Some(SeedFact {
                                 role: edge.role,
                                 availability: memory_seed(&preparation.operation,
-                                    results[positions[&edge.predecessor]].as_deref()),
+                                    continuation.values[positions[&edge.predecessor]].as_deref()),
                             }),
                             StartPolicy::Explicit { role, .. } => Some(SeedFact {
                                 role: *role, availability: SeedAvailability::Absent,
@@ -465,19 +487,24 @@ impl ModelingPackage {
                             if !replaces && inflight.len() + ready.len() + retained.len() >= width {
                                 continue;
                             }
-                            let staged = parent.and_then(|parent| retained.remove(&parent));
+                            let Some(mut lane) = available.pop() else { continue; };
+                            let mut staged = parent.and_then(|parent| retained.remove(&parent));
                             let requested = &definition.points[index];
                             let child_cancel = &work_cancel;
                             inflight.insert(index);
                             frontier.remove(&index);
                             pending.push(async move {
-                                let operation = self.prepare_bound_operation(&requested.operation,
-                                    &requested.binding, child_cancel).await.and_then(|operation| {
+                                let prepare = lane.prepare(self, &requested.operation,
+                                    &requested.binding, child_cancel);
+                                let operation = match staged.as_mut() {
+                                    Some(staged) => staged.prepare(prepare).await.and_then(|result| result),
+                                    None => prepare.await,
+                                }.and_then(|operation| {
                                     if operation.seed_need() == point.seed_need { Ok(operation) }
                                     else { Err(study_error(DiagnosticRule::StudySeedIncompatible,
                                         "declared seed need differs from operation-owned admission")) }
                                 });
-                                LaneCompletion::Prepared { index, operation, staged }
+                                LaneCompletion::Prepared { index, operation, staged, lane }
                             }.boxed());
                         }
                         ActionKind::Wait(_) => { frontier.remove(&index); }
@@ -485,9 +512,9 @@ impl ModelingPackage {
                             "an ephemeral study has no publication effect to reconcile".into())),
                         kind @ (ActionKind::Cancel | ActionKind::Refuse(_)) => {
                             frontier.remove(&index);
-                            if let Some(mut preparation) = ready.remove(&index)
-                                && let Some(staged) = preparation.staged.take() {
-                                staged.close().await;
+                            if let Some(mut preparation) = ready.remove(&index) {
+                                available.push(preparation.lane);
+                                if let Some(staged) = preparation.staged.take() { staged.close().await; }
                             }
                             facts[index].revision += 1;
                             if let ActionKind::Refuse(refusal) = kind {
@@ -504,6 +531,7 @@ impl ModelingPackage {
                                 outcomes[index].diagnostic = Some(WorkflowError::from(
                                     crate::math::MathRuntimeError::Cancelled).boundary_diagnostic());
                             }
+                            continuation.terminal(index, point, &facts[index], work_cancel.token().is_cancelled());
                             if let Some(children) = dependents.get(&point.key) { frontier.extend(children); }
                         }
                     }
@@ -516,7 +544,7 @@ impl ModelingPackage {
                         | StartProvenance::FreshFallback { .. }) && !successors.contains_key(&index) {
                         match ready.get(&index) {
                             Some(ReadyOperation { operation: PreparedStudyOperation::DeclaredCase(case),
-                                staged: None }) => case.solve.batch_backend(),
+                                staged: None, .. }) => case.solve.batch_backend(),
                             _ => None,
                         }
                     } else { None };
@@ -539,10 +567,10 @@ impl ModelingPackage {
                             StartProvenance::Continuation { predecessor, .. } => {
                                 let parent = positions[predecessor];
                                 let older = match &graph.points[parent].start {
-                                    StartPolicy::Continuation(edge) => results[positions[&edge.predecessor]].clone(),
+                                    StartPolicy::Continuation(edge) => continuation.values[positions[&edge.predecessor]].clone(),
                                     _ => None,
                                 };
-                                (results[parent].clone(), older)
+                                (continuation.values[parent].clone(), older)
                             }
                             _ => (None, None),
                         };
@@ -574,28 +602,45 @@ impl ModelingPackage {
         if decision.is_err() {
             work_cancel.cancel();
         }
+        let mut close_failure = None;
         for completion in completed {
-            completion.close().await;
+            if let Err(error) = completion.close().await {
+                if close_failure.is_none() {
+                    close_failure = Some(error);
+                }
+            }
         }
         while let Some(completion) = pending.next().await {
-            completion.close().await;
+            if let Err(error) = completion.close().await {
+                if close_failure.is_none() {
+                    close_failure = Some(error);
+                }
+            }
         }
         for (_, mut preparation) in ready {
+            available.push(preparation.lane);
             if let Some(staged) = preparation.staged.take() {
                 staged.close().await;
+            }
+        }
+        for lane in &mut available {
+            if let Err(error) = lane.close().await {
+                if close_failure.is_none() {
+                    close_failure = Some(error);
+                }
             }
         }
         for (_, staged) in retained {
             staged.close().await;
         }
+        if let Some(error) = close_failure {
+            return Err(error);
+        }
         Ok(StudyReport {
             run_id,
             definition: definition.clone(),
             outcomes,
-            results: results
-                .into_iter()
-                .map(|result| result.map(StudyOccurrenceResult::Ephemeral))
-                .collect(),
+            results,
             decision: decision?,
             preparations,
             runtime: self.runtime.clone(),
@@ -605,6 +650,7 @@ impl ModelingPackage {
 }
 
 struct ReadyOperation {
+    lane: super::study_operations::StudyPreparationLane,
     operation: PreparedStudyOperation,
     staged: Option<Staged>,
 }
@@ -613,8 +659,8 @@ struct LaneMember {
     start: StartProvenance,
     attempt: u32,
     preparation: ReadyOperation,
-    previous: Option<Arc<RunResult>>,
-    older: Option<Arc<RunResult>>,
+    previous: Option<Arc<MinimalContinuation>>,
+    older: Option<Arc<MinimalContinuation>>,
 }
 struct ExecutedPoint {
     index: usize,
@@ -623,27 +669,117 @@ struct ExecutedPoint {
 }
 enum LaneCompletion {
     Prepared {
+        lane: super::study_operations::StudyPreparationLane,
         index: usize,
         operation: Result<PreparedStudyOperation, WorkflowError>,
         staged: Option<Staged>,
     },
     Executed {
+        lanes: Vec<super::study_operations::StudyPreparationLane>,
         points: Vec<ExecutedPoint>,
         staged: Option<Staged>,
     },
 }
 impl LaneCompletion {
-    async fn close(self) {
-        let staged = match self {
-            Self::Prepared { staged, .. } | Self::Executed { staged, .. } => staged,
+    async fn close(mut self) -> Result<(), WorkflowError> {
+        let staged = match &mut self {
+            Self::Prepared { staged, .. } | Self::Executed { staged, .. } => staged.take(),
         };
         if let Some(staged) = staged {
             staged.close().await;
+        }
+        let mut failure = None;
+        match &mut self {
+            Self::Prepared { lane, .. } => {
+                if let Err(error) = lane.close().await {
+                    failure = Some(error);
+                }
+            }
+            Self::Executed { lanes, .. } => {
+                for lane in lanes {
+                    if let Err(error) = lane.close().await {
+                        if failure.is_none() {
+                            failure = Some(error);
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(error) = failure {
+            Err(error)
+        } else {
+            Ok(())
         }
     }
 }
 
 async fn execute_lane(
+    package: &ModelingPackage,
+    mut members: Vec<LaneMember>,
+    cancel: &crate::CancelSource,
+) -> LaneCompletion {
+    let positions = members
+        .iter()
+        .map(|member| (member.index, member.start.clone()))
+        .collect::<Vec<_>>();
+    let lanes = members
+        .iter_mut()
+        .map(|member| {
+            std::mem::replace(
+                &mut member.preparation.lane,
+                super::study_operations::StudyPreparationLane::new(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let scopes = lanes
+        .iter()
+        .filter_map(|lane| lane.scope())
+        .collect::<Vec<_>>();
+    let mut operation = async {
+        let mut completion = execute_lane_inner(package, members, cancel).await;
+        if cancel.token().is_cancelled() {
+            let staged = match &mut completion {
+                LaneCompletion::Prepared { staged, .. }
+                | LaneCompletion::Executed { staged, .. } => staged.take(),
+            };
+            if let Some(staged) = staged {
+                staged.close().await;
+            }
+        }
+        Ok(completion)
+    }
+    .boxed();
+    for scope in scopes {
+        operation = async move { scope.during(cancel, operation).await }.boxed();
+    }
+    let mut completion = match operation.await {
+        Ok(completion) => completion,
+        Err(error) => {
+            let error = Arc::new(error);
+            LaneCompletion::Executed {
+                points: positions
+                    .into_iter()
+                    .map(|(index, start)| ExecutedPoint {
+                        index,
+                        start,
+                        result: Err(WorkflowError::Shared(error.clone())),
+                    })
+                    .collect(),
+                staged: None,
+                lanes: Vec::new(),
+            }
+        }
+    };
+    if let LaneCompletion::Executed {
+        lanes: returned, ..
+    } = &mut completion
+    {
+        *returned = lanes;
+    }
+    completion
+}
+
+async fn execute_lane_inner(
     package: &ModelingPackage,
     mut members: Vec<LaneMember>,
     cancel: &crate::CancelSource,
@@ -657,14 +793,7 @@ async fn execute_lane(
                 PreparedStudyOperation::DeclaredCase(target),
             ) = (&member.start, &mut member.preparation.operation)
             {
-                let older = member
-                    .older
-                    .as_deref()
-                    .and_then(|result| result.report().ok())
-                    .and_then(|report| match report {
-                        RunReport::Modeling(points) if points.len() == 1 => points.first(),
-                        _ => None,
-                    });
+                let older = member.older.as_deref();
                 continuation_start(package, target, member.previous.as_deref(), older, cancel)
                     .await?;
             }
@@ -704,6 +833,7 @@ async fn execute_lane(
         }
         .await;
         return LaneCompletion::Executed {
+            lanes: Vec::new(),
             points: vec![ExecutedPoint {
                 index: member.index,
                 start: member.start,
@@ -769,6 +899,7 @@ async fn execute_lane(
         }
     }
     LaneCompletion::Executed {
+        lanes: Vec::new(),
         points,
         staged: None,
     }
@@ -806,13 +937,15 @@ fn record_preparation_failure(
     }
 }
 
-fn record_execution(
+async fn record_execution(
     point: ExecutedPoint,
     definition: &StudyDefinition,
     cancel: &crate::CancelSource,
     facts: &mut [PointFacts],
     outcomes: &mut [PointOutcome],
-    results: &mut [Option<Arc<RunResult>>],
+    results: &mut [Option<StudyOccurrenceResult>],
+    continuation: &mut ContinuationRetention,
+    owner: &Arc<pse_columnar::AllocationLease>,
 ) -> Option<WorkflowError> {
     let ExecutedPoint {
         index,
@@ -872,7 +1005,7 @@ fn record_execution(
         start: Some(start),
         effect: EffectState::Absent,
     });
-    match result {
+    let fatal = match result {
         Ok(result) => {
             let fatal = result
                 .report
@@ -886,7 +1019,19 @@ fn record_execution(
                     )
                 })
                 .map(|error| WorkflowError::Shared(error.clone()));
-            results[index] = Some(result);
+            if continuation.consumers[index] != 0 {
+                continuation.values[index] = minimal_continuation(&result, owner.clone());
+            }
+            results[index] = match retain_occurrence(
+                result,
+                &definition.points[index].operation.output,
+                facts[index].scientific.usable,
+            )
+            .await
+            {
+                Ok(retained) => Some(retained),
+                Err(error) => return Some(error),
+            };
             fatal
         }
         Err(error)
@@ -898,14 +1043,34 @@ fn record_execution(
             Some(error)
         }
         Err(_) => None,
+    };
+    continuation.terminal(
+        index,
+        &definition.points[index].policy,
+        &facts[index],
+        cancel.token().is_cancelled(),
+    );
+    fatal
+}
+
+async fn retain_occurrence(
+    result: Arc<RunResult>,
+    output: &super::StudyOutputDemand,
+    usable: bool,
+) -> Result<StudyOccurrenceResult, WorkflowError> {
+    match output.detail(usable) {
+        None => Ok(StudyOccurrenceResult::Ephemeral(result)),
+        Some(demand) => Ok(StudyOccurrenceResult::Compact(Arc::new(
+            super::CompactStudyResult::capture(&result, demand).await?,
+        ))),
     }
 }
 
 pub(in crate::workflow) async fn continuation_start(
     package: &ModelingPackage,
     target: &mut Box<super::ModelingSolvePreparation>,
-    predecessor: Option<&RunResult>,
-    older: Option<&super::ModelingResult>,
+    predecessor: Option<&MinimalContinuation>,
+    older: Option<&MinimalContinuation>,
     cancel: &crate::CancelSource,
 ) -> Result<(), WorkflowError> {
     let predecessor_result = predecessor;
@@ -917,10 +1082,18 @@ pub(in crate::workflow) async fn continuation_start(
         && target.solve.numerical_strategy().start.policy
             != pse_backend_native::solve::StartPolicy::Explicit
     {
-        if let Some(RunReport::Modeling(points)) =
-            predecessor_result.and_then(|result| result.report().ok())
-            && let [point] = points.as_slice()
-        {
+        if let Some(point) = predecessor_result.and_then(|result| result.prediction.as_ref()) {
+            let point = point
+                .as_ref()
+                .map_err(|error| WorkflowError::Shared(error.clone()))?;
+            let older = older
+                .and_then(|result| result.prediction.as_ref())
+                .map(|sample| {
+                    sample
+                        .as_ref()
+                        .map_err(|error| WorkflowError::Shared(error.clone()))
+                })
+                .transpose()?;
             let deadline = std::time::Instant::now()
                 .checked_add(target.solve.time_limit())
                 .ok_or_else(|| super::contract("study target deadline extent"))?;
@@ -982,18 +1155,18 @@ pub(in crate::workflow) async fn continuation_start(
     } else if target.solve.numerical_strategy().start.policy
         != pse_backend_native::solve::StartPolicy::Explicit
     {
-        let source = predecessor.and_then(modeling_seed).ok_or_else(|| {
+        let source = predecessor.ok_or_else(|| {
             WorkflowError::Internal("policy selected a missing admitted seed".into())
         })?;
-        let owner = package
-            .runtime
-            .native()
-            .reserve("study:continuation-seed", source.owned_extent()?)?;
-        let (seed, owner) = source.materialize(owner)?.into_owned()?;
+        let seed = source
+            .seed
+            .as_ref()
+            .map_err(|error| WorkflowError::Shared(error.clone()))?;
+        let owner = seed.owner();
         target.solve = target
             .solve
             .clone()
-            .with_start_owned(seed, owner.clone())
+            .with_start_shared(seed.clone())
             .map_err(crate::math::MathRuntimeError::from)?;
         target.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
         target.stored_seed_owner = Some(owner);
@@ -1053,6 +1226,122 @@ fn scoped_action(
     admitted
         .action(key, &scope, cancelled)
         .map_err(policy_error)
+}
+
+/// Continuation-only product. No complete occurrence or native report is retained.
+/// The fixed wrapper is covered by the precharged occurrence owner. Numeric
+/// copies and original factors carry their own actual allocation owners.
+pub(in crate::workflow) struct MinimalContinuation {
+    run_id: RunId,
+    compatibility: pse_backend_native::solve::Compatibility,
+    seed:
+        Result<Arc<pse_columnar::Leased<pse_backend_native::solve::WarmStart>>, Arc<WorkflowError>>,
+    prediction: Option<Result<super::modeling::results::PredictionSample, Arc<WorkflowError>>>,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+
+pub(in crate::workflow) fn minimal_continuation(
+    result: &RunResult,
+    owner: Arc<pse_columnar::AllocationLease>,
+) -> Option<Arc<MinimalContinuation>> {
+    result.completion().ok()?;
+    let descriptor = modeling_seed(result)?;
+    let seed = (|| {
+        let allocation = result
+            .runtime
+            .native()
+            .reserve("study:continuation-seed", descriptor.owned_extent()?)?;
+        let (warm, allocation) = descriptor.materialize(allocation)?.into_owned()?;
+        Ok::<_, WorkflowError>(Arc::new(pse_columnar::Leased::new(
+            Arc::new(warm),
+            allocation,
+        )))
+    })()
+    .map_err(Arc::new);
+    let prediction = match result.report().ok()? {
+        RunReport::Modeling(points) => match points.as_slice() {
+            [point] => match point.retained_prediction_sample() {
+                Ok(Some(sample)) => Some(Ok(sample)),
+                Ok(None) => None,
+                Err(error) => Some(Err(Arc::new(error))),
+            },
+            _ => None,
+        },
+        _ => None,
+    };
+    Some(Arc::new(MinimalContinuation {
+        run_id: result.run_id,
+        compatibility: descriptor.compatibility().clone(),
+        seed,
+        prediction,
+        _owner: owner,
+    }))
+}
+
+/// At most two source products are needed by one continuation: the selected
+/// predecessor and its predecessor for the original secant selector. Counts are
+/// computed once; issued work holds its own Arc through join and retry keeps need.
+struct ContinuationRetention {
+    needs: Vec<Vec<usize>>,
+    consumers: Vec<usize>,
+    released: Vec<bool>,
+    values: Vec<Option<Arc<MinimalContinuation>>>,
+}
+impl ContinuationRetention {
+    fn new(
+        graph: &OccurrenceGraph,
+        positions: &BTreeMap<OccurrenceKey, usize>,
+    ) -> Result<Self, WorkflowError> {
+        let mut needs = Vec::with_capacity(graph.points.len());
+        let mut consumers = vec![0usize; graph.points.len()];
+        for point in &graph.points {
+            let mut sources = Vec::with_capacity(2);
+            if let StartPolicy::Continuation(edge) = &point.start {
+                let parent = *positions
+                    .get(&edge.predecessor)
+                    .ok_or_else(|| super::contract("continuation predecessor absent"))?;
+                sources.push(parent);
+                if let StartPolicy::Continuation(older) = &graph.points[parent].start {
+                    let older = *positions
+                        .get(&older.predecessor)
+                        .ok_or_else(|| super::contract("older continuation predecessor absent"))?;
+                    if !sources.contains(&older) {
+                        sources.push(older);
+                    }
+                }
+            }
+            for source in &sources {
+                consumers[*source] = consumers[*source]
+                    .checked_add(1)
+                    .ok_or_else(|| super::contract("continuation consumer extent"))?;
+            }
+            needs.push(sources);
+        }
+        Ok(Self {
+            needs,
+            consumers,
+            released: vec![false; graph.points.len()],
+            values: vec![None; graph.points.len()],
+        })
+    }
+    fn terminal(&mut self, index: usize, point: &PointPolicy, fact: &PointFacts, cancelled: bool) {
+        if self.released[index]
+            || !matches!(
+                fact.lifecycle,
+                StudyPointState::Completed | StudyPointState::Failed | StudyPointState::Cancelled
+            )
+            || pse_operations::study_policy::may_retry(point, fact, cancelled)
+        {
+            return;
+        }
+        self.released[index] = true;
+        for source in &self.needs[index] {
+            self.consumers[*source] -= 1;
+            if self.consumers[*source] == 0 {
+                self.values[*source] = None;
+            }
+        }
+    }
 }
 
 /// Allocation-free view of a completion-permitted original seed.
@@ -1229,11 +1518,11 @@ fn modeling_seed(result: &RunResult) -> Option<CompletedModelingSeed<'_>> {
         _ => None,
     }
 }
-fn memory_seed(target: &PreparedStudyOperation, previous: Option<&RunResult>) -> SeedAvailability {
+fn memory_seed(
+    target: &PreparedStudyOperation,
+    previous: Option<&MinimalContinuation>,
+) -> SeedAvailability {
     let Some(previous) = previous else {
-        return SeedAvailability::Absent;
-    };
-    let Some(seed) = modeling_seed(previous) else {
         return SeedAvailability::Absent;
     };
     let PreparedStudyOperation::DeclaredCase(target) = target else {
@@ -1242,8 +1531,8 @@ fn memory_seed(target: &PreparedStudyOperation, previous: Option<&RunResult>) ->
     let Some(compatibility) = target.solve.compatibility() else {
         return SeedAvailability::Absent;
     };
-    if compatibility.layout != seed.compatibility().layout
-        || compatibility.backend != seed.compatibility().backend
+    if compatibility.layout != previous.compatibility.layout
+        || compatibility.backend != previous.compatibility.backend
     {
         return SeedAvailability::Incompatible;
     }
@@ -1404,11 +1693,300 @@ mod occurrence_execution_tests {
                     identity: ContentHash::from_bytes([0; 32]),
                 },
                 &points,
+                &crate::workflow::StudyOutputDemand::Full,
                 &crate::CancelSource::new(),
             )
             .await
             .unwrap();
         (package, definition)
+    }
+    #[tokio::test]
+    async fn prediction_source_copy_drops_prior_task_and_start_preserving_original_identity() {
+        let (package, definition) = fixture(&[1.]).await;
+        let cancel = crate::CancelSource::new();
+        let PreparedStudyOperation::DeclaredCase(prepared) = definition.points[0]
+            .operation
+            .prepare(&package, &cancel)
+            .await
+            .unwrap()
+        else {
+            panic!("declared expected");
+        };
+        let original = prepared.solve;
+        let primal = original.source_start(None).unwrap();
+        let columns = original.original_coordinates().unwrap();
+        let original = original
+            .with_primal_start(columns.into_iter().zip(primal.iter().copied()).collect())
+            .unwrap();
+        let flag = Arc::default();
+        let flag_departure = Arc::downgrade(&flag);
+        let scope = pse_kernels::ExecutionScope::new(
+            flag,
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),
+        );
+        let ledger = crate::math::strategy::admission::TaskAdmission::new(
+            original.numerical_strategy().limits,
+            scope.clone(),
+            Some(package.runtime.shared.pool()),
+            false,
+        );
+        let departure = Arc::downgrade(&ledger);
+        let original = original
+            .within_admitted_task(scope.clone(), ledger.clone())
+            .unwrap();
+        let _copy_owner = package
+            .runtime
+            .native()
+            .reserve("test:prediction-source-copy", 1 << 20)
+            .unwrap();
+        let copied = original.prediction_source_copy();
+        assert_eq!(
+            copied.original_identity().unwrap(),
+            original.original_identity().unwrap()
+        );
+        assert_eq!(
+            copied.semantic_point_key(&primal).unwrap(),
+            original.semantic_point_key(&primal).unwrap()
+        );
+        assert_eq!(
+            copied.strategy_profile().unwrap(),
+            original.strategy_profile().unwrap()
+        );
+        assert_eq!(copied.compatibility(), original.compatibility());
+        assert!(copied.task_scope().is_none());
+        assert!(copied.task_admission().is_none());
+        assert!(copied.explicit_seed().is_none());
+        assert!(!copied.has_screened_start());
+        assert!(original.task_admission().is_some());
+        assert!(original.explicit_seed().is_some());
+        drop(original);
+        drop(ledger);
+        drop(scope);
+        assert!(
+            departure.upgrade().is_none(),
+            "readonly source retains no original TaskAdmission"
+        );
+        assert!(
+            flag_departure.upgrade().is_none(),
+            "readonly source retains no old cancellation identity"
+        );
+        // Exact semantic source remains available after original control departure.
+        assert!(copied.semantic_point_key(&primal).is_ok());
+    }
+
+    #[tokio::test]
+    async fn compact_occurrence_drops_unselected_report_and_keeps_original_completion() {
+        let (package, definition) = fixture(&[1.]).await;
+        let mut report = package
+            .study(&definition, 1, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
+            panic!("full default expected");
+        };
+        let original = serde_json::to_value(run.completion().unwrap()).unwrap();
+        let weak = Arc::downgrade(&run);
+        drop(report);
+        let full = retain_occurrence(run, &super::super::StudyOutputDemand::Full, true)
+            .await
+            .unwrap();
+        assert!(
+            weak.upgrade().is_some(),
+            "explicit full demand retains its report"
+        );
+        let StudyOccurrenceResult::Ephemeral(run) = full else {
+            panic!("full expected");
+        };
+        let wrapper = package
+            .runtime
+            .native()
+            .reserve("test:continuation-wrapper", 4096)
+            .unwrap();
+        let minimal = minimal_continuation(&run, wrapper).unwrap();
+        let demand = super::super::StudyOutputDemand::Compact {
+            detail: Default::default(),
+            failed_detail: Default::default(),
+        };
+        let compact = retain_occurrence(run, &demand, true).await.unwrap();
+        assert!(
+            weak.upgrade().is_none(),
+            "neither compact report nor continuation retains the complete run"
+        );
+        assert!(compact.report().is_err());
+        assert_eq!(
+            serde_json::to_value(compact.completion().unwrap()).unwrap(),
+            original
+        );
+        let StudyOccurrenceResult::Compact(compact) = compact else {
+            panic!("compact expected");
+        };
+        assert!(compact.table_names().unwrap().is_empty());
+        assert!(
+            compact.table_cursor("modeling_values").is_err(),
+            "unrequested detail is unavailable"
+        );
+        assert!(
+            minimal.seed.is_ok(),
+            "minimal seed survives original report departure"
+        );
+        let policies =
+            continuation_retention_tests::graph(&[None, Some(0), Some(1), Some(0), Some(3)]);
+        let mut state = continuation_retention_tests::retention(&policies);
+        let departed = Arc::downgrade(&minimal);
+        state.values[0] = Some(minimal);
+        // An issued lane clone remains owned through authentic native join, even
+        // after all graph consumers have reported terminal observations.
+        let inflight = state.values[0].clone();
+        for index in 1..5 {
+            let point = &policies.points[index];
+            state.terminal(
+                index,
+                point,
+                &continuation_retention_tests::fact(point, StudyPointState::Completed),
+                false,
+            );
+            if index < 4 {
+                assert!(state.values[0].is_some());
+            }
+        }
+        assert!(state.values[0].is_none());
+        assert!(
+            departed.upgrade().is_some(),
+            "issued work still holds its exact seed owner"
+        );
+        drop(inflight);
+        assert!(
+            departed.upgrade().is_none(),
+            "last joined consumer releases minimal storage"
+        );
+    }
+
+    #[tokio::test]
+    async fn compact_study_keeps_failed_completion_and_continuation_fanout() {
+        let (package, mut definition) = fixture(&[1., 2., 3., -5., 4.]).await;
+        for (index, parent) in [(1, 0), (2, 1), (4, 0)] {
+            definition.points[index].policy.start = StartPolicy::Continuation(SeedEdge {
+                predecessor: OccurrenceKey(parent),
+                role: SeedRole::PrimalSolution,
+                permission: ContinuationPermission::RequireUsable,
+                unavailable: UnavailableSeedPolicy::Refuse,
+            });
+        }
+        for point in &mut definition.points {
+            point.operation.output = super::super::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            };
+        }
+        let report = package
+            .study(&definition, 5, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        for index in [0, 1, 2, 4] {
+            assert!(
+                report.outcomes[index].scientific.usable,
+                "{:?}",
+                report.outcomes[index]
+            );
+        }
+        assert!(!report.outcomes[3].scientific.usable);
+        for occurrence in report.results.iter().flatten() {
+            assert!(matches!(occurrence, StudyOccurrenceResult::Compact(_)));
+            assert!(occurrence.completion().is_ok());
+            assert!(occurrence.report().is_err());
+        }
+        assert!(matches!(
+            report.outcomes[1].start,
+            Some(StartProvenance::Continuation { .. })
+        ));
+        assert!(matches!(
+            report.outcomes[2].start,
+            Some(StartProvenance::Continuation { .. })
+        ));
+        assert!(matches!(
+            report.outcomes[4].start,
+            Some(StartProvenance::Continuation { .. })
+        ));
+    }
+
+    #[tokio::test]
+    async fn compact_continuation_ignores_failed_older_and_keeps_accepted_parent_seed() {
+        let (package, mut definition) = fixture(&[-5., 1., 2.]).await;
+        for index in 1..3 {
+            definition.points[index].policy.start = StartPolicy::Continuation(SeedEdge {
+                predecessor: OccurrenceKey(index as u32 - 1),
+                role: SeedRole::PrimalSolution,
+                permission: ContinuationPermission::RequireUsable,
+                unavailable: UnavailableSeedPolicy::FreshOnUnavailable,
+            });
+        }
+        for point in &mut definition.points {
+            point.operation.output = super::super::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            };
+        }
+        let report = package
+            .study(&definition, 3, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        assert!(!report.outcomes[0].scientific.usable);
+        assert!(matches!(
+            report.outcomes[1].start,
+            Some(StartProvenance::FreshFallback { .. })
+        ));
+        assert!(report.outcomes[1].scientific.usable);
+        assert!(matches!(
+            report.outcomes[2].start,
+            Some(StartProvenance::Continuation { .. })
+        ));
+        assert!(report.outcomes[2].scientific.usable);
+        assert!(
+            report
+                .results
+                .iter()
+                .flatten()
+                .all(|result| matches!(result, StudyOccurrenceResult::Compact(_)))
+        );
+    }
+
+    #[tokio::test]
+    async fn adjacent_actual_point_preparations_share_one_live_establishment() {
+        let (package, definition) = fixture(&(1..=20).map(f64::from).collect::<Vec<_>>()).await;
+        let math = package.runtime.shared.math();
+        let before = math.preparation_effects();
+        let cancel = crate::CancelSource::new();
+        let mut lane = super::super::study_operations::StudyPreparationLane::new();
+        let mut identity = None;
+        for point in &definition.points {
+            let prepared = lane
+                .prepare(&package, &point.operation, &point.binding, &cancel)
+                .await
+                .unwrap();
+            let PreparedStudyOperation::DeclaredCase(case) = prepared else {
+                panic!("declared case expected");
+            };
+            let actual = case.model.model.compiled().model.allocation_identity();
+            if let Some(original) = identity {
+                assert_eq!(actual, original);
+            } else {
+                identity = Some(actual);
+            }
+            math.clear_program_cache();
+            let phase = cancel.child_with_deadline(None);
+            lane.scope()
+                .unwrap()
+                .during(&phase, async { Ok(()) })
+                .await
+                .unwrap();
+        }
+        assert_eq!(
+            math.preparation_effects().since(before).settlements,
+            1,
+            "actual distinct point values retain one live receiving establishment despite pure cache pressure"
+        );
+        lane.close().await.unwrap();
+        assert!(lane.scope().is_none());
     }
     fn result(report: &StudyReport, index: usize) -> &super::super::ModelingResult {
         match report.results[index].as_ref().unwrap().report().unwrap() {
@@ -1664,6 +2242,59 @@ mod occurrence_execution_tests {
 
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
+    async fn compact_native_continuation_sample_survives_report_departure_without_old_task() {
+        let (package, definition) =
+            fixture_source(&[0.25], POUNCE_OCCURRENCE_SOURCE, Backend::PounceConvex, 1).await;
+        let mut report = package
+            .study(&definition, 1, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let StudyOccurrenceResult::Ephemeral(run) = report.results[0].take().unwrap() else {
+            panic!("full expected");
+        };
+        assert!(run.usable());
+        let weak = Arc::downgrade(&run);
+        let metadata = package
+            .runtime
+            .native()
+            .reserve("test:continuation-wrapper", 4096)
+            .unwrap();
+        let minimal = minimal_continuation(&run, metadata).unwrap();
+        let sample = minimal.prediction.as_ref().unwrap().as_ref().unwrap();
+        let original_key = sample.point.key;
+        assert!(sample.prepared.solve.task_scope().is_none());
+        assert!(sample.prepared.solve.task_admission().is_none());
+        assert!(sample.prepared.solve.explicit_seed().is_none());
+        assert!(sample.prepared.stored_seed_owner.is_none());
+        let compact = retain_occurrence(
+            run,
+            &super::super::StudyOutputDemand::Compact {
+                detail: Default::default(),
+                failed_detail: Default::default(),
+            },
+            true,
+        )
+        .await
+        .unwrap();
+        drop(report);
+        assert!(weak.upgrade().is_none());
+        assert!(compact.completion().is_ok());
+        let primal = sample
+            .point
+            .primal
+            .iter()
+            .copied()
+            .map(f64::from_bits)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            sample.prepared.solve.semantic_point_key(&primal).unwrap(),
+            original_key
+        );
+        assert!(minimal.seed.is_ok());
+    }
+
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
     async fn occurrence_adapter_reaches_existing_pounce_batch_owner() {
         let (package, definition) = fixture_source(
             &[0.25, 0.5, 0.75, 1.],
@@ -1677,7 +2308,7 @@ mod occurrence_execution_tests {
             .shared
             .math()
             .cores()
-            .min(package.runtime.shared.budget().math.jobs / 2)
+            .min(package.runtime.shared.budget().math.jobs)
             .max(1);
         let report = package
             .study(&definition, 8, &crate::CancelSource::new())
@@ -1722,6 +2353,7 @@ mod occurrence_execution_tests {
                 start: StartProvenance::Fresh,
                 attempt: 0,
                 preparation: ReadyOperation {
+                    lane: super::super::study_operations::StudyPreparationLane::new(),
                     operation,
                     staged: None,
                 },
@@ -1731,7 +2363,7 @@ mod occurrence_execution_tests {
         }
         // Supply one fully prepared cohort to the same runtime adapter used by the
         // study scheduler, without making preparation readiness depend on timing.
-        let LaneCompletion::Executed { points, staged } =
+        let LaneCompletion::Executed { points, staged, .. } =
             execute_lane(&package, members, &cancel).await
         else {
             panic!("expected completed occurrences");
@@ -1790,5 +2422,108 @@ mod occurrence_execution_tests {
                     <= target.engineering.as_ref().unwrap().budget
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod continuation_retention_tests {
+    use super::*;
+    pub(super) fn graph(parents: &[Option<u32>]) -> OccurrenceGraph {
+        OccurrenceGraph {
+            points: parents
+                .iter()
+                .enumerate()
+                .map(|(index, parent)| PointPolicy {
+                    key: OccurrenceKey(index as u32),
+                    dependencies: vec![],
+                    seed_need: SeedNeed::Required,
+                    start: parent.map_or(StartPolicy::Fresh, |parent| {
+                        StartPolicy::Continuation(SeedEdge {
+                            predecessor: OccurrenceKey(parent),
+                            role: SeedRole::PrimalSolution,
+                            permission: ContinuationPermission::RequireUsable,
+                            unavailable: UnavailableSeedPolicy::Refuse,
+                        })
+                    }),
+                    attempt_limit: 2,
+                })
+                .collect(),
+        }
+    }
+    pub(super) fn retention(graph: &OccurrenceGraph) -> ContinuationRetention {
+        let positions = graph
+            .points
+            .iter()
+            .enumerate()
+            .map(|(i, point)| (point.key, i))
+            .collect();
+        ContinuationRetention::new(graph, &positions).unwrap()
+    }
+    pub(super) fn fact(point: &PointPolicy, lifecycle: StudyPointState) -> PointFacts {
+        PointFacts {
+            key: point.key,
+            revision: 1,
+            lifecycle,
+            native_started: false,
+            scientific: Default::default(),
+            attempt_count: 1,
+            retry_failure: Some(RetryFailure::Deterministic),
+            effect: EffectState::Absent,
+            seed: None,
+        }
+    }
+    #[test]
+    fn continuation_retention_chain_fanout_grandparent_and_terminal_departures() {
+        let graph = graph(&[None, Some(0), Some(1), Some(0), Some(3)]);
+        let mut state = retention(&graph);
+        assert_eq!(state.consumers, [4, 1, 0, 1, 0]);
+        for (index, lifecycle, remaining) in [
+            (1, StudyPointState::Completed, 3),
+            (2, StudyPointState::Failed, 2),
+            (3, StudyPointState::Cancelled, 1),
+            (4, StudyPointState::Failed, 0),
+        ] {
+            let point = &graph.points[index];
+            let fact = fact(point, lifecycle);
+            state.terminal(index, point, &fact, false);
+            assert_eq!(state.consumers[0], remaining);
+            state.terminal(index, point, &fact, false);
+            assert_eq!(
+                state.consumers[0], remaining,
+                "terminal observation releases once"
+            );
+        }
+        assert!(state.consumers.iter().all(|count| *count == 0));
+    }
+    #[test]
+    fn continuation_retention_retry_keeps_need_until_cancel_or_exhaustion() {
+        let graph = graph(&[None, Some(0)]);
+        let mut state = retention(&graph);
+        let point = &graph.points[1];
+        let mut failed = fact(point, StudyPointState::Failed);
+        failed.retry_failure = Some(RetryFailure::Transient);
+        state.terminal(1, point, &failed, false);
+        assert_eq!(state.consumers[0], 1);
+        failed.lifecycle = StudyPointState::Assigned;
+        state.terminal(1, point, &failed, false);
+        assert_eq!(
+            state.consumers[0], 1,
+            "inflight work retains its need through join"
+        );
+        failed.lifecycle = StudyPointState::Failed;
+        state.terminal(1, point, &failed, true);
+        assert_eq!(state.consumers[0], 0, "cancellation ends a retry need");
+        let mut state = retention(&graph);
+        failed.attempt_count = 2;
+        state.terminal(1, point, &failed, false);
+        assert_eq!(state.consumers[0], 0);
+    }
+    #[test]
+    fn continuation_retention_empty_and_fresh_need_no_products() {
+        let empty = retention(&graph(&[]));
+        assert!(empty.values.is_empty());
+        let fresh = retention(&graph(&[None, None]));
+        assert_eq!(fresh.consumers, [0, 0]);
+        assert!(fresh.needs.iter().all(Vec::is_empty));
     }
 }

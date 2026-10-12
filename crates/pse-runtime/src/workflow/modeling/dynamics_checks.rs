@@ -190,7 +190,7 @@ impl ModelingSimulation {
                 let mut applicability = Vec::new();
                 let observed = match (program, active_worker) {
                     (Some(program), Some(worker)) => {
-                        let evaluated = worker.constraints(point).map_err(math)?;
+                        let evaluated = worker.constraints(&*point).map_err(math)?;
                         applicability = worker.applicability_observations();
                         program
                             .assembly

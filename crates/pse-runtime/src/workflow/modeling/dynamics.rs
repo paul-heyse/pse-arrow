@@ -114,9 +114,10 @@ pub struct ModelingSimulation {
 }
 #[derive(Clone, Debug)]
 struct SimulationMode {
+    original: Arc<super::engagement::OriginalPreparationInputs>,
     name: String,
     model: ModelingPreparation,
-    numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     context: DynamicMode,
     check_program: Option<Arc<crate::math::ExecutableCase>>,
     terminal_check_program: Option<Arc<crate::math::ExecutableCase>>,
@@ -460,7 +461,13 @@ impl ModelingSimulation {
     pub fn identity(&self) -> ContentHash {
         self.key
     }
-    /// The initial mode's model view.
+    /// Exact per-mode preparation requests captured by the actual constructor.
+    pub(in crate::workflow) fn original_preparations(
+        &self,
+    ) -> impl Iterator<Item = &super::engagement::OriginalPreparationInputs> {
+        self.modes.iter().map(|mode| mode.original.as_ref())
+    }
+    /// The initial mode's immutable mathematical view.
     pub fn model(&self) -> &ModelingPreparation {
         &self.modes[0].model
     }
@@ -490,7 +497,10 @@ impl ModelingSimulation {
         &self,
         scope: pse_kernels::ExecutionScope,
     ) -> Result<DynamicWorker, ProblemError> {
-        self.program().worker(scope)
+        self.program().worker(scope, self.snapshot_allocator())
+    }
+    pub(crate) fn snapshot_allocator(&self) -> crate::workflow::dynamics::SnapshotAllocator {
+        self.runtime.shared.math().dynamic_snapshots()
     }
     pub(crate) fn snapshot(&self) -> &pse_backend_native::execution::Snapshot {
         &self.snapshot
@@ -595,6 +605,7 @@ impl ModelingSimulation {
             controls,
             path: Vec::new(),
             objective,
+            evaluation: Default::default(),
             solver,
         })
     }
@@ -1082,6 +1093,7 @@ impl ModelingPackage {
             DerivativeOrder::First,
             &BTreeSet::new(),
             &provisional_quadratures,
+            Some(execution.prepared_model(self)?),
             cancel,
         )
         .await
@@ -1094,10 +1106,9 @@ impl ModelingPackage {
     )]
     async fn prepare_simulation_mode(
         &self,
-        root: DeclarationId,
+        model: ModelingPreparation,
+        original: Arc<super::engagement::OriginalPreparationInputs>,
         instance: InstanceId,
-        bindings: Bindings,
-        limits: Limits,
         case: ModelingCaseBindings,
         compiler: Profile,
         mut profile: native::Profile,
@@ -1114,9 +1125,7 @@ impl ModelingPackage {
                 "integrated dynamics needs at least first-order partials",
             ));
         }
-        let model = self
-            .prepare(root, instance, bindings, limits, cancel)
-            .await?;
+        let root = model.solved().model();
         let product = model.compiled();
         if let Some(fixture) = product.model.fixtures.get(&instance) {
             let required = match fixture.endpoint {
@@ -1706,16 +1715,16 @@ impl ModelingPackage {
             model.solved().lineage(),
             &self.quantities,
         )?);
-        let numerics = Arc::new(
-            pse_math::numerics::resolve(
-                &self.quantities,
-                &self.physical.preconditions,
-                &targets,
-                &declarations,
-                &profile.numerics,
-            )
-            .map_err(math)?,
-        );
+        let physical_owner: Arc<dyn pse_math::AllocationOwner> = Arc::new(self.physical.clone());
+        let numerics = self.runtime.native().policy_resolution_owner().resolve(
+            pse_math::SharedAllocation::from(self.quantities.clone())
+                .with_owner(physical_owner.clone()),
+            pse_math::SharedAllocation::from(self.physical.preconditions.clone())
+                .with_owner(physical_owner),
+            &targets,
+            &declarations,
+            &profile.numerics,
+        )?;
         let closure_budgets = cases::closure_budgets(&numerics);
         for (position, integral) in product.model.integrals.keys().enumerate() {
             if !provisional_quadratures.contains(integral) {
@@ -2392,6 +2401,7 @@ impl ModelingPackage {
             solved: model.solved(),
             quantities: self.quantities.clone(),
             modes: vec![SimulationMode {
+                original,
                 name: mode_names[mode].clone(),
                 model,
                 numerics,
@@ -5540,7 +5550,46 @@ mod tests {
             .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
             .unwrap();
         assert_eq!(a.values, again.values);
-        assert_eq!(a.jacobian.unwrap().val(), again.jacobian.unwrap().val());
+        assert!(pse_math::SharedAllocation::ptr_eq(
+            a.jacobian.as_ref().unwrap(),
+            again.jacobian.as_ref().unwrap()
+        ));
+        assert!(!pse_math::SharedAllocation::ptr_eq(
+            a.jacobian.as_ref().unwrap(),
+            b.jacobian.as_ref().unwrap()
+        ));
+        let changed = first
+            .evaluate(0, Function::Output, 0., &[0.3], prepared.parameters(), true)
+            .unwrap();
+        assert!(!pse_math::SharedAllocation::ptr_eq(
+            a.jacobian.as_ref().unwrap(),
+            changed.jacobian.as_ref().unwrap()
+        ));
+        assert_eq!(a.values, again.values);
+        assert_eq!(
+            a.jacobian.as_ref().unwrap().val(),
+            again.jacobian.as_ref().unwrap().val()
+        );
+        assert!(
+            first
+                .evaluate(
+                    0,
+                    Function::Output,
+                    0.,
+                    &[f64::NAN],
+                    prepared.parameters(),
+                    true
+                )
+                .is_err()
+        );
+        let recovered = first
+            .evaluate(0, Function::Output, 0., &[0.1], prepared.parameters(), true)
+            .unwrap();
+        assert_eq!(a.values, recovered.values);
+        assert!(!pse_math::SharedAllocation::ptr_eq(
+            a.jacobian.as_ref().unwrap(),
+            recovered.jacobian.as_ref().unwrap()
+        ));
 
         let named = |name: &str| {
             prepared

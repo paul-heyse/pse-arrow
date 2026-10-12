@@ -353,6 +353,221 @@ async fn canonical_conflict_clock_does_not_renew_nested_deadlines() {
 }
 
 #[tokio::test]
+async fn canonical_operation_scope_keeps_nested_minimum_clock_and_drains_issued_owner() {
+    let deadline = Instant::now() + Duration::from_millis(20);
+    let expected = tokio::time::Instant::from_std(deadline);
+    let mut drained = false;
+    super::operation_scope(deadline, async {
+        super::operation_scope(deadline + Duration::from_secs(30), async {
+            assert_eq!(super::original_deadline(Duration::from_secs(60)), expected);
+            let earlier = deadline - Duration::from_millis(1);
+            super::operation_scope(earlier, async {
+                assert_eq!(
+                    super::original_deadline(Duration::from_secs(60)),
+                    tokio::time::Instant::from_std(earlier)
+                );
+            })
+            .await;
+            assert_eq!(super::original_deadline(Duration::from_secs(60)), expected);
+            // This represents an already issued effect whose completion owner must
+            // remain polled after the caller's admission clock expires.
+            tokio::time::sleep_until(expected + Duration::from_millis(10)).await;
+            assert!(matches!(
+                super::within_clock(super::original_deadline(Duration::from_secs(60)), async {
+                    tokio::time::sleep(Duration::from_secs(60)).await;
+                    Ok(())
+                })
+                .await,
+                Err(crate::canonical::CanonicalError::Timeout)
+            ));
+            drained = true;
+        })
+        .await;
+    })
+    .await;
+    assert!(
+        drained,
+        "expired admission must not drop the issued effect owner"
+    );
+}
+
+async fn response_ownership_late_frame(spawned_acquisition: bool) {
+    use pse_columnar::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let (entered, mut requests) = mpsc::unbounded_channel();
+    let (resume, released) = tokio::sync::oneshot::channel();
+    let server = tokio::spawn(async move {
+        let (stream, _) = listener.accept().await.unwrap();
+        let mut socket = accept_hdr_async(stream, native_protocol).await.unwrap();
+        let mut released = Some(released);
+        while let Some(Ok(message)) = socket.next().await {
+            let Message::Binary(bytes) = message else {
+                continue;
+            };
+            let Value::Object(request) = surrealdb::types::decode(&bytes).unwrap() else {
+                continue;
+            };
+            if request.get("id").is_none_or(|id| matches!(id, Value::None)) {
+                continue;
+            }
+            let method = request.get("method").and_then(Value::as_string).unwrap();
+            let query = request
+                .get("params")
+                .and_then(Value::as_array)
+                .and_then(|params| params.first())
+                .and_then(Value::as_string);
+            let result = if method == "query" {
+                let query = query.unwrap();
+                entered.send(query.clone()).unwrap();
+                let mut statement = Object::new();
+                statement.insert("status", "OK");
+                statement.insert("time", "0ns");
+                if query == "RETURN 'CHARGED_RESPONSE'" {
+                    released.take().unwrap().await.unwrap();
+                    statement.insert("result", surrealdb::types::Bytes::from(vec![7_u8; 8192]));
+                } else {
+                    statement.insert("result", true);
+                }
+                Value::Array(vec![Value::Object(statement)].into())
+            } else if method == "version" {
+                Value::String("3.3.0".into())
+            } else {
+                Value::None
+            };
+            let mut reply = Object::new();
+            reply.insert("id", request.get("id").unwrap().clone());
+            reply.insert("session", request.get("session").unwrap().clone());
+            reply.insert("result", result);
+            socket
+                .send(Message::Binary(
+                    surrealdb::types::encode(&Value::Object(reply))
+                        .unwrap()
+                        .into(),
+                ))
+                .await
+                .unwrap();
+        }
+    });
+    let options = crate::canonical::CanonicalOptions {
+        endpoint: format!("ws://{address}"),
+        namespace: "namespace".into(),
+        database: "database".into(),
+        username: "owner".into(),
+        password: "test".into(),
+        selection_username: "viewer".into(),
+        selection_password: "test".into(),
+        state_path: std::path::PathBuf::new(),
+        initializer_nonce: None,
+    };
+    let sdk = Surreal::new::<Ws>((address, Config::new().bounded_requests()))
+        .await
+        .unwrap();
+    let client = Arc::new(super::CanonicalClient::new(
+        sdk,
+        Duration::from_secs(5),
+        &options,
+    ));
+    // Three distinct actual grants exercise enclosing response ownership,
+    // nested response ownership and an existing outbound payload owner.
+    const GRANT: usize = 64 * 1024;
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(3 * GRANT));
+    let grant = || {
+        let owner = MemoryConsumer::new("unit:canonical-response").register(&pool);
+        owner.try_grow(GRANT).unwrap();
+        Arc::new(owner)
+    };
+    let (enclosing, nested, outbound) = (grant(), grant(), grant());
+    let active = client.clone();
+    let caller = tokio::spawn(async move {
+        let original = Instant::now() + Duration::from_secs(5);
+        super::operation_scope(original, async {
+            super::response_ownership_scope(enclosing, async {
+                super::response_ownership_scope(nested, async {
+                    assert_eq!(
+                        super::original_deadline(Duration::from_secs(30)).into_std(),
+                        original
+                    );
+                    let request = async move {
+                        // The query's existing payload owner must compose with
+                        // both response scopes rather than replace either grant.
+                        let mut response = active
+                            .query("RETURN 'CHARGED_RESPONSE'")
+                            .payload_owner(outbound.clone())
+                            .await?;
+                        let Value::Bytes(bytes) = response.take::<Value>(0)? else {
+                            panic!("charged response differs from original native bytes");
+                        };
+                        assert_eq!(bytes.len(), 8192);
+                        drop(bytes);
+                        Ok::<_, surrealdb::Error>(())
+                    };
+                    if spawned_acquisition {
+                        tokio::spawn(super::inherit_response_ownership(request))
+                            .await
+                            .unwrap()
+                    } else {
+                        request.await
+                    }
+                })
+                .await
+            })
+            .await
+        })
+        .await
+    });
+    assert_eq!(
+        tokio::time::timeout(Duration::from_secs(2), requests.recv())
+            .await
+            .unwrap()
+            .unwrap(),
+        "RETURN 'CHARGED_RESPONSE'"
+    );
+    caller.abort();
+    assert!(caller.await.unwrap_err().is_cancelled());
+    assert_eq!(
+        pool.reserved(),
+        3 * GRANT,
+        "original request grants must survive caller abandonment"
+    );
+    let next = MemoryConsumer::new("unit:canonical-response-reuse").register(&pool);
+    assert!(
+        next.try_grow(1).is_err(),
+        "late native Value cannot use reused capacity"
+    );
+    resume.send(()).unwrap();
+    // This later ACK crosses the same physical driver's ordered response loop.
+    // SDK controls separately prove the inner raw-frame/failed-send drop order.
+    let mut sentinel = client.control_query("CONTROL").await.unwrap();
+    assert_eq!(sentinel.take::<Value>(0).unwrap(), Value::Bool(true));
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while pool.reserved() != 0 {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    next.try_grow(3 * GRANT).unwrap();
+    drop(next);
+    assert_eq!(pool.reserved(), 0);
+    client.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn canonical_response_owner_survives_cancelled_caller_until_actual_late_frame_drains() {
+    response_ownership_late_frame(false).await;
+}
+
+#[tokio::test]
+async fn canonical_response_owner_crosses_spawned_acquisition_without_replacing_nested_grants() {
+    response_ownership_late_frame(true).await;
+}
+
+#[tokio::test]
 async fn native_sdk_rejected_attachment_preserves_exact_method_error() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
@@ -901,7 +1116,7 @@ async fn canonical_read_barrier_peer() -> (
         activation_db: client,
         problem_turns: Arc::default(),
         fixture_lifetime: None,
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
+        issuing_store: Arc::default(),
         result_read_drain: Arc::default(),
         connection_options: options.clone(),
         state_path: options.state_path.clone(),
@@ -1003,4 +1218,50 @@ async fn canonical_protected_reads_cross_actual_dispatch_barrier_and_expired_que
         .unwrap()
         .unwrap();
     assert!(received.try_recv().is_err());
+}
+
+#[tokio::test]
+async fn canonical_conflict_rebuild_releases_local_turn_and_keeps_original_clock() {
+    use crate::canonical::{CanonicalError, QueryEffect};
+    use std::{
+        future::{Future, Ready},
+        sync::atomic::{AtomicUsize, Ordering},
+        task::Poll,
+    };
+    let (store, mut received, server) = canonical_read_barrier_peer().await;
+    let calls = AtomicUsize::new(0);
+    let original = tokio::time::Instant::now() + Duration::from_millis(20);
+    let mut pending=Box::pin(super::within_clock(original,store.protected_query("pin:exact",QueryEffect::Mutation,"canonical::conflict_clock",|| -> Result<Ready<Result<surrealdb::IndexedResults,surrealdb::Error>>,CanonicalError> {
+        calls.fetch_add(1,Ordering::SeqCst);
+        Err(CanonicalError::Driver(surrealdb::Error::query("definite rejection".into(),surrealdb::types::QueryError::TransactionConflict)))
+    })));
+    std::future::poll_fn(|cx| {
+        assert!(pending.as_mut().poll(cx).is_pending());
+        Poll::Ready(())
+    })
+    .await;
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let held = store
+        .problem_turns
+        .gate("pin:exact")
+        .unwrap()
+        .try_write_owned()
+        .expect("conflict backoff releases the completed RPC turn");
+    drop(held);
+    assert!(matches!(pending.await, Err(CanonicalError::Timeout)));
+    let uncertain = AtomicUsize::new(0);
+    let result=store.protected_query("pin:exact",QueryEffect::Mutation,"canonical::uncertain_once",|| -> Result<Ready<Result<surrealdb::IndexedResults,surrealdb::Error>>,CanonicalError> {
+        uncertain.fetch_add(1,Ordering::SeqCst); Err(CanonicalError::Timeout)
+    }).await;
+    assert!(matches!(result, Err(CanonicalError::Timeout)));
+    assert_eq!(
+        uncertain.load(Ordering::SeqCst),
+        1,
+        "uncertain mutation completion never becomes an application replay"
+    );
+    assert!(
+        received.try_recv().is_err(),
+        "expired or unbuilt work never dispatches"
+    );
+    server.abort();
 }

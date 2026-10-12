@@ -20,7 +20,7 @@ use pse_model::generated::enums::{FitDerivatives, ModelingAnalysisRoute};
 use pse_model::generated::identities::{DeclarationId, FitId, InstanceId};
 use pse_model::study::{ScientificFacts, SeedNeed, SeedRole};
 use pse_modeling::Limits;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 /// Exact source/context required when reconstructing an operation from stored bundles.
 #[derive(
@@ -323,7 +323,9 @@ pub struct AdmittedHorizonValues {
 #[serde(deny_unknown_fields)]
 pub struct StudyOperation {
     /// Interpretation of this operation descriptor.
-    pub version: Version<5>,
+    pub version: Version<6>,
+    /// Explicit occurrence detail retained independently of original completion.
+    pub output: super::StudyOutputDemand,
     /// Exact source/context reconstruction precondition.
     pub source: OperationSource,
     /// Complete preparation controls using existing owners' remote projections.
@@ -383,7 +385,6 @@ pub(in crate::workflow) struct DeclaredStudyAdmission {
     case: DeclarationId,
     route: ModelingAnalysisRoute,
     pub(in crate::workflow) execution: super::DeclaredExecution,
-    overlay_model: Option<crate::math::modeling::ModelingPreparation>,
     seed_need: Option<SeedNeed>,
 }
 impl DeclaredStudyAdmission {
@@ -433,34 +434,16 @@ impl DeclaredStudyAdmission {
         };
         operation.source.check(package)?;
         let execution = package
-            .declared_execution(
+            .declared_execution_with_demand(
                 case.case,
                 operation.preparation.compiler,
                 case.settings.clone().profile()?,
                 Default::default(),
                 operation.preparation.limits,
+                key.1.clone(),
                 cancel,
             )
             .await?;
-        let mut bindings = execution.analysis.bindings.clone();
-        bindings.demand.extend(key.1.iter().cloned());
-        bindings.demand.sort();
-        bindings.demand.dedup();
-        let overlay_model = if bindings.demand == execution.analysis.bindings.demand {
-            None
-        } else {
-            Some(
-                package
-                    .prepare(
-                        execution.analysis.root,
-                        execution.analysis.instance,
-                        bindings,
-                        execution.analysis.limits,
-                        cancel,
-                    )
-                    .await?,
-            )
-        };
         #[cfg(test)]
         let _ = DECLARED_ADMISSION_OBSERVER.try_with(|observer| observer());
         Ok(Self {
@@ -470,15 +453,11 @@ impl DeclaredStudyAdmission {
             case: case.case,
             route: case.route,
             execution,
-            overlay_model,
             seed_need: None,
         })
     }
     pub(in crate::workflow) fn overlay_model(&self) -> &pse_compiler::workspace::PreparedModeling {
-        self.overlay_model
-            .as_ref()
-            .unwrap_or(&self.execution.model)
-            .compiled()
+        self.execution.model.compiled()
     }
     pub(in crate::workflow) fn admit_binding_seed_need(
         &mut self,
@@ -950,6 +929,7 @@ impl StudyOperation {
                     None
                 };
                 let horizon = Horizon {
+                    output: self.output.clone(),
                     period: spec.period.into_inner(),
                     steps: spec.steps.into_inner(),
                     inputs: spec
@@ -1028,12 +1008,20 @@ impl PreparedStudyOperation {
         attempt: super::durable::DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() {
-            return Err(crate::math::MathRuntimeError::Cancelled.into());
+            let error = Arc::new(WorkflowError::from(
+                crate::math::MathRuntimeError::Cancelled,
+            ));
+            let _ = attempt.abandon(&error).await;
+            return Err(WorkflowError::Shared(error));
         }
         match self {
-            Self::DeclaredCase(case) => runtime.start_attempt(vec![case.as_ref().clone()], attempt),
-            Self::Simulation(simulation) => simulation.start_attempt(attempt),
-            Self::Fit(fit) => fit.start_attempt(attempt),
+            Self::DeclaredCase(case) => {
+                runtime
+                    .start_attempt(vec![case.as_ref().clone()], attempt)
+                    .await
+            }
+            Self::Simulation(simulation) => simulation.start_attempt(attempt).await,
+            Self::Fit(fit) => fit.start_attempt(attempt).await,
             Self::Horizon(horizon) => {
                 #[cfg(feature = "solver-diffsol")]
                 {
@@ -1043,13 +1031,15 @@ impl PreparedStudyOperation {
                 }
                 #[cfg(not(feature = "solver-diffsol"))]
                 {
-                    let _ = (horizon, attempt);
-                    Err(refusal(
+                    let _ = horizon;
+                    let error = Arc::new(refusal(
                         DiagnosticRule::StudyOperationUnsupported,
                         BoundaryClass::Unsupported,
                         [],
                         "horizon owner is unavailable",
-                    ))
+                    ));
+                    let _ = attempt.abandon(&error).await;
+                    Err(WorkflowError::Shared(error))
                 }
             }
         }
@@ -1185,6 +1175,7 @@ mod study_operation_unit {
 
     fn operation(operation: OperationRequest) -> StudyOperation {
         StudyOperation {
+            output: crate::workflow::StudyOutputDemand::Full,
             version: Version,
             source: OperationSource {
                 revision: ContentHash::from_bytes([3; 32]).into(),
@@ -1271,7 +1262,7 @@ mod study_operation_unit {
         for request in requests {
             let original = operation(request);
             let value = serde_json::to_value(&original).unwrap();
-            assert_eq!(value["version"], 5);
+            assert_eq!(value["version"], 6);
             let decoded: StudyOperation = serde_json::from_value(value.clone()).unwrap();
             assert_eq!(decoded.source, original.source);
             assert_eq!(decoded.output_roles(), original.output_roles());
@@ -1375,3 +1366,85 @@ mod study_operation_unit {
 #[cfg(all(test, feature = "native-solvers"))]
 #[path = "study_operation_admission_tests.rs"]
 mod study_operation_admission_tests;
+
+/// One explicit worker/case lane owns its selected permissions across adjacent
+/// points. It is returned only after native drain and explicitly closed by its owner.
+pub(in crate::workflow) struct StudyPreparationLane {
+    current: Option<PreparedLaneInputs>,
+}
+struct PreparedLaneInputs {
+    original: ModelingPackage,
+    package: ModelingPackage,
+    key: (ContentHash, Vec<String>, Vec<SemanticId>),
+    admission: Option<DeclaredStudyAdmission>,
+    scope: Arc<super::modeling::engagement::HeldPreparationScope>,
+}
+impl StudyPreparationLane {
+    pub(in crate::workflow) fn new() -> Self {
+        Self { current: None }
+    }
+    pub(in crate::workflow) async fn prepare(
+        &mut self,
+        package: &ModelingPackage,
+        operation: &StudyOperation,
+        binding: &super::AdmittedBinding,
+        cancel: &CancelSource,
+    ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        let key = DeclaredStudyAdmission::binding_key(operation, binding)?;
+        let same = self.current.as_ref().is_some_and(|current| {
+            current.key == key
+                && current.scope.is_open()
+                && super::modeling::engagement::same_source(&current.original, package)
+        });
+        if !same {
+            self.close().await?;
+            let scope = super::modeling::engagement::HeldPreparationScope::new();
+            self.current = Some(PreparedLaneInputs {
+                original: package.clone(),
+                package: scope.package(package),
+                key,
+                admission: None,
+                scope,
+            });
+        }
+        let current = self
+            .current
+            .as_mut()
+            .ok_or_else(|| super::contract("study lane inputs absent"))?;
+        let result = async {
+            current.scope.renew().await?;
+            current
+                .package
+                .prepare_bound_operation_with_admission(
+                    operation,
+                    binding,
+                    &mut current.admission,
+                    cancel,
+                )
+                .await
+        }
+        .await;
+        match result {
+            Ok(prepared) => {
+                current.scope.freeze()?;
+                Ok(prepared)
+            }
+            Err(error) => {
+                self.close().await?;
+                Err(error)
+            }
+        }
+    }
+    pub(in crate::workflow) fn scope(
+        &self,
+    ) -> Option<Arc<super::modeling::engagement::HeldPreparationScope>> {
+        self.current.as_ref().map(|current| current.scope.clone())
+    }
+    pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
+        if let Some(current) = &self.current {
+            current.scope.close().await?;
+        }
+        self.current = None;
+        Ok(())
+    }
+}

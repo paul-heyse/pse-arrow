@@ -63,9 +63,16 @@ impl NativeCacheService {
         let budget = self.policy.inspection_bytes.saturating_sub(store_bytes);
         let mut rows = Vec::new();
         envelope_rows(&self.syntax, &mut rows, limit, &owner, budget)?;
-        envelope_rows(&self.metadata, &mut rows, limit, &owner, budget)?;
-        envelope_rows(&self.statistics, &mut rows, limit, &owner, budget)?;
-        envelope_rows(&self.listing, &mut rows, limit, &owner, budget)?;
+        let files = self.file_caches();
+        if let Some(cache) = &files.metadata {
+            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
+        }
+        if let Some(cache) = &files.statistics {
+            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
+        }
+        if let Some(cache) = &files.listing {
+            envelope_rows(cache, &mut rows, limit, &owner, budget)?;
+        }
         for component in self.components() {
             component.details(&mut rows, limit, &owner, budget)?;
         }

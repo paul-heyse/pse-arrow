@@ -308,7 +308,11 @@ impl<'o> Operator<'o> {
     }
     /// The raw partials at `(x, t)`, which Diffsol's callbacks cannot fail: a missing
     /// Jacobian exits through the owned abort.
-    fn raw_partials(&self, x: &V, t: f64) -> faer::sparse::SparseColMat<usize, f64> {
+    fn raw_partials(
+        &self,
+        x: &V,
+        t: f64,
+    ) -> pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>> {
         let result = self
             .shared
             .evaluate_mode(self.mode, self.function, t, x.as_slice(), true);
@@ -331,7 +335,7 @@ impl<'o> Operator<'o> {
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(&mut product, width, 1),
             faer::Accum::Replace,
-            j.as_ref().transpose(),
+            j.as_ref().as_ref().transpose(),
             faer::MatRef::from_column_major_slice(v.as_slice(), v.len(), 1),
             -1.0,
             faer::Par::Seq,
@@ -407,7 +411,7 @@ impl<'o> Operator<'o> {
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(y.as_mut_slice(), nout, 1),
             faer::Accum::Replace,
-            j.as_ref(),
+            j.as_ref().as_ref(),
             faer::MatRef::from_column_major_slice(&direction, direction.len(), 1),
             1.0,
             faer::Par::Seq,
@@ -1344,7 +1348,7 @@ fn sample<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             result.as_mut(),
             faer::Accum::Replace,
-            jac.as_ref(),
+            jac.as_ref().as_ref(),
             chain.as_ref(),
             1.0,
             faer::Par::Seq,
@@ -1479,7 +1483,10 @@ mod forward_initialization_tests {
                 )
                 .unwrap()
             });
-            Ok(Evaluation { values, jacobian })
+            Ok(Evaluation {
+                values,
+                jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+            })
         }
     }
     fn affine_profile(linear: DiffsolLinear) -> Profile {

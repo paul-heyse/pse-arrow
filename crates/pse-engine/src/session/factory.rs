@@ -72,6 +72,7 @@ impl EngineFactory {
         let model = Arc::new(super::assembly::ModelAssembly {
             planning: Arc::new(()),
             validation: Default::default(),
+            reflection: Default::default(),
             registry: registry.clone(),
             function_bindings: super::functions::Functions::from_state(&state),
             settings: super::config::semantic_settings(&super::config::inventory(&state))?,
@@ -293,23 +294,20 @@ impl EngineFactory {
         self
     }
 
-    /// Capture validation from this factory's actual immutable native assembly.
+    /// Retain this configured factory's actual immutable registry-bound native owner.
+    /// Validation is initialized before the binding can reach any consumer.
     /// # Errors
     /// Registry-dependent native assembly fails.
-    pub fn validation_context(
-        &self,
-        registry: &Arc<Registry>,
-    ) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
-        let native = self.model_assembly(registry)?;
-        Ok(native
-            .validation
-            .get_or_init(|| {
-                Arc::new(pse_relations::validate::ValidationContext::new(
-                    registry,
-                    crate::validation::NativeValidation(native.context.state()),
-                ))
-            })
-            .clone())
+    pub fn bind_model(
+        self: &Arc<Self>,
+        registry: Arc<Registry>,
+    ) -> Result<BoundModel, EngineError> {
+        let native = self.model_assembly(&registry)?;
+        native.validation_context();
+        Ok(BoundModel(Arc::new(BoundModelInner {
+            factory: self.clone(),
+            native,
+        })))
     }
     /// Select the canonical provider policies inherited by every catalog operation.
     /// # Errors
@@ -360,5 +358,98 @@ impl EngineFactory {
         self.implementation_generation = new_generation();
         self.refresh_cache_identity();
         self
+    }
+}
+
+/// An immutable binding retaining the actual configured native implementations and registry.
+/// Native validation snapshots never retain this handle or its assembly.
+#[derive(Clone, Debug)]
+pub struct BoundModel(Arc<BoundModelInner>);
+
+#[derive(Debug)]
+struct BoundModelInner {
+    factory: Arc<EngineFactory>,
+    native: Arc<super::assembly::ModelAssembly>,
+}
+
+impl BoundModel {
+    /// Actual configured factory from which this native owner was assembled.
+    pub fn factory(&self) -> &Arc<EngineFactory> {
+        &self.0.factory
+    }
+    /// Registry retained by the native owner.
+    pub fn registry(&self) -> &Arc<Registry> {
+        &self.0.native.registry
+    }
+    /// Stable native admission owner, initialized before this binding was returned.
+    pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.0.native.validation_context()
+    }
+    /// Admit an immutable registry reflection relation once for this actual native owner.
+    /// Returned clones can be streamed independently; a changed binding admits its own rows.
+    /// # Errors
+    /// Unknown relation, cancellation or native CHECK refusal.
+    pub fn registry_relation(
+        &self,
+        name: &str,
+        cancel: &CancellationToken,
+    ) -> Result<pse_relations::columnar::FieldCheckedBatch, EngineError> {
+        cancel.checkpoint()?;
+        let (key, batch) = self
+            .registry()
+            .schema_batches()
+            .iter()
+            .find(|(key, _)| key.qualified_name() == name)
+            .ok_or_else(|| EngineError::Admission {
+                path: "registry.reflection".into(),
+                reason: "unknown declared registry reflection relation".into(),
+            })?;
+        let mut reflection = self
+            .0
+            .native
+            .reflection
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(checked) = reflection.get(key) {
+            return Ok(checked.clone());
+        }
+        let spec = self
+            .registry()
+            .relation_by_key(*key)
+            .ok_or_else(|| EngineError::Admission {
+                path: "registry.reflection".into(),
+                reason: "registry reflection declaration absent".into(),
+            })?;
+        let checked = pse_relations::columnar::FieldCheckedBatch::admit(
+            self.registry(),
+            spec,
+            batch.clone(),
+            &self.validation_context(),
+            cancel,
+        )?;
+        reflection.insert(*key, checked.clone());
+        Ok(checked)
+    }
+    /// Construct candidate providers using this exact retained factory and registry pair.
+    /// # Errors
+    /// Schema/value admission, cancellation or allocation refusal.
+    pub fn candidate(
+        &self,
+        rows: BTreeMap<RelationKey, RecordBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<EngineSession, EngineError> {
+        self.factory()
+            .candidate(rows, self.registry().clone(), cancel)
+    }
+    /// Bind admitted rows using this exact native owner.
+    /// # Errors
+    /// Declaration mismatch, cancellation or resource failure.
+    pub fn candidate_checked(
+        &self,
+        rows: BTreeMap<RelationKey, pse_relations::columnar::FieldCheckedBatch>,
+        cancel: &CancellationToken,
+    ) -> Result<EngineSession, EngineError> {
+        self.factory()
+            .candidate_checked(rows, self.registry().clone(), cancel)
     }
 }

@@ -106,7 +106,10 @@ impl Oracle for Reactor {
             )
             .unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
     /// The exact second derivatives: `−2k` in x·x and `−2x` in k·x of the ODE rate,
     /// `−1` in z·x of the DAE rate and `1` in k·x of its constraint, `2` in k·k of the DAE's

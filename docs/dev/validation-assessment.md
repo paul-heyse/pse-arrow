@@ -47,7 +47,7 @@ manual qualification.
 |---|---|---|---|
 | `just ci-fast` | on demand | the workspace formats, compiles, lints clean and its tests and doctests pass | nothing about Python, features, policy or docs |
 | `just test` | on demand | Rust tests pass with Arrow `force_validate` on | nothing about doctests, other profiles, or release-only paths |
-| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051); the workspace-hack equals `cargo hakari generate` and every managed member depends on it (ADR-0122) | nothing about runtime behavior of the generated interfaces, or whether an opt-in feature reached the workspace-hack (governance `every_crate_registered` checks `force_validate`) |
+| `just codegen-check` | on demand | every generated tree equals a fresh regeneration, with no extra or untracked generated files (ADR-0051) | nothing about runtime behavior of the generated interfaces, or whether the selected correctness command activated Arrow validation (scope-aware routes inspect actual units) |
 | `just family-check` | when a pinned-family dependency moves | one resolved version per dependency family, equal to the pins | nothing about whether that version behaves as documented |
 | `just governance` | on demand | the workspace-level invariants hold (pins, crates registered, the dated nightly at or above the `rust-version` floor, unsafe allowlist, error taxonomy) | nothing about runtime behaviour, or whether the source still compiles on the stable floor |
 | `just quality` | on demand | Python format/lint/types/import boundaries and repo config are clean | that the code works |
@@ -125,7 +125,7 @@ unknowns stay protected.
 
 The comprehensive scope runs these gates in order:
 
-1. `py-sync-native` with the selected `--python-profile` (`dev` by default), then
+1. `py-sync-native-correctness` with the selected `--python-profile` (`dev` by default), then
    the formatting, TOML and both Clippy gates.
 2. Quality: Python contracts, format, lint, types and imports; repository lint; agent
    configuration; setup controls through `setup-test-report`; solver pins.
@@ -263,8 +263,9 @@ Missing/malformed checkpoints give exit 1; usage or an unknown gate gives exit 2
 | `just test [nextest args]` | The default workspace feature graph, run with `cargo nextest run --no-fail-fast` and force-validation. |
 | `just native-test [nextest args]` | The full workspace with `pse-runtime/native-solvers`, `pse-runtime/canonical-tests`, `pse-tests-conformance/native-acceptance` and force-validation, under the native environment. Nextest owns selection. The wrapper writes a raw selection artifact and native identity before execution. |
 | `just doctest` | Workspace doctests with force-validation. `pse-py` is excluded because Cargo cannot run cdylib doctests. `doctest-release` is the release-profile variant. |
-| `just py-sync-native` | Rebuilds the editable extension (`dev` profile, `force-validate,native-solvers`) and regenerates the compiled API stubs. `just py-sync` installs the default profile, which lacks native solvers. |
-| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Run `py-sync-native` after Rust edits. |
+| `just py-sync` / `just py-sync-native` | Rebuilds the interactive editable extension without `force-validate`, ordinary or linked respectively, and regenerates its actual API stubs. Local admission and structural transport safety remain. |
+| `just py-sync-correctness [mode] [profile]` / `just py-sync-native-correctness [profile]` | Builds the explicitly force-validated correctness extension and its actual stubs. `auto` preserves the installed ordinary/linked selection; explicit `dev` or `native` selects it. Compiled Rust flags, imported checkout path and binary digest are independently checked before tests. |
+| `just native-python <output> [pytest args]` | Linked Python `unit or component or integration` tests, reported to `<output>/native-python.xml`. Canonical fixture consumers require an initialized supervised `PSE_SURREAL_STATE`. Build with `py-sync-native-correctness` before capturing deployment association or running tests; the observer refuses wrong-mode/stale imports and never rebuilds behind a captured receipt. |
 | `just governance-tests [args]` | `pse-tests-governance` with force-validation. |
 | `just setup-test` | Stdlib `unittest` discovery over `scripts/tests`: setup, guards, runner, docs and build tooling. |
 | `just setup-test-report <output>` | The same discovery with an XML reporter, writing `setup-test.xml` and `setup-test-selected.json`. Fails on skips or an empty run. |

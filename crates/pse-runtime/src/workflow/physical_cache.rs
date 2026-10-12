@@ -1,14 +1,23 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Two bounded owner-local physical products; native attempts never enter retention.
+//! Weighted owner-local physical products; native attempts never enter retention.
 use super::{Operations, PhysicalContext, PhysicalSource, Runtime, WorkflowError, contract};
 use crate::math::MathRuntimeError;
-use datafusion::execution::memory_pool::{MemoryConsumer, MemoryReservation};
+use crate::math::retention::WeightedCache;
+use datafusion::{
+    common::TableReference,
+    execution::{
+        cache::{CacheKey, CacheValue},
+        memory_pool::{MemoryConsumer, MemoryReservation},
+    },
+};
 use pse_engine::cache_service::{CacheComponent, CacheEntryReport, CacheReport};
 use pse_operations::canonical::{ProtectedSelection, Revision};
+#[cfg(test)]
+use std::sync::Mutex;
 use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicU64, AtomicUsize, Ordering},
+    Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 const RETAINED_BYTES: usize = 16 << 20;
@@ -25,8 +34,7 @@ pub(super) struct PhysicalOwner {
 struct Admission {
     source: PhysicalSource,
     operations: Operations,
-    registry: Arc<pse_schema::Registry>,
-    sessions: Arc<pse_engine::session::EngineFactory>,
+    model: pse_engine::session::BoundModel,
     physical: Arc<PhysicalContext>,
     bytes: usize,
     _metadata: Arc<pse_columnar::AllocationLease>,
@@ -34,8 +42,7 @@ struct Admission {
 #[derive(Debug)]
 struct Rows {
     operations: Operations,
-    registry: Arc<pse_schema::Registry>,
-    sessions: Arc<pse_engine::session::EngineFactory>,
+    model: pse_engine::session::BoundModel,
     physical: PhysicalContext,
     revisions: Vec<Revision>,
     _owner: Arc<PhysicalOwner>,
@@ -47,19 +54,14 @@ pub(super) struct PhysicalRows {
     pub(super) revisions: Vec<Revision>,
     _owner: Arc<PhysicalOwner>,
 }
-#[derive(Debug)]
 pub(super) struct PhysicalCache {
-    admission: Mutex<Option<Admission>>,
-    rows: Mutex<Option<Rows>>,
+    retained: WeightedCache<RetainedKey, RetainedProduct>,
     admission_fence: pse_columnar::retention::RetentionFence,
     rows_fence: pse_columnar::retention::RetentionFence,
     /// Only identical live source admissions share parsing and immutable physical loading.
     /// Native attempts and per-caller canonical protections remain outside the flight.
     admission_flights:
         pse_columnar::flight::Flights<PhysicalAdmissionKey, PhysicalContext, WorkflowError>,
-    /// Separates in-flight work across explicit retention clears without making concurrent
-    /// cache misses for the same source look like distinct admissions.
-    admission_epoch: AtomicU64,
     hits: AtomicUsize,
     misses: AtomicUsize,
     #[cfg(test)]
@@ -88,6 +90,56 @@ pub(super) struct PhysicalCache {
     #[cfg(test)]
     admission_flight_loads: AtomicUsize,
 }
+impl std::fmt::Debug for PhysicalCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PhysicalCache")
+            .field("entries", &self.retained.len())
+            .field("retained_bytes", &self.retained.memory_used())
+            .finish_non_exhaustive()
+    }
+}
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum RetainedKey {
+    Admission(PhysicalAdmissionKey),
+    // Candidate index only. The exact original checked sources and all owners
+    // are compared before use; changed arrays cannot inherit this index's hit.
+    Rows(PhysicalAdmissionKey, usize, usize),
+}
+impl CacheKey for RetainedKey {
+    fn size(&self) -> usize {
+        let owner = match self {
+            Self::Admission(owner) | Self::Rows(owner, ..) => owner,
+        };
+        size_of::<Self>().saturating_add(owner.revision.capacity())
+    }
+    fn table_ref(&self) -> Option<&TableReference> {
+        None
+    }
+}
+#[derive(Clone)]
+enum RetainedProduct {
+    Admission(Arc<Admission>),
+    Rows(Arc<Rows>),
+}
+impl CacheValue for RetainedProduct {
+    fn size(&self) -> usize {
+        match self {
+            Self::Admission(entry) => entry.bytes.saturating_add(entry._metadata.size()),
+            Self::Rows(entry) => entry.bytes.saturating_add(entry._metadata.size()),
+        }
+    }
+}
+fn row_key(runtime: &Runtime, operations: &Operations, physical: &PhysicalContext) -> RetainedKey {
+    let source = PhysicalSource {
+        revision: String::new(),
+        identity: physical.identity(),
+    };
+    RetainedKey::Rows(
+        PhysicalAdmissionKey::new(runtime, operations, &source, 0),
+        Arc::as_ptr(&physical.quantities) as usize,
+        Arc::as_ptr(&physical.preconditions) as usize,
+    )
+}
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct PhysicalAdmissionKey {
     revision: String,
@@ -111,8 +163,8 @@ impl PhysicalAdmissionKey {
             identity: source.identity,
             worker,
             pool,
-            registry: Arc::as_ptr(&runtime.registry) as usize,
-            sessions: Arc::as_ptr(&runtime.sessions) as usize,
+            registry: Arc::as_ptr(runtime.registry()) as usize,
+            sessions: Arc::as_ptr(runtime.sessions()) as usize,
             epoch,
         }
     }
@@ -120,12 +172,10 @@ impl PhysicalAdmissionKey {
 impl Default for PhysicalCache {
     fn default() -> Self {
         Self {
-            admission: Mutex::default(),
-            rows: Mutex::default(),
+            retained: WeightedCache::new(RETAINED_BYTES, NAME),
             admission_fence: pse_columnar::retention::RetentionFence::default(),
             rows_fence: pse_columnar::retention::RetentionFence::default(),
             admission_flights: pse_columnar::flight::Flights::new(32),
-            admission_epoch: AtomicU64::new(0),
             hits: AtomicUsize::new(0),
             misses: AtomicUsize::new(0),
             #[cfg(test)]
@@ -143,29 +193,8 @@ impl Default for PhysicalCache {
 }
 impl PhysicalCache {
     pub(super) fn clear(&self) {
-        let mut epoch = self.admission_epoch.load(Ordering::Acquire);
-        while epoch < u64::MAX {
-            match self.admission_epoch.compare_exchange_weak(
-                epoch,
-                epoch + 1,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                Ok(_) => break,
-                Err(current) => epoch = current,
-            }
-        }
         self.admission_fence.clear(|| {
-            self.admission
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .take();
-        });
-        self.rows_fence.clear(|| {
-            self.rows
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .take();
+            self.rows_fence.clear(|| self.retained.clear());
         });
     }
     fn admission(
@@ -174,19 +203,18 @@ impl PhysicalCache {
         operations: &Operations,
         source: &PhysicalSource,
     ) -> Option<Arc<PhysicalContext>> {
-        let entry = self
-            .admission
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let physical = entry
-            .as_ref()
-            .filter(|entry| {
-                entry.source == *source
+        let key = RetainedKey::Admission(PhysicalAdmissionKey::new(runtime, operations, source, 0));
+        let physical = self.retained.get(&key).and_then(|entry| match entry {
+            RetainedProduct::Admission(entry)
+                if entry.source == *source
                     && entry.operations.same_physical_owner(operations)
-                    && Arc::ptr_eq(&entry.registry, &runtime.registry)
-                    && Arc::ptr_eq(&entry.sessions, &runtime.sessions)
-            })
-            .map(|entry| entry.physical.clone());
+                    && Arc::ptr_eq(entry.model.registry(), runtime.registry())
+                    && Arc::ptr_eq(entry.model.factory(), runtime.sessions()) =>
+            {
+                Some(entry.physical.clone())
+            }
+            _ => None,
+        });
         if physical.is_some() {
             self.hits.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -200,19 +228,20 @@ impl PhysicalCache {
         operations: &Operations,
         physical: &PhysicalContext,
     ) -> Option<Vec<Revision>> {
-        let entry = self
-            .rows
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let rows = entry
-            .as_ref()
-            .filter(|entry| {
-                entry.operations.same_physical_owner(operations)
-                    && Arc::ptr_eq(&entry.registry, &runtime.registry)
-                    && Arc::ptr_eq(&entry.sessions, &runtime.sessions)
-                    && entry.physical.same_sources(physical)
-            })
-            .map(|entry| entry.revisions.clone());
+        let rows = self
+            .retained
+            .get(&row_key(runtime, operations, physical))
+            .and_then(|entry| match entry {
+                RetainedProduct::Rows(entry)
+                    if entry.operations.same_physical_owner(operations)
+                        && Arc::ptr_eq(entry.model.registry(), runtime.registry())
+                        && Arc::ptr_eq(entry.model.factory(), runtime.sessions())
+                        && entry.physical.same_sources(physical) =>
+                {
+                    Some(entry.revisions.clone())
+                }
+                _ => None,
+            });
         if rows.is_some() {
             self.hits.fetch_add(1, Ordering::Relaxed);
         } else {
@@ -221,14 +250,9 @@ impl PhysicalCache {
         rows
     }
     pub(super) fn begin_rows(&self) -> u64 {
-        let generation = self.rows_fence.generation();
-        self.rows_fence.clear(|| {
-            self.rows
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .take();
-        });
-        generation.saturating_add(1)
+        // Distinct sources may settle concurrently. Only explicit clear advances
+        // the fence; a miss must not discard other exact immutable row receipts.
+        self.rows_fence.generation()
     }
     pub(super) fn rows_generation(&self) -> u64 {
         self.rows_fence.generation()
@@ -259,8 +283,7 @@ impl PhysicalCache {
         };
         let entry = Rows {
             operations: operations.clone(),
-            registry: runtime.registry.clone(),
-            sessions: runtime.sessions.clone(),
+            model: runtime.model.clone(),
             physical: physical.clone(),
             revisions: revisions.to_vec(),
             _owner: rows._owner.clone(),
@@ -268,10 +291,10 @@ impl PhysicalCache {
             _metadata: metadata,
         };
         self.rows_fence.admit(generation, || {
-            *self
-                .rows
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(entry);
+            self.retained.put(
+                row_key(runtime, operations, physical),
+                RetainedProduct::Rows(Arc::new(entry)),
+            )
         });
     }
     pub(super) async fn protect_rows(
@@ -339,29 +362,20 @@ impl Runtime {
     ) -> Result<PhysicalContext, WorkflowError> {
         checkpoint(cancel)?;
         let operations = self.operations()?;
-        let admission_epoch = self.physical_cache.admission_epoch.load(Ordering::Acquire);
-        if admission_epoch == u64::MAX {
+        // The same atomic fence snapshot identifies both the shared flight and
+        // retention. Separate snapshots could join a pre-clear flight while
+        // accidentally granting it a post-clear insertion generation.
+        let generation = self.physical_cache.admission_fence.generation();
+        if generation == u64::MAX {
             return Err(WorkflowError::Math(MathRuntimeError::Limit(
                 "physical admission epoch exhausted",
             )));
         }
-        let flight_key = PhysicalAdmissionKey::new(self, operations, source, admission_epoch);
-        let generation = self.physical_cache.admission_fence.generation();
+        let flight_key = PhysicalAdmissionKey::new(self, operations, source, generation);
         let cached = self.physical_cache.admission(self, operations, source);
-        // Evict and capture before the first asynchronous source/guard lookup. An
-        // external clear during protection must not become this old load's epoch.
-        let generation = if cached.is_none() {
-            self.physical_cache.admission_fence.clear(|| {
-                self.physical_cache
-                    .admission
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .take();
-            });
-            generation.saturating_add(1)
-        } else {
-            generation
-        };
+        // Capture before the first asynchronous source/guard lookup. Distinct
+        // exact sources coexist within one weighted budget; explicit clear alone
+        // fences an old load and cannot become that load's new epoch.
         #[cfg(test)]
         {
             let pause = self
@@ -488,18 +502,16 @@ impl Runtime {
             let entry = Admission {
                 source: source.clone(),
                 operations: operations.clone(),
-                registry: self.registry.clone(),
-                sessions: self.sessions.clone(),
+                model: self.model.clone(),
                 physical: Arc::new(physical.clone()),
                 bytes,
                 _metadata: metadata,
             };
             self.physical_cache.admission_fence.admit(generation, || {
-                *self
-                    .physical_cache
-                    .admission
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(entry);
+                self.physical_cache.retained.put(
+                    RetainedKey::Admission(PhysicalAdmissionKey::new(self, operations, source, 0)),
+                    RetainedProduct::Admission(Arc::new(entry)),
+                )
             });
         }
         Ok(physical)
@@ -770,20 +782,24 @@ mod physical_admission_cache_unit {
         let physical = runtime.physical_source(&source, &cancel).await.unwrap();
         let operations = runtime.operations().unwrap();
         let mut other = runtime.clone();
-        other.sessions = Arc::new(
+        other.model = Arc::new(
             runtime
                 .shared
                 .session_factory(pse_engine::session::native_engine_profile())
                 .unwrap(),
-        );
+        )
+        .bind_model(runtime.registry().clone())
+        .unwrap();
         assert!(
             runtime
                 .physical_cache
                 .admission(&other, operations, &source)
                 .is_none()
         );
-        other.registry = Arc::new(pse_schema::catalog::assemble().unwrap());
-        other.sessions = runtime.sessions.clone();
+        other.model = runtime
+            .sessions()
+            .bind_model(Arc::new(pse_schema::catalog::assemble().unwrap()))
+            .unwrap();
         assert!(
             runtime
                 .physical_cache
@@ -878,7 +894,7 @@ mod physical_admission_cache_unit {
         );
     }
     #[tokio::test]
-    async fn canonical_physical_admission_actual_changed_revision_evicts_old_entry() {
+    async fn canonical_physical_admission_interleaved_exact_revisions_keep_distinct_entries() {
         let (runtime, source) = fixture().await;
         let cancel = crate::CancelSource::new();
         let first = runtime.physical_source(&source, &cancel).await.unwrap();
@@ -913,16 +929,60 @@ mod physical_admission_cache_unit {
             runtime
                 .physical_cache
                 .admission(&runtime, operations, &source)
-                .is_none()
+                .is_some()
+        );
+        let third = runtime.physical_source(&source, &cancel).await.unwrap();
+        assert!(
+            first.same_sources(&third),
+            "alternating exact sources reuse the original immutable product"
+        );
+        assert!(
+            !Arc::ptr_eq(
+                first._source_owner.as_ref().unwrap(),
+                third._source_owner.as_ref().unwrap()
+            ),
+            "every cache hit still establishes fresh protection"
         );
         assert_eq!(
             runtime.physical_cache.report()[0].entries,
-            1,
-            "replacement keeps admission retention bounded to one exact revision"
+            2,
+            "distinct exact revisions coexist under the weighted allowance"
+        );
+        let first_rows = operations
+            .put_physical_rows(&runtime, &first)
+            .await
+            .unwrap();
+        let second_rows = operations
+            .put_physical_rows(&runtime, &second)
+            .await
+            .unwrap();
+        assert_eq!(
+            runtime.physical_cache.rows(&runtime, operations, &first),
+            Some(first_rows.revisions.clone())
+        );
+        assert_eq!(
+            runtime.physical_cache.rows(&runtime, operations, &second),
+            Some(second_rows.revisions.clone())
+        );
+        let retained = runtime.physical_cache.report()[0].retained_bytes;
+        runtime
+            .physical_cache
+            .retained
+            .update_cache_limit(retained / 2);
+        assert!(runtime.physical_cache.report()[0].retained_bytes <= retained / 2);
+        assert!(
+            !first_rows.revisions.is_empty(),
+            "pressure cannot invalidate escaped protected receipts"
         );
         assert!(
+            !second.sources.is_empty(),
+            "pressure cannot invalidate active physical products"
+        );
+        runtime.clear_program_cache();
+        assert_eq!(runtime.physical_cache.report()[0].entries, 0);
+        assert!(
             !first.sources.is_empty(),
-            "eviction preserves the old active immutable admission"
+            "clear preserves the old active immutable admission"
         );
     }
 }
@@ -938,21 +998,12 @@ impl CacheComponent for PhysicalCache {
         self.clear();
     }
     fn report(&self) -> Vec<CacheReport> {
-        let admission = self
-            .admission
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let rows = self
-            .rows
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
         vec![CacheReport {
             name: NAME.into(),
             capacity_bytes: 0,
-            policy_limit_bytes: 2 * RETAINED_BYTES,
-            retained_bytes: admission.as_ref().map_or(0, |e| e.bytes)
-                + rows.as_ref().map_or(0, |e| e.bytes),
-            entries: usize::from(admission.is_some()) + usize::from(rows.is_some()),
+            policy_limit_bytes: self.retained.cache_limit(),
+            retained_bytes: self.retained.memory_used(),
+            entries: self.retained.len(),
             hits: self.hits.load(Ordering::Relaxed),
             misses: self.misses.load(Ordering::Relaxed),
             bypasses: 0,

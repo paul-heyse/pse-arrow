@@ -953,6 +953,7 @@ fn evaluator_storage_counts_its_instruction_stream() {
         limits,
         limits.operations,
         0,
+        &mut Default::default(),
     )
     .unwrap();
     let export = evaluator.export_instructions();
@@ -2471,6 +2472,7 @@ fn structural_taylor_zeros_preserve_complete_second_shape_and_reduce_library_wor
             limits,
             limits.operations,
             0,
+            &mut Default::default(),
         )
         .unwrap()
     };

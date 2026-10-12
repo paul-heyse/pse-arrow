@@ -7,12 +7,15 @@ import hashlib
 import json
 import os
 import shlex
+import signal
 import socket
 import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
+from types import FrameType
 
 import msgspec
 import pyarrow as pa
@@ -146,7 +149,7 @@ def test_canonical_constructor_preserves_interpretation_and_transport_timeout(
         listener.bind(("127.0.0.1", 0))
         listener.listen(1)
         config["endpoint"] = f"ws://127.0.0.1:{listener.getsockname()[1]}"
-        config["schema_interpretation"] = "pse.substrate.v3"
+        config["schema_interpretation"] = "pse.substrate.v4"
         publish()
 
         def withhold_handshake() -> None:
@@ -381,7 +384,13 @@ def test_canonical_result_selection_and_progress_reopen(
     with reopened.progress(run, attempt) as stream:
         assert stream.run_key == run
         assert stream.attempt_key == attempt
+        coverage = msgspec.to_builtins(stream.coverage)
         events = list(stream)
+    assert coverage["kind"] == "sampled"
+    assert coverage["observed"] == coverage["queued"] + coverage["dropped_before_queue"]
+    assert coverage["acknowledged"] == len(events)
+    assert coverage["unacknowledged"] == 0
+    assert coverage["writer"] == {"kind": "complete"}
     assert events, "the canonical Ipopt attempt retains iteration observations"
     positions = [event.sequence for event in events]
     sequences = [sequence for sequence in positions if sequence is not None]
@@ -395,6 +404,7 @@ def test_canonical_result_selection_and_progress_reopen(
     closed = reopened.progress(run, attempt)
     closed.close()
     assert list(closed) == []
+    assert msgspec.to_builtins(closed.coverage) == coverage
 
     destination = tmp_path / "results.arrow"
     reopened.export_results(run, attempt, relation, destination)
@@ -755,3 +765,232 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
     # RefuseFreshAdmission in the native persisted replay control separately proves
     # reconstruction versus fresh admission. This is imported-Python composition,
     # dynamic TLS/loader concurrency, scientific output and historical retention.
+
+
+def _assert_owned_delayed_canonical_sigint(
+    settings: pse.EngineSettings,
+    *,
+    state: Path,
+    database: str,
+    run: str,
+    attempt: str,
+    owned_instance: str,
+) -> dict[str, object]:
+    """Explicit private-server control; never selected by the normal test suite.
+
+    The caller owns this exact disposable supervisor instance exclusively. The
+    public pool's named reservation proves entry into the canonical pull; receipt
+    on the stopped server's actual socket proves dispatch before cancellation.
+    """
+    from scripts import surreal_server as server
+
+    from pse._build import compiled_features
+
+    features = compiled_features()
+    assert "force-validate" in features, "install the actual correctness extension"
+    state = state.resolve(strict=True)
+    config = server.config_for(state)
+    assert config["instance_id"] == owned_instance
+    assert server.service_directory(state) == state, "select the actual service owner"
+    assert server._owns_listener(state, config), (
+        "exact physical listener owner required"
+    )
+    process = server.read_json(state / "server-process.json")
+    assert process["instance_id"] == owned_instance
+    pid = server.integer(process["pid"])
+    pidfd = os.pidfd_open(pid)
+    runtime: pse.Runtime | None = None
+    stream: pse.TableStream | None = None
+    read_bytes = 48 * 1024 * 1024
+    reservation_baselines: dict[str, int] = {}
+
+    def reserved(name: str) -> int:
+        assert runtime is not None
+        return sum(
+            consumer.reserved_bytes
+            for consumer in runtime.resource_usage().top_consumers
+            if consumer.name == name
+        )
+
+    def queued_server_bytes() -> int:
+        # The selected process is held by pidfd and is this disposable fixture's
+        # sole server. Observe receipt on its actual established sockets, without
+        # reading or consuming another process's network data.
+        inodes: set[str] = set()
+        for descriptor in Path(f"/proc/{pid}/fd").iterdir():
+            try:
+                target = os.readlink(descriptor)
+            except FileNotFoundError:
+                continue
+            if target.startswith("socket:[") and target.endswith("]"):
+                inodes.add(target[8:-1])
+        queued = 0
+        for family in ("tcp", "tcp6"):
+            for line in Path(f"/proc/{pid}/net/{family}").read_text().splitlines()[1:]:
+                fields = line.split()
+                if fields[3] == "01" and fields[9] in inodes:
+                    queued += int(fields[4].split(":")[1], 16)
+        return queued
+
+    def delayed_call(
+        work: Callable[[], object], consumer: str, *, prompt_join: bool
+    ) -> float:
+        before = reserved(consumer)
+        reservation_baselines[consumer] = before
+        ready = threading.Event()
+        observed_signal = threading.Event()
+        returned = threading.Event()
+        failures: list[BaseException] = []
+        times: dict[str, float] = {}
+
+        def interrupted(_number: int, _frame: FrameType | None) -> None:
+            observed_signal.set()
+            raise KeyboardInterrupt
+
+        original_handler = signal.signal(signal.SIGINT, interrupted)
+
+        def controller() -> None:
+            stopped = False
+            try:
+                current = server.config_for(state)
+                assert current["instance_id"] == owned_instance
+                assert server.read_json(state / "server-process.json") == process
+                assert server._owns_listener(state, current)
+                signal.pidfd_send_signal(pidfd, signal.SIGSTOP)
+                stopped = True
+                stop_deadline = time.monotonic() + 5
+                while True:
+                    status = (
+                        Path(f"/proc/{pid}/stat")
+                        .read_text()
+                        .rsplit(")", 1)[1]
+                        .split()[0]
+                    )
+                    if status in {"T", "t"}:
+                        break
+                    assert time.monotonic() < stop_deadline, "owned server did not stop"
+                    time.sleep(0.005)
+                queued_before = queued_server_bytes()
+                ready.set()
+                entry_deadline = time.monotonic() + 5
+                while (
+                    reserved(consumer) < before + read_bytes
+                    or queued_server_bytes() <= queued_before
+                ):
+                    assert not returned.is_set(), (
+                        "call returned before a real canonical RPC entry"
+                    )
+                    assert time.monotonic() < entry_deadline, (
+                        "no actual allocation and stopped-server socket receipt"
+                    )
+                    time.sleep(0.005)
+                times["entered"] = time.monotonic()
+                os.kill(os.getpid(), signal.SIGINT)
+                assert observed_signal.wait(2), (
+                    "Python did not observe SIGINT during the entered call"
+                )
+                if prompt_join:
+                    assert returned.wait(2), (
+                        "entered canonical pull did not cancel and join while delayed"
+                    )
+                    assert reserved(consumer) >= before + read_bytes, (
+                        "late dispatched response lost its actual grant before the server resumed"
+                    )
+                else:
+                    # The ordinary header bridge has no cancellation callback;
+                    # signal observation is prompt, while settlement still joins
+                    # its original request after this exact listener resumes.
+                    assert not returned.wait(0.2), (
+                        "ordinary delayed header unexpectedly settled"
+                    )
+            except BaseException as error:
+                failures.append(error)
+            finally:
+                ready.set()
+                if stopped:
+                    signal.pidfd_send_signal(pidfd, signal.SIGCONT)
+
+        peer = threading.Thread(target=controller, name="canonical-signal-owner")
+        peer.start()
+        try:
+            assert ready.wait(6), "owned delay controller did not establish its state"
+            if failures:
+                raise failures[0]
+            with pytest.raises(KeyboardInterrupt):
+                work()
+        finally:
+            times["returned"] = time.monotonic()
+            returned.set()
+            peer.join(timeout=10)
+            signal.signal(signal.SIGINT, original_handler)
+        assert not peer.is_alive(), "owned delay controller did not drain"
+        assert not failures, failures
+        assert observed_signal.is_set()
+        return times["returned"] - times["entered"]
+
+    try:
+        runtime = pse.Runtime(settings, substrate=str(state), database=database)
+        stream = runtime.results(run, attempt, "runtime.solve_variables")
+        schema = pa.schema(stream)
+        # A signal before consumption is a separate control, never evidence that
+        # the native producer entered or cancelled an in-flight operation.
+        with pytest.raises(KeyboardInterrupt):
+            signal.raise_signal(signal.SIGINT)
+        first = stream.next_batch()
+        assert first is not None and first.num_rows > 0
+        assert first.schema == schema
+        expected = first.to_pylist()
+        with pytest.raises(pse.InspectionError, match="already consumed"):
+            stream.__arrow_c_stream__()
+        ordinary_seconds = delayed_call(
+            lambda: runtime.attempt_record(attempt),
+            "canonical:result-header",
+            prompt_join=False,
+        )
+        pull_seconds = delayed_call(
+            stream.next_batch, "canonical:result-block", prompt_join=True
+        )
+        assert not any(
+            task.joinpath("comm").read_text().strip() == "pse-python-pull"
+            for task in Path("/proc/self/task").iterdir()
+            if task.joinpath("comm").exists()
+        ), "the original Python-owned native pull must already be joined"
+        failure = stream.failure
+        assert failure is not None and failure.code == DiagnosticCode.RUNTIME_CANCELLED
+        with pytest.raises(pse.InspectionError) as repeated:
+            stream.next_batch()
+        assert repeated.value.report.code == failure.code
+        stream.close()
+        assert first.to_pylist() == expected
+        runtime.clear_program_cache()
+        runtime.close()  # Actual protected-reader release and transport drain.
+        for consumer, before in reservation_baselines.items():
+            assert reserved(consumer) <= before, (
+                "original response reservation survived actual transport drain"
+            )
+        assert first.schema == schema and first.to_pylist() == expected
+        return {
+            "event": "complete",
+            "entry": "public canonical:result-block reservation and stopped-server socket receipt",
+            "controlled_pull_joined_while_delayed": True,
+            "response_grant_retained_until_server_resume": True,
+            "response_grant_released_after_transport_drain": True,
+            "ordinary_signal_observed_while_delayed": True,
+            "ordinary_join_seconds": ordinary_seconds,
+            "controlled_join_seconds": pull_seconds,
+            "retained_rows_after_close": first.num_rows,
+            "features": features,
+            "owned_instance": owned_instance,
+        }
+    finally:
+        # The pidfd denotes the original process even if its numeric PID were
+        # replaced. Always resume it before any protection/transport drain.
+        try:
+            signal.pidfd_send_signal(pidfd, signal.SIGCONT)
+        finally:
+            os.close(pidfd)
+        if stream is not None:
+            stream.close()
+        if runtime is not None:
+            runtime.clear_program_cache()
+            runtime.close()

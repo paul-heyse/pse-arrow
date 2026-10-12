@@ -23,10 +23,13 @@ impl RunResult {
         let RunRequest::Modeling(requests) = &self.request else {
             return Err(contract("authored solve request mismatch"));
         };
-        let registry = &self.runtime.registry;
+        if self.horizon_tightenings.is_some() && projection.wants(modeling_findings::RELATION_ID) {
+            return self.encode_horizon_findings(projection).await;
+        }
+        let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = projection.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut run_rows = crate::workflow::result_export::Rows::<runs::Row>::new(
             projection,
             registry,
@@ -127,7 +130,8 @@ impl RunResult {
         )
         .map_err(relation)?;
         for (ordinal, request) in requests.iter().enumerate() {
-            let step = ordinal as i64;
+            let original = self.modeling_step(ordinal);
+            let step = original as i64;
             let result = self.modeling_result(ordinal);
             let trace = result
                 .and_then(|result| result.strategy.as_ref())
@@ -140,13 +144,13 @@ impl RunResult {
                     .wants(pse_relations::generated::runtime::solve_strategy_products::RELATION_ID)
                 {
                     collection
-                        .strategy_products(trace, self.run_id, ordinal)
+                        .strategy_products(trace, self.run_id, original)
                         .await?;
                 }
 
                 if projection.wants(solve_strategy_events::RELATION_ID) {
                     collection
-                        .strategy_events(trace, self.run_id, ordinal, self.runtime.shared.math())
+                        .strategy_events(trace, self.run_id, original, self.runtime.shared.math())
                         .await?;
                 }
             }
@@ -477,17 +481,21 @@ impl RunResult {
                     .iter()
                     .map(pse_modeling::DomainTightening::boundary_diagnostic)
             });
-            for (ordinal, finding) in self
-                .capture_diagnostics()
-                .into_iter()
-                .chain(tightenings)
-                .enumerate()
-            {
+            let captured;
+            let findings = {
+                captured = self
+                    .capture_diagnostics()
+                    .into_iter()
+                    .chain(tightenings)
+                    .collect::<Vec<_>>();
+                &captured
+            };
+            for (ordinal, finding) in findings.iter().enumerate() {
                 collection
                     .push(super::modeling::analysis_tables::finding_row(
                         self.run_id,
                         ordinal as i64,
-                        &finding,
+                        finding,
                     ))
                     .await
                     .map_err(relation)?;

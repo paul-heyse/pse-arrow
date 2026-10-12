@@ -84,9 +84,9 @@ def row_names(
     return names
 
 
-def pse_sets(runtime: pse.Runtime) -> Sets:
+def pse_sets(parity_context: support.ParityContext) -> Sets:
     """The pse degenerate sets with their weights on unscaled rows."""
-    authored, declarations = support.package(runtime, DEPENDENT)
+    authored, declarations = support.package(parity_context, DEPENDENT)
     case = declarations["Dependent"]
     settings = pse.SolveSettings(intent=NativeSolveIntent.ROOT)
     names = row_names(authored, case, settings)
@@ -138,13 +138,15 @@ def proportional(left: dict[str, float], right: dict[str, float]) -> None:
 
 @pytest.mark.integration
 @pytest.mark.parity
-def test_degenerate_sets_agree_with_degeneracy_hunter(runtime: pse.Runtime) -> None:
+def test_degenerate_sets_agree_with_degeneracy_hunter(
+    parity_context: support.ParityContext,
+) -> None:
     """Every DegeneracyHunter set is one of pse's, with the same multipliers.
 
     pse reports both constructed sets.
     """
     reference = idaes_sets()
-    found = pse_sets(runtime)
+    found = pse_sets(parity_context)
     assert set(found) == set(EXPECTED)
     assert reference
     assert set(reference) <= set(found)

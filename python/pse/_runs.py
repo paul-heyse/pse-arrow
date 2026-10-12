@@ -29,6 +29,7 @@ from pse.contracts.documents import (
     FitProfileDocument,
     NumericalStrategyDocument,
     PointStatus,
+    ProgressCoverage,
     ProgressEventDocument,
     RouteDocument,
     RuntimeAccuracyGoalAssessmentsRow,
@@ -308,6 +309,11 @@ class ProgressStream:
     def attempt_key(self) -> str:
         """Exact opaque producing terminal attempt key."""
         return self._handle.attempt_key
+
+    @property
+    def coverage(self) -> ProgressCoverage:
+        """Original sampling loss and writer coverage, separate from science."""
+        return self._handle.coverage
 
     def __iter__(self) -> Self:
         return self

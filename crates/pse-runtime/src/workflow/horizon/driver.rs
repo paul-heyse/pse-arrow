@@ -14,7 +14,7 @@ use crate::workflow::{
     integrated::IntegratedExperiment,
     modeling::assessment::Obligations,
     run::{attempt_for, progress_for},
-    staged::{Overlay, Staged, Start},
+    staged::{Overlay, Staged},
 };
 use pse_backend_native::{
     self as native, ProblemError,
@@ -25,7 +25,7 @@ use pse_backend_native::{
 use pse_ids::{FramedHasher, SemanticId};
 use pse_model::generated::identities::RunId;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -40,7 +40,8 @@ impl Runtime {
         if cancel.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled.into());
         }
-        Admitted::new(self, horizon, cancel).await.map(|_| ())
+        let admitted = Admitted::new(self, horizon, cancel).await?;
+        admitted.close_sources().await
     }
 
     /// Start a rolling horizon (Plan 22 Y5c; ADR-0110 Outcome 5): one run of closed-loop
@@ -76,14 +77,48 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
+        let mut attempt = attempt;
         if cancel.token().is_cancelled() {
-            return Err(MathRuntimeError::Cancelled.into());
+            let error = Arc::new(WorkflowError::from(MathRuntimeError::Cancelled));
+            if let Some(attempt) = attempt.take() {
+                let _ = attempt.abandon(&error).await;
+            }
+            return Err(WorkflowError::Shared(error));
         }
-        let admitted = Arc::new(Admitted::new(self, horizon, cancel).await?);
-        let durable = attempt_for(self, attempt)?;
+        if matches!(self.durability(), crate::workflow::Durability::Ephemeral) && attempt.is_some()
+        {
+            let error = Arc::new(contract("a claimed horizon runs only on a durable runtime"));
+            if let Some(attempt) = attempt.take() {
+                let _ = attempt.abandon(&error).await;
+            }
+            return Err(WorkflowError::Shared(error));
+        }
+        let admitted = match Admitted::new(self, horizon, cancel).await {
+            Ok(admitted) => Arc::new(admitted),
+            Err(error) => {
+                let error = Arc::new(error);
+                if let Some(attempt) = attempt.take() {
+                    let _ = attempt.abandon(&error).await;
+                }
+                return Err(WorkflowError::Shared(error));
+            }
+        };
+        let durable = match attempt_for(self, attempt) {
+            Ok(durable) => durable,
+            Err(error) => {
+                admitted.close_sources().await?;
+                return Err(error);
+            }
+        };
         let progress = progress_for(admitted.history, durable.as_ref());
         let opened = match durable {
-            None => Some(Staged::open(self, Some(progress.clone()))?),
+            None => match Staged::open(self, Some(progress.clone())) {
+                Ok(staged) => Some(staged),
+                Err(error) => {
+                    admitted.close_sources().await?;
+                    return Err(error);
+                }
+            },
             Some(_) => None,
         };
         let cancel = crate::CancelSource::new();
@@ -100,62 +135,101 @@ impl Runtime {
             .map(|attempt| attempt.canonical_keys(run_id));
         let stream = progress.clone();
         tokio::spawn(async move {
-            let mut durable = durable;
-            let staged = match admit(
-                &mut durable,
-                run_id,
-                &admitted,
-                opened,
-                &runtime,
-                &stream,
-                &cancel,
-            )
-            .await
-            {
-                Ok(staged) => staged,
-                Err(error) => {
-                    let refused = RunResult::joined(
+            use futures_util::FutureExt;
+            let source_owner = admitted.clone();
+            let scopes = admitted
+                .held
+                .iter()
+                .map(|source| source.scope.clone())
+                .collect::<Vec<_>>();
+            let mut operation = async {
+                let mut durable = durable;
+                let staged = match admit(
+                    &mut durable,
+                    run_id,
+                    &admitted,
+                    opened,
+                    &runtime,
+                    &stream,
+                    &cancel,
+                )
+                .await
+                {
+                    Ok(staged) => staged,
+                    Err(error) => {
+                        return RunResult::joined(
+                            run_id,
+                            runtime,
+                            RunRequest::Horizon(admitted.request()),
+                            None,
+                            Err(Arc::new(error)),
+                        )
+                        .refused(durable)
+                        .await;
+                    }
+                };
+                let original = match super::prefix::OriginalHistory::new(&runtime, &admitted.output)
+                {
+                    Ok(original) => original,
+                    Err(error) => {
+                        staged.close().await;
+                        return RunResult::joined(
+                            run_id,
+                            runtime,
+                            RunRequest::Horizon(admitted.request()),
+                            None,
+                            Err(Arc::new(error)),
+                        )
+                        .refused(durable)
+                        .await;
+                    }
+                };
+                if let Some(attempt) = &mut durable
+                    && let Err(error) =
+                        attempt.begin_horizon_prefix(admitted.output.clone(), admitted.steps * 3)
+                {
+                    staged.close().await;
+                    return RunResult::joined(
                         run_id,
                         runtime,
-                        RunRequest::Modeling(Vec::new()),
+                        RunRequest::Horizon(admitted.request()),
                         None,
                         Err(Arc::new(error)),
                     )
                     .refused(durable)
                     .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
                 }
-            };
-            let mut run = Loop::new(admitted, staged, run_id, cancel.clone(), stream, durable);
-            let outcome = run.run().await;
-            let Loop {
-                admitted,
-                staged,
-                durable,
-                requests,
-                results,
-                failed_solve,
-                steps,
-                ..
-            } = run;
-            staged.close().await;
-            let (report, modeling_failure) = joined_modeling(outcome, results, failed_solve);
-            let mut result = RunResult::joined(
-                run_id,
-                runtime,
-                RunRequest::Modeling(requests),
-                None,
-                report,
-            );
-            result.modeling_failure = modeling_failure;
-            result.horizon = Some(Arc::new(HorizonReport {
-                outputs: admitted.outputs.clone(),
-                inputs: admitted.inputs.clone(),
-                steps,
-            }));
-            let cancelled = cancel.token().is_cancelled();
-            let result = result.finished(durable, cancelled).await;
+                let mut run = Loop::new(
+                    admitted,
+                    staged,
+                    run_id,
+                    cancel.clone(),
+                    stream,
+                    durable,
+                    original,
+                );
+                let outcome = run.run().await;
+                run.finish(runtime, outcome, cancel.token().is_cancelled())
+                    .await
+            }
+            .boxed();
+            // The same actual owners stay admitted through native teardown, progress
+            // drain, tables, seeds and final settlement, including every refusal.
+            for scope in scopes {
+                let phase = &cancel;
+                operation = async move {
+                    let (mut result, renewal) = scope.joined(phase, operation).await;
+                    if let Some(error) = renewal {
+                        result.report = Err(Arc::new(error));
+                    }
+                    result
+                }
+                .boxed();
+            }
+            let mut result = operation.await;
+            if let Err(error) = source_owner.close_sources().await {
+                result.report = Err(Arc::new(error));
+            }
             sender.send_replace(Some(Arc::new(result)));
         });
         Ok(RunHandle::staged(
@@ -401,7 +475,10 @@ impl Plant {
         use native::dynamics::Oracle;
         let integration = self.integration(applied);
         let contract = &self.experiment.program.contract;
-        let mut worker = self.experiment.program.worker(execution.scope()?)?;
+        let mut worker = self
+            .experiment
+            .program
+            .worker(execution.scope()?, self.experiment.snapshots.clone())?;
         let initial = worker.evaluate(
             0,
             native::dynamics::Function::Initial,
@@ -460,14 +537,67 @@ impl Plant {
     }
 }
 
+#[derive(Debug)]
+struct HorizonSourceEngagement {
+    source: ModelingPackage,
+    scope: Arc<crate::workflow::modeling::engagement::HeldPreparationScope>,
+    owned: bool,
+}
+fn bind_horizon_source(
+    source: &ModelingPackage,
+    held: &mut Vec<HorizonSourceEngagement>,
+) -> ModelingPackage {
+    if let Some(current) = held
+        .iter()
+        .find(|current| crate::workflow::modeling::engagement::same_source(&current.source, source))
+    {
+        return current.scope.package(source);
+    }
+    let (scope, owned) = match &source.held_preparation {
+        Some(scope) => (scope.clone(), false),
+        None => (
+            crate::workflow::modeling::engagement::HeldPreparationScope::new(),
+            true,
+        ),
+    };
+    let package = scope.package(source);
+    held.push(HorizonSourceEngagement {
+        source: source.clone(),
+        scope,
+        owned,
+    });
+    package
+}
+async fn close_horizon_sources(held: &[HorizonSourceEngagement]) -> Result<(), WorkflowError> {
+    let mut failure = None;
+    for source in held {
+        if source.owned {
+            if let Err(error) = source.scope.close().await {
+                if failure.is_none() {
+                    failure = Some(error);
+                }
+            }
+        }
+    }
+    if let Some(error) = failure {
+        Err(error)
+    } else {
+        Ok(())
+    }
+}
+
 /// A horizon admitted before any effect.
 #[derive(Debug)]
-struct Admitted {
+pub(super) struct Admitted {
+    held: Vec<HorizonSourceEngagement>,
+    _held_owner: Option<Arc<pse_columnar::AllocationLease>>,
     /// Existing operation-owner projections recorded before native effects.
     provenance: Vec<u8>,
     sources: Vec<ModelingPackage>,
     plant: Arc<Plant>,
     steps: usize,
+    output: crate::workflow::StudyOutputDemand,
+    _history_owner: Arc<pse_columnar::AllocationLease>,
     /// The driven plant parameters and their initial values.
     inputs: Vec<SemanticId>,
     initial: Vec<f64>,
@@ -484,7 +614,70 @@ struct Admitted {
     history: usize,
 }
 impl Admitted {
-    async fn new(
+    pub(super) fn request(&self) -> super::HorizonRequest {
+        super::HorizonRequest {
+            identity: self.identity.as_id(),
+            sources: self.sources.clone(),
+            provenance: self.provenance.clone(),
+        }
+    }
+    pub(super) async fn new(
+        runtime: &Runtime,
+        mut horizon: Horizon,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        let owner = runtime.shared.math().reserve(
+            "horizon:held-source-owners",
+            3 * (size_of::<HorizonSourceEngagement>() + 128),
+        )?;
+        let mut held = Vec::<HorizonSourceEngagement>::with_capacity(3);
+        horizon.plant.source = bind_horizon_source(&horizon.plant.source, &mut held);
+        if let Some(estimator) = &mut horizon.estimator {
+            estimator.package = bind_horizon_source(&estimator.package, &mut held);
+        }
+        if let Some(controller) = &mut horizon.controller {
+            controller.package = bind_horizon_source(&controller.package, &mut held);
+        }
+        let result = async {
+            for source in &held {
+                source.scope.renew().await?;
+            }
+            for original in horizon.plant.original_preparations() {
+                horizon
+                    .plant
+                    .source
+                    .prepare(
+                        original.root,
+                        original.instance,
+                        original.bindings.clone(),
+                        original.limits,
+                        cancel,
+                    )
+                    .await?;
+            }
+            let mut admitted = Self::build(runtime, horizon, cancel).await?;
+            for source in &held {
+                source.scope.freeze()?;
+            }
+            admitted._held_owner = Some(owner);
+            Ok::<_, WorkflowError>(admitted)
+        }
+        .await;
+        match result {
+            Ok(mut admitted) => {
+                admitted.held = held;
+                Ok(admitted)
+            }
+            Err(error) => {
+                close_horizon_sources(&held).await?;
+                Err(error)
+            }
+        }
+    }
+    pub(super) async fn close_sources(&self) -> Result<(), WorkflowError> {
+        close_horizon_sources(&self.held).await
+    }
+    async fn build(
         runtime: &Runtime,
         horizon: Horizon,
         cancel: &crate::CancelSource,
@@ -497,6 +690,7 @@ impl Admitted {
             sources.push(controller.package.clone());
         }
         let Horizon {
+            output,
             plant,
             period,
             steps,
@@ -504,6 +698,7 @@ impl Admitted {
             estimator,
             controller,
         } = horizon;
+        output.validate(runtime)?;
         if steps == 0 || steps > 4096 || !period.is_finite() || period <= 0. {
             return Err(contract(
                 "a horizon has 1 to 4096 steps of a positive, finite period",
@@ -543,7 +738,7 @@ impl Admitted {
             }
             columns.push(profile.columns_at(np, profile.start)[parameter]);
         }
-        let output = |id: &SemanticId| {
+        let output_index = |id: &SemanticId| {
             c.outputs.iter().position(|o| o == id).ok_or_else(|| {
                 contract("a horizon measurement is an output of the plant's contract")
             })
@@ -560,7 +755,7 @@ impl Admitted {
             for (_, signal) in &controller.bindings {
                 match signal {
                     HorizonSignal::Measured(id) => {
-                        output(id)?;
+                        output_index(id)?;
                     }
                     HorizonSignal::Estimated(path) if estimator.is_some() => estimated.push(path),
                     HorizonSignal::Estimated(_) => {
@@ -588,14 +783,15 @@ impl Admitted {
             }
         }
         let estimator = match &estimator {
-            Some(e) => {
-                Some(Self::estimator(runtime, e, steps, &output, &input, &estimated, cancel).await?)
-            }
+            Some(e) => Some(
+                Self::estimator(runtime, e, steps, &output_index, &input, &estimated, cancel)
+                    .await?,
+            ),
             None => None,
         };
         let controller = match &controller {
             Some(c) => {
-                Some(Self::controller(runtime, c, &output, estimator.as_ref(), cancel).await?)
+                Some(Self::controller(runtime, c, &output_index, estimator.as_ref(), cancel).await?)
             }
             None => None,
         };
@@ -621,9 +817,11 @@ impl Admitted {
             &inputs,
             estimator.as_ref(),
             controller.as_ref(),
-        );
+            &output,
+        )?;
         let provenance = serde_json::to_vec(&(
-            1_u8,
+            2_u8,
+            &output,
             plant.identity(),
             plant.profile(),
             &plant.parameters,
@@ -653,13 +851,33 @@ impl Admitted {
             }),
         ))
         .map_err(|error| contract(error.to_string()))?;
+        let window = estimator.as_ref().map_or(0, |estimator| estimator.window);
+        let history_bytes =
+            (window + 4)
+                .checked_mul(c.outputs.len() * size_of::<f64>() + size_of::<Vec<f64>>() + 128)
+                .and_then(|bytes| {
+                    bytes.checked_add((window + 3).checked_mul(
+                        inputs.len() * size_of::<f64>() + size_of::<Vec<f64>>() + 128,
+                    )?)
+                })
+                .and_then(|bytes| bytes.checked_add(16 * 1024))
+                .ok_or_else(|| contract("horizon rolling state extent"))?;
+        let history_owner = runtime
+            .shared
+            .math()
+            .reserve("horizon:rolling-role-state", history_bytes)?;
         Ok(Self {
+            output,
+            _history_owner: history_owner,
+            held: Vec::new(),
+            _held_owner: None,
             sources,
             provenance,
             plant: Arc::new(Plant {
                 experiment: IntegratedExperiment {
                     snapshot: plant.snapshot().clone(),
                     program: plant.program(),
+                    snapshots: plant.snapshot_allocator(),
                     profile: profile.clone(),
                     parameters: plant.parameters.clone(),
                     output_ports: Vec::new(),
@@ -860,8 +1078,10 @@ fn identity(
     inputs: &[super::HorizonInput],
     estimator: Option<&Estimator>,
     controller: Option<&Controller>,
-) -> pse_ids::roles::LineageRequestHash {
-    let mut h = FramedHasher::new(pse_ids::Frame::DurableHorizonRequestV1);
+    output: &crate::workflow::StudyOutputDemand,
+) -> Result<pse_ids::roles::LineageRequestHash, WorkflowError> {
+    let mut h = FramedHasher::new(pse_ids::Frame::DurableHorizonRequestV2);
+    h.part(&serde_json::to_vec(output).map_err(|error| contract(error.to_string()))?);
     h.hash(&plant.identity())
         .u64(period.to_bits())
         .u64(steps as u64)
@@ -954,11 +1174,11 @@ fn identity(
             h.bool(false);
         }
     }
-    pse_ids::roles::LineageRequestHash::from_id(h.finish_hash())
+    Ok(pse_ids::roles::LineageRequestHash::from_id(h.finish_hash()))
 }
 
 #[derive(Clone, Copy, Debug)]
-enum Role {
+pub(super) enum Role {
     Estimator,
     Controller,
 }
@@ -975,7 +1195,7 @@ fn solved(result: &ModelingResult, id: &SemanticId) -> Result<f64, WorkflowError
 }
 
 /// One horizon run in progress.
-struct Loop {
+pub(super) struct Loop {
     admitted: Arc<Admitted>,
     staged: Staged,
     durable: Option<DurableAttempt>,
@@ -983,17 +1203,29 @@ struct Loop {
     cancel: crate::CancelSource,
     progress: Arc<Progress>,
     started: Instant,
-    /// The run's modeling steps and their results, in order; the staged sequence records
-    /// the same steps, so a step's index is its record's.
+    /// Explicit Full history only. Role results below are keyed by original
+    /// absolute ordinal and retain no obsolete native/preparation owners.
     requests: Vec<ModelingSolvePreparation>,
-    results: Vec<ModelingResult>,
+    results: BTreeMap<usize, ModelingResult>,
+    full_results: Vec<ModelingResult>,
+    full_owners: Vec<Arc<pse_columnar::AllocationLease>>,
+    original: super::prefix::OriginalHistory,
+    next_attempt: usize,
+    completed_samples: usize,
     /// An actually attempted solve that returned an error; absent for plant/task failure.
     failed_solve: Option<usize>,
+    publication_failure: Option<Arc<WorkflowError>>,
+    unmerged: Option<Box<RunResult>>,
+    capture_failure: Option<Arc<WorkflowError>>,
+    #[cfg(test)]
+    pressure_next_export: bool,
+    #[cfg(test)]
+    original_before_refusal: Option<serde_json::Value>,
     steps: Vec<HorizonStep>,
     /// Plant outputs at every sample so far.
-    measured: Vec<Vec<f64>>,
+    measured: VecDeque<Vec<f64>>,
     /// Inputs applied over every completed period.
-    history: Vec<Vec<f64>>,
+    history: VecDeque<Vec<f64>>,
     applied: Vec<f64>,
     /// The differential states at the current sample, in the plant's normalized
     /// coordinates.
@@ -1032,13 +1264,14 @@ impl Control {
     };
 }
 impl Loop {
-    fn new(
+    pub(super) fn new(
         admitted: Arc<Admitted>,
         staged: Staged,
         run_id: RunId,
         cancel: crate::CancelSource,
         progress: Arc<Progress>,
         durable: Option<DurableAttempt>,
+        original: super::prefix::OriginalHistory,
     ) -> Self {
         let priors = admitted
             .estimator
@@ -1055,11 +1288,23 @@ impl Loop {
             progress,
             started: Instant::now(),
             requests: Vec::new(),
-            results: Vec::new(),
+            results: BTreeMap::new(),
+            full_results: Vec::new(),
+            full_owners: Vec::new(),
+            original,
+            next_attempt: 0,
+            completed_samples: 0,
             failed_solve: None,
+            publication_failure: None,
+            unmerged: None,
+            capture_failure: None,
+            #[cfg(test)]
+            pressure_next_export: false,
+            #[cfg(test)]
+            original_before_refusal: None,
             steps: Vec::new(),
-            measured: Vec::new(),
-            history: Vec::new(),
+            measured: VecDeque::new(),
+            history: VecDeque::new(),
             anchors: Vec::new(),
             priors,
             accepted: [None; 2],
@@ -1067,7 +1312,107 @@ impl Loop {
             background: None,
         }
     }
-    async fn run(&mut self) -> Result<(), WorkflowError> {
+    pub(super) async fn finish(
+        self,
+        runtime: Runtime,
+        outcome: Result<(), WorkflowError>,
+        cancelled: bool,
+    ) -> RunResult {
+        let Loop {
+            admitted,
+            staged,
+            durable,
+            run_id,
+            requests,
+            full_results,
+            full_owners,
+            original,
+            publication_failure,
+            unmerged,
+            capture_failure,
+            failed_solve,
+            steps,
+            next_attempt,
+            completed_samples,
+            ..
+        } = self;
+        staged.close().await;
+        let usable = (outcome.is_ok() || publication_failure.is_some())
+            && !original.completion.assessments.is_empty()
+            && original
+                .completion
+                .assessments
+                .iter()
+                .all(|assessment| assessment.permits_result);
+        let final_error = if failed_solve.is_none() && publication_failure.is_none() {
+            outcome.as_ref().err()
+        } else {
+            None
+        };
+        let (
+            completion,
+            detail,
+            summaries,
+            mut owners,
+            tightenings,
+            summary_error,
+            detail_membership,
+        ) = original.finish(usable, final_error);
+        let mut result = if matches!(admitted.output, crate::workflow::StudyOutputDemand::Full) {
+            let (report, failure) = joined_modeling(outcome, full_results, failed_solve);
+            let mut result = RunResult::joined(
+                run_id,
+                runtime,
+                RunRequest::Modeling(requests),
+                None,
+                report,
+            );
+            result.modeling_failure = failure;
+            result
+        } else {
+            let report = Arc::new(super::HorizonOutcome {
+                solves: next_attempt,
+                summaries,
+                detail,
+                summary_error,
+                detail_membership,
+            });
+            let original = outcome
+                .map(|()| RunReport::Horizon(report.clone()))
+                .map_err(Arc::new);
+            let mut result = RunResult::joined(
+                run_id,
+                runtime,
+                RunRequest::Horizon(admitted.request()),
+                None,
+                original,
+            );
+            result.horizon_output = Some(report);
+            result
+        };
+        owners.extend(full_owners);
+        owners.push(admitted._history_owner.clone());
+        result.assessments = completion.assessments.clone();
+        result.completion = match capture_failure {
+            Some(error) => Err(error),
+            None => Ok(completion),
+        };
+        result.original_completion_captured = result.completion.is_ok();
+        result.horizon_unmerged = unmerged;
+        result.horizon_owners = owners;
+        result.horizon_tightenings = Some(tightenings);
+        result.horizon = Some(Arc::new(HorizonReport {
+            outputs: admitted.outputs.clone(),
+            inputs: admitted.inputs.clone(),
+            steps,
+            completed_steps: completed_samples,
+        }));
+        result.finished(durable, cancelled).await
+    }
+    pub(super) async fn run(&mut self) -> Result<(), WorkflowError> {
+        if self.cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
         let applied = self.applied.clone();
         let start = self
             .plant(move |plant, execution| plant.initial(&applied, execution))
@@ -1084,11 +1429,36 @@ impl Loop {
             let end = self
                 .plant(move |plant, execution| plant.period(k, &applied, &anchors, execution))
                 .await?;
-            self.history.push(self.applied.clone());
+            if matches!(
+                self.admitted.output,
+                crate::workflow::StudyOutputDemand::Full
+            ) {
+                let owner = match super::prefix::step_copy_owner(
+                    &self.admitted.sources[0].runtime,
+                    self.measured
+                        .back()
+                        .ok_or_else(|| contract("horizon current measurement absent"))?,
+                    &self.applied,
+                    &end.outputs,
+                    control.activity.as_ref(),
+                ) {
+                    Ok(owner) => owner,
+                    Err(error) => return Err(self.refuse_publication(error)),
+                };
+                self.full_owners.push(owner);
+            } else {
+                self.steps.clear();
+            }
+            let measured = self
+                .measured
+                .back()
+                .ok_or_else(|| contract("horizon current measurement absent"))?
+                .clone();
+            self.history.push_back(self.applied.clone());
             self.anchor(end);
             let step = HorizonStep {
                 time: self.admitted.plant.time(k),
-                measured: self.measured[k].clone(),
+                measured,
                 estimator,
                 controller: control.controller,
                 decision: control.decision,
@@ -1096,10 +1466,31 @@ impl Loop {
                 activity: control.activity,
                 advanced: control.advanced,
                 applied: self.applied.clone(),
-                reached: self.measured[k + 1].clone(),
+                reached: self
+                    .measured
+                    .back()
+                    .ok_or_else(|| contract("horizon reached measurement absent"))?
+                    .clone(),
             };
             self.progress.push(event(k, &step, self.started.elapsed()));
             self.steps.push(step);
+            self.completed_samples += 1;
+            let window = self
+                .admitted
+                .estimator
+                .as_ref()
+                .map_or(0, |estimator| estimator.window);
+            while self.history.len() > window {
+                self.history.pop_front();
+            }
+            let needed = [
+                self.accepted[0],
+                self.accepted[1],
+                self.estimate,
+                self.background,
+            ];
+            self.results
+                .retain(|ordinal, _| needed.contains(&Some(*ordinal)));
         }
         Ok(())
     }
@@ -1113,7 +1504,15 @@ impl Loop {
             .iter()
             .map(|i| sample.state[*i])
             .collect();
-        self.measured.push(sample.outputs);
+        self.measured.push_back(sample.outputs);
+        let window = self
+            .admitted
+            .estimator
+            .as_ref()
+            .map_or(0, |estimator| estimator.window);
+        while self.measured.len() > window + 1 {
+            self.measured.pop_front();
+        }
     }
     /// Plant work on the session thread beside the solves' retained native state.
     async fn plant<T: Send + 'static>(
@@ -1142,7 +1541,7 @@ impl Loop {
         let prepared = self.prepare_solve(role, values, retain).await?;
         self.execute_solve(role, prepared).await
     }
-    async fn prepare_solve(
+    pub(super) async fn prepare_solve(
         &mut self,
         role: Role,
         values: BTreeMap<String, f64>,
@@ -1158,7 +1557,9 @@ impl Loop {
         let seed = if stage.analysis.solver.controls.start
             == native::solve::StartPolicy::PreviousAccepted
         {
-            last.and_then(|i| self.staged.seed(Start::Accepted(i)))
+            last.and_then(|i| self.results.get(&i))
+                .filter(|result| result.completion.decision.permits_use())
+                .map(|result| result.values.scalars.clone())
                 .unwrap_or_default()
         } else {
             BTreeMap::new()
@@ -1168,17 +1569,17 @@ impl Loop {
             ..Overlay::default()
         }
         .compose(&stage.analysis);
-        let mut prepared = stage
-            .package
-            .prepare_analysis_attempt(
+        let mut prepared = self
+            .staged
+            .prepare(stage.package.prepare_analysis_attempt(
                 &specification,
                 crate::workflow::modeling::cases::CaseOverrides {
                     seed,
                     ..Default::default()
                 },
                 &self.cancel,
-            )
-            .await?;
+            ))
+            .await??;
         if retain {
             prepared.solve = prepared
                 .solve
@@ -1187,20 +1588,64 @@ impl Loop {
         }
         Ok(prepared)
     }
-    async fn execute_solve(
+    pub(super) async fn execute_solve(
         &mut self,
         role: Role,
         prepared: ModelingSolvePreparation,
     ) -> Result<usize, WorkflowError> {
-        let previous = self.accepted[role as usize].and_then(|i| self.staged.predecessor_at(i));
-        let attempt = self.requests.len();
+        let previous = self.accepted[role as usize].and_then(|attempt| {
+            self.results
+                .get(&attempt)
+                .filter(|result| result.completion.decision.permits_use())
+                .and_then(|result| match &result.outcome {
+                    crate::math::solves::Outcome::Native(report) => report.warm_start.clone(),
+                    _ => None,
+                })
+                .map(|seed| crate::math::solves::Predecessor { attempt, seed })
+        });
+        let copy_owners = match super::prefix::preparation_copy_owner(
+            &self.admitted.sources[0].runtime,
+            &prepared,
+        ) {
+            Ok(owners) => owners,
+            Err(error) => return Err(self.refuse_publication(error)),
+        };
+        let full_owners = if matches!(
+            self.admitted.output,
+            crate::workflow::StudyOutputDemand::Full
+        ) {
+            match super::prefix::preparation_copy_owner(
+                &self.admitted.sources[0].runtime,
+                &prepared,
+            ) {
+                Ok(owners) => owners,
+                Err(error) => return Err(self.refuse_publication(error)),
+            }
+        } else {
+            Vec::new()
+        };
+        if let Err(error) = self
+            .original
+            .admit_step(&self.admitted.sources[0].runtime, &prepared)
+        {
+            return Err(self.refuse_publication(error));
+        }
+        let attempt = self.next_attempt;
+        self.next_attempt += 1;
         if let Some(durable) = &self.durable {
             durable.set_step(attempt);
         }
-        self.requests.push(prepared.clone());
+        let request = prepared.clone();
+        if matches!(
+            self.admitted.output,
+            crate::workflow::StudyOutputDemand::Full
+        ) {
+            self.full_owners.extend(full_owners);
+            self.requests.push(prepared.clone());
+        }
         let result = match self
             .staged
-            .run(
+            .run_unrecorded(
                 prepared,
                 Obligations::Final,
                 self.run_id,
@@ -1213,14 +1658,160 @@ impl Loop {
             Ok(result) => result,
             Err(error) => {
                 self.failed_solve = Some(attempt);
+                let mut original = RunResult::joined(
+                    self.run_id,
+                    self.admitted.sources[0].runtime.clone(),
+                    RunRequest::Modeling(vec![request]),
+                    None,
+                    Err(error.clone()),
+                );
+                original.modeling_origin = attempt;
+                original = original.completed();
+                original.horizon_owners = copy_owners;
+                self.append_original(original).await?;
                 return Err(WorkflowError::Shared(error));
             }
         };
         if result.accepted {
             self.accepted[role as usize] = Some(attempt);
         }
-        self.results.push(result);
+        let mut original = RunResult::joined(
+            self.run_id,
+            self.admitted.sources[0].runtime.clone(),
+            RunRequest::Modeling(vec![request]),
+            None,
+            Ok(RunReport::Modeling(vec![result.clone()])),
+        );
+        original.modeling_origin = attempt;
+        original = original.completed();
+        original.horizon_owners = copy_owners;
+        if matches!(
+            self.admitted.output,
+            crate::workflow::StudyOutputDemand::Full
+        ) {
+            self.full_results.push(result.clone());
+        }
+        self.results.insert(attempt, result);
+        self.append_original(original).await?;
         Ok(attempt)
+    }
+    fn refuse_publication(&mut self, error: WorkflowError) -> WorkflowError {
+        let error = Arc::new(error);
+        if let Some(durable) = &mut self.durable {
+            durable.refuse_horizon_prefix(error.clone());
+        }
+        if self.publication_failure.is_none() {
+            self.publication_failure = Some(error.clone());
+        }
+        WorkflowError::Shared(error)
+    }
+    async fn append_original(&mut self, mut original: RunResult) -> Result<(), WorkflowError> {
+        if let Err(error) = self.original.validate_original(&original) {
+            let error = Arc::new(error);
+            self.capture_failure = Some(error.clone());
+            self.unmerged = Some(Box::new(original));
+            return Err(self.refuse_publication(WorkflowError::Shared(error)));
+        }
+        #[cfg(test)]
+        let pressure = if std::mem::take(&mut self.pressure_next_export) {
+            self.original_before_refusal = Some(
+                serde_json::to_value(
+                    original
+                        .completion
+                        .as_ref()
+                        .map_err(|error| WorkflowError::Shared(error.clone()))?,
+                )
+                .map_err(|error| contract(error.to_string()))?,
+            );
+            let runtime = &self.admitted.sources[0].runtime;
+            let pool = runtime.shared.pool();
+            let pressure =
+                pse_columnar::MemoryConsumer::new("test:horizon-post-science-publication-pressure")
+                    .register(&pool);
+            pressure
+                .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
+                .map_err(pse_engine::EngineError::from)?;
+            Some(pressure)
+        } else {
+            None
+        };
+        let publication = async {
+            self.original.export(&original).await?;
+            if let Some(durable) = &mut self.durable {
+                durable.publish_horizon_step(&original).await?;
+            }
+            Ok::<_, WorkflowError>(())
+        }
+        .await;
+        // Even an allocation/encoding/append refusal transfers the latest actual
+        // scientific rows. All aggregate capacity and owners predate dispatch.
+        self.original.take_original(&mut original);
+        #[cfg(test)]
+        drop(pressure);
+        if let Err(error) = publication {
+            return Err(self.refuse_publication(error));
+        }
+        Ok(())
+    }
+    fn result(&self, ordinal: usize) -> Result<&ModelingResult, WorkflowError> {
+        self.results
+            .get(&ordinal)
+            .ok_or_else(|| contract("horizon role result is no longer retained"))
+    }
+    #[cfg(test)]
+    pub(super) fn refuse_next_export(&mut self) {
+        self.pressure_next_export = true;
+    }
+    #[cfg(test)]
+    pub(super) fn before_export_refusal(&self) -> Option<&serde_json::Value> {
+        self.original_before_refusal.as_ref()
+    }
+    #[cfg(test)]
+    pub(super) fn cancel_before_first_step(&self) {
+        self.cancel.cancel();
+    }
+    #[cfg(test)]
+    pub(super) fn retained_counts(&self) -> (usize, usize, usize, usize, usize) {
+        (
+            self.results.len(),
+            self.requests.len(),
+            self.full_results.len(),
+            self.measured.len(),
+            self.history.len(),
+        )
+    }
+    #[cfg(test)]
+    pub(super) fn accepted_role(&self, role: Role) -> Option<usize> {
+        self.accepted[role as usize]
+    }
+    #[cfg(test)]
+    pub(super) fn last_sample(&self) -> Option<&HorizonStep> {
+        self.steps.last()
+    }
+    #[cfg(test)]
+    pub(super) fn retained_result(&self, ordinal: usize) -> Option<&ModelingResult> {
+        self.results.get(&ordinal)
+    }
+    #[cfg(test)]
+    pub(super) async fn close(mut self) -> Result<(), WorkflowError> {
+        self.staged.close().await;
+        if let Some(attempt) = self.durable.take() {
+            let record = attempt
+                .abandon(&Arc::new(contract(
+                    "horizon control closed before finalization",
+                )))
+                .await;
+            record.attempt.map_err(WorkflowError::Shared)?;
+        }
+        self.admitted.close_sources().await
+    }
+    #[cfg(test)]
+    pub(super) fn completion(&self) -> &crate::workflow::Completion {
+        &self.original.completion
+    }
+    #[cfg(test)]
+    pub(super) fn retained_sample_count(&self) -> usize {
+        self.steps.len()
     }
     /// The estimator step at sample `k`, once its window is measured: the window's
     /// measurements, the inputs applied over it and the arrival priors. An accepted estimate
@@ -1231,20 +1822,22 @@ impl Loop {
         let Some(e) = &admitted.estimator else {
             return Ok(None);
         };
-        let Some(first) = k.checked_sub(e.window) else {
+        let Some(_) = k.checked_sub(e.window) else {
             return Ok(None);
         };
         let mut values = BTreeMap::new();
         for (o, paths) in &e.measurements {
-            for (sample, path) in self.measured[first..=k].iter().zip(paths) {
+            for (sample, path) in self.measured.iter().zip(paths) {
                 values.insert(path.clone(), sample[*o]);
             }
         }
-        let periods = &self.history[first..k];
+        let periods = &self.history;
         for (i, how) in &e.inputs {
             match how {
                 WindowInput::Constant(path) => {
-                    let value = periods[0][*i];
+                    let value = periods
+                        .front()
+                        .ok_or_else(|| contract("estimator input window absent"))?[*i];
                     if periods.iter().any(|p| p[*i].to_bits() != value.to_bits()) {
                         return Err(contract(format!(
                             "the estimator holds input {i} constant over its window, but it varied"
@@ -1263,7 +1856,7 @@ impl Loop {
             values.insert(prior.clone(), *value);
         }
         let index = self.solve(Role::Estimator, values, false).await?;
-        let result = &self.results[index];
+        let result = self.result(index)?;
         if result.accepted {
             let next = e
                 .arrival
@@ -1285,9 +1878,12 @@ impl Loop {
         let mut values = BTreeMap::new();
         for (path, signal) in &c.bindings {
             let value = match signal {
-                Signal::Measured(o) => self.measured[k][*o],
+                Signal::Measured(o) => self
+                    .measured
+                    .back()
+                    .ok_or_else(|| contract("horizon current measurement absent"))?[*o],
                 Signal::Estimated(id) => match self.estimate {
-                    Some(i) => solved(&self.results[i], id)?,
+                    Some(i) => solved(self.result(i)?, id)?,
                     None => return Ok(None),
                 },
                 Signal::Applied(i) => self.applied[*i],
@@ -1299,7 +1895,7 @@ impl Loop {
     }
     /// Apply the first moves of the accepted step `index`.
     fn apply_solved(&mut self, c: &Controller, index: usize) -> Result<(), WorkflowError> {
-        let result = &self.results[index];
+        let result = self.result(index)?;
         let moves = c
             .moves
             .iter()
@@ -1337,7 +1933,7 @@ impl Loop {
         };
         let Some(advanced) = &c.advanced else {
             let index = self.solve(Role::Controller, values, false).await?;
-            let decision = if self.results[index].accepted {
+            let decision = if self.result(index)?.accepted {
                 self.apply_solved(c, index)?;
                 HorizonDecision::Solved
             } else {
@@ -1373,13 +1969,14 @@ impl Loop {
             match self.background.take() {
                 None => None,
                 Some(from) => {
-                    let permission = self.results[from].completion.decision.clone();
-                    let source = match &self.results[from].outcome {
+                    let background = self.result(from)?;
+                    let permission = background.completion.decision.clone();
+                    let source = match &background.outcome {
                         crate::math::solves::Outcome::Native(report) => report
                             .candidate
                             .as_ref()
                             .map(|candidate| {
-                                self.results[from]
+                                background
                                     .prepared
                                     .solve
                                     .semantic_point_key(&candidate.primal)
@@ -1388,7 +1985,7 @@ impl Loop {
                             .map_err(MathRuntimeError::from)?,
                         _ => None,
                     };
-                    let base = self.results[from].prepared.solve.clone();
+                    let base = background.prepared.solve.clone();
                     let target = proposal_target.clone();
                     let parameters = advanced
                         .parameters
@@ -1524,7 +2121,7 @@ impl Loop {
                 let index = self
                     .execute_solve(Role::Controller, prepared.clone())
                     .await?;
-                let accepted = self.results[index].accepted;
+                let accepted = self.result(index)?.accepted;
                 if accepted {
                     self.apply_solved(c, index)?;
                 }
@@ -1566,7 +2163,7 @@ impl Loop {
                 let index = self
                     .execute_solve(Role::Controller, prepared.clone())
                     .await?;
-                let accepted = self.results[index].accepted;
+                let accepted = self.result(index)?.accepted;
                 if accepted {
                     self.apply_solved(c, index)?;
                 }
@@ -1611,7 +2208,7 @@ impl Loop {
             let value = match signal {
                 Signal::Measured(_) | Signal::Estimated(_) => {
                     match (advanced.predictions.get(path), source) {
-                        (Some(id), Some(Source::Solved(i))) => solved(&self.results[*i], id)?,
+                        (Some(id), Some(Source::Solved(i))) => solved(self.result(*i)?, id)?,
                         (Some(id), Some(Source::Predicted(p))) => p.value(id).ok_or_else(|| {
                             contract("an advanced step's predicting path is a column of its solve")
                         })?,

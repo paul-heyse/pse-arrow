@@ -91,6 +91,12 @@ pub(super) struct ConfigurationWorker {
     terms: Option<Worker>,
 }
 impl ConfigurationWorker {
+    pub(super) fn fixed_identity(&self) -> Option<(ContentHash, Duration)> {
+        match &self.source {
+            Configuration::Fixed(_, options) => Some((self.source.identity(), options.time_limit)),
+            Configuration::Hints(_) => None,
+        }
+    }
     pub(super) fn new(
         source: Configuration,
         hints: Option<&Arc<CompiledBody>>,

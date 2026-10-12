@@ -192,6 +192,7 @@ impl ProviderLift {
         options: Optimization,
         limits: EvaluationLimits,
         cancelled: &Arc<AtomicBool>,
+        scalars: &mut library::ScalarCache,
     ) -> Result<Self, MathError> {
         let n = layout.coordinates.len();
         let estimate = arity
@@ -262,12 +263,73 @@ impl ProviderLift {
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
-        let evaluator = library::evaluator(&expressions, &parameters, options, cancelled)?;
+        let evaluator = library::bounded_scalar_evaluator(
+            &expressions,
+            &parameters,
+            options,
+            cancelled,
+            limits,
+            scalars,
+        )?;
         Ok(Self {
             scratch: vec![0.0; inputs.len()],
             output: vec![0.0; layout.width()],
             evaluator,
             inputs,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn repeated_provider_lifts_share_scalar_preparation_with_distinct_order_keys() {
+        crate::initialize().unwrap();
+        let limits = EvaluationLimits::default();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut scalars = library::ScalarCache::default();
+        let first_layout = JetLayout::new(vec![0], DerivativeOrder::First, limits).unwrap();
+        let second_layout = JetLayout::new(vec![0], DerivativeOrder::Second, limits).unwrap();
+        let compile = |layout: &JetLayout, scalars: &mut library::ScalarCache| {
+            ProviderLift::compile(1, layout, Optimization::default(), limits, &cancel, scalars)
+                .unwrap()
+        };
+        let mut first = compile(&first_layout, &mut scalars);
+        let mut another_first = compile(&first_layout, &mut scalars);
+        assert_eq!(scalars.len(), 1);
+        let mut second = compile(&second_layout, &mut scalars);
+        let _another_second = compile(&second_layout, &mut scalars);
+        assert_eq!(
+            scalars.len(),
+            2,
+            "order-specific expressions and ordered parameters remain distinct"
+        );
+        let refill = |lift: &mut ProviderLift, argument_first: f64| {
+            for (input, value) in lift.inputs.iter().zip(&mut lift.scratch) {
+                *value = match input {
+                    LiftInput::Value => 9.,
+                    LiftInput::First(0) => 6.,
+                    LiftInput::Second(0, 0) => 2.,
+                    LiftInput::Argument(0, 1) => argument_first,
+                    LiftInput::Argument(0, 2) => 4.,
+                    _ => panic!("unexpected unary lift input"),
+                };
+            }
+            lift.evaluator
+                .try_evaluate(&lift.scratch, &mut lift.output)
+                .unwrap();
+        };
+        refill(&mut first, 2.);
+        assert_eq!(first.output, vec![9., 12.]);
+        refill(&mut another_first, 3.);
+        assert_eq!(another_first.output, vec![9., 18.]);
+        assert_eq!(first.output, vec![9., 12.]);
+        refill(&mut second, 2.);
+        assert_eq!(second.output, vec![9., 12., 16.]);
+        refill(&mut first, 2.);
+        assert_eq!(first.output, vec![9., 12.]);
+        assert_eq!(scalars.len(), 2);
     }
 }

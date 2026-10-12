@@ -28,6 +28,16 @@ impl Tank {
     }
 }
 impl Oracle for Tank {
+    fn snapshot_owner(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        #[derive(Debug)]
+        struct FixtureSnapshot {
+            _bytes: usize,
+        }
+        Ok(Arc::new(FixtureSnapshot { _bytes: bytes }))
+    }
     fn contract(&self) -> &Contract {
         &self.0
     }
@@ -77,7 +87,10 @@ impl Oracle for Tank {
             )
             .unwrap()
         });
-        Ok(Evaluation { values, jacobian })
+        Ok(Evaluation {
+            values,
+            jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
+        })
     }
 }
 fn methods() -> Vec<Method> {
@@ -267,4 +280,105 @@ fn anchored_contract_limits() {
         window.evaluate(0, Function::Rhs, 0.0, &[1.0, 1.0], &[0.8, 1.2], false),
         Err(ProblemError::Contract(_))
     ));
+}
+
+#[test]
+fn anchored_snapshots_retain_distinct_owners_and_refuse_missing_admission() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    #[derive(Debug)]
+    struct Owner(Arc<AtomicUsize>);
+    impl Drop for Owner {
+        fn drop(&mut self) {
+            self.0.fetch_sub(1, Ordering::AcqRel);
+        }
+    }
+    #[derive(Debug)]
+    struct Accounted {
+        inner: Tank,
+        live: Arc<AtomicUsize>,
+        admit: bool,
+    }
+    impl Oracle for Accounted {
+        fn contract(&self) -> &Contract {
+            self.inner.contract()
+        }
+        fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry> {
+            self.inner.support(mode, function)
+        }
+        fn snapshot_owner(
+            &self,
+            _bytes: usize,
+        ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+            if !self.admit {
+                return Err(ProblemError::memory("fixture snapshot admission refused"));
+            }
+            self.live.fetch_add(1, Ordering::AcqRel);
+            Ok(Arc::new(Owner(self.live.clone())))
+        }
+        fn evaluate(
+            &mut self,
+            mode: usize,
+            function: Function,
+            time: f64,
+            state: &[f64],
+            parameters: &[f64],
+            derivatives: bool,
+        ) -> Result<Evaluation, ProblemError> {
+            self.inner
+                .evaluate(mode, function, time, state, parameters, derivatives)
+        }
+    }
+    let live = Arc::new(AtomicUsize::new(0));
+    let mut worker = Anchored::new(
+        Accounted {
+            inner: Tank::new(),
+            live: live.clone(),
+            admit: true,
+        },
+        false,
+    )
+    .unwrap();
+    let first = worker
+        .evaluate(0, Function::Rhs, 0., &[1., 1.], &[0.8, 1.2, 1.], true)
+        .unwrap();
+    let alias = first.clone();
+    let second = worker
+        .evaluate(0, Function::Rhs, 0., &[2., 1.], &[0.8, 1.2, 1.], true)
+        .unwrap();
+    assert_eq!(live.load(Ordering::Acquire), 2);
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        first.jacobian.as_ref().unwrap(),
+        alias.jacobian.as_ref().unwrap()
+    ));
+    assert!(!pse_math::SharedAllocation::ptr_eq(
+        first.jacobian.as_ref().unwrap(),
+        second.jacobian.as_ref().unwrap()
+    ));
+    drop(worker);
+    drop(first);
+    assert_eq!(live.load(Ordering::Acquire), 2);
+    drop(alias);
+    assert_eq!(live.load(Ordering::Acquire), 1);
+    drop(second);
+    assert_eq!(live.load(Ordering::Acquire), 0);
+    let mut refused = Anchored::new(
+        Accounted {
+            inner: Tank::new(),
+            live: live.clone(),
+            admit: false,
+        },
+        false,
+    )
+    .unwrap();
+    assert!(
+        refused
+            .evaluate(0, Function::Rhs, 0., &[1., 1.], &[0.8, 1.2, 1.], true)
+            .is_err()
+    );
+    assert!(
+        refused
+            .evaluate(0, Function::Rhs, 0., &[1., 1.], &[0.8, 1.2, 1.], false)
+            .is_ok()
+    );
+    assert_eq!(live.load(Ordering::Acquire), 0);
 }

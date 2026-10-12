@@ -545,6 +545,26 @@ own reviewed contract.
 
 ### 14.3 The preparation engine and ownership
 
+> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A3–P-A6).
+
+Declared specialization receives its complete path demand before one executable completion.
+Bounded candidate windows share common premise observations only within the same protected
+read; rejected candidates supply no accepted receipt. Immutable selection material encodes
+complete predicates once under a retained allocation owner. A preparation engagement owns
+exact lineage, structural binding, limits, acquired dependencies, physical/provider/validation
+and actual engine/registry owners, plus demanded preparation. It synchronously settles
+promised canonical effects once while live before success. Changed premises close/replace
+the engagement; issued uncertainty retains original identity/clock and charges through
+settlement and native drain. Receiving observations share evidence only under their actual
+artifact/configuration owner; new acquisition independently qualifies and reconstructs under
+loader exclusion. Changed/unknown premises requalify or refuse. Outer checkout capture is
+separately timed, streamed and joined outside the GIL. Stat-only identity is insufficient.
+
+> Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
+> (proposed; maintainer-authorized Plan 36 target). Native source admission moves to
+> the lower admission owner with actual bound engine validation; scientific preparation
+> remains Runtime-owned. Plan 36e owns migration and actual dependency qualification.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Database structural resolution supplies a semantically sufficient immutable selection to the shared admission/inference/specialization kernel. Protection covers source and interpretation inputs through off-transaction preparation, then retained product roots are admitted atomically before protection ends. Portable descriptions retain admitted mathematical specifications; reconstruction does not replay whole-package semantic compilation.
 
 The implemented selected source boundary retains canonical revision receipts and object identities;
@@ -762,6 +782,14 @@ poisons unfinished pure work instead of letting a later consumer restart it.
 
 #### 14.3.2 Resource ownership and admission limits
 
+> Decision: [ADR-0176](../../adr/0176-quiescent-admission-and-exclusive-scratch-transfer.md)
+> (proposed; maintainer-authorized Plan 36 target). Population, resident bytes and active
+> stage admission have distinct owners. Independent child work follows quiescent parent
+> release. IBEX and immediate compute reacquisition never wait while holding each other.
+> Drained, reset empty evaluator storage may transfer exclusively between compatible
+> attempts through a charged lane owner; prior scientific state and controls never transfer.
+> Plan 36b/36c own implementation and acceptance; conservative bounds remain.
+
 Resource policies refuse excess with a typed `Limit` error; they never truncate work.
 Limits are finite, configurable where they are policy, and checked before the allocation
 they protect.
@@ -833,6 +861,20 @@ or measure process RSS.
 `crates/pse-runtime/src/math.rs`.
 
 ### 14.4 Incrementality
+
+> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A2/P-A7).
+
+Explicit source deltas retain exact parent/CAS, V4 framing and document/data ownership;
+omission is not deletion. Reference-bearing field edits reextract references and namespace
+changes invalidate positive/negative lookup and graph obligations. Shared parsed fields
+retain exact bytes, grammar and span owners. A single-writer compiler lane per live
+lineage and consumed context tracks declaration fields, ordered populations including
+absence and consumed semantic/physical/provider/interpretation inputs. Stage charged
+candidate inputs and drain readers before mutation; publish one coherent admitted product
+or restore/destroy the candidate while preserving prior and detached historical products.
+Whole-inventory rules retain conservative dependencies where safe partitioning is unknown.
+Salsa memoizes pure semantics, never native construction, canonical permission or effects.
+The live lane is an accelerator owner, not part of an immutable reusable basis.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Persisted complete dependencies govern reuse across restart; Salsa is an optional local accelerator. Immutable selected layouts and native products retain their live consumers and bounded accelerator owners, without whole ancestral source bundles. Binding edits reuse structure only when those values are not consumed structural literals.
 

@@ -87,7 +87,12 @@ async fn admitted(
     };
     let points = points(find("Root"), find("Failed"), find("Fixed"));
     let definition = package
-        .admit_study_sources(&physical, &points, &cancel)
+        .admit_study_sources(
+            &physical,
+            &points,
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     (
@@ -102,11 +107,12 @@ async fn admitted(
 fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     let case = pse_model::generated::identities::DeclarationId::from_bytes([4; 16]);
     let request = StudyRequest {
+        output: crate::workflow::StudyOutputDemand::Full,
         version: pse_model::document::Version,
         points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 4);
+    assert_eq!(encoded["version"], 5);
     assert!(encoded["points"][0]["policy"].get("seed_need").is_none());
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
@@ -143,6 +149,7 @@ fn study_definition_historical_readmission_codec_unit() {
         modeling_revision: "fixture-revision".into(),
         points: vec![StudyPointDefinition {
             operation: StudyOperation {
+                output: crate::workflow::StudyOutputDemand::Full,
                 version: pse_model::document::Version,
                 source: OperationSource {
                     revision: hash.into(),
@@ -164,7 +171,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 8);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 9);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -421,6 +428,7 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     let handle = runtime
         .start_study(
             StudyPlan {
+                output: crate::workflow::StudyOutputDemand::Full,
                 sources,
                 points: authored.unwrap(),
             },
@@ -705,7 +713,12 @@ async fn related_definition(runtime: &Runtime) -> (ModelingPackage, StudyDefinit
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(&physical, &points, &cancel)
+        .admit_study_sources(
+            &physical,
+            &points,
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     (package, definition)
@@ -750,9 +763,9 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
     let mut predicted = false;
     while let Some(batch) = events.next_batch().await.unwrap() {
         let checked = solve_strategy_events::View::try_from_batch_with_registry(
-            &runtime.registry,
+            runtime.registry(),
             &batch,
-            &runtime.validation_context().unwrap(),
+            &runtime.validation_context(),
         )
         .unwrap();
         for row in checked.rows().unwrap() {
@@ -778,9 +791,9 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
     let mut corrected = false;
     while let Some(batch) = variables.next_batch().await.unwrap() {
         let checked = solve_variables::View::try_from_batch_with_registry(
-            &runtime.registry,
+            runtime.registry(),
             &batch,
-            &runtime.validation_context().unwrap(),
+            &runtime.validation_context(),
         )
         .unwrap();
         for row in checked.rows().unwrap() {
@@ -852,6 +865,19 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap();
+    let key = handle.study_id().to_string();
+    let store = runtime.canonical_store();
+    assert!(store.study_has_pending(&key).await.unwrap());
+    let parent_key = store.canonical_study(&key).await.unwrap().unwrap().run;
+    let before_parent = store.canonical_run(&parent_key).await.unwrap().unwrap();
+    assert!(!runtime.finalize_canonical_study(&key).await.unwrap());
+    assert!(
+        pse_model::SemanticEq::semantic_eq(
+            &store.canonical_run(&parent_key).await.unwrap().unwrap(),
+            &before_parent
+        ),
+        "pending discovery does not claim or alter summary authority"
+    );
     assert!(
         handle.result().await.unwrap().is_none(),
         "open study has no sealed result"
@@ -860,8 +886,39 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         runtime.work_once().await.unwrap(),
         Processed::Ran { .. }
     ));
-    let key = handle.study_id().to_string();
-    let store = runtime.canonical_store();
+    assert!(!store.study_has_pending(&key).await.unwrap());
+    let projected = store.study_outcome_page(&key, None).await.unwrap();
+    assert_eq!(projected.len(), 1);
+    let projected = &projected[0];
+    let original = store
+        .canonical_study_point(&pse_operations::canonical_studies::point_key(
+            &key,
+            OccurrenceKey(projected.occurrence.try_into().unwrap()),
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(projected.descriptor, original.descriptor);
+    assert_eq!(
+        projected.policy().unwrap(),
+        pse_operations::canonical_studies::point_policy(&original).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(projected.outcome().unwrap()).unwrap(),
+        serde_json::to_value(
+            pse_operations::canonical_studies::point_outcome(&original)
+                .unwrap()
+                .unwrap()
+        )
+        .unwrap()
+    );
+    assert!(
+        store
+            .study_outcome_page(&key, Some(projected.ordinal))
+            .await
+            .unwrap()
+            .is_empty()
+    );
     let header = store.canonical_study(&key).await.unwrap().unwrap();
     assert!(!header.metadata.is_empty());
     let page = store.study_page(None).await.unwrap();
@@ -902,7 +959,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
             "summary-partial",
             "__effect_free_summary",
             0,
-            &[1],
+            pse_operations::canonical_execution::ResultPayload::new((&[1]).to_vec()).unwrap(),
             1,
         )
         .await
@@ -994,6 +1051,7 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
                     "stale-parent-success",
                     pse_operations::canonical_execution::TerminalClass::Succeeded,
                     &[1],
+                    pse_operations::canonical_execution::SeedEligibility::Unavailable,
                 )
                 .await
         }
@@ -1318,10 +1376,14 @@ fn study_runtime_with_population(threads: usize, jobs: usize) -> Runtime {
             .session_factory(pse_engine::session::native_engine_profile())
             .unwrap(),
     );
-    Runtime::from_shared(shared, registry, sessions, tests::canonical_deployment())
-        .unwrap()
-        .with_durability(DurabilitySelection::Ephemeral)
-        .unwrap()
+    Runtime::from_shared(
+        shared,
+        sessions.bind_model(registry.clone()).unwrap(),
+        tests::canonical_deployment(),
+    )
+    .unwrap()
+    .with_durability(DurabilitySelection::Ephemeral)
+    .unwrap()
 }
 
 #[cfg(feature = "solver-ipopt")]
@@ -1373,7 +1435,12 @@ async fn parallel_study_definition(
         })
         .collect::<Vec<_>>();
     let definition = package
-        .admit_study_sources(&physical, &points, &cancel)
+        .admit_study_sources(
+            &physical,
+            &points,
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     (package, definition)
@@ -2279,9 +2346,9 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
         let mut roots = 0;
         while let Some(batch) = variables.next_batch().await.unwrap() {
             let view = solve_variables::View::try_from_batch_with_registry(
-                &runtime.registry,
+                runtime.registry(),
                 &batch,
-                &runtime.validation_context().unwrap(),
+                &runtime.validation_context(),
             )
             .unwrap();
             for row in view
@@ -2375,7 +2442,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
     let runtime = &fixture.runtime;
     let store = runtime.canonical_store();
     let pool = runtime.shared.pool();
-    let validation = runtime.validation_context().unwrap();
+    let validation = runtime.validation_context();
     let transport_run = format!("serving-transport-{}", fixture.nonce);
     let revision = store
         .edit(&transport_run, None, "partial Arrow transport fixture", &[])
@@ -2407,7 +2474,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             .unwrap();
         let run_id = pse_operations::mint_id();
         let mut builder =
-            solve_metrics::Builder::with_registry(&runtime.registry, 3, &validation).unwrap();
+            solve_metrics::Builder::with_registry(runtime.registry(), 3, &validation).unwrap();
         for (step, real) in [Some(-0.0), None, Some(temperature)]
             .into_iter()
             .enumerate()
@@ -2440,6 +2507,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             solve_metrics::RELATION_ID,
             ResultCursor::from_checked(table.clone()),
             &pool,
+            &durable::PublicationAcks::new(&pool),
         )
         .await
         .unwrap();
@@ -2450,9 +2518,17 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         let seal = format!("serving-seal-{ordinal}");
         // SAFETY: these finite generated transport rows establish Partial only.
-        unsafe { store.seal_attempt(&manifest, &seal, TerminalClass::Partial, &[1]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                &seal,
+                TerminalClass::Partial,
+                &[1],
+                pse_operations::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         attempts.push(fence.attempt().to_owned());
     }
 
@@ -2753,7 +2829,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         let mut roots = 0;
         while let Some(batch) = reader.next_batch().await.unwrap() {
             let view = solve_variables::View::try_from_batch_with_registry(
-                &runtime.registry,
+                runtime.registry(),
                 &batch,
                 &validation,
             )
@@ -2860,7 +2936,12 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
         points.push(next);
     }
     let definition = package
-        .admit_study_sources(&physical, &points, &cancel)
+        .admit_study_sources(
+            &physical,
+            &points,
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     let study = package.study(&definition, 8, &cancel).await.unwrap();
@@ -2929,7 +3010,12 @@ async fn ephemeral_study_complete_kinsol_blocks_seed_original_eight_point_contin
     };
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     let fixed_definition = package
-        .admit_study_sources(&physical, &[fixed_point], &cancel)
+        .admit_study_sources(
+            &physical,
+            &[fixed_point],
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     let fixed = package.study(&fixed_definition, 1, &cancel).await.unwrap();
@@ -2980,7 +3066,12 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     operation.settings.backend = Some(pse_backend_native::solve::Backend::Kinsol);
     operation.settings.presolve = pse_backend_native::presolve::PolicyKind::Off;
     let definition = package
-        .admit_study_sources(&physical, &[requested], &cancel)
+        .admit_study_sources(
+            &physical,
+            &[requested],
+            &crate::workflow::StudyOutputDemand::Full,
+            &cancel,
+        )
         .await
         .unwrap();
     let PreparedStudyOperation::DeclaredCase(prepared) = definition.points[0]
@@ -3066,16 +3157,24 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     .finished(None, false)
     .await;
     let mut target = prepared;
+    // Production wrappers borrow the precharged study occurrence metadata owner.
+    let continuation_owner = runtime
+        .native()
+        .reserve("test:continuation-wrapper", 4096)
+        .unwrap();
     let allowance = extent - 1;
     let filler = MemoryConsumer::new("test:seed-pressure").register(&pool);
     filler
         .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - allowance)
         .unwrap();
     let before = pool.reserved();
+    let refused =
+        study_execution::minimal_continuation(&previous, continuation_owner.clone()).unwrap();
     let error =
-        study_execution::continuation_start(&package, &mut target, Some(&previous), None, &cancel)
+        study_execution::continuation_start(&package, &mut target, Some(&refused), None, &cancel)
             .await
             .unwrap_err();
+    drop(refused);
     assert_eq!(
         error.boundary_diagnostic().rule,
         pse_diagnostics::DiagnosticRule::MathLimit
@@ -3088,9 +3187,12 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     assert!(target.stored_seed_owner.is_none());
     drop(filler);
     let before = pool.reserved();
-    study_execution::continuation_start(&package, &mut target, Some(&previous), None, &cancel)
+    let admitted =
+        study_execution::minimal_continuation(&previous, continuation_owner.clone()).unwrap();
+    study_execution::continuation_start(&package, &mut target, Some(&admitted), None, &cancel)
         .await
         .unwrap();
+    drop(admitted);
     assert!(
         target.stored_seed_owner.is_some(),
         "prepared target owns the converted primal grant"

@@ -45,9 +45,16 @@ impl RunResult {
             .environment
             .identity();
         match &self.request {
+            RunRequest::Horizon(_) => {
+                return if self.original_completion_captured {
+                    self.completion.clone().map_err(WorkflowError::Shared)
+                } else {
+                    Ok(product)
+                };
+            }
             RunRequest::Modeling(requests) => {
                 for (ordinal, request) in requests.iter().enumerate() {
-                    let step = ordinal as i64;
+                    let step = self.modeling_step(ordinal) as i64;
                     if let Some(result) = self.modeling_result(ordinal) {
                         product.accuracy_goals.extend(
                             result

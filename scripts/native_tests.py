@@ -9,6 +9,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -16,7 +17,7 @@ import tomllib
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from scripts import arrow_validation, host_admission, surreal_server
+from scripts import arrow_validation, host_admission, python_extension, surreal_server
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
@@ -593,6 +594,7 @@ def ordinary_rust_capture(
     environment: Mapping[str, str],
     *,
     effects: str = "canonical",
+    package_scope: bool = False,
 ) -> tuple[list[str], Path | None]:
     """Retain exactly the ordinary caller's build and test selection."""
     return _rust_capture(
@@ -602,6 +604,7 @@ def ordinary_rust_capture(
         managed=False,
         environment=environment,
         canonical=effects == "canonical",
+        package_scope=package_scope,
     )
 
 
@@ -613,6 +616,7 @@ def _rust_capture(
     managed: bool,
     environment: Mapping[str, str] | None = None,
     canonical: bool = True,
+    package_scope: bool = False,
 ) -> tuple[list[str], Path | None]:
     execution, metadata_options = managed_rust_arguments(
         scoped,
@@ -642,12 +646,33 @@ def _rust_capture(
         "json",
         *managed_list_arguments(scoped),
     ]
-    build_command = correctness_command(
+    offered_build = (
         rust_command("list", build_arguments, managed=True)
         if managed
-        else ["cargo", "nextest", "list", *build_arguments],
-        environment,
+        else ["cargo", "nextest", "list", *build_arguments]
     )
+    if package_scope:
+        resolution = arrow_validation.resolve(
+            offered_build,
+            run=lambda selected: subprocess.check_output(
+                selected, cwd=ROOT, env=environment
+            ),
+        )
+        build_command = resolution.command
+        scope = " | ".join(f"package({name})" for name in resolution.packages)
+        if not scope or "-E" not in execution:
+            raise ValueError(
+                "package-scoped invocation lacks selected Cargo roots or filter"
+            )
+        position = execution.index("-E") + 1
+        execution[position] = f"({execution[position]}) & ({scope})"
+        print(
+            "select: " + shlex.join(["cargo", "nextest", "run", *execution]),
+            file=sys.stderr,
+            flush=True,
+        )
+    else:
+        build_command = correctness_command(offered_build, environment)
     _, metadata_options = managed_rust_arguments(
         build_command[3:],
         include_managed_features=False,
@@ -851,6 +876,8 @@ def main() -> int:
     kind, *extra = sys.argv[1:]
     path = os.environ.get("PSE_NATIVE_PROVENANCE")
     if kind == "python":
+        from scripts import test_run  # noqa: PLC0415 -- observer composer
+
         managed = "--managed-primary-route" in extra
         child = "--managed-primary-child" in extra
         if child and not managed:
@@ -862,30 +889,42 @@ def main() -> int:
 
             worker = worker_binary([], os.environ)
             with worker_binding(worker):
-                return surreal_server.observer(
-                    surreal_server.reference_state(Path(state)),
-                    [
-                        sys.executable,
-                        "-m",
-                        "scripts.native_tests",
-                        "python",
-                        *extra,
-                        "--managed-primary-child",
-                    ],
-                    profile="reference",
-                )
-        if not managed and "--functional-observer-child" not in extra:
-            return surreal_server.observer(
-                Path(os.environ["PSE_SURREAL_STATE"]),
-                [
+                command = [
                     sys.executable,
                     "-m",
                     "scripts.native_tests",
                     "python",
                     *extra,
-                    "--functional-observer-child",
-                ],
-                profile="exclusive-observer",
+                    "--managed-primary-child",
+                ]
+                return test_run.python_observer(
+                    command,
+                    extra,
+                    lambda observation: surreal_server.observer(
+                        surreal_server.reference_state(Path(state)),
+                        command,
+                        profile="reference",
+                        observation=observation,
+                    ),
+                )
+        if not managed and "--functional-observer-child" not in extra:
+            command = [
+                sys.executable,
+                "-m",
+                "scripts.native_tests",
+                "python",
+                *extra,
+                "--functional-observer-child",
+            ]
+            return test_run.python_observer(
+                command,
+                extra,
+                lambda observation: surreal_server.observer(
+                    Path(os.environ["PSE_SURREAL_STATE"]),
+                    command,
+                    profile="exclusive-observer",
+                    observation=observation,
+                ),
             )
         extra = [
             arg
@@ -920,10 +959,11 @@ def main() -> int:
         started = time.time()
         provenance = Path(path) if path else report.with_suffix(".native.json")
         env = dict(os.environ)
-        binary = python_native_binary(env)
+        artifact = python_extension.capture(env, native=True)
+        binary = Path(str(artifact["binary"]))
         observe_deployed_artifacts(env, binary)
         native = native_provenance(
-            {"features": ["force-validate", "native-solvers"]},
+            {"features": artifact["features"]},
             [str(binary)],
             environment=env,
         )
@@ -933,8 +973,9 @@ def main() -> int:
                 raise ValueError("deployment observation output already exists")
             env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"] = observed
         # The running pytest session must consume the same imported extension.
-        env["PSE_NATIVE_EXPECTED_BINARY"] = str(binary)
-        env["PSE_NATIVE_EXPECTED_SHA256"] = native["files"][str(binary)]
+        if native["files"][str(binary)] != artifact["sha256"]:
+            raise ValueError("Python extension changed during provenance capture")
+        env = python_extension.execution_environment(env, artifact)
         selection = report.with_name(report.stem + "-selected.txt")
         if owner == "standalone":
             env["PSE_TEST_ENUMERATION"] = str(selection)
@@ -950,34 +991,22 @@ def main() -> int:
             )
             env[test_resources.MARKER] = str(invocation)
         command = python_command(extra, managed=managed)
-        code = subprocess.call(command, cwd=ROOT, env=env)
-        if owner == "assessment":
-            return code
-        check: dict[str, object] = {
-            "exit_code": code,
-            "status": "passed" if code == 0 else "failed",
-            "started": started,
-            "results": [],
-            "report_errors": [],
-            "artifacts": {},
-            "command": command,
-            "mode": "python-native",
-            "native": native,
-            "native_provenance": str(provenance),
-        }
-        try:
-            validation_receipts.require_fresh(selection, started, "Python")
-            check["selected"] = validation_receipts.python_selection(selection)
-        except (OSError, ValueError) as error:
-            errors = check["report_errors"]
-            if not isinstance(errors, list):
-                raise TypeError("Invalid report errors") from error
-            errors.append(f"missing current collection: {error}")
-        validation.compose_terminal(check, report, report.parent, report.stem)
-        if invocation is not None:
-            test_run.finish(invocation, check, "standalone")
-        validation.write_json(report.with_suffix(".terminal.json"), check)
-        return code or int(check["status"] != "passed")
+        if invocation is None:
+            return subprocess.call(command, cwd=ROOT, env=env)
+        return test_run.execute_selected(
+            invocation,
+            command,
+            env,
+            report,
+            selection=selection,
+            terminal_owner="standalone",
+            evidence_path=report.with_suffix(".terminal.json"),
+            details={
+                "mode": "python-native",
+                "native": native,
+                "native_provenance": str(provenance),
+            },
+        )
     if kind != "rust":
         raise ValueError("expected rust or python")
     managed = "--managed-primary-route" in extra
@@ -1039,11 +1068,7 @@ def main() -> int:
     if os.environ.get("PSE_NATIVE_OPERATION"):
         from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
 
-        return run_rust(
-            correctness_command(
-                rust_command("run", rust_completion_arguments(extra)), os.environ
-            )
-        )
+        return run_rust(rust_command("run", rust_completion_arguments(extra)))
     if not path:
         output = validation.fresh_output(
             ROOT, ROOT / "build/native-tests" / str(time.time_ns())
@@ -1054,95 +1079,26 @@ def main() -> int:
             "PSE_NATIVE_SELECTION", str(Path(path).with_name("native-selected.json"))
         )
     )
-    # Run-only output options cannot be sent to nextest list.
-    list_extra = [
-        arg
-        for i, arg in enumerate(extra)
-        if arg
-        not in {
-            "--success-output",
-            "--failure-output",
-            "--status-level",
-            "--final-status-level",
-        }
-        and (
-            i == 0
-            or extra[i - 1]
-            not in {
-                "--success-output",
-                "--failure-output",
-                "--status-level",
-                "--final-status-level",
-            }
-        )
-    ]
-    inventory_command = correctness_command(
-        rust_command("list", ["--message-format", "json", *list_extra]),
-        os.environ,
-    )
-    _, inventory_metadata = managed_rust_arguments(
-        inventory_command[3:], include_managed_features=False
-    )
-    inventory = subprocess.run(
-        inventory_command,
-        cwd=ROOT,
-        check=False,
-        text=True,
-        stdout=subprocess.PIPE,
-    )
-    selected_path.write_text(inventory.stdout)
-    if inventory.returncode:
-        print(inventory.stdout, end="")
-        return inventory.returncode
-    validation_receipts.native_selection(inventory.stdout)
-    data = json.loads(inventory.stdout)
-    binaries = [
-        suite["binary-path"]
-        for suite in data["rust-suites"].values()
-        if any(
-            test["filter-match"]["status"] == "matches"
-            for test in suite["testcases"].values()
-        )
-    ]
     environment = rust_test_environment(os.environ)
-    if any(
-        suite.get("binary-name") == "worker"
-        or suite.get("binary-id", "").endswith("::worker")
-        for suite in data["rust-suites"].values()
-        if any(
-            test["filter-match"]["status"] == "matches"
-            for test in suite["testcases"].values()
-        )
-    ):
-        worker = worker_binary(extra, environment)
-        environment["PSE_WORKER_BINARY"] = str(worker)
-        binaries.append(str(worker))
-    observe_deployed_artifacts(environment)
-    validation.write_json(
+    execution, worker = ordinary_rust_capture(
+        rust_command("run", rust_completion_arguments(extra)),
         Path(path),
-        native_provenance(
-            {
-                "features": inventory_metadata[
-                    inventory_metadata.index("--features") + 1
-                ].split(",")
-                if "--features" in inventory_metadata
-                else [],
-                "cargo_profile": "release"
-                if "--release" in extra
-                else extra[extra.index("--cargo-profile") + 1]
-                if "--cargo-profile" in extra
-                else "dev",
-            },
-            binaries,
-            environment=environment,
-        ),
+        selected_path,
+        environment,
     )
+    # Preparation, validation and enumeration share the exact resolved artifacts.
+    # Execution consumes those artifacts rather than rebuilding the requested units.
+    inventory = validation_receipts.native_inventory(selected_path.read_text())
+    environment["PSE_NATIVE_PROVENANCE"] = str(Path(path).resolve())
+    environment["PSE_NATIVE_SELECTION"] = str(selected_path.resolve())
+    if worker is not None:
+        environment["PSE_WORKER_BINARY"] = str(worker)
     from scripts.test_run import run_rust  # noqa: PLC0415 -- owner cycle
 
     return run_rust(
-        rust_command("run", rust_completion_arguments(extra)),
+        ["cargo", "nextest", "run", *execution],
         env=environment,
-        inventory=data,
+        inventory=inventory,
     )
 
 

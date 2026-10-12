@@ -185,6 +185,13 @@ impl Staged {
             progress,
         })
     }
+    /// Preparation on this quiescent lane borrows its existing population ticket.
+    pub(in crate::workflow) async fn prepare<T>(
+        &mut self,
+        work: impl std::future::Future<Output = T>,
+    ) -> Result<T, WorkflowError> {
+        Ok(self.session.prepare(work).await?)
+    }
     /// The values a step starting at `start` is seeded with, by the candidate-use rule
     /// (ADR-0106): none for the specification, or an accepted result's solved values.
     /// `None` refuses a missing or unpermitted predecessor.
@@ -259,8 +266,23 @@ impl Staged {
         self.record(&result);
         result
     }
+    /// A horizon owns its bounded role predecessors explicitly. Execute through
+    /// the same original-assessment backend without retaining general history.
+    pub(in crate::workflow) async fn run_unrecorded(
+        &mut self,
+        prepared: ModelingSolvePreparation,
+        obligations: Obligations,
+        run_id: RunId,
+        attempt: usize,
+        previous: Option<Predecessor>,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingResult, Arc<WorkflowError>> {
+        self.execute(prepared, obligations, run_id, attempt, previous, cancel)
+            .await
+            .map_err(Arc::new)
+    }
     async fn execute(
-        &self,
+        &mut self,
         mut prepared: ModelingSolvePreparation,
         obligations: Obligations,
         run_id: RunId,
@@ -268,10 +290,10 @@ impl Staged {
         previous: Option<Predecessor>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
-        let assessment = prepared
-            .source
-            .assessment(&prepared, obligations, cancel)
-            .await?;
+        let assessment = self
+            .session
+            .prepare(prepared.source.assessment(&prepared, obligations, cancel))
+            .await??;
         let service = self.runtime.native();
         prepared.solve = prepared
             .solve
@@ -345,6 +367,7 @@ impl Staged {
         &mut self,
         package: &ModelingPackage,
         original: &ModelingAnalysis,
+        model: Option<crate::math::modeling::ModelingPreparation>,
         overlay: &Overlay,
         start: Start,
         obligations: Obligations,
@@ -384,11 +407,36 @@ impl Staged {
             parameters: overlay.parameters.clone(),
             fixes: overlay.fixes.clone(),
         };
-        let this = &*self;
+        let this = &mut *self;
         let (result, interruption) = bounded(scope, deadline, cancel, |child| async move {
-            let prepared = package
-                .prepare_analysis_attempt(&step, overrides, &child)
-                .await?;
+            let prepared = this
+                .session
+                .prepare(async {
+                    match model {
+                        Some(model) => {
+                            let resolution = package
+                                .resolve_prepared_case(
+                                    model,
+                                    step.case.clone(),
+                                    step.order,
+                                    step.compiler,
+                                    step.solver.clone(),
+                                    step.numerical.clone(),
+                                    overrides,
+                                    false,
+                                    &child,
+                                )
+                                .await?;
+                            package.finish_case(resolution, &child).await
+                        }
+                        None => {
+                            package
+                                .prepare_analysis_attempt(&step, overrides, &child)
+                                .await
+                        }
+                    }
+                })
+                .await??;
             this.execute(
                 prepared,
                 obligations,
@@ -442,10 +490,10 @@ impl Staged {
                     .solve
                     .with_point_accuracy(service)
                     .map_err(crate::math::MathRuntimeError::from)?;
-                let assessment = prepared
-                    .source
-                    .assessment(&prepared, obligations, cancel)
-                    .await?;
+                let assessment = self
+                    .session
+                    .prepare(prepared.source.assessment(&prepared, obligations, cancel))
+                    .await??;
                 let owner =
                     service.reserve("math:solve-results", prepared.solve.result_bytes()?)?;
                 let point_owner = service.reserve(
@@ -928,6 +976,7 @@ mod native_tests {
             .step(
                 &package,
                 &analysis,
+                None,
                 &swap,
                 Start::Specification,
                 Obligations::Intermediate,
@@ -944,6 +993,7 @@ mod native_tests {
             .step(
                 &package,
                 &analysis,
+                None,
                 &Overlay {
                     values: BTreeMap::from([("absent".into(), 1.)]),
                     ..Overlay::default()
@@ -964,6 +1014,7 @@ mod native_tests {
             .step(
                 &package,
                 &analysis,
+                None,
                 &Overlay::default(),
                 Start::Specification,
                 Obligations::Final,

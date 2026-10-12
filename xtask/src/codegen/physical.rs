@@ -6,14 +6,14 @@
 use std::{collections::BTreeMap, num::NonZeroUsize, path::Path, sync::Arc};
 
 use anyhow::{Context, Result, ensure};
+use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package};
+use pse_admission::physical::PhysicalInventory;
 use pse_authoring::ParseBudget;
 use pse_codegen::codegen::GeneratedTree;
 use pse_columnar::CancellationToken;
+use pse_engine::resources::EngineResources;
 use pse_engine::session::{EngineSession, ExecutionSettings, ThreadBudget, native_engine_profile};
 use pse_relations::{columnar::FieldCheckedBatch, generated::authored};
-use pse_runtime::authoring_driver::document::{OwnedDocumentSet, load_package};
-use pse_runtime::physical::PhysicalInventory;
-use pse_runtime::{ResourceBudget, SharedRuntime};
 use pse_schema::{
     Registry,
     model::{Namespace, RelationKey, SnapshotClass},
@@ -74,7 +74,7 @@ struct Sources {
     session: EngineSession,
     _documents: OwnedDocumentSet,
     _checked: BTreeMap<RelationKey, FieldCheckedBatch>,
-    _runtime: Arc<SharedRuntime>,
+    _resources: Arc<EngineResources>,
     _spill: tempfile::TempDir,
 }
 impl Sources {
@@ -90,24 +90,35 @@ impl Sources {
         );
         let spill = tempfile::tempdir()?;
         let one = NonZeroUsize::new(1).context("positive thread count")?;
-        let runtime = SharedRuntime::build(ResourceBudget {
-            memory_limit_bytes: NonZeroUsize::new(32usize << 30).context("positive tool budget")?,
-            spill_dir: spill.path().to_path_buf(),
-            max_temp_dir_bytes: 32 << 30,
-            top_consumers: NonZeroUsize::new(16).context("positive consumer count")?,
-            threads: ThreadBudget {
-                pool_threads: one,
-                target_partitions: one,
-            },
-            execution: ExecutionSettings::default(),
-            cache: pse_runtime::CacheBudget::for_memory(32usize << 30),
-            math: Default::default(),
-            hashing_may_use_pool: false,
-        })?;
+        let memory = NonZeroUsize::new(32usize << 30).context("positive tool budget")?;
+        let resources = Arc::new(EngineResources::build(
+            memory,
+            NonZeroUsize::new(16).context("positive consumer count")?,
+            spill.path().to_path_buf(),
+            32 << 30,
+            pse_engine::cache_service::CacheBudget::for_memory(memory.get()),
+        )?);
         let cancel = CancellationToken::new();
-        let pool = runtime.pool();
-        let factory = runtime.session_factory(native_engine_profile())?;
-        let validation = factory.validation_context(&registry)?;
+        let pool = resources.pool.clone();
+        let factory = Arc::new(
+            pse_engine::session::EngineFactory::new(
+                resources.runtime.clone(),
+                pool.clone(),
+                ExecutionSettings::default(),
+                ThreadBudget {
+                    pool_threads: one,
+                    target_partitions: one,
+                },
+                native_engine_profile(),
+            )?
+            .with_cache_service(resources.caches.clone())
+            .with_extension(Arc::new(pse_engine::resources::CpuAdmission {
+                permits: Arc::new(tokio::sync::Semaphore::new(1)),
+                workers: std::num::NonZeroU32::new(1).context("positive tool width")?,
+            })),
+        );
+        let model = factory.bind_model(Arc::clone(&registry))?;
+        let validation = model.validation_context();
         let mut bundles = Vec::new();
         for path in packages {
             ensure!(
@@ -121,7 +132,7 @@ impl Sources {
                 &validation,
             )?);
         }
-        let documents = pse_runtime::authoring_driver::document::load_bundles_owned(
+        let documents = pse_admission::authoring_driver::document::load_bundles_owned(
             &bundles,
             &registry,
             &pool,
@@ -146,7 +157,7 @@ impl Sources {
                 FieldCheckedBatch::concat_reserved(&registry, spec, &parts, &pool, &cancel)?;
             checked.insert(spec.key, batch);
         }
-        if let Some(entities) = pse_runtime::authoring_driver::p1::physical_declaration_batch(
+        if let Some(entities) = pse_admission::authoring_driver::p1::physical_declaration_batch(
             documents.bundles(),
             &registry,
             &validation,
@@ -173,7 +184,7 @@ impl Sources {
         let packages = checked
             .get(&authored::packages::spec(session.registry())?.key)
             .context("package headers absent")?;
-        pse_runtime::authoring_driver::p0::resolve(packages, &session, &cancel)?;
+        pse_admission::authoring_driver::p0::resolve(packages, &session, &cancel)?;
         let rows = checked
             .iter()
             .map(|(key, batch)| (*key, batch.batch().clone()))
@@ -210,7 +221,7 @@ impl Sources {
             session,
             _documents: documents,
             _checked: checked,
-            _runtime: runtime,
+            _resources: resources,
             _spill: spill,
         })
     }

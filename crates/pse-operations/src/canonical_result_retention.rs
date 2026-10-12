@@ -100,16 +100,18 @@ impl CanonicalStore {
             async {
                 identity(run)?;
                 self.ensure_writes()?;
-                protected_query("canonical_result_retention::forget_run_results", || {
-                    Ok(self
-                        .db
-                        .query(
-                            "RETURN fn::pse_retention_v1::forget_run($pse_rpc_expires_at, $run);",
-                        )
-                        .bind(("run", run.to_owned())))
-                })
-                .await?;
-                Ok(())
+                loop {
+                    let mut response = protected_query("canonical_result_retention::forget_run_results", || {
+                        Ok(self.db.query("RETURN fn::pse_retention_v1::forget_run($pse_rpc_expires_at,$run);")
+                            .bind(("run",run.to_owned())))
+                    }).await?;
+                    let row=response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+                    if row.get("pending")==Some(&surrealdb::types::Value::Bool(true)) { continue; }
+                    if row.get("run")!=Some(&surrealdb::types::Value::String(run.into())) {
+                        return Err(CanonicalError::IncompleteResponse);
+                    }
+                    return Ok(());
+                }
             },
         )
         .await
@@ -209,7 +211,8 @@ mod canonical_result_retention_server_unit {
                     &format!("append-{}-{ordinal}", request.key),
                     "values",
                     ordinal,
-                    &[ordinal as u8, 17],
+                    crate::canonical_execution::ResultPayload::new((&[ordinal as u8, 17]).to_vec())
+                        .unwrap(),
                     1,
                 )
                 .await
@@ -228,6 +231,7 @@ mod canonical_result_retention_server_unit {
                     &format!("seal-{}", request.key),
                     TerminalClass::Partial,
                     &[42],
+                    crate::canonical_execution::SeedEligibility::Unavailable,
                 )
                 .await
         }
@@ -402,7 +406,7 @@ mod canonical_result_retention_server_unit {
                     &format!("append-multipage-{ordinal}"),
                     "trajectory",
                     ordinal,
-                    &payload,
+                    crate::canonical_execution::ResultPayload::new(payload).unwrap(),
                     1,
                     &block,
                 )
@@ -415,9 +419,17 @@ mod canonical_result_retention_server_unit {
             .unwrap();
         let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: this transport fixture asserts partial observations, not science.
-        unsafe { store.seal_attempt(&manifest, "seal-multipage", TerminalClass::Partial, &[42]) }
-            .await
-            .unwrap();
+        unsafe {
+            store.seal_attempt(
+                &manifest,
+                "seal-multipage",
+                TerminalClass::Partial,
+                &[42],
+                crate::canonical_execution::SeedEligibility::Unavailable,
+            )
+        }
+        .await
+        .unwrap();
         let read = store
             .read_results(&request.key, fence.attempt(), Duration::from_secs(60))
             .await

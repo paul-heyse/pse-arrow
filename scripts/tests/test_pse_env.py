@@ -5,15 +5,19 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import os
+import signal
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from scripts import pse_env, surreal_server
+from scripts import pse_env, surreal_server, test_resources
 
 
 def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
@@ -21,6 +25,261 @@ def identity(_root: Path, env: dict[str, str]) -> dict[str, str]:
 
 
 class PseEnvTests(unittest.TestCase):
+    def test_scoped_exits_ignore_unrelated_corrupt_resource_metadata(self) -> None:
+        registry = self.root / "unrelated-registry"
+        registry.mkdir(mode=0o700)
+        metadata = registry / "allocations.json"
+        metadata.write_text("corrupt unrelated metadata")
+        original = metadata.read_bytes()
+        with (
+            patch.object(test_resources, "registry", return_value=registry),
+            self.assertRaises(ValueError),
+        ):
+            test_resources.reclaim_reports()
+        for native in [False, True]:
+            for status in [0, 7, -signal.SIGTERM]:
+                owner = MagicMock(spec=pse_env.host.Allocation)
+                owner.release.return_value = True
+                with (
+                    self.subTest(native=native, status=status),
+                    patch.object(pse_env, "compose", return_value={}),
+                    patch.object(pse_env, "require_enclosing_owner"),
+                    patch.object(pse_env, "unexecutable", return_value=None),
+                    patch.object(pse_env, "placement", return_value=["owned-scope"]),
+                    patch.object(pse_env.host, "inherit", return_value=owner),
+                    patch.object(pse_env.operation, "owner_record", return_value=None),
+                    patch.object(pse_env.subprocess, "call", return_value=status),
+                    patch.object(test_resources, "registry", return_value=registry),
+                    patch.object(
+                        test_resources,
+                        "reclaim_reports",
+                        wraps=test_resources.reclaim_reports,
+                    ) as reclaim,
+                ):
+                    options = ["--native=solver"] if native else []
+                    self.assertEqual(
+                        pse_env.main([*options, "--", "selected-command"]),
+                        128 - status if status < 0 else status,
+                    )
+                owner.release.assert_called_once()
+                reclaim.assert_not_called()
+        self.assertEqual(metadata.read_bytes(), original)
+
+    def test_scoped_exits_still_report_own_allocation_failure(self) -> None:
+        for native in [False, True]:
+            owner = MagicMock(spec=pse_env.host.Allocation)
+            owner.release.side_effect = pse_env.BoundaryError("own drain failed")
+            with (
+                self.subTest(native=native),
+                patch.object(pse_env, "compose", return_value={}),
+                patch.object(pse_env, "require_enclosing_owner"),
+                patch.object(pse_env, "unexecutable", return_value=None),
+                patch.object(pse_env, "placement", return_value=["owned-scope"]),
+                patch.object(pse_env.host, "inherit", return_value=owner),
+                patch.object(pse_env.operation, "owner_record", return_value=None),
+                patch.object(pse_env.subprocess, "call", return_value=0),
+            ):
+                options = ["--native=solver"] if native else []
+                self.assertEqual(
+                    pse_env.main([*options, "--", "selected-command"]),
+                    pse_env.FAILURE,
+                )
+            owner.release.assert_called_once()
+
+    def test_owned_scope_release_refusal_is_125_and_preserves_child_diagnostic(
+        self,
+    ) -> None:
+        for native in (False, True):
+            for status in (0, 7, -signal.SIGTERM):
+                owner = MagicMock(spec=pse_env.host.Allocation)
+                owner.release.return_value = False
+                errors = io.StringIO()
+                with (
+                    self.subTest(native=native, status=status),
+                    patch.object(pse_env, "compose", return_value={}),
+                    patch.object(pse_env, "require_enclosing_owner"),
+                    patch.object(pse_env, "unexecutable", return_value=None),
+                    patch.object(pse_env, "placement", return_value=["owned-scope"]),
+                    patch.object(pse_env.host, "inherit", return_value=owner),
+                    patch.object(pse_env.operation, "owner_record", return_value=None),
+                    patch.object(pse_env.subprocess, "call", return_value=status),
+                    patch.object(
+                        test_resources,
+                        "reclaim_reports",
+                        side_effect=AssertionError("unrelated sweep"),
+                    ),
+                    contextlib.redirect_stderr(errors),
+                ):
+                    options = ["--native=solver"] if native else []
+                    self.assertEqual(
+                        pse_env.main([*options, "--", "selected-command"]), 125
+                    )
+                owner.release.assert_called_once()
+                self.assertIn(
+                    "own allocation retained until actual drain", errors.getvalue()
+                )
+                self.assertIn(
+                    f"child_exit={128 - status if status < 0 else status}",
+                    errors.getvalue(),
+                )
+                self.assertIn(f"raw_child_status={status}", errors.getvalue())
+
+    def test_inherited_paths_never_release_the_enclosing_allocation(self) -> None:
+        for native in (False, True):
+            owner = MagicMock(spec=pse_env.host.Allocation)
+            owner.release.side_effect = AssertionError("release inherited allocation")
+            with (
+                self.subTest(native=native),
+                patch.object(pse_env, "compose", return_value={}),
+                patch.object(pse_env, "require_enclosing_owner"),
+                patch.object(pse_env, "unexecutable", return_value=None),
+                patch.object(pse_env, "placement", return_value=[]),
+                patch.object(pse_env.host, "inherit", return_value=owner),
+                patch.object(
+                    pse_env.operation,
+                    "owner_record",
+                    return_value=self.root / "inherited-operation" if native else None,
+                ),
+                patch.object(
+                    pse_env.operation,
+                    "environment",
+                    side_effect=lambda _requested, env: env,
+                ),
+                patch.object(pse_env, "execute", return_value=7),
+                patch.object(
+                    pse_env.subprocess, "call", side_effect=AssertionError("new scope")
+                ),
+            ):
+                options = ["--native=solver"] if native else []
+                self.assertEqual(pse_env.main([*options, "--", "selected-command"]), 7)
+            owner.release.assert_not_called()
+
+    def test_owned_scope_release_exception_keeps_actual_child_result(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.release.side_effect = pse_env.BoundaryError("own drain failed")
+        with (
+            patch.object(pse_env.host, "inherit", return_value=owner),
+            self.assertRaisesRegex(
+                pse_env.BoundaryError,
+                "child_exit=7; raw_child_status=7; own drain failed",
+            ),
+        ):
+            pse_env.owned_scope(
+                [sys.executable, "-c", "raise SystemExit(7)"], dict(os.environ)
+            )
+        owner.release.assert_called_once()
+
+    def test_native_owned_scope_failed_fence_preserves_observed_clock_through_release(
+        self,
+    ) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.nonce = "a" * 32
+        owner.directory = self.root / "admission"
+        owner.release.return_value = True
+        unit = "pse-native-" + "b" * 32 + ".scope"
+        handoff = self.root / "handoff"
+        observer = MagicMock()
+        observer.path = self.root / "observer"
+        original = time.monotonic() + 1
+
+        def cancelled(_command, _environment, **options):
+            options["observation"].update(
+                child_status=-9, cancellation_deadline=original
+            )
+            return 143
+
+        with (
+            patch.object(pse_env.host, "inherit", return_value=owner),
+            patch.object(
+                pse_env.host,
+                "allocation_metadata",
+                return_value=contextlib.nullcontext(
+                    {"owners": {owner.nonce: {"units": {unit: {}}}}}
+                ),
+            ),
+            patch.object(pse_env.operation, "Operation") as operation,
+            patch.object(pse_env.operation, "prepare_handoff", return_value=handoff),
+            patch.object(pse_env.operation, "run", side_effect=cancelled),
+            patch.object(pse_env.operation, "_record", return_value={}),
+            patch.object(
+                pse_env.operation, "record_lock", return_value=contextlib.nullcontext()
+            ),
+            patch.object(pse_env.operation, "write_json"),
+            patch.object(
+                pse_env.operation, "drained", return_value=MagicMock(complete=True)
+            ) as drain,
+            patch("scripts.native_cache.cache_root", return_value=self.root),
+        ):
+            operation.return_value.__enter__.return_value = observer
+            self.assertEqual(
+                pse_env.owned_scope(
+                    ["systemd-run", "--unit=" + unit, "owned-child"], {}
+                ),
+                143,
+            )
+        self.assertEqual(drain.call_args.kwargs["deadline"], original)
+        owner.release.assert_called_once_with(deadline=original)
+
+    def test_new_native_operation_borrows_inherited_allocation_without_release(
+        self,
+    ) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.release.side_effect = AssertionError("release inherited allocation")
+        with (
+            patch.dict(os.environ, {}, clear=False),
+            patch.object(pse_env.operation, "owner_record", return_value=None),
+            patch.object(pse_env, "placement", return_value=[]),
+            patch.object(pse_env.host, "inherit", return_value=owner),
+            patch.object(pse_env.operation, "Operation") as operation,
+            patch.object(
+                pse_env.operation,
+                "environment",
+                side_effect=lambda _requested, env: env,
+            ),
+            patch.object(pse_env.operation, "run", return_value=7),
+            patch("scripts.native_cache.cache_root", return_value=self.root),
+        ):
+            self.assertEqual(
+                pse_env.native(self.root, [], ["selected-command"], {}, scope=True), 7
+            )
+        owner.release.assert_not_called()
+        operation.return_value.__exit__.assert_called_once()
+
+    def test_actual_release_refusal_retains_charge_and_real_child_status(self) -> None:
+        for raw, program in (
+            (0, "raise SystemExit(0)"),
+            (7, "raise SystemExit(7)"),
+            (-signal.SIGTERM, "import os,signal; os.kill(os.getpid(), signal.SIGTERM)"),
+        ):
+            directory = self.root / f"allocation-{raw}"
+            allocation = pse_env.host.acquire(
+                pse_env.host.select("light"), directory=directory
+            )
+            allocation.register("owned-refusal.scope")
+            environment = {**os.environ, **allocation.environment()}
+            status = 128 - raw if raw < 0 else raw
+            with (
+                self.subTest(raw=raw),
+                patch.object(
+                    pse_env.host.operation,
+                    "unit_observation",
+                    return_value={
+                        "LoadState": "loaded",
+                        "ActiveState": "active",
+                        "ControlGroup": "/unbound-but-active",
+                    },
+                ),
+                self.assertRaisesRegex(
+                    pse_env.BoundaryError,
+                    f"child_exit={status}; raw_child_status={raw}",
+                ),
+            ):
+                pse_env.owned_scope([sys.executable, "-c", program], environment)
+            with pse_env.host.allocation_metadata(directory) as ledger:
+                retained = ledger["owners"][allocation.nonce]
+                self.assertTrue(retained["released"])
+                self.assertIn("owned-refusal.scope", retained["units"])
+
     def test_docs_bash_wrapper_cannot_fall_through_to_product_python(self) -> None:
         product = self.root / ".venv/bin"
         product.mkdir(parents=True)
@@ -212,7 +471,7 @@ class PseEnvTests(unittest.TestCase):
             return result
 
         owner = MagicMock(spec=pse_env.host.Allocation)
-        owner.profile = MagicMock(cores=(2, 4))
+        owner.profile = MagicMock(cores=(2, 4, 6, 8))
         with (
             patch.object(pse_env.build_environment, "configure", side_effect=declared),
             patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8)),
@@ -244,6 +503,25 @@ class PseEnvTests(unittest.TestCase):
             small = {"CARGO_BUILD_JOBS": "2", pse_env.CARGO_DEFAULT_JOBS: "2"}
             pse_env.admitted_cargo_jobs(small, owner)
             self.assertEqual(small["CARGO_BUILD_JOBS"], "2")
+
+    def test_smt_does_not_increase_admitted_launch_width(self) -> None:
+        owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = MagicMock(cores=(2, 4))
+        with patch.object(pse_env.host, "cpu_set", return_value=(2, 4, 6, 8)):
+            env = {"CARGO_BUILD_JOBS": "16", pse_env.CARGO_DEFAULT_JOBS: "16"}
+            pse_env.admitted_cargo_jobs(env, owner)
+            self.assertEqual(env["CARGO_BUILD_JOBS"], "2")
+            self.assertEqual(env["NEXTEST_TEST_THREADS"], "2")
+            # Re-entry adapts a repository default; explicit CLI/env overrides survive.
+            owner.profile.cores = (2,)
+            pse_env.admitted_cargo_jobs(env, owner)
+            self.assertEqual(env["NEXTEST_TEST_THREADS"], "1")
+            env["NEXTEST_TEST_THREADS"] = "7"
+            pse_env.admitted_cargo_jobs(env, owner)
+            self.assertEqual(env["NEXTEST_TEST_THREADS"], "7")
+            env["CARGO_BUILD_JOBS"] = "9"
+            pse_env.admitted_cargo_jobs(env, owner)
+            self.assertEqual(env["CARGO_BUILD_JOBS"], "9")
 
     def test_placement_bounds_jobs_after_acquisition(self) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)
@@ -426,6 +704,7 @@ class PseEnvTests(unittest.TestCase):
 
     def test_placement_defaults_and_overrides(self) -> None:
         owner = MagicMock(spec=pse_env.host.Allocation)
+        owner.profile = pse_env.host.select("functional")
         owner.directory = self.root / "admission"
         owner.nonce = "a" * 32
         owner.environment.return_value = {

@@ -22,6 +22,7 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
     snapshot: execution::Snapshot,
+    numerical_owner: super::numerics::PolicyResolutionOwner,
     quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
     preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
     targets: Vec<pse_math::numerics::TargetSpec>,
@@ -137,7 +138,7 @@ impl PreparedInitialization {
     ) -> Result<
         (
             Vec<native::routing::Route>,
-            Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+            pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
         ),
         MathRuntimeError,
     > {
@@ -177,13 +178,13 @@ impl PreparedInitialization {
                 "serial finite initialization schedule",
             ));
         }
-        let numerics = Arc::new(pse_math::numerics::resolve(
-            &self.quantities,
-            &self.preconditions,
+        let numerics = self.numerical_owner.resolve(
+            self.quantities.clone(),
+            self.preconditions.clone(),
             &self.targets,
             &self.requirements,
             &solver.numerics,
-        )?);
+        )?;
         let strategies = self.strategies(solver, &numerics)?;
         let solved: BTreeSet<_> = self
             .boundaries()
@@ -304,7 +305,7 @@ impl DeclaredRootReport {
 }
 
 /// One admitted original-equation unit execution. The profile is interpreted once,
-/// before iteration, and each evaluation owns a fresh temporary boundary binding.
+/// before iteration; an enclosing causal map owns its compact binding and native state.
 #[cfg(feature = "solver-kinsol")]
 #[derive(Clone, Debug)]
 pub(crate) struct PreparedConditionalUnit {
@@ -318,10 +319,14 @@ pub(crate) struct PreparedConditionalUnit {
     tolerances: Tolerances,
     accuracy: ResolvedAccuracy,
     profile_key: pse_ids::ContentHash,
+    pub(crate) foreign_bytes: usize,
 }
 
 #[cfg(feature = "solver-kinsol")]
 impl PreparedConditionalUnit {
+    pub(crate) const fn backend(&self) -> Backend {
+        self.backend
+    }
     #[cfg(test)]
     pub(crate) fn row_magnitudes(&self, id: SemanticId) -> Option<(f64, f64)> {
         let index = self
@@ -358,7 +363,7 @@ impl MathService {
         unknowns: BTreeSet<SemanticId>,
         compiler_profile: Profile,
         profile: SolverProfile,
-        numerics: Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+        numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
         driver: &crate::CancelSource,
     ) -> Result<PreparedConditionalUnit, MathRuntimeError> {
         admit_unit_profile(&profile, &numerics)?;
@@ -403,6 +408,9 @@ impl MathService {
             .enumerate()
             .filter_map(|(index, row)| boundary_inputs.get(&row.id).map(|id| (index, *id)))
             .collect();
+        let derivation = self
+            .policy_resolution_owner()
+            .derivation(&numerics, boundaries.len())?;
         let mut effective_numerics = numerics.as_ref().clone();
         if !boundaries.is_empty() {
             use pse_model::generated::enums::NumericalTarget;
@@ -457,7 +465,7 @@ impl MathService {
             }
             effective_numerics.key = h.finish_hash();
         }
-        let numerics = Arc::new(effective_numerics);
+        let numerics = derivation.finish(effective_numerics)?;
         native::structural::admit(&view.structure, native::structural::Mode::Roots)?;
         let executable = self
             .assemble_functions(
@@ -578,6 +586,7 @@ impl MathService {
             },
         )?;
         let profile_key = super::solves::profile_key(&profile)?.as_id();
+        let foreign_bytes = self.policy.foreign_allowance(&profile.controls);
         Ok(PreparedConditionalUnit {
             assessment: decision.structure,
             snapshot,
@@ -589,25 +598,61 @@ impl MathService {
             tolerances,
             accuracy,
             profile_key,
+            foreign_bytes,
         })
     }
 
-    /// A nested unit solve on the already admitted causal-map worker. No second CPU
-    /// permit is acquired, and temporary inputs/coordinates never modify the original.
-    pub(crate) fn evaluate_conditional_unit(
+    /// Build one private conditional evaluator after the enclosing causal owner has
+    /// reserved all native residency. The returned session never leaves that worker.
+    pub(crate) fn conditional_unit_session(
         &self,
         prepared: &PreparedConditionalUnit,
-        values: CaseValues,
+        value: impl Fn(SemanticId) -> Option<f64>,
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         execution: &Execution,
         budget: &Arc<WorkerBudget>,
-    ) -> Result<CaseValues, native::ProblemError> {
-        if let Some(stop) = execution.stopped() {
-            return Err(native::ProblemError::stopped(
-                stop,
-                "conditional causal unit stopped",
-            ));
-        }
+    ) -> Result<ConditionalUnitSession, native::ProblemError> {
+        execution.check()?;
+        // Charge duplicate immutable callback inventories, compact inputs, starts and
+        // directional support before constructing any of them. Opaque native residency
+        // is a separate additive allowance on the enclosing operation.
+        let support = native::assembled::AlgebraicOracle::root_support_allowance(
+            &prepared.executable.assembly,
+            &prepared.view.structure,
+        )?;
+        let wrapper = prepared
+            .view
+            .structure
+            .contributions
+            .len()
+            .checked_mul(64)
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    prepared
+                        .view
+                        .boundary
+                        .members
+                        .columns
+                        .len()
+                        .checked_add(prepared.view.boundary.members.rows.len())?
+                        .checked_mul(512)?,
+                )
+            })
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    prepared
+                        .executable
+                        .assembly
+                        .input_ids()
+                        .len()
+                        .checked_mul(64)?,
+                )
+            })
+            .and_then(|bytes| bytes.checked_add(support)?.checked_add(8192))
+            .ok_or_else(|| native::ProblemError::memory("conditional callback wrapper extent"))?;
+        let charge = budget
+            .charge(wrapper)
+            .map_err(MathRuntimeError::into_problem)?;
         let super::ExecutionWorker {
             worker,
             _case,
@@ -620,79 +665,138 @@ impl MathService {
                 budget,
             )
             .map_err(MathRuntimeError::into_problem)?;
-        let initial: Vec<_> = prepared
+        let initial = prepared
             .view
             .boundary
             .members
             .columns
             .iter()
             .map(|id| {
-                values.scalars.get(id).copied().ok_or_else(|| {
-                    native::ProblemError::Contract("missing conditional unit start".into())
+                value(*id).filter(|value| value.is_finite()).ok_or_else(|| {
+                    native::ProblemError::Contract("missing conditional authored start".into())
                 })
             })
-            .collect::<Result<_, _>>()?;
-        let _root_support = budget
-            .charge(native::assembled::AlgebraicOracle::root_support_allowance(
-                worker.assembly(),
-                &prepared.view.structure,
-            )?)
-            .map_err(MathRuntimeError::into_problem)?;
-        let oracle = native::assembled::AlgebraicOracle::new(worker, values.clone())?
+            .collect::<Result<Vec<_>, _>>()?;
+        let oracle = native::assembled::AlgebraicOracle::compact(worker, value)?
             .with_structural_analysis(prepared.view.structure.clone().into())?
             .with_normalization(prepared.normalization.clone())?;
-        oracle.admit_nle()?;
-        let mut nested = execution.clone();
-        // Bound the local attempt by both its declared allowance and the inherited
-        // enclosing deadline. Cancellation and progress retain the enclosing owner.
-        nested.time_limit = nested.time_limit.min(
-            nested
-                .started
-                .elapsed()
-                .saturating_add(prepared.profile.controls.time_limit),
-        );
-        let mut retained = execution::Retained::default();
-        let report = execution::roots(
-            execution::Step {
-                adapter: execution::adapter(prepared.backend),
-                snapshot: &prepared.snapshot,
-                structure: prepared.assessment.as_ref(),
-                settings: &prepared.profile.backend,
-                controls: &prepared.profile.controls,
-                accuracy: &prepared.accuracy,
-                execution: nested,
-                tolerances: &prepared.tolerances,
-                normalization: &prepared.normalization,
-                compatibility: Compatibility {
-                    layout: prepared.view.plan.structure().key(),
-                    profile: prepared.profile_key,
-                    data: values.identity(),
-                    backend: prepared.backend,
+        Ok(ConditionalUnitSession {
+            retained: execution::Retained::default(),
+            oracle: native::assembled::SharedRootOracle::new(oracle)?,
+            initial,
+            _case,
+            _worker: _charge,
+            _wrapper: charge,
+            #[cfg(test)]
+            calls: 0,
+            #[cfg(test)]
+            last_reused: false,
+            #[cfg(test)]
+            last_setup_reused: false,
+        })
+    }
+}
+
+/// Thread-confined conditional state owned by exactly one enclosing causal map.
+/// Native callbacks are destroyed before their evaluator/provider storage charges.
+#[cfg(feature = "solver-kinsol")]
+#[derive(Debug)]
+pub(crate) struct ConditionalUnitSession {
+    retained: execution::Retained,
+    oracle: native::assembled::SharedRootOracle,
+    initial: Vec<f64>,
+    _case: Arc<ExecutableCase>,
+    _worker: super::WorkerCharge,
+    _wrapper: super::WorkerCharge,
+    #[cfg(test)]
+    pub(crate) calls: usize,
+    #[cfg(test)]
+    pub(crate) last_reused: bool,
+    #[cfg(test)]
+    pub(crate) last_setup_reused: bool,
+}
+#[cfg(feature = "solver-kinsol")]
+impl Drop for ConditionalUnitSession {
+    fn drop(&mut self) {
+        self.retained.clear();
+        self.retained.release();
+    }
+}
+#[cfg(feature = "solver-kinsol")]
+impl ConditionalUnitSession {
+    pub(crate) fn evaluate(
+        &mut self,
+        prepared: &PreparedConditionalUnit,
+        updates: &[(SemanticId, f64)],
+        execution: &Execution,
+    ) -> Result<Vec<(SemanticId, f64)>, native::ProblemError> {
+        let result = (|| {
+            execution.check()?;
+            self.oracle.refill_inputs(updates)?;
+            let mut nested = execution.clone();
+            nested.time_limit = nested.time_limit.min(
+                nested
+                    .started
+                    .elapsed()
+                    .saturating_add(prepared.profile.controls.time_limit),
+            );
+            nested.memory = Some(prepared.foreign_bytes);
+            let report = execution::roots(
+                execution::Step {
+                    adapter: execution::adapter(prepared.backend),
+                    snapshot: &prepared.snapshot,
+                    structure: prepared.assessment.as_ref(),
+                    settings: &prepared.profile.backend,
+                    controls: &prepared.profile.controls,
+                    accuracy: &prepared.accuracy,
+                    execution: nested,
+                    tolerances: &prepared.tolerances,
+                    normalization: &prepared.normalization,
+                    compatibility: Compatibility {
+                        layout: prepared.view.plan.structure().key(),
+                        profile: prepared.profile_key,
+                        data: self.oracle.input_identity()?,
+                        backend: prepared.backend,
+                    },
+                    warm: None,
                 },
-                warm: None,
-            },
-            &mut retained,
-            execution::Roots {
-                oracle: Box::new(oracle),
-                initial: &initial,
-                owner: Some(Box::new((_case, _charge))),
-            },
-        )?;
-        let mut candidate = values;
-        if commit_block(
-            &mut candidate,
-            &prepared.view.boundary,
-            Some(&report),
-            &prepared.profile.numerics,
-        )
-        .is_err()
-        {
-            return Err(conditional_failure(&report));
+                &mut self.retained,
+                execution::Roots {
+                    oracle: Box::new(self.oracle.clone()),
+                    // Allocation retention never substitutes a previous solved root.
+                    initial: &self.initial,
+                    owner: None,
+                },
+            )?;
+            #[cfg(test)]
+            {
+                self.calls += 1;
+                self.last_reused = report.evidence.reused_native_state;
+                self.last_setup_reused =
+                    report.metrics.get("setup.initial_reused") == Some(&Metric::Bool(true));
+            }
+            let primal = block_candidate(
+                &prepared.view.boundary,
+                Some(&report),
+                &prepared.profile.numerics,
+            )
+            .map_err(|_| conditional_failure(&report))?;
+            execution.check()?;
+            Ok(prepared
+                .view
+                .boundary
+                .members
+                .columns
+                .iter()
+                .copied()
+                .zip(primal.iter().copied())
+                .collect())
+        })();
+        if result.is_err() {
+            self.retained.clear();
+            self.retained.release();
         }
-        // Teardown releases native state, temporary evaluator values and its budget
-        // charge on every return path, including callback refusal and cancellation.
-        drop(retained);
-        Ok(candidate)
+        result
     }
 }
 
@@ -763,6 +867,9 @@ impl MathService {
         // Known factory containers, excluding evaluator charges drawn as constructed.
         // None preserves conservative entry for opaque external/provider factories.
         factory_bytes: Option<usize>,
+        // Actual nested adapter scopes and their simultaneous opaque residency.
+        mut native_backends: Vec<Backend>,
+        resident_foreign_bytes: usize,
         factory: impl FnOnce(
             Execution,
             Arc<WorkerBudget>,
@@ -802,12 +909,22 @@ impl MathService {
                 "declared root construction capacity",
             ));
         }
-        let job_bytes =
-            factory_demand
-                .checked_add(foreign_bytes)
-                .ok_or(MathRuntimeError::Limit(
-                    "declared root worker/foreign allowance",
-                ))?;
+        let stack = self.policy.stack_bytes;
+        if !native_backends.contains(&Backend::Kinsol) {
+            native_backends.push(Backend::Kinsol);
+        }
+        let adapters = native_backends
+            .iter()
+            .map(|backend| execution::adapter(*backend))
+            .collect::<Vec<_>>();
+        let stacks = execution::scope_stack_bytes(&adapters, 1, stack)?;
+        let job_bytes = factory_demand
+            .checked_add(foreign_bytes)
+            .and_then(|bytes| bytes.checked_add(resident_foreign_bytes))
+            .and_then(|bytes| bytes.checked_add(stacks))
+            .ok_or(MathRuntimeError::Limit(
+                "declared root resident/scope allowance",
+            ))?;
         let entry = self.admit_entry(1, job_bytes, &control, Some(deadline), None)?;
         let run_id = pse_operations::mint_id();
         let (tx, receiver) = tokio::sync::oneshot::channel();
@@ -823,18 +940,23 @@ impl MathService {
             let worker_service = service.clone();
             let result = service
                 .job_scoped_on_entry(1, job_bytes, control, Some(deadline), entry, move |flag| {
-                    let original = contract.identity;
-                    let start_identity =
-                        super::strategy::target::point_identity(original, &initial);
-                    let request = pse_model::strategy::CompositionRequest::default();
-                    let mut factory = Some(factory);
-                    let (result, trace) =
-                        super::strategy::target::callable(
+                    let adapters = native_backends
+                        .iter()
+                        .map(|backend| execution::adapter(*backend))
+                        .collect::<Vec<_>>();
+                    execution::scoped(&adapters, 1, stack, move || {
+                        let original = contract.identity;
+                        let start_identity =
+                            super::strategy::target::point_identity(original, &initial);
+                        let request = pse_model::strategy::CompositionRequest::default();
+                        let mut factory = Some(factory);
+                        let (result, trace) = super::strategy::target::callable(
                             &worker_service,
                             super::strategy::target::Source {
                                 original,
                                 preparation: original,
                                 profile,
+                                profile_projection: None,
                                 backend: Some(Backend::Kinsol),
                                 solver: None,
                                 controls: &controls,
@@ -910,26 +1032,27 @@ impl MathService {
                                 )
                             },
                         )?;
-                    let decision = crate::workflow::numerics::native_use(&result, &policy);
-                    // The trace owns its independent allocation; native result ownership
-                    // survives the joined worker without cloning evaluator storage.
-                    Ok(DeclaredRootReport {
-                        report: result,
-                        run_id,
-                        strategy: trace,
-                        original_candidate: original_candidate
-                            .as_ref()
-                            .map(|candidate| {
-                                candidate.lock().map(|value| value.clone()).map_err(|_| {
-                                    MathRuntimeError::Infrastructure(
-                                        "original candidate lock poisoned".into(),
-                                    )
+                        let decision = crate::workflow::numerics::native_use(&result, &policy);
+                        // The trace owns its independent allocation; native result ownership
+                        // survives the joined worker without cloning evaluator storage.
+                        Ok(DeclaredRootReport {
+                            report: result,
+                            run_id,
+                            strategy: trace,
+                            original_candidate: original_candidate
+                                .as_ref()
+                                .map(|candidate| {
+                                    candidate.lock().map(|value| value.clone()).map_err(|_| {
+                                        MathRuntimeError::Infrastructure(
+                                            "original candidate lock poisoned".into(),
+                                        )
+                                    })
                                 })
-                            })
-                            .transpose()?
-                            .flatten(),
-                        decision,
-                        _owner: owner,
+                                .transpose()?
+                                .flatten(),
+                            decision,
+                            _owner: owner,
+                        })
                     })
                 })
                 .await;
@@ -1017,6 +1140,10 @@ impl MathService {
                 artifacts.push(self.artifact(request.clone()).await?);
             }
             let plan = Arc::new(block.plan.as_ref().clone().with_owner(owner.clone()));
+            let layout = self.reserve(
+                "case_operation_layout",
+                plan.operation_layout_allocation_bound()?,
+            )?;
             let assembly =
                 Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
             let mut view = block.clone();
@@ -1028,11 +1155,13 @@ impl MathService {
                 executable: Arc::new(ExecutableCase {
                     assembly,
                     _artifacts: artifacts,
+                    _layout: layout,
                     _owner: owner.clone(),
                 }),
             });
         }
         Ok(PreparedInitialization {
+            numerical_owner: self.policy_resolution_owner(),
             snapshot: execution::Snapshot::observe(&execution::LINKED),
             quantities,
             preconditions,
@@ -1088,51 +1217,56 @@ impl MathService {
         let service = self.clone();
         let events = progress.clone();
         Ok(SolveHandle::supervise(progress, move |cancel| async move {
-            let mut run = Blocks {
-                service: &service,
-                session: &session,
-                prepared: &prepared,
-                providers: &providers,
-                profile: &profile,
-                strategies: &strategies,
-                numerics: &numerics,
-                progress: &events,
-                owner: &owner,
-                cancel: &cancel,
-                scope,
-                admission,
-                control,
-                run_id,
-                bound: vec![None; prepared.blocks.len()],
-                attempts: Vec::new(),
-            };
-            let report = run.stages(values).await;
+            let operation_cancel = cancel.clone();
+            let operation_controls = profile.solver.controls.clone();
+            let operation_scope = scope.clone();
+            let report = session
+                .sequence(operation_scope, operation_controls, &cancel, move |local| {
+                    let mut run = Blocks {
+                        service: &service,
+                        local,
+                        prepared: &prepared,
+                        providers: &providers,
+                        profile: &profile,
+                        strategies: &strategies,
+                        numerics: &numerics,
+                        progress: &events,
+                        owner: &owner,
+                        cancel: &operation_cancel,
+                        scope,
+                        admission,
+                        run_id,
+                        bound: vec![None; prepared.blocks.len()],
+                        attempts: Vec::new(),
+                    };
+                    local.run_ready(run.stages(values))
+                })
+                .await;
             session.close().await;
             report
         }))
     }
 }
 /// The block initialization planner over one native session.
-struct Blocks<'a> {
+struct Blocks<'a, 'native> {
     service: &'a Arc<MathService>,
-    session: &'a super::NativeSession,
+    local: &'a super::staged::LocalOperation<'native>,
     prepared: &'a PreparedInitialization,
     providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     profile: &'a InitializationProfile,
     strategies: &'a [native::routing::Route],
-    numerics: &'a Arc<pse_model::numerics::ResolvedNumericalPolicy>,
+    numerics: &'a pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     progress: &'a Arc<Progress>,
     owner: &'a Arc<pse_columnar::AllocationLease>,
     cancel: &'a crate::CancelSource,
     scope: pse_kernels::ExecutionScope,
     admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
-    control: FlightCancellation,
     run_id: pse_model::generated::identities::RunId,
     /// Each block's view as last bound; later stages rebind its values (A6).
     bound: Vec<Option<Preparation>>,
     attempts: Vec<BlockAttempt>,
 }
-impl Blocks<'_> {
+impl Blocks<'_, '_> {
     async fn stages(
         &mut self,
         original: CaseValues,
@@ -1208,60 +1342,54 @@ impl Blocks<'_> {
                 let admission = self.admission.clone();
                 let validation_scope = self.scope.clone();
                 self.scope.check().map_err(native::ProblemError::Provider)?;
-                completed = self
-                    .service
-                    .with_owned_worker(
+                let bytes = original_case.assembly.numeric_worker_bytes();
+                completed = self.local.construct(bytes, |_storage| {
+                    let budget = WorkerBudget::new(bytes);
+                    let mut worker = self.service.worker(
                         original_case.clone(),
-                        self.providers.clone(),
-                        self.cancel,
-                        Some((self.scope.clone(), self.control.clone())),
-                        move |mut worker| {
-                            let mut execution = Execution::within(
-                                validation_scope.cancellation().clone(),
-                                &Controls::default(),
-                                validation_scope,
-                            )?;
-                            execution.work_admission =
-                                admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
-                            let rows = execution.counted(
-                                WorkEvidence {
-                                    evaluations: Some(1),
-                                    iterations: Some(0),
-                                    factorizations: Some(0),
-                                    proof_steps: Some(0),
-                                },
-                                || worker.constraints(&values).map_err(Into::into),
-                            )?;
-                            let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
-                            let tolerances = Tolerances::from_policy(
-                                &numerics,
-                                &structure
-                                    .variables()
-                                    .iter()
-                                    .filter(|v| !v.fixed)
-                                    .map(|v| v.port.id)
-                                    .collect::<Vec<_>>(),
-                                &row_ids,
-                            )?;
-                            let rows_ok =
-                                rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
-                                    |((value, row), tolerance)| {
-                                        value.is_finite()
-                                            && *value >= row.lower - tolerance
-                                            && *value <= row.upper + tolerance
-                                    },
-                                );
-                            let bounds_ok = structure.variables().iter().all(|variable| {
-                                values.scalars.get(&variable.port.id).is_some_and(|value| {
-                                    value.is_finite()
-                                        && variable.lower.is_none_or(|lower| *value >= lower)
-                                        && variable.upper.is_none_or(|upper| *value <= upper)
-                                })
-                            });
-                            Ok(rows_ok && bounds_ok)
+                        self.providers,
+                        validation_scope.clone(),
+                        &budget,
+                    )?;
+                    let mut execution = self.local.execution().clone();
+                    execution.work_admission =
+                        admission.map(|owner| -> Arc<dyn WorkAdmission> { owner });
+                    let rows = execution.counted(
+                        WorkEvidence {
+                            evaluations: Some(1),
+                            iterations: Some(0),
+                            factorizations: Some(0),
+                            proof_steps: Some(0),
                         },
-                    )
-                    .await?;
+                        || worker.worker().constraints(&values).map_err(Into::into),
+                    )?;
+                    let row_ids: Vec<_> = structure.rows().iter().map(|r| r.id).collect();
+                    let tolerances = Tolerances::from_policy(
+                        &numerics,
+                        &structure
+                            .variables()
+                            .iter()
+                            .filter(|v| !v.fixed)
+                            .map(|v| v.port.id)
+                            .collect::<Vec<_>>(),
+                        &row_ids,
+                    )?;
+                    let rows_ok = rows.iter().zip(structure.rows()).zip(&tolerances.rows).all(
+                        |((value, row), tolerance)| {
+                            value.is_finite()
+                                && *value >= row.lower - tolerance
+                                && *value <= row.upper + tolerance
+                        },
+                    );
+                    let bounds_ok = structure.variables().iter().all(|variable| {
+                        values.scalars.get(&variable.port.id).is_some_and(|value| {
+                            value.is_finite()
+                                && variable.lower.is_none_or(|lower| *value >= lower)
+                                && variable.upper.is_none_or(|upper| *value <= upper)
+                        })
+                    });
+                    Ok(rows_ok && bounds_ok)
+                })?;
             }
             if completed {
                 committed.scalars = values
@@ -1315,49 +1443,123 @@ impl Blocks<'_> {
     ) -> Result<(Box<SolveReport>, Arc<super::strategy::Trace>), MathRuntimeError> {
         self.scope.check().map_err(native::ProblemError::Provider)?;
         let block = &self.prepared.blocks[index];
-        let bound = match &self.bound[index] {
+        let bound_slot = &mut self.bound[index];
+        let bound = match bound_slot.as_ref() {
             Some(view) => {
-                self.service
-                    .rebind_within(view, values.clone(), self.cancel, self.scope.clone())
-                    .await?
+                let binding = view.compiled().rebind_binding_allocation_bound(values)?;
+                let demand = view
+                    .compiled()
+                    .rebind_allocation_bound(values)?
+                    .unwrap_or(self.service.policy.worker_bytes)
+                    .max(binding);
+                self.local.construct(demand, |lease| {
+                    self.service.rebind_local(
+                        view,
+                        values.clone(),
+                        self.scope.cancellation(),
+                        lease,
+                    )
+                })?
             }
             None => {
-                self.service
-                    .bind_block(
+                let demand = block
+                    .view
+                    .binding_allocation_bound(values)?
+                    .unwrap_or(self.service.policy.worker_bytes);
+                self.local.construct(demand, |lease| {
+                    self.service.bind_block_local(
                         block,
                         self.prepared.quantities.clone(),
                         self.prepared.preconditions.clone(),
-                        values.clone(),
-                        self.cancel,
-                        self.scope.deadline(),
+                        values,
+                        self.scope.cancellation(),
+                        lease,
                     )
-                    .await?
+                })?
             }
         };
-        self.scope.check().map_err(native::ProblemError::Provider)?;
-        self.bound[index] = Some(bound.clone());
-        let step = self
-            .service
-            .prepare_conditional(
-                bound,
-                block.executable.clone(),
-                values.clone(),
-                self.providers.clone(),
-                // Admitted by `validate_profile`: a root or initialize intent, exact
-                // convexity and no explicit preprocessing; blocks run the initialize intent
-                // on their identity transport.
-                SolverProfile {
-                    presolve: native::presolve::Policy::Off,
-                    intent: SolveIntent::Initialize,
-                    ..self.profile.solver.clone()
-                },
-                self.numerics.clone(),
-                self.strategies[index],
-                self.prepared.snapshot.clone(),
-                &self.scope,
-                self.cancel,
+        let profile = SolverProfile {
+            presolve: native::presolve::Policy::Off,
+            intent: SolveIntent::Initialize,
+            ..self.profile.solver.clone()
+        };
+        let native::routing::Route::Native(selected) = self.strategies[index] else {
+            return Err(native::ProblemError::Contract(
+                "conditional block needs a native route".into(),
             )
-            .await?;
+            .into());
+        };
+        let executable = bound
+            .executable
+            .get()
+            .cloned()
+            .unwrap_or_else(|| block.executable.clone());
+        // Only genuinely missing compiler artifacts leave the owner through its
+        // exclusive quiescent loan. The upgraded immutable programs survive stages.
+        let (bound, executable) = self.local.preparation(self.service.conditional_program(
+            bound,
+            executable,
+            &profile,
+            selected,
+            &self.scope,
+            self.cancel,
+        ))?;
+        self.scope.check().map_err(native::ProblemError::Provider)?;
+        *bound_slot = Some(bound.clone());
+        let source_terms = executable
+            .assembly
+            .structure()
+            .instances()
+            .iter()
+            .try_fold(0usize, |total, instance| {
+                total.checked_add(instance.contributions.len())
+            })
+            .ok_or(MathRuntimeError::Limit("block assessment source terms"))?;
+        let assessment_bytes = executable
+            .assembly
+            .numeric_worker_bytes()
+            .checked_add(
+                values
+                    .scalars
+                    .len()
+                    .checked_mul(64)
+                    .ok_or(MathRuntimeError::Limit("block assessment bindings"))?,
+            )
+            .and_then(|bytes| {
+                bytes.checked_add(executable.assembly.input_ids().len().checked_mul(8)?)
+            })
+            .and_then(|bytes| {
+                bytes.checked_add(block.boundary.members.rows.len().checked_mul(512)?)
+            })
+            .and_then(|bytes| {
+                bytes.checked_add(block.boundary.members.columns.len().checked_mul(256)?)
+            })
+            .and_then(|bytes| bytes.checked_add(source_terms.checked_mul(128)?))
+            .and_then(|bytes| bytes.checked_add(4096))
+            .ok_or(MathRuntimeError::Limit(
+                "block independent assessment extent",
+            ))?;
+        let assessor = self.local.construct(assessment_bytes, |storage| {
+            Ok(BlockAssessor {
+                service: self.service.clone(),
+                case: executable.clone(),
+                values: values.clone(),
+                providers: self.providers.clone(),
+                numerics: self.numerics.clone(),
+                original: self.local.execution().clone(),
+                storage,
+            })
+        })?;
+        let step = self.service.prepare_conditional_bound(
+            bound,
+            executable,
+            values.clone(),
+            self.providers.clone(),
+            profile,
+            self.numerics.clone(),
+            self.strategies[index],
+            self.prepared.snapshot.clone(),
+        )?;
         // The block starts from its staged values. Only a predecessor stage's committed
         // values make that start a seed; the authored initial point is not a warm start (F25).
         let step = match &self.admission {
@@ -1367,9 +1569,8 @@ impl Blocks<'_> {
         let previous = previous
             .map(|attempt| step.primal_seed().map(|seed| Predecessor { attempt, seed }))
             .transpose()?;
-        let numerical_policy = self.numerics.policy.clone();
-        let (outcome, (), strategy) = self
-            .session
+        let (outcome, independent, strategy) = self
+            .local
             .step(
                 step,
                 previous,
@@ -1377,20 +1578,14 @@ impl Blocks<'_> {
                 self.progress.clone(),
                 self.owner.clone(),
                 self.cancel,
-                move |outcome, _, _| {
-                    super::strategy::Assessed::native(
-                        (),
-                        super::StepRetention {
-                            candidate: outcome.candidate_use(&numerical_policy),
-                            session: super::SessionDisposition::RetainCompatible,
-                        },
-                        outcome,
-                    )
-                },
+                move |outcome, scope, budget| assessor.assess(outcome, scope, budget),
             )
             .await?;
         match outcome {
-            super::solves::Outcome::Native(report) => Ok((report, strategy)),
+            super::solves::Outcome::Native(mut report) => {
+                independent.apply(&mut report);
+                Ok((report, strategy))
+            }
             super::solves::Outcome::Rejected(error) => Err(MathRuntimeError::Strategy {
                 cause: error,
                 trace: strategy,
@@ -1407,39 +1602,233 @@ impl Blocks<'_> {
         }
     }
 }
+/// A block's independent original program. Only immutable code and its pre-admitted
+/// storage cross the callback boundary; every candidate gets fresh evaluator/providers.
+struct BlockAssessor {
+    service: Arc<MathService>,
+    case: Arc<ExecutableCase>,
+    values: CaseValues,
+    providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
+    numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
+    original: Execution,
+    storage: Arc<pse_columnar::AllocationLease>,
+}
+struct BlockObservation {
+    observed: Option<(native::quality::Quality, native::quality::Observation)>,
+    failure: Option<Arc<native::ProblemError>>,
+    storage: Arc<pse_columnar::AllocationLease>,
+}
+impl BlockObservation {
+    fn apply(self, report: &mut SolveReport) {
+        if let Some(cause) = self.failure {
+            report.record_validation_failure(native::ProblemError::Math(
+                pse_math::MathError::Typed {
+                    retained: cause.retained_bytes(),
+                    cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
+                },
+            ));
+            report.retain_failure_owner(self.storage);
+        } else if let Some((quality, observation)) = self.observed {
+            if !quality.feasible() {
+                report.qualification = Qualification::Unqualified;
+                report.termination.assurance = Assurance::None;
+            }
+            report.quality = Some(quality);
+            report.observation = Some(observation);
+        }
+    }
+}
+impl BlockAssessor {
+    fn assess(
+        &self,
+        outcome: &super::solves::Outcome,
+        scope: Option<&pse_kernels::ExecutionScope>,
+        budget: &Arc<WorkerBudget>,
+    ) -> super::strategy::Assessed<BlockObservation> {
+        use super::strategy::{Assessed, OriginalConclusion};
+        let mut retention = super::StepRetention {
+            candidate: outcome.candidate_use(&self.numerics.policy),
+            session: super::SessionDisposition::RetainCompatible,
+        };
+        let mut evaluations = 0;
+        let evaluated = match outcome {
+            super::solves::Outcome::Native(report) if report.candidate.is_some() => self
+                .evaluate(report, scope, budget, &mut evaluations)
+                .map(Some),
+            _ => Ok(None),
+        };
+        let mut product = BlockObservation {
+            observed: None,
+            failure: None,
+            storage: self.storage.clone(),
+        };
+        let original = match evaluated {
+            Ok(Some((quality, observation))) => {
+                if !quality.feasible() {
+                    retention
+                        .candidate
+                        .refuse(pse_model::generated::enums::CandidateRefusal::Infeasible);
+                }
+                product.observed = Some((quality, observation));
+                if retention.candidate.permits_use() {
+                    OriginalConclusion::Satisfied
+                } else {
+                    OriginalConclusion::Refused {
+                        cause: Arc::new(native::ProblemError::numerical(format!(
+                            "independent original block assessment refused: {}",
+                            retention.candidate.reason()
+                        ))),
+                    }
+                }
+            }
+            Ok(None) => Assessed::native((), retention.clone(), outcome).original,
+            Err(error) => {
+                let cause = Arc::new(error.into_problem());
+                retention
+                    .candidate
+                    .refuse(pse_model::generated::enums::CandidateRefusal::ValidationFailed);
+                product.failure = Some(cause.clone());
+                OriginalConclusion::Unavailable { cause }
+            }
+        };
+        let mut owner = pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
+        owner
+            .hash(&self.case.assembly.structure().key())
+            .str("independent-original-block-assessment");
+        Assessed {
+            product,
+            original,
+            retention,
+            work: vec![pse_model::strategy::WorkCharge {
+                phase: pse_model::strategy::Phase::Assessment,
+                scope: pse_model::strategy::Scope::Task,
+                charging_owner: owner.finish_hash(),
+                observed: pse_model::strategy::WorkObservation {
+                    attempts: 0,
+                    evaluations: Some(evaluations),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                },
+            }],
+            accuracy: Vec::new(),
+            accuracy_stop: None,
+        }
+    }
+    fn evaluate(
+        &self,
+        report: &SolveReport,
+        scope: Option<&pse_kernels::ExecutionScope>,
+        budget: &Arc<WorkerBudget>,
+        evaluations: &mut u64,
+    ) -> Result<(native::quality::Quality, native::quality::Observation), MathRuntimeError> {
+        self.original.check()?;
+        let scope = scope.ok_or_else(|| {
+            native::ProblemError::Contract("independent block scope missing".into())
+        })?;
+        if !Arc::ptr_eq(scope.cancellation(), &self.original.cancel)
+            || self
+                .original
+                .scope()?
+                .deadline()
+                .is_some_and(|outer| scope.deadline().is_none_or(|deadline| deadline > outer))
+        {
+            return Err(native::ProblemError::Contract(
+                "independent block differs from original task".into(),
+            )
+            .into());
+        }
+        let assembly = &self.case.assembly;
+        let candidate = report.candidate.as_ref().ok_or_else(|| {
+            native::ProblemError::Contract("independent block candidate missing".into())
+        })?;
+        if report.variables.as_slice() != assembly.columns()
+            || candidate.primal.len() != report.variables.len()
+        {
+            return Err(native::ProblemError::Contract(
+                "independent block original coordinate order".into(),
+            )
+            .into());
+        }
+        let structure = assembly.structure();
+        let contract = native::assembled::contract(assembly);
+        let bounds = structure
+            .rows()
+            .iter()
+            .map(|row| (row.lower, row.upper))
+            .collect::<Vec<_>>();
+        if report.rows != contract.rows {
+            return Err(native::ProblemError::Contract(
+                "independent block original row order".into(),
+            )
+            .into());
+        }
+        let tolerance =
+            Tolerances::from_policy(&self.numerics, assembly.columns(), &contract.rows)?;
+        let inputs = assembly.bind_inputs(|id| self.values.scalars.get(&id).copied())?;
+        let scratch = WorkerBudget::new(assembly.numeric_worker_bytes());
+        let mut worker =
+            self.service
+                .worker(self.case.clone(), &self.providers, scope.clone(), &scratch)?;
+        let mut execution = self.original.clone();
+        execution.work_admission = budget
+            .admission()
+            .map(|owner| -> Arc<dyn WorkAdmission> { owner });
+        let values = execution.counted(
+            WorkEvidence {
+                evaluations: Some(1),
+                iterations: Some(0),
+                factorizations: Some(0),
+                proof_steps: Some(0),
+            },
+            || {
+                *evaluations += 1;
+                worker
+                    .worker()
+                    .constraints(inputs.trial(&candidate.primal)?)
+                    .map_err(Into::into)
+            },
+        )?;
+        self.original.check()?;
+        if worker
+            .worker()
+            .applicability_observations()
+            .iter()
+            .any(|observation| observation.required && !observation.admitted)
+        {
+            return Err(native::ProblemError::numerical(
+                "independent original block applicability refused",
+            )
+            .into());
+        }
+        let quality =
+            native::quality::observed(&contract, &bounds, &candidate.primal, &values, &tolerance)?;
+        let mut observation = native::quality::Observation::from_values(None, values, bounds)?;
+        observation.sources = worker.worker().constraint_sources()?;
+        self.original.check()?;
+        Ok((quality, observation))
+    }
+}
+
 impl MathService {
-    /// Bind a conditional block's view to its first values; its programs are the block's own.
-    async fn bind_block(
-        self: &Arc<Self>,
+    /// Bind on the actual serial owner under its pre-admitted construction lease.
+    fn bind_block_local(
+        &self,
         block: &ConditionalBlock,
         quantities: pse_math::SharedAllocation<pse_quantity::QuantityRegistry>,
         preconditions: pse_math::SharedAllocation<pse_quantity::PhysicalPreconditions>,
-        values: CaseValues,
-        driver: &crate::CancelSource,
-        deadline: Option<std::time::Instant>,
+        values: &CaseValues,
+        flag: &Arc<std::sync::atomic::AtomicBool>,
+        lease: Arc<pse_columnar::AllocationLease>,
     ) -> Result<Preparation, MathRuntimeError> {
-        let view = block.view.clone();
-        let demand = view
-            .binding_allocation_bound(&values)?
-            .unwrap_or(self.policy.worker_bytes);
-        if demand > self.policy.worker_bytes {
-            return Err(MathRuntimeError::Limit(
-                "block binding construction capacity",
-            ));
-        }
-        let control = FlightCancellation::default();
-        let operation =
-            self.job_retained_scoped(1, demand, control.clone(), deadline, move |flag| {
-                let bound = view.bind(quantities, preconditions, &values, &flag)?;
-                // The block plan, structural witness, descriptors and registry already
-                // have owners. Only this first binding's products and wrappers escape.
-                let bytes = block_binding_bytes(&bound);
-                Ok((bound, bytes))
-            });
-        tokio::pin!(operation);
-        let (bound, lease) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
-        let executable = Arc::new(std::sync::OnceLock::from(block.executable.clone()));
-        self.own_binding(block.owner.clone(), bound, lease, executable)
+        let bound = block.view.bind(quantities, preconditions, values, flag)?;
+        let bytes = block_binding_bytes(&bound);
+        self.own_binding(
+            block.owner.clone(),
+            bound,
+            super::modeling::retained_construction(lease, bytes)?,
+            Arc::new(std::sync::OnceLock::from(block.executable.clone())),
+        )
     }
 }
 
@@ -1471,6 +1860,21 @@ pub(crate) fn commit_block(
     report: Option<&SolveReport>,
     policy: &pse_model::numerics::NumericalPolicy,
 ) -> Result<(), Arc<native::ProblemError>> {
+    let primal = block_candidate(b, report, policy)?;
+    values.scalars.extend(
+        b.members
+            .columns
+            .iter()
+            .copied()
+            .zip(primal.iter().copied()),
+    );
+    Ok(())
+}
+fn block_candidate<'a>(
+    b: &pse_structural::initialization::Block,
+    report: Option<&'a SolveReport>,
+    policy: &pse_model::numerics::NumericalPolicy,
+) -> Result<&'a [f64], Arc<native::ProblemError>> {
     let Some(r) = report else {
         return Err(Arc::new(native::ProblemError::Contract(
             "conditional block native report unavailable".into(),
@@ -1559,20 +1963,13 @@ pub(crate) fn commit_block(
             "conditional block candidate unavailable".into(),
         ))
     })?;
-    values.scalars.extend(
-        b.members
-            .columns
-            .iter()
-            .copied()
-            .zip(c.primal.iter().copied()),
-    );
-    Ok(())
+    Ok(&c.primal)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::AtomicBool;
+    use std::sync::atomic::{AtomicBool, Ordering};
     fn id(v: u8) -> SemanticId {
         SemanticId::from_bytes([v; 16])
     }
@@ -1580,6 +1977,14 @@ mod tests {
         service: &Arc<MathService>,
         duration: std::time::Duration,
         called: Arc<AtomicBool>,
+    ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
+        declared_submission_with_residency(service, duration, called, 0)
+    }
+    fn declared_submission_with_residency(
+        service: &Arc<MathService>,
+        duration: std::time::Duration,
+        called: Arc<AtomicBool>,
+        resident_foreign_bytes: usize,
     ) -> Result<SolveHandle<DeclaredRootReport>, MathRuntimeError> {
         let contract = native::OracleContract {
             identity: pse_ids::ContentHash::from_bytes([72; 32]),
@@ -1640,17 +2045,70 @@ mod tests {
             super::super::solves::profile_key(&profile).unwrap().as_id(),
             None,
             Some(4096),
+            vec![Backend::Kinsol],
+            resident_foreign_bytes,
             move |_, _| {
-                called.store(true, std::sync::atomic::Ordering::Release);
+                called.store(true, Ordering::Release);
                 Err(native::ProblemError::Internal(
                     "queued declared root factory must not run".into(),
                 ))
             },
         )
     }
+    #[tokio::test(flavor = "current_thread")]
+    async fn declared_root_reserves_all_retained_unit_residency_before_cpu_entry() {
+        let (service, _cache) = super::super::tests::service_with_policy(
+            256 << 20,
+            super::super::MathPolicy {
+                foreign_bytes: 1 << 20,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let cpu = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+        let called = Arc::new(AtomicBool::new(false));
+        let mut ordinary_extent = 0;
+        for residency in [0, 8 << 20] {
+            let handle = declared_submission_with_residency(
+                &service,
+                std::time::Duration::from_secs(5),
+                called.clone(),
+                residency,
+            )
+            .unwrap();
+            let extent = service.pool.reserved() - baseline;
+            if residency == 0 {
+                ordinary_extent = extent;
+            } else {
+                assert_eq!(extent, ordinary_extent + residency);
+            }
+            // No active CPU can be obtained, but construction and all nested opaque
+            // residency are already reserved on this admitted population owner.
+            assert_eq!(service.cpu.available_permits(), 0);
+            assert!(!called.load(Ordering::Acquire));
+            handle.cancel();
+            assert!(matches!(
+                handle.finish().await,
+                Err(MathRuntimeError::Cancelled)
+            ));
+            assert_eq!(service.pool.reserved(), baseline);
+        }
+        assert!(
+            declared_submission_with_residency(
+                &service,
+                std::time::Duration::from_secs(5),
+                called.clone(),
+                usize::MAX
+            )
+            .is_err()
+        );
+        assert!(!called.load(Ordering::Acquire));
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.pool.reserved(), baseline);
+        drop(cpu);
+    }
     #[tokio::test]
     async fn declared_root_deadline_and_cancellation_cover_cpu_wait_without_dispatch() {
-        use std::sync::atomic::Ordering;
         let (service, _cache) = super::super::tests::service_with_policy(
             256 << 20,
             super::super::MathPolicy {
@@ -1719,7 +2177,7 @@ mod tests {
             declared_submission(&service, std::time::Duration::from_secs(5), called.clone()),
             Err(MathRuntimeError::Limit("native jobs"))
         ));
-        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!called.load(Ordering::Acquire));
         for handle in &handles {
             handle.cancel();
         }
@@ -1729,7 +2187,7 @@ mod tests {
                 Err(MathRuntimeError::Cancelled)
             ));
         }
-        assert!(!called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(!called.load(Ordering::Acquire));
         assert_eq!(service.jobs.available_permits(), 32);
         assert_eq!(service.pool.reserved(), baseline);
         drop(cpu);
@@ -1754,7 +2212,7 @@ mod tests {
                 .await;
         // The supplied factory's original typed refusal follows dispatch. The
         // unchanged worker ceiling must not refuse this tiny factory at entry.
-        assert!(called.load(std::sync::atomic::Ordering::Acquire));
+        assert!(called.load(Ordering::Acquire));
         assert!(result.is_err());
         // The returned refusal owns its retained strategy trace until released.
         drop(result);
@@ -1965,44 +2423,82 @@ mod tests {
         drop(plan);
         drop(registry);
         let parents = service.pool.reserved();
-        // Filling the existing test pool must still refuse worker admission, with no
-        // retained binding or parent charge lost by the failed first attempt.
-        let pressure = service
-            .reserve("math:test-pressure", (256 << 20) - parents)
+        let session = service.open_session().unwrap();
+        let resident = service.pool.reserved() - parents;
+        let values = CaseValues {
+            scalars: BTreeMap::new(),
+        };
+        let demand = prepared.blocks[0]
+            .view
+            .binding_allocation_bound(&values)
+            .unwrap()
             .unwrap();
-        assert!(matches!(
-            service
-                .bind_block(
-                    &prepared.blocks[0],
-                    prepared.quantities.clone(),
-                    prepared.preconditions.clone(),
-                    CaseValues {
-                        scalars: BTreeMap::new()
-                    },
-                    &crate::CancelSource::new(),
+        // The actual local constructor yields active resources while the original
+        // operation clock expires under pressure; all shared parents survive.
+        let pressure = service
+            .reserve("math:test-pressure", (256 << 20) - service.pool.reserved())
+            .unwrap();
+        let worker_service = service.clone();
+        let worker_prepared = prepared.clone();
+        let worker_values = values.clone();
+        let driver = crate::CancelSource::new();
+        let expired = session
+            .sequence(
+                pse_kernels::ExecutionScope::new(
+                    Arc::default(),
                     Some(std::time::Instant::now() + std::time::Duration::from_millis(20)),
-                )
-                .await,
+                ),
+                Controls::default(),
+                &driver,
+                move |local| {
+                    local.construct(demand, |lease| {
+                        worker_service.bind_block_local(
+                            &worker_prepared.blocks[0],
+                            worker_prepared.quantities.clone(),
+                            worker_prepared.preconditions.clone(),
+                            &worker_values,
+                            &local.execution().cancel,
+                            lease,
+                        )
+                    })
+                },
+            )
+            .await;
+        assert!(matches!(
+            expired,
             Err(MathRuntimeError::Solve(native::ProblemError::Limit {
                 kind: native::LimitKind::Time,
                 ..
             }))
         ));
         drop(pressure);
-        assert_eq!(service.pool.reserved(), parents);
-        let bound = service
-            .bind_block(
-                &prepared.blocks[0],
-                prepared.quantities.clone(),
-                prepared.preconditions.clone(),
-                CaseValues {
-                    scalars: BTreeMap::new(),
+        assert_eq!(service.pool.reserved(), parents + resident);
+        let worker_service = service.clone();
+        let worker_prepared = prepared.clone();
+        let bound = session
+            .sequence(
+                pse_kernels::ExecutionScope::new(
+                    Arc::default(),
+                    Some(std::time::Instant::now() + std::time::Duration::from_secs(10)),
+                ),
+                Controls::default(),
+                &driver,
+                move |local| {
+                    local.construct(demand, |lease| {
+                        worker_service.bind_block_local(
+                            &worker_prepared.blocks[0],
+                            worker_prepared.quantities.clone(),
+                            worker_prepared.preconditions.clone(),
+                            &values,
+                            &local.execution().cancel,
+                            lease,
+                        )
+                    })
                 },
-                &crate::CancelSource::new(),
-                None,
             )
             .await
             .unwrap();
+        session.close().await;
         assert_eq!(
             service.pool.reserved() - parents,
             block_binding_bytes(bound.compiled())
@@ -2083,16 +2579,23 @@ mod tests {
             .unwrap();
         drop(source);
         let driver = crate::CancelSource::new();
+        let demand = prepared.blocks[0]
+            .view
+            .binding_allocation_bound(&values)
+            .unwrap()
+            .unwrap();
+        let lease = service
+            .reserve("test:initialization-first-binding", demand)
+            .unwrap();
         let mut bound = service
-            .bind_block(
+            .bind_block_local(
                 &prepared.blocks[0],
                 prepared.quantities.clone(),
                 prepared.preconditions.clone(),
-                values.clone(),
-                &driver,
-                None,
+                &values,
+                &Arc::new(AtomicBool::new(false)),
+                lease,
             )
-            .await
             .unwrap();
         let mut plateau = None;
         // This is the production first-bind/rebind sequence and latest-view overwrite
@@ -2232,9 +2735,26 @@ mod tests {
             .unwrap();
         let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
         let session = service.open_session().unwrap();
+        let mut other_residents = Vec::new();
+        for _ in 1..service.policy.jobs {
+            other_residents.push(service.open_session().unwrap());
+        }
+        assert_eq!(service.jobs.available_permits(), 0);
+        let worker_service = service.clone();
+        let worker_prepared = prepared.clone();
+        let worker_owner = owner.clone();
+        let worker_progress = progress.clone();
+        let operation_cancel = cancel.clone();
+        let operation_scope = scope.clone();
+        let operation_controls = profile.solver.controls.clone();
+        let sequence = session.sequence(operation_scope, operation_controls, &cancel, move |local| {
+            let service = worker_service;
+            let prepared = worker_prepared;
+            let owner = worker_owner;
+            let progress = worker_progress;
         let mut run = Blocks {
             service: &service,
-            session: &session,
+            local,
             prepared: &prepared,
             providers: &providers,
             profile: &profile,
@@ -2242,15 +2762,83 @@ mod tests {
             numerics: &numerics,
             progress: &progress,
             owner: &owner,
-            cancel: &cancel,
+            cancel: &operation_cancel,
             scope,
             admission: None,
-            control,
             run_id: pse_operations::mint_id(),
             bound: vec![None],
             attempts: Vec::new(),
         };
-        let (report, trace) = run.attempt(0, &values, None).await.unwrap();
+        let (report, trace) = local.run_ready(run.attempt(0, &values, None)).unwrap();
+        // A report can retain a successful same-point solver observation while its
+        // candidate no longer satisfies the authored block. Only fresh independent
+        // evaluation may authorize the commit or finish the automatic strategy.
+        {
+            use super::super::strategy::{self, OriginalConclusion};
+            let executable = run.bound[0].as_ref().unwrap().executable.get().unwrap().clone();
+            let bytes = executable.assembly.numeric_worker_bytes() + 16384;
+            let assessor = local.construct(bytes, |storage| Ok(BlockAssessor {
+                service: service.clone(), case: executable, values: values.clone(),
+                providers: providers.clone(), numerics: numerics.clone(),
+                original: local.execution().clone(), storage,
+            })).unwrap();
+            let mut forged = report.clone();
+            forged.candidate.as_mut().unwrap().primal[0] = 2.;
+            assert!(crate::workflow::numerics::native_use(&forged, &numerics.policy).permits_use(),
+                "revealing control must start with stale native permission");
+            let outcome = super::super::solves::Outcome::Native(forged);
+            let budget = WorkerBudget::new(bytes);
+            let assessed = assessor.assess(&outcome, Some(&run.scope), &budget);
+            assert!(matches!(assessed.original, OriginalConclusion::Refused { .. }));
+            assert!(!assessed.retention.candidate.permits_use());
+            assert_eq!(assessed.work[0].observed.evaluations, Some(1));
+            assert!(!assessed.product.observed.as_ref().unwrap().0.feasible());
+            let last = strategy::AutoObservation { awaiting_assessment: false,
+                native: strategy::observe(&outcome), original: Some(assessed.original),
+                permission: Some(assessed.retention.candidate.usability) };
+            let recovery = strategy::AutoCandidate {
+                identity: pse_ids::ContentHash::from_bytes([91; 32]),
+                kind: pse_model::strategy::MechanismKind::Direct,
+                start: pse_model::strategy::StartOrigin::Specification,
+                replacement: false, support: Default::default(), reservation: None, prepared: true,
+            };
+            let request = pse_model::strategy::CompositionRequest::default();
+            let starts = pse_model::strategy::StartRules {
+                policy: StartPolicy::NoPriorStart, recovery: Vec::new(),
+            };
+            assert!(matches!(strategy::next_automatic(&request, &starts, &[recovery],
+                &BTreeSet::new(), Some(&last), pse_model::strategy::WorkObservation {
+                    attempts: 1, evaluations: Some(0), iterations: Some(0),
+                    factorizations: Some(0), proof_steps: Some(0),
+                }, false),
+                strategy::AutoDecision::Dispatch { candidate: 0 }));
+            let super::super::solves::Outcome::Native(mut refused) = outcome else { unreachable!() };
+            assessed.product.apply(&mut refused);
+            let mut untouched = values.clone();
+            assert!(commit_block(&mut untouched, &prepared.blocks[0].boundary, Some(&refused),
+                &numerics.policy).is_err());
+            assert_eq!(untouched.scalars, values.scalars,
+                "refused independent coordinates cannot become a successor input or stage commit");
+            let refreshed = assessor.assess(&super::super::solves::Outcome::Native(report.clone()),
+                Some(&run.scope), &budget);
+            assert!(refreshed.original.satisfied());
+            assert_eq!(refreshed.work[0].observed.evaluations, Some(1));
+            assert!(refreshed.product.observed.as_ref().unwrap().0.feasible());
+            let wrong_owner = pse_kernels::ExecutionScope::new(Arc::new(AtomicBool::new(false)), run.scope.deadline());
+            let refused = assessor.assess(&super::super::solves::Outcome::Native(report.clone()),
+                Some(&wrong_owner), &budget);
+            assert!(matches!(refused.original, OriginalConclusion::Unavailable { .. }));
+            assert_eq!(refused.work[0].observed.evaluations, Some(0));
+            let mut original = assessor.original.clone();
+            original.time_limit = std::time::Duration::ZERO;
+            let expired = BlockAssessor { original, ..assessor };
+            let refused = expired.assess(&super::super::solves::Outcome::Native(report.clone()),
+                Some(&run.scope), &budget);
+            assert!(matches!(refused.original, OriginalConclusion::Unavailable { .. }));
+            assert!(!refused.retention.candidate.permits_use());
+            assert_eq!(refused.work[0].observed.evaluations, Some(0));
+            assert!(!run.scope.cancellation().load(Ordering::Acquire));
+        }
         let mut committed = values.clone();
         commit_block(
             &mut committed,
@@ -2282,7 +2870,7 @@ mod tests {
                 escaped.push(snapshot);
             }
             values.scalars.insert(parameter, 2. + index as f64);
-            let (report, trace) = run.attempt(0, &values, None).await.unwrap();
+            let (report, trace) = local.run_ready(run.attempt(0, &values, None)).unwrap();
             let latest = run.bound[0].as_ref().unwrap();
             assert!(
                 previous.upgrade().is_none(),
@@ -2354,7 +2942,32 @@ mod tests {
             "the latest-only control must not retain attempt history"
         );
         drop(run);
+            Ok(())
+        });
+        #[cfg(feature = "solver-ipopt")]
+        {
+            let entries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let observed = entries.clone();
+            super::super::observed_native_entry(
+                Arc::new(move |_| {
+                    observed.fetch_add(1, Ordering::AcqRel);
+                }),
+                sequence,
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                entries.load(Ordering::Acquire),
+                1,
+                "all actual block attempts must execute on one native channel entry"
+            );
+        }
+        #[cfg(not(feature = "solver-ipopt"))]
+        sequence.await.unwrap();
         session.close().await;
+        for resident in other_residents {
+            resident.close().await;
+        }
         drop((prepared, owner, progress));
         service.clear_program_cache();
         assert_eq!(service.pool.reserved(), 0);

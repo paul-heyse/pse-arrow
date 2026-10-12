@@ -1,0 +1,99 @@
+{
+  "baseline": "zero assertion failures",
+  "cubic_authored_oracles": [
+    {
+      "name": "three",
+      "coefficients": [
+        "0",
+        "-6",
+        "-1",
+        "1"
+      ],
+      "distinct_roots": 3,
+      "multiplicities": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "repeated",
+      "coefficients": [
+        "-1",
+        "3",
+        "-3",
+        "1"
+      ],
+      "distinct_roots": 1,
+      "multiplicities": [
+        3
+      ]
+    },
+    {
+      "name": "quadratic",
+      "coefficients": [
+        "-1",
+        "0",
+        "1"
+      ],
+      "distinct_roots": 2,
+      "multiplicities": [
+        1,
+        1
+      ]
+    },
+    {
+      "name": "linear",
+      "coefficients": [
+        "-2",
+        "1"
+      ],
+      "distinct_roots": 1,
+      "multiplicities": [
+        1
+      ]
+    },
+    {
+      "name": "near-critical",
+      "coefficients": [
+        "0",
+        "-1/1152921504606846976",
+        "0",
+        "1"
+      ],
+      "distinct_roots": 3,
+      "multiplicities": [
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "nearcritical_candidate_zero_residual_is_not_completeness": true,
+  "nearcritical_wide_branch_roots": 3,
+  "narrow_branch_roots": 1,
+  "rank": {
+    "matrix": [
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        9.313225746154785e-10
+      ]
+    ],
+    "relative_cutoff": 6.984919309616089e-10,
+    "singular_values": [
+      1.4142135623730951,
+      6.585445079827192e-10
+    ],
+    "qr_diagonal": [
+      1.0,
+      9.313225746154785e-10
+    ],
+    "svd_rank": 1,
+    "qr_diagonal_rank": 2
+  },
+  "current_64MiB_factor_allowance_max_dimension": 1019
+}

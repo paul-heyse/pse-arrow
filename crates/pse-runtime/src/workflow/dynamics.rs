@@ -11,6 +11,33 @@ use pse_math::{assembly::CaseWorker, binding::CaseValues};
 use std::{collections::BTreeMap, sync::Arc};
 /// Dynamic controls use the concrete native profile; values are validated at preparation.
 pub type SimulationProfile = native::Profile;
+/// Reserve each owned derivative snapshot before its matrix is cloned. The
+/// resulting owner follows all aliases, independently of the worker lifetime.
+#[derive(Clone)]
+pub(crate) struct SnapshotAllocator(
+    Arc<dyn Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> + Send + Sync>,
+);
+impl std::fmt::Debug for SnapshotAllocator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SnapshotAllocator")
+    }
+}
+impl SnapshotAllocator {
+    pub(crate) fn new(
+        allocate: impl Fn(usize) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self(Arc::new(allocate))
+    }
+    pub(crate) fn reserve(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        (self.0)(bytes)
+    }
+}
 #[derive(Clone, Debug)]
 pub(crate) struct FunctionProgram {
     pub(crate) mode: usize,
@@ -273,6 +300,7 @@ impl DynamicProgram {
     pub(crate) fn worker(
         &self,
         scope: pse_kernels::ExecutionScope,
+        snapshots: SnapshotAllocator,
     ) -> Result<DynamicWorker, ProblemError> {
         DynamicWorker::new(
             self.contract.clone(),
@@ -281,6 +309,7 @@ impl DynamicProgram {
             &self.modes,
             self.layout.clone(),
             scope,
+            snapshots,
         )
     }
 }
@@ -431,6 +460,7 @@ impl DynamicWorker {
         modes: &[DynamicMode],
         layout: Arc<DynamicLayout>,
         scope: pse_kernels::ExecutionScope,
+        snapshots: SnapshotAllocator,
     ) -> Result<Self, ProblemError> {
         scope.check().map_err(ProblemError::Provider)?;
         if modes.len() != contract.events.len() {
@@ -491,6 +521,7 @@ impl DynamicWorker {
             functions,
             layout,
             scope,
+            snapshots,
         })
     }
 }
@@ -519,6 +550,7 @@ pub(crate) struct DynamicWorker {
     functions: BTreeMap<(usize, Function), FunctionWorker>,
     layout: Arc<DynamicLayout>,
     scope: pse_kernels::ExecutionScope,
+    snapshots: SnapshotAllocator,
 }
 impl DynamicWorker {
     #[cfg(test)]
@@ -636,6 +668,12 @@ impl DynamicWorker {
     }
 }
 impl Oracle for DynamicWorker {
+    fn snapshot_owner(
+        &self,
+        bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        self.snapshots.reserve(bytes)
+    }
     fn contract(&self) -> &native::Contract {
         &self.contract
     }
@@ -653,74 +691,100 @@ impl Oracle for DynamicWorker {
         parameters: &[f64],
         derivatives: bool,
     ) -> Result<native::Evaluation, ProblemError> {
-        self.scope.check().map_err(ProblemError::Provider)?;
-        let role = function;
-        let Some(function) = self.functions.get(&(mode, function)) else {
-            if function == Function::Roots && mode < self.contract.events.len() {
-                return Ok(native::Evaluation {
-                    values: vec![],
-                    jacobian: None,
-                });
+        let result = (|| {
+            self.scope.check().map_err(ProblemError::Provider)?;
+            let role = function;
+            let Some(function) = self.functions.get(&(mode, function)) else {
+                if function == Function::Roots && mode < self.contract.events.len() {
+                    return Ok(native::Evaluation {
+                        values: vec![],
+                        jacobian: None,
+                    });
+                }
+                return Err(ProblemError::Internal(
+                    "missing compiled dynamic function".into(),
+                ));
+            };
+            let bits = std::iter::once(time)
+                .chain(state.iter().copied())
+                .chain(parameters.iter().copied())
+                .map(f64::to_bits);
+            if let Some((key, evaluation)) = &function.cache
+                && (!derivatives || evaluation.jacobian.is_some())
+                && key.iter().copied().eq(bits.clone())
+            {
+                let mut result = evaluation.clone();
+                if !derivatives {
+                    result.jacobian = None;
+                }
+                return Ok(result);
             }
-            return Err(ProblemError::Internal(
-                "missing compiled dynamic function".into(),
-            ));
-        };
-        let bits = std::iter::once(time)
-            .chain(state.iter().copied())
-            .chain(parameters.iter().copied())
-            .map(f64::to_bits);
-        if let Some((key, evaluation)) = &function.cache
-            && (!derivatives || evaluation.jacobian.is_some())
-            && key.iter().copied().eq(bits.clone())
-        {
-            let mut result = evaluation.clone();
-            if !derivatives {
-                result.jacobian = None;
+            self.bind(mode, role, time, state, parameters)?;
+            let function = self.functions.get_mut(&(mode, role)).ok_or_else(|| {
+                ProblemError::Internal("missing compiled dynamic function".into())
+            })?;
+            function.cache = None;
+            #[cfg(test)]
+            {
+                function.evaluations += 1;
             }
-            return Ok(result);
-        }
-        self.bind(mode, role, time, state, parameters)?;
-        let function = self
-            .functions
-            .get_mut(&(mode, role))
-            .ok_or_else(|| ProblemError::Internal("missing compiled dynamic function".into()))?;
-        function.cache = None;
-        #[cfg(test)]
-        {
-            function.evaluations += 1;
-        }
-        let context = &self.modes[mode];
-        let p = &function.program;
-        let rows = function.worker.constraints(&context.values)?;
-        let values = p
-            .rows
-            .iter()
-            .enumerate()
-            .map(|(i, &r)| {
-                p.constants
-                    .get(&i)
-                    .copied()
-                    .unwrap_or_else(|| rows[r] * p.scales[i] + p.offsets[i])
-            })
-            .collect::<Vec<_>>();
-        let jacobian = if derivatives {
-            let source = function.worker.jacobian(&context.values)?;
-            function.jacobian.clear();
-            for &(local, target, scale) in &function.layout.refill {
-                function.jacobian.add(target, source.val()[local] * scale)?;
+            let context = &self.modes[mode];
+            let p = &function.program;
+            let rows = function.worker.constraints(&context.values)?;
+            let values = p
+                .rows
+                .iter()
+                .enumerate()
+                .map(|(i, &r)| {
+                    p.constants
+                        .get(&i)
+                        .copied()
+                        .unwrap_or_else(|| rows[r] * p.scales[i] + p.offsets[i])
+                })
+                .collect::<Vec<_>>();
+            if values.iter().any(|v| !v.is_finite()) {
+                return Err(ProblemError::numerical("nonfinite dynamic values"));
             }
-            Some(function.jacobian.matrix().clone())
-        } else {
-            None
-        };
-        if values.iter().any(|v| !v.is_finite()) {
-            return Err(ProblemError::numerical("nonfinite dynamic values"));
+            let jacobian = if derivatives {
+                let source = function.worker.jacobian(&context.values)?;
+                function.jacobian.clear();
+                for &(local, target, scale) in &function.layout.refill {
+                    function.jacobian.add(target, source.val()[local] * scale)?;
+                }
+                if function
+                    .jacobian
+                    .matrix()
+                    .val()
+                    .iter()
+                    .any(|v| !v.is_finite())
+                {
+                    return Err(ProblemError::numerical("nonfinite dynamic partials"));
+                }
+                let bytes = function
+                    .jacobian
+                    .retained_bytes()
+                    .checked_add(size_of::<usize>() * 2)
+                    .ok_or_else(|| ProblemError::memory("dynamic derivative snapshot extent"))?;
+                let owner = self.snapshots.reserve(bytes)?;
+                Some(
+                    pse_math::SharedAllocation::from(Arc::new(function.jacobian.matrix().clone()))
+                        .with_owner(owner),
+                )
+            } else {
+                None
+            };
+            let result = native::Evaluation { values, jacobian };
+            self.scope.check().map_err(ProblemError::Provider)?;
+            function.cache = Some((bits.collect(), result.clone()));
+            Ok(result)
+        })();
+        if result.is_err() {
+            for function in self.functions.values_mut() {
+                function.cache = None;
+                function.worker.invalidate_trial();
+            }
         }
-        let result = native::Evaluation { values, jacobian };
-        self.scope.check().map_err(ProblemError::Provider)?;
-        function.cache = Some((bits.collect(), result.clone()));
-        Ok(result)
+        result
     }
     /// The compiled case's exact Lagrangian Hessian with the function rows' weights as
     /// multipliers (ADR-0110 item 4): a row's weight carries its value scale, constant

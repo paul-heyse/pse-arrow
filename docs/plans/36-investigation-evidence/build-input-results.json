@@ -1,0 +1,79 @@
+{
+  "scope": "actual unmodified build script; miniature downstream; no native features",
+  "sequence": [
+    {
+      "mode": "cold-plain",
+      "build_script_ran": false,
+      "probe_rustc": true,
+      "downstream_rustc": true,
+      "dirty_reasons": [],
+      "outputs": {
+        "pounce-source.txt": {
+          "sha256": "fa209245146c0000e4bda387abd7b8910e6ea3ce4bd261be5a4adb0de27de9a6",
+          "mtime_ns": 1791711722613752091
+        },
+        "solver-manifest.txt": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "mtime_ns": 1791711722612750896
+        }
+      }
+    },
+    {
+      "mode": "warm-plain",
+      "build_script_ran": false,
+      "probe_rustc": false,
+      "downstream_rustc": false,
+      "dirty_reasons": [],
+      "outputs": {
+        "pounce-source.txt": {
+          "sha256": "fa209245146c0000e4bda387abd7b8910e6ea3ce4bd261be5a4adb0de27de9a6",
+          "mtime_ns": 1791711722613752091
+        },
+        "solver-manifest.txt": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "mtime_ns": 1791711722612750896
+        }
+      }
+    },
+    {
+      "mode": "native-environment",
+      "build_script_ran": false,
+      "probe_rustc": true,
+      "downstream_rustc": true,
+      "dirty_reasons": [
+        "Dirty plan36-backend-build-probe v0.0.1 (/tmp/pse36-build-input-qngisuaq/crates/probe): the env variable IPOPT_DIR changed",
+        "Dirty plan36-downstream-probe v0.0.1 (/tmp/pse36-build-input-qngisuaq/crates/downstream): info of dependency `plan36-backend-build-probe` changed"
+      ],
+      "outputs": {
+        "pounce-source.txt": {
+          "sha256": "fa209245146c0000e4bda387abd7b8910e6ea3ce4bd261be5a4adb0de27de9a6",
+          "mtime_ns": 1791711723098323303
+        },
+        "solver-manifest.txt": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "mtime_ns": 1791711723098323303
+        }
+      }
+    },
+    {
+      "mode": "return-plain",
+      "build_script_ran": false,
+      "probe_rustc": true,
+      "downstream_rustc": true,
+      "dirty_reasons": [
+        "Dirty plan36-backend-build-probe v0.0.1 (/tmp/pse36-build-input-qngisuaq/crates/probe): the env variable IPOPT_DIR changed",
+        "Dirty plan36-downstream-probe v0.0.1 (/tmp/pse36-build-input-qngisuaq/crates/downstream): info of dependency `plan36-backend-build-probe` changed"
+      ],
+      "outputs": {
+        "pounce-source.txt": {
+          "sha256": "fa209245146c0000e4bda387abd7b8910e6ea3ce4bd261be5a4adb0de27de9a6",
+          "mtime_ns": 1791711723563846152
+        },
+        "solver-manifest.txt": {
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "mtime_ns": 1791711723563846152
+        }
+      }
+    }
+  ]
+}

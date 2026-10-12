@@ -49,6 +49,24 @@ class TableStream:
         """Make further consumption fail with the cancellation diagnostic."""
         self._handle.cancel()
 
+    def next_batch(self) -> pa.RecordBatch | None:
+        """Pull one batch with Python signal checks and cancellation through drain.
+
+        The first pull consumes this stream; capsule export afterwards refuses.
+        None means normal exhaustion. Native errors and interruption raise.
+        """
+        return self._handle.next_batch()
+
+    def __iter__(self) -> Self:
+        """Iterate through the Python-controlled consumption route."""
+        return self
+
+    def __next__(self) -> pa.RecordBatch:
+        batch = self.next_batch()
+        if batch is None:
+            raise StopIteration
+        return batch
+
     def extension_report(self, consumer_schema: pa.Schema) -> tuple[FieldTransfer, ...]:
         """Compare this source with the schema an actual consumer supplied.
 

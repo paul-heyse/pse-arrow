@@ -14,6 +14,11 @@ static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn materialize(source: &Path, destination: &Path) -> io::Result<()> {
     let bytes = fs::read(source)?;
+    write_if_changed(destination, &bytes)
+}
+
+/// Preserve an unchanged Cargo output's bytes and modification time.
+pub(crate) fn write_if_changed(destination: &Path, bytes: &[u8]) -> io::Result<()> {
     match fs::read(destination) {
         Ok(current) if current == bytes => {
             // Older builds copied the source's sealed mode. Repair the output alone,
@@ -53,7 +58,7 @@ pub(crate) fn materialize(source: &Path, destination: &Path) -> io::Result<()> {
         }
     };
     let result = (|| {
-        file.write_all(&bytes)?;
+        file.write_all(bytes)?;
         file.sync_all()?;
         drop(file);
         fs::rename(&temporary, destination)

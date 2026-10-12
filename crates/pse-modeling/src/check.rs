@@ -10,6 +10,8 @@ use petgraph::{
 use pse_authoring::dsl;
 use pse_ids::SemanticId;
 use pse_model::generated::identities::DeclarationId;
+pub mod phases;
+use phases::Phases;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
@@ -265,6 +267,25 @@ fn selected_map<T: Clone>(
         .collect()
 }
 impl CheckedPackage {
+    /// Move unbound occurrence fields into the compiler's pure binding phase.
+    pub fn take_unbound_occurrences(
+        &mut self,
+    ) -> BTreeMap<
+        crate::expression::occurrences::OccurrenceKey,
+        crate::expression::occurrences::CheckedExpression,
+    > {
+        std::mem::take(&mut self.expressions)
+    }
+    /// Install the complete result of pure occurrence binding.
+    pub fn set_bound_occurrences(
+        &mut self,
+        expressions: BTreeMap<
+            crate::expression::occurrences::OccurrenceKey,
+            crate::expression::occurrences::CheckedExpression,
+        >,
+    ) {
+        self.expressions = expressions;
+    }
     /// Immutable context-dependent scientific selection products admitted with this package.
     pub fn selection_closures(&self) -> &crate::scientific_selection::Selections {
         &self.selection_closures
@@ -413,7 +434,24 @@ impl CheckedPackage {
         owner: DeclarationId,
         name: &str,
     ) -> Option<DeclarationId> {
-        if let Some(member) = self.members.get(&owner).and_then(|m| m.get(name)) {
+        self.declared_member_with_types(owner, name, &|id| self.types.get(&id))
+    }
+    fn declared_member_with_types<'a>(
+        &self,
+        owner: DeclarationId,
+        name: &str,
+        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
+    ) -> Option<DeclarationId> {
+        self.declared_member_with(owner, name, types, &|id| self.members.get(&id))
+    }
+    fn declared_member_with<'a, 'b>(
+        &self,
+        owner: DeclarationId,
+        name: &str,
+        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
+        members: &impl Fn(DeclarationId) -> Option<&'b BTreeMap<String, DeclarationId>>,
+    ) -> Option<DeclarationId> {
+        if let Some(member) = members(owner).and_then(|m| m.get(name)) {
             return Some(*member);
         }
         // Guarded declarations have a source contract even before their guard is
@@ -438,12 +476,7 @@ impl CheckedPackage {
             }
         }
         let mut found = BTreeSet::new();
-        for member in self
-            .members
-            .get(&owner)
-            .into_iter()
-            .flat_map(|m| m.values())
-        {
+        for member in members(owner).into_iter().flat_map(|m| m.values()) {
             visit(self, *member, name, &mut found);
         }
         let first = found.first().copied()?;
@@ -451,7 +484,7 @@ impl CheckedPackage {
             return Some(first);
         }
         let first_row = &self.declarations[&first];
-        let ty = self.types.get(&first)?;
+        let ty = types(first)?;
         ty.quantity_scheme()?;
         let indices = crate::expression::member_indices(first_row);
         // A representative supplies only the common source type and coordinate
@@ -461,7 +494,7 @@ impl CheckedPackage {
             .all(|id| {
                 let row = &self.declarations[id];
                 row.value.kind == first_row.value.kind
-                    && self.types.get(id) == Some(ty)
+                    && types(*id) == Some(ty)
                     && crate::expression::member_indices(row)
                         .iter()
                         .map(|(_, domain)| *domain)
@@ -513,7 +546,24 @@ impl CheckedPackage {
     }
 
     /// Resolve lexical names, explicit imports, and names within the owning package.
-    pub fn resolve(&self, mut owner: DeclarationId, name: &str) -> Option<DeclarationId> {
+    pub fn resolve(&self, owner: DeclarationId, name: &str) -> Option<DeclarationId> {
+        self.resolve_with_types(owner, name, &|id| self.types.get(&id))
+    }
+    fn resolve_with_types<'a>(
+        &self,
+        owner: DeclarationId,
+        name: &str,
+        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
+    ) -> Option<DeclarationId> {
+        self.resolve_with_members(owner, name, types, &|id| self.members.get(&id))
+    }
+    fn resolve_with_members<'a, 'b>(
+        &self,
+        mut owner: DeclarationId,
+        name: &str,
+        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
+        members: &impl Fn(DeclarationId) -> Option<&'b BTreeMap<String, DeclarationId>>,
+    ) -> Option<DeclarationId> {
         if let Some(id) = name
             .strip_prefix("f_")
             .and_then(|hex| SemanticId::parse_hex(hex).ok())
@@ -537,7 +587,7 @@ impl CheckedPackage {
                     }
                 }
             }
-            if let Some(id) = self.declared_member(owner, name) {
+            if let Some(id) = self.declared_member_with(owner, name, types, members) {
                 return Some(id);
             }
             if let Some(id) = self
@@ -585,6 +635,13 @@ impl CheckedPackage {
     }
 
     pub(crate) fn named_types(&self, owner: DeclarationId) -> BTreeMap<String, Type> {
+        self.named_types_with(owner, &|id| self.types.get(&id))
+    }
+    fn named_types_with<'a>(
+        &self,
+        owner: DeclarationId,
+        types: &impl Fn(DeclarationId) -> Option<&'a Type>,
+    ) -> BTreeMap<String, Type> {
         let mut chain = Vec::new();
         let mut node = Some(owner);
         while let Some(id) = node {
@@ -614,8 +671,8 @@ impl CheckedPackage {
                 .into_iter()
                 .chain(self.names_below(&prefix))
             {
-                if let Some(ty) = self.types.get(id)
-                    && self.resolve(owner, name) == Some(*id)
+                if let Some(ty) = types(*id)
+                    && self.resolve_with_types(owner, name, types) == Some(*id)
                 {
                     names.insert(name.clone(), ty.clone());
                 }
@@ -648,8 +705,8 @@ impl CheckedPackage {
                 let prefix = format!("{scope}.");
                 for (name, id) in self.names_below(&scope) {
                     if let Some(relative) = name.strip_prefix(&prefix)
-                        && self.resolve(owner, relative) == Some(*id)
-                        && let Some(ty) = self.types.get(id)
+                        && self.resolve_with_types(owner, relative, types) == Some(*id)
+                        && let Some(ty) = types(*id)
                     {
                         names.insert(relative.to_owned(), ty.clone());
                     }
@@ -662,7 +719,7 @@ impl CheckedPackage {
                     let prefix = format!("{}.", row.name);
                     for (name, id) in self.names_below(&row.name) {
                         if let Some(tail) = name.strip_prefix(&prefix)
-                            && let Some(ty) = self.types.get(id)
+                            && let Some(ty) = types(*id)
                         {
                             names.insert(format!("{alias}.{tail}"), ty.clone());
                         }
@@ -670,12 +727,12 @@ impl CheckedPackage {
                 }
             }
             for (name, id) in self.members.get(&owner).into_iter().flatten() {
-                if let Some(ty) = self.types.get(id) {
+                if let Some(ty) = types(*id) {
                     names.insert(name.clone(), ty.clone());
                 }
             }
             for id in self.children.get(&owner).into_iter().flatten() {
-                if let Some(ty) = self.types.get(id) {
+                if let Some(ty) = types(*id) {
                     names.insert(self.declarations[id].name.clone(), ty.clone());
                 }
             }
@@ -699,40 +756,146 @@ pub fn check_with(
     context: &TypeContext<'_>,
     documents: &dyn crate::document::Documents,
 ) -> Result<CheckedPackage> {
-    check_declarations(rows, context, documents).map_err(|error| error.located(rows))
+    check_with_phases(rows, context, documents, &phases::Fresh)
+}
+/// Admit through pure phase owners; consumers may retain exact phase products.
+/// # Errors
+/// The same complete source obligations as [`check_with`].
+pub fn check_with_phases(
+    rows: &[Declaration],
+    context: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+    phases: &dyn Phases,
+) -> Result<CheckedPackage> {
+    check_declarations(rows, context, documents, phases).map_err(|error| error.located(rows))
 }
 fn check_declarations(
     rows: &[Declaration],
     context: &TypeContext<'_>,
     documents: &dyn crate::document::Documents,
+    phases: &dyn Phases,
 ) -> Result<CheckedPackage> {
-    let mut p = CheckedPackage {
-        selection_index: SelectionIndex::default(),
-        expressions: crate::expression::occurrences::collect(rows, documents)?,
-        selection_closures: BTreeMap::new(),
-        quantities: Arc::new(context.quantities.clone()),
-        preconditions: Arc::new(context.preconditions.clone()),
-        scope: Arc::new(context.scope.clone()),
-        lowered_functions: BTreeSet::new(),
-        declarations: BTreeMap::new(),
-        names: BTreeMap::new(),
-        children: BTreeMap::new(),
-        types: BTreeMap::new(),
-        functions: BTreeMap::new(),
-        members: BTreeMap::new(),
-        temporal: BTreeMap::new(),
-        tables: BTreeMap::new(),
-        interfaces: BTreeMap::new(),
-        kinds: BTreeMap::new(),
-        entities: BTreeMap::new(),
-        identifiers: crate::entity::ModelingIdentifierScope::default(),
-        constants: BTreeMap::new(),
-        provenance: BTreeMap::new(),
-        attribute_provenance: BTreeMap::new(),
-        oracles: BTreeMap::new(),
-        test_only: BTreeSet::new(),
-        test_only_data: BTreeSet::new(),
+    let mut parsed = BTreeMap::new();
+    for row in rows {
+        parsed.insert(row.declaration_id, phases.parse(row, documents)?);
+    }
+    let parsed_documents = phases::ParsedDocuments {
+        inner: documents,
+        parsed: &parsed,
     };
+    let documents: &dyn crate::document::Documents = &parsed_documents;
+    let inventory = phases.inventory(rows, context, documents)?;
+    let mut p = inventory.package;
+    let inheritance = inventory.inheritance;
+    let inheritance_order = inventory.order;
+    let mut candidate_scopes = inventory.candidates;
+    documents.preflight(DeclarationId::from_id(SemanticId::NIL), p.retained_bytes())?;
+    let namespace = phases::Namespace::new(&p);
+    let mut types = phases::Types::new_sync();
+    for (id, ty) in &p.types {
+        documents.preflight(*id, phases::type_update_bytes(types.size(), Some(ty)))?;
+        types.insert_mut(*id, ty.clone());
+    }
+    for row in rows {
+        documents.preflight(
+            row.declaration_id,
+            phases::type_update_bytes(types.size(), p.types.get(&row.declaration_id)),
+        )?;
+        let environment = phases::ResolutionEnvironment {
+            namespace: namespace.clone(),
+            types: types.clone(),
+        };
+        let product = phases.signature(row, &parsed[&row.declaration_id], &environment, context)?;
+        if let Some(ty) = product.ty {
+            documents.preflight(
+                row.declaration_id,
+                phases::type_update_bytes(types.size(), Some(&ty)),
+            )?;
+            types.insert_mut(row.declaration_id, ty.clone());
+            p.types.insert(row.declaration_id, ty);
+        }
+        if let Some(function) = product.function {
+            p.functions.insert(row.declaration_id, function);
+        }
+    }
+    documents.preflight(DeclarationId::from_id(SemanticId::NIL), p.retained_bytes())?;
+    let member_namespace = phases::Namespace::new(&p);
+    let mut member_types = phases::Types::new_sync();
+    for (id, ty) in &p.types {
+        documents.preflight(
+            *id,
+            phases::type_update_bytes(member_types.size(), Some(ty)),
+        )?;
+        member_types.insert_mut(*id, ty.clone());
+    }
+    let mut member_state = phases::Members::new_sync();
+    for (id, values) in &p.members {
+        documents.preflight(
+            *id,
+            phases::type_update_bytes(member_state.size(), None).saturating_add(
+                values
+                    .keys()
+                    .map(|name| name.capacity() + 128)
+                    .sum::<usize>(),
+            ),
+        )?;
+        member_state.insert_mut(*id, Arc::new(values.clone()));
+    }
+    for node in inheritance_order {
+        let id = inheritance.id(node);
+        let row = &p.declarations[&id];
+        if row.value.scope.is_none() {
+            continue;
+        }
+        let candidate = candidate_scopes.remove(&id);
+        let input = phases::MemberInput::new(
+            &p,
+            id,
+            member_namespace.clone(),
+            member_types.clone(),
+            member_state.clone(),
+            inheritance.clone(),
+            candidate,
+        )?;
+        let product = phases.members(&input)?;
+        for (id, ty) in product.types {
+            documents.preflight(
+                id,
+                phases::type_update_bytes(member_types.size(), Some(&ty)),
+            )?;
+            member_types.insert_mut(id, ty.clone());
+            p.types.insert(id, ty);
+        }
+        documents.preflight(
+            id,
+            phases::type_update_bytes(member_state.size(), None).saturating_add(
+                product
+                    .members
+                    .keys()
+                    .map(|name| name.capacity() + 128)
+                    .sum::<usize>(),
+            ),
+        )?;
+        member_state.insert_mut(id, Arc::new(product.members.clone()));
+        p.members.insert(id, product.members);
+        if let Some(contracts) = product.contracts {
+            p.interfaces.insert(id, contracts);
+        }
+    }
+    let mut p = phases.finish(p, context, documents)?;
+    phases.bind(&mut p)?;
+    phases.expressions(&mut p, context, documents)?;
+    p.selection_index = SelectionIndex::build(&p);
+    Ok(p)
+}
+
+pub(super) fn inventory_package(
+    rows: &[Declaration],
+    context: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<phases::InventoryProduct> {
+    let mut p = empty_package(context);
+    p.expressions = crate::expression::occurrences::collect(rows, documents)?;
     for row in rows {
         if row.declaration_id.as_id() == SemanticId::NIL {
             return Err(invalid(row.declaration_id, "nil declaration identity"));
@@ -1381,387 +1544,20 @@ fn check_declarations(
         p.interfaces.insert(id, contracts.clone());
         candidate_scopes.insert(id, (own, effective, contracts));
     }
-    for row in rows {
-        let id = row.declaration_id;
-        let mut names = p.named_types(id);
-        let mut variables = BTreeSet::new();
-        let mut owner = Some(id);
-        while let Some(at) = owner {
-            if let Some(scope) = &p.declarations[&at].value.scope {
-                variables.extend(scope.type_parameters.iter().cloned());
-                for arg in &scope.parameters {
-                    let ty = context.resolve(&arg.r#type, &variables, &names, at)?;
-                    names.insert(arg.name.clone(), ty);
-                }
-            }
-            owner = p.declarations[&at].parent_id;
-        }
-        if row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Alternative {
-            // An alternative is referenced by its binary indicator (ADR-0104).
-            p.types
-                .insert(id, crate::indicator_type(context.quantities, id)?);
-        }
-        if let Some(v) = &row.value.binding {
-            if let Some(ty) = &v.r#type {
-                p.types
-                    .insert(id, context.resolve(ty, &variables, &names, id)?);
-            }
-            // ADR-0103: exactly a variable declares a domain, and a discrete one is physical.
-            let variable =
-                row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Variable;
-            match v.domain {
-                None if variable => return Err(invalid(id, "variable declares no domain")),
-                Some(_) if !variable => {
-                    return Err(invalid(id, "only a variable declares a domain"));
-                }
-                Some(domain)
-                    if domain.is_discrete()
-                        && !matches!(p.types.get(&id), Some(Type::Quantity(_))) =>
-                {
-                    return Err(invalid(
-                        id,
-                        "a discrete domain requires a physical quantity type",
-                    ));
-                }
-                _ => {}
-            }
-        }
-        if let Some(v) = &row.value.accumulator {
-            p.types
-                .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
-        }
-        if let Some(v) = &row.value.inventory_balance {
-            let ty = context.resolve(&v.r#type, &variables, &names, id)?;
-            if ty.quantity_scheme().is_none() {
-                return Err(invalid(id, "inventory balance requires a physical type"));
-            }
-            p.types.insert(id, ty);
-        }
-        // ADR-0123 Outcome 2: attributes belong to entity kinds; a binding takes its
-        // inherited attribute's type when the kind's members are known.
-        if let Some(v) = &row.value.attribute {
-            if !row
-                .parent_id
-                .is_some_and(|parent| p.kinds.contains_key(&parent))
-            {
-                return Err(invalid(id, "an attribute belongs to an entity kind"));
-            }
-            if let Some(ty) = &v.r#type {
-                p.types
-                    .insert(id, context.resolve(ty, &variables, &names, id)?);
-            }
-        }
-        if let Some(v) = &row.value.constant {
-            p.types
-                .insert(id, context.resolve(&v.r#type, &variables, &names, id)?);
-        }
-        if let Some(v) = &row.value.continuous {
-            let ty = context.resolve(&v.r#type, &variables, &names, id)?;
-            if !matches!(ty, Type::Quantity(_)) {
-                return Err(invalid(id, "continuous axis requires a physical type"));
-            }
-            p.types.insert(id, Type::Continuous(id, Box::new(ty)));
-        }
-        if let Some(v) = &row.value.entity {
-            let kind = p
-                .resolve(id, &v.kind_name)
-                .ok_or_else(|| invalid(id, "unknown entity kind"))?;
-            if !p.kinds.contains_key(&kind) {
-                return Err(invalid(id, "entity requires a declared kind"));
-            }
-            p.types.insert(id, Type::Entity(kind));
-        }
-        if row.value.applicability.is_some() {
-            crate::applicability::signature(&mut p, context, row, &names)?;
-        }
-        if let Some(v) = &row.value.function {
-            variables.extend(v.type_parameters.iter().cloned());
-            let mut argument_names = BTreeSet::new();
-            let arguments: Vec<(String, Type)> = v
-                .arguments
-                .iter()
-                .map(|a| {
-                    if !argument_names.insert(a.name.clone()) {
-                        return Err(invalid(id, "duplicate formal argument"));
-                    }
-                    Ok((
-                        a.name.clone(),
-                        context.resolve(&a.r#type, &variables, &names, id)?,
-                    ))
-                })
-                .collect::<Result<_>>()?;
-            let result = context.resolve(&v.return_type, &variables, &names, id)?;
-            let body = v
-                .body
-                .as_ref()
-                .map(|_| p.expression_at(id, "function.body", 0).cloned())
-                .transpose()?;
-            p.types.insert(
-                id,
-                Type::Function {
-                    arguments: arguments.clone(),
-                    result: Box::new(result.clone()),
-                },
-            );
-            p.functions.insert(
-                id,
-                Function {
-                    applicability: v
-                        .applicability
-                        .iter()
-                        .enumerate()
-                        .map(|(position, _)| {
-                            p.expression_at(id, "function.applicability", position)
-                                .cloned()
-                        })
-                        .collect::<Result<_>>()?,
-                    applicability_uses: Vec::new(),
-                    prerequisites: Vec::new(),
-                    physical_admissions: BTreeMap::new(),
-                    physical_operation: None,
-                    reduction: None,
-                    validity: v
-                        .validity
-                        .as_ref()
-                        .map(|_| p.predicate_at(id, "function.validity", 0).cloned())
-                        .transpose()?,
-                    // Resolved once tables and kinds are admitted (`envelope::admit`).
-                    envelopes: Vec::new(),
-                    validity_reads: crate::envelope::Reads::default(),
-                    external: v
-                        .external
-                        .as_ref()
-                        .map(|v| {
-                            crate::external::External::check(
-                                v,
-                                id,
-                                p.expression_at(id, "function.external.output", 0)?,
-                            )
-                        })
-                        .transpose()?,
-                    continuity: v
-                        .continuity
-                        .map(|v| {
-                            u8::try_from(v)
-                                .ok()
-                                .filter(|v| *v <= 2)
-                                .ok_or_else(|| invalid(id, "piecewise derivative order 0..=2"))
-                        })
-                        .transpose()?,
-                    id,
-                    variables: variables.clone(),
-                    arguments,
-                    result,
-                    body,
-                },
-            );
-        }
-        if let Some(values) = &row.value.enumeration
-            && (values.members.is_empty()
-                || values
-                    .members
-                    .iter()
-                    .any(|m| m.name.is_empty() || m.member_id == SemanticId::NIL)
-                || values
-                    .members
-                    .iter()
-                    .map(|m| m.name.as_str())
-                    .collect::<BTreeSet<_>>()
-                    .len()
-                    != values.members.len()
-                || values
-                    .members
-                    .iter()
-                    .map(|m| m.member_id)
-                    .collect::<BTreeSet<_>>()
-                    .len()
-                    != values.members.len())
-        {
-            return Err(invalid(
-                id,
-                "enumeration requires distinct named members with distinct identities",
-            ));
-        }
-    }
-    for id in p.functions.keys().copied().collect::<Vec<_>>() {
-        let mut function = p.functions[&id].clone();
-        crate::physical_operations::admit_reduced_law(&p, &mut function)?;
-        p.functions.insert(id, function);
-    }
-    for node in inheritance_order {
-        let id = inheritance[node];
-        let row = &p.declarations[&id];
-        let Some(_) = &row.value.scope else {
-            continue;
-        };
-        // A kind's members are its refined kind's and its own; a binding names an inherited
-        // attribute and has its type (ADR-0123 Outcome 2). `entity::admit` checks the rest.
-        if row.value.kind == DeclarationKind::EntityKind {
-            let mut members = p
-                .kinds
-                .get(&id)
-                .and_then(|k| k.base)
-                .and_then(|base| p.members.get(&base))
-                .cloned()
-                .unwrap_or_default();
-            for child in p.children.get(&id).cloned().unwrap_or_default() {
-                // An envelope bounds the kind's attributes and a requirement constrains its
-                // entities; neither is a member (ADR-0123 Outcome 4, Plan 23 D0).
-                if p.declarations[&child].value.envelope.is_some()
-                    || p.declarations[&child].value.requirement.is_some()
-                {
-                    continue;
-                }
-                let name = p.declarations[&child].name.clone();
-                if p.declarations[&child]
-                    .value
-                    .attribute
-                    .as_ref()
-                    .is_some_and(|a| a.r#type.is_none())
-                    && let Some(ty) = members.get(&name).and_then(|m| p.types.get(m)).cloned()
-                {
-                    p.types.insert(child, ty);
-                }
-                members.insert(name, child);
-            }
-            p.members.insert(id, members);
-            continue;
-        }
-        let (own, mut effective, contracts) = candidate_scopes
-            .remove(&id)
-            .ok_or_else(|| invalid(id, "interface candidate namespace absent"))?;
-        let projected = p.members.get(&id).cloned().unwrap_or_default();
-        let inherited = effective.clone();
-        for (name, member) in own {
-            if let Some(base) = effective.get(&name).copied() {
-                let base_row = &p.declarations[&base];
-                let has_default = base_row
-                    .value
-                    .function
-                    .as_ref()
-                    .is_some_and(|f| f.body.is_some() || f.external.is_some())
-                    || base_row
-                        .value
-                        .binding
-                        .as_ref()
-                        .is_some_and(|b| b.expression.is_some() || b.defined_by.is_some());
-                if has_default && !p.declarations[&member].is_override {
-                    return Err(invalid(member, "replacing a default requires override"));
-                }
-                let actual_row = &p.declarations[&member];
-                if base_row.value.kind != actual_row.value.kind {
-                    return Err(invalid(member, "interface member role differs"));
-                }
-                if let (Some(expected), Some(actual)) =
-                    (&base_row.value.binding, &actual_row.value.binding)
-                {
-                    if expected.domain != actual.domain {
-                        return Err(invalid(member, "interface member domain differs"));
-                    }
-                    if expected.indices.len() != actual.indices.len() {
-                        return Err(invalid(member, "interface member index arity differs"));
-                    }
-                    for (a, b) in expected.indices.iter().zip(&actual.indices) {
-                        let expected_domain = p.resolve(base, &a.domain).map(|target| {
-                            inherited
-                                .iter()
-                                .find(|(_, value)| **value == target)
-                                .and_then(|(name, _)| projected.get(name))
-                                .copied()
-                                .unwrap_or(target)
-                        });
-                        let actual_domain = p.resolve(member, &b.domain);
-                        if expected_domain != actual_domain
-                            || (expected_domain.is_none() && a.domain != b.domain)
-                        {
-                            return Err(invalid(member, "interface member index domains differ"));
-                        }
-                    }
-                }
-                // Child instances are constructed once and cannot be replaced through
-                // the inherited interface. Their visible contract may therefore be
-                // refined to an extending interface or an implementing definition.
-                // Input parameters, variable quantities and function signatures remain
-                // invariant; narrowing those would reject a formerly valid binding.
-                let child_refinement = actual_row.value.kind
-                    == pse_model::generated::enums::ModelingDeclarationKind::Child
-                    && match (p.types.get(&base), p.types.get(&member)) {
-                        (
-                            Some(Type::Interface(expected)),
-                            Some(Type::Interface(actual) | Type::Definition(actual)),
-                        ) => petgraph::algo::has_path_connecting(
-                            &inheritance,
-                            inode[expected],
-                            inode[actual],
-                            None,
-                        ),
-                        _ => false,
-                    };
-                if p.types.get(&base) != p.types.get(&member) && !child_refinement {
-                    return Err(invalid(member, "interface member physical type differs"));
-                }
-                if let Some(f) = p.functions.get(&base) {
-                    let actual = p
-                        .functions
-                        .get(&member)
-                        .ok_or_else(|| invalid(member, "function role required"))?;
-                    if f.arguments != actual.arguments || f.result != actual.result {
-                        return Err(invalid(member, "interface function signature differs"));
-                    }
-                }
-            } else if p.declarations[&member].is_override {
-                if row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Stage {
-                    let parent = row
-                        .parent_id
-                        .ok_or_else(|| invalid(member, "stage parent absent"))?;
-                    // The target is a member of the stage's definition, declared there or
-                    // inherited from an interface it implements.
-                    let base = p
-                        .members
-                        .get(&parent)
-                        .and_then(|members| members.get(&name))
-                        .copied()
-                        .ok_or_else(|| invalid(member, "stage override target absent"))?;
-                    let original = &p.declarations[&base].value;
-                    let replacement = &p.declarations[&member].value;
-                    if !((original.equation.is_some() && replacement.equation.is_some())
-                        || (original.connection.is_some() && replacement.connection.is_some()))
-                    {
-                        return Err(invalid(
-                            member,
-                            "stage overrides replace equations or connections of the same kind; variable identities remain stable",
-                        ));
-                    }
-                } else {
-                    return Err(invalid(member, "override has no inherited member"));
-                }
-            }
-            effective.insert(name, member);
-        }
-        if matches!(
-            row.value
-                .selected()
-                .map_err(|e| invalid(id, e.to_string()))?,
-            Selected::Definition(_)
-        ) {
-            for member in effective.values() {
-                let declaration = &p.declarations[member];
-                if declaration
-                    .value
-                    .function
-                    .as_ref()
-                    .is_some_and(|f| f.body.is_none() && f.external.is_none())
-                {
-                    return Err(invalid(
-                        id,
-                        format!("missing implementation {}", declaration.name),
-                    ));
-                }
-            }
-        }
-        p.interfaces.insert(id, contracts);
-        p.members.insert(id, effective);
-    }
+    Ok(phases::InventoryProduct {
+        package: p,
+        inheritance: phases::Inheritance::new(inheritance),
+        order: inheritance_order,
+        candidates: candidate_scopes,
+    })
+}
+
+pub(super) fn finish_package(
+    mut p: CheckedPackage,
+    context: &TypeContext<'_>,
+    documents: &dyn crate::document::Documents,
+) -> Result<CheckedPackage> {
+    let rows = p.declarations.values().cloned().collect::<Vec<_>>();
     crate::contextual::admit_translations(&mut p, context)?;
     let mut calls = DiGraph::<DeclarationId, ()>::new();
     let function_nodes = p
@@ -1828,7 +1624,7 @@ fn check_declarations(
             "recursive package function expansion",
         )
     })?;
-    for row in rows {
+    for row in &rows {
         if row.value.kind == pse_model::generated::enums::ModelingDeclarationKind::Preset {
             let base = p.preset_definition(row.declaration_id)?;
             if let Some(interfaces) = p.interfaces.get(&base).cloned() {
@@ -1848,9 +1644,6 @@ fn check_declarations(
     crate::entity::verify(&p)?;
     crate::envelope::admit(&mut p, context)?;
     crate::applicability::admit(&p, context)?;
-    crate::expression::check_all(&mut p, context)?;
-    crate::expression::occurrences::bind(&mut p);
-    p.selection_index = SelectionIndex::build(&p);
     Ok(p)
 }
 
@@ -2274,3 +2067,33 @@ fn type_dependencies(ty: &Type, out: &mut Vec<DeclarationId>) {
 mod named_types_tests;
 #[cfg(test)]
 mod selection_tests;
+
+fn empty_package(context: &TypeContext<'_>) -> CheckedPackage {
+    CheckedPackage {
+        selection_index: SelectionIndex::default(),
+        expressions: BTreeMap::new(),
+        selection_closures: BTreeMap::new(),
+        quantities: Arc::new(context.quantities.clone()),
+        preconditions: Arc::new(context.preconditions.clone()),
+        scope: Arc::new(context.scope.clone()),
+        lowered_functions: BTreeSet::new(),
+        declarations: BTreeMap::new(),
+        names: BTreeMap::new(),
+        children: BTreeMap::new(),
+        types: BTreeMap::new(),
+        functions: BTreeMap::new(),
+        members: BTreeMap::new(),
+        temporal: BTreeMap::new(),
+        tables: BTreeMap::new(),
+        interfaces: BTreeMap::new(),
+        kinds: BTreeMap::new(),
+        entities: BTreeMap::new(),
+        identifiers: crate::entity::ModelingIdentifierScope::default(),
+        constants: BTreeMap::new(),
+        provenance: BTreeMap::new(),
+        attribute_provenance: BTreeMap::new(),
+        oracles: BTreeMap::new(),
+        test_only: BTreeSet::new(),
+        test_only_data: BTreeSet::new(),
+    }
+}

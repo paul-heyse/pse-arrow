@@ -22,14 +22,29 @@ use pse_math::{
     normalization::Normalization, presolve::GuardSign,
 };
 use pse_model::generated::enums::{ModelingStructuralRequirement, NativeConstraintForm};
+#[cfg(any(test, feature = "root-isolation"))]
+use std::sync::Arc;
 use std::{any::Any, collections::BTreeMap};
 
 /// The runtime's existing compute allowance on the current native owner thread.
 /// Waiting for a real native exclusion guard releases compute capacity; acquiring
 /// that guard does not grant capacity, so it must be reacquired before native work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ComputeAvailability {
+    /// The original active allowance has been acquired.
+    Acquired,
+    /// No active allowance is held; callers must release native exclusion before retry.
+    Unavailable,
+}
+/// Runtime-owned active job and CPU capacity, separate from resident native state.
 pub trait ComputeAdmission: std::fmt::Debug + Send {
     /// Relinquish active compute capacity before native exclusion admission.
     fn pause(&mut self);
+    /// Immediately try to reacquire the original allowance, without waiting under
+    /// a native exclusion guard.
+    /// # Errors
+    /// Cancellation, deadline or closed admission.
+    fn try_resume(&mut self, execution: &Execution) -> Result<ComputeAvailability, ProblemError>;
     /// Reacquire the same allowance under the original attempt/task clock and stop.
     /// # Errors
     /// Cancellation, deadline or a closed runtime admission.
@@ -37,6 +52,37 @@ pub trait ComputeAdmission: std::fmt::Debug + Send {
 }
 thread_local! {
     static COMPUTE: std::cell::RefCell<Option<Box<dyn ComputeAdmission>>> = const { std::cell::RefCell::new(None) };
+}
+thread_local! {
+    static ORIGINAL: std::cell::RefCell<Option<Execution>> = const { std::cell::RefCell::new(None) };
+}
+/// Synchronous original-control transport; this guard cannot cross native threads.
+pub(crate) struct OriginalScope(Option<Execution>, std::marker::PhantomData<std::rc::Rc<()>>);
+impl Drop for OriginalScope {
+    fn drop(&mut self) {
+        ORIGINAL.with(|held| *held.borrow_mut() = self.0.take());
+    }
+}
+pub(crate) fn original_scope(execution: &Execution) -> OriginalScope {
+    OriginalScope(
+        ORIGINAL.with(|held| held.borrow_mut().replace(execution.clone())),
+        std::marker::PhantomData,
+    )
+}
+/// Carry the actual attempt's control through synchronous mathematical primitives.
+/// Nested scopes restore their caller; other native threads inherit no control or permit.
+pub fn original_scoped<T>(execution: &Execution, work: impl FnOnce() -> T) -> T {
+    let _original = original_scope(execution);
+    work()
+}
+#[cfg(any(test, feature = "root-isolation"))]
+pub(crate) fn current_execution(cancel: &Arc<std::sync::atomic::AtomicBool>) -> Option<Execution> {
+    ORIGINAL.with(|held| {
+        held.borrow()
+            .as_ref()
+            .filter(|execution| Arc::ptr_eq(&execution.cancel, cancel))
+            .cloned()
+    })
 }
 struct ComputeScope(Option<Box<dyn ComputeAdmission>>);
 impl Drop for ComputeScope {
@@ -51,21 +97,37 @@ pub fn compute_scoped<T>(owner: Box<dyn ComputeAdmission>, work: impl FnOnce() -
     let _scope = ComputeScope(COMPUTE.with(|held| held.borrow_mut().replace(owner)));
     work()
 }
-#[cfg(any(feature = "highs", feature = "uno", feature = "petsc"))]
-pub(crate) fn pause_compute() {
+/// Release this synchronous operation's active allowance at a joined phase boundary.
+pub fn pause_compute() {
     COMPUTE.with(|held| {
         if let Some(owner) = held.borrow_mut().as_mut() {
             owner.pause();
         }
     });
 }
-#[cfg(any(feature = "highs", feature = "uno", feature = "petsc"))]
-pub(crate) fn resume_compute(execution: &Execution) -> Result<(), ProblemError> {
+/// Reacquire the enclosing operation's allowance under its original clock and stop.
+/// # Errors
+/// Cancellation, deadline or a closed runtime admission.
+pub fn resume_compute(execution: &Execution) -> Result<(), ProblemError> {
     execution.check()?;
     COMPUTE.with(|held| {
         held.borrow_mut()
             .as_mut()
             .map_or(Ok(()), |owner| owner.resume(execution))
+    })
+}
+
+/// Attempt paired native/compute admission without waiting while native exclusion is held.
+/// # Errors
+/// The original execution's cancellation/deadline or closed runtime admission.
+pub fn try_resume_compute(execution: &Execution) -> Result<ComputeAvailability, ProblemError> {
+    execution.check()?;
+    COMPUTE.with(|held| {
+        held.borrow_mut()
+            .as_mut()
+            .map_or(Ok(ComputeAvailability::Acquired), |owner| {
+                owner.try_resume(execution)
+            })
     })
 }
 
@@ -885,6 +947,74 @@ pub fn scoped<T: Send, E: From<ProblemError> + Send>(
     out.unwrap_or_else(|| {
         Err(ProblemError::Internal("execution scope did not run its work".into()).into())
     })
+}
+/// Qualified scopes for one serial operation on its current owning thread. Native
+/// state must be destroyed before this owner; these guards cannot cross threads.
+#[derive(Default)]
+pub struct SerialScopes {
+    backends: Vec<Backend>,
+    guards: Vec<Box<dyn Any>>,
+    thread: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+impl std::fmt::Debug for SerialScopes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SerialScopes")
+            .field("backends", &self.backends)
+            .finish_non_exhaustive()
+    }
+}
+impl SerialScopes {
+    /// Extend the actual adapter inventory without leaving existing serial scopes.
+    /// # Errors
+    /// Unqualified adapters, nonserial scope teams or invalid stack admission.
+    pub fn enter(
+        &mut self,
+        selected: &dyn BackendExecution,
+        stack: usize,
+    ) -> Result<(), ProblemError> {
+        if stack == 0
+            || !std::ptr::eq(selected, adapter(selected.backend()))
+            || selected.scope_threads(1) != 0
+        {
+            return Err(ProblemError::Unsupported(
+                "adapter has no qualified owner-thread serial scope".into(),
+            ));
+        }
+        if self.backends.contains(&selected.backend()) {
+            return Ok(());
+        }
+        // This exhaustive inventory records the current scope implementations. A new
+        // registry adapter must qualify its owner-thread behavior before joining it.
+        let guard: Box<dyn Any> = match selected.backend() {
+            Backend::Pounce | Backend::PounceConvex => {
+                #[cfg(feature = "pounce")]
+                {
+                    crate::pounce::serial_scope(stack)?
+                }
+                #[cfg(not(feature = "pounce"))]
+                {
+                    Box::new(())
+                }
+            }
+            Backend::Ipopt
+            | Backend::Kinsol
+            | Backend::Highs
+            | Backend::Clarabel
+            | Backend::Diffsol
+            | Backend::Idas
+            | Backend::Scip
+            | Backend::Uno
+            | Backend::Petsc => Box::new(()),
+        };
+        self.guards.push(guard);
+        self.backends.push(selected.backend());
+        Ok(())
+    }
+}
+impl Drop for SerialScopes {
+    fn drop(&mut self) {
+        while self.guards.pop().is_some() {}
+    }
 }
 /// Qualified stack extent of the actual teams created by [`scoped`]. This is an
 /// allocation allowance, not an observation or bound of resident native memory.

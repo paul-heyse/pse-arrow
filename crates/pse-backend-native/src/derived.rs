@@ -1327,8 +1327,8 @@ mod tests {
             derivatives: DerivativeOrder::First,
             smoothness: DerivativeOrder::First,
         };
-        #[derive(Debug)]
-        struct Counted(std::sync::atomic::AtomicUsize);
+        #[derive(Debug, Clone)]
+        struct Counted(Arc<std::sync::atomic::AtomicUsize>);
         impl pse_math::implicit::InnerSolver for Counted {
             fn minimum_order(&self) -> DerivativeOrder {
                 DerivativeOrder::First
@@ -1336,16 +1336,22 @@ mod tests {
             fn identity(&self) -> ContentHash {
                 pse_math::implicit::solver_identity("test.native-kinsol-admitted-start.v1")
             }
+
+            fn worker(&self) -> Box<dyn pse_math::implicit::InnerWorker> {
+                Box::new(self.clone())
+            }
+        }
+        impl pse_math::implicit::InnerWorker for Counted {
             fn solve(
-                &self,
+                &mut self,
                 problem: Arc<pse_math::implicit::Problem>,
                 parameters: &[f64],
                 options: &Options,
                 cancel: &Arc<AtomicBool>,
             ) -> Result<Vec<f64>, pse_math::MathError> {
                 self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                let point = pse_math::implicit::InnerSolver::solve(
-                    &crate::implicit::Kinsol,
+                let point = pse_math::implicit::InnerWorker::solve(
+                    &mut crate::implicit::Kinsol,
                     problem.clone(),
                     parameters,
                     options,
@@ -1364,7 +1370,7 @@ mod tests {
                 }
             }
         }
-        let counted = Arc::new(Counted(std::sync::atomic::AtomicUsize::new(0)));
+        let counted = Arc::new(Counted(Arc::new(std::sync::atomic::AtomicUsize::new(0))));
         let unknowns = vec![Unknown {
             id: id(12),
             lower: 0.01,

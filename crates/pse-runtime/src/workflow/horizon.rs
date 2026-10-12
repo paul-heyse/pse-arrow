@@ -146,6 +146,8 @@ pub struct HorizonEstimator {
 /// A closed-loop receding-horizon run over one native session (Plan 22 Y5c).
 #[derive(Clone, Debug)]
 pub struct Horizon {
+    /// Explicit materialization of this whole horizon's original history.
+    pub output: super::StudyOutputDemand,
     /// The plant: an integrated simulation whose profile covers the loop. Each period
     /// integrates it from the previous period's end state; the first starts from the
     /// simulation's own initial condition at its profile's start.
@@ -232,7 +234,49 @@ pub struct HorizonReport {
     pub inputs: Vec<SemanticId>,
     /// The completed samples, in order.
     pub steps: Vec<HorizonStep>,
+    /// Total completed samples. Compact output retains only its bounded sample tail.
+    pub completed_steps: usize,
 }
+
+/// Immutable compact request identity; no per-step prepared/native history.
+#[derive(Clone, Debug)]
+pub struct HorizonRequest {
+    /// Original horizon request including its explicit output demand.
+    pub identity: pse_ids::ContentHash,
+    pub(in crate::workflow) sources: Vec<super::ModelingPackage>,
+    pub(in crate::workflow) provenance: Vec<u8>,
+}
+
+/// Compact original outcome. Unselected history is unavailable rather than an
+/// empty scientific relation. The aggregate original Completion remains on RunResult.
+#[derive(Debug)]
+pub struct HorizonOutcome {
+    /// Original attempted solve count, independent of retained role slots.
+    pub solves: usize,
+    pub(in crate::workflow) summary_error: Option<std::sync::Arc<super::WorkflowError>>,
+    pub(in crate::workflow) detail_membership: Vec<SemanticId>,
+    pub(in crate::workflow) summaries:
+        std::collections::BTreeMap<SemanticId, Vec<pse_relations::columnar::FieldCheckedBatch>>,
+    pub(in crate::workflow) detail: Result<
+        std::collections::BTreeMap<
+            pse_ids::SemanticId,
+            Vec<pse_relations::columnar::FieldCheckedBatch>,
+        >,
+        std::sync::Arc<super::WorkflowError>,
+    >,
+}
+impl HorizonOutcome {
+    /// Missing mandatory exports remain explicit failures, never complete empty tables.
+    pub fn summary_error(&self) -> Option<&super::WorkflowError> {
+        self.summary_error.as_deref()
+    }
+    /// An explicit selected-detail refusal leaves the original completion intact.
+    pub fn detail_error(&self) -> Option<&super::WorkflowError> {
+        self.detail.as_ref().err().map(AsRef::as_ref)
+    }
+}
+
+pub(super) mod prefix;
 
 #[cfg(test)]
 #[cfg(all(feature = "solver-ipopt", feature = "solver-diffsol"))]

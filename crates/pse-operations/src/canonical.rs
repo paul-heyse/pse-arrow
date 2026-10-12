@@ -79,6 +79,17 @@ pub enum CanonicalError {
         #[source]
         source: Box<CanonicalError>,
     },
+    /// Source publication may have reached the server; recover only this issue.
+    #[error("source edit {operation} for {problem} did not settle: {source}")]
+    SourceEditUnsettled {
+        /// Exact source problem, never inferred from its current head.
+        problem: String,
+        /// Original immutable operation receipt identity.
+        operation: String,
+        /// Original typed failure; no success is inferred from it.
+        #[source]
+        source: Box<CanonicalError>,
+    },
     #[error("canonical write payload exceeds the bounded protocol batch")]
     /// A bounded payload or selector limit was exceeded.
     PayloadLimit,
@@ -91,6 +102,13 @@ pub enum CanonicalError {
     #[error("canonical query returned no statement completion")]
     /// A cancelled or incomplete query cannot establish data absence or write success.
     IncompleteResponse,
+    /// Automatic protection cleanup failed; repeated drain retains its exact cause.
+    #[error("canonical protection release did not settle: {source}")]
+    ProtectionRelease {
+        /// Original cleanup failure, never consumed by observing it.
+        #[source]
+        source: Arc<CanonicalError>,
+    },
 }
 impl pse_diagnostics::TypedDiagnostic for CanonicalError {
     fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
@@ -99,6 +117,22 @@ impl pse_diagnostics::TypedDiagnostic for CanonicalError {
             _ => pse_diagnostics::DiagnosticCode::RuntimeInfrastructure,
         })
     }
+}
+
+/// Carry an enclosing operation's original deadline into all nested canonical
+/// requests. The caller retains ownership of in-flight effects through settlement;
+/// this scope does not spawn, detach or timeout-drop the enclosing future.
+pub async fn operation_scope<F: Future>(deadline: std::time::Instant, future: F) -> F::Output {
+    transport::operation_scope(deadline, future).await
+}
+
+/// Retain an actual prepaid response allocation through native transport drain.
+/// Nested scopes preserve their enclosing owners and original request clocks.
+pub async fn response_ownership_scope<F: Future>(
+    owner: Arc<dyn std::fmt::Debug + Send + Sync>,
+    future: F,
+) -> F::Output {
+    transport::response_ownership_scope(owner, future).await
 }
 
 /// Authenticated deployment parameters. Credentials never appear in Debug or status output.
@@ -398,12 +432,53 @@ struct ProtectionOwner {
     released: std::sync::atomic::AtomicBool,
 }
 impl ProtectedSelection {
+    pub(crate) fn retained_bytes(&self) -> Option<usize> {
+        use pse_model::HeapUsage;
+        let owner = &self.owner;
+        let store = owner
+            .store
+            .as_ref()
+            .map_or(Some(0), CanonicalStore::handle_heap_bytes)?;
+        [
+            size_of::<ProtectionOwner>(),
+            2 * size_of::<usize>(),
+            owner.key.capacity(),
+            owner.revision.heap_bytes(),
+            store,
+        ]
+        .into_iter()
+        .try_fold(0usize, usize::checked_add)
+    }
     pub(crate) fn key(&self) -> &str {
+        &self.owner.key
+    }
+    /// Original grant identity, binding its server deadline, nonce and authority
+    /// incarnation. An owner may save this value before finishing the selection
+    /// and later pass it to [`CanonicalStore::settle_protection_grant`].
+    /// Saving it does not extend the acquisition window or renew a released pin.
+    pub fn grant_key(&self) -> &str {
         &self.owner.key
     }
     /// Exact canonical revision retained by this protection.
     pub fn revision(&self) -> &Revision {
         &self.owner.revision
+    }
+    /// Extend this exact live grant. Expired or explicitly released grants never revive.
+    /// The original acquisition identity and already issued operation clocks do not change.
+    pub async fn renew(&self, lifetime: std::time::Duration) -> Result<(), CanonicalError> {
+        let store = self.owner.store.as_ref().ok_or_else(|| {
+            CanonicalError::Configuration("source protection has no issuing store".into())
+        })?;
+        if self
+            .owner
+            .released
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            return Err(CanonicalError::Configuration(
+                "source protection was released".into(),
+            ));
+        }
+        store.renew_protection(self, lifetime).await
     }
     /// Relinquish this reader. The final follower awaits exact protection cleanup.
     /// Other live followers retain their authority until they finish or drop.
@@ -438,7 +513,6 @@ impl ProtectionOwner {
             .released
             .swap(true, std::sync::atomic::Ordering::AcqRel)
         {
-            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
             if let Some(store) = &self.store {
                 store.result_read_drain.release().complete(Ok(()));
             }
@@ -451,7 +525,6 @@ impl Drop for ProtectionOwner {
             return;
         }
         if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
-            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
             let release = store.result_read_drain.release();
             let store = store.clone();
             let revision = self.revision.clone();
@@ -461,7 +534,6 @@ impl Drop for ProtectionOwner {
                 if let Err(error) = &result {
                     operation_failed("canonical::protection_drop", error);
                 }
-                #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
                 release.complete(result);
             });
         }
@@ -538,13 +610,13 @@ pub struct CanonicalStore {
     problem_turns: Arc<ProblemTurns>,
     #[cfg(any(test, feature = "test-support"))]
     pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
-    #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
     pub(crate) result_read_drain: Arc<crate::canonical_results::ResultReadDrain>,
     activation_db: Arc<CanonicalClient>,
     connection_options: CanonicalOptions,
     state_path: PathBuf,
     database: String,
     namespace: String,
+    issuing_store: Arc<std::sync::OnceLock<String>>,
 }
 impl std::fmt::Debug for CanonicalStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -555,11 +627,34 @@ impl std::fmt::Debug for CanonicalStore {
     }
 }
 impl CanonicalStore {
+    /// Heap owned by this handle's cloned values; shared physical clients are
+    /// charged by their deployment owner rather than by every selection alias.
+    pub(crate) fn handle_heap_bytes(&self) -> Option<usize> {
+        let options = &self.connection_options;
+        [
+            self.state_path.capacity(),
+            self.database.capacity(),
+            self.namespace.capacity(),
+            options.endpoint.capacity(),
+            options.namespace.capacity(),
+            options.database.capacity(),
+            options.username.capacity(),
+            options.password.capacity(),
+            options.selection_username.capacity(),
+            options.selection_password.capacity(),
+            options.state_path.capacity(),
+            options
+                .initializer_nonce
+                .as_ref()
+                .map_or(0, String::capacity),
+        ]
+        .into_iter()
+        .try_fold(0usize, usize::checked_add)
+    }
     /// Drain local result readers and close both physical SDK drivers.
     /// This establishes local transport drain, not server scientific completion.
     pub async fn disconnect(&self) -> Result<(), CanonicalError> {
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-        self.result_read_drain.drain().await?;
+        self.result_read_drain.close_and_drain().await?;
         self.db.disconnect().await?;
         self.activation_db.disconnect().await?;
         Ok(())
@@ -603,14 +698,24 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
-        self.problem_turns
-            .run(
-                problem,
-                effect,
-                original_deadline(REQUEST_TIMEOUT),
-                protected_query(operation, build),
-            )
-            .await
+        let deadline = original_deadline(REQUEST_TIMEOUT);
+        let mut build = build;
+        within_clock(deadline, async {
+            for attempt in 0..GUARDED_ATTEMPTS {
+                let result = self.problem_turns.run(
+                    problem, effect, deadline, async { bounded_query(build()?).await },
+                ).await;
+                if matches!(&result, Err(CanonicalError::Driver(error))
+                    if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
+                    && attempt + 1 < GUARDED_ATTEMPTS {
+                    conflict_backoff(attempt).await;
+                    continue;
+                }
+                if let Err(error) = &result { operation_failed(operation, error); }
+                return result;
+            }
+            Err(CanonicalError::IncompleteResponse)
+        }).await
     }
 
     /// Endpoint actually selected by this authenticated storage handle.
@@ -624,6 +729,14 @@ impl CanonicalStore {
     /// Exact configured canonical database selected by this deployment handle.
     pub fn database(&self) -> &str {
         &self.database
+    }
+    /// Persistent identity of the issuing database, installed once with its schema.
+    pub fn issuing_store(&self) -> Result<&str, CanonicalError> {
+        self.issuing_store.get().map(String::as_str).ok_or_else(|| {
+            CanonicalError::Configuration(
+                "issuing store identity unavailable; open the activated schema first".into(),
+            )
+        })
     }
     /// Refuse new application writes and native claims while the supervisor is draining.
     pub fn check_write_admission(&self) -> Result<(), CanonicalError> {
@@ -679,13 +792,13 @@ impl CanonicalStore {
             problem_turns: Arc::default(),
             #[cfg(any(test, feature = "test-support"))]
             fixture_lifetime: None,
-            #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
             result_read_drain: Arc::new(crate::canonical_results::ResultReadDrain::default()),
             activation_db,
             connection_options: options.clone(),
             state_path: options.state_path.clone(),
             database: options.database.clone(),
             namespace: options.namespace.clone(),
+            issuing_store: Arc::default(),
         })
     }
     /// Explicit schema creation; ordinary opening never mutates an unknown schema.
@@ -839,7 +952,13 @@ impl CanonicalStore {
                     observed: "absent".into(),
                 });
             };
+            if !marker.contains_key("issuing_store") {
+                return Err(CanonicalError::Configuration("canonical store requires explicit offline preparation activation; issuing_store is absent".into()));
+            }
             let marker = wire::decode_canonical_interpretations(marker)?;
+            if uuid::Uuid::parse_str(&marker.issuing_store).is_err() {
+                return Err(CanonicalError::Configuration("persistent issuing store identity is invalid".into()));
+            }
             if marker.interpretation != wire::INTERPRETATION {
                 return Err(CanonicalError::Interpretation {
                     expected: wire::INTERPRETATION,
@@ -851,6 +970,14 @@ impl CanonicalStore {
                     expected: wire::SCHEMA_DIGEST,
                     observed: marker.schema_digest,
                 });
+            }
+            if let Some(existing) = self.issuing_store.get() {
+                if existing != &marker.issuing_store {
+                    return Err(CanonicalError::Configuration("persistent issuing store identity changed".into()));
+                }
+            } else if self.issuing_store.set(marker.issuing_store.clone()).is_err()
+                && self.issuing_store.get() != Some(&marker.issuing_store) {
+                return Err(CanonicalError::Configuration("persistent issuing store identity changed".into()));
             }
             Ok(())
         })
@@ -972,6 +1099,45 @@ impl CanonicalStore {
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         self.assemble_object(version).await
     }
+    async fn protection_grant_key(&self, problem: &str) -> Result<String, CanonicalError> {
+        let mut response = bounded_query(self.db.query("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'source protection authority unavailable'; }; RETURN {incarnation:$authority.incarnation,deadline:time::micros()+30000000};").bind(("problem",problem.to_owned()))).await?;
+        let mut grant = response
+            .take::<Option<Object>>(response.num_statements().saturating_sub(1))?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        let incarnation = crate::canonical_codec::decode_string(crate::canonical_codec::required(
+            &mut grant,
+            "incarnation",
+        )?)?;
+        let deadline = crate::canonical_codec::decode_int(crate::canonical_codec::required(
+            &mut grant, "deadline",
+        )?)?;
+        Ok(format!(
+            "pse.protection.v2:{incarnation}:{}:{deadline}",
+            uuid::Uuid::new_v4()
+        ))
+    }
+
+    /// Collect one exact released or expired grant only after its original
+    /// acquisition window settles. Save [`ProtectedSelection::grant_key`] and
+    /// its revision's problem identity before releasing the selection. A false
+    /// result preserves residue while the original window or a live lease remains;
+    /// repeating the same identity never issues a new grant or resets its floor.
+    pub async fn settle_protection_grant(
+        &self,
+        problem: &str,
+        key: &str,
+    ) -> Result<bool, CanonicalError> {
+        self.ensure_writes()?;
+        let mut response = self.protected_query(&format!("pin:{key}"), QueryEffect::Mutation,
+            "canonical::settle_protection_grant", || Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::settle_protection($pse_rpc_expires_at,$problem,$key); COMMIT;").bind(("problem",problem.to_owned())).bind(("key",key.to_owned())))).await?;
+        let mut row = response
+            .take::<Option<Object>>(response.num_statements().saturating_sub(2))?
+            .ok_or(CanonicalError::IncompleteResponse)?;
+        Ok(crate::canonical_codec::decode_boolean(
+            crate::canonical_codec::required(&mut row, "complete")?,
+        )?)
+    }
+
     /// Protect before off-transaction scientific work. Server time controls expiration.
     pub async fn protect(
         &self,
@@ -987,24 +1153,34 @@ impl CanonicalStore {
                 "positive protection lifetime required".into(),
             ));
         }
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
-        self.result_read_drain.retain();
+        let deadline = original_deadline(REQUEST_TIMEOUT);
+        let grant_key =
+            within_clock(deadline, self.protection_grant_key(&revision.problem)).await?;
+        self.result_read_drain.retain()?;
+        let executor = tokio::runtime::Handle::current();
+        // A fixture's physical clients outlive the caller's short-lived test
+        // executor. Their automatic protection releases must have that same
+        // retained lifetime, including when a test abandons its result reader.
+        #[cfg(any(test, feature = "test-support"))]
+        let executor = self
+            .fixture_lifetime
+            .as_ref()
+            .map_or(executor.clone(), |fixture| fixture.cleanup_executor());
         let selection = ProtectedSelection {
             owner: Arc::new(ProtectionOwner {
-                key: uuid::Uuid::new_v4().to_string(),
+                key: grant_key,
                 revision,
                 store: Some(self.clone()),
-                executor: Some(tokio::runtime::Handle::current()),
+                executor: Some(executor),
                 released: std::sync::atomic::AtomicBool::new(false),
             }),
         };
         let store = self.clone();
-        let deadline = original_deadline(REQUEST_TIMEOUT);
         // Submission owns the protection before any RPC. Abandoning the caller detaches
         // this task; its eventual result still owns cleanup through acknowledgement.
-        tokio::spawn(async move {
+        tokio::spawn(transport::inherit_response_ownership(async move {
             within_clock(deadline, store.acquire_protection(selection, micros)).await
-        })
+        }))
         .await
         .map_err(|error| {
             CanonicalError::Configuration(format!("protection acquisition task failed: {error}"))
@@ -1017,20 +1193,22 @@ impl CanonicalStore {
     ) -> Result<ProtectedSelection, CanonicalError> {
         let key = selection.key();
         let revision = selection.revision();
-        let mut response = self.protected_query(&revision.problem, QueryEffect::Mutation, "canonical::protect", || Ok(self.db.query(r#"BEGIN;
-            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-            LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
-            IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
-            LET $reclaimed = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $revision.sequence AND to_sequence > $revision.sequence LIMIT 1;
-            IF array::len($reclaimed) != 0 { THROW 'source selection reclaimed'; };
-            IF (SELECT * FROM ONLY type::record('canonical_protections', $key)) = NONE { CREATE type::record('canonical_protections', $key) SET key = $key, problem = $problem, revision = $revision.key, sequence = $revision.sequence, expires_at = time::micros() + $lifetime, released = false; };
-            UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-            LET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision.key) TIMEOUT $pse_rpc_timeout;
-            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-            LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
-            IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
-            RETURN $rpc_result;
-            COMMIT;"#).bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone())).bind(("key", key.to_owned())).bind(("lifetime", micros)))).await?;
+        let mut response = self
+            .protected_query(
+                &revision.problem,
+                QueryEffect::Mutation,
+                "canonical::protect",
+                || {
+                    Ok(self
+                        .db
+                        .query(ACQUIRE_PROTECTION)
+                        .bind(("problem", revision.problem.clone()))
+                        .bind(("revision", revision.key.clone()))
+                        .bind(("key", key.to_owned()))
+                        .bind(("lifetime", micros)))
+                },
+            )
+            .await?;
         let actual: Option<Object> = response.take(response.num_statements().saturating_sub(2))?;
         let revision = wire::decode_canonical_revisions(actual.ok_or_else(|| {
             CanonicalError::Configuration("protected revision unavailable".into())
@@ -1041,6 +1219,47 @@ impl CanonicalStore {
             ));
         }
         Ok(selection)
+    }
+    async fn renew_protection(
+        &self,
+        selection: &ProtectedSelection,
+        lifetime: std::time::Duration,
+    ) -> Result<(), CanonicalError> {
+        let micros = i64::try_from(lifetime.as_micros())
+            .map_err(|_| CanonicalError::Configuration("protection lifetime overflow".into()))?;
+        if micros <= 0 {
+            return Err(CanonicalError::Configuration(
+                "positive protection lifetime required".into(),
+            ));
+        }
+        let mut response = self
+            .protected_query(
+                &format!("pin:{}", selection.key()),
+                QueryEffect::Mutation,
+                "canonical::renew_protection",
+                || {
+                    Ok(self
+                        .db
+                        .query(format!(
+                            "{PROTECTED_BEGIN}\n{}\nRETURN true; COMMIT;",
+                            crate::canonical_results::RENEW_PROTECTION
+                        ))
+                        .bind(("problem", selection.revision().problem.clone()))
+                        .bind(("revision", selection.revision().key.clone()))
+                        .bind((
+                            "sequence",
+                            crate::canonical_codec::encode_uint(selection.revision().sequence)?,
+                        ))
+                        .bind(("protection", selection.key().to_owned()))
+                        .bind(("lifetime", micros)))
+                },
+            )
+            .await?;
+        let renewed: Option<bool> = response.take(response.num_statements().saturating_sub(2))?;
+        if renewed != Some(true) {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        Ok(())
     }
     /// Resolve a bounded namespace/name premise in the exact protected revision.
     pub async fn select_names(
@@ -1059,6 +1278,37 @@ impl CanonicalStore {
             .map(wire::decode_canonical_memberships)
             .collect::<Result<_, _>>()
             .map_err(Into::into)
+    }
+    fn product_descriptor_row(
+        &self,
+        product: &pse_model::generated::runtime::canonical_products::Row,
+    ) -> Result<pse_model::generated::runtime::canonical_product_descriptors::Row, CanonicalError>
+    {
+        descriptor_for_product(product, self.issuing_store()?)
+    }
+    pub(crate) fn product_association_row(
+        &self,
+        product: &pse_model::generated::runtime::canonical_products::Row,
+    ) -> Result<pse_model::generated::runtime::canonical_product_associations::Row, CanonicalError>
+    {
+        let descriptor = self.product_descriptor_row(product)?;
+        Ok(
+            pse_model::generated::runtime::canonical_product_associations::Row {
+                key: product.key.clone(),
+                issuing_store: descriptor.issuing_store,
+                problem: product.problem.clone(),
+                revision: product.revision.clone(),
+                request: product.request.clone(),
+                payload: product.payload.clone(),
+                dependencies: product.dependencies.clone(),
+                content: descriptor.content,
+                receipt: descriptor.receipt,
+                descriptor: descriptor.key,
+                producer: product.producer.clone(),
+                interpretation: product.interpretation.clone(),
+                historical_blob: None,
+            },
+        )
     }
     /// Product and revision roots become durable before the caller explicitly ends
     /// the selection protection. Multiple body products may share the same selection.
@@ -1087,6 +1337,12 @@ impl CanonicalStore {
         {
             return Err(CanonicalError::PayloadLimit);
         }
+        let descriptor = self.product_descriptor_row(product)?;
+        let association = self.product_association_row(product)?;
+        let blob = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
+        let receipt = blob.receipt.as_ref().ok_or(CanonicalError::PayloadLimit)?;
+        let content = pse_model::generated::runtime::canonical_body_contents::Row { key: blob.version.clone(), version: blob.version.clone(), digest: blob.digest.clone(), bytes: blob.payload_bytes as u64, producer: product.producer.clone(), interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::BODY_CONTENT_KIND.into() };
+        let selection_receipt = pse_model::generated::runtime::canonical_selection_receipts::Row { key: receipt.version.clone(), version: receipt.version.clone(), digest: receipt.digest.clone(), bytes: receipt.bytes as u64, interpretation: wire::INTERPRETATION.into(), format: crate::canonical_staging::SELECTION_RECEIPT_KIND.into() };
         for attempt in 0..GUARDED_ATTEMPTS {
             self.ensure_writes()?;
             let result = self
@@ -1101,36 +1357,16 @@ impl CanonicalStore {
                             "sequence",
                             crate::canonical_codec::encode_uint(selection.revision().sequence)?,
                         ))
-                        .bind(("product", wire::encode_canonical_products(product)?))
+                        .bind(("product", wire::encode_canonical_product_associations(&association)?))
+                        .bind(("descriptor", wire::encode_canonical_product_descriptors(&descriptor)?))
+                        .bind(("content", wire::encode_canonical_body_contents(&content)?))
+                        .bind(("receipt", wire::encode_canonical_selection_receipts(&selection_receipt)?))
                         .bind(("operation", stage.operation.clone()))
                         .bind((
                             "generation",
                             crate::canonical_codec::encode_uint(stage.generation)?,
                         ))
                         .bind(("request_digest", stage.request_digest.clone()))
-                        .bind((
-                            "blob",
-                            crate::canonical_staging::ProductBlob::decode(
-                                product.payload.as_slice(),
-                            )?
-                            .version,
-                        ))
-                        .bind((
-                            "blob_digest",
-                            crate::canonical_staging::ProductBlob::decode(
-                                product.payload.as_slice(),
-                            )?
-                            .digest,
-                        ))
-                        .bind((
-                            "blob_bytes",
-                            crate::canonical_codec::encode_uint(
-                                crate::canonical_staging::ProductBlob::decode(
-                                    product.payload.as_slice(),
-                                )?
-                                .bytes as u64,
-                            )?,
-                        )),
                 )
                 .await
                 .and_then(|response| checked(response).map_err(Into::into));
@@ -1166,11 +1402,24 @@ impl CanonicalStore {
         &self,
         product: &pse_model::generated::runtime::canonical_products::Row,
     ) -> Result<Option<String>, CanonicalError> {
-        // Admission can reuse a previously rooted exact product rather than create
-        // the proposed publication key. Settle both branches after a lost response,
-        // without requiring a still-live preparation pin or admitting anything new.
-        let mut response = self.protected_query(&product.problem, QueryEffect::Read, "canonical::product_acknowledged", || Ok(self.db.query("BEGIN; SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at); LET $saved = SELECT key FROM canonical_products WHERE problem = $problem AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND producer = $product.producer AND interpretation = $product.interpretation AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1; LET $rpc_result = IF array::len($saved) = 0 { NONE } ELSE { $saved[0].key }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN $rpc_result; COMMIT;")
-            .bind(("problem", product.problem.clone())).bind(("product", wire::encode_canonical_products(product)?)))).await?;
+        let descriptor = self.product_descriptor_row(product)?;
+        let mut response = self
+            .protected_query(
+                &product.problem,
+                QueryEffect::Read,
+                "canonical::product_acknowledged",
+                || {
+                    Ok(self
+                        .db
+                        .query(PRODUCT_ACK)
+                        .bind(("problem", product.problem.clone()))
+                        .bind((
+                            "descriptor",
+                            wire::encode_canonical_product_descriptors(&descriptor)?,
+                        )))
+                },
+            )
+            .await?;
         let value = response.take::<Value>(response.num_statements().saturating_sub(2))?;
         if matches!(value, Value::None) {
             return Ok(None);
@@ -1197,17 +1446,21 @@ impl CanonicalStore {
         // A submitted acquisition can outlive its failed local response. Record
         // release even before its row exists so that a later acquisition refuses it.
         let sequence = crate::canonical_codec::encode_uint(revision.sequence)?;
-        self.protected_query(&revision.problem, QueryEffect::Mutation, "canonical::release", || Ok(self.db.query(r#"BEGIN;
-            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
-            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-            LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection);
-            IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'immutable selection protection identity differs'; };
-            UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true;
-            UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-            COMMIT;"#)
-            .bind(("problem", revision.problem.clone())).bind(("revision", revision.key.clone()))
-            .bind(("sequence", sequence.clone())).bind(("protection", key.to_owned())))).await?;
+        self.protected_query(
+            &format!("pin:{key}"),
+            QueryEffect::Mutation,
+            "canonical::release",
+            || {
+                Ok(self
+                    .db
+                    .query(RELEASE_PROTECTION)
+                    .bind(("problem", revision.problem.clone()))
+                    .bind(("revision", revision.key.clone()))
+                    .bind(("sequence", sequence.clone()))
+                    .bind(("protection", key.to_owned())))
+            },
+        )
+        .await?;
         Ok(())
     }
     /// Drain a registered fixture locally; runner disposition owns disposal.
@@ -1227,7 +1480,6 @@ impl CanonicalStore {
         if removed.as_deref().is_some_and(|removed| *removed) {
             return Ok(());
         }
-        #[cfg(any(feature = "test-support", feature = "canonical-tests"))]
         self.result_read_drain.drain().await?;
         #[cfg(any(test, feature = "test-support"))]
         if self
@@ -1313,7 +1565,7 @@ impl CanonicalStore {
 
 fn initialization_statement() -> String {
     format!(
-        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
+        "BEGIN;\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\n{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, issuing_store = <string>rand::uuid::v4();\nIF time::micros() >= $pse_rpc_expires_at {{ THROW 'original schema installation deadline expired'; }};\nCOMMIT;",
         wire::SCHEMA
     )
 }
@@ -1431,9 +1683,8 @@ pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) 
     }
 }
 
-// Short guarded decisions contend on one problem's retention guard. Pacing and
-// jitter keep sixteen independent readers from repeatedly colliding; each owner
-// still retries only a definite typed rejection and rebuilds its complete decision.
+// Jitter separates definite conflict retries after the RPC releases its local turn.
+// Each owner rebuilds its complete decision under the original request clock.
 async fn conflict_backoff(attempt: u32) {
     let jitter = u64::from(uuid::Uuid::new_v4().as_bytes()[0] % 64);
     tokio::time::sleep(std::time::Duration::from_millis(
@@ -1467,39 +1718,176 @@ pub(crate) fn checked(
 // is immediately before COMMIT; do not decode either control's NONE as an object.
 pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
 SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection);
-IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR $pin.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };"#;
+LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
+IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR $pin.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
+LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
+IF $pin.grant_deadline!=$grant.grant_deadline OR $pin.grant_nonce!=$grant.grant_nonce OR $pin.authority_incarnation!=$grant.authority_incarnation { THROW 'immutable selection grant differs'; };
+LET $result_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$protection) FOR UPDATE;
+IF $result_pin!=NONE {
+    LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$result_pin.run) FOR UPDATE;
+    LET $selected_manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$result_pin.manifest) FOR UPDATE;
+    IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'result protection retired or manifest unavailable'; };
+};"#;
+
+// Historical decoding preserves the original substrate meaning. This predicate
+// does not admit a product for current compilation or replay; those receivers
+// still require the current interpretation and fresh complete premises.
+pub(crate) fn historical_product_interpretation_supported(interpretation: &str) -> bool {
+    interpretation == wire::INTERPRETATION || interpretation == "pse.substrate.v3"
+}
+
+pub(crate) fn descriptor_for_product(
+    product: &pse_model::generated::runtime::canonical_products::Row,
+    issuing_store: &str,
+) -> Result<pse_model::generated::runtime::canonical_product_descriptors::Row, CanonicalError> {
+    let blob = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
+    let receipt = blob.receipt.as_ref().ok_or_else(|| {
+        CanonicalError::Configuration(
+            "historical combined products require explicit offline activation".into(),
+        )
+    })?;
+    if !historical_product_interpretation_supported(&product.interpretation)
+        || blob.producer != product.producer
+        || !product.dependencies.is_empty()
+    {
+        return Err(CanonicalError::Configuration(
+            "product descriptor reconstruction meaning differs".into(),
+        ));
+    }
+    let issuing_store = issuing_store.to_owned();
+    let key = pse_ids::derive_hash(
+        pse_ids::Frame::CanonicalProductDescriptorV1,
+        &[
+            issuing_store.as_bytes(),
+            product.problem.as_bytes(),
+            product.request.as_slice(),
+            product.payload.as_slice(),
+            product.dependencies.as_slice(),
+            product.producer.as_bytes(),
+            product.interpretation.as_bytes(),
+        ],
+    )
+    .to_hex();
+    Ok(
+        pse_model::generated::runtime::canonical_product_descriptors::Row {
+            key,
+            issuing_store,
+            problem: product.problem.clone(),
+            request: product.request.clone(),
+            payload: product.payload.clone(),
+            dependencies: product.dependencies.clone(),
+            content: blob.version,
+            receipt: receipt.version.clone(),
+            producer: product.producer.clone(),
+            interpretation: product.interpretation.clone(),
+            association: None,
+        },
+    )
+}
+
+pub(crate) fn decode_product_association(
+    row: Object,
+) -> Result<pse_model::generated::runtime::canonical_products::Row, CanonicalError> {
+    let association = wire::decode_canonical_product_associations(row)?;
+    let blob = crate::canonical_staging::ProductBlob::decode(association.payload.as_slice())?;
+    let receipt = blob.receipt.as_ref().ok_or_else(|| {
+        CanonicalError::Configuration("active association requires split descriptors".into())
+    })?;
+    let key = pse_ids::derive_hash(
+        pse_ids::Frame::CanonicalProductDescriptorV1,
+        &[
+            association.issuing_store.as_bytes(),
+            association.problem.as_bytes(),
+            association.request.as_slice(),
+            association.payload.as_slice(),
+            association.dependencies.as_slice(),
+            association.producer.as_bytes(),
+            association.interpretation.as_bytes(),
+        ],
+    )
+    .to_hex();
+    if association.descriptor != key
+        || association.content != blob.version
+        || association.receipt != receipt.version
+        || association.producer != blob.producer
+        || !historical_product_interpretation_supported(&association.interpretation)
+        || !association.dependencies.is_empty()
+        || uuid::Uuid::parse_str(&association.issuing_store).is_err()
+    {
+        return Err(CanonicalError::Configuration(
+            "immutable product association descriptor differs".into(),
+        ));
+    }
+    Ok(pse_model::generated::runtime::canonical_products::Row {
+        key: association.key,
+        problem: association.problem,
+        revision: association.revision,
+        request: association.request,
+        payload: association.payload,
+        dependencies: association.dependencies,
+        producer: association.producer,
+        interpretation: association.interpretation,
+    })
+}
+
+const PRODUCT_ACK: &str = r#"BEGIN;
+SELECT * FROM type::record('canonical_guards','retention:'+$problem) FOR UPDATE;
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key);
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'immutable descriptor hash collision'; };
+LET $association = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
+LET $root = IF $association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$association.key) FOR UPDATE };
+IF $association != NONE AND ($association.descriptor != $descriptor.key OR $association.issuing_store != $descriptor.issuing_store OR $association.problem != $descriptor.problem OR $association.request != $descriptor.request OR $association.payload != $descriptor.payload OR $association.dependencies != $descriptor.dependencies OR $association.content != $descriptor.content OR $association.receipt != $descriptor.receipt OR $association.producer != $descriptor.producer OR $association.interpretation != $descriptor.interpretation) { THROW 'descriptor association equality differs'; };
+LET $rpc_result = IF $root != NONE AND $root.key = $association.key AND $root.owner_kind = 'product' AND $root.owner = $association.key AND $root.problem = $association.problem AND $root.revision = $association.revision { $association.key } ELSE { NONE };
+fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+RETURN $rpc_result; COMMIT;"#;
 
 const ADMIT_PRODUCT: &str = r#"
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
-LET $version_guard = type::record('canonical_guards', 'version:' + $blob);
-SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+LET $guards = array::sort([$content.version,$receipt.version]).map(|$v| type::record('canonical_guards','version:'+$v));
+FOR $guard IN $guards { SELECT * FROM $guard FOR UPDATE; };
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $operation + ':0');
-LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $blob);
-IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 1dec OR $stage.expected_head != NONE { THROW 'closed product staging manifest fenced'; };
-IF $child = NONE OR $child.stage != $operation OR $child.ordinal != 0dec OR $child.version != $blob OR $child.logical != 'pse.product-blob.v1' OR $child.scope != 'pse.product-blob.v1' OR $child.name != 'pse.product-blob.v1' OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != 'pse.product-blob.v1' OR $manifest.kind != 'pse.product-blob.v1' OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $blob_digest OR $manifest.payload_len != $blob_bytes { THROW 'product blob association invalid'; };
-// Repeated preparations retain one already rooted exact description. Publication
-// identity is distinct from its request, and a released publication is never revived.
-LET $equivalent = SELECT key FROM canonical_products WHERE problem = $problem AND producer = $product.producer AND request = $product.request AND payload = $product.payload AND dependencies = $product.dependencies AND interpretation = $product.interpretation AND type::record('canonical_roots', key).owner_kind = 'product' AND type::record('canonical_roots', key).revision = revision AND type::record('canonical_roots', key).problem = problem AND type::record('canonical_roots', key).owner = key ORDER BY key LIMIT 1;
-IF array::len($equivalent) = 0 {
-    LET $existing = SELECT * FROM ONLY type::record('canonical_products', $product.key);
-    IF $existing = NONE {
-        CREATE type::record('canonical_products', $product.key) CONTENT $product;
-        CREATE type::record('canonical_roots', $product.key) SET key = $product.key, problem = $problem, revision = $product.revision, sequence = $sequence, owner_kind = 'product', owner = $product.key;
-    } ELSE {
-        IF $existing.problem != $product.problem OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.producer != $product.producer OR $existing.interpretation != $product.interpretation { THROW 'immutable product identity reused'; };
-        LET $root = SELECT * FROM ONLY type::record('canonical_roots', $product.key);
-        IF $root = NONE { THROW 'product retention was explicitly released'; };
-        IF $root.problem != $existing.problem OR $root.revision != $existing.revision OR $root.owner_kind != 'product' OR $root.owner != $existing.key { THROW 'product root disagrees with immutable origin'; };
-    };
+IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 2dec OR $stage.expected_head != NONE { THROW 'closed product staging manifest fenced'; };
+FOR $part IN [{ordinal:0dec,kind:'pse.body-content.v1',record:$content},{ordinal:1dec,kind:'pse.selection-receipt.v1',record:$receipt}] {
+    LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits',$operation+':'+<string>$part.ordinal);
+    LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests',$part.record.version);
+    IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'product physical part association invalid'; };
 };
-UPDATE type::record('canonical_stages', $operation) SET activated = true;
-UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $version_guard SET key = 'version:' + $blob, generation = (generation ?? 0dec) + 1dec;
-UPSERT type::record('canonical_guards', 'retention:' + $problem) SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec;
-LET $rpc_result = IF array::len($equivalent) != 0 { $equivalent[0].key } ELSE { $product.key };
+IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'product physical meaning differs'; };
+LET $old_content = SELECT * FROM ONLY type::record('canonical_body_contents',$content.key);
+IF $old_content = NONE { CREATE type::record('canonical_body_contents',$content.key) CONTENT $content; } ELSE {
+    IF $old_content.version != $content.version OR $old_content.digest != $content.digest OR $old_content.bytes != $content.bytes OR $old_content.producer != $content.producer OR $old_content.interpretation != $content.interpretation OR $old_content.format != $content.format { THROW 'immutable body content collision'; };
+};
+LET $old_receipt = SELECT * FROM ONLY type::record('canonical_selection_receipts',$receipt.key);
+IF $old_receipt = NONE { CREATE type::record('canonical_selection_receipts',$receipt.key) CONTENT $receipt; } ELSE {
+    IF $old_receipt.version != $receipt.version OR $old_receipt.digest != $receipt.digest OR $old_receipt.bytes != $receipt.bytes OR $old_receipt.interpretation != $receipt.interpretation OR $old_receipt.format != $receipt.format { THROW 'immutable selection receipt collision'; };
+};
+LET $saved = SELECT * FROM ONLY type::record('canonical_product_descriptors',$descriptor.key) FOR UPDATE;
+IF $saved != NONE AND ($saved.issuing_store != $descriptor.issuing_store OR $saved.problem != $descriptor.problem OR $saved.request != $descriptor.request OR $saved.payload != $descriptor.payload OR $saved.dependencies != $descriptor.dependencies OR $saved.content != $descriptor.content OR $saved.receipt != $descriptor.receipt OR $saved.producer != $descriptor.producer OR $saved.interpretation != $descriptor.interpretation) { THROW 'immutable descriptor hash collision'; };
+LET $equivalent = IF $saved = NONE OR $saved.association = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_product_associations',$saved.association) };
+LET $equivalent_root = IF $equivalent = NONE { NONE } ELSE { SELECT * FROM ONLY type::record('canonical_roots',$equivalent.key) FOR UPDATE };
+IF $equivalent != NONE AND ($equivalent.descriptor != $descriptor.key OR $equivalent.issuing_store != $descriptor.issuing_store OR $equivalent.problem != $descriptor.problem OR $equivalent.request != $descriptor.request OR $equivalent.payload != $descriptor.payload OR $equivalent.dependencies != $descriptor.dependencies OR $equivalent.content != $descriptor.content OR $equivalent.receipt != $descriptor.receipt OR $equivalent.producer != $descriptor.producer OR $equivalent.interpretation != $descriptor.interpretation) { THROW 'descriptor association equality differs'; };
+LET $eligible = $equivalent_root != NONE AND $equivalent_root.key = $equivalent.key AND $equivalent_root.problem = $equivalent.problem AND $equivalent_root.revision = $equivalent.revision AND $equivalent_root.owner_kind = 'product' AND $equivalent_root.owner = $equivalent.key;
+IF $eligible = false {
+    LET $existing = SELECT * FROM ONLY type::record('canonical_product_associations',$product.key);
+    IF $existing = NONE {
+        CREATE type::record('canonical_product_associations',$product.key) CONTENT $product;
+        fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,$product.key);
+        CREATE type::record('canonical_roots',$product.key) SET key=$product.key,problem=$problem,revision=$product.revision,sequence=$sequence,owner_kind='product',owner=$product.key;
+    } ELSE {
+        IF $existing.issuing_store != $product.issuing_store OR $existing.problem != $product.problem OR $existing.revision != $product.revision OR $existing.descriptor != $product.descriptor OR $existing.request != $product.request OR $existing.payload != $product.payload OR $existing.dependencies != $product.dependencies OR $existing.content != $product.content OR $existing.receipt != $product.receipt OR $existing.producer != $product.producer OR $existing.interpretation != $product.interpretation { THROW 'immutable product identity reused'; };
+        LET $root = SELECT * FROM ONLY type::record('canonical_roots',$product.key) FOR UPDATE;
+        IF $root=NONE OR $root.problem!=$existing.problem OR $root.revision!=$existing.revision OR $root.owner_kind!='product' OR $root.owner!=$existing.key { THROW 'product retention explicitly released or changed'; };
+    };
+    IF $saved = NONE { CREATE type::record('canonical_product_descriptors',$descriptor.key) CONTENT $descriptor; };
+    UPDATE type::record('canonical_product_descriptors',$descriptor.key) SET association=$product.key;
+};
+UPDATE type::record('canonical_stages',$operation) SET activated=true;
+UPSERT $stage_guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec;
+FOR $key IN [$content.version,$receipt.version] { UPSERT type::record('canonical_guards','version:'+$key) SET key='version:'+$key,generation=(generation ?? 0dec)+1dec; };
+fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
+LET $rpc_result = IF $eligible { $equivalent.key } ELSE { $product.key };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'product publication authority expired'; };
 RETURN $rpc_result;
@@ -1600,11 +1988,12 @@ FOR $batch IN array::clump($changes, 64) {
     INSERT RELATION INTO canonical_memberships $memberships RETURN NONE;
 };
 CREATE type::record('canonical_revisions', $operation) SET key = $operation, problem = $problem, sequence = $sequence, parent = $expected, operation = $operation, request = $request, interpretation = $interpretation;
+fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,'history:'+$operation);
 CREATE type::record('canonical_roots', 'history:' + $operation) SET key = 'history:' + $operation, problem = $problem, revision = $operation, sequence = $sequence, owner_kind = 'history', owner = $operation;
 UPDATE type::record('canonical_stages', $operation) SET activated = true;
 UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
 UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key = 'retention:' + $problem, generation = (generation ?? 0dec) + 1dec, incarnation = incarnation ?? <string>rand::uuid::v4();
+IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET key='retention:'+$problem,generation=0dec,incarnation=<string>rand::uuid::v4(); };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $stage.expires_at <= time::micros() { THROW 'activation staging lease expired before commit'; };
 COMMIT;
@@ -2163,7 +2552,7 @@ mod description_unit {
         reason = "pure description identity assertions fail on unexpected encoding errors"
     )]
     use super::*;
-    use crate::canonical_selection::{ProductDescription, SelectedRead};
+    use crate::canonical_selection::{ProductDescription, SelectedRead, SelectionMaterial};
     use pse_model::generated::runtime::canonical_products::Row as Product;
 
     fn read(revision: &str, protection: &str) -> SelectedRead {
@@ -2242,6 +2631,212 @@ mod description_unit {
                     + description.selected_dependencies().retained_bytes()
         );
     }
+    #[test]
+    fn split_descriptions_share_receipts_and_preserve_body_identity_when_premises_change() {
+        let first = read("revision-one", "pin-one");
+        let selected = SelectionMaterial::capture(&first, Arc::new(())).unwrap();
+        let one = ProductDescription::prepare_with_selection(
+            &first,
+            product(&first, "one", b"body-one"),
+            selected.clone(),
+        )
+        .unwrap();
+        let two = ProductDescription::prepare_with_selection(
+            &first,
+            product(&first, "two", b"body-two"),
+            selected.clone(),
+        )
+        .unwrap();
+        let a = crate::canonical_staging::ProductBlob::decode(one.descriptor()).unwrap();
+        let b = crate::canonical_staging::ProductBlob::decode(two.descriptor()).unwrap();
+        assert_ne!(a.version, b.version);
+        assert_eq!(a.receipt, b.receipt);
+        assert!(Arc::ptr_eq(
+            one.selection_material(),
+            two.selection_material()
+        ));
+        let mut changed = read("revision-two", "pin-two");
+        changed
+            .interpretation("acquired".into(), "different".into())
+            .unwrap();
+        let other =
+            ProductDescription::prepare(&changed, product(&changed, "one", b"body-one")).unwrap();
+        let c = crate::canonical_staging::ProductBlob::decode(other.descriptor()).unwrap();
+        assert_eq!(
+            a.version, c.version,
+            "receipt changes preserve exact body-content identity"
+        );
+        assert_ne!(a.receipt, c.receipt);
+        let p = product(&first, "same", b"body-one");
+        let raw = ProductDescription::prepare(&first, p).unwrap();
+        let header = pse_model::generated::runtime::canonical_products::Row {
+            payload: raw.descriptor().to_vec().into(),
+            dependencies: Vec::new().into(),
+            ..product(&first, "ignored", b"")
+        };
+        let store_one =
+            descriptor_for_product(&header, "00000000-0000-4000-8000-000000000001").unwrap();
+        let store_two =
+            descriptor_for_product(&header, "00000000-0000-4000-8000-000000000002").unwrap();
+        assert_ne!(
+            store_one.key, store_two.key,
+            "issuing stores cannot confer each other's ACKs"
+        );
+    }
+    #[test]
+    fn shared_body_description_retains_exact_payload_allocation_without_copy() {
+        #[derive(Debug)]
+        struct Owner;
+        let selected = read("revision", "pin");
+        let selection = SelectionMaterial::capture(&selected, Arc::new(())).unwrap();
+        let payload = Arc::new(b"body".to_vec());
+        let pointer = payload.as_ptr();
+        let owner = Arc::new(Owner);
+        let lifetime = Arc::downgrade(&owner);
+        let header = product(&selected, "offer", b"");
+        let description = ProductDescription::prepare_with_shared_payload(
+            &selected,
+            header,
+            selection,
+            payload.clone(),
+            owner.clone(),
+        )
+        .unwrap();
+        // Arc counts distinguish sharing from an equally valued hidden copy.
+        assert_eq!(Arc::strong_count(&payload), 2);
+        assert_eq!(payload.as_ptr(), pointer);
+        drop(owner);
+        drop(payload);
+        assert!(lifetime.upgrade().is_some());
+        assert!(description.descriptor_allocation_bytes() < description.exclusive_retained_bytes());
+        drop(description);
+        assert!(lifetime.upgrade().is_none());
+    }
+    #[test]
+    fn shared_selection_material_preserves_wire_bytes_and_allocation_owner() {
+        #[derive(Debug)]
+        struct Owner(Arc<std::sync::atomic::AtomicUsize>);
+        impl Drop for Owner {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }
+        }
+        let selected = read("revision", "pin");
+        let released = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let owner = Arc::new(Owner(released.clone()));
+        let lifetime = Arc::downgrade(&owner);
+        let selection = SelectionMaterial::capture(&selected, owner.clone()).unwrap();
+        drop(owner);
+        let descriptions = [b"body-one".as_slice(), b"body-two".as_slice()].map(|payload| {
+            let offered = product(&selected, "offer", payload);
+            let shared = ProductDescription::prepare_with_selection(
+                &selected,
+                offered.clone(),
+                selection.clone(),
+            )
+            .unwrap();
+            let legacy = ProductDescription::prepare(&selected, offered).unwrap();
+            assert_eq!(shared.descriptor(), legacy.descriptor());
+            assert_eq!(
+                shared.selected_dependencies(),
+                legacy.selected_dependencies()
+            );
+            assert_eq!(
+                shared.retained_bytes(),
+                shared.exclusive_retained_bytes() + selection.retained_bytes()
+            );
+            assert!(Arc::ptr_eq(shared.selection_material(), &selection));
+            shared
+        });
+        let uncertain_settlement = descriptions[1].clone();
+        drop(descriptions);
+        drop(selection);
+        drop(selected);
+        assert!(
+            lifetime.upgrade().is_some(),
+            "the escaped settlement description retains the charged owner"
+        );
+        assert_eq!(released.load(std::sync::atomic::Ordering::SeqCst), 0);
+        drop(uncertain_settlement);
+        assert!(lifetime.upgrade().is_none());
+        assert_eq!(released.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+    #[test]
+    fn shared_selection_material_refuses_acquired_changes_and_diverged_read_clones() {
+        let selected = read("revision", "pin");
+        let original = SelectionMaterial::capture(&selected, Arc::new(())).unwrap();
+        let mut left = selected.clone();
+        let mut right = selected.clone();
+        left.interpretation("acquired".into(), "left".into())
+            .unwrap();
+        right
+            .interpretation("acquired".into(), "right".into())
+            .unwrap();
+        let left_material = SelectionMaterial::capture(&left, Arc::new(())).unwrap();
+        assert!(
+            ProductDescription::prepare_with_selection(
+                &left,
+                product(&left, "offer", b"body"),
+                original.clone()
+            )
+            .is_err()
+        );
+        assert!(
+            ProductDescription::prepare_with_selection(
+                &right,
+                product(&right, "offer", b"body"),
+                left_material.clone()
+            )
+            .is_err()
+        );
+        let another_pin = read("revision", "another-pin");
+        assert!(
+            ProductDescription::prepare_with_selection(
+                &another_pin,
+                product(&another_pin, "offer", b"body"),
+                original
+            )
+            .is_err()
+        );
+        assert!(
+            left_material
+                .rebinding_from(
+                    &SelectionMaterial::capture(&selected, Arc::new(())).unwrap(),
+                    &left
+                )
+                .unwrap()
+                .is_none()
+        );
+    }
+    #[test]
+    fn selection_rebinding_preserves_original_blob_and_requires_exact_receipt_origin() {
+        let first = read("revision-one", "pin-one");
+        let original =
+            ProductDescription::prepare(&first, product(&first, "offer", b"body")).unwrap();
+        let mut second = read("revision-two", "pin-two");
+        let selection = SelectionMaterial::capture(&second, Arc::new(())).unwrap();
+        let binding = selection
+            .rebinding_from(original.selection_material(), &second)
+            .unwrap()
+            .unwrap();
+        let rebound = original.rebind_selection(&second, &binding).unwrap();
+        assert_eq!(
+            original.descriptor().as_ptr(),
+            rebound.descriptor().as_ptr()
+        );
+        assert!(Arc::ptr_eq(rebound.selection_material(), &selection));
+        let separately_captured =
+            ProductDescription::prepare(&first, product(&first, "offer", b"body")).unwrap();
+        assert!(
+            separately_captured
+                .rebind_selection(&second, &binding)
+                .is_err()
+        );
+        second
+            .interpretation("acquired".into(), "changed".into())
+            .unwrap();
+        assert!(original.rebind_selection(&second, &binding).is_err());
+    }
 }
 
 #[cfg(all(test, feature = "canonical-tests"))]
@@ -2271,6 +2866,47 @@ mod canonical_server_unit {
             crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
             options,
         )
+    }
+    #[test]
+    fn source_protection_cleanup_outlives_its_callers_executor() {
+        let store = crate::testing::canonical_fixture_store().unwrap();
+        let caller = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let protection = caller.block_on(async {
+            let revision = store
+                .edit("short-lived-executor", None, "source", &[])
+                .await
+                .unwrap();
+            store
+                .protect(revision, std::time::Duration::from_secs(30))
+                .await
+                .unwrap()
+        });
+        drop(caller);
+        // Automatic cleanup must run on the still-live physical fixture owner,
+        // even when no runtime is entered at the point the final reader drops.
+        drop(protection);
+        let observer = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        observer.block_on(store.result_read_drain.drain()).unwrap();
+        observer.block_on(async {
+            tokio::time::timeout(REQUEST_TIMEOUT, async {
+                while store
+                    .fixture_lifetime
+                    .as_ref()
+                    .is_some_and(|owner| Arc::strong_count(owner) != 1)
+                {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+        });
+        observer.block_on(store.remove_isolated_fixture()).unwrap();
     }
     #[tokio::test]
     async fn source_protection_follows_last_reader_and_abandoned_acquisition() {
@@ -2381,7 +3017,7 @@ mod canonical_server_unit {
         followers.push(selection);
         let held = store
             .problem_turns
-            .gate(&revision.problem)
+            .gate(&format!("pin:{key}"))
             .unwrap()
             .write_owned()
             .await;
@@ -2509,6 +3145,72 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    async fn source_protection_renewal_preserves_original_grant_and_never_revives() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store
+            .edit("renew-source", None, "initial", &[])
+            .await
+            .unwrap();
+        let pin = store
+            .protect(revision.clone(), std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        let key = pin.grant_key().to_owned();
+        let before: Option<Object> =
+            request(store.db.select(("canonical_protections", key.as_str())))
+                .await
+                .unwrap();
+        let mut before = wire::decode_canonical_protections(before.unwrap()).unwrap();
+        pin.renew(std::time::Duration::from_secs(60)).await.unwrap();
+        assert_eq!(pin.grant_key(), key);
+        let after: Option<Object> =
+            request(store.db.select(("canonical_protections", key.as_str())))
+                .await
+                .unwrap();
+        let mut after = wire::decode_canonical_protections(after.unwrap()).unwrap();
+        assert!(after.expires_at > before.expires_at);
+        before.expires_at = 0;
+        after.expires_at = 0;
+        assert_eq!(
+            before, after,
+            "renewal changes only expiry, never original grant/provenance"
+        );
+        bounded_query(
+            store
+                .db
+                .query("UPDATE type::record('canonical_protections',$key) SET expires_at=0;")
+                .bind(("key", key.clone())),
+        )
+        .await
+        .unwrap();
+        assert!(pin.renew(std::time::Duration::from_secs(60)).await.is_err());
+        let expired: Option<Object> =
+            request(store.db.select(("canonical_protections", key.as_str())))
+                .await
+                .unwrap();
+        assert_eq!(
+            wire::decode_canonical_protections(expired.unwrap())
+                .unwrap()
+                .expires_at,
+            0
+        );
+        store.release(&pin).await.unwrap();
+        assert!(pin.renew(std::time::Duration::from_secs(60)).await.is_err());
+        let released = store
+            .protect(revision, std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+        store.release(&released).await.unwrap();
+        assert!(
+            released
+                .renew(std::time::Duration::from_secs(60))
+                .await
+                .is_err()
+        );
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn source_protection_release_before_acquire_refuses_late_admission() {
         let (store, _) = initialization_fixture().await;
         store.create().await.unwrap();
@@ -2529,8 +3231,8 @@ mod canonical_server_unit {
             .unwrap();
         // Control the server ordering directly: cleanup acknowledges this exact
         // owner before its delayed acquisition reaches the guarded transaction.
-        store.result_read_drain.retain();
-        let key = uuid::Uuid::new_v4().to_string();
+        store.result_read_drain.retain().unwrap();
+        let key = store.protection_grant_key(&revision.problem).await.unwrap();
         let selection = ProtectedSelection {
             owner: Arc::new(ProtectionOwner {
                 key: key.clone(),
@@ -2647,7 +3349,7 @@ mod canonical_server_unit {
             .unwrap();
         let held = store
             .problem_turns
-            .gate(&revision.problem)
+            .gate(&format!("pin:{}", selection.key()))
             .unwrap()
             .write_owned()
             .await;
@@ -3472,7 +4174,7 @@ mod canonical_server_unit {
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
-                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, analysis_creation_closed_through: None };
+                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None };
                 let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.and_then(checked)?;
                 let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);
@@ -3513,3 +4215,32 @@ mod canonical_server_unit {
         result.unwrap();
     }
 }
+
+// The same transaction text is used by held-commit protocol controls.
+pub(crate) const ACQUIRE_PROTECTION: &str = r#"BEGIN;
+            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$key,true);
+            LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $revision);
+            IF $revision = NONE OR $revision.problem != $problem { THROW 'revision unavailable'; };
+            LET $reclaimed = SELECT key FROM canonical_reclaimed_ranges WHERE problem = $problem AND from_sequence <= $revision.sequence AND to_sequence > $revision.sequence LIMIT 1;
+            IF array::len($reclaimed) != 0 { THROW 'source selection reclaimed'; };
+            IF (SELECT * FROM ONLY type::record('canonical_protections', $key) FOR UPDATE) = NONE { CREATE type::record('canonical_protections', $key) SET key = $key, problem = $problem, revision = $revision.key, sequence = $revision.sequence, expires_at = time::micros() + $lifetime, released = false, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
+            fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
+            LET $rpc_result = SELECT * FROM ONLY type::record('canonical_revisions', $revision.key) TIMEOUT $pse_rpc_timeout;
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            LET $protection = SELECT * FROM ONLY type::record('canonical_protections', $key);
+            IF $protection = NONE OR $protection.released OR $protection.expires_at <= time::micros() { THROW 'immutable selection protection expired'; };
+            IF $protection.problem!=$problem OR $protection.revision!=$revision.key OR $protection.sequence!=$revision.sequence OR $protection.grant_deadline!=$grant.grant_deadline OR $protection.grant_nonce!=$grant.grant_nonce OR $protection.authority_incarnation!=$grant.authority_incarnation { THROW 'immutable selection grant identity reused'; };
+            RETURN $rpc_result;
+            COMMIT;"#;
+
+// The same transaction text is used by held-commit protocol controls.
+pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
+            SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE;
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            LET $grant=fn::pse_execution_v1::protection_grant($pse_rpc_expires_at,$problem,$protection,false);
+            LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
+            IF $pin != NONE AND ($pin.key != $protection OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence) { THROW 'immutable selection protection identity differs'; };
+            IF !$grant.closed OR $pin!=NONE { UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
+            fn::pse_execution_v1::deadline($pse_rpc_expires_at);
+            COMMIT;"#;

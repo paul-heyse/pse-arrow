@@ -49,13 +49,6 @@ pub use crate::cancel::CancelSource;
 pub use crate::env::SharedRuntime;
 pub use crate::peak::ResourceReport;
 
-/// Effectful authoring adapters around pure parser and generated document values.
-pub mod authoring_driver;
-/// Physical declarations admitted once from actual typed source rows.
-pub mod physical;
-#[rustfmt::skip]
-mod generated;
-
 /// Finite authored definitions into library-owned mathematical bodies.
 pub mod math;
 /// Typed native modeling, completion-owned jobs, physical results and explicit publication.

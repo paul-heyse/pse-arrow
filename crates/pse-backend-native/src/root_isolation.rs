@@ -40,6 +40,81 @@ const MAX_HESSIAN_ENTRIES: usize = 32_768;
 // share this lock; it owns no retained session or cached evidence.
 static IBEX: Mutex<()> = Mutex::new(());
 
+/// Shared request-local exclusion admission. A supplied original Execution is the
+/// control for an installed quiescent compute owner. Legacy requests borrow an exact
+/// cancel-matched scoped Execution; unowned caller/team threads retain their allowance.
+fn acquire_library<'a>(
+    lock: &'a Mutex<()>,
+    mut checkpoint: impl FnMut() -> Result<bool, MathError>,
+    execution: Option<&crate::solve::Execution>,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Option<std::sync::MutexGuard<'a, ()>>, MathError> {
+    let inherited = crate::execution::current_execution(cancel);
+    let execution = execution.or(inherited.as_ref());
+    fn compute_error(error: crate::ProblemError) -> MathError {
+        match error {
+            crate::ProblemError::Cancelled => MathError::Cancelled,
+            other => MathError::Typed {
+                retained: other.retained_bytes(),
+                cause: pse_model::diagnostic::DiagnosticCause::new(other),
+            },
+        }
+    }
+    if execution.is_some() {
+        crate::execution::pause_compute();
+    }
+    let mut resumed = execution.is_none();
+    let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        loop {
+            if !checkpoint()? {
+                return Ok(None);
+            }
+            if let Some(execution) = execution {
+                execution.check().map_err(compute_error)?;
+            }
+            match lock.try_lock() {
+                Ok(guard) => {
+                    if let Some(execution) = execution {
+                        match crate::execution::try_resume_compute(execution) {
+                            Ok(crate::execution::ComputeAvailability::Acquired) => resumed = true,
+                            Ok(crate::execution::ComputeAvailability::Unavailable) => {
+                                drop(guard);
+                                std::thread::sleep(Duration::from_millis(1));
+                                continue;
+                            }
+                            Err(error) => {
+                                drop(guard);
+                                return Err(compute_error(error));
+                            }
+                        }
+                    }
+                    return Ok(Some(guard));
+                }
+                Err(TryLockError::Poisoned(_)) => return Ok(None),
+                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
+            }
+        }
+    }));
+    let result = match outcome {
+        Ok(result) => result,
+        Err(panic) => {
+            if !resumed && let Some(execution) = execution {
+                let _ = crate::execution::resume_compute(execution);
+            }
+            std::panic::resume_unwind(panic)
+        }
+    };
+    // Failure exits restore only after every tentative library guard has dropped.
+    // Cancellation/deadline errors remain authoritative if reacquisition also refuses.
+    if !resumed && let Some(execution) = execution {
+        let restored = crate::execution::resume_compute(execution).map_err(compute_error);
+        if result.is_ok() {
+            restored?;
+        }
+    }
+    result
+}
+
 /// The single supported native validated mathematics implementation.
 #[derive(Debug, Default)]
 pub struct Ibex;
@@ -945,23 +1020,21 @@ impl Ibex {
             Ok(t) => t,
             Err(reason) => return Ok(incomplete(reason, empty_work)),
         };
-        let library_guard = loop {
-            if cancel.load(Ordering::Acquire) {
+        let library_guard = match acquire_library(
+            &IBEX,
+            || {
+                Ok(!cancel.load(Ordering::Acquire)
+                    && started.elapsed() < time_limit
+                    && !execution.is_some_and(|e| e.stopped().is_some()))
+            },
+            execution,
+            cancel,
+        )? {
+            Some(guard) => guard,
+            None if cancel.load(Ordering::Acquire) => {
                 return Ok(PointArithmeticEvidence::Interrupted { work: empty_work });
             }
-            if started.elapsed() >= time_limit {
-                return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
-            }
-            if execution.is_some_and(|e| e.stopped().is_some()) {
-                return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
-            }
-            match IBEX.try_lock() {
-                Ok(g) => break g,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
-            }
+            None => return Ok(incomplete(SelectionProofRefusal::Resource, empty_work)),
         };
         let outputs = transport.residuals.len();
         let entries = if order == DerivativeOrder::Value {
@@ -1190,20 +1263,12 @@ impl SelectionVerifier for Ibex {
             Ok(transport) => transport,
             Err(reason) => return Ok(SelectionEvidence::Incomplete(reason)),
         };
-        let library_guard = loop {
-            if !checkpoint()? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => {
                 return Ok(SelectionEvidence::Incomplete(
                     SelectionProofRefusal::Resource,
                 ));
-            }
-            match IBEX.try_lock() {
-                Ok(guard) => break guard,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(SelectionEvidence::Incomplete(
-                        SelectionProofRefusal::Resource,
-                    ));
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let lower = winner.unknowns.iter().map(|u| u.lower).collect::<Vec<_>>();
@@ -1325,15 +1390,9 @@ impl SelectionVerifier for Ibex {
         {
             return Ok(false);
         }
-        let library_guard = loop {
-            if !checkpoint()? {
-                return Ok(false);
-            }
-            match IBEX.try_lock() {
-                Ok(g) => break g,
-                Err(TryLockError::Poisoned(_)) => return Ok(false),
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
-            }
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => return Ok(false),
         };
         let native = NativeRequest {
             nodes: transport.nodes.as_ptr(),
@@ -1442,25 +1501,21 @@ impl SelectionVerifier for Ibex {
         let mut root_lower = vec![0.0; n];
         let mut root_upper = vec![0.0; n];
         let mut inverse_norm_upper = 0.0;
-        let library_guard = loop {
-            if request.cancel.load(Ordering::Acquire) {
+        let library_guard = match acquire_library(
+            &IBEX,
+            || Ok(!request.cancel.load(Ordering::Acquire) && started.elapsed() < request.time_limit),
+            None,
+            request.cancel,
+        )? {
+            Some(guard) => guard,
+            None if request.cancel.load(Ordering::Acquire) => {
                 return Ok(RootPointEvidence::Interrupted { proof_cells: 0 });
             }
-            if started.elapsed() >= request.time_limit {
+            None => {
                 return Ok(RootPointEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
                     proof_cells: 0,
                 });
-            }
-            match IBEX.try_lock() {
-                Ok(g) => break g,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(RootPointEvidence::Incomplete {
-                        reason: SelectionProofRefusal::Resource,
-                        proof_cells: 0,
-                    });
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let native = NativeRequest {
@@ -1619,22 +1674,13 @@ impl SelectionVerifier for Ibex {
         let uu = chart.uniqueness.iter().map(|i| i.upper).collect::<Vec<_>>();
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = loop {
-            if !checkpoint()? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => {
                 return Ok(RootActionEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
                     proof_cells: 0,
                 });
-            }
-            match IBEX.try_lock() {
-                Ok(g) => break g,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(RootActionEvidence::Incomplete {
-                        reason: SelectionProofRefusal::Resource,
-                        proof_cells: 0,
-                    });
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let native = NativeRequest {
@@ -1791,22 +1837,13 @@ impl SelectionVerifier for Ibex {
         let mut point_upper = vec![0.0; el.len()];
         let mut action_lower = vec![0.0; el.len()];
         let mut action_upper = vec![0.0; el.len()];
-        let library_guard = loop {
-            if !checkpoint()? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => {
                 return Ok(RootNeighborhoodEvidence::Incomplete {
                     reason: SelectionProofRefusal::Resource,
                     proof_cells: 0,
                 });
-            }
-            match IBEX.try_lock() {
-                Ok(g) => break g,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(RootNeighborhoodEvidence::Incomplete {
-                        reason: SelectionProofRefusal::Resource,
-                        proof_cells: 0,
-                    });
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let native = NativeRequest {
@@ -1969,20 +2006,12 @@ impl SelectionVerifier for Ibex {
         let (next_pl, next_pu) = intervals(&chain.next.parameters);
         let (next_el, next_eu) = intervals(&chain.next.existence);
         let (next_ul, next_uu) = intervals(&chain.next.uniqueness);
-        let library_guard = loop {
-            if !checkpoint()? {
+        let library_guard = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => {
                 return Ok(ChartChainEvidence::Incomplete(
                     SelectionProofRefusal::Resource,
                 ));
-            }
-            match IBEX.try_lock() {
-                Ok(guard) => break guard,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(ChartChainEvidence::Incomplete(
-                        SelectionProofRefusal::Resource,
-                    ));
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let native = NativeRequest {
@@ -2171,20 +2200,12 @@ impl SelectionVerifier for Ibex {
                     .collect::<Vec<_>>(),
             ));
         }
-        let _library = loop {
-            if !checkpoint()? {
+        let _library = match acquire_library(&IBEX, checkpoint, None, request.cancel)? {
+            Some(guard) => guard,
+            None => {
                 return Ok(SelectionEvidence::Incomplete(
                     SelectionProofRefusal::Resource,
                 ));
-            }
-            match IBEX.try_lock() {
-                Ok(guard) => break guard,
-                Err(TryLockError::Poisoned(_)) => {
-                    return Ok(SelectionEvidence::Incomplete(
-                        SelectionProofRefusal::Resource,
-                    ));
-                }
-                Err(TryLockError::WouldBlock) => std::thread::sleep(Duration::from_millis(1)),
             }
         };
         let seconds = request
@@ -2306,6 +2327,230 @@ impl SelectionVerifier for Ibex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[derive(Debug)]
+    struct TestCompute {
+        available: Arc<std::sync::atomic::AtomicUsize>,
+        held: bool,
+        paused: Option<std::sync::mpsc::Sender<()>>,
+        closed: bool,
+    }
+    impl Drop for TestCompute {
+        fn drop(&mut self) {
+            if self.held {
+                self.available.fetch_add(1, Ordering::AcqRel);
+            }
+        }
+    }
+    impl crate::execution::ComputeAdmission for TestCompute {
+        fn pause(&mut self) {
+            if self.held {
+                self.held = false;
+                self.available.fetch_add(1, Ordering::AcqRel);
+            }
+            if let Some(paused) = self.paused.take() {
+                let _ = paused.send(());
+            }
+        }
+        fn try_resume(
+            &mut self,
+            execution: &crate::solve::Execution,
+        ) -> Result<crate::execution::ComputeAvailability, crate::ProblemError> {
+            execution.check()?;
+            if self.closed {
+                return Err(crate::ProblemError::Contract(
+                    "closed compute control".into(),
+                ));
+            }
+            if self.held
+                || self
+                    .available
+                    .compare_exchange(1, 0, Ordering::AcqRel, Ordering::Acquire)
+                    .is_ok()
+            {
+                self.held = true;
+                Ok(crate::execution::ComputeAvailability::Acquired)
+            } else {
+                Ok(crate::execution::ComputeAvailability::Unavailable)
+            }
+        }
+        fn resume(
+            &mut self,
+            execution: &crate::solve::Execution,
+        ) -> Result<(), crate::ProblemError> {
+            loop {
+                if self.try_resume(execution)? == crate::execution::ComputeAvailability::Acquired {
+                    return Ok(());
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+    }
+    #[test]
+    fn ibex_quiescent_wait_releases_library_before_compute_retry_with_active_team() {
+        let lock = Arc::new(Mutex::new(()));
+        let holder = lock.lock().unwrap();
+        let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (paused, pause) = std::sync::mpsc::channel();
+        let worker_lock = lock.clone();
+        let worker_available = available.clone();
+        let worker = std::thread::spawn(move || {
+            let execution = crate::solve::Execution::new(
+                Arc::default(),
+                &crate::solve::Controls {
+                    time_limit: Duration::from_secs(2),
+                    ..Default::default()
+                },
+            );
+            let _original = crate::execution::original_scope(&execution);
+            crate::execution::compute_scoped(
+                Box::new(TestCompute {
+                    available: worker_available.clone(),
+                    held: true,
+                    paused: Some(paused),
+                    closed: false,
+                }),
+                || {
+                    // The legacy math-facing request borrows the exact original control.
+                    let guard = acquire_library(&worker_lock, || Ok(true), None, &execution.cancel)
+                        .unwrap()
+                        .unwrap();
+                    assert_eq!(worker_available.load(Ordering::Acquire), 0);
+                    drop(guard);
+                },
+            );
+        });
+        pause.recv_timeout(Duration::from_secs(1)).unwrap();
+        assert_eq!(
+            available.compare_exchange(1, 0, Ordering::AcqRel, Ordering::Acquire),
+            Ok(1)
+        );
+        drop(holder);
+        // This independent active team keeps its compute charge; the quiescent waiter
+        // must not hold IBEX while waiting for that charge to become available.
+        let active_team = crate::solve::Execution::new(Arc::default(), &Default::default());
+        let _team_control = crate::execution::original_scope(&active_team);
+        let start = Instant::now();
+        let guard = acquire_library(
+            &lock,
+            || Ok(start.elapsed() < Duration::from_secs(1)),
+            None,
+            &active_team.cancel,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(available.load(Ordering::Acquire), 0);
+        drop(guard);
+        available.store(1, Ordering::Release);
+        worker.join().unwrap();
+        assert_eq!(available.load(Ordering::Acquire), 1);
+    }
+    #[test]
+    fn ibex_original_control_transport_restores_nested_scope_and_refuses_foreign_cancel() {
+        let original = crate::solve::Execution::new(Arc::default(), &Default::default());
+        let sibling = crate::solve::Execution::new(Arc::default(), &Default::default());
+        assert!(crate::execution::current_execution(&original.cancel).is_none());
+        {
+            let _outer = crate::execution::original_scope(&original);
+            let inherited = crate::execution::current_execution(&original.cancel).unwrap();
+            assert_eq!(inherited.started, original.started);
+            assert!(Arc::ptr_eq(&inherited.abandonment, &original.abandonment));
+            assert!(crate::execution::current_execution(&sibling.cancel).is_none());
+            {
+                let _inner = crate::execution::original_scope(&sibling);
+                assert!(crate::execution::current_execution(&original.cancel).is_none());
+            }
+            assert!(crate::execution::current_execution(&original.cancel).is_some());
+            let cancel = original.cancel.clone();
+            assert!(
+                std::thread::spawn(move || crate::execution::current_execution(&cancel).is_none())
+                    .join()
+                    .unwrap()
+            );
+        }
+        assert!(crate::execution::current_execution(&original.cancel).is_none());
+    }
+    #[test]
+    fn ibex_poison_and_unwind_restore_compute_outside_library_guard() {
+        let poisoned = Arc::new(Mutex::new(()));
+        let control = poisoned.clone();
+        assert!(
+            std::thread::spawn(move || {
+                let _held = control.lock().unwrap();
+                panic!("isolated lock poison control");
+            })
+            .join()
+            .is_err()
+        );
+        let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let execution = crate::solve::Execution::new(Arc::default(), &Default::default());
+        crate::execution::compute_scoped(
+            Box::new(TestCompute {
+                available: available.clone(),
+                held: true,
+                paused: None,
+                closed: false,
+            }),
+            || {
+                assert!(
+                    acquire_library(&poisoned, || Ok(true), Some(&execution), &execution.cancel)
+                        .unwrap()
+                        .is_none()
+                );
+                assert_eq!(available.load(Ordering::Acquire), 0);
+                let clean = Mutex::new(());
+                assert!(
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let _ = acquire_library(
+                            &clean,
+                            || panic!("checkpoint unwind control"),
+                            Some(&execution),
+                            &execution.cancel,
+                        );
+                    }))
+                    .is_err()
+                );
+                assert!(clean.try_lock().is_ok());
+                assert_eq!(available.load(Ordering::Acquire), 0);
+            },
+        );
+        assert_eq!(available.load(Ordering::Acquire), 1);
+    }
+    #[test]
+    fn ibex_queued_deadline_cancel_and_failed_reacquisition_release_every_guard() {
+        for mode in 0..3 {
+            let available = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let execution = crate::solve::Execution::new(
+                Arc::default(),
+                &crate::solve::Controls {
+                    time_limit: Duration::from_millis(10),
+                    ..Default::default()
+                },
+            );
+            let lock = Mutex::new(());
+            crate::execution::compute_scoped(
+                Box::new(TestCompute {
+                    available: available.clone(),
+                    held: true,
+                    paused: None,
+                    closed: mode == 2,
+                }),
+                || {
+                    let held = (mode != 2).then(|| lock.lock().unwrap());
+                    if mode == 1 {
+                        execution.cancel.store(true, Ordering::Release);
+                    }
+                    let result =
+                        acquire_library(&lock, || Ok(true), Some(&execution), &execution.cancel);
+                    assert!(result.is_err());
+                    drop(result);
+                    drop(held);
+                    assert!(lock.try_lock().is_ok());
+                    assert_eq!(available.load(Ordering::Acquire), 1);
+                },
+            );
+            assert_eq!(available.load(Ordering::Acquire), 1);
+        }
+    }
     #[test]
     fn rational_transport_encloses_exact_constants() {
         for value in [

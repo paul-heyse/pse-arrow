@@ -71,6 +71,15 @@ def build_info() -> BuildInfo:
     return _native.build_info()
 
 
+def compiled_features() -> list[str]:
+    """Report features embedded by Rust in the imported extension binary."""
+    try:
+        return _native.compiled_features()
+    except AttributeError as error:
+        message = "stale native feature interface; run just py-sync-correctness"
+        raise ImportError(message) from error
+
+
 def native_version() -> str:
     """Return ``pse._native.__version__``, the version the extension was built at.
 

@@ -77,6 +77,74 @@ pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
         .unwrap()
 }
 
+#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[tokio::test]
+async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_removed_acquisition() {
+    let runtime = durable_runtime();
+    let (package, analysis) = package_on(&runtime, LINEAR).await;
+    let prepared = package
+        .prepare_analysis(&analysis, &crate::CancelSource::new())
+        .await
+        .unwrap();
+    let handle = prepared.start().unwrap();
+    let result = handle.wait().await.unwrap();
+    assert!(result.usable(), "{:?}", result.report());
+    let operations = runtime.operations().unwrap();
+    let target = prepared.solve.compatibility().unwrap();
+    let identity = prepared.solve.seed_preparation_identity().unwrap();
+    let admitted = operations
+        .latest_seed(target, &identity, result.canonical_attempt_key())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(admitted.header().run, result.canonical_run_key().unwrap());
+    let shared = admitted.clone();
+    assert!(Arc::ptr_eq(admitted.start(), shared.start()));
+    let seeded = prepared.clone().with_admitted_start(&admitted).unwrap();
+    assert!(Arc::ptr_eq(
+        seeded.solve.explicit_seed().unwrap(),
+        admitted.start()
+    ));
+    let bare = seeded.solve.clone();
+    let bits = match &admitted.start().payload {
+        pse_backend_native::solve::WarmPayload::Root(primal) => primal
+            .iter()
+            .map(|value| value.to_bits())
+            .collect::<Vec<_>>(),
+        _ => panic!("original root seed"),
+    };
+    let solution = admitted.solution();
+    drop(result);
+    drop(handle);
+    drop(seeded);
+    drop(prepared);
+    drop(package);
+    runtime.clear_program_cache();
+    runtime
+        .canonical_store()
+        .remove_isolated_fixture()
+        .await
+        .unwrap();
+    assert!(
+        operations.seed(solution).await.is_err(),
+        "copied bytes cannot authorize a fresh storage acquisition"
+    );
+    drop(admitted);
+    drop(shared);
+    let retained = bare.explicit_seed().unwrap();
+    let pse_backend_native::solve::WarmPayload::Root(primal) = &retained.payload else {
+        panic!("retained root seed")
+    };
+    assert_eq!(
+        primal
+            .iter()
+            .map(|value| value.to_bits())
+            .collect::<Vec<_>>(),
+        bits,
+        "an already admitted immutable payload remains owned after fixture removal"
+    );
+}
+
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_durable_constant_completion_reopens_exact_manifest() {

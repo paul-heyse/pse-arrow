@@ -32,17 +32,18 @@ from pse._build import (
 from pse._inspection import TableStream
 from pse._runs import PreparedOperation, RunResult, StoredResult, StudyHandle
 from pse._strategies import PreparedFlow, PreparedStrategy
+from pse.codec._generated import encode_declarations, encode_fits
 from pse.contracts.authored import (
     AuthoredFitCasesRow,
     AuthoredModelingDeclarationsRow,
 )
 from pse.contracts.documents import (
+    AdmittedBinding,
+    Completion,
     Conclusion,
     ConformanceControls,
-    DeclarationEdit,
     DeclarationInventory,
     DiagnosticSamplesControls,
-    FitDeclarations,
     FitPreparationDocument,
     FlowSelectionDocument,
     InitializationOverrides,
@@ -52,11 +53,13 @@ from pse.contracts.documents import (
     ModelingInspection,
     ModelingNonlinearPolicy,
     PointOutcome,
+    PointOverlay,
     PreparationCounts,
     PreparationSettings,
     PureConformanceControls,
     RecycleRequest,
     SolveSettings,
+    SourceDelta,
     StudyDefinition,
     StudyRequest,
     StudyRunControls,
@@ -96,6 +99,18 @@ class ModelingResult:
     @property
     def validation_error(self) -> DiagnosticReport | None:
         return self._handle.validation_error
+
+    @property
+    def bound_source(self) -> AdmittedBinding | None:
+        """Exact parent, physical context and admitted transient coordinates."""
+        source = self._handle.bound_source()
+        return None if source is None else codec.decode_json(source, AdmittedBinding)
+
+    @property
+    def binding_identity(self) -> ContentHash | None:
+        """Canonical binding identity, excluding submitted spelling and units."""
+        identity = self._handle.binding_identity
+        return None if identity is None else ContentHash.from_prefixed(identity)
 
     def attempt(self) -> NativeAttempt | None:
         """The unchanged native attempt, absent for constant evaluation or refusal."""
@@ -351,6 +366,28 @@ class ModelingInitialization:
 
 
 @attrs.frozen
+class CompactStudyResult:
+    """Original occurrence completion and explicitly selected bounded detail."""
+
+    _handle: _NativeStudyReport
+    _index: int
+
+    @property
+    def completion(self) -> Completion:
+        return codec.decode_json(
+            self._handle.compact_completion(self._index), Completion
+        )
+
+    @property
+    def table_names(self) -> tuple[str, ...]:
+        return tuple(self._handle.compact_table_names(self._index))
+
+    def table(self, name: str) -> TableStream:
+        """Read original selected chunks; unavailable detail remains a refusal."""
+        return TableStream(self._handle.compact_table(self._index, name))
+
+
+@attrs.frozen
 class StudyReport:
     """Independent outcomes with explicit accepted-predecessor dependencies."""
 
@@ -376,10 +413,14 @@ class StudyReport:
         """Caller-process preparation counts; excludes an external primary worker."""
         return codec.decode_json(self._handle.preparations, PreparationCounts)
 
-    def result(self, index: int) -> RunResult | StoredResult | None:
+    def result(
+        self, index: int
+    ) -> RunResult | StoredResult | CompactStudyResult | None:
         stored = self._handle.stored_result(index)
         if stored is not None:
             return StoredResult(stored)
+        if self._handle.is_compact(index):
+            return CompactStudyResult(self._handle, index)
         handle = self._handle.result(index)
         return None if handle is None else RunResult(handle)
 
@@ -567,18 +608,7 @@ class ModelingPackage:
         self, fits: tuple[AuthoredFitCasesRow, ...]
     ) -> "ModelingPackage":
         """Attach fit selection intent; measurements remain admitted typed records."""
-        converter = codec.converter()
-        converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
-        converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = codec.decode_json(
-            codec.encode_json(
-                {"fits": tuple(converter.unstructure(row) for row in fits)}
-            ),
-            FitDeclarations,
-        )
-        return ModelingPackage(
-            self._handle.with_fit_declarations(codec.encode_json(data))
-        )
+        return ModelingPackage(self._handle.with_fit_declarations(encode_fits(fits)))
 
     def prepare_fit(
         self, fit_id: FitId, request: FitPreparationDocument
@@ -697,25 +727,30 @@ class ModelingPackage:
         self, declarations: Sequence[AuthoredModelingDeclarationsRow]
     ) -> "ModelingPackage":
         """Admit edited generated declarations while retaining the original revision."""
-        converter = codec.converter()
-        converter.register_unstructure_hook(SemanticId, SemanticId.to_hex)
-        converter.register_unstructure_hook(ContentHash, ContentHash.to_prefixed)
-        data = codec.decode_json(
-            codec.encode_json(
-                {
-                    "declarations": tuple(
-                        converter.unstructure(row) for row in declarations
-                    )
-                }
-            ),
-            DeclarationEdit,
+        return ModelingPackage(
+            self._handle.with_declarations(encode_declarations(declarations))
         )
-        return ModelingPackage(self._handle.with_declarations(codec.encode_json(data)))
 
     def declarations(self) -> tuple[AuthoredModelingDeclarationsRow, ...]:
         document = codec.decode_json(self._handle.declarations(), DeclarationInventory)
         return codec.document_rows(
             document.declarations, AuthoredModelingDeclarationsRow
+        )
+
+    def with_delta(self, delta: SourceDelta) -> "ModelingPackage":
+        """Atomically edit this exact parent; omitted source objects stay inherited."""
+        return ModelingPackage(self._handle.with_delta(codec.encode_json(delta)))
+
+    def reload_from_parent(
+        self, documents: Sequence[Mapping[str, str | bytes]]
+    ) -> "ModelingPackage":
+        """Reload complete ordered document inventories against this exact parent.
+
+        The returned revision keeps this problem and its admitted physical context.
+        Omitted documents are removed; unrelated fits supplied through IR stay inherited.
+        """
+        return ModelingPackage(
+            self._handle.reload_from_parent([dict(bundle) for bundle in documents])
         )
 
     def source_tables(self) -> dict[SemanticId, TableStream]:
@@ -792,6 +827,30 @@ class ModelingPackage:
         return PreparedOperation(
             self._handle.prepare_solve(
                 case_id.to_hex(),
+                codec.encode_json(settings),
+                preparation=None
+                if preparation is None
+                else codec.encode_json(preparation),
+            )
+        )
+
+    def solve_bound(
+        self,
+        case_id: DeclarationId,
+        overlay: PointOverlay,
+        settings: SolveSettings,
+        *,
+        preparation: PreparationSettings | None = None,
+    ) -> ModelingResult:
+        """Solve transient typed values against this immutable declared parent.
+
+        Parameter and fixed-coordinate assignments replace values; free-coordinate
+        assignments replace starts. The returned receipt retains parent and attribution.
+        """
+        return ModelingResult(
+            self._handle.solve_bound(
+                case_id.to_hex(),
+                codec.encode_json(overlay),
                 codec.encode_json(settings),
                 preparation=None
                 if preparation is None

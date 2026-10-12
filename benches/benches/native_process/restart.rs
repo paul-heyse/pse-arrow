@@ -57,8 +57,7 @@ fn runtime_on(
 ) -> workflow::Runtime {
     workflow::Runtime::from_shared(
         owner.runtime.clone(),
-        owner.registry.clone(),
-        owner.sessions.clone(),
+        owner.model.clone(),
         workflow::CanonicalDeployment::new(
             store,
             workflow::OuterAttestation {

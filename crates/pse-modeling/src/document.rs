@@ -211,6 +211,8 @@ pub struct DocumentInventory {
     pub packages: BTreeMap<SemanticId, SemanticId>,
     /// Parser-derived declaration payload field locations, keyed by full structural field path.
     pub field_spans: BTreeMap<DeclarationId, BTreeMap<String, pse_authoring::SourceSpan>>,
+    /// Shared unbound grammar fields with exact source/span ownership.
+    pub parsed_fields: BTreeMap<DeclarationId, Arc<crate::expression::occurrences::ParsedFields>>,
     /// The data documents by identity.
     pub documents: BTreeMap<SemanticId, Arc<DataDocument>>,
 }
@@ -226,6 +228,10 @@ impl DocumentInventory {
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
             + self.packages.len() * (2 * size_of::<SemanticId>() + 32)
+            + self.parsed_fields.len()
+                * (size_of::<DeclarationId>()
+                    + size_of::<Arc<crate::expression::occurrences::ParsedFields>>()
+                    + 128)
             + self
                 .field_spans
                 .values()
@@ -402,6 +408,14 @@ pub trait Documents {
         &self,
         _declaration: DeclarationId,
     ) -> Option<&BTreeMap<String, pse_authoring::SourceSpan>> {
+        None
+    }
+
+    /// Unbound grammar products; every receiving check reestablishes semantic context.
+    fn parsed_fields(
+        &self,
+        _declaration: DeclarationId,
+    ) -> Option<&Arc<crate::expression::occurrences::ParsedFields>> {
         None
     }
 

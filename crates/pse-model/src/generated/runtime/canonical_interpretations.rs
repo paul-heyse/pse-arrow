@@ -15,6 +15,8 @@ pub struct RuntimeCanonicalInterpretationsRow {
     pub r#interpretation: String,
     ///schema_digest
     pub r#schema_digest: String,
+    ///issuing_store
+    pub r#issuing_store: String,
 }
 impl crate::SemanticEq for RuntimeCanonicalInterpretationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -26,6 +28,10 @@ impl crate::SemanticEq for RuntimeCanonicalInterpretationsRow {
             && crate::SemanticEq::semantic_eq(
                 &self.r#schema_digest,
                 &other.r#schema_digest,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#issuing_store,
+                &other.r#issuing_store,
             )
     }
 }
@@ -44,6 +50,8 @@ impl crate::SemanticFrame for RuntimeCanonicalInterpretationsRow {
         crate::SemanticFrame::frame(&self.r#interpretation, hash);
         hash.str(stringify!(r#schema_digest));
         crate::SemanticFrame::frame(&self.r#schema_digest, hash);
+        hash.str(stringify!(r#issuing_store));
+        crate::SemanticFrame::frame(&self.r#issuing_store, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalInterpretationsRow {
@@ -52,5 +60,6 @@ impl crate::HeapUsage for RuntimeCanonicalInterpretationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#interpretation))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schema_digest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issuing_store))
     }
 }

@@ -408,3 +408,129 @@ fn schema_preparation_cross_worker_cycle_refuses_without_waiting_forever() {
         assert!(b.join().unwrap().unwrap_err().to_string().contains("cycle"));
     });
 }
+
+#[test]
+fn retained_storage_skips_structural_rescans_but_raw_evaluation_stays_defensive() {
+    use pse_schema::model::{Authority, FieldContract, Namespace, RelationDecl, SnapshotClass};
+    let mut builder = RegistryBuilder::new();
+    builder.declare_relation(
+        RelationDecl::new(
+            Namespace::Authored,
+            "trusted",
+            1,
+            Authority::Authored,
+            SnapshotClass::Model,
+            "structural owner control",
+        )
+        .pk(&["n"])
+        .columns(vec![FieldContract::key(
+            "n",
+            FieldContract::native(DataType::Int64),
+            "key",
+        )])
+        .checks(BTreeMap::from([("positive".into(), "n > 0".into())])),
+    );
+    let registry = builder.build().unwrap();
+    let spec = registry.relation("authored.trusted").unwrap();
+    let first = ValidationContext::new(&registry, SessionContext::new().state());
+    let second = ValidationContext::new(&registry, SessionContext::new().state());
+    let cancel = pse_columnar::CancellationToken::new();
+    let raw = RecordBatch::try_new(
+        pse_schema::arrow::relation_schema_ref(&registry, spec).unwrap(),
+        vec![Arc::new(Int64Array::from(vec![1, 2]))],
+    )
+    .unwrap();
+    let checked =
+        crate::columnar::FieldCheckedBatch::admit(&registry, spec, raw, &first, &cancel).unwrap();
+    let first = first.relation(&registry, spec).unwrap();
+    assert_eq!(
+        first
+            .structural_scans
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+    let prepared = second.relation(&registry, spec).unwrap();
+    checked
+        .readmit_context(&registry, spec, &second, &cancel)
+        .unwrap();
+    assert_eq!(
+        prepared.evaluation_count(),
+        1,
+        "changed native owner still evaluates local obligations"
+    );
+    assert_eq!(
+        prepared
+            .structural_scans
+            .load(std::sync::atomic::Ordering::Relaxed),
+        0,
+        "exact immutable storage retains its structural premise"
+    );
+    prepared
+        .evaluate(checked.batch(), 8, &cancel)
+        .unwrap()
+        .require_valid()
+        .unwrap();
+    assert_eq!(
+        prepared
+            .structural_scans
+            .load(std::sync::atomic::Ordering::Relaxed),
+        1,
+        "generic callers cannot supply structural trust"
+    );
+}
+
+#[test]
+fn nested_diagnostic_selection_counts_all_chunks_with_bounded_samples() {
+    let registry = RegistryBuilder::new().build().unwrap();
+    let count = 2 * super::super::occurrences::CHUNK + 7;
+    let child = Arc::new(IntegerRange::nonnegative(3).field("item"));
+    let values = ListArray::new(
+        child,
+        OffsetBuffer::new(vec![0, count as i32].into()),
+        Arc::new(Int64Array::from(vec![-1; count])),
+        None,
+    );
+    let field = Field::new("root", values.data_type().clone(), false);
+    let result = report(&registry, &field, Arc::new(values), 2);
+    assert_eq!(result.violations, count);
+    assert!(result.truncated);
+    assert_eq!(result.findings.num_rows(), 2);
+    assert_eq!(result.valid_rows, BooleanArray::from(vec![false]));
+    let paths = result
+        .findings
+        .column_by_name("path")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert_eq!(paths.value(0), "/root/0");
+    assert_eq!(paths.value(1), "/root/1");
+}
+
+#[test]
+fn dictionary_diagnostics_preserve_logical_rows_without_child_path_duplication() {
+    let registry = RegistryBuilder::new().build().unwrap();
+    let array = arrow::array::DictionaryArray::<Int32Type>::try_new(
+        Int32Array::from(vec![1, 0, 1]),
+        Arc::new(Float32Array::from(vec![f32::NAN, 1.0])),
+    )
+    .unwrap();
+    let field = Field::new("dict", array.data_type().clone(), false);
+    let result = report(&registry, &field, Arc::new(array), 8);
+    assert_eq!(result.violations, 1);
+    assert_eq!(
+        result.valid_rows,
+        BooleanArray::from(vec![true, false, true])
+    );
+    assert_eq!(
+        result
+            .findings
+            .column_by_name("path")
+            .unwrap()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .value(0),
+        "/dict"
+    );
+}

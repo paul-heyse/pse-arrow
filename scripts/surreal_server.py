@@ -409,7 +409,7 @@ def reservation_live(reservation: dict[str, object]) -> bool:
 
 @contextlib.contextmanager
 def context_admission(
-    state: Path, *, deadline: float | None = None
+    state: Path, *, deadline: float | None = None, wait_for_lifecycle: bool = True
 ) -> Generator[None, None, None]:
     """Serialize only admission metadata against all service lifecycle changes."""
     inherited = getattr(_STARTUP, "deadline", None)
@@ -440,7 +440,7 @@ def context_admission(
                             remaining(deadline)
                         yield
                 return
-            if deadline is None:
+            if deadline is None or not wait_for_lifecycle:
                 raise SupervisorError(
                     "Service lifecycle operation has closed context admission"
                 )
@@ -500,6 +500,10 @@ def require_borrowers_drained(state: Path) -> None:
             continue
         if selected != owner and service_directory(selected) != owner:
             raise SupervisorError("Live context has an unresolved service association")
+        if record.get("creation_borrower"):
+            raise SupervisorError(
+                "An accepted fixture creation still borrows this storage service; actual settlement and drain are unobserved"
+            )
         cleaner = record.get("cleaner")
         if (
             record.get("cleanup") == "removing"
@@ -2623,7 +2627,11 @@ class ObserverControlScope:
 
 
 def observer_control_reservation(
-    owner: host_admission.Allocation, scope: ObserverControlScope, action: str
+    owner: host_admission.Allocation,
+    scope: ObserverControlScope,
+    action: str,
+    *,
+    deadline: float | None = None,
 ) -> None:
     """Exclude overlapping cap borrowers without holding a lock through execution."""
     expected = {
@@ -2635,7 +2643,9 @@ def observer_control_reservation(
         "inode": scope.inode,
     }
     path = owner.directory / "observer-control-borrows.json"
-    with host_admission.allocation_metadata(owner.directory) as ledger:
+    with host_admission.allocation_metadata(
+        owner.directory, **({"deadline": deadline} if deadline is not None else {})
+    ) as ledger:
         current = ledger["owners"].get(owner.nonce)
         if current is None:
             raise SupervisorError("Observer host allocation is no longer live")
@@ -2667,12 +2677,15 @@ def observer_control_reservation(
             write_json(path, reservations)
 
 
-def observer_control_observation(scope: ObserverControlScope) -> dict[str, str]:
+def observer_control_observation(
+    scope: ObserverControlScope, *, deadline: float | None = None
+) -> dict[str, str]:
     """Refuse to change a replaced unit or a caller outside its original group."""
     result = systemctl(
         "show",
         "--property=LoadState,ActiveState,ControlGroup,InvocationID,MemoryMax",
         scope.unit,
+        **({"deadline": deadline} if deadline is not None else {}),
     )
     observed = dict(
         line.split("=", 1) for line in result.stdout.splitlines() if "=" in line
@@ -2690,9 +2703,13 @@ def observer_control_observation(scope: ObserverControlScope) -> dict[str, str]:
     return observed
 
 
-def observer_allocation_drained(owner: host_admission.Allocation, unit: str) -> bool:
+def observer_allocation_drained(
+    owner: host_admission.Allocation, unit: str, *, deadline: float | None = None
+) -> bool:
     """Use the existing registered kernel lifetime, never guess an empty launch."""
-    with host_admission.allocation_metadata(owner.directory) as ledger:
+    with host_admission.allocation_metadata(
+        owner.directory, **({"deadline": deadline} if deadline is not None else {})
+    ) as ledger:
         current = ledger["owners"].get(owner.nonce)
         if current is None:
             raise SupervisorError("Observer host allocation is no longer live")
@@ -2711,7 +2728,13 @@ def observer_allocation_drained(owner: host_admission.Allocation, unit: str) -> 
             return False
         record["units"] = {unit: dict(bound)}
         record["released"] = True
-    return host_admission.drained(record)
+        # This observer's physical lifetime must settle before its parent can
+        # compose and acknowledge the selected terminal. The enclosing host
+        # owner still requires every terminal guard when releasing its charge.
+        record.pop("terminal_guards", None)
+    return host_admission.drained(
+        record, **({"deadline": deadline} if deadline is not None else {})
+    )
 
 
 @contextlib.contextmanager
@@ -2721,12 +2744,16 @@ def observer_control_limit(
     profile: str | None,
     *,
     launch_attempted: Callable[[], bool] | None = None,
+    cancellation_deadline: Callable[[], float | None] | None = None,
 ) -> Generator[None, None, None]:
     """Borrow the caller's control cap only for the observer's verified lifetime."""
+    deadline = cancellation_deadline() if cancellation_deadline is not None else None
     scope = None
     if profile is not None and profile != "reference":
         caller = native_operation.process_group(os.getpid())
-        with host_admission.allocation_metadata(owner.directory) as ledger:
+        with host_admission.allocation_metadata(
+            owner.directory, **({"deadline": deadline} if deadline is not None else {})
+        ) as ledger:
             units = dict(object_mapping(ledger["owners"][owner.nonce].get("units")))
         for control, value in units.items():
             registered = object_mapping(value)
@@ -2774,15 +2801,28 @@ def observer_control_limit(
         yielded = True
         yield
     finally:
+        deadline = (
+            cancellation_deadline() if cancellation_deadline is not None else None
+        )
         never_launched = not yielded or (
             launch_attempted is not None and not launch_attempted()
         )
         if scope is not None and (
-            never_launched or observer_allocation_drained(owner, unit)
+            never_launched
+            or observer_allocation_drained(
+                owner, unit, **({"deadline": deadline} if deadline is not None else {})
+            )
         ):
-            observer_control_reservation(owner, scope, "verify")
+            observer_control_reservation(
+                owner,
+                scope,
+                "verify",
+                **({"deadline": deadline} if deadline is not None else {}),
+            )
             if captured:
-                current = observer_control_observation(scope).get("MemoryMax")
+                current = observer_control_observation(
+                    scope, **({"deadline": deadline} if deadline is not None else {})
+                ).get("MemoryMax")
                 if current not in {str(scope.temporary_memory), str(scope.memory)}:
                     raise SupervisorError(
                         "Observer control cap changed before restoration"
@@ -2793,17 +2833,29 @@ def observer_control_limit(
                         "--runtime",
                         scope.unit,
                         f"MemoryMax={scope.memory}",
+                        **({"deadline": deadline} if deadline is not None else {}),
                     )
-                if observer_control_observation(scope).get("MemoryMax") != str(
-                    scope.memory
-                ):
+                if observer_control_observation(
+                    scope, **({"deadline": deadline} if deadline is not None else {})
+                ).get("MemoryMax") != str(scope.memory):
                     raise SupervisorError(
                         "Observer control cap restoration readback differs"
                     )
-            observer_control_reservation(owner, scope, "release")
+            observer_control_reservation(
+                owner,
+                scope,
+                "release",
+                **({"deadline": deadline} if deadline is not None else {}),
+            )
 
 
-def observer(state: Path, command: list[str], profile: str | None = None) -> int:
+def observer(
+    state: Path,
+    command: list[str],
+    profile: str | None = None,
+    *,
+    observation: dict[str, object] | None = None,
+) -> int:
     """Run one foreground observer in the same finite primary/server envelope."""
     config_for(state)
     state = checked_directory(state)
@@ -2865,9 +2917,30 @@ def observer(state: Path, command: list[str], profile: str | None = None) -> int
     if owner is None:
         raise SupervisorError("Observer must belong to an admitted host allocation")
     attempted = False
+    handoff = None
+    process_observation = observation if observation is not None else {}
+    parent_operation = native_operation.owner_record()
+
+    def cancellation_deadline() -> float | None:
+        clocks = [process_observation.get("cancellation_deadline")]
+        for path in (handoff, parent_operation):
+            if path is not None:
+                clocks.append(native_operation._record(path).get("cancel_deadline"))
+        clocks = [value for value in clocks if value is not None]
+        if any(
+            type(value) not in {int, float} or not math.isfinite(value)
+            for value in clocks
+        ):
+            raise SupervisorError("Observer original cancellation clock is invalid")
+        return min(clocks) if clocks else None
+
     try:
         with observer_control_limit(
-            owner, unit, profile, launch_attempted=lambda: attempted
+            owner,
+            unit,
+            profile,
+            launch_attempted=lambda: attempted,
+            cancellation_deadline=cancellation_deadline,
         ):
             owner.register(unit)
             handoff = native_operation.prepare_handoff(unit, foreground=True)
@@ -2890,14 +2963,27 @@ def observer(state: Path, command: list[str], profile: str | None = None) -> int
             # The operation creator owns cancellation of this handoff. Keep its
             # native supervisor outside a validation gate's process-group kill,
             # so it can drain runners that establish their own sessions.
-            return subprocess.call(
-                selected_command, env=environment, start_new_session=handoff is not None
+            return native_operation.run(
+                selected_command,
+                environment,
+                observation=process_observation,
+                foreground=handoff,
             )
     finally:
         # Keep launch exclusion through the control-scope restoration attempt.
         # Surviving or unbound scopes retain launch metadata and host charge.
-        if not attempted or observer_allocation_drained(owner, unit):
-            with state_lock(state):
+        process_observation["owned_drain"] = "unresolved"
+        deadline = cancellation_deadline()
+        drained = not attempted or observer_allocation_drained(
+            owner, unit, **({"deadline": deadline} if deadline is not None else {})
+        )
+        process_observation["owned_drain"] = (
+            "not-started" if not attempted else "complete" if drained else "unresolved"
+        )
+        if drained:
+            with state_lock(
+                state, **({"deadline": deadline} if deadline is not None else {})
+            ):
                 launch = read_json(state / "observer-launch.json")
                 if launch.get("unit") == unit:
                     (state / "observer-launch.json").unlink()

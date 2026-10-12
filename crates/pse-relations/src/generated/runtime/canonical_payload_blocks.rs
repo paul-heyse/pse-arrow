@@ -262,6 +262,7 @@ pub mod columns {
 #[derive(Debug)]
 pub struct RuntimeCanonicalPayloadBlocksView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     version_column: &'a arrow_array::StringArray,
     ordinal_column: &'a arrow_array::UInt64Array,
@@ -290,7 +291,7 @@ impl<'a> RuntimeCanonicalPayloadBlocksView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -301,13 +302,16 @@ impl<'a> RuntimeCanonicalPayloadBlocksView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             key_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -434,5 +438,8 @@ impl crate::columnar::RelationView for RuntimeCanonicalPayloadBlocksView<'_> {
     type Row = RuntimeCanonicalPayloadBlocksRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

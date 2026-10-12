@@ -1061,3 +1061,61 @@ def test_compiler_failure_retains_typed_authored_source_span(
     assert location.start is not None
     assert location.end is not None
     assert 0 <= location.start <= location.end <= len(source)
+
+
+@pytest.mark.component
+def test_parsed_reload_noop_accepts_text_and_bytes_on_exact_package_handle(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    sources = package_documents("package reload {param a:Scalar=1;}")
+    package = runtime.modeling_from_documents([sources], physical)
+    original = package.declarations()
+    same_text = package.reload_from_parent([sources])
+    same_bytes = package.reload_from_parent(
+        [{path: text.encode("utf-8") for path, text in sources.items()}]
+    )
+    assert same_text.canonical_revision == package.canonical_revision
+    assert same_bytes.canonical_revision == package.canonical_revision
+    assert same_bytes.canonical_problem == package.canonical_problem
+    assert same_bytes.declarations() == original
+
+
+@pytest.mark.component
+def test_parsed_reload_complete_order_and_removal_match_independent_fresh_ingress(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    sources = package_documents("package reload {param a:Scalar=1;}")
+    package = runtime.modeling_from_documents([sources], physical)
+    original = package.declarations()
+    expanded = dict(sources)
+    expanded["models/a.pse"] = "package earlier {param b:Scalar=2;}"
+    changed = package.reload_from_parent([expanded])
+    fresh = runtime.modeling_from_documents([expanded], physical)
+    assert changed.canonical_problem == package.canonical_problem
+    assert changed.canonical_revision != package.canonical_revision
+    assert changed.declarations() == fresh.declarations()
+    assert changed.declarations()[0].name == "earlier"
+    assert package.declarations() == original
+    restored = changed.reload_from_parent([sources])
+    assert restored.canonical_problem == package.canonical_problem
+    assert restored.declarations() == original
+    assert all(row.name != "earlier" for row in restored.declarations())
+
+
+@pytest.mark.component
+def test_parsed_reload_failure_and_wrong_parent_delta_preserve_original_revision(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    sources = package_documents("package reload {param a:Scalar=1;}")
+    package = runtime.modeling_from_documents([sources], physical)
+    revision_key = package.canonical_revision
+    original = package.declarations()
+    malformed = dict(sources)
+    malformed["models/fixed.pse"] = "package reload {def Broken {eq e:1 +;}}"
+    with pytest.raises(pse.InspectionError):
+        package.reload_from_parent([malformed])
+    with pytest.raises(pse.InspectionError):
+        package.with_delta(documents.SourceDelta(parent="different-canonical-parent"))
+    assert package.canonical_revision == revision_key
+    assert package.declarations() == original
+    assert package.reload_from_parent([sources]).canonical_revision == revision_key

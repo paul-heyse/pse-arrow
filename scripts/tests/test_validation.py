@@ -956,11 +956,11 @@ class ValidationTests(unittest.TestCase):
 
     def test_python_producer_profile_keeps_native_dev_graph(self) -> None:
         gates = {gate.name: gate for gate in comprehensive("producer")}
-        self.assertEqual(gates["py-sync-native"].args, ("producer",))
-        self.assertEqual(gates["py-sync-native"].profile, "producer")
+        self.assertEqual(gates["py-sync-native-correctness"].args, ("producer",))
+        self.assertEqual(gates["py-sync-native-correctness"].profile, "producer")
         self.assertEqual(
             gates["native-python"].dependencies,
-            ("py-sync-native", "python-deployment-association"),
+            ("py-sync-native-correctness", "python-deployment-association"),
         )
         self.assertEqual(
             gates["native-test"].args,
@@ -1066,7 +1066,7 @@ class ValidationTests(unittest.TestCase):
         gates = comprehensive("producer")
         positions = {gate.name: index for index, gate in enumerate(gates)}
         for prerequisite, consumer in (
-            ("py-sync-native", "producer-deployment"),
+            ("py-sync-native-correctness", "producer-deployment"),
             ("producer-deployment", "python-deployment-association"),
             ("python-deployment-association", "native-deployment-association"),
             ("python-deployment-association", "native-test"),
@@ -1562,7 +1562,7 @@ class ValidationTests(unittest.TestCase):
             command[command.index("--features") + 1],
         )
 
-    def test_native_python_refuses_empty_or_skipped_reports_despite_zero_exit(
+    def test_native_python_preserves_zero_exit_and_refuses_empty_or_skipped_evidence(
         self,
     ) -> None:
         path = self.output / "native-python.xml"
@@ -1578,6 +1578,10 @@ class ValidationTests(unittest.TestCase):
             def run(*_args: object, case: str = case, **_kwargs: object) -> int:
                 path.write_text(f"<testsuite>{case}</testsuite>")
                 path.with_name(path.stem + "-selected.txt").write_text("node\n")
+                environment = _args[1]
+                test_resources.publish_python_collection(
+                    Path(environment[test_resources.MARKER]), ["node"]
+                )
                 return 0
 
             with (
@@ -1598,14 +1602,21 @@ class ValidationTests(unittest.TestCase):
                     return_value={"files": {"/owned/extension.so": "digest"}},
                 ),
                 patch.object(
-                    native_tests,
-                    "python_native_binary",
-                    return_value=Path("/owned/extension.so"),
+                    native_tests.python_extension,
+                    "capture",
+                    return_value={
+                        "binary": "/owned/extension.so",
+                        "sha256": "digest",
+                        "features": ["force-validate", "native-solvers"],
+                    },
                 ),
                 patch.object(native_tests.time, "time", return_value=1),
-                patch("subprocess.call", side_effect=run),
+                patch("scripts.native_operation.run", side_effect=run),
             ):
-                self.assertEqual(native_tests.main(), expected)
+                self.assertEqual(native_tests.main(), 0)
+                terminal = json.loads(path.with_suffix(".terminal.json").read_text())
+                self.assertEqual(terminal["exit_code"], 0)
+                self.assertEqual(terminal["status"], "failed" if expected else "passed")
         with (
             patch.object(
                 sys, "argv", ["native_tests", "python", "--functional-observer-child"]

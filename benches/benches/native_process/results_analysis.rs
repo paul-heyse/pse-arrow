@@ -302,7 +302,7 @@ async fn prepare(
         document.push(b'\n');
     }
     let physical_hash =
-        pse_runtime::authoring_driver::document::package_checksum(&sources.physical);
+        pse_admission::authoring_driver::document::package_checksum(&sources.physical);
     let physical_bytes = sources.physical.values().map(Vec::len).sum::<usize>();
     let physical_documents = sources.physical.len();
     let physical_blocks = sources
@@ -324,7 +324,7 @@ async fn prepare(
         assert_eq!(receipt.identity, physical_hash);
         assert_eq!(&**exact_sources, &sources.physical);
         assert_eq!(
-            pse_runtime::authoring_driver::document::package_checksum(&**exact_sources),
+            pse_admission::authoring_driver::document::package_checksum(&**exact_sources),
             physical_hash
         );
         mark(&mut phase_seconds, "original_source_byte_checks", checked);

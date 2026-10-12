@@ -149,3 +149,110 @@ fn supplier_topology_owner_attachment_shares_memo_and_keeps_original_view_separa
     );
     assert_eq!(before, prepared.retained_bytes());
 }
+
+#[test]
+fn resolved_fixture_specifications_are_observed_in_the_first_projection() {
+    let rows = crate::authored_transfer_tests::rows(
+        "package p { test Root fixture { dof 0; value unused=3; } { param unused:Scalar=2; var x:Scalar; eq e:x==1; annotation start x(0); } }",
+    );
+    let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(rows, PhysicalScope::default())
+        .unwrap();
+    let instance = pse_modeling::specialize::root_instance(root);
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let fixture = &prepared.model.fixtures[&instance];
+    let target = fixture.specifications["unused"].target;
+    assert!(prepared.admitted.inputs.contains(&target));
+    assert_eq!(
+        prepared
+            .case_values(&ModelingCaseBindings::from(fixture))
+            .unwrap()
+            .scalars[&target],
+        3.0
+    );
+}
+
+#[test]
+fn prepared_pure_checks_do_not_read_a_later_workspace_revision() {
+    let text = "package p { test Root fixture {dof 1; procedure check; value x=3;} {var x:Scalar; expect x==3 tolerance 1e-12;} }";
+    let rows = crate::authored_transfer_tests::rows(text);
+    let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+    let instance = pse_modeling::specialize::root_instance(root);
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(rows, PhysicalScope::default())
+        .unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let model = workspace
+        .prepare_modeling_cancellable(
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+            cancel.clone(),
+        )
+        .unwrap();
+    workspace
+        .publish_modeling(
+            crate::authored_transfer_tests::rows(&text.replace("value x=3", "value x=4")),
+            PhysicalScope::default(),
+        )
+        .unwrap();
+    let checked = workspace
+        .check_prepared_modeling_point(
+            &model,
+            root,
+            instance,
+            &CaseValues {
+                scalars: BTreeMap::new(),
+            },
+            Profile::default(),
+            cancel,
+        )
+        .unwrap();
+    assert!(checked.expectations.iter().all(|row| row.passed));
+}
+
+#[test]
+fn implicit_projection_refuses_scratch_before_building_indexes() {
+    let rows =
+        crate::authored_transfer_tests::rows("package p {def Root {var x:Scalar; eq e:x==1;}}");
+    let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(rows, PhysicalScope::default())
+        .unwrap();
+    workspace.db.projection_scratch_limit = 0;
+    assert!(matches!(
+        workspace.prepare_modeling_cancellable(
+            root,
+            pse_modeling::specialize::root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        ),
+        Err(CompileError::Limit("implicit projection scratch allowance"))
+    ));
+}

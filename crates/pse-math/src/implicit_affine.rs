@@ -5,7 +5,7 @@ use super::*;
 
 /// An admitted residual affine in its leading unknown coordinates. Coefficients may
 /// depend nonlinearly on external inputs; original guards remain active at every trial.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Affine {
     unknowns: usize,
     inputs: usize,
@@ -49,8 +49,14 @@ impl InnerSolver for Affine {
     fn identity(&self) -> ContentHash {
         solver_identity("faer.affine.v1")
     }
+
+    fn worker(&self) -> Box<dyn InnerWorker> {
+        Box::new(self.clone())
+    }
+}
+impl InnerWorker for Affine {
     fn solve(
-        &self,
+        &mut self,
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
@@ -137,7 +143,7 @@ mod tests {
         let px = b.binary(Binary::Mul, p, x, None, id).unwrap();
         let r = b.binary(Binary::Sub, px, one, None, id).unwrap();
         let body = b.prepare(&[r]).unwrap();
-        let solver = Affine::new(&body, 1).unwrap();
+        let mut solver = Affine::new(&body, 1).unwrap();
         let cancel = Arc::new(AtomicBool::new(false));
         let compiled = Arc::new(
             body.compile(

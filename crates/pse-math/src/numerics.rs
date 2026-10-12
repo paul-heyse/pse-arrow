@@ -12,6 +12,8 @@ use pse_model::{
 };
 use pse_quantity::{PhysicalPreconditions, QuantityRegistry, QuantityTypeId, UnitId};
 use std::collections::BTreeMap;
+mod retained;
+pub use retained::{ResolutionPremises, resolution_allocation_bound, resolved_extent};
 
 /// Resolved kind/identity access shared by coordinate transport and original quality.
 /// The source policy owns frozen scales, allowances and provenance throughout access.
@@ -594,6 +596,7 @@ pub fn resolve(
             }),
     );
     let mut identities = std::collections::BTreeSet::new();
+    let mut requirements: BTreeMap<_, Vec<&SourcedRequirement>> = BTreeMap::new();
     for candidate in &all {
         let row = &candidate.declaration;
         if !identities.insert(row.requirement_id) {
@@ -602,9 +605,9 @@ pub fn resolve(
                 "duplicate numerical requirement identity",
             ));
         }
-        if !targets
-            .iter()
-            .any(|t| t.id == row.target_id && t.kind == row.target_kind)
+        if target_access
+            .get(&(row.target_kind, row.target_id))
+            .is_none()
         {
             return Err(failure(
                 row.target_id,
@@ -651,6 +654,18 @@ pub fn resolve(
                 "nominal and scaling factor disagree",
             ));
         }
+        requirements
+            .entry((row.target_kind, row.target_id))
+            .or_default()
+            .push(candidate);
+    }
+    for candidates in requirements.values_mut() {
+        candidates.sort_by_key(|r| {
+            (
+                std::cmp::Reverse((rank(r.source), r.declaration.priority)),
+                r.declaration.requirement_id,
+            )
+        });
     }
     let mut resolved = Vec::with_capacity(targets.len());
     let mut key = FramedHasher::new(pse_ids::Frame::NumericalResolvedV2);
@@ -676,18 +691,9 @@ pub fn resolve(
         };
         let canonical = magnitude(quantity.canonical_unit)?;
         let fallback = quantity.nominal_magnitude.unwrap_or(1.0) * canonical;
-        let mut candidates: Vec<_> = all
-            .iter()
-            .filter(|r| {
-                r.declaration.target_id == target.id && r.declaration.target_kind == target.kind
-            })
-            .collect();
-        candidates.sort_by_key(|r| {
-            (
-                std::cmp::Reverse((rank(r.source), r.declaration.priority)),
-                r.declaration.requirement_id,
-            )
-        });
+        let candidates = requirements
+            .get(&(target.kind, target.id))
+            .map_or(&[][..], Vec::as_slice);
         let mut provenance = Vec::new();
         let mut choose = |field: NumericalProvenanceField,
                           values: Vec<(&SourcedRequirement, f64)>,

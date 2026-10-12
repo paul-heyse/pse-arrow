@@ -20,7 +20,7 @@ use uuid::Uuid;
 
 use super::{
     HandleResult, PATH, PING_INTERVAL, SessionState, WsMessage, create_ping_message,
-    handle_response, handle_route, handle_session, replay_session, reset_sessions,
+    handle_owned_response, handle_route, handle_session, replay_session, reset_sessions,
 };
 use crate::conn::{self, Route, Router};
 use crate::engine::{IntervalStream, SessionError};
@@ -179,6 +179,7 @@ impl conn::Sealed for super::Client {
 
             let mut features = HashSet::new();
             features.insert(ExtraFeatures::LiveQueries);
+            features.insert(ExtraFeatures::PayloadOwnership);
 
             let waiter = watch::channel(Some(WaitFor::Connection));
             let router = if bounded {
@@ -215,6 +216,10 @@ impl RouterState {
     async fn update_connection(&self, sink: MessageSink, stream: MessageStream) {
         *self.sink.write().await = sink;
         *self.stream.write().await = stream;
+        // The serial router has joined its old dispatch future. Both old
+        // split halves are now dropped, so their byte grants may drain before
+        // setup replay on this new physical connection.
+        reset_sessions(&self.sessions).await;
     }
 }
 
@@ -280,14 +285,12 @@ pub(crate) async fn run_router(
     let ping: Message = create_ping_message();
 
     let (socket_sink, socket_stream) = socket.split();
-    let state = Arc::new(RouterState::new(socket_sink, socket_stream));
+    let state = RouterState::new(socket_sink, socket_stream);
 
     'router: loop {
         let mut interval = time::interval(PING_INTERVAL);
         interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
         let mut pinger = IntervalStream::new(interval);
-
-        reset_sessions(&state.sessions).await;
 
         loop {
             tokio::select! {
@@ -297,7 +300,10 @@ pub(crate) async fn run_router(
                     let Ok(session_id) = session else {
                         break 'router
                     };
-                    handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+                    if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                        route_rx.close();
+                        break 'router;
+                    }
                 }
                 route = route_rx.recv() => {
                     let Ok(route) = route else {
@@ -314,7 +320,11 @@ pub(crate) async fn run_router(
                     // receiving this route establishes a happens-before with the sender, so
                     // those earlier events are now observable and one drain pass suffices.
                     while let Ok(session_id) = session_rx.try_recv() {
-                        handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await;
+                        if matches!(handle_session::<Message, _, _>(session_id, &state.sessions, &state.sink).await, HandleResult::Disconnected) {
+                            route_rx.close();
+                            super::refuse_undispatched_route(route, Error::connection("Physical connection closed".to_string(), surrealdb_types::ConnectionError::ConnectionFailed));
+                            break 'router;
+                        }
                     }
 
                     match handle_route::<Message, _, _>(
@@ -335,8 +345,8 @@ pub(crate) async fn run_router(
 
                     match result {
                         Ok(message) => {
-                            match handle_response::<Message, _, _>(
-                                &message, config.max_message_size, &state.sessions, &state.sink
+                            match handle_owned_response::<Message, _, _>(
+                                message, config.max_message_size, &state.sessions, &state.sink
                             ).await {
                                 HandleResult::Ok => continue,
                                 HandleResult::Disconnected => {
@@ -346,7 +356,6 @@ pub(crate) async fn run_router(
                             }
                         }
                         Err(error) => {
-                            reset_sessions(&state.sessions).await;
                             match error {
                                 WsError::ConnectionClosed => {
                                     trace!("Connection successfully closed on the server");
@@ -370,6 +379,24 @@ pub(crate) async fn run_router(
                 }
             }
         }
+    }
+    let RouterState {
+        sessions,
+        sink,
+        stream,
+    } = state;
+    drop(sink);
+    drop(stream);
+    reset_sessions(&sessions).await;
+    route_rx.close();
+    while let Ok(route) = route_rx.try_recv() {
+        super::refuse_undispatched_route(
+            route,
+            Error::connection(
+                "Physical connection closed".to_string(),
+                surrealdb_types::ConnectionError::ConnectionFailed,
+            ),
+        );
     }
 }
 
@@ -403,15 +430,7 @@ async fn run_bounded_router(
                 tokio::select! { biased;
                     _ = poll.tick() => {
                         if routes.is_closed() { break; }
-                        backlog.retain(|route| {
-                            if let Some(context) = &route.request.request_context {
-                                if context.is_interrupted() {
-                                    let _ = route.response.try_send(Err(context.interruption_error()));
-                                    return false;
-                                }
-                            }
-                            !route.response.is_closed()
-                        });
+                        backlog = super::discard_interrupted_routes(std::mem::take(&mut backlog));
                     }
                     result = &mut attempt => { socket = result.ok().and_then(Result::ok); break; }
                     route = routes.recv(), if backlog.len() < 34 => {
@@ -469,7 +488,7 @@ async fn run_bounded_router(
                         }
                         message = stream.next() => {
                             let Some(Ok(message)) = message else { break; };
-                            if !matches!(time::timeout(time::Duration::from_secs(5), handle_response::<Message, _, _>(&message, config.max_message_size, &sessions, &sink)).await, Ok(HandleResult::Ok)) { break; }
+                            if !matches!(time::timeout(time::Duration::from_secs(5), handle_owned_response::<Message, _, _>(message, config.max_message_size, &sessions, &sink)).await, Ok(HandleResult::Ok)) { break; }
                         }
                         _ = ping.tick() => {
                             if !matches!(time::timeout(time::Duration::from_secs(5), sink.write().await.send(create_ping_message())).await, Ok(Ok(()))) { break; }
@@ -485,10 +504,13 @@ async fn run_bounded_router(
         backlog.push(route);
     }
     for route in backlog {
-        let _ = route.response.try_send(Err(Error::connection(
-            "Physical connection closed".to_string(),
-            ConnectionError::ConnectionFailed,
-        )));
+        super::refuse_undispatched_route(
+            route,
+            Error::connection(
+                "Physical connection closed".to_string(),
+                ConnectionError::ConnectionFailed,
+            ),
+        );
     }
 }
 
@@ -509,13 +531,14 @@ async fn bounded_session_event(
         SessionId::Drop(_) => return true,
         _ => return true, // Refuse additional sessions without allocating a registry entry.
     }
-    if time::timeout(
-        time::Duration::from_secs(5),
-        handle_session::<Message, _, _>(event, sessions, sink),
-    )
-    .await
-    .is_err()
-    {
+    if !matches!(
+        time::timeout(
+            time::Duration::from_secs(5),
+            handle_session::<Message, _, _>(event, sessions, sink),
+        )
+        .await,
+        Ok(HandleResult::Ok)
+    ) {
         return false;
     }
     for (_, state) in sessions.to_vec() {

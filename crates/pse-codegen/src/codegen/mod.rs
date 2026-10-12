@@ -78,6 +78,8 @@ impl Language {
                 PathBuf::from("crates/pse-model/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
                 PathBuf::from("crates/pse-catalog/src/generated"),
+                PathBuf::from("crates/pse-admission/src/generated"),
+                // The Rust owner prunes the replaced adapter output during publication.
                 PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
                 PathBuf::from("crates/pse-columnar/src/generated"),
@@ -181,6 +183,8 @@ mod tests {
                 PathBuf::from("crates/pse-model/src/generated"),
                 PathBuf::from("crates/pse-authoring/src/generated"),
                 PathBuf::from("crates/pse-catalog/src/generated"),
+                PathBuf::from("crates/pse-admission/src/generated"),
+                // The Rust owner prunes the replaced adapter output during publication.
                 PathBuf::from("crates/pse-runtime/src/generated"),
                 PathBuf::from("crates/pse-quantity/src/generated"),
                 PathBuf::from("crates/pse-columnar/src/generated"),

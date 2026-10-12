@@ -45,6 +45,33 @@ def readiness_fixture(
 
 
 class HostAdmissionTests(unittest.TestCase):
+    def test_native_unit_aliases_select_the_existing_scientific_lane_before_nesting(
+        self,
+    ) -> None:
+        for recipe in (
+            "unit-package",
+            "unit-libraries",
+            "unit-native-selected",
+            "unit-native-package",
+            "unit-native-capability-package",
+            "unit-native-contracts",
+        ):
+            with self.subTest(recipe=recipe):
+                self.assertEqual(
+                    host.classify(
+                        ["just", recipe, "pse-runtime", "test(example)"], native=True
+                    ),
+                    "exclusive",
+                )
+        self.assertEqual(
+            host.classify(
+                ["just", "unit-native-capability-package", "--managed-primary-route"],
+                native=True,
+            ),
+            "reference",
+        )
+        self.assertEqual(host.classify(["just", "py-unit"], native=True), "compile")
+
     def setUp(self) -> None:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -238,6 +265,169 @@ class HostAdmissionTests(unittest.TestCase):
             host.reconcile(self.directory, resume_parked=False)
         with host.allocation_metadata(self.directory) as ledger:
             self.assertNotIn(owner.nonce, ledger["owners"])
+
+    def test_failed_unbound_restart_retains_receipts_and_requires_complete_drain(
+        self,
+    ) -> None:
+        owner, service, unit = self.storage_process_fixture()
+        process = surreal_server.read_json(service / "server-process.json")
+        process["allocation"] = str(self.directory / ("b" * 32))
+        launch = surreal_server.read_json(service / "service-launch.json")
+        launch.update(
+            deadline=time.monotonic() + 10,
+            supervisor_generation={},
+            server_generation={},
+            service_class="functional",
+            server_memory_bytes=host.GIB,
+        )
+        config = {
+            "instance_id": "original",
+            "service_supervisor": {},
+            "server": {},
+            "resources": {"server_memory_bytes": host.GIB},
+        }
+        manager = {
+            "LoadState": "loaded",
+            "ActiveState": "failed",
+            "ControlGroup": "",
+            "InvocationID": "a" * 32,
+        }
+        absent = surreal_server.ServiceObservation(
+            surreal_server.Readiness.ACTIONABLE_ABSENT,
+            service,
+            "original",
+            unit,
+            "terminal exact owner",
+            manager=manager,
+        )
+        with host.allocation_metadata(self.directory) as ledger:
+            record = dict(ledger["owners"][owner.nonce])
+        record["units"] = {unit: {}}
+        for case in (
+            "drained",
+            "wrong-generation",
+            "bound",
+            "bound-launch",
+            "live",
+            "reused",
+            "unknown-process",
+            "unknown-unit",
+            "active-unit",
+            "listener",
+            "changed-invocation",
+            "changed-selection",
+            "foreign-ledger",
+            "relative-affiliation",
+            "malformed-affiliation",
+            "alias-current",
+            "alias-previous",
+            "manager-timeout",
+        ):
+            with self.subTest(case=case):
+                selected = {**record, "units": {unit: {}}}
+                current_process = dict(process)
+                current_launch = dict(launch)
+                current_manager = dict(manager)
+                current_config = dict(config)
+                readiness = absent
+                identity: object = FileNotFoundError()
+                if case == "wrong-generation":
+                    current_process["instance_id"] = "other"
+                elif case == "bound":
+                    selected["units"] = {
+                        unit: {
+                            "group": "/owned-store",
+                            "inode": 123,
+                            "invocation": "a" * 32,
+                        }
+                    }
+                elif case == "bound-launch":
+                    current_launch["binding"] = {"group": "/owned-store"}
+                elif case in {"live", "reused"}:
+                    identity = "child" if case == "live" else "replacement"
+                elif case == "unknown-process":
+                    identity = PermissionError("unknown")
+                elif case == "unknown-unit":
+                    current_manager["LoadState"] = "not-found"
+                elif case == "active-unit":
+                    current_manager["ActiveState"] = "active"
+                elif case == "listener":
+                    readiness = surreal_server.ServiceObservation(
+                        surreal_server.Readiness.MISMATCH,
+                        service,
+                        "original",
+                        unit,
+                        "listener survives",
+                        manager=manager,
+                        listener_owned=True,
+                    )
+                elif case == "changed-invocation":
+                    readiness = surreal_server.ServiceObservation(
+                        surreal_server.Readiness.ACTIONABLE_ABSENT,
+                        service,
+                        "original",
+                        unit,
+                        "replacement",
+                        manager={**manager, "InvocationID": "c" * 32},
+                    )
+                elif case == "changed-selection":
+                    current_config["instance_id"] = "other"
+                elif case == "foreign-ledger":
+                    current_process["allocation"] = "/unknown-ledger/" + "b" * 32
+                elif case == "relative-affiliation":
+                    current_process["allocation"] = "relative/" + "b" * 32
+                elif case == "malformed-affiliation":
+                    current_process["allocation"] = str(self.directory / "unknown")
+                elif case == "alias-current":
+                    current_process["allocation"] = (
+                        str(self.directory) + "/./" + owner.nonce
+                    )
+                elif case == "alias-previous":
+                    current_process["allocation"] = (
+                        str(self.directory) + "/./" + "b" * 32
+                    )
+                surreal_server.write_json(
+                    service / "service-launch.json", current_launch
+                )
+                surreal_server.write_json(
+                    service / "server-process.json", current_process
+                )
+                with (
+                    patch.object(
+                        surreal_server, "config_for", return_value=current_config
+                    ),
+                    patch.object(
+                        surreal_server, "service_readiness", return_value=readiness
+                    ),
+                    patch.object(
+                        host.operation,
+                        "unit_observation",
+                        return_value=current_manager,
+                        side_effect=subprocess.TimeoutExpired("controlled-manager", 1)
+                        if case == "manager-timeout"
+                        else None,
+                    ),
+                    patch.object(
+                        host.operation,
+                        "start_identity",
+                        side_effect=identity
+                        if isinstance(identity, BaseException)
+                        else None,
+                        return_value=identity,
+                    ),
+                ):
+                    self.assertEqual(
+                        host.drained(selected, allocation=self.directory / owner.nonce),
+                        case == "drained",
+                    )
+                self.assertEqual(
+                    surreal_server.read_json(service / "server-process.json"),
+                    current_process,
+                )
+                self.assertEqual(
+                    surreal_server.read_json(service / "service-launch.json"),
+                    current_launch,
+                )
 
     def test_unbound_storage_observation_uses_original_drain_clock(self) -> None:
         owner, service, unit = self.storage_process_fixture()
@@ -1464,6 +1654,122 @@ class HostAdmissionTests(unittest.TestCase):
             patch.object(host, "retire_empty_allocation"),
         ):
             self.assertTrue(owner.release())
+
+    def test_release_preserves_original_deadline_and_expiry_keeps_charge(self) -> None:
+        owner = host.acquire(host.select("light"), directory=self.directory)
+        expired = time.monotonic() - 1
+        with (
+            patch.object(host, "drain_borrowed_services") as borrowed,
+            self.assertRaises(host.AdmissionError),
+        ):
+            owner.release(deadline=expired)
+        borrowed.assert_not_called()
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertIn(owner.nonce, ledger["owners"])
+        deadline = time.monotonic() + 5
+        with (
+            patch.object(host, "drain_borrowed_services") as borrowed,
+            patch.object(host, "drained", return_value=True) as proof,
+            patch.object(host, "retire_empty_allocation") as retire,
+        ):
+            self.assertTrue(owner.release(deadline=deadline))
+        self.assertEqual(borrowed.call_args.kwargs["deadline"], deadline)
+        self.assertEqual(proof.call_args.kwargs["deadline"], deadline)
+        retire.assert_called_once_with(owner, deadline=deadline)
+
+    def test_missing_terminal_ack_pins_empty_allocation_independently_of_scope_drain(
+        self,
+    ) -> None:
+        owner = host.acquire(host.select("light"), directory=self.directory)
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["terminal_guards"] = {
+                "a" * 32: {
+                    "operation": "/missing/.operations/" + "b" * 32 + ".json",
+                    "token": "c" * 32,
+                    "scope": {},
+                }
+            }
+        with patch.object(host, "retire_empty_allocation") as retire:
+            self.assertFalse(owner.release(deadline=time.monotonic() + 5))
+        retire.assert_not_called()
+        with host.allocation_metadata(self.directory) as ledger:
+            self.assertIn(owner.nonce, ledger["owners"])
+
+    def test_verified_ack_is_durable_in_existing_guard_before_evidence_retirement(
+        self,
+    ) -> None:
+        from scripts import native_operation as operation
+        from scripts import resource_store
+        from scripts import test_resources as resources
+
+        owner = host.acquire(host.select("light"), directory=self.directory)
+        scope = {
+            "unit": "pse-native-" + "d" * 32 + ".scope",
+            "group": operation.process_group(os.getpid()),
+            "invocation": "e" * 32,
+        }
+        with host.allocation_metadata(self.directory) as ledger:
+            ledger["owners"][owner.nonce]["units"][scope["unit"]] = {
+                "group": scope["group"],
+                "invocation": scope["invocation"],
+                "inode": 17,
+            }
+        base = self.directory / "fixture"
+        with (
+            patch.dict(os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}),
+            patch.object(operation, "scope_owner", return_value=scope),
+            patch.object(host, "inherit", return_value=owner),
+            patch.object(
+                resource_store, "publish", wraps=resource_store.publish
+            ) as publish,
+            operation.Operation(base) as parent,
+        ):
+            path = resources.invocation("python", [])
+            registration = operation.register_composer(path)
+            with host.allocation_metadata(self.directory) as ledger:
+                guard = dict(
+                    ledger["owners"][owner.nonce]["terminal_guards"][path.stem]
+                )
+                snapshot = dict(ledger["owners"][owner.nonce])
+            self.assertFalse(operation.terminal_guard_complete(path.stem, guard))
+            resources.finalize(path, {}, complete=False, terminal_owner="runner")
+            resource_store.publish(
+                path.with_suffix(".terminal.json"), {"exit_code": None}
+            )
+            operation.acknowledge_composer(registration)
+            with host.allocation_metadata(self.directory) as ledger:
+                guard = dict(
+                    ledger["owners"][owner.nonce]["terminal_guards"][path.stem]
+                )
+            self.assertEqual(guard["phase"], "acknowledged")
+            self.assertGreaterEqual(
+                sum(
+                    call.args[0] == self.directory / "allocations.json"
+                    for call in publish.call_args_list
+                ),
+                2,
+            )
+        path.with_suffix(".terminal.json").unlink()
+        (path.parent.parent / "invocation-state" / path.name).unlink()
+        parent.path.unlink()
+        self.assertTrue(operation.terminal_guard_complete(path.stem, guard))
+        snapshot.update(released=True, terminal_guards={path.stem: guard})
+        with (
+            patch.object(
+                operation, "unit_observation", return_value={"LoadState": "not-found"}
+            ),
+            patch.object(host, "group_identity", return_value=None),
+        ):
+            self.assertTrue(host.drained(snapshot))
+            for changes in (
+                {"scope": {}},
+                {"binding": {**guard["binding"], "invocation": "f" * 32}},
+            ):
+                corrupted = {
+                    **snapshot,
+                    "terminal_guards": {path.stem: {**guard, **changes}},
+                }
+                self.assertFalse(host.drained(corrupted))
 
     def test_parent_death_and_pid_reuse_do_not_release_surviving_unit(self) -> None:
         owner = host.acquire(host.select("functional"), directory=self.directory)

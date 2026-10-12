@@ -526,6 +526,16 @@ handle and revision are dropped. Identity framing and reuse equality use canonic
 bits that preserve signed zero ([§5.3](identity-and-publication.md#section-5-3),
 [ADR-0089](../../adr/0089-semantic-identity-projections.md)).
 
+> Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
+
+The selected result target uses explicit full/compact/detail demand and typed original-row
+locators under complete close coverage. P-B4–P-B6 own the coordinated migration; existing
+scalar-cell producers/readers below remain until that migration is verified. Key-only
+completion properties now have a separate narrow protected read: terminal/source/result
+admission and exact completion coverage/digest remain required, while manifest descriptor
+transport and seed discovery are unnecessary. Every independent property read needs fresh
+permission; previously copied completion bytes do not supply it.
+
 **Retained scientific rows.** Registry-admitted batches are retained once as independent,
 uncompressed, self-contained Arrow IPC streams, each bounded to 512 KiB including schema,
 one record batch and an explicit end marker. Bounded framing, schema, count and layout
@@ -599,6 +609,8 @@ state after immutable creation authority is fenced and bounded cleanup completes
 Surviving input rows retain results until physical deletion ([§20.4](identity-and-publication.md#section-20-4)).
 
 ### 19.3 Studies and reuse
+
+> Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
 
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md), Plan 25n N7–N10.
 
@@ -1026,6 +1038,8 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
+
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md)
 
 > Decision: [ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md),
@@ -1046,6 +1060,19 @@ full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
 ### 21.1 Extension module, canonical operations and Arrow streams
+
+> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A1/P-A2).
+
+Typed `solve_bound` at the existing package/revision receiver consumes a declared case,
+ordered point overlay, settings/policy and cancellation. Resolve targets once, reject
+duplicates and apply canonical physical conversion while retaining submitted attribution.
+Results retain exact parent, binding/context and applied start/seed/predecessor receipts.
+The parent is immutable; value-dependent facts and independent original assessment remain
+fresh. Typed `SourceDelta` supplies explicit additions/replacements/removals and document/data
+ownership changes under exact parent/CAS. Reject overlapping intents before atomic effects;
+parent reload compares checksums and reparses changed documents. Full replacement retains
+its explicit deletion domain. Generated Rust/Python contracts and actual consumers migrate
+together; these target APIs do not imply implementation or qualification.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Native typed problem/revision/run/output selectors and bounded Arrow streams replace Runtime, modeling-knowledge and TableReader SQL convenience. Streams protect their exact immutable selection and treat rows as provisional until successful statement completion. Ordinary runtime construction is durable; ephemeral execution is explicitly requested.
 
@@ -1144,6 +1171,8 @@ storage-only, metadata-lost or mismatched (`python/pse/_transfer.py`); capsule e
 does not prove the consumer registered the extension types.
 
 ### 21.5 Python contracts
+
+> Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment). Source intents preserve strict direct conversion, version-aware general decoding and fresh public converters. Private generated-row transport may reuse thread-owned hooks; it cannot bypass Rust admission, unknown-key/finite-number refusal or required raw/typed version checks.
 
 > Decision: [ADR-0116](../../adr/0116-typed-boundary-documents.md) — Rust owns typed,
 > versioned boundary documents, schemars JSON Schemas and generated msgspec types.

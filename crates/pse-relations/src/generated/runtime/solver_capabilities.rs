@@ -672,6 +672,7 @@ pub mod columns {
 #[derive(Debug)]
 pub struct RuntimeSolverCapabilitiesView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     backend_column: &'a arrow_array::StringArray,
     structural_policy_column: &'a arrow_array::StringArray,
     lexicographic_degradation_column: &'a arrow_array::StringArray,
@@ -714,7 +715,7 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -725,13 +726,16 @@ impl<'a> RuntimeSolverCapabilitiesView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             backend_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -1131,5 +1135,8 @@ impl crate::columnar::RelationView for RuntimeSolverCapabilitiesView<'_> {
     type Row = RuntimeSolverCapabilitiesRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

@@ -6,11 +6,12 @@
 
 use datafusion::arrow::{
     array::ArrayData,
+    buffer::Buffer,
     datatypes::{DataType, Schema, SchemaRef},
-    ipc::{self, reader::StreamReader, writer::StreamWriter},
+    ipc::{self, reader::StreamDecoder, writer::StreamWriter},
     record_batch::RecordBatch,
 };
-use std::io::{Cursor, Write};
+use std::io::Write;
 
 /// One self-contained schema, batch and explicit end marker per database blob.
 pub const RESULT_BLOCK_BYTES: usize = pse_operations::generated::surreal::RESULT_BLOCK_BYTES;
@@ -18,14 +19,43 @@ const MAX_FIELDS: usize = 16 * 1024;
 const MAX_DEPTH: usize = 64;
 const MAX_ROWS: usize = 32 * 1024;
 const MAX_VALUES: usize = RESULT_BLOCK_BYTES;
+const MAX_IPC_TABLES: usize = 128 * 1024;
 
 // Source objects belong to canonical revision ingestion, whose declared object
 // bound differs from admitted scientific result blobs. Callers cannot pick a
 // larger limit for an arbitrary result read or write.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum Purpose {
     Result,
     CanonicalSource,
+}
+
+/// Derived preparation for one actual immutable transport schema. It carries no
+/// registry/domain admission and cannot change the result/source purpose bound.
+#[derive(Clone, Debug)]
+pub(super) struct PreparedIpcSchema {
+    schema: SchemaRef,
+    fields: usize,
+    purpose: Purpose,
+}
+impl PreparedIpcSchema {
+    fn new(schema: SchemaRef, purpose: Purpose) -> Result<Self, ResultBlockError> {
+        let fields = expected_shape(schema.as_ref())?;
+        Ok(Self {
+            schema,
+            fields,
+            purpose,
+        })
+    }
+    pub(super) fn result(schema: SchemaRef) -> Result<Self, ResultBlockError> {
+        Self::new(schema, Purpose::Result)
+    }
+    pub(super) const fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+    fn preflight(&self, bytes: &[u8], rows: usize) -> Result<(), ResultBlockError> {
+        preflight_prepared(bytes, self.schema.as_ref(), self.fields, rows, self.purpose)
+    }
 }
 impl Purpose {
     const fn bytes(self) -> usize {
@@ -86,12 +116,28 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
     for field in batch.schema().fields() {
         trusted_shape(field.data_type(), 0, &mut fields)?;
     }
+    // Schema/field/type tables and every custom-metadata entry must fit the
+    // independent reader's FlatBuffer verifier before serialization allocates.
+    let mut tables = 2 + 2 * fields + batch.schema().metadata().len();
+    if tables > MAX_IPC_TABLES {
+        return Err(ResultBlockError::Invalid("schema metadata complexity"));
+    }
+    let mut schema_bytes = 128usize;
+    for (key, value) in batch.schema().metadata() {
+        writer_schema_extent(&mut schema_bytes, 64, purpose)?;
+        writer_schema_extent(&mut schema_bytes, key.len(), purpose)?;
+        writer_schema_extent(&mut schema_bytes, value.len(), purpose)?;
+    }
+    for field in batch.schema().fields() {
+        writer_metadata_tables(field, &mut tables, &mut schema_bytes, purpose)?;
+    }
     // Bound writer scratch before IpcDataGenerator packs/copies the body. Sliced
     // arrays count their visible buffers rather than their retained parent buffers.
     let mut bytes = 0usize;
+    let mut values = 0usize;
     for column in batch.columns() {
         bytes = bytes
-            .checked_add(visible_size(&column.to_data())?)
+            .checked_add(visible_size(&column.to_data(), &mut values)?)
             .ok_or(ResultBlockError::Invalid("array size overflow"))?;
     }
     if bytes > purpose.bytes() {
@@ -106,12 +152,6 @@ fn encode_block(batch: &RecordBatch, purpose: Purpose) -> Result<Vec<u8>, Result
         stream.write(batch)?;
         stream.finish()?;
     }
-    preflight_block(
-        &writer.bytes,
-        batch.schema().as_ref(),
-        batch.num_rows(),
-        purpose,
-    )?;
     Ok(writer.bytes)
 }
 
@@ -247,7 +287,13 @@ where
     Ok(())
 }
 
-fn visible_size(data: &ArrayData) -> Result<usize, ResultBlockError> {
+fn visible_size(data: &ArrayData, values: &mut usize) -> Result<usize, ResultBlockError> {
+    *values = values
+        .checked_add(data.len())
+        .ok_or(ResultBlockError::Invalid("field size overflow"))?;
+    if *values > MAX_VALUES {
+        return Err(ResultBlockError::Invalid("field value bound"));
+    }
     let bitmap = if data.nulls().is_some() {
         data.len().div_ceil(8)
     } else {
@@ -263,7 +309,7 @@ fn visible_size(data: &ArrayData) -> Result<usize, ResultBlockError> {
             Some(
                 bitmap
                     + (data.len() + 1) * 4
-                    + visible_size(&data.child_data()[0].slice(start, end - start))?,
+                    + visible_size(&data.child_data()[0].slice(start, end - start), values)?,
             )
         }
         DataType::LargeList(_) => {
@@ -275,21 +321,24 @@ fn visible_size(data: &ArrayData) -> Result<usize, ResultBlockError> {
             Some(
                 bitmap
                     + (data.len() + 1) * 8
-                    + visible_size(&data.child_data()[0].slice(start, end - start))?,
+                    + visible_size(&data.child_data()[0].slice(start, end - start), values)?,
             )
         }
         DataType::FixedSizeList(_, width) => Some(
             bitmap
-                + visible_size(&data.child_data()[0].slice(
-                    data.offset() * (*width as usize),
-                    data.len() * (*width as usize),
-                ))?,
+                + visible_size(
+                    &data.child_data()[0].slice(
+                        data.offset() * (*width as usize),
+                        data.len() * (*width as usize),
+                    ),
+                    values,
+                )?,
         ),
         DataType::Struct(_) => {
             let mut size = bitmap;
             for child in data.child_data() {
                 size = size
-                    .checked_add(visible_size(child)?)
+                    .checked_add(visible_size(child, values)?)
                     .ok_or(ResultBlockError::Invalid("visible size overflow"))?;
             }
             Some(size)
@@ -327,8 +376,14 @@ fn trusted_shape(ty: &DataType, depth: usize, count: &mut usize) -> Result<(), R
         | DataType::LargeBinary
         | DataType::Date32
         | DataType::Date64
-        | DataType::Time32(_)
-        | DataType::Time64(_)
+        | DataType::Time32(
+            datafusion::arrow::datatypes::TimeUnit::Second
+            | datafusion::arrow::datatypes::TimeUnit::Millisecond,
+        )
+        | DataType::Time64(
+            datafusion::arrow::datatypes::TimeUnit::Microsecond
+            | datafusion::arrow::datatypes::TimeUnit::Nanosecond,
+        )
         | DataType::Timestamp(_, _)
         | DataType::Duration(_)
         | DataType::Decimal32(_, _)
@@ -352,8 +407,63 @@ fn trusted_shape(ty: &DataType, depth: usize, count: &mut usize) -> Result<(), R
     Ok(())
 }
 
+// Include conservative FlatBuffer table/offset/alignment storage before Arrow
+// copies schema strings. The output writer alone cannot bound that earlier copy.
+fn writer_schema_extent(
+    bytes: &mut usize,
+    additional: usize,
+    purpose: Purpose,
+) -> Result<(), ResultBlockError> {
+    *bytes = bytes
+        .checked_add(additional)
+        .ok_or(ResultBlockError::Invalid("schema metadata bytes"))?;
+    if *bytes > purpose.bytes() {
+        return Err(ResultBlockError::Invalid("schema metadata bytes"));
+    }
+    Ok(())
+}
+
+fn writer_metadata_tables(
+    field: &datafusion::arrow::datatypes::Field,
+    tables: &mut usize,
+    bytes: &mut usize,
+    purpose: Purpose,
+) -> Result<(), ResultBlockError> {
+    *tables = tables
+        .checked_add(field.metadata().len())
+        .ok_or(ResultBlockError::Invalid("schema metadata complexity"))?;
+    if *tables > MAX_IPC_TABLES {
+        return Err(ResultBlockError::Invalid("schema metadata complexity"));
+    }
+    writer_schema_extent(bytes, 128, purpose)?;
+    writer_schema_extent(bytes, field.name().len(), purpose)?;
+    for (key, value) in field.metadata() {
+        writer_schema_extent(bytes, 64, purpose)?;
+        writer_schema_extent(bytes, key.len(), purpose)?;
+        writer_schema_extent(bytes, value.len(), purpose)?;
+    }
+    if let DataType::Timestamp(_, Some(timezone)) = field.data_type() {
+        writer_schema_extent(bytes, timezone.len(), purpose)?;
+    }
+    match field.data_type() {
+        DataType::List(child)
+        | DataType::LargeList(child)
+        | DataType::Map(child, _)
+        | DataType::FixedSizeList(child, _) => {
+            writer_metadata_tables(child, tables, bytes, purpose)?
+        }
+        DataType::Struct(children) => {
+            for child in children {
+                writer_metadata_tables(child, tables, bytes, purpose)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 // FlatBuffer access is borrowed and verified. In particular do not hand the
-// length-prefixed stream to StreamReader before this complete pass.
+// length-prefixed stream to the decoder before this complete pass.
 fn frame<'a>(
     bytes: &'a [u8],
     offset: &mut usize,
@@ -384,7 +494,7 @@ fn frame<'a>(
         .ok_or(ResultBlockError::Invalid("truncated metadata"))?;
     let options = flatbuffers::VerifierOptions {
         max_depth: 256,
-        max_tables: 128 * 1024,
+        max_tables: MAX_IPC_TABLES,
         max_apparent_size: 32 * 1024 * 1024,
         ..Default::default()
     };
@@ -609,7 +719,7 @@ fn layout(
 }
 
 /// Verify the complete framing, exact schema, shape and allocation-advertising
-/// metadata before StreamReader can resize a metadata/body buffer or build arrays.
+/// metadata before the decoder can resize a metadata/body buffer or build arrays.
 pub fn preflight_result_block(
     bytes: &[u8],
     expected: &Schema,
@@ -624,12 +734,26 @@ fn preflight_block(
     rows: usize,
     purpose: Purpose,
 ) -> Result<(), ResultBlockError> {
+    preflight_prepared(bytes, expected, expected_shape(expected)?, rows, purpose)
+}
+
+fn expected_shape(expected: &Schema) -> Result<usize, ResultBlockError> {
+    let mut fields = 0;
+    for field in expected.fields() {
+        trusted_shape(field.data_type(), 0, &mut fields)?;
+    }
+    Ok(fields)
+}
+
+fn preflight_prepared(
+    bytes: &[u8],
+    expected: &Schema,
+    expected_fields: usize,
+    rows: usize,
+    purpose: Purpose,
+) -> Result<(), ResultBlockError> {
     if bytes.len() > purpose.bytes() || rows > MAX_ROWS {
         return Err(ResultBlockError::Invalid("block/row bound"));
-    }
-    let mut expected_fields = 0;
-    for field in expected.fields() {
-        trusted_shape(field.data_type(), 0, &mut expected_fields)?;
     }
     let mut offset = 0;
     let (message, body) =
@@ -751,15 +875,35 @@ fn decode_block(
     rows: usize,
     purpose: Purpose,
 ) -> Result<RecordBatch, ResultBlockError> {
-    preflight_block(bytes, expected.as_ref(), rows, purpose)?;
-    let mut stream = StreamReader::try_new(Cursor::new(bytes), None)?;
-    let batch = stream
-        .next()
-        .ok_or(ResultBlockError::Invalid("missing decoded batch"))??;
-    if batch.schema() != expected || batch.num_rows() != rows || stream.next().is_some() {
-        return Err(ResultBlockError::Invalid("decoded schema/shape mismatch"));
+    let prepared = PreparedIpcSchema::new(expected, purpose)?;
+    prepared.preflight(bytes, rows)?;
+    decode_admitted(Buffer::from_slice_ref(bytes))
+}
+
+/// Consume a bounded native transport allocation. The caller attaches its
+/// allocation owner before entry; decoded views retain it without a body copy.
+/// Arrow's default realignment and validation remain enabled.
+pub(super) fn decode_owned_result_block(
+    bytes: Buffer,
+    prepared: &PreparedIpcSchema,
+    rows: usize,
+) -> Result<RecordBatch, ResultBlockError> {
+    prepared.preflight(bytes.as_slice(), rows)?;
+    decode_admitted(bytes)
+}
+
+fn decode_admitted(mut bytes: Buffer) -> Result<RecordBatch, ResultBlockError> {
+    let mut decoder = StreamDecoder::new();
+    let mut batch = None;
+    while !bytes.is_empty() {
+        if let Some(decoded) = decoder.decode(&mut bytes)? {
+            if batch.replace(decoded).is_some() {
+                return Err(ResultBlockError::Invalid("one decoded batch required"));
+            }
+        }
     }
-    Ok(batch)
+    decoder.finish()?;
+    batch.ok_or(ResultBlockError::Invalid("missing decoded batch"))
 }
 
 #[cfg(test)]
@@ -770,6 +914,389 @@ mod canonical_result_blocks_unit {
         datatypes::Field,
     };
     use std::sync::Arc;
+
+    #[test]
+    fn bounded_writer_supported_scalar_layouts_obey_independent_reader_preflight() {
+        use datafusion::arrow::{
+            array::{new_empty_array, new_null_array},
+            datatypes::TimeUnit,
+        };
+        let types = vec![
+            DataType::Null,
+            DataType::Boolean,
+            DataType::Int8,
+            DataType::Int16,
+            DataType::Int32,
+            DataType::Int64,
+            DataType::UInt8,
+            DataType::UInt16,
+            DataType::UInt32,
+            DataType::UInt64,
+            DataType::Float16,
+            DataType::Float32,
+            DataType::Float64,
+            DataType::Utf8,
+            DataType::LargeUtf8,
+            DataType::Binary,
+            DataType::LargeBinary,
+            DataType::FixedSizeBinary(16),
+            DataType::Date32,
+            DataType::Date64,
+            DataType::Time32(TimeUnit::Second),
+            DataType::Time32(TimeUnit::Millisecond),
+            DataType::Time64(TimeUnit::Microsecond),
+            DataType::Time64(TimeUnit::Nanosecond),
+            DataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".into())),
+            DataType::Duration(TimeUnit::Microsecond),
+            DataType::Decimal32(9, 2),
+            DataType::Decimal64(18, 2),
+            DataType::Decimal128(38, 2),
+            DataType::Decimal256(76, 2),
+        ];
+        for ty in types {
+            for column in [new_empty_array(&ty), new_null_array(&ty, 5).slice(1, 3)] {
+                let source = RecordBatch::try_new(
+                    Arc::new(Schema::new(vec![Field::new("value", ty.clone(), true)])),
+                    vec![column],
+                )
+                .unwrap();
+                for purpose in [Purpose::Result, Purpose::CanonicalSource] {
+                    let bytes = encode_block(&source, purpose).unwrap();
+                    preflight_block(&bytes, source.schema().as_ref(), source.num_rows(), purpose)
+                        .unwrap();
+                    assert_eq!(
+                        decode_block(&bytes, source.schema(), source.num_rows(), purpose).unwrap(),
+                        source
+                    );
+                }
+            }
+        }
+        for invalid in [
+            DataType::Time32(TimeUnit::Nanosecond),
+            DataType::Time64(TimeUnit::Second),
+        ] {
+            assert!(trusted_shape(&invalid, 0, &mut 0).is_err());
+        }
+    }
+    #[test]
+    fn bounded_writer_refuses_metadata_table_overflow_before_serialization() {
+        let metadata = (0..MAX_IPC_TABLES)
+            .map(|index| (index.to_string(), String::new()))
+            .collect();
+        let schema = Arc::new(Schema::new_with_metadata(
+            vec![Field::new("value", DataType::UInt64, false)],
+            metadata,
+        ));
+        let source =
+            RecordBatch::try_new(schema, vec![Arc::new(UInt64Array::from(vec![1]))]).unwrap();
+        assert!(matches!(
+            encode_result_block(&source),
+            Err(ResultBlockError::Invalid("schema metadata complexity"))
+        ));
+    }
+    #[test]
+    fn bounded_writer_refuses_large_schema_strings_before_arrow_allocation() {
+        for purpose in [Purpose::Result, Purpose::CanonicalSource] {
+            for field_string in [false, true] {
+                let large = "x".repeat(purpose.bytes() + 1);
+                let schema = if field_string {
+                    Schema::new(vec![Field::new(large, DataType::UInt64, false)])
+                } else {
+                    Schema::new_with_metadata(
+                        vec![Field::new("value", DataType::UInt64, false)],
+                        std::collections::HashMap::from([("large".to_owned(), large)]),
+                    )
+                };
+                let source = RecordBatch::try_new(
+                    Arc::new(schema),
+                    vec![Arc::new(UInt64Array::from(vec![1]))],
+                )
+                .unwrap();
+                assert!(matches!(
+                    encode_block(&source, purpose),
+                    Err(ResultBlockError::Invalid("schema metadata bytes"))
+                ));
+            }
+        }
+    }
+    #[test]
+    fn bounded_writer_refuses_aggregate_null_nodes_before_serialization() {
+        use datafusion::arrow::array::NullArray;
+        let columns = MAX_VALUES / MAX_ROWS + 1;
+        let source = RecordBatch::try_new(
+            Arc::new(Schema::new(
+                (0..columns)
+                    .map(|index| Field::new(index.to_string(), DataType::Null, true))
+                    .collect::<Vec<_>>(),
+            )),
+            (0..columns)
+                .map(|_| Arc::new(NullArray::new(MAX_ROWS)) as datafusion::arrow::array::ArrayRef)
+                .collect(),
+        )
+        .unwrap();
+        assert!(matches!(
+            encode_result_block(&source),
+            Err(ResultBlockError::Invalid("field value bound"))
+        ));
+        let mut extents = Vec::new();
+        visit_result_blocks(&source, |start, rows, bytes| {
+            preflight_result_block(&bytes, source.schema().as_ref(), rows)?;
+            extents.push((start, rows));
+            Ok(())
+        })
+        .unwrap();
+        assert!(extents.len() > 1);
+        assert_eq!(
+            extents.iter().map(|(_, rows)| rows).sum::<usize>(),
+            MAX_ROWS
+        );
+        assert!(
+            extents
+                .windows(2)
+                .all(|pair| pair[0].0 + pair[0].1 == pair[1].0)
+        );
+    }
+    #[test]
+    fn owned_result_decode_retains_aligned_backing_and_accounts_realignment() {
+        use pse_columnar::{MemoryConsumer, MemoryPool, owned_buffer::AllocationScope};
+        let source = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::UInt64,
+                false,
+            )])),
+            vec![Arc::new(UInt64Array::from(vec![0, 1, u64::MAX, 3, 4]))],
+        )
+        .unwrap();
+        let payload = encode_result_block(&source).unwrap();
+        let prepared = PreparedIpcSchema::result(source.schema()).unwrap();
+        for shifted in [false, true] {
+            let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+            let mut storage = Vec::with_capacity(payload.len() + 272);
+            let offset = (8 - (storage.as_ptr() as usize % 8)) % 8 + usize::from(shifted);
+            storage.resize(offset, 0);
+            storage.extend_from_slice(&payload);
+            let capacity = storage.capacity();
+            let start = storage.as_ptr() as usize;
+            let end = start + storage.len();
+            let reservation = Arc::new(MemoryConsumer::new("ipc:test-decode").register(&pool));
+            reservation.try_grow(capacity + 8192).unwrap();
+            let response_owner = reservation.clone();
+            let scope = AllocationScope::default();
+            let backing = scope
+                .attach_buffer(
+                    Buffer::from_vec(storage).slice(offset),
+                    reservation.split(capacity),
+                )
+                .unwrap();
+            let batch = decode_owned_result_block(backing, &prepared, 5).unwrap();
+            let values = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            assert_eq!(values.values().as_ref(), &[0, 1, u64::MAX, 3, 4]);
+            let pointer = values.values().as_ptr() as usize;
+            assert_eq!((start..end).contains(&pointer), !shifted);
+            let owned = scope
+                .attach_borrowed_reserved(batch.slice(2, 1), reservation.as_ref())
+                .unwrap();
+            drop(batch);
+            let retained = owned.retained_bytes().unwrap();
+            if shifted {
+                assert!(
+                    retained < capacity,
+                    "copied values release unused transport storage"
+                );
+            } else {
+                assert_eq!(
+                    retained, capacity,
+                    "a small slice retains the complete backing"
+                );
+            }
+            assert_eq!(pool.reserved(), retained + reservation.size());
+            drop(reservation);
+            assert_eq!(
+                pool.reserved(),
+                retained + response_owner.size(),
+                "delivery owner retains only the unused grant until it drains"
+            );
+            drop(response_owner);
+            assert_eq!(pool.reserved(), retained);
+            let escaped = owned.column(0).clone();
+            drop(owned);
+            drop(scope);
+            assert_eq!(pool.reserved(), retained);
+            assert_eq!(
+                escaped
+                    .as_any()
+                    .downcast_ref::<UInt64Array>()
+                    .unwrap()
+                    .value(0),
+                u64::MAX
+            );
+            drop(escaped);
+            assert_eq!(pool.reserved(), 0);
+        }
+    }
+
+    #[test]
+    fn owned_result_decode_refuses_truncation_without_leaking_input_reservation() {
+        use pse_columnar::{MemoryConsumer, MemoryPool, owned_buffer::AllocationScope};
+        let source = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::UInt64,
+                false,
+            )])),
+            vec![Arc::new(UInt64Array::from(vec![1, 2]))],
+        )
+        .unwrap();
+        let payload = encode_result_block(&source).unwrap();
+        let prepared = PreparedIpcSchema::result(source.schema()).unwrap();
+        for cut in [
+            0,
+            4,
+            payload.len() / 2,
+            payload.len() - 1,
+            payload.len() - 8,
+        ] {
+            let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+            let storage = payload[..cut].to_vec();
+            let reservation = MemoryConsumer::new("ipc:test-refusal").register(&pool);
+            reservation.try_grow(storage.capacity()).unwrap();
+            let scope = AllocationScope::default();
+            let backing = scope
+                .attach_buffer(Buffer::from_vec(storage), reservation)
+                .unwrap();
+            assert!(decode_owned_result_block(backing, &prepared, 2).is_err());
+            assert_eq!(pool.reserved(), 0);
+        }
+    }
+
+    #[test]
+    fn owned_nested_decode_accounts_shared_transport_and_realigned_children_together() {
+        use datafusion::arrow::{
+            array::{StringArray, StructArray},
+            buffer::NullBuffer,
+        };
+        use pse_columnar::{MemoryConsumer, MemoryPool, owned_buffer::AllocationScope};
+        let fields: datafusion::arrow::datatypes::Fields = vec![
+            Field::new("text", DataType::Utf8, true),
+            Field::new("count", DataType::UInt64, false),
+        ]
+        .into();
+        let nested = StructArray::new(
+            fields.clone(),
+            vec![
+                Arc::new(StringArray::from(vec![
+                    Some("a"),
+                    None,
+                    Some("three"),
+                    Some("four"),
+                    Some(""),
+                ])),
+                Arc::new(UInt64Array::from(vec![0, 1, u64::MAX, 3, 4])),
+            ],
+            Some(NullBuffer::from(vec![true, false, true, true, true])),
+        );
+        let source = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "nested",
+                DataType::Struct(fields),
+                true,
+            )])),
+            vec![Arc::new(nested)],
+        )
+        .unwrap();
+        let payload = encode_result_block(&source).unwrap();
+        let prepared = PreparedIpcSchema::result(source.schema()).unwrap();
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let mut storage = Vec::with_capacity(payload.len() + 272);
+        let offset = (8 - (storage.as_ptr() as usize % 8)) % 8 + 1;
+        storage.resize(offset, 0);
+        storage.extend_from_slice(&payload);
+        let capacity = storage.capacity();
+        let start = storage.as_ptr() as usize;
+        let end = start + storage.len();
+        let reservation = Arc::new(MemoryConsumer::new("ipc:mixed-decode").register(&pool));
+        reservation.try_grow(capacity + 8192).unwrap();
+        let response_owner = reservation.clone();
+        let scope = AllocationScope::default();
+        let backing = scope
+            .attach_buffer(
+                Buffer::from_vec(storage).slice(offset),
+                reservation.split(capacity),
+            )
+            .unwrap();
+        let batch = decode_owned_result_block(backing, &prepared, 5).unwrap();
+        let nested = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StructArray>()
+            .unwrap();
+        let text = nested
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        let count = nested
+            .column(1)
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .unwrap();
+        assert!(
+            (start..end).contains(&(text.value_data().as_ptr() as usize)),
+            "byte-valued children retain the original transport allocation"
+        );
+        assert!(
+            !(start..end).contains(&(count.values().as_ptr() as usize)),
+            "unaligned numeric children receive independently admitted storage"
+        );
+        let owned = scope
+            .attach_borrowed_reserved(batch.slice(2, 1), reservation.as_ref())
+            .unwrap();
+        drop(batch);
+        let retained = owned.retained_bytes().unwrap();
+        assert!(
+            retained > capacity,
+            "mixed output owns transport and new alignment storage"
+        );
+        assert_eq!(pool.reserved(), retained + reservation.size());
+        drop(reservation);
+        assert_eq!(
+            pool.reserved(),
+            retained + response_owner.size(),
+            "delivery owner retains only the unused grant until it drains"
+        );
+        drop(response_owner);
+        assert_eq!(pool.reserved(), retained);
+        let escaped = owned.column(0).clone();
+        drop(owned);
+        drop(scope);
+        assert_eq!(pool.reserved(), retained);
+        let nested = escaped.as_any().downcast_ref::<StructArray>().unwrap();
+        assert_eq!(
+            nested
+                .column(0)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .value(0),
+            "three"
+        );
+        assert_eq!(
+            nested
+                .column(1)
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap()
+                .value(0),
+            u64::MAX
+        );
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
     #[test]
     fn admitted_result_prefix_splits_deterministically_and_preserves_exact_transport() {
         let schema = Arc::new(Schema::new(vec![
@@ -841,7 +1368,7 @@ mod canonical_result_blocks_unit {
     #[test]
     fn admitted_physical_source_schemas_fit_canonical_input_transport() {
         let registry = pse_schema::registry().unwrap();
-        let roots = crate::physical::input_keys(registry)
+        let roots = pse_admission::physical::input_keys(registry)
             .iter()
             .map(|key| registry.relation(&key.qualified_name()).unwrap().id)
             .collect();

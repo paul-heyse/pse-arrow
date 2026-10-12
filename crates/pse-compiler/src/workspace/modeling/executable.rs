@@ -718,6 +718,15 @@ fn projection(
             })
         })
         .collect::<BTreeSet<_>>();
+    // Fixture specialization has already resolved each lexical/indexed target and
+    // physically converted its value. Carry those exact member demands into this
+    // projection instead of re-specializing a second request with authored path strings.
+    observed.extend(model.fixtures.values().flat_map(|fixture| {
+        fixture
+            .specifications
+            .values()
+            .map(|specification| specification.target)
+    }));
     // The enclosure of each derived Big-M is an actual preparation consumer, even
     // when the caller has not requested its source member as a report observation.
     observed.extend(
@@ -1192,7 +1201,7 @@ fn projection(
         projection: p.clone(),
         bindings: bindings.clone(),
     };
-    implicit::project(&model, registry, &mut p, &mut bindings)?;
+    implicit::project(db, &model, registry, &mut p, &mut bindings)?;
     if !p.implicit.is_empty() {
         p.original = Some(Arc::new(original));
     }
@@ -1566,7 +1575,13 @@ impl CompilerWorkspace {
                         .retain(|instance, _| !promoted.contains(&instance.as_id()));
                     let mut p = raw.projection.clone();
                     let mut bindings = raw.bindings.clone();
-                    implicit::project(&remaining, &self.inputs.quantities, &mut p, &mut bindings)?;
+                    implicit::project(
+                        &self.db,
+                        &remaining,
+                        &self.inputs.quantities,
+                        &mut p,
+                        &mut bindings,
+                    )?;
                     finish_projection(&mut p, &bindings, &self.inputs.quantities)?;
                     let supplied = primary
                         .implicit

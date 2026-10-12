@@ -1,8 +1,8 @@
 ---
 title: Efficiency alignment across the simulator and development loop
-status: draft
+status: in-progress
 date: 2026-10-11
-adrs: []
+adrs: [ADR-0173, ADR-0174, ADR-0175, ADR-0176, ADR-0177, ADR-0178, ADR-0179, ADR-0180]
 review_sources:
   - docs/design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md
   - docs/design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md
@@ -16,7 +16,7 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 This standalone series reconciles the [original review](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md) and [independent audit](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md) into one target and actionable work. It covers all 29 original findings, five new audit findings, twenty rule recommendations, and the inquiries' additional opportunities and unexamined areas. The audit's corrections replace the original diagnoses where they conflict; neither report is edited.
 
-The user accepted all twenty recommendations in this document as written on **2026-10-11**. That selects the stated target boundaries for authoring. **Product implementation remains Proposed and awaits separate authorization.** Existing plan documents and their index are excluded from review and updates; later reconciliation is reserved until this series is fully implemented. This document owns dispositions for these two reviews within the new series, not the status of any earlier work.
+The user accepted all twenty recommendations in this document as written on **2026-10-11**. That selects the stated target boundaries for authoring. **Accepted-target product implementation was separately authorized on 2026-10-11 and is in progress; enclosing acceptance remains open.** Existing plan documents and their index are excluded from review and updates; later reconciliation is reserved until this series is fully implemented. This document owns dispositions for these two reviews within the new series, not the status of any earlier work.
 
 Source baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`, inspected 2026-10-11. Concurrent minor validation edits were preserved. The judgments below are **Interface-checked** from static source and exact library contracts; planned remedies and controls are **Proposed**. No new product test or performance campaign ran during authoring. Historical measurements and the audit's single cancellation control remain attributed to their original conditions.
 
@@ -57,7 +57,7 @@ The source assessment settled the key architectural choices before scheduling im
 | Source revision frame | Preserve V4, including complete merged logical framing where required | I-A4 demonstrates a useful new frame and obtains a separate approved version/migration |
 | Exact cancellation/retention transactions | Read-register exact cancellation; two-way creator/reclaim fences and exact pins | Pinned backend semantics change or emitted-query race controls expose a missing premise |
 | Result indexing | One typed exact row locator per scientific scalar row, decoded-row verification | Populated access evidence justifies typed block bounds without changing ordering/selection |
-| Cubic and numerical rank | Attempt-local scratch and complete memo validity; keep certified isolation and singular-value rank initially | Qualified complete fast-root method or concrete sparse rank/threshold design is separately selected |
+| Cubic and numerical rank | Attempt-local scratch and complete memo validity; guarded real-only certified isolation with exact fallback; retain singular-value rank | Qualification of the guarded root route; a sparse rank/threshold contract needs the separate decision below |
 | Validation retention | Explicit bound actual factory/registry/assembly owner; per-query semantic scopes stay distinct | A different snapshot/config/function implementation requires a new owner, not a name hash |
 | Metadata backend | Per-record files with exact logical identity and one policy owner | A real indivisible multi-record invariant cannot fail closed/reconcile; revisit SQLite before migration |
 | Admission/build topology | One lower `pse-admission` crate, coherent Runtime surrogate integration, actual selected-unit closure | Actual consumed dependencies contradict the proposed boundary; do not copy DTOs or add facades to force it |
@@ -100,7 +100,7 @@ The public unused `hashing_may_use_pool` option is a later investigation in 36d:
 
 | Packet | Required input | Delivery and acceptance | Status |
 |---|---|---|---|
-| P-G0 | Accepted per-item choices; concrete contract written in the owning companion | Route superseding/proposed ADRs, blueprint revisions and boundary/schema decisions before dependent implementation. Verify that each adopted amendment says the selected contract and records its preservation constraints. | Scheduled |
+| P-G0 | Accepted per-item choices; concrete contract written in the owning companion | Route superseding/proposed ADRs, blueprint revisions and boundary/schema decisions before dependent implementation. Verify that each adopted amendment says the selected contract and records its preservation constraints. | In progress |
 | P-G1 | Relevant local packages implemented, consumers migrated, investigations dispositioned | Assemble the target journeys below, scoped scientific/integration evidence, applicable hygiene/manual checks and final disposition; publish enduring contracts through their owners. | Scheduled |
 
 P-G0 is a continuing coordinator responsibility, not one all-series approval barrier. A docs-truth correction, explicit JSON feature or direct command route can proceed after its own applicable contract is ready. ADR acceptance does not establish implementation acceptance. During a later authorized implementation, use one integration owner for shared contracts/manifests/registry generation and short bounded executor scopes.
@@ -135,7 +135,7 @@ Every row points to the original or audit source and the audit scenario. **Sched
 | [F04](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f04) | [S02](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-A4/P-A5](36a-authoring-preparation-and-validity.md) | Share full premises and payload; fresh eligible roots and synchronous settlement remain. |
 | [F05](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f05) | [S01](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-A6; I-A3](36a-authoring-preparation-and-validity.md) | Separate receiving/outer/managed admission; correct scoped cancellation and actual native retirement; no stat-only proof. |
 | [F06](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f06) | [S05](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-A5; P-B2](36a-authoring-preparation-and-validity.md) | One stable input engagement; changing point/seed facts still admitted independently. |
-| [F07](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f07) | [S02](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Open | [I-A1](36a-authoring-preparation-and-validity.md) | Correct across-edit claim promptly; decide actual structural cutoff versus simpler functions after numerical/delta routes. No automatic cache violation. |
+| [F07](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f07) | [S02](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-A7; I-A1](36a-authoring-preparation-and-validity.md) | Retained granular compiler lane selected by exact-pin mechanism controls; detached historical products and complete namespace/absence dependencies. Product cutoff qualification remains Proposed. |
 | [F08](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f08) | [S05](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B1](36b-studies-coordination-and-results.md) | Both commit orders, exact absence/cancel/retirement/renewal; definite-conflict retry distinct from uncertain effect. |
 | [F09](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f09) | [S05](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B2](36b-studies-coordination-and-results.md) | Ready hint plus current claim; refill and projected finalization. Original quadratic count remains hypothesis. |
 | [F10](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f10) | [S05](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B3; P-C8](36b-studies-coordination-and-results.md) | (a) population/resident/jobs; (b) fit phase handoff; (c) construction/live accounting; (d) admitted Par; (e) chunk admission and zero-byte allowance wake. All five required. |
@@ -146,7 +146,7 @@ Every row points to the original or audit source and the audit scenario. **Sched
 | [F15](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f15) | [S06](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B7](36b-studies-coordination-and-results.md) | Settled closed grant/replay authority before collection; preserve late-acquisition and lineage obligations. |
 | [F16](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f16) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C1](36c-mathematical-and-native-execution.md) | Compact trial maps/order buffers; exact diagnostics and before-consumer checks. Dense Hessian only Second. |
 | [F17](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f17) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C2](36c-mathematical-and-native-execution.md) | Scalar optimization once, demand-specific products/lazy workers; public Symbolica API limits preserved. |
-| [F18](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f18) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Open | [P-C3](36c-mathematical-and-native-execution.md) | Scratch ownership and memo validity scheduled; certified algorithm choice separately open. Exact fallback stays until completeness qualified. |
+| [F18](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f18) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C3](36c-mathematical-and-native-execution.md) | Guarded exact real-root interval route with existing certified fallback selected; endpoint-root counterexample forbids blanket refinement replacement. Complete product branch/IFT qualification still required. |
 | [F19](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f19) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C4](36c-mathematical-and-native-execution.md) | Retain compatible local allocation/structure and operation grain; authored starts, numeric refresh, rollback and fresh original checks. |
 | [F20](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f20) | [S04](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Open | [P-C5](36c-mathematical-and-native-execution.md) | Share identical normalized matrix/factor; retain rank meaning. Honest fill bound and large-n dense spectrum limitation remain explicit. |
 | [F21](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f21) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C6](36c-mathematical-and-native-execution.md) | SCC-local rows with globally coupled decisions/costs, acyclic mandatory edges and usable incumbent witness. |
@@ -157,7 +157,7 @@ Every row points to the original or audit source and the audit scenario. **Sched
 | [F26](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f26) | [S08](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-E3](36e-build-test-and-development.md) | Move only subject/setup mismatches to real direct owners; constructor is pure binding; retain scientific canonical fixtures. |
 | [F27](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f27) | [S03](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-E4/P-E2; P-C9; P-D5](36e-build-test-and-development.md) | Lower admission/generator roots, surrogate relocation and actual supported feature closure; no store-free production Runtime. |
 | [F28](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f28) | [S08](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Open | [P-E5/P-E6 host investigation](36e-build-test-and-development.md) | Explicit classes/widths scheduled; current partitions retained. Polling and disjoint slots corrected; tuning needs real interference evidence. |
-| [F29](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f29) | [S08](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-D5](36d-relational-and-python-boundaries.md) | Explicit serde_json float_roundtrip before graph pruning; latent ownership hazard, not observed corruption. |
+| [F29](../design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md#f29) | [S08](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Resolved | [P-D5](36d-relational-and-python-boundaries.md) | P-D5 scoped outcome: explicit float_roundtrip ownership, two passing exact-bit controls and solver-independent actual unit graph; no observed unified-binary corruption claimed. |
 | [A01](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#a01) | [S06](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B8 completeness](36b-studies-coordination-and-results.md) | Filter eligible sealed inventory before limit; older usable seed behind 64 unsealed headers must be found. |
 | [A02](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#a02) | [S06](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-B8 transport](36b-studies-coordination-and-results.md) | One owned admitted seed across start/prediction; preserve allowed numeric-data/options variation and fresh later permission. |
 | [A03](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#a03) | [S07](../design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md#representative-operation-and-change-scenarios) | Scheduled | [P-C8; P-B3](36c-mathematical-and-native-execution.md) | Quiescent IBEX waits yield active compute; active teams retain charge absent request-local quiescence. |
@@ -231,8 +231,8 @@ The combined source review is broad but not exhaustive. Preserve these boundarie
 |---|---|---|
 | Parser, quantity inference and authored references | Bounded parser/borrowed tokens and physical inference are strengths; not every construct/ill-posed diagnostic was requalified | P-A2/P-A3 changed-reference/fixture controls; follow actual new syntax/physical contracts through affected consumers |
 | Native/proof adapter breadth | Selected lifecycle/IBEX/source contracts inspected; not every ABI/status/error mapping, provider or solver class tested | P-C8 and each touched adapter's exact native modes/status/cancel/drain controls; new solver variation uses its actual class contract |
-| Qualified prior leads recorded in original §9.3 | State-review F05–F08 were unexamined; parallel-review F03 process-global locks are only partly covered by the later native/IBEX inspection. No inherited disposition is treated as closure | P-G1 records a bounded source follow-up for these named leads before claiming full coverage; P-C8 closes only its actual lock/admission scope. Existing plan status is not imported or updated |
-| Workspace admission/interruption leads in original §9.3 | Its F01/F02 fixture claims route to P-E3 with the audit's Runtime-constructor correction. Its F03 names a nextest selector mismatch: preserve_external_and_deployment_databases versus preserve_deployment_database | P-E3 refreshes actual selected tests and effect-group name wiring before changing it; preserve canonical isolation and report only the inspected scope. This is a lead, not a newly established current defect |
+| Qualified prior leads recorded in original §9.3 | Current Runtime checks actual consumed services; five recovery/readiness controls pass. Current scientific phase/deadline/cache-lifetime source still requires phase-specific acceptance. Native coexistence matrix and IBEX handoff are specified in 36c. | [36e current source/controls](36-investigation-evidence/development.md) and 36c; P-G1 retains actual native/provider/recovery acceptance. No inherited disposition or older plan status is imported |
+| Workspace admission/interruption leads in original §9.3 | Current source confirms the nextest selector mismatch: preserve_external_and_deployment_databases versus preserve_deployment_database. Actual control observes deployment existence and needs exclusive store-effect classification. | P-E3 corrects exact selected name and derives effect capacity independently of CPU width; direct owner tests retain real canonical integration. No broader campaign failure is attributed to this mismatch |
 | Dynamics, continuation, collocation | Existing pattern/numeric separation, exact preparation stencils and IDAS checkpoint replay can be necessary | P-C9 plus bounded reverse-cursor/presolve/factor investigations; retain second-order jump, window and independent original checks |
 | Surrogates, factorable/derived/physical models | New demand defects inspected; no complete scientific/model adequacy campaign | P-C9 consumer migration and relevant independent fixtures; PS-13 scope explicitly named in P-G1 |
 | DataFusion and Python breadth | Actual SQL/invariant/physical routes retained; not all optimizer behavior or Python APIs audited | P-D1–D7 actual consumers; support for larger analysis, cross-output query or inbound Arrow needs its own product contract |
@@ -263,10 +263,160 @@ Migration includes actual consumers, durable representation activation/rebuild a
 
 Final closure requires all selected packages and mandatory revealing controls, explicit disposition of every investigation and every finding contribution, accepted rule amendments actually installed, no remaining replaced production path, and assembled acceptance with material limitations stated. Optional unselected capabilities may remain deferred; a central unresolved F18/F20 obligation must remain open or receive an explicit supported-scope decision, never disappear under a completed scratch/factor package. Move enduring contracts and rationale through the architecture/ADR route. Updating older plans and their index remains a separately requested later step after implementation; authoring this series does not reconcile them now.
 
-## Current checkpoint and authoring outcome
+## Authoring outcome
 
 The six standalone documents capture the combined target, selected responsibilities, package prerequisites, consumer migration, preservation constraints, rule decisions and verification/investigation routes. All twenty operator decisions are recorded. Foundation inspection resolved design blockers sufficiently to define the committed routes; remaining conditional alternatives are bounded and have explicit dependents.
 
 **Interface-checked:** review/source reconciliation and focused library-contract research support these designs. An independent assembled-plan review found and corrected a potential IBEX guard/compute-permit cycle, missing registration-versus-terminal-freeze fencing, several probe mappings and minor opportunity coverage gaps; final readback identified no remaining consequential contract blocker or material coverage gap. **Proposed:** every product change and future control. **Tested / Measured during authoring:** none for product behavior or performance. Scoped document checks validated six files, 135 local links, 34 finding rows, 38 package rows and 20 accepted rule rows with zero errors against a zero-error target. The original review hash remained unchanged. These checks and the independent plan review do not qualify implementation.
 
 The next executable step, after separate implementation authorization, is to refresh the touched source baseline and choose an independently ready package above, routing its concrete P-G0 amendment first where required. Do not reinterpret approval of these plan documents or the twenty rule recommendations as authorization to begin product changes.
+
+## Investigation outcome and current checkpoint, 2026-10-11
+
+The user authorized the investigation execution approach, including all listed optional branches and bounded isolated prototypes. Investigation baseline: `2d6bf6ae7`, initially clean. This authorization covered research, probes and refinement of this new series; it did not begin product implementation or enact architecture/ADR amendments. [Investigation evidence](36-investigation-evidence/README.md) links the source-backed decisions and reproducible discriminators. Earlier authoring observations above retain their original scope/date.
+
+The target is now specified at the cross-owner seams: a retained granular compiler lane with detached historical outputs; typed numerical/delta ingress; one complete preparation receipt and protected engagement; exact creator/reclaim/cancel protocols; separate resident/population/active resource leases; explicit demand and acknowledged seal; actual bound validation owner; admitted owned IPC with pre-constructor safety; Python-controlled pull cancellation; exact per-resource metadata under invocation freeze; and lower admission/build dependencies. Each companion owns its selected interfaces, consumers, activation/migration, preservation constraints, acceptance and retained alternatives. Implementation packages remain Scheduled and original findings remain unresolved.
+
+The principal design corrections from investigation are consequential:
+
+- Structural incremental reuse is selected now, following exact Salsa controls, with P-A7 owning the actual migration. Value binding remains independent of compiler cutoffs.
+- Real-only certified root isolation is available, but a nearcritical endpoint counterexample requires a guarded route and the existing exact fallback. No residual-only or approximate completeness claim is accepted.
+- Exact-key transaction conflicts and actual populated access plans support narrow conflict domains while disproving the assumption that 64 returned membership rows bounds examined history. Seed eligibility must precede LIMIT.
+- Root factors and RHS actions can be shared at the same exact numeric point. Faer's private numeric fill growth and the public dense singular-value evidence remain separate constraints; F20 is not closed by factor sharing.
+- Arrow force_validate alone does not prevent all malformed-IPC constructor panics, and upstream accepts streams outside the application's EOS/span contract. Preserve pre-decode bounds and remove only demonstrated duplicated checks after ownership migration.
+- Terminal projection needs pending invocation membership before resource publication. A current negative control accepts late registration after finalization, safely pinned but not covered by the prior terminal outcome.
+- The exact sampled build graphs narrow without changing normal Arrow features; correctness roots retain explicit force_validate. The same-unit build-input spike confirms unnecessary environment invalidation reaches a miniature downstream, without establishing full backend latency.
+
+### Shared contracts and implementation order
+
+| Consumed contract | Producer / integrating consumers | Required before |
+|---|---|---|
+| BoundModel retains actual factory/registry/assembly, with acyclic native snapshots | P-D1; Runtime/Python ingress, lower admission, reflection and result validation | Admission carriage P-D2; lower generator/source migration P-E4 |
+| Complete prepared product + current protected engagement + synchronous settlement | P-A3/A4/A5 and P-B1 exact source/reclaim protocol | Study affinity and repeated point preparation; never a timeless permission cache |
+| Retained compiler staged input revision and detached charged products | P-A7 consumes P-A2 source changes and P-A5 lifetime | Structural-edit reuse; no canonical effect inside Salsa queries |
+| Resident/population lease distinct from active job/CPU; cancellable try-resume | P-B3 with P-C8; fitting/nested/native routes | Conditional/session retention and IBEX paired admission; no guard held over blocking reacquisition |
+| Typed demand, exact original-row locator, empty membership and acknowledged close/seal | P-B4/B5 with P-D3 transport | Horizon role retention P-B6; seed transport reads the existing authoritative seal independently |
+| Immutable admitted payload/digest with backing charge, fresh-store verification | P-D3 and canonical source/result writers/readers | Writer/digest/check elimination; sharing cannot weaken reopened storage trust |
+| Frozen authenticated terminal and pending invocation membership | P-E1/E2 and existing observer/runner owners | Per-resource projection/cutover and invocation artifact retirement |
+| Explicit float_roundtrip, surrogate advance/snapshot contract, registry generated roots | P-D5, P-C9 and P-E4 | Surrogate dependency relocation/feature pruning; no generated hand edits |
+
+Ready implementation slices remain independent as described above. P-G0 routes **concrete amendments before their dependent product changes**, not a new all-series approval barrier. Investigations requiring a target shape used owned prototypes or source contracts; they did not wait for production changes or import older plan status. The remaining whole-product/native/scientific controls belong to implementation acceptance, not another exploration cycle.
+
+### Concrete governing amendments
+
+The original twenty accepted rows remain the authority for selection. This map makes their next drafting work concrete without changing current rules:
+
+| Accepted rows | Amendment content now specified / owner |
+|---|---|
+| RC01/02 | Public typed binding/delta/reload lineage and retained compiler input/product lifetime; blueprint §19/§22.2/§14.4 and Python-boundary design route. P-A1/A2/A7. |
+| RC03/04/05 | Complete shared receipt/content/current roots, synchronous held engagement, scoped receiving/outer/native observation and full fallback at uncontrolled boundaries; ADR-0164 supersession and blueprint §14.3. P-A3–A6. |
+| RC06/12 | Exact absence/creation/reclaim/cancellation/renewal/closed-through protocols, original uncertain settlement and settled residue collection; blueprint §14.3/§20.4/§20.6. P-B1/B7. |
+| RC07/13 | Separate resource lifetimes, bounded original-clock admission, parent/child handoff, actual nonblocking paired IBEX/compute acquisition and exclusive drained/reset scratch transfer. P-B3/P-C8/P-C2. |
+| RC08/09/10/11 | Typed row locators, demand/empty/partial membership, actual acknowledgment set and authoritative seal, coherent one-attempt horizon and noninterfering ordinary telemetry; schema/activation and ADR-0110 route where affected. P-B4–B6. |
+| RC15 | Actual binary cfg identity and explicit interactive/correctness selection, preserving Arrow/FFI structural safety and all correctness closures; build/provenance route and ADR-0170 alignment. P-D6. |
+| RC17 | Lower admission crate, actual generated/import roots, Runtime surrogate integration, workspace-hack fallback retirement on supported pinned nightly; crate and ADR-0122 routes. P-E4. |
+| RC18/19 | Actual allocation-derived launch widths and separate effect capacity, exact metadata/terminal/cleanup outcomes with no retention relaxation; environment/tooling contract route. P-E1/E2/E5. |
+| RC14/16/20 | Retain singular-value evidence, real Rust SQL/invariant roles and V4 source identity. No initial rank/hash/product substitution is installed. |
+
+### Choices outside the twenty accepted boundaries
+
+The evidence fully describes alternatives without silently selecting them. **R36-01** is the numerical owner's separately proposed sparse rank/evidence family: it must not masquerade as the retained singular-value contract or silently relax its thresholds. **R36-02** is the boundary owner's concrete proposal to remove the public unused `hashing_may_use_pool` setting and its projections/mechanism tests while preserving hashing bytes. **R36-03** is the preparation owner’s concrete optional publication proposal: `ReusablePublication::{Required,Explicit}`, a prepared-unpublished outcome distinct from persisted reuse, and an explicitly awaited publication operation with no automatic queue. Dispatched effects retain the original operation identity/deadline, complete receipt, protection and allocation through settlement/drain. It changes the public effects contract beyond RC03 and depends on P-A4/P-A5/P-B1. None of these three proposals is approved by the earlier twenty decisions. The companions state the recommendation, effects, preserved behavior and acceptance; product implementation of any of them needs a subsequent explicit selection. Retaining them unselected leaves the committed target truthful; F20 retains its named scale/support constraint.
+
+Optional background/ephemeral publication, a new source identity frame, Python relational/inbound-Arrow product, evaluator persistence/JIT/SIMD, FeOS production authority, used-fixture pooling and host-lane borrowing remain unselected or explicitly retained/deferred with observable reopening triggers. They are not silently added to the implementation backlog. Missing actual product/rank/cancellation qualification stays visible; no prototype is claimed to supply it.
+
+### Verification and limits
+
+**Interface-checked:** current source/consumer tracing, exact library source and reconciled cross-owner contracts. **Tested / Measured:** only the named isolated controls and graph populations in the evidence. Scoped document validation checked six plans, eight evidence documents, 179 local links, 34 finding rows, 39 implementation packets and twenty accepted rule rows with zero errors against a zero-error target. Both original reviews were byte-identical to HEAD. The [independent assembled readback](36-investigation-evidence/readback.md) found no additional consequential blocker after correcting the current-head access-plan consistency; it retained F20’s support blocker. `scripts/pse-env -- just turn-end` passed ADR-index and formatting with exit 0 against the zero-failure baseline; no product qualification is implied. **Proposed:** every product correction, migration and scientific/native acceptance control. The investigation did not run full simulator integration, physical/rank/derivative campaigns, parity, native powersets, production cutover or an end-to-end latency/RSS campaign. Quantified prototype observations retain their actual fixture conditions.
+
+Investigation completion means every listed branch has a selected, retained, separately proposed or explicitly deferred answer and a concrete owning route. It does not complete this implementation series, resolve the original findings, accept governing amendments, or qualify unexercised models. The next step is selection of any desired new public/rank proposals and separately authorized product execution against these contracts. Older plans/index and both original reviews remain unchanged.
+
+
+## Product execution checkpoint, 2026-10-11
+
+The maintainer selected **Accepted target only** and authorized implementation of all
+39 packets. R36-01, R36-02 and R36-03 remain unselected. F20 retains its public sparse
+rank/support limitation. This is production execution authorization; it does not change
+ADR status, authorize unrelated cleanup or reconcile older plans.
+
+Initial production baseline is `2d6bf6ae7`, with the six plan refinements and investigation
+evidence preserved. P-D5 explicitly declares JSON exact float round-trip support; its
+finite-bit and known-counterexample controls pass. P-D1 migrates actual retained model
+ownership through Runtime, Python, standalone pure admission and generator consumers.
+P-B8 adds complete-original seed eligibility bound to the frozen attempt inventory,
+with generated source and explicit seal-caller migration. P-E2 removes the Rust Python
+dispatch and unrelated scoped-exit sweep; targeted runner controls pass. P-E3 separates
+direct deployment/interval checks from canonical integration setup and corrects the exact
+exclusive test selector. These are delivered slices, not enclosing packet acceptance.
+
+P-G0 supplies Proposed ADR-0173–0178 with governed owner/revision amendments. Independent
+bounded target reviews accepted resource metadata, responsibility-local build roots and
+the corrected canonical/preparation contracts. The latter exposed omitted study-association
+creators; P-B1 owns their actual both-order retirement controls. No ADR status has changed.
+Root alone publishes generated outputs and integrates shared surfaces.
+
+Delivered source includes exact per-resource metadata and authenticated terminal freeze,
+preserving migration/refusal fencing, terminal composition and own-release refusal;
+lower admission with migrated callers/tests and actual generator capabilities; workspace-hack
+retirement with explicit validation/family preservation; checked-batch carriage; lazy
+file-cache activation; dense binding and compact applicability evidence; lazy scalar-order
+construction and charged dynamic snapshots; Runtime-owned compact surrogate advancement
+and explicit snapshots; indexed numerical requirements; physical-core default widths and
+demand-specific native build inputs. Scoped controls have passed for these slices; native
+and all-consumer acceptance is still open.
+
+P-B1/P-B7 exact canonical conflict and settlement, P-B3 population/resident/active and
+quiescent fitting ownership, and P-D6 actual compiled Python flags/correctness builds are
+being integrated. The shared private test registry needed a one-file preserving repair
+after an in-flight draft activation schema sharpened; production/default metadata was
+untouched. New schema publication and native compile/targeted controls precede dependent
+engagement/source/compiler adoption. Production cutover/history deletion remain excluded.
+Remaining A/B/C/D/E scope and P-G1 are not complete. Targeted checks continue; assembled
+native/scientific/Python qualification and hygiene follow all functional scope. Original
+findings remain unresolved until their full obligations are demonstrated; only F29/P-D5
+currently has scoped resolution evidence.
+
+
+The current integrated source also includes private cubic workers, guarded real-root
+isolation and exact achieved-order memo validity; typed `solve_bound` with current
+binding provenance; and ordered V4 ingress metadata plus an explicit parent-qualified
+source delta boundary. The latter conservatively re-resolves outgoing references and
+hydrates data only when the semantic supplier closure consumes it. Parent-preserving
+text reload, shared parsed fields and retained granular compiler adoption remain open.
+Relational owner-carriage/traversal controls pass, including existing tagged-arm masking
+controls. These source slices are undergoing the combined native Runtime/Python compile;
+actual canonical races, bound solves, shooting upgrades and installed-extension tests
+have not yet established acceptance. The canonical/native state remains private and
+production cutover or content retirement is not authorized by these tests.
+
+
+Checkpoint continuation: P-C6 now has SCC-local ordering with global group decisions and
+five passing pure projection controls, recorded by Proposed ADR-0179/revision153. Native
+optimum/incumbent qualification remains open. P-B5 has a narrow protected completion source
+slice; actual acknowledged normal close/seal and P-B4 demand migration remain open.
+Proposed ADR-0180/revision154 records those already selected result contracts before dependent
+registry/consumer migration. P-B2's completion-driven lane loop now refills freed lanes after
+progress even if another lane previously reported Idle, and schedules recovery during
+continuous refill; its focused controls are written and not yet run. Readiness hints,
+projected finalization and affinity adoption remain open. No enclosing finding is resolved
+by these source checkpoints.
+
+Current continuation: the private general-history activation exercises paged
+original IPC, derived locators, partial resume/replay and refusal fencing. The
+enclosing first journey failed at final service startup; a preserved-fixture
+continuation now passes the actual public historical reader and authenticated
+shutdown, preserving incomplete and retired histories as ineligible. A fresh
+enclosing journey remains required. The failed-start repair releases only an
+authenticated unbound launch; bound, live, foreign-affiliation and uncertain
+cases remain charged. Independent recheck found no unresolved issue in that
+narrow repair.
+
+SDK response ownership now retains actual inbound grants through late response
+handling and abandoned delivery. Focused SDK and Operations/columnar controls
+pass; Runtime shared-grant and installed Python cancellation acceptance remain
+open. Both interactive extension variants have built and reported their actual
+compiled features; correctness capture refuses their lack of force-validation.
+The two validated artifacts and the remaining Runtime/native/Python controls
+still precede assembled qualification. Disk exhaustion interrupted a helper
+edit; exact semantic source recovery and authenticated fixture shutdown are
+complete. Further builds await capacity recovery; the proposed incremental-cache
+disposal is separate from the previously authorized two test-record disposals.

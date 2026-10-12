@@ -27,7 +27,7 @@ use std::{
 use suitesparse_sys as _;
 use sundials_sys as ffi;
 
-type Jacobian = faer::sparse::SparseColMat<usize, f64>;
+type Jacobian = pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>;
 /// A second-order adjoint result: the symmetric Hessian over the directions and its
 /// largest relative asymmetry before symmetrization.
 type SecondOrder = (faer::Mat<f64>, f64);
@@ -53,6 +53,12 @@ struct Context<'a> {
     /// CSC pattern of the adjoint Newton matrix `cjB·M + ∂f/∂yᵀ`: the transposed pattern.
     columns_b: Vec<ffi::sunindextype>,
     rows_b: Vec<ffi::sunindextype>,
+    /// Forward union-entry destinations in the adjoint pattern.
+    transpose_slots: Vec<usize>,
+    diagonal_slots: Vec<usize>,
+    diagonal_slots_b: Vec<usize>,
+    newton_values: Vec<f64>,
+    newton_values_b: Vec<f64>,
     /// CSC pattern of the second-order adjoint's block lower-triangular Newton matrix: the
     /// transposed pattern on both diagonal blocks and on the coupling block below them;
     /// empty on the other routes.
@@ -401,7 +407,7 @@ fn chained(j: &Jacobian, columns: &[Vec<f64>], n: usize, map: &[usize]) -> faer:
     faer::sparse::linalg::matmul::sparse_dense_matmul(
         result.as_mut(),
         faer::Accum::Replace,
-        j.as_ref(),
+        j.as_ref().as_ref(),
         chain.as_ref(),
         1.0,
         faer::Par::Seq,
@@ -414,7 +420,7 @@ fn transposed(j: &Jacobian, v: &[f64]) -> Vec<f64> {
     faer::sparse::linalg::matmul::sparse_dense_matmul(
         faer::MatMut::from_column_major_slice_mut(&mut out, j.ncols(), 1),
         faer::Accum::Replace,
-        j.as_ref().transpose(),
+        j.as_ref().as_ref().transpose(),
         faer::MatRef::from_column_major_slice(v, v.len(), 1),
         1.0,
         faer::Par::Seq,
@@ -453,6 +459,46 @@ fn slot(
         .binary_search(&(row as ffi::sunindextype))
         .ok()
         .map(|k| range.start + k)
+}
+/// Merge actual state-column partials into the admitted all-mode union. A source
+/// may contain any subset; noncanonical row order keeps the existing lookup rule.
+fn scatter_partials(
+    source: faer::sparse::SparseColMatRef<'_, usize, f64>,
+    n: usize,
+    columns: &[ffi::sunindextype],
+    rows: &[ffi::sunindextype],
+    transpose: Option<&[usize]>,
+    values: &mut [f64],
+) -> bool {
+    for col in 0..n {
+        let start = columns[col] as usize;
+        let end = columns[col + 1] as usize;
+        let mut cursor = start;
+        let mut previous = None;
+        let mut canonical = true;
+        for k in source.col_range(col) {
+            let row = source.row_idx()[k];
+            canonical &= previous.is_none_or(|previous| previous <= row);
+            previous = Some(row);
+            let target = if canonical {
+                while cursor < end && rows[cursor] < row as ffi::sunindextype {
+                    cursor += 1;
+                }
+                (cursor < end && rows[cursor] == row as ffi::sunindextype).then_some(cursor)
+            } else {
+                slot(columns, rows, col, row)
+            };
+            let Some(target) = target else {
+                return false;
+            };
+            if let Some(transpose) = transpose {
+                values[transpose[target]] += source.val()[k];
+            } else {
+                values[target] -= source.val()[k];
+            }
+        }
+    }
+    true
 }
 fn finish_callback(c: &mut Context<'_>, result: std::thread::Result<i32>) -> i32 {
     match result {
@@ -533,36 +579,29 @@ unsafe extern "C" fn jacobian(
         let Some(j) = c.partials(t, &x) else {
             return c.failure();
         };
-        let mut values = vec![0.0; c.rows.len()];
-        let symbolic = j.symbolic();
-        for col in 0..n {
-            let range = c.columns[col] as usize..c.columns[col + 1] as usize;
-            let pattern = &c.rows[range.clone()];
-            let slot = |row: usize| {
-                pattern
-                    .binary_search(&(row as ffi::sunindextype))
-                    .ok()
-                    .map(|k| range.start + k)
-            };
-            if c.contract.differential[col]
-                && let Some(k) = slot(col)
-            {
-                values[k] += cj;
+        c.newton_values.fill(0.0);
+        for (col, &target) in c.diagonal_slots.iter().enumerate() {
+            if c.contract.differential[col] {
+                c.newton_values[target] += cj;
             }
-            for k in symbolic.col_range(col) {
-                let Some(target) = slot(symbolic.row_idx()[k]) else {
-                    c.callback.terminal = Some((
-                        crate::solve::Termination::Evaluation,
-                        "IDAS residual partial outside its declared support".into(),
-                    ));
-                    return -1;
-                };
-                values[target] -= j.val()[k];
-            }
+        }
+        if !scatter_partials(
+            j.as_ref().as_ref(),
+            n,
+            &c.columns,
+            &c.rows,
+            None,
+            &mut c.newton_values,
+        ) {
+            c.callback.terminal = Some((
+                crate::solve::Termination::Evaluation,
+                "IDAS residual partial outside its declared support".into(),
+            ));
+            return -1;
         }
         // SAFETY: IDAS passes the KLU matrix `linear_solver` created with `n` columns and
         // room for `c.rows.len()` nonzeros; `values` has one entry per pattern row.
-        unsafe { publish(matrix, &c.columns, &c.rows, &values) };
+        unsafe { publish(matrix, &c.columns, &c.rows, &c.newton_values) };
         0
     }));
     finish_callback(c, result)
@@ -598,7 +637,7 @@ unsafe extern "C" fn jtimes(
         faer::sparse::linalg::matmul::sparse_dense_matmul(
             faer::MatMut::from_column_major_slice_mut(&mut product, n, 1),
             faer::Accum::Replace,
-            j.as_ref(),
+            j.as_ref().as_ref(),
             faer::MatRef::from_column_major_slice(&extended, extended.len(), 1),
             1.0,
             faer::Par::Seq,
@@ -876,29 +915,29 @@ unsafe extern "C" fn jacobian_b(
         let Some(j) = c.partials(t, &x) else {
             return c.failure();
         };
-        let mut values = vec![0.0; c.rows_b.len()];
-        let symbolic = j.symbolic();
-        for col in 0..n {
-            if c.contract.differential[col]
-                && let Some(k) = slot(&c.columns_b, &c.rows_b, col, col)
-            {
-                values[k] += cj;
+        c.newton_values_b.fill(0.0);
+        for (col, &target) in c.diagonal_slots_b.iter().enumerate() {
+            if c.contract.differential[col] {
+                c.newton_values_b[target] += cj;
             }
-            // Forward entry (row, col) is adjoint entry (col, row).
-            for k in symbolic.col_range(col) {
-                let Some(target) = slot(&c.columns_b, &c.rows_b, symbolic.row_idx()[k], col) else {
-                    c.callback.terminal = Some((
-                        crate::solve::Termination::Evaluation,
-                        "IDAS residual partial outside its declared support".into(),
-                    ));
-                    return -1;
-                };
-                values[target] += j.val()[k];
-            }
+        }
+        if !scatter_partials(
+            j.as_ref().as_ref(),
+            n,
+            &c.columns,
+            &c.rows,
+            Some(&c.transpose_slots),
+            &mut c.newton_values_b,
+        ) {
+            c.callback.terminal = Some((
+                crate::solve::Termination::Evaluation,
+                "IDAS residual partial outside its declared support".into(),
+            ));
+            return -1;
         }
         // SAFETY: IDAS passes the KLU matrix `create_backward` made with `n` columns and
         // room for `c.rows_b.len()` nonzeros; `values` has one entry per pattern row.
-        unsafe { publish(matrix, &c.columns_b, &c.rows_b, &values) };
+        unsafe { publish(matrix, &c.columns_b, &c.rows_b, &c.newton_values_b) };
         0
     }));
     finish_callback(c, result)
@@ -1338,6 +1377,27 @@ impl<'a> Session<'a> {
         let mut transposed: Vec<_> = pattern.iter().map(|&(col, row)| (row, col)).collect();
         transposed.sort_unstable();
         let (columns_b, rows_b) = csc(n, &transposed)?;
+        let diagonal_slots = (0..n)
+            .map(|i| {
+                slot(&columns, &rows, i, i)
+                    .ok_or_else(|| ProblemError::internal("IDAS diagonal absent"))
+            })
+            .collect::<Result<_, _>>()?;
+        let diagonal_slots_b = (0..n)
+            .map(|i| {
+                slot(&columns_b, &rows_b, i, i)
+                    .ok_or_else(|| ProblemError::internal("IDAS adjoint diagonal absent"))
+            })
+            .collect::<Result<_, _>>()?;
+        let transpose_slots = pattern
+            .iter()
+            .map(|&(col, row)| {
+                slot(&columns_b, &rows_b, row, col)
+                    .ok_or_else(|| ProblemError::internal("IDAS transpose entry absent"))
+            })
+            .collect::<Result<_, _>>()?;
+        let newton_values = vec![0.0; rows.len()];
+        let newton_values_b = vec![0.0; rows_b.len()];
         let mut s = Self {
             ctx: std::ptr::null_mut(),
             mem: std::ptr::null_mut(),
@@ -1367,6 +1427,11 @@ impl<'a> Session<'a> {
                 rows,
                 columns_b,
                 rows_b,
+                transpose_slots,
+                diagonal_slots,
+                diagonal_slots_b,
+                newton_values,
+                newton_values_b,
                 columns_bs: Vec::new(),
                 rows_bs: Vec::new(),
                 colors: Vec::new(),
@@ -2909,10 +2974,10 @@ impl Session<'_> {
         let differential = self.callback.contract.differential.clone();
         let mut elimination = SampleElimination::new(
             &differential,
-            rhs.as_ref().map(|j| j.as_ref()),
+            rhs.as_ref().map(|j| j.as_ref().as_ref()),
             output.ncols(),
         )?;
-        let first = elimination.solve(transposed_product(output.as_ref(), cotangent))?;
+        let first = elimination.solve(transposed_product(output.as_ref().as_ref(), cotangent))?;
         let directions = self.backward_mut()?.directions.clone();
         for (index, (state, sum)) in states.iter_mut().zip(sums.iter_mut()).enumerate() {
             for (a, d) in state.iter_mut().zip(&first.state) {
@@ -3561,6 +3626,69 @@ fn long_counter(value: c_long) -> i64 {
 #[cfg(test)]
 mod initialization_tests {
     use super::*;
+    #[test]
+    fn compiled_scatter_preserves_subsets_transpose_and_outside_support_refusal() {
+        let pattern = [(0, 0), (0, 2), (1, 0), (1, 1), (2, 1), (2, 2)];
+        let (columns, rows) = csc(3, &pattern).unwrap();
+        let mut transposed: Vec<_> = pattern.iter().map(|&(col, row)| (row, col)).collect();
+        transposed.sort_unstable();
+        let (columns_b, rows_b) = csc(3, &transposed).unwrap();
+        let destinations: Vec<_> = pattern
+            .iter()
+            .map(|&(col, row)| slot(&columns_b, &rows_b, row, col).unwrap())
+            .collect();
+        let source = faer::sparse::SparseColMat::try_new_from_triplets(
+            3,
+            4,
+            &[
+                faer::sparse::Triplet::new(2, 0, 4.),
+                faer::sparse::Triplet::new(0, 1, 7.),
+                faer::sparse::Triplet::new(1, 2, -3.),
+                // Parameter columns do not enter the state Newton matrix.
+                faer::sparse::Triplet::new(1, 3, 99.),
+            ],
+        )
+        .unwrap();
+        let mut forward = vec![0.; rows.len()];
+        let mut backward = vec![0.; rows_b.len()];
+        assert!(scatter_partials(
+            source.as_ref(),
+            3,
+            &columns,
+            &rows,
+            None,
+            &mut forward
+        ));
+        assert!(scatter_partials(
+            source.as_ref(),
+            3,
+            &columns,
+            &rows,
+            Some(&destinations),
+            &mut backward
+        ));
+        assert_eq!(forward, [0., -4., -7., 0., 3., 0.]);
+        for &(col, row) in &pattern {
+            assert_eq!(
+                forward[slot(&columns, &rows, col, row).unwrap()],
+                -backward[slot(&columns_b, &rows_b, row, col).unwrap()]
+            );
+        }
+        let outside = faer::sparse::SparseColMat::try_new_from_triplets(
+            3,
+            3,
+            &[faer::sparse::Triplet::new(1, 0, 1.)],
+        )
+        .unwrap();
+        assert!(!scatter_partials(
+            outside.as_ref(),
+            3,
+            &columns,
+            &rows,
+            None,
+            &mut forward
+        ));
+    }
     #[derive(Debug)]
     struct IcOracle {
         contract: Contract,
@@ -3662,7 +3790,7 @@ mod initialization_tests {
             };
             Ok(Evaluation {
                 values: vec![-x[0], rhs],
-                jacobian,
+                jacobian: jacobian.map(|matrix| Arc::new(matrix).into()),
             })
         }
     }

@@ -100,6 +100,11 @@ impl AssemblyMatrix {
     pub fn clear(&mut self) {
         self.matrix.val_mut().fill(0.0);
     }
+    /// Discard numerical entries before exclusive scratch transfer. Structural CSC
+    /// and refill mappings remain immutable; the next evaluation must clear/refill.
+    pub(crate) fn poison(&mut self) {
+        self.matrix.val_mut().fill(f64::NAN);
+    }
     /// Add one original contribution to its canonical slot.
     pub fn add(&mut self, addend: Addend, value: f64) -> Result<(), MathError> {
         let index = *self

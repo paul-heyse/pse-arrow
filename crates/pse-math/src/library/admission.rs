@@ -192,6 +192,95 @@ fn reserve_export<T>(
     crate::construction::additional(extra)
 }
 
+/// Compilation-local exact scalar products. Options and ordered parameter symbols
+/// are part of identity; no mutable evaluator or control owner escapes compilation.
+#[derive(Default)]
+pub(crate) struct ScalarCache {
+    evaluators: std::collections::HashMap<
+        (Vec<Atom>, Vec<Atom>, Optimization),
+        ExpressionEvaluator<Complex<Rational>>,
+    >,
+}
+impl ScalarCache {
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize {
+        self.evaluators.len()
+    }
+
+    fn prepare(
+        &mut self,
+        expressions: &[Atom],
+        parameters: &[Atom],
+        options: Optimization,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<&ExpressionEvaluator<Complex<Rational>>, MathError> {
+        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        let key = (expressions.to_vec(), parameters.to_vec(), options);
+        if !self.evaluators.contains_key(&key) {
+            let initial = evaluator_construction(
+                expressions,
+                parameters.len(),
+                0,
+                pse_kernels::DerivativeOrder::Value,
+            )?;
+            // The exact preparation coexists with every order-specific conversion.
+            crate::construction::additional(add(
+                mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
+                add(
+                    initial.instructions,
+                    expressions
+                        .iter()
+                        .chain(parameters)
+                        .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?,
+                )?,
+            )?)?;
+            let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
+            reserve_export(&evaluator.export_instructions(), initial)?;
+            self.evaluators.insert(key.clone(), evaluator);
+        }
+        self.evaluators
+            .get(&key)
+            .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))
+    }
+}
+
+/// Scalar-only provider composition: repeated identical lifts share exact
+/// preparation, while every mutable numeric/order product remains private.
+pub(crate) fn bounded_scalar_evaluator(
+    expressions: &[Atom],
+    parameters: &[Atom],
+    options: Optimization,
+    cancelled: &Arc<AtomicBool>,
+    limits: EvaluationLimits,
+    scalars: &mut ScalarCache,
+) -> Result<ExpressionEvaluator<f64>, MathError> {
+    if source_operations(expressions)? > limits.operations {
+        return Err(MathError::Limit("scalar construction operations"));
+    }
+    let initial = evaluator_construction(
+        expressions,
+        parameters.len(),
+        0,
+        pse_kernels::DerivativeOrder::Value,
+    )?;
+    let evaluator = scalars.prepare(expressions, parameters, options, cancelled)?;
+    if total(evaluator.count_operations())? > limits.operations {
+        return Err(MathError::Limit("scalar evaluator operations"));
+    }
+    let exported = evaluator.export_instructions();
+    limits.allocation(add(
+        add(exported.input_count, exported.constants.len())?,
+        exported.temporary_count,
+    )?)?;
+    reserve_export(&exported, initial)?;
+    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+        return Err(MathError::Cancelled);
+    }
+    Ok(evaluator.clone().map_coeff(&|c| c.re.to_f64()))
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "Distinct compilation contexts and remaining body allowances"
@@ -207,6 +296,7 @@ pub(crate) fn bounded_evaluator(
     limits: EvaluationLimits,
     remaining: usize,
     occupied_entries: usize,
+    scalars: &mut ScalarCache,
 ) -> Result<ExpressionEvaluator<f64>, MathError> {
     if zero_components.iter().any(|&(parameter, component)| {
         parameter >= parameters.len() || component == 0 || component >= layout.width()
@@ -227,7 +317,7 @@ pub(crate) fn bounded_evaluator(
     if source_work > remaining {
         return Err(MathError::Limit("scalar construction operations"));
     }
-    let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
+    let evaluator = scalars.prepare(expressions, parameters, options, cancelled)?;
     let scalar = evaluator.count_operations();
     if total(scalar)? > remaining {
         return Err(MathError::Limit("scalar evaluator operations"));
@@ -242,7 +332,7 @@ pub(crate) fn bounded_evaluator(
     )?)?;
     if layout.width() == 1 {
         reserve_export(&exported, construction)?;
-        return Ok(evaluator.map_coeff(&|c| c.re.to_f64()));
+        return Ok(evaluator.clone().map_coeff(&|c| c.re.to_f64()));
     }
     if !exported.sub_evaluators.is_empty()
         || exported.instructions.iter().any(|i| match i {
@@ -291,6 +381,7 @@ pub(crate) fn bounded_evaluator(
     )?)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
     let evaluator = evaluator
+        .clone()
         .vectorize(&symbolica::prelude::Dualizer::new(
             dual,
             zero_components.to_vec(),
@@ -361,6 +452,7 @@ mod tests {
             EvaluationLimits::default(),
             1_000_000,
             0,
+            &mut Default::default(),
         )
         .unwrap();
         reserve_export(&compiled.export_instructions(), second).unwrap();
@@ -379,6 +471,71 @@ mod tests {
         fn try_grow(&self, _: usize) -> Result<(), MathError> {
             Err(MathError::Limit("test pool full"))
         }
+    }
+    #[test]
+    fn scalar_preparation_refusal_and_cancellation_leave_no_cache_product() {
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let expressions = [x.clone() * &x + 3];
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut scalars = ScalarCache::default();
+        assert!(matches!(
+            crate::construction::scoped(Arc::new(Refuse), || {
+                bounded_scalar_evaluator(
+                    &expressions,
+                    std::slice::from_ref(&x),
+                    Optimization::default(),
+                    &cancel,
+                    EvaluationLimits::default(),
+                    &mut scalars,
+                )
+            }),
+            Err(MathError::Limit("test pool full"))
+        ));
+        assert_eq!(scalars.len(), 0);
+        let mut first = bounded_scalar_evaluator(
+            &expressions,
+            std::slice::from_ref(&x),
+            Optimization::default(),
+            &cancel,
+            EvaluationLimits::default(),
+            &mut scalars,
+        )
+        .unwrap();
+        let mut second = bounded_scalar_evaluator(
+            &expressions,
+            std::slice::from_ref(&x),
+            Optimization::default(),
+            &cancel,
+            EvaluationLimits::default(),
+            &mut scalars,
+        )
+        .unwrap();
+        assert_eq!(scalars.len(), 1);
+        let mut result = [0.];
+        first.try_evaluate(&[2.], &mut result).unwrap();
+        assert_eq!(result, [7.]);
+        second.try_evaluate(&[4.], &mut result).unwrap();
+        assert_eq!(result, [19.]);
+        first.try_evaluate(&[2.], &mut result).unwrap();
+        assert_eq!(result, [7.]);
+        cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert!(matches!(
+            bounded_scalar_evaluator(
+                &expressions,
+                std::slice::from_ref(&x),
+                Optimization::default(),
+                &cancel,
+                EvaluationLimits::default(),
+                &mut scalars
+            ),
+            Err(MathError::Cancelled)
+        ));
+        assert_eq!(
+            scalars.len(),
+            1,
+            "cancelled cache hits do not mint another mutable product"
+        );
     }
     #[test]
     fn floating_conversion_reserves_excess_before_allocation_and_propagates_refusal() {
@@ -454,6 +611,7 @@ mod tests {
             limits,
             limits.operations,
             0,
+            &mut Default::default(),
         )
         .unwrap();
         let mut compiled = compiled;

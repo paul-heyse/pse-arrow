@@ -3054,7 +3054,7 @@
               "type": "null"
             }
           ],
-          "description": "Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits\nthe cores of all of them. Absent solves as many at once as one job's cores admit."
+          "description": "Chains solved at once, each pinned fit on the fit's own threads. Their phase admits\nthe team after estimation relinquishes active capacity. Absent uses available cores."
         }
       },
       "type": "object"

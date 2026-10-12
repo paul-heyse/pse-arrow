@@ -92,8 +92,7 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
-        owner.registry.clone(),
-        owner.sessions.clone(),
+        owner.model.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {
@@ -238,8 +237,7 @@ async fn pressure(
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
-        owner.registry.clone(),
-        owner.sessions.clone(),
+        owner.model.clone(),
         pse_runtime::workflow::CanonicalDeployment::new(
             store,
             pse_runtime::workflow::OuterAttestation {

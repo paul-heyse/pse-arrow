@@ -17,16 +17,33 @@ use pse_model::{
 use pse_modeling::selected_source::{self, LexicalLookup, Lookup};
 use pse_operations::{
     canonical::ObjectEdit,
-    canonical_selection::{SELECTED_INVENTORY_BATCH, SelectedRead},
+    canonical_selection::{
+        SELECTED_INVENTORY_BATCH, SELECTED_RECHECK_WINDOW, SelectedRead, SelectedRecheckWindow,
+    },
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::Arc,
 };
+mod delta;
+pub(crate) mod reload;
+
+// Only the newest bounded window survives the qualification turn. Its scratch
+// and candidate handles remain admitted, and it retains no protection follower.
+struct SelectedCandidateWindow {
+    observations: SelectedRecheckWindow,
+    _scratch: Arc<pse_columnar::AllocationLease>,
+    _handles: Arc<pse_columnar::AllocationLease>,
+}
 
 fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
     if cancel.token().is_cancelled() {
         Err(crate::math::MathRuntimeError::Cancelled.into())
+    } else if cancel
+        .deadline()
+        .is_some_and(|deadline| std::time::Instant::now() >= deadline)
+    {
+        Err(crate::math::MathRuntimeError::Limit("canonical source operation deadline").into())
     } else {
         Ok(())
     }
@@ -39,6 +56,66 @@ const CONTEXT: &str = "modeling:context:v2";
 const CONTEXT_LOGICAL: &str = "modeling:context";
 const PHYSICAL_SCOPE_LOGICAL: &str = "modeling:physical-scope";
 const ENGINEERING_RULE: &str = "modeling:engineering_rule";
+const INGRESS_FRAME: &str = "source:ingress-frame:v1";
+
+fn parsed_fields(
+    runtime: &Runtime,
+    row: &Declaration,
+    fields: Option<&FieldSpans>,
+) -> Result<Arc<pse_modeling::expression::occurrences::ParsedFields>, WorkflowError> {
+    let math = runtime.shared.math();
+    let generation = math.modeling_cache.generation();
+    let extent = row
+        .owned_bytes()
+        .checked_mul(256)
+        .and_then(|n| n.checked_add(8192))
+        .ok_or_else(|| contract("shared parsed field extent"))?;
+    let scratch = math.reserve("modeling:shared-parsed-fields", extent)?;
+    let bytes = payload(&(row, fields))?;
+    let key = pse_ids::encoding_checksum(&bytes).content_hash();
+    if let Some(parsed) = math.modeling_cache.parsed_fields(key)
+        && parsed.matches(row, fields)
+    {
+        return Ok(parsed);
+    }
+    let parsed = pse_modeling::expression::occurrences::ParsedFields::parse(row, fields)
+        .map_err(super::super::modeling_error)?;
+    let mut retained = scratch
+        .partition(&[parsed.retained_bytes()])
+        .map_err(|_| contract("parsed field extent exceeds admitted scratch"))?
+        .into_iter();
+    let lease = retained
+        .next()
+        .ok_or_else(|| contract("parsed field allocation owner absent"))?;
+    let parsed = Arc::new(parsed.with_owner(lease));
+    math.modeling_cache
+        .retain_parsed_fields(generation, key, parsed.clone());
+    Ok(parsed)
+}
+
+/// Ordered V4 ingress metadata. The canonical source objects still own bytes and
+/// references; this frame makes their original order recoverable without data decode.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IngressFrame {
+    order: Vec<DeclarationId>,
+    data: BTreeMap<SemanticId, pse_ids::ContentHash>,
+    #[serde(default)]
+    origins: Option<reload::LoaderOrigins>,
+}
+impl IngressFrame {
+    fn new(rows: &[Declaration], documents: &pse_modeling::document::DocumentInventory) -> Self {
+        Self {
+            order: rows.iter().map(|row| row.declaration_id).collect(),
+            data: documents
+                .documents
+                .iter()
+                .map(|(id, document)| (*id, document.content_hash))
+                .collect(),
+            origins: None,
+        }
+    }
+}
 
 pub(super) fn logical(id: DeclarationId) -> String {
     format!("modeling:{}", id.as_id())
@@ -351,9 +428,10 @@ pub(super) async fn persist(
     physical: &super::PhysicalContext,
     physical_scope: PhysicalScope,
     documents: &pse_modeling::document::DocumentInventory,
-    sources: &crate::authoring_driver::document::Batches,
+    sources: &pse_admission::authoring_driver::document::Batches,
     fits: &super::super::fitting::FitDeclarations,
     previous: Option<&SourceRevision>,
+    loader: Option<&pse_admission::authoring_driver::document::OwnedDocumentSet>,
 ) -> Result<SourceRevision, WorkflowError> {
     use pse_relations::columnar::RelationRow;
     let bytes = rows
@@ -366,10 +444,10 @@ pub(super) async fn persist(
         .shared
         .math()
         .reserve("modeling:canonical-ingress", bytes)?;
-    let validation = runtime.validation_context()?;
+    let validation = runtime.validation_context();
     let mut builder =
         pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
-            &runtime.registry,
+            runtime.registry(),
             rows.len(),
             &validation,
         )
@@ -390,6 +468,10 @@ pub(super) async fn persist(
             row.clone(),
             documents.field_spans.get(&row.declaration_id).cloned(),
         ))?;
+        index.parsed_fields.insert(
+            row.declaration_id,
+            parsed_fields(runtime, row, documents.field_spans.get(&row.declaration_id))?,
+        );
         index.scopes.insert(row.declaration_id);
         index.imports.insert(row.declaration_id);
     }
@@ -420,11 +502,13 @@ pub(super) async fn persist(
             super::compiler_context(physical, &BTreeMap::new()),
             pse_compiler::workspace::WorkspaceLimits::default(),
         )?;
+        let mut data_documents = documents.clone();
+        data_documents.parsed_fields = index.parsed_fields.clone();
         let data = runtime.shared.math().modeling_revision(
             &workspace,
             data_rows,
             physical_scope.clone(),
-            Arc::new(documents.clone()),
+            Arc::new(data_documents),
             &physical.key,
         )?;
         for (record, supplier) in selected_source::record_sources(data.checked()) {
@@ -522,6 +606,22 @@ pub(super) async fn persist(
         ));
     }
     let mut membership_leases = Vec::new();
+    let mut frame = IngressFrame::new(&rows, documents);
+    if let Some(loader) = loader {
+        frame.origins = Some(reload::LoaderOrigins::from_bundles(
+            loader.bundles(),
+            &[],
+            &edits,
+        )?);
+    }
+    edits.push(edit(
+        INGRESS_FRAME.into(),
+        "context".into(),
+        "ingress_frame".into(),
+        "ingress_frame".into(),
+        payload(&frame)?,
+        Vec::new(),
+    ));
     if let Some(previous) = previous {
         let protection = runtime
             .canonical
@@ -640,10 +740,11 @@ pub(super) struct SelectedSource {
 }
 
 /// Active eligibility belongs to this call, never to retained admission.
+#[derive(Debug)]
 pub(super) struct CheckedSelection {
     pub(super) admission: Arc<super::SelectedAdmission>,
     pub(super) read: SelectedRead,
-    _premises_metadata: Option<Arc<pse_columnar::AllocationLease>>,
+    pub(super) _premises_metadata: Option<Arc<pse_columnar::AllocationLease>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -658,8 +759,11 @@ enum Request {
 struct SourceIndex {
     rows: BTreeMap<DeclarationId, Declaration>,
     fields: BTreeMap<DeclarationId, FieldSpans>,
+    parsed_fields:
+        BTreeMap<DeclarationId, Arc<pse_modeling::expression::occurrences::ParsedFields>>,
     children: BTreeMap<DeclarationId, Vec<DeclarationId>>,
     named_children: BTreeMap<(DeclarationId, String), Vec<DeclarationId>>,
+    named_roots: BTreeMap<String, Vec<DeclarationId>>,
     guards: BTreeMap<DeclarationId, Vec<DeclarationId>>,
     imported_names: BTreeMap<(DeclarationId, String), Vec<String>>,
     names: BTreeSet<(Option<DeclarationId>, String)>,
@@ -703,6 +807,11 @@ impl SourceIndex {
             if !self.rows.contains_key(&parent) {
                 self.requests.insert(Request::Logical(parent));
             }
+        } else {
+            self.named_roots
+                .entry(row.name.clone())
+                .or_default()
+                .push(id);
         }
         if let Some(fields) = fields {
             self.fields.insert(id, fields);
@@ -730,12 +839,13 @@ impl SourceIndex {
             let row = self.rows[&id].clone();
             pending.extend(row.parent_id);
             pending.extend(
-                self.rows
-                    .values()
-                    .filter(|candidate| {
-                        candidate.parent_id == row.parent_id && candidate.name == row.name
-                    })
-                    .map(|row| row.declaration_id),
+                match row.parent_id {
+                    Some(parent) => self.named_children.get(&(parent, row.name.clone())),
+                    None => self.named_roots.get(&row.name),
+                }
+                .into_iter()
+                .flatten()
+                .copied(),
             );
             pending.extend(
                 self.children
@@ -750,10 +860,11 @@ impl SourceIndex {
             );
             if row.value.import.is_some() {
                 pending.extend(
-                    self.rows
-                        .values()
-                        .filter(|target| target.parent_id.is_none() && target.name == row.name)
-                        .map(|row| row.declaration_id),
+                    self.named_roots
+                        .get(&row.name)
+                        .into_iter()
+                        .flatten()
+                        .copied(),
                 );
             }
             pending.extend(self.references(&row)?);
@@ -795,8 +906,12 @@ impl SourceIndex {
         }
     }
     fn references(&mut self, row: &Declaration) -> Result<BTreeSet<DeclarationId>, WorkflowError> {
-        let occurrences = selected_source::occurrences(row, self.fields.get(&row.declaration_id))
-            .map_err(super::super::modeling_error)?;
+        let parsed = self
+            .parsed_fields
+            .get(&row.declaration_id)
+            .ok_or_else(|| contract("source references lack shared parsed fields"))?
+            .clone();
+        let occurrences = parsed.expressions();
         let mut found = BTreeSet::new();
         for path in selected_source::type_paths(row) {
             if path.segments.len() == 1
@@ -1273,9 +1388,9 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:canonical-fit-edit", extent)?;
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut builder = pse_relations::generated::authored::fit_cases::Builder::with_registry(
-            &self.runtime.registry,
+            self.runtime.registry(),
             fits.len(),
             &validation,
         )
@@ -1293,8 +1408,10 @@ impl ModelingPackage {
             .await?;
         let mut read = SelectedRead::new(protection);
         let old = store.resolve_kind_scope(&mut read, None, "fit").await;
+        let frame = object(&self.runtime, &mut read, INGRESS_FRAME).await;
         let release = read.finish().await;
         let old = old?;
+        let frame = frame?;
         release?;
         let mut edits = fits
             .iter()
@@ -1324,6 +1441,21 @@ impl ModelingPackage {
                     references: Vec::new(),
                 }),
         );
+        if let Some(frame) = frame {
+            let mut frame: IngressFrame = decode(frame.payload.as_slice())?;
+            if let Some(origins) = &mut frame.origins {
+                let changed = edits.iter().map(|edit| edit.logical.clone()).collect();
+                origins.invalidate_fits(&changed);
+                edits.push(edit(
+                    INGRESS_FRAME.into(),
+                    "context".into(),
+                    "ingress_frame".into(),
+                    "ingress_frame".into(),
+                    payload(&frame)?,
+                    Vec::new(),
+                ));
+            }
+        }
         let operation = pse_operations::mint_id::<SemanticId>().to_string();
         let canonical = store
             .edit(
@@ -1347,7 +1479,7 @@ impl ModelingPackage {
             Vec<Declaration>,
             PhysicalScope,
             Arc<pse_modeling::document::DocumentInventory>,
-            crate::authoring_driver::document::Batches,
+            pse_admission::authoring_driver::document::Batches,
             Vec<Arc<pse_columnar::AllocationLease>>,
         ),
         WorkflowError,
@@ -1409,9 +1541,18 @@ impl ModelingPackage {
                 self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
                     .await?;
             }
-            let validation = self.runtime.validation_context()?;
+            let mut frames =
+                objects(&self.runtime, &mut read, &[INGRESS_FRAME.into()], &cancel).await?;
+            let declaration_order = if let Some(value) = frames.remove(INGRESS_FRAME) {
+                let frame: IngressFrame = decode(value.payload.as_slice())?;
+                leases.push(value.lease.clone());
+                Some(frame.order)
+            } else {
+                None
+            };
+            let validation = self.runtime.validation_context();
             let mut document_builder =
-                documents::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                documents::Builder::with_registry(self.runtime.registry(), 0, &validation)
                     .map_err(super::super::relation)?;
             let mut inventory = pse_modeling::document::DocumentInventory {
                 field_spans: index.fields,
@@ -1445,7 +1586,7 @@ impl ModelingPackage {
                         leases.push(data.lease.clone());
                         let bytes = data.row.payload.into_vec();
                         let (document, lease) =
-                            crate::authoring_driver::document::decode_selected_data(
+                            pse_admission::authoring_driver::document::decode_selected_data(
                                 row.document_id,
                                 row.path.clone(),
                                 bytes.clone().into(),
@@ -1462,7 +1603,7 @@ impl ModelingPackage {
                 }
             }
             let mut package_builder =
-                packages::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                packages::Builder::with_registry(self.runtime.registry(), 0, &validation)
                     .map_err(super::super::relation)?;
             let members = store.resolve_kind_scope(&mut read, None, "package").await?;
             for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
@@ -1478,7 +1619,7 @@ impl ModelingPackage {
                 }
             }
             let mut fit_builder =
-                fit_cases::Builder::with_registry(&self.runtime.registry, 0, &validation)
+                fit_cases::Builder::with_registry(self.runtime.registry(), 0, &validation)
                     .map_err(super::super::relation)?;
             let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
             for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
@@ -1507,13 +1648,31 @@ impl ModelingPackage {
                     package_builder.finish().map_err(super::super::relation)?,
                 ),
             ]);
-            Ok((
-                index.rows.into_values().collect(),
-                physical,
-                Arc::new(inventory),
-                sources,
-                leases,
-            ))
+            let rows = if let Some(order) = declaration_order {
+                let mut rows = Vec::with_capacity(order.len());
+                for id in order {
+                    rows.push(index.rows.remove(&id).ok_or_else(|| {
+                        contract("source frame repeats or names an absent declaration")
+                    })?);
+                }
+                if !index.rows.is_empty() {
+                    return Err(contract("source frame omits declarations"));
+                }
+                rows
+            } else {
+                index.rows.into_values().collect()
+            };
+            for row in &rows {
+                inventory.parsed_fields.insert(
+                    row.declaration_id,
+                    parsed_fields(
+                        &self.runtime,
+                        row,
+                        inventory.field_spans.get(&row.declaration_id),
+                    )?,
+                );
+            }
+            Ok((rows, physical, Arc::new(inventory), sources, leases))
         }
         .await;
         let release = read.finish().await;
@@ -1611,6 +1770,7 @@ impl ModelingPackage {
         request: &Arc<super::SelectedRequest>,
         read: &mut SelectedRead,
         cancel: &crate::CancelSource,
+        retained: &mut Option<SelectedCandidateWindow>,
     ) -> Result<
         Option<(
             Arc<super::SelectedAdmission>,
@@ -1620,31 +1780,85 @@ impl ModelingPackage {
     > {
         let math = self.runtime.shared.math();
         let store = self.runtime.canonical.store();
-        if let Some(candidates) = math.modeling_cache.selected(request) {
-            for admission in candidates.iter().rev() {
+        let Some(candidates) = math.modeling_cache.selected(request) else {
+            *retained = None;
+            return Ok(None);
+        };
+        // rchunks visits every retained admission newest first, with no history
+        // truncation. Only one local window and the newest saved window coexist.
+        for (number, admissions) in candidates.rchunks(SELECTED_RECHECK_WINDOW).enumerate() {
+            checkpoint(cancel)?;
+            let handles = math.reserve(
+                "modeling:selected-window-handles",
+                SELECTED_RECHECK_WINDOW
+                    * size_of::<Arc<pse_operations::canonical_selection::SelectedDependencies>>()
+                    + 512,
+            )?;
+            let dependencies = admissions
+                .iter()
+                .rev()
+                .map(|a| a.dependencies.clone())
+                .collect::<Vec<_>>();
+            let newest = &admissions[admissions.len() - 1];
+            // Keep the thin exact-row adoption path for the first candidate. Do
+            // not leapfrog earlier candidates to adopt a later historical entry.
+            let metadata = math.reserve(
+                "modeling:selected-recheck",
+                newest.dependencies.retained_bytes(),
+            )?;
+            if store
+                .adopt_dependencies_from_same_revision(read, &newest.qualification)
+                .await?
+            {
                 checkpoint(cancel)?;
+                return Ok(Some((newest.clone(), metadata)));
+            }
+            drop(metadata);
+            let reuse = number == 0
+                && retained
+                    .as_ref()
+                    .is_some_and(|saved| saved.observations.matches(read, &dependencies));
+            let mut local = if reuse {
+                retained
+                    .take()
+                    .ok_or_else(|| contract("selected candidate window disappeared"))?
+            } else {
+                if number == 0 {
+                    *retained = None;
+                }
                 let scratch = math.reserve(
+                    "modeling:selected-window-observations",
+                    SelectedRecheckWindow::scratch_bytes(read, &dependencies)?,
+                )?;
+                SelectedCandidateWindow {
+                    observations: SelectedRecheckWindow::new(read, &dependencies)?,
+                    _scratch: scratch,
+                    _handles: handles,
+                }
+            };
+            let qualified = store
+                .qualify_selection_window(read, &mut local.observations)
+                .await
+                .map_err(|error| {
+                    super::super::diagnostics::operation_context(
+                        error.into(),
+                        "modeling.checked_selection.cached_dependency_recheck",
+                    )
+                })?;
+            checkpoint(cancel)?;
+            if let Some(index) = qualified {
+                let admission = &admissions[admissions.len() - 1 - index];
+                // Actual observations from rejected entries never enter this read.
+                // The complete winner is separately charged before cloning premises.
+                let metadata = math.reserve(
                     "modeling:selected-recheck",
                     admission.dependencies.retained_bytes(),
                 )?;
-                // Identical actual rows still need a live guarded pin check. Changed
-                // source revisions recheck every positive and absent dependency.
-                if store
-                    .adopt_dependencies_from_same_revision(read, &admission.qualification)
-                    .await?
-                    || store
-                        .recheck_selection_dependencies(read, &admission.dependencies)
-                        .await
-                        .map_err(|error| {
-                            super::super::diagnostics::operation_context(
-                                error.into(),
-                                "modeling.checked_selection.cached_dependency_recheck",
-                            )
-                        })?
-                {
-                    checkpoint(cancel)?;
-                    return Ok(Some((admission.clone(), scratch)));
-                }
+                local.observations.merge_qualified(read, index)?;
+                return Ok(Some((admission.clone(), metadata)));
+            }
+            if number == 0 {
+                *retained = Some(local);
             }
         }
         Ok(None)
@@ -1672,6 +1886,7 @@ impl ModelingPackage {
             })?;
         let mut read = SelectedRead::new(protection);
         let mut premises_metadata = None;
+        let mut recheck_window = None;
         let result: Result<_, WorkflowError> = async {
             let generation = math.modeling_cache.generation();
             let request_bytes = size_of::<super::SelectedRequest>() + self.revision.canonical.problem.len()
@@ -1681,14 +1896,14 @@ impl ModelingPackage {
             let request = super::SelectedRequest {
                 problem: self.revision.canonical.problem.clone(), roots: roots.to_vec(), physical: self.physical.key,
                 providers: self.providers.iter().map(|(name, provider)| (name.clone(), provider.spec().key(), provider.configuration_key())).collect(),
-                validation: Arc::as_ptr(&self.runtime.sessions) as usize,
-                registry: Arc::as_ptr(&self.runtime.registry) as usize,
+                validation: Arc::as_ptr(self.runtime.sessions()) as usize,
+                registry: Arc::as_ptr(self.runtime.registry()) as usize,
             };
             // This request is bounded by the same admitted package/roots, and its owned
             // extent is reserved before either cache insertion or flight publication.
             let request = Arc::new(request);
             if let Some((admission, scratch)) = self
-                .qualified_selected_candidate(&request, &mut read, cancel)
+                .qualified_selected_candidate(&request, &mut read, cancel, &mut recheck_window)
                 .await?
             {
                 premises_metadata = Some(scratch);
@@ -1701,12 +1916,15 @@ impl ModelingPackage {
             )?;
             let _qualification = turn.acquire(cancel, deadline).await?;
             if let Some((admission, scratch)) = self
-                .qualified_selected_candidate(&request, &mut read, cancel)
+                .qualified_selected_candidate(&request, &mut read, cancel, &mut recheck_window)
                 .await?
             {
                 premises_metadata = Some(scratch);
                 return Ok(admission);
             }
+            // Sharing ends after the second search; release observation scratch
+            // before acquiring fresh source or constructing a compiler workspace.
+            recheck_window = None;
             #[cfg(test)]
             math.selected_qualifications.record_hydration();
             let (index, physical, documents, leases) = self
@@ -1737,29 +1955,27 @@ impl ModelingPackage {
             let suppliers = index.record_sources;
             let versions = Arc::new(index.versions);
             let inputs = super::compiler_context(&self.physical, &self.providers);
+            let lineage=self.compiler_lineage()?;
+            let stamp=crate::math::modeling::LaneStamp::new(read.selection().revision());
             let physical_key = self.physical.key;
             let service = math.clone();
             let flight_metadata = metadata.clone();
             let key = (request.clone(), dependencies.clone());
-            let operation = math.selected_flights.load_owned(key, move |control| async move {
+            let population = crate::math::PopulationScope::capture();
+            let operation = math.selected_flights.load_owned(key, move |control| population.run(async move {
                 let worker_service = service.clone();
                 let admitted = service.job(1, 0, control, move |flag| {
                     let _sources = leases;
                     let _metadata = flight_metadata;
                     let _request = request_lease;
                     if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
-                    let workspace = worker_service.workspace(inputs, pse_compiler::workspace::WorkspaceLimits::default())?;
-                    let revision = worker_service.modeling_revision(&workspace, rows, physical, Arc::new(documents), &physical_key)?;
-                    for (record, supplier) in suppliers {
-                        if revision.checked().record(record).map(|record| record.origin) != Some(supplier) {
-                            return Err(crate::math::MathRuntimeError::Infrastructure("canonical record supplier differs from admitted scientific identity".into()));
-                        }
-                    }
+                    let workspace = worker_service.compiler_lane(lineage, inputs)?;
+                    let revision = worker_service.modeling_revision_at(&workspace, rows, physical, Arc::new(documents), &physical_key, stamp, flag.clone(), &suppliers)?;
                     if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
                     Ok(revision)
                 }).await?;
                 Ok(Arc::new(admitted))
-            });
+            }));
             tokio::pin!(operation);
             let revision = tokio::select! {
                 result = &mut operation => result.map_err(|error| match error {
@@ -1773,11 +1989,13 @@ impl ModelingPackage {
             checkpoint(cancel)?;
             let admission = Arc::new(super::SelectedAdmission {
                 request, revision: revision.as_ref().clone(), dependencies, qualification, versions, metadata,
-                _validation_owner: self.runtime.sessions.clone(), _registry_owner: self.runtime.registry.clone(),
+                _validation_owner: self.runtime.model.clone(),
             });
             math.modeling_cache.retain_selected(generation, admission.clone());
             Ok(admission)
         }.await;
+        // No transient observation owner survives selected-read cleanup.
+        drop(recheck_window);
         match result {
             Ok(admission) => Ok(CheckedSelection {
                 admission,
@@ -1790,45 +2008,21 @@ impl ModelingPackage {
             }
         }
     }
-    pub(super) fn pure_workspace(&self) -> Result<crate::math::Workspace, WorkflowError> {
-        Ok(self.runtime.shared.math().workspace(
-            super::compiler_context(&self.physical, &self.providers),
-            pse_compiler::workspace::WorkspaceLimits::default(),
+    fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
+        Ok(crate::math::modeling::CompilerLineage::new(
+            self.runtime.canonical.store(),
+            &self.revision.canonical.problem,
+            &self.revision.canonical.interpretation,
+            self.runtime.sessions(),
+            self.runtime.registry().clone(),
+            self.runtime.model.clone(),
         )?)
     }
-    pub(super) async fn canonical_point(
-        &self,
-        root: DeclarationId,
-        bindings: pse_modeling::Bindings,
-        limits: pse_modeling::Limits,
-        profile: pse_compiler::workspace::Profile,
-        cancel: &crate::CancelSource,
-    ) -> Result<pse_compiler::workspace::ModelingPointChecks, WorkflowError> {
-        let deadline = super::preparation_deadline(cancel)?;
-        let scoped_driver = cancel.with_deadline(Some(deadline));
-        let cancel = &scoped_driver;
-        let selected = self
-            .checked_selection_scoped(&[root], cancel, deadline)
-            .await?;
-        let admitted = (|| {
-            let workspace = self.pure_workspace()?;
-            let revision = selected.admission.revision.clone();
-            Ok::<_, WorkflowError>((workspace, revision))
-        })();
-        let result = match admitted {
-            Ok((workspace, revision)) => self
-                .runtime
-                .shared
-                .math()
-                .modeling_point(workspace, revision, root, bindings, limits, profile, cancel)
-                .await
-                .map_err(WorkflowError::from),
-            Err(error) => Err(error),
-        };
-        let release = selected.read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
+    pub(super) fn pure_workspace(&self) -> Result<crate::math::Workspace, WorkflowError> {
+        Ok(self.runtime.shared.math().compiler_lane(
+            self.compiler_lineage()?,
+            super::compiler_context(&self.physical, &self.providers),
+        )?)
     }
     pub(in crate::workflow) async fn selected_revision(
         &self,
@@ -2091,16 +2285,6 @@ impl ModelingPackage {
             let mut supplier_demands = Vec::new();
             for id in new_rows {
                 checkpoint(cancel)?;
-                let scratch = index.rows[&id]
-                    .owned_bytes()
-                    .checked_mul(256)
-                    .and_then(|n| n.checked_add(8192))
-                    .ok_or_else(|| contract("selected reference extent overflow"))?;
-                let scratch_lease = self
-                    .runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:source-reference-parse", scratch)?;
                 let row = index.rows[&id].clone();
                 if index.needs_name(row.parent_id, &row.name) {
                     index
@@ -2118,12 +2302,12 @@ impl ModelingPackage {
                 if row.value.import.is_some() && index.needs_name(None, &row.name) {
                     index.requests.insert(Request::Name(None, row.name.clone()));
                 }
-                // Reserve before parsing. Keep this light path inventory beside the
-                // immutable typed row, rather than retaining expression ASTs or
-                // reparsing already-resolved source fields at every frontier.
-                let references =
-                    selected_source::declaration_references(&row, index.fields.get(&id))
-                        .map_err(super::super::modeling_error)?;
+                // The source-local grammar owner is shared with contextual checking;
+                // binding and physical admission are rebuilt for this exact closure.
+                let parsed = parsed_fields(&self.runtime, &row, index.fields.get(&id))?;
+                let references = selected_source::declaration_references_parsed(&row, &parsed)
+                    .map_err(super::super::modeling_error)?;
+                index.parsed_fields.insert(id, parsed);
                 let reference_lease = self
                     .runtime
                     .shared
@@ -2131,7 +2315,6 @@ impl ModelingPackage {
                     .reserve("modeling:source-reference-paths", references.owned_bytes())?;
                 index.pending_references.insert(id, references);
                 leases.push(reference_lease);
-                drop(scratch_lease);
                 if selected_source::requires_suppliers(&row) && suppliers.insert(id) {
                     let source_kinds: &[&str] = match row.value.kind {
                         Kind::IdentifierScheme => &["modeling:attribute"],
@@ -2202,6 +2385,7 @@ impl ModelingPackage {
         let mut metadata_objects = objects(&self.runtime, read, &metadata_ids, cancel).await?;
         let mut documents = pse_modeling::document::DocumentInventory {
             field_spans: index.fields.clone(),
+            parsed_fields: index.parsed_fields.clone(),
             ..Default::default()
         };
         let mut metadata_by_document = BTreeMap::new();
@@ -2278,15 +2462,16 @@ impl ModelingPackage {
                 .versions
                 .insert(bytes.logical.clone(), bytes.key.clone());
             leases.push(bytes.lease.clone());
-            let (document, lease) = crate::authoring_driver::document::decode_selected_data(
-                id,
-                path,
-                bytes.row.payload.into_vec().into(),
-                Default::default(),
-                &self.runtime.shared.pool(),
-                &cancel.token(),
-            )
-            .map_err(WorkflowError::Authoring)?;
+            let (document, lease) =
+                pse_admission::authoring_driver::document::decode_selected_data(
+                    id,
+                    path,
+                    bytes.row.payload.into_vec().into(),
+                    Default::default(),
+                    &self.runtime.shared.pool(),
+                    &cancel.token(),
+                )
+                .map_err(WorkflowError::Authoring)?;
             documents.documents.insert(id, document);
             leases.push(lease);
         }
@@ -3646,6 +3831,7 @@ mod tests {
             &Default::default(),
             &Default::default(),
             &Default::default(),
+            None,
             None,
         )
         .await

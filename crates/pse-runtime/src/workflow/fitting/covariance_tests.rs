@@ -383,28 +383,41 @@ async fn profile_likelihood_matches_wald_on_linear_model() {
         .await
         .unwrap();
     let chains = |workers| {
-        let progress = Arc::new(native::solve::Progress::new(16));
-        prepared
-            .problem
-            .execute_profile(
-                &prepared.problem.profile.solver,
-                prepared.route(),
-                pse_kernels::ExecutionScope::new(
-                    Arc::default(),
-                    std::time::Instant::now()
-                        .checked_add(prepared.problem.profile.solver.controls.time_limit),
-                ),
-                progress,
-                workers,
-                None,
-            )
-            .unwrap()
-            .profiles
-            .unwrap()
-            .unwrap()
+        let prepared = prepared.clone();
+        async move {
+            let service = prepared.problem.runtime.native().clone();
+            let threads = prepared.problem.profile.solver.controls.threads;
+            let bytes = prepared.problem.bytes;
+            service
+                .job(
+                    threads,
+                    bytes,
+                    pse_columnar::flight::FlightCancellation::default(),
+                    move |flag| {
+                        prepared.problem.execute_profile(
+                            &prepared.problem.profile.solver,
+                            prepared.route(),
+                            pse_kernels::ExecutionScope::new(
+                                flag,
+                                std::time::Instant::now().checked_add(
+                                    prepared.problem.profile.solver.controls.time_limit,
+                                ),
+                            ),
+                            Arc::new(native::solve::Progress::new(16)),
+                            workers,
+                            None,
+                        )
+                    },
+                )
+                .await
+                .unwrap()
+                .profiles
+                .unwrap()
+                .unwrap()
+        }
     };
-    let serial = chains(1);
-    let parallel = chains(4);
+    let serial = chains(1).await;
+    let parallel = chains(4).await;
     assert!(serial.iter().all(|chain| chain.actual_parallelism == 1));
     assert!(parallel.iter().all(|chain| chain.actual_parallelism == 4));
     let frozen = prepared.problem.clone();

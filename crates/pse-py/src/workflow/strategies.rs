@@ -171,7 +171,7 @@ impl NativeStrategyResult {
                 }
             };
         let events = native::StrategyEventExport::new(
-            owner.registry.clone(),
+            owner.model.clone(),
             owner.shared.clone(),
             upper,
             traces,

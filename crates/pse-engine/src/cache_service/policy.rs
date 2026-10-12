@@ -85,24 +85,40 @@ impl CacheBudget {
         }
     }
 
-    /// Validate overflow and leave an explicit query working set.
-    /// # Errors
-    /// The sum exceeds the deployment pool, or listing reuse has no freshness bound.
-    pub fn validate(&self, memory_bytes: usize) -> Result<(), EngineError> {
-        let total = [
+    pub(super) fn activation_commitment(
+        &self,
+        metadata: bool,
+        statistics: bool,
+        listing: bool,
+    ) -> Option<usize> {
+        [
             self.syntax_bytes,
             self.model_result_bytes,
-            self.metadata_bytes,
-            self.statistics_bytes,
-            self.listing_bytes,
             self.inflight_bytes,
             self.inspection_bytes,
             self.working_bytes,
             self.predicate_total_bytes,
+            if metadata { self.metadata_bytes } else { 0 },
+            if statistics { self.statistics_bytes } else { 0 },
+            if listing { self.listing_bytes } else { 0 },
         ]
         .into_iter()
-        .try_fold(0usize, usize::checked_add);
-        if total.is_none_or(|total| total > memory_bytes) || self.working_bytes == 0 {
+        .try_fold(0usize, usize::checked_add)
+    }
+
+    /// Validate policy arithmetic and fit mandatory commitments in the shared pool.
+    /// Optional file capacities are checked against headroom when their families activate.
+    /// # Errors
+    /// Policy arithmetic overflows, mandatory capacities exceed the pool, or listing reuse
+    /// has no freshness bound.
+    pub fn validate(&self, memory_bytes: usize) -> Result<(), EngineError> {
+        let initial = self.activation_commitment(false, false, false);
+        // Optional policy limits may be inactive, but arithmetic must stay representable.
+        let maximum = self.activation_commitment(true, true, true);
+        if maximum.is_none()
+            || initial.is_none_or(|total| total > memory_bytes)
+            || self.working_bytes == 0
+        {
             return Err(EngineError::ConfigInvalid {
                 key: "pse.runtime.cache".into(),
                 reason:

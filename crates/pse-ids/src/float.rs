@@ -96,6 +96,23 @@ mod tests {
     }
 
     #[test]
+    fn json_shortest_decimal_preserves_finite_scientific_bits() {
+        for value in [
+            f64::from_bits(4_550_888_344_034_083_252),
+            f64::from_bits(1),
+            f64::MIN_POSITIVE,
+            f64::MAX,
+            -f64::MAX,
+            -0.0,
+            0.0,
+        ] {
+            let encoded = serde_json::to_vec(&value).unwrap();
+            let decoded: f64 = serde_json::from_slice(&encoded).unwrap();
+            assert_eq!(decoded.to_bits(), value.to_bits(), "{value:?}");
+        }
+    }
+
+    #[test]
     fn f32_nan_variants_collapse_too() {
         for bits in [0x7fc0_0001_u32, 0xffc0_0000, 0x7f80_0001, 0xffff_ffff] {
             assert_eq!(
@@ -106,6 +123,15 @@ mod tests {
     }
 
     proptest! {
+        #[test]
+        fn json_finite_float_roundtrip_is_bit_exact(bits in any::<u64>()) {
+            let value = f64::from_bits(bits);
+            prop_assume!(value.is_finite());
+            let encoded = serde_json::to_vec(&value).unwrap();
+            let decoded: f64 = serde_json::from_slice(&encoded).unwrap();
+            prop_assert_eq!(decoded.to_bits(), bits);
+        }
+
         /// NaN in, one pattern out; anything else in, `to_bits` out.
         #[test]
         fn f64_canonicalization_is_nan_collapse_and_otherwise_identity(bits in any::<u64>()) {

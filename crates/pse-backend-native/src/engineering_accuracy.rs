@@ -121,6 +121,7 @@ pub fn estimate_square(
     outputs: &[SquareOutput<'_>],
     execution: &Execution,
 ) -> SquareEstimates {
+    let _original = crate::execution::original_scope(execution);
     use AccuracyUnavailableReason as U;
     let source = factor.key();
     let common = if residual.source != source

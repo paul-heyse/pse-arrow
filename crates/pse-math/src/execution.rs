@@ -297,6 +297,27 @@ impl PreparedSupport {
         incidence.owner = self.owner.clone();
         Ok(incidence)
     }
+    /// Narrow a known support product to the actual numerical demand ceiling.
+    pub(crate) fn at_order(&self, order: DerivativeOrder) -> Result<Self, MathError> {
+        if order > self.order() {
+            return Err(MathError::Contract(
+                "support ceiling exceeds admission".into(),
+            ));
+        }
+        if order == self.order() {
+            return Ok(self.clone());
+        }
+        let mut result = self.clone();
+        let data = Arc::make_mut(&mut result.data);
+        data.order = order;
+        if order < DerivativeOrder::Second {
+            data.support.second.clear();
+        }
+        if order < DerivativeOrder::First {
+            data.support.first.clear();
+        }
+        Ok(result)
+    }
     /// Restrict outputs without repeating symbolic support construction.
     pub fn select_outputs(
         &self,
@@ -1790,8 +1811,10 @@ impl PreparedBody {
         let mut used = 0usize;
         let mut retained_numeric = 0usize;
         let mut retained_instructions = 0usize;
+        let mut order_worker_bytes = EnumMap::<DerivativeOrder, usize>::default();
         let mut remaining_operations = limits.operations;
         let mut remaining_providers = limits.provider_calls;
+        let mut scalars = library::ScalarCache::default();
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
@@ -1843,6 +1866,7 @@ impl PreparedBody {
                 limits,
                 cancelled,
                 &mut allowance,
+                &mut scalars,
             )?;
             remaining_operations = allowance.operations;
             remaining_providers = allowance.providers;
@@ -1876,6 +1900,11 @@ impl PreparedBody {
                 .and_then(|entries| used.checked_add(entries))
                 .ok_or(MathError::Limit("output derivative buffers"))?;
             limits.allocation(used)?;
+            order_worker_bytes[requested] = (allowance.entries - frame)
+                .checked_mul(size_of::<f64>())
+                .and_then(|n| n.checked_add(allowance.instructions))
+                .and_then(|n| n.checked_add(cloned_stage_descriptors(&program)?))
+                .ok_or(MathError::Limit("order worker storage"))?;
             layouts[requested] = Some(layout);
             programs[requested] = Some(program);
             order_construction.record("success", true);
@@ -1932,6 +1961,7 @@ impl PreparedBody {
             scratch_bytes,
             evaluation_cache_bytes,
             worker_bytes,
+            order_worker_bytes,
             retained_bytes: retained_numeric
                 .checked_mul(size_of::<f64>())
                 .and_then(|n| {
@@ -1950,6 +1980,8 @@ impl PreparedBody {
             programs: Arc::new(programs),
             limits,
             support: prepared_support.clone(),
+            #[cfg(test)]
+            scalar_builds: scalars.len(),
         };
         construction.record("success", true);
         Ok(compiled)
@@ -1965,6 +1997,7 @@ enum CompiledStage {
     Applicability {
         stages: Vec<Self>,
         frame: Vec<f64>,
+        reads: Vec<usize>,
         layout: JetLayout,
         predicates: Vec<usize>,
         inputs: Vec<usize>,
@@ -1974,6 +2007,7 @@ enum CompiledStage {
     Domain {
         stages: Vec<Self>,
         frame: Vec<f64>,
+        reads: Vec<usize>,
         layout: JetLayout,
         argument: usize,
         token: usize,
@@ -1981,6 +2015,7 @@ enum CompiledStage {
     },
     Block {
         evaluator: ExpressionEvaluator<f64>,
+        resettable: bool,
         components: Vec<usize>,
         inputs: Vec<usize>,
         outputs: Vec<usize>,
@@ -2022,6 +2057,7 @@ pub struct CompiledBody {
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
     worker_bytes: usize,
+    order_worker_bytes: EnumMap<DerivativeOrder, usize>,
     retained_bytes: usize,
     inputs: usize,
     input_formals: Arc<Vec<usize>>,
@@ -2032,6 +2068,8 @@ pub struct CompiledBody {
     programs: Arc<EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>>,
     limits: EvaluationLimits,
     support: PreparedSupport,
+    #[cfg(test)]
+    scalar_builds: usize,
 }
 impl std::fmt::Debug for CompiledBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2140,17 +2178,13 @@ impl CompiledBody {
     }
     /// Independent scratch attached to the enclosing execution's immutable controls.
     pub fn worker_scoped(&self, scope: pse_kernels::ExecutionScope) -> Worker {
-        let width = self
-            .layouts
-            .values()
-            .flatten()
-            .last()
-            .map_or(1, JetLayout::width);
         Worker {
             body: self.clone(),
-            programs: self.programs.as_ref().clone(),
-            frame: vec![0.0; self.slots * width],
-            scope,
+            programs: EnumMap::default(),
+            frame: Vec::new(),
+            prepaid_bytes: self.worker_bytes,
+            used_bytes: 0,
+            scope: Some(scope),
         }
     }
     /// Exact selected admitted demand retained by this evaluator product.
@@ -2185,13 +2219,81 @@ pub struct Evaluation {
     /// Output × coordinate × coordinate full symmetric Hessians.
     pub hessians: Vec<f64>,
 }
+/// Successful active-path evidence, retaining numerical inputs and immutable attribution.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ApplicabilityWitness {
+    plan: Arc<pse_model::applicability::Node>,
+    predicates: Vec<bool>,
+    inputs: Vec<f64>,
+}
+impl ApplicabilityWitness {
+    pub(crate) fn hydrate(&self) -> Vec<pse_model::applicability::Observation> {
+        self.plan
+            .assess(&self.predicates, &self.inputs)
+            .observations
+    }
+}
+/// Operation-local result. Second partials retain the evaluator's triangular layout.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct TrialEvaluation {
+    pub applicability: Vec<ApplicabilityWitness>,
+    pub values: Vec<f64>,
+    pub jacobian: Vec<f64>,
+    second: Vec<f64>,
+    coordinates: usize,
+}
+impl TrialEvaluation {
+    pub(crate) fn second(&self, row: usize, i: usize, j: usize) -> f64 {
+        let (i, j) = (i.min(j), i.max(j));
+        let n = self.coordinates;
+        let width = n * (n + 1) / 2;
+        self.second[row * width + i * n - i * i.saturating_sub(1) / 2 + j - i]
+    }
+    fn into_evaluation(self) -> Evaluation {
+        let n = self.coordinates;
+        let hessians = if self.second.is_empty() {
+            Vec::new()
+        } else {
+            let mut dense = vec![0.0; self.values.len() * n * n];
+            for row in 0..self.values.len() {
+                for i in 0..n {
+                    for j in 0..n {
+                        dense[(row * n + i) * n + j] = self.second(row, i, j);
+                    }
+                }
+            }
+            dense
+        };
+        Evaluation {
+            applicability: self
+                .applicability
+                .iter()
+                .flat_map(ApplicabilityWitness::hydrate)
+                .collect(),
+            values: self.values,
+            jacobian: self.jacobian,
+            hessians,
+        }
+    }
+}
 /// Worker-local numeric frame and Symbolica scratch.
-#[derive(Clone)]
 pub struct Worker {
-    scope: pse_kernels::ExecutionScope,
+    scope: Option<pse_kernels::ExecutionScope>,
     body: CompiledBody,
     programs: EnumMap<DerivativeOrder, Option<Vec<CompiledStage>>>,
     frame: Vec<f64>,
+    prepaid_bytes: usize,
+    used_bytes: usize,
+}
+impl Clone for Worker {
+    fn clone(&self) -> Self {
+        // A new mutable evaluator never inherits previous values or eagerly copies
+        // warmed orders. Instruction templates remain immutable and shared.
+        match &self.scope {
+            Some(scope) => self.body.worker_scoped(scope.clone()),
+            None => self.body.worker(),
+        }
+    }
 }
 impl std::fmt::Debug for Worker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2202,13 +2304,43 @@ impl std::fmt::Debug for Worker {
     }
 }
 impl Worker {
+    #[cfg(test)]
+    pub(crate) fn instantiated_orders(&self) -> Vec<DerivativeOrder> {
+        self.programs
+            .iter()
+            .filter_map(|(order, program)| program.as_ref().map(|_| order))
+            .collect()
+    }
     /// Required authored input IDs, ordered by their compact numerical offsets.
     pub fn input_formals(&self) -> &[usize] {
         self.body.input_formals()
     }
     /// Attach original execution controls while constructing a nested problem worker.
     pub(crate) fn set_scope(&mut self, scope: pse_kernels::ExecutionScope) {
-        self.scope = scope;
+        self.scope = Some(scope);
+    }
+    fn check_scope(&self) -> Result<(), MathError> {
+        self.scope
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("detached numeric scratch".into()))?
+            .check()
+            .map_err(crate::error::scope_error)
+    }
+    pub(crate) fn detach_controls(&mut self) {
+        self.scope = None;
+    }
+    /// Caller reserves the complete old/new stack overlap before this operation.
+    pub(crate) fn reset_scratch(&mut self) -> Result<(), MathError> {
+        if self.scope.is_some() {
+            return Err(MathError::Contract(
+                "numeric reset requires detached controls".into(),
+            ));
+        }
+        self.frame.fill(f64::NAN);
+        for program in self.programs.values_mut().flatten() {
+            *program = reset_stages(std::mem::take(program))?;
+        }
+        Ok(())
     }
     /// Evaluate only the requested order, publishing no result on failure.
     pub fn evaluate(
@@ -2218,6 +2350,16 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
+        self.evaluate_trial(inputs, order, providers, cancelled)
+            .map(TrialEvaluation::into_evaluation)
+    }
+    pub(crate) fn evaluate_trial(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<TrialEvaluation, MathError> {
         if self.body.directional {
             return Err(MathError::Contract(
                 "directional artifact requires a runtime direction".into(),
@@ -2234,6 +2376,16 @@ impl Worker {
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
     ) -> Result<Evaluation, MathError> {
+        self.evaluate_directional_trial(inputs, direction, providers, cancelled)
+            .map(TrialEvaluation::into_evaluation)
+    }
+    pub(crate) fn evaluate_directional_trial(
+        &mut self,
+        inputs: &[f64],
+        direction: &[f64],
+        providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<TrialEvaluation, MathError> {
         if !self.body.directional
             || direction.len() != self.body.coordinate_offsets.len()
             || direction.iter().any(|v| !v.is_finite())
@@ -2257,14 +2409,17 @@ impl Worker {
         direction: Option<&[f64]>,
         providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
         cancelled: &Arc<AtomicBool>,
-    ) -> Result<Evaluation, MathError> {
-        self.scope.check().map_err(crate::error::scope_error)?;
-        self.frame.fill(f64::NAN);
+    ) -> Result<TrialEvaluation, MathError> {
+        self.check_scope()?;
         if inputs.len() != self.body.inputs || inputs.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract(
                 "finite ordered formal inputs required".into(),
             ));
         }
+        if cancelled.load(Ordering::Acquire) {
+            return Err(MathError::Cancelled);
+        }
+        self.prepare_order(order)?;
         let (Some(layout), Some(program)) = (
             self.body.layouts[order].as_ref(),
             self.programs[order].as_mut(),
@@ -2272,20 +2427,22 @@ impl Worker {
             return Err(MathError::Contract("uncompiled derivative order".into()));
         };
         let width = layout.width();
+        let frame = &mut self.frame[..self.body.slots * width];
+        frame.fill(f64::NAN);
         let n = layout.coordinates.len();
         for (slot, &value) in inputs.iter().enumerate() {
-            let jet = &mut self.frame[slot * width..(slot + 1) * width];
+            let jet = &mut frame[slot * width..(slot + 1) * width];
             jet.fill(0.0);
             jet[0] = value;
         }
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
                 for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
-                    self.frame[slot * width + 1] = direction[axis];
+                    frame[slot * width + 1] = direction[axis];
                 }
             } else {
                 for (i, &slot) in layout.coordinates.iter().enumerate() {
-                    self.frame[slot * width + 1 + i] = 1.0;
+                    frame[slot * width + 1 + i] = 1.0;
                 }
             }
         }
@@ -2296,7 +2453,7 @@ impl Worker {
         let mut applicability = Vec::new();
         evaluate_stages(
             program,
-            &mut self.frame,
+            frame,
             layout,
             providers,
             &context,
@@ -2307,17 +2464,20 @@ impl Worker {
             provider: SemanticId::NIL,
             cause,
         })?;
-        let mut result = Evaluation {
+        let mut result = TrialEvaluation {
             applicability,
             values: Vec::with_capacity(self.body.outputs.len()),
             jacobian: vec![],
-            hessians: vec![],
+            second: vec![],
+            coordinates: n,
         };
         if order >= DerivativeOrder::Second {
-            result.hessians.resize(self.body.outputs.len() * n * n, 0.0);
+            result
+                .second
+                .reserve(self.body.outputs.len() * layout.pairs.len());
         }
-        for (row, &slot) in self.body.outputs.iter().enumerate() {
-            let jet = &self.frame[slot * width..(slot + 1) * width];
+        for &slot in self.body.outputs.iter() {
+            let jet = &frame[slot * width..(slot + 1) * width];
             if jet.iter().any(|v| !v.is_finite()) {
                 return Err(MathError::Contract(
                     "nonfinite or unassigned result jet".into(),
@@ -2328,16 +2488,202 @@ impl Worker {
                 result.jacobian.extend_from_slice(&jet[1..=n]);
             }
             if order >= DerivativeOrder::Second {
-                for (k, &(i, j)) in layout.pairs.iter().enumerate() {
+                for k in 0..layout.pairs.len() {
                     let value = jet[1 + n + k] * layout.raw_factor(1 + n + k);
-                    result.hessians[row * n * n + i * n + j] = value;
-                    result.hessians[row * n * n + j * n + i] = value;
+                    result.second.push(value);
                 }
             }
         }
-        self.scope.check().map_err(crate::error::scope_error)?;
+        self.check_scope()?;
         Ok(result)
     }
+
+    fn prepare_order(&mut self, order: DerivativeOrder) -> Result<(), MathError> {
+        self.check_scope()?;
+        let layout = self.body.layouts[order]
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
+        let template = self.body.programs[order]
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
+        let entries = self
+            .body
+            .slots
+            .checked_mul(layout.width())
+            .ok_or(MathError::Limit("order worker frame"))?;
+        let frame_growth = entries
+            .saturating_sub(self.frame.len())
+            .checked_mul(size_of::<f64>())
+            .ok_or(MathError::Limit("order worker frame"))?;
+        let clone_bytes = if self.programs[order].is_none() {
+            self.body.order_worker_bytes[order]
+        } else {
+            0
+        };
+        let used = self
+            .used_bytes
+            .checked_add(frame_growth)
+            .and_then(|n| n.checked_add(clone_bytes))
+            .filter(|n| *n <= self.prepaid_bytes)
+            .ok_or(MathError::Limit("prepaid order worker storage"))?;
+        // The enclosing worker's complete allowance was prepaid. Check its exact
+        // order populations before any frame growth or public library clone; no
+        // optimizer, symbolic differentiation or vectorization runs in callbacks.
+        if entries > self.frame.len() {
+            self.frame
+                .try_reserve_exact(entries - self.frame.len())
+                .map_err(|_| MathError::Limit("order worker frame allocation"))?;
+            self.frame.resize(entries, f64::NAN);
+        }
+        if self.programs[order].is_none() {
+            self.programs[order] = Some(template.clone());
+        }
+        self.used_bytes = used;
+        self.check_scope()
+    }
+}
+
+// Consuming map_coeff moves the instruction/result-index vectors. In Symbolica
+// 3.0.1 it allocates a replacement full numeric stack before dropping the old one.
+// Preserve only the indexed constant interval; values equal to constants elsewhere
+// are still poisoned. Registered/external function state is not transferable.
+fn reset_stages(stages: Vec<CompiledStage>) -> Result<Vec<CompiledStage>, MathError> {
+    stages
+        .into_iter()
+        .map(|stage| {
+            Ok(match stage {
+                CompiledStage::Block {
+                    evaluator,
+                    resettable,
+                    components,
+                    inputs,
+                    outputs,
+                    mut arguments,
+                    mut values,
+                    source,
+                } => {
+                    if !resettable {
+                        return Err(MathError::Contract(
+                            "unsupported evaluator scratch reset".into(),
+                        ));
+                    }
+                    let first = evaluator.get_input_len();
+                    let end = first
+                        .checked_add(evaluator.get_constants().len())
+                        .ok_or(MathError::Limit("evaluator reset constants"))?;
+                    let index = std::cell::Cell::new(0usize);
+                    let evaluator = evaluator.map_coeff(&|value| {
+                        let slot = index.get();
+                        index.set(slot + 1);
+                        if (first..end).contains(&slot) {
+                            *value
+                        } else {
+                            f64::NAN
+                        }
+                    });
+                    arguments.fill(f64::NAN);
+                    values.fill(f64::NAN);
+                    CompiledStage::Block {
+                        evaluator,
+                        resettable,
+                        components,
+                        inputs,
+                        outputs,
+                        arguments,
+                        values,
+                        source,
+                    }
+                }
+                CompiledStage::Applicability {
+                    stages,
+                    mut frame,
+                    reads,
+                    layout,
+                    predicates,
+                    inputs,
+                    token,
+                    plan,
+                } => {
+                    frame.fill(f64::NAN);
+                    CompiledStage::Applicability {
+                        stages: reset_stages(stages)?,
+                        frame,
+                        reads,
+                        layout,
+                        predicates,
+                        inputs,
+                        token,
+                        plan,
+                    }
+                }
+                CompiledStage::Domain {
+                    stages,
+                    mut frame,
+                    reads,
+                    layout,
+                    argument,
+                    token,
+                    lineage,
+                } => {
+                    frame.fill(f64::NAN);
+                    CompiledStage::Domain {
+                        stages: reset_stages(stages)?,
+                        frame,
+                        reads,
+                        layout,
+                        argument,
+                        token,
+                        lineage,
+                    }
+                }
+                CompiledStage::Branch {
+                    require_separation,
+                    comparison,
+                    left,
+                    right,
+                    then,
+                    otherwise,
+                } => CompiledStage::Branch {
+                    require_separation,
+                    comparison,
+                    left,
+                    right,
+                    then: reset_stages(then)?,
+                    otherwise: reset_stages(otherwise)?,
+                },
+                CompiledStage::Provider {
+                    spec,
+                    partial,
+                    inputs,
+                    outputs,
+                    request,
+                    mut arguments,
+                    lift,
+                    source,
+                } => {
+                    // ProviderLift owns another mutable library evaluator; retain no such
+                    // product until its reset contract is qualified independently.
+                    if lift.is_some() {
+                        return Err(MathError::Contract(
+                            "unsupported provider lift scratch reset".into(),
+                        ));
+                    }
+                    arguments.fill(f64::NAN);
+                    CompiledStage::Provider {
+                        spec,
+                        partial,
+                        inputs,
+                        outputs,
+                        request,
+                        arguments,
+                        lift,
+                        source,
+                    }
+                }
+                stage @ CompiledStage::Require { .. } => stage,
+            })
+        })
+        .collect()
 }
 
 // Stages are in dependency order and scalar destinations are single assignment.
@@ -2600,14 +2946,21 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
                 layout: l,
                 predicates,
                 inputs,
+                reads,
                 ..
             } => cloned_stage_descriptors(stages)?
                 .checked_add(layout(l)?)?
                 .checked_add(indices(predicates)?)?
-                .checked_add(indices(inputs)?)?,
+                .checked_add(indices(inputs)?)?
+                .checked_add(indices(reads)?)?,
             CompiledStage::Domain {
-                stages, layout: l, ..
-            } => cloned_stage_descriptors(stages)?.checked_add(layout(l)?)?,
+                stages,
+                layout: l,
+                reads,
+                ..
+            } => cloned_stage_descriptors(stages)?
+                .checked_add(layout(l)?)?
+                .checked_add(indices(reads)?)?,
             CompiledStage::Block {
                 components,
                 inputs,
@@ -2665,6 +3018,45 @@ fn cloned_stage_descriptors(stages: &Vec<CompiledStage>) -> Option<usize> {
     })
 }
 
+struct ValueScope {
+    stages: Vec<Stage>,
+    parameters: Vec<Atom>,
+    symbols: HashMap<Symbol, usize>,
+    reads: Vec<usize>,
+    offsets: BTreeMap<usize, usize>,
+}
+fn value_scope(
+    stages: &[Stage],
+    captures: &[usize],
+    parameters: &[Atom],
+    symbols: &HashMap<Symbol, usize>,
+) -> Result<ValueScope, MathError> {
+    let mut selected = BTreeSet::new();
+    stage_slots(stages, symbols, &mut selected)?;
+    selected.extend(captures);
+    let reads: Vec<_> = selected.into_iter().collect();
+    let offsets = reads
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(local, parent)| (parent, local))
+        .collect();
+    let mut stages = stages.to_vec();
+    lower_stages(&mut stages, &offsets)?;
+    let parameters = reads
+        .iter()
+        .map(|index| parameters[*index].clone())
+        .collect::<Vec<_>>();
+    let symbols = symbol_map(&parameters);
+    Ok(ValueScope {
+        stages,
+        parameters,
+        symbols,
+        reads,
+        offsets,
+    })
+}
+
 struct BuildAllowance {
     local_order: DerivativeOrder,
     operations: usize,
@@ -2701,6 +3093,7 @@ fn compile_stages(
     limits: EvaluationLimits,
     cancelled: &Arc<AtomicBool>,
     allowance: &mut BuildAllowance,
+    scalars: &mut library::ScalarCache,
 ) -> Result<Vec<CompiledStage>, MathError> {
     let mut result = vec![];
     for stage in stages {
@@ -2715,29 +3108,33 @@ fn compile_stages(
                 token,
                 plan,
             } => {
+                let captures = predicates.iter().chain(inputs).copied().collect::<Vec<_>>();
+                let scope = value_scope(stages, &captures, parameters, symbols)?;
                 let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
                 allowance.entries = allowance
                     .entries
-                    .checked_add(parameters.len())
+                    .checked_add(scope.reads.len())
                     .ok_or(MathError::Limit("applicability scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Applicability {
                     stages: compile_stages(
-                        stages,
-                        parameters,
-                        symbols,
-                        coordinate_support,
-                        numeric,
+                        &scope.stages,
+                        &scope.parameters,
+                        &scope.symbols,
+                        &[],
+                        &BTreeSet::new(),
                         &value_layout,
                         options,
                         limits,
                         cancelled,
                         allowance,
+                        scalars,
                     )?,
-                    frame: vec![f64::NAN; parameters.len()],
+                    frame: vec![f64::NAN; scope.reads.len()],
+                    reads: scope.reads,
                     layout: value_layout,
-                    predicates: predicates.clone(),
-                    inputs: inputs.clone(),
+                    predicates: predicates.iter().map(|slot| scope.offsets[slot]).collect(),
+                    inputs: inputs.iter().map(|slot| scope.offsets[slot]).collect(),
                     token: *token,
                     plan: plan.clone(),
                 }
@@ -2748,28 +3145,31 @@ fn compile_stages(
                 token,
                 lineage,
             } => {
+                let scope = value_scope(stages, &[*argument], parameters, symbols)?;
                 let value_layout = JetLayout::new(vec![], DerivativeOrder::Value, limits)?;
                 allowance.entries = allowance
                     .entries
-                    .checked_add(parameters.len())
+                    .checked_add(scope.reads.len())
                     .ok_or(MathError::Limit("domain predicate scratch"))?;
                 limits.allocation(allowance.entries)?;
                 CompiledStage::Domain {
                     stages: compile_stages(
-                        stages,
-                        parameters,
-                        symbols,
-                        coordinate_support,
-                        numeric,
+                        &scope.stages,
+                        &scope.parameters,
+                        &scope.symbols,
+                        &[],
+                        &BTreeSet::new(),
                         &value_layout,
                         options,
                         limits,
                         cancelled,
                         allowance,
+                        scalars,
                     )?,
-                    frame: vec![f64::NAN; parameters.len()],
+                    frame: vec![f64::NAN; scope.reads.len()],
+                    reads: scope.reads,
                     layout: value_layout,
-                    argument: *argument,
+                    argument: scope.offsets[argument],
                     token: *token,
                     lineage: lineage.clone(),
                 }
@@ -2850,6 +3250,7 @@ fn compile_stages(
                     limits,
                     allowance.operations,
                     allowance.entries,
+                    scalars,
                 )?;
                 let operations = operation_count(evaluator.count_operations());
                 allowance.operations = allowance
@@ -2875,8 +3276,18 @@ fn compile_stages(
                     .instructions
                     .checked_add(storage.instruction_bytes)
                     .ok_or(MathError::Limit("evaluator instruction storage"))?;
+                // Public exports distinguish registered/sub-evaluator state. Ordinary
+                // builtins also export Fun, so conservatively keep those workers cold.
+                // No private Symbolica stack or external-function API is inspected.
+                let export = evaluator.export_instructions();
+                let resettable = export.constant_functions.is_empty()
+                    && export.sub_evaluators.is_empty()
+                    && !export.instructions.iter().any(|instruction| {
+                        matches!(instruction, symbolica::evaluate::Instruction::Fun(..))
+                    });
                 CompiledStage::Block {
                     evaluator,
+                    resettable,
                     components,
                     inputs,
                     outputs: outputs.clone(),
@@ -2921,6 +3332,7 @@ fn compile_stages(
                     limits,
                     cancelled,
                     allowance,
+                    scalars,
                 )?,
                 otherwise: compile_stages(
                     otherwise,
@@ -2933,6 +3345,7 @@ fn compile_stages(
                     limits,
                     cancelled,
                     allowance,
+                    scalars,
                 )?,
             },
             Stage::Provider {
@@ -2981,6 +3394,7 @@ fn compile_stages(
                             ..limits
                         },
                         cancelled,
+                        scalars,
                     )?)
                 } else {
                     None
@@ -3042,7 +3456,7 @@ fn evaluate_stages(
     layout: &JetLayout,
     providers: &mut BTreeMap<ProviderKey, Box<dyn Provider>>,
     context: &EvaluationContext<'_>,
-    observations: &mut Vec<pse_model::applicability::Observation>,
+    observations: &mut Vec<ApplicabilityWitness>,
 ) -> Result<(), MathError> {
     let width = layout.width();
     for stage in stages {
@@ -3053,14 +3467,16 @@ fn evaluate_stages(
             CompiledStage::Applicability {
                 stages,
                 frame: local,
+                reads,
                 layout: value_layout,
                 predicates,
                 inputs,
                 token,
                 plan,
             } => {
-                for (slot, value) in local.iter_mut().enumerate() {
-                    *value = frame[slot * width];
+                local.fill(f64::NAN);
+                for (value, slot) in local.iter_mut().zip(reads) {
+                    *value = frame[*slot * width];
                 }
                 evaluate_stages(
                     stages,
@@ -3084,28 +3500,39 @@ fn evaluate_stages(
                     .map(|slot| local[*slot] > 0.)
                     .collect::<Vec<_>>();
                 let inputs = inputs.iter().map(|slot| local[*slot]).collect::<Vec<_>>();
-                let mut assessment = plan.assess(&predicates, &inputs);
-                let offset = observations.len();
-                observations.append(&mut assessment.observations);
-                if !assessment.refused.is_empty() {
-                    assessment.observations = observations.clone();
+                if !plan.admits(&predicates) {
+                    let mut assessment = plan.assess(&predicates, &inputs);
+                    let mut prior = observations
+                        .iter()
+                        .flat_map(ApplicabilityWitness::hydrate)
+                        .collect::<Vec<_>>();
+                    let offset = prior.len();
+                    prior.append(&mut assessment.observations);
+                    assessment.observations = prior;
                     for index in &mut assessment.refused {
                         *index += offset;
                     }
                     return Err(MathError::Applicability(Box::new(assessment)));
                 }
+                observations.push(ApplicabilityWitness {
+                    plan: Arc::clone(plan),
+                    predicates,
+                    inputs,
+                });
                 frame[*token * width..(*token + 1) * width].fill(0.);
             }
             CompiledStage::Domain {
                 stages,
                 frame: local,
+                reads,
                 layout: value_layout,
                 argument,
                 token,
                 lineage,
             } => {
-                for (slot, value) in local.iter_mut().enumerate() {
-                    *value = frame[slot * width];
+                local.fill(f64::NAN);
+                for (value, slot) in local.iter_mut().zip(reads) {
+                    *value = frame[*slot * width];
                 }
                 evaluate_stages(
                     stages,
@@ -3128,6 +3555,7 @@ fn evaluate_stages(
                 arguments,
                 values,
                 source,
+                ..
             } => {
                 let local_width = components.len();
                 for (k, &slot) in inputs.iter().enumerate() {
@@ -4367,6 +4795,257 @@ mod compact_tests {
     }
 
     #[test]
+    fn trial_result_keeps_second_partials_packed_and_poisons_only_requested_frame() {
+        let body = analytic_body(4096);
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = body
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(program.scalar_builds, 1);
+        let mut worker = program.worker();
+        assert!(worker.programs.values().all(Option::is_none));
+        let result = worker
+            .evaluate_trial(
+                &[2.0, 3.0, 1.0],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(result.second.len(), 3);
+        assert!(worker.programs[DerivativeOrder::Second].is_some());
+        assert!(worker.programs[DerivativeOrder::First].is_none());
+        assert!(worker.programs[DerivativeOrder::Value].is_none());
+        let public = result.clone().into_evaluation();
+        assert_eq!(public.hessians.len(), 4);
+        for i in 0..2 {
+            for j in 0..2 {
+                assert_eq!(result.second(0, i, j), public.hessians[i * 2 + j]);
+            }
+        }
+        worker.frame.fill(12345.0);
+        let extent = worker.body.slots
+            * worker.body.layouts[DerivativeOrder::Value]
+                .as_ref()
+                .unwrap()
+                .width();
+        let value = worker
+            .evaluate_trial(
+                &[2.0, 3.0, 1.0],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(value.values, public.values);
+        assert!(value.second.is_empty());
+        assert!(worker.frame[extent..].iter().all(|v| *v == 12345.0));
+    }
+
+    #[test]
+    fn lazy_order_workers_refuse_before_growth_and_upgrade_only_requested_products() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = analytic_body(4096)
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let mut worker = program.worker();
+        assert!(worker.frame.is_empty());
+        assert_eq!(worker.used_bytes, 0);
+        let first = program.order_worker_bytes[DerivativeOrder::First]
+            + program.slots
+                * program.layouts[DerivativeOrder::First]
+                    .as_ref()
+                    .unwrap()
+                    .width()
+                * size_of::<f64>();
+        worker.prepaid_bytes = first - 1;
+        assert!(matches!(
+            eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First),
+            Err(MathError::Limit("prepaid order worker storage"))
+        ));
+        assert!(worker.frame.is_empty());
+        assert!(worker.programs.values().all(Option::is_none));
+        assert_eq!(worker.used_bytes, 0);
+        worker.prepaid_bytes = program.worker_bytes();
+        let result = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First).unwrap();
+        assert_eq!(worker.used_bytes, first);
+        assert_eq!(
+            worker.frame.len(),
+            program.slots
+                * program.layouts[DerivativeOrder::First]
+                    .as_ref()
+                    .unwrap()
+                    .width()
+        );
+        assert!(worker.programs[DerivativeOrder::Value].is_none());
+        assert!(worker.programs[DerivativeOrder::Second].is_none());
+        let first_program = worker.programs[DerivativeOrder::First]
+            .as_ref()
+            .unwrap()
+            .as_ptr();
+        let used = worker.used_bytes;
+        assert_eq!(
+            eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First)
+                .unwrap()
+                .jacobian,
+            result.jacobian
+        );
+        assert_eq!(worker.used_bytes, used);
+        assert_eq!(
+            worker.programs[DerivativeOrder::First]
+                .as_ref()
+                .unwrap()
+                .as_ptr(),
+            first_program
+        );
+        for order in [DerivativeOrder::Value, DerivativeOrder::Second] {
+            eval(&mut worker, &[2., 3., 1.], order).unwrap();
+        }
+        assert!(worker.programs.values().all(Option::is_some));
+        assert!(worker.used_bytes <= worker.prepaid_bytes);
+        assert_eq!(
+            program.scalar_builds, 1,
+            "callbacks never run the scalar optimizer"
+        );
+    }
+
+    #[test]
+    fn cloned_warm_worker_is_cold_and_original_verification_has_independent_scope() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = analytic_body(4096)
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let first_stop = Arc::new(AtomicBool::new(false));
+        let mut original =
+            program.worker_scoped(pse_kernels::ExecutionScope::new(first_stop.clone(), None));
+        let expected = eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
+        let mut clone = original.clone();
+        assert!(clone.frame.is_empty());
+        assert!(clone.programs.values().all(Option::is_none));
+        assert_eq!(clone.used_bytes, 0);
+        let second_stop = Arc::new(AtomicBool::new(false));
+        clone.set_scope(pse_kernels::ExecutionScope::new(second_stop.clone(), None));
+        first_stop.store(true, Ordering::Release);
+        assert!(eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).is_err());
+        assert!(eval(&mut clone, &[f64::NAN, 3., 1.], DerivativeOrder::Value).is_err());
+        assert!(clone.frame.is_empty());
+        let actual = eval(&mut clone, &[2., 3., 1.], DerivativeOrder::First).unwrap();
+        assert_eq!(actual.values, expected.values);
+        assert_eq!(actual.jacobian, expected.jacobian);
+        assert!(clone.programs[DerivativeOrder::Second].is_none());
+        assert!(!second_stop.load(Ordering::Acquire));
+        let mut cancelled_worker = program.worker();
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            cancelled_worker.evaluate(
+                &[2., 3., 1.],
+                DerivativeOrder::Second,
+                &mut BTreeMap::new(),
+                &cancel
+            ),
+            Err(MathError::Cancelled)
+        ));
+        assert!(cancelled_worker.frame.is_empty());
+        assert!(cancelled_worker.programs.values().all(Option::is_none));
+    }
+
+    #[test]
+    fn exclusive_scratch_reset_preserves_constants_and_discards_old_scope_values_and_failure() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let program = analytic_body(4096)
+            .prepare_support(&[0], &[Y, X], DerivativeOrder::Second, &cancel)
+            .unwrap()
+            .compile(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &cancel,
+            )
+            .unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let weak = Arc::downgrade(&stop);
+        let mut worker =
+            program.worker_scoped(pse_kernels::ExecutionScope::new(stop.clone(), None));
+        let prior = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
+        assert!(eval(&mut worker, &[2., 3., -1.], DerivativeOrder::Value).is_err());
+        let frame = worker.frame.as_ptr();
+        let used = worker.used_bytes;
+        worker.detach_controls();
+        stop.store(true, Ordering::Release);
+        drop(stop);
+        assert!(
+            weak.upgrade().is_none(),
+            "detached storage cannot retain cancellation"
+        );
+        assert!(worker.reset_scratch().is_ok());
+        assert_eq!(worker.frame.as_ptr(), frame);
+        assert!(worker.frame.iter().all(|v| v.is_nan()));
+        assert_eq!(worker.used_bytes, used);
+        assert!(
+            eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Second).is_err(),
+            "detached scratch is not an evaluator permission"
+        );
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            Arc::new(AtomicBool::new(false)),
+            None,
+        ));
+        let actual = eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Second).unwrap();
+        let mut cold = program.worker();
+        assert_eq!(
+            actual,
+            eval(&mut cold, &[4., 5., 1.], DerivativeOrder::Second).unwrap()
+        );
+        assert_ne!(actual.values, prior.values);
+        assert!(
+            cold.programs[DerivativeOrder::First].is_none(),
+            "independent worker stays lazy and cold"
+        );
+        // A reset qualifier cannot be inferred for a future external evaluator.
+        let stages = worker.programs[DerivativeOrder::Second].as_mut().unwrap();
+        fn disqualify(stages: &mut [CompiledStage]) -> bool {
+            for stage in stages {
+                match stage {
+                    CompiledStage::Block { resettable, .. } => {
+                        *resettable = false;
+                        return true;
+                    }
+                    CompiledStage::Applicability { stages, .. }
+                    | CompiledStage::Domain { stages, .. } => {
+                        if disqualify(stages) {
+                            return true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            false
+        }
+        assert!(disqualify(stages));
+        worker.detach_controls();
+        assert!(matches!(
+            worker.reset_scratch(),
+            Err(MathError::Contract(_))
+        ));
+    }
+
+    #[test]
     fn selected_artifact_demand_uses_compact_source_with_original_four_gib_scratch() {
         let body = analytic_body(4096);
         let cancel = Arc::new(AtomicBool::new(false));
@@ -4898,6 +5577,9 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(value.input_formals(), [X, Y, GUARD]);
+        // Domain and applicability perform the same scalar g read once, despite
+        // separate typed barriers; branch products remain independent.
+        assert_eq!(value.scalar_builds, 4);
         let mut worker = value.worker();
         assert_eq!(
             eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Value)
@@ -4911,7 +5593,64 @@ mod compact_tests {
                 .values,
             [9.]
         );
+        let trial = worker
+            .evaluate_trial(
+                &[2., 3., 1.],
+                DerivativeOrder::Value,
+                &mut BTreeMap::new(),
+                &Arc::new(AtomicBool::new(false)),
+            )
+            .unwrap();
+        assert_eq!(trial.applicability.len(), 1);
+        let hydrated = trial.applicability[0].hydrate();
+        assert_eq!(hydrated.len(), 1);
+        assert_eq!(hydrated[0].inputs[0].value, 1.0);
+        let slots = worker.body.slots;
+        for stage in worker.programs[DerivativeOrder::Value].as_ref().unwrap() {
+            if let CompiledStage::Domain { frame, .. }
+            | CompiledStage::Applicability { frame, .. } = stage
+            {
+                assert!(frame.len() < slots);
+            }
+        }
         assert!(eval(&mut worker, &[2., 3., -1.], DerivativeOrder::Value).is_err());
+        worker.detach_controls();
+        worker.reset_scratch().unwrap();
+        fn assert_poisoned(stages: &[CompiledStage]) {
+            for stage in stages {
+                match stage {
+                    CompiledStage::Domain { stages, frame, .. }
+                    | CompiledStage::Applicability { stages, frame, .. } => {
+                        assert!(frame.iter().all(|v| v.is_nan()));
+                        assert_poisoned(stages);
+                    }
+                    CompiledStage::Block {
+                        arguments, values, ..
+                    } => {
+                        assert!(arguments.iter().all(|v| v.is_nan()));
+                        assert!(values.iter().all(|v| v.is_nan()));
+                    }
+                    CompiledStage::Branch {
+                        then, otherwise, ..
+                    } => {
+                        assert_poisoned(then);
+                        assert_poisoned(otherwise);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        assert_poisoned(worker.programs[DerivativeOrder::Value].as_ref().unwrap());
+        worker.set_scope(pse_kernels::ExecutionScope::new(
+            Arc::new(AtomicBool::new(false)),
+            None,
+        ));
+        assert_eq!(
+            eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Value)
+                .unwrap()
+                .values,
+            [16.]
+        );
     }
 
     #[test]
@@ -4999,6 +5738,91 @@ mod compact_tests {
         assert_eq!(product.input_formals(), [X, Y, GUARD]);
         assert_eq!(product.prepared_support().outputs(), [1]);
         let key = spec.key();
+        #[derive(Debug)]
+        struct LatchedProvider {
+            inner: ProductProvider,
+            failed: bool,
+        }
+        impl Provider for LatchedProvider {
+            fn spec(&self) -> &ProviderSpec {
+                self.inner.spec()
+            }
+            fn evaluate(
+                &mut self,
+                inputs: &[f64],
+                request: &ProviderRequest,
+                context: &EvaluationContext<'_>,
+            ) -> Result<ProviderValues, ProviderError> {
+                if self.failed {
+                    return Err(ProviderError::Trial("old provider failure latch".into()));
+                }
+                let result = self.inner.evaluate(inputs, request, context);
+                if result.is_err() {
+                    self.failed = true;
+                }
+                result
+            }
+        }
+        let fresh_provider = || -> Box<dyn Provider> {
+            Box::new(LatchedProvider {
+                inner: ProductProvider(spec.clone()),
+                failed: false,
+            })
+        };
+        let mut scalar = product.worker();
+        let mut prior_providers = BTreeMap::from([(key, fresh_provider())]);
+        assert_eq!(
+            scalar
+                .evaluate(
+                    &[2., 3., 1.],
+                    DerivativeOrder::Value,
+                    &mut prior_providers,
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            [6.]
+        );
+        assert!(
+            scalar
+                .evaluate(
+                    &[2., 3., -1.],
+                    DerivativeOrder::Value,
+                    &mut prior_providers,
+                    &cancel
+                )
+                .is_err()
+        );
+        assert!(
+            scalar
+                .evaluate(
+                    &[4., 5., 1.],
+                    DerivativeOrder::Value,
+                    &mut prior_providers,
+                    &cancel
+                )
+                .is_err()
+        );
+        scalar.detach_controls();
+        drop(prior_providers);
+        scalar.reset_scratch().unwrap();
+        scalar.set_scope(pse_kernels::ExecutionScope::new(
+            Arc::new(AtomicBool::new(false)),
+            None,
+        ));
+        let mut fresh_providers = BTreeMap::from([(key, fresh_provider())]);
+        assert_eq!(
+            scalar
+                .evaluate(
+                    &[4., 5., 1.],
+                    DerivativeOrder::Value,
+                    &mut fresh_providers,
+                    &cancel
+                )
+                .unwrap()
+                .values,
+            [20.]
+        );
         let provider: Box<dyn Provider> = Box::new(ProductProvider(spec));
         let mut providers = BTreeMap::from([(key, provider)]);
         let mut worker = product.worker();

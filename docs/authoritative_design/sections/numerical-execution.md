@@ -720,9 +720,14 @@ explicit connection occurrences (parallel occurrences are never merged), node is
 declared decision groups with finite nonnegative costs and `Free`/`Mandatory`/`Forbidden`
 policy. Tear selection (`pse-backend-native::tears`) has two explicit routes:
 
-- **Exact.** A HiGHS MILP with order variables, `r_u + 1 <= r_v + |V| t_group` per
-  occurrence; model size is linear and cycles are not enumerated. MIP incumbent, bound,
-  gap and optimality remain distinct observations.
+> Decision: [ADR-0179](../../adr/0179-scc-local-tear-ordering.md) (proposed; maintainer-authorized Plan 36 implementation).
+
+- **Exact.** One HiGHS MILP retains globally shared group decisions and costs. Only
+  intra-SCC occurrences receive `r_u + 1 <= r_v + |SCC| t_group` order rows;
+  order bounds use that component's size. Singleton self loops retain their row,
+  acyclic singletons need no order column, and acyclic group decisions retain their
+  authored policies. Model size is linear and cycles are not enumerated. MIP incumbent,
+  bound, gap, limit and optimality remain distinct observations.
 - **Heuristic.** An explicit unweighted petgraph greedy feedback-arc route. Its computed
   authored cost is not an optimality claim.
 
@@ -1416,6 +1421,19 @@ sequence ([§19.2](workflows-and-results.md#section-19-2)) and continues after a
 step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
+
+> Decision: [ADR-0176](../../adr/0176-quiescent-admission-and-exclusive-scratch-transfer.md) (proposed amendment; Plan 36 P-B3/P-C2/P-C8).
+
+Population, resident storage/native lifetime and active job/CPU are distinct owners. Reserve
+next-stage construction before active acquisition; tentative failures release temporary
+owners before waiting under the original clock. Idle sessions retain resident memory and
+joined teardown, but no active permits solely to retain storage. Independent child work
+starts only after genuine parent quiescence and active release; synchronous nested work
+borrows its allowance. A quiescent IBEX waiter pairs library-guard acquisition with immediate
+compute try-resume and drops the guard before any blocking retry. Active siblings prevent
+whole-team release. Drained compatible empty scratch may transfer exclusively to a charged
+lane owner after numerical state, witnesses, failures and prior execution controls are reset;
+receivers get fresh controls. Unknown foreign/provider memory remains conservatively guarded.
 
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
 > [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N2/N6.

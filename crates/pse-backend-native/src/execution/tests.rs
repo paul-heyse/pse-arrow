@@ -64,6 +64,23 @@ fn scope_stack_extent_counts_actual_nested_teams_once_per_adapter() {
 }
 
 #[test]
+fn serial_scope_inventory_refuses_unqualified_adapter_even_after_registry_owner() {
+    let mut scopes = SerialScopes::default();
+    scopes.enter(adapter(Backend::Idas), 1024).unwrap();
+    assert!(matches!(
+        scopes.enter(&STUB, 1024),
+        Err(ProblemError::Unsupported(_))
+    ));
+    assert_eq!(scopes.backends, vec![Backend::Idas]);
+    scopes.enter(adapter(Backend::Idas), 1024).unwrap();
+    assert_eq!(scopes.guards.len(), 1);
+    assert!(matches!(
+        scopes.enter(adapter(Backend::Idas), 0),
+        Err(ProblemError::Unsupported(_))
+    ));
+}
+
+#[test]
 fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
     let mut retained = Retained::default();
     retained
@@ -275,7 +292,7 @@ fn stub_backend_routes_through_adapter_table() {
                 controls: &controls,
                 accuracy: &ResolvedAccuracy::verification(),
                 execution: Execution::new(
-                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    Arc::new(std::sync::atomic::AtomicBool::new(false)),
                     &controls,
                 ),
                 tolerances: &tolerances,

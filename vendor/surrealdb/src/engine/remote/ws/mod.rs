@@ -355,16 +355,7 @@ async fn maintain_request_lifetimes(
         let Ok(state) = session else {
             continue;
         };
-        let mut deferred = take_deferred_routes(&state);
-        deferred.retain(|route| {
-            if let Some(context) = &route.request.request_context {
-                if context.is_interrupted() {
-                    let _ = route.response.try_send(Err(context.interruption_error()));
-                    return false;
-                }
-            }
-            !route.response.is_closed()
-        });
+        let deferred = discard_interrupted_routes(take_deferred_routes(&state));
         match state.deferred.lock() {
             Ok(mut parked) => parked.extend(deferred),
             Err(poisoned) => poisoned.into_inner().extend(deferred),
@@ -391,150 +382,281 @@ async fn maintain_request_lifetimes(
 // Request Handling
 // ============================================================================
 
-/// Handle an incoming route request.
-///
-/// This is the core logic for processing commands from the SDK client.
-/// It's shared between native and WASM implementations.
-async fn handle_route<M, S, E>(
+// Fields drop in declaration order even when an async owner is never polled.
+struct UndispatchedRoute {
     route: Route,
-    max_message_size: Option<usize>,
-    sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
-    sink: &RwLock<S>,
-) -> HandleResult
-where
-    M: WsMessage,
-    S: Sink<M, Error = E> + Unpin,
-    E: std::fmt::Debug,
-{
-    let session_id = route.request.session_id;
-    if route
-        .request
-        .request_context
-        .as_ref()
-        .is_some_and(|ctx| ctx.is_interrupted())
-    {
+    drain: surrealdb_engine_api::request::UndispatchedPayloadDrain,
+}
+impl UndispatchedRoute {
+    fn new(route: Route) -> Self {
+        let drain = surrealdb_engine_api::request::UndispatchedPayloadDrain::driver(
+            route.request.request_context.clone(),
+        );
+        Self { route, drain }
+    }
+}
+
+/// Consume every actual parked command copy before releasing its drain cell.
+fn refuse_undispatched_route(route: Route, error: TypesError) {
+    let owned = UndispatchedRoute::new(route);
+    let _drain = owned.drain;
+    let Route {
+        request,
+        response,
+        admission,
+    } = owned.route;
+    let RequestData { command, .. } = request;
+    drop(command);
+    if let Some(admission) = admission {
+        admission.release();
+    }
+    let _ = response.try_send(Err(error));
+    response.close();
+}
+
+fn discard_interrupted_routes(routes: Vec<Route>) -> Vec<Route> {
+    let mut retained = Vec::new();
+    for route in routes {
         let error = route
             .request
             .request_context
             .as_ref()
-            .unwrap()
-            .interruption_error();
-        let _ = route.response.send(Err(error)).await;
-        return HandleResult::Ok;
+            .filter(|context| context.is_interrupted())
+            .map(|context| context.interruption_error());
+        if let Some(error) = error {
+            refuse_undispatched_route(route, error);
+        } else if route.response.is_closed() {
+            refuse_undispatched_route(
+                route,
+                Error::connection(
+                    "Request receiver closed".to_string(),
+                    ConnectionError::ConnectionFailed,
+                ),
+            );
+        } else {
+            retained.push(route);
+        }
     }
+    retained
+}
 
-    // Get session state
-    let session_state = match sessions.get(&session_id) {
-        Some(Ok(state)) => state,
-        Some(Err(error)) => {
-            if route
-                .response
-                .send(Err(session_error_to_error(error)))
-                .await
-                .is_err()
-            {
-                trace!("Receiver dropped");
-            }
+/// Handle an incoming route request.
+///
+/// This is the core logic for processing commands from the SDK client.
+/// It's shared between native and WASM implementations.
+fn handle_route<'a, M, S, E>(
+    route: Route,
+    max_message_size: Option<usize>,
+    sessions: &'a HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
+    sink: &'a RwLock<S>,
+) -> impl std::future::Future<Output = HandleResult> + 'a
+where
+    M: WsMessage + 'a,
+    S: Sink<M, Error = E> + Unpin,
+    E: std::fmt::Debug + 'a,
+{
+    let owned = UndispatchedRoute::new(route);
+    async move {
+        let owned = owned; // Capture the whole ordered owner even before first poll.
+        let mut drain = owned.drain;
+        let route = owned.route;
+        let session_id = route.request.session_id;
+        if route
+            .request
+            .request_context
+            .as_ref()
+            .is_some_and(|ctx| ctx.is_interrupted())
+        {
+            let error = route
+                .request
+                .request_context
+                .as_ref()
+                .unwrap()
+                .interruption_error();
+            let _ = route.response.send(Err(error)).await;
             return HandleResult::Ok;
         }
-        None => {
-            let error = session_error_to_error(SessionError::NotFound(session_id));
-            if route.response.send(Err(error)).await.is_err() {
-                trace!("Receiver dropped");
+
+        // Get session state
+        let session_state = match sessions.get(&session_id) {
+            Some(Ok(state)) => state,
+            Some(Err(error)) => {
+                if route
+                    .response
+                    .send(Err(session_error_to_error(error)))
+                    .await
+                    .is_err()
+                {
+                    trace!("Receiver dropped");
+                }
+                return HandleResult::Ok;
             }
+            None => {
+                let error = session_error_to_error(SessionError::NotFound(session_id));
+                if route.response.send(Err(error)).await.is_err() {
+                    trace!("Receiver dropped");
+                }
+                return HandleResult::Ok;
+            }
+        };
+
+        // The session's replayed setup is still in flight, so the server has not
+        // applied all of it yet. Park the request until it has: dispatching now
+        // would race the replay and could run against a session with no namespace,
+        // no authentication, or none of its variables.
+        if replay_cursor(&session_state).is_some() {
+            drain.update_context(None); // Queue owns the still-undispatched bytes.
+            park_route(&session_state, route);
             return HandleResult::Ok;
         }
-    };
 
-    // The session's replayed setup is still in flight, so the server has not
-    // applied all of it yet. Park the request until it has: dispatching now
-    // would race the replay and could run against a session with no namespace,
-    // no authentication, or none of its variables.
-    if replay_cursor(&session_state).is_some() {
-        park_route(&session_state, route);
-        return HandleResult::Ok;
+        dispatch_route::<M, S, E>(route, max_message_size, &session_state, sink).await
     }
-
-    dispatch_route::<M, S, E>(route, max_message_size, &session_state, sink).await
 }
 
 /// Send a request for a session whose setup the server has already applied.
-async fn dispatch_route<M, S, E>(
-    Route {
-        request,
-        response,
-        admission,
-    }: Route,
+fn dispatch_route<'a, M, S, E>(
+    route: Route,
     max_message_size: Option<usize>,
-    session_state: &Arc<SessionState>,
-    sink: &RwLock<S>,
-) -> HandleResult
+    session_state: &'a Arc<SessionState>,
+    sink: &'a RwLock<S>,
+) -> impl std::future::Future<Output = HandleResult> + 'a
 where
-    M: WsMessage,
+    M: WsMessage + 'a,
     S: Sink<M, Error = E> + Unpin,
-    E: std::fmt::Debug,
+    E: std::fmt::Debug + 'a,
 {
-    let RequestData {
-        command,
-        session_id,
-        request_context,
-    } = request;
+    let owned = UndispatchedRoute::new(route);
+    async move {
+        let owned = owned; // Capture the whole ordered owner even before first poll.
+        let _drain = owned.drain;
+        let Route {
+            request,
+            response,
+            admission,
+        } = owned.route;
+        let RequestData {
+            command,
+            session_id,
+            request_context,
+        } = request;
 
-    if request_context
-        .as_ref()
-        .is_some_and(|ctx| ctx.is_interrupted())
-    {
-        let _ = response
-            .send(Err(request_context.as_ref().unwrap().interruption_error()))
-            .await;
-        return HandleResult::Ok;
-    }
-    if session_state.bounded.load(Ordering::Acquire) {
-        let prospective = session_state
-            .pending_requests
-            .values()
-            .into_iter()
-            .filter(|pending| pending.command.is_some())
-            .count();
-        if session_state.pending_requests.len() >= 34
-            || (command.replayable() && session_state.replay.count() + prospective >= 64)
+        if command.replayable()
+            && request_context
+                .as_ref()
+                .is_some_and(|context| context.payload_owner().is_some())
         {
+            // This new local ownership contract is qualified for nonreplayable
+            // result Query bytes. Retained replay needs its own byte owner; never
+            // release a grant while a successful command enters the replay log.
+            drop(command);
+            if let Some(admission) = &admission {
+                admission.release();
+            }
             let _ = response
                 .send(Err(Error::configuration(
-                    "Bounded connection capacity exhausted".to_string(),
+                    "Payload ownership is not qualified for retained replay commands".to_string(),
                     None,
                 )))
                 .await;
             return HandleResult::Ok;
         }
-    }
 
-    // Generate a new request ID
-    let id = session_state.last_id.fetch_add(1, Ordering::SeqCst);
-
-    // Check for duplicate request IDs
-    if session_state.pending_requests.contains_key(&id) {
-        let error = Error::validation(
-            format!("Duplicate request ID: {id}"),
-            ValidationError::InvalidParams,
-        );
-        if response.send(Err(error)).await.is_err() {
-            trace!("Receiver dropped");
+        if request_context
+            .as_ref()
+            .is_some_and(|ctx| ctx.is_interrupted())
+        {
+            let _ = response
+                .send(Err(request_context.as_ref().unwrap().interruption_error()))
+                .await;
+            return HandleResult::Ok;
         }
-        return HandleResult::Ok;
-    }
+        if session_state.bounded.load(Ordering::Acquire) {
+            let prospective = session_state
+                .pending_requests
+                .values()
+                .into_iter()
+                .filter(|pending| pending.command.is_some())
+                .count();
+            if session_state.pending_requests.len() >= 34
+                || (command.replayable() && session_state.replay.count() + prospective >= 64)
+            {
+                let _ = response
+                    .send(Err(Error::configuration(
+                        "Bounded connection capacity exhausted".to_string(),
+                        None,
+                    )))
+                    .await;
+                return HandleResult::Ok;
+            }
+        }
 
-    // Handle special commands
-    match command {
-        Command::SubscribeLive {
-            ref uuid,
-            ref notification_sender,
-        } => {
-            session_state
-                .live_queries
-                .insert(*uuid, notification_sender.clone());
+        // Generate a new request ID
+        let id = session_state.last_id.fetch_add(1, Ordering::SeqCst);
+
+        // Check for duplicate request IDs
+        if session_state.pending_requests.contains_key(&id) {
+            let error = Error::validation(
+                format!("Duplicate request ID: {id}"),
+                ValidationError::InvalidParams,
+            );
+            if response.send(Err(error)).await.is_err() {
+                trace!("Receiver dropped");
+            }
+            return HandleResult::Ok;
+        }
+
+        // Handle special commands
+        match command {
+            Command::SubscribeLive {
+                ref uuid,
+                ref notification_sender,
+            } => {
+                session_state
+                    .live_queries
+                    .insert(*uuid, notification_sender.clone());
+                if response
+                    .send(Ok(vec![QueryResultBuilder::instant_none()]))
+                    .await
+                    .is_err()
+                {
+                    trace!("Receiver dropped");
+                }
+                return HandleResult::Ok;
+            }
+            Command::Kill { ref uuid } => {
+                session_state.live_queries.remove(uuid);
+            }
+            _ => {}
+        }
+
+        // Serialize the request
+        let Some(router_request) = command
+            .clone()
+            .into_router_request(Some(id), Some(session_id))
+        else {
+            response
+                .send(Err(Error::internal(
+                    "The protocol or storage engine does not support backups on this architecture"
+                        .to_string(),
+                )))
+                .await
+                .ok();
+            return HandleResult::Ok;
+        };
+
+        let message: M = serialize_request(router_request);
+
+        // Check message size
+        if let Some(max_size) = max_message_size
+            && let Some(binary) = message.as_binary()
+            && binary.len() > max_size
+        {
             if response
-                .send(Ok(vec![QueryResultBuilder::instant_none()]))
+                .send(Err(Error::validation(
+                    format!("Message too long: {}", binary.len()),
+                    ValidationError::InvalidParams,
+                )))
                 .await
                 .is_err()
             {
@@ -542,120 +664,158 @@ where
             }
             return HandleResult::Ok;
         }
-        Command::Kill { ref uuid } => {
-            session_state.live_queries.remove(uuid);
-        }
-        _ => {}
-    }
 
-    // Serialize the request
-    let Some(router_request) = command
-        .clone()
-        .into_router_request(Some(id), Some(session_id))
-    else {
-        response
-            .send(Err(Error::internal(
-                "The protocol or storage engine does not support backups on this architecture"
-                    .to_string(),
-            )))
-            .await
-            .ok();
-        return HandleResult::Ok;
-    };
-
-    let message: M = serialize_request(router_request);
-
-    // Check message size
-    if let Some(max_size) = max_message_size
-        && let Some(binary) = message.as_binary()
-        && binary.len() > max_size
-    {
-        if response
-            .send(Err(Error::validation(
-                format!("Message too long: {}", binary.len()),
-                ValidationError::InvalidParams,
-            )))
-            .await
-            .is_err()
-        {
-            trace!("Receiver dropped");
-        }
-        return HandleResult::Ok;
-    }
-
-    // A bounded route's admission is owned by the driver before polling the
-    // sink. If a flush future is cancelled by the physical IO budget, epoch
-    // storage keeps this ownership until both socket halves have been dropped.
-    let staged_pending = session_state.bounded.load(Ordering::Acquire);
-    if staged_pending {
-        session_state.pending_requests.insert(
-            id,
-            PendingRequest {
-                request_context: request_context.clone(),
-                _admission: admission.clone(),
-                interrupted_at: None,
-                command: if command.replayable() {
-                    Some(command.clone())
-                } else {
-                    None
-                },
-                response_channel: response.clone(),
-            },
-        );
-    }
-    // Send the message
-    match send_request_message(sink, message, request_context.as_ref()).await {
-        Ok(_) => {
+        // A bounded route's admission is owned by the driver before polling the
+        // sink. If a flush future is cancelled by the physical IO budget, epoch
+        // storage keeps this ownership until both socket halves have been dropped.
+        let staged_pending = session_state.bounded.load(Ordering::Acquire)
+            || request_context
+                .as_ref()
+                .is_some_and(|context| context.payload_owner().is_some());
+        if staged_pending {
             session_state.pending_requests.insert(
                 id,
                 PendingRequest {
-                    request_context,
-                    _admission: admission,
+                    request_context: request_context.clone(),
+                    _admission: admission.clone(),
                     interrupted_at: None,
                     command: if command.replayable() {
-                        Some(command)
+                        Some(command.clone())
                     } else {
                         None
                     },
-                    response_channel: response,
+                    response_channel: response.clone(),
                 },
             );
         }
-        Err(SendFailure::InterruptedBeforeDispatch) => {
-            if staged_pending {
-                session_state.pending_requests.take(&id);
-                if let Some(admission) = &admission {
-                    admission.release();
+        // Send the message
+        match send_request_message(sink, message, request_context.as_ref()).await {
+            Ok(_) => {
+                session_state.pending_requests.insert(
+                    id,
+                    PendingRequest {
+                        request_context,
+                        _admission: admission,
+                        interrupted_at: None,
+                        command: if command.replayable() {
+                            Some(command)
+                        } else {
+                            None
+                        },
+                        response_channel: response,
+                    },
+                );
+            }
+            Err(SendFailure::InterruptedBeforeDispatch) => {
+                if staged_pending {
+                    session_state.pending_requests.take(&id);
+                    if let Some(admission) = &admission {
+                        admission.release();
+                    }
                 }
+                let _ = response
+                    .send(Err(request_context.as_ref().unwrap().interruption_error()))
+                    .await;
+                return HandleResult::Ok;
             }
-            let _ = response
-                .send(Err(request_context.as_ref().unwrap().interruption_error()))
-                .await;
-            return HandleResult::Ok;
-        }
-        Err(error) => {
-            let err = Error::connection(
-                format!("WebSocket error: {:?}", error),
-                ConnectionError::ConnectionFailed,
-            );
-            if response.send(Err(err)).await.is_err() {
-                trace!("Receiver dropped");
+            Err(error) => {
+                let err = Error::connection(
+                    format!("WebSocket error: {:?}", error),
+                    ConnectionError::ConnectionFailed,
+                );
+                if response.send(Err(err)).await.is_err() {
+                    trace!("Receiver dropped");
+                }
+                return HandleResult::Disconnected;
             }
-            return HandleResult::Disconnected;
         }
-    }
 
-    HandleResult::Ok
+        HandleResult::Ok
+    }
 }
 
 // ============================================================================
 // Response Handling
 // ============================================================================
 
+/// Snapshot the finite pending grants before native response decoding allocates.
+/// Owned decoded values keep these holds through failed sends and cancellation;
+/// the original frame dies before delivery can wake a caller which partitions
+/// its reservation into retained output buffers. No holds enter retired metadata.
+#[cfg(not(target_family = "wasm"))]
+fn handle_owned_response<'a, M, S, E>(
+    message: M,
+    max_message_size: Option<usize>,
+    sessions: &'a HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
+    sink: &'a RwLock<S>,
+) -> impl std::future::Future<Output = HandleResult> + 'a
+where
+    M: WsMessage + 'a,
+    S: Sink<M, Error = E> + Unpin + 'a,
+    E: std::fmt::Debug + 'a,
+{
+    let retained: Vec<_> = sessions
+        .values()
+        .into_iter()
+        .filter_map(Result::ok)
+        .flat_map(|session| session.pending_requests.values())
+        .filter_map(|pending| {
+            pending
+                .request_context
+                .and_then(|context| context.payload_owner())
+        })
+        .map(|owner| owner.retain())
+        .collect();
+    // Struct/tuple fields drop in declaration order even if never polled.
+    let owned = (message, retained);
+    async move {
+        let (message, retained) = owned;
+        // Polled futures drop locals in reverse order. Move the actual frame
+        // after the retained grants so its bytes always disappear first.
+        let _retained = retained;
+        let message = message;
+        let Some(binary) = response_binary(&message) else {
+            return HandleResult::Ok;
+        };
+        match surrealdb_rpc::db_response_from_bytes(binary) {
+            Ok(response) => {
+                // DbResponse owns its decoded Values (no frame borrow). Drain
+                // the raw allocation before sending can wake the recipient.
+                // That recipient may then split the same grant for its output.
+                drop(message);
+                handle_db_response::<M, S, E>(response, max_message_size, sessions, sink).await
+            }
+            Err(error) => {
+                // Parse recovery still consumes raw bytes. Keep the frame and
+                // grants through that work and drop bytes before the holds.
+                handle_parse_error(
+                    Error::serialization(error.to_string(), SerializationError::Deserialization),
+                    binary,
+                    sessions,
+                )
+                .await
+            }
+        }
+    }
+}
+
+fn response_binary<M: WsMessage>(message: &M) -> Option<&[u8]> {
+    if !message.should_process() {
+        trace!("Received {}", message.log_description());
+        return None;
+    }
+    let binary = message.as_binary();
+    if binary.is_none() {
+        trace!("Received non-binary message");
+    }
+    binary
+}
+
 /// Handle a response from the server.
 ///
 /// This processes incoming messages and routes them to the appropriate
 /// pending request or live query handler.
+#[cfg(target_family = "wasm")]
 async fn handle_response<M, S, E>(
     message: &M,
     max_message_size: Option<usize>,
@@ -667,15 +827,7 @@ where
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
 {
-    // Check if this message should be processed
-    if !message.should_process() {
-        trace!("Received {}", message.log_description());
-        return HandleResult::Ok;
-    }
-
-    // Get binary data
-    let Some(binary) = message.as_binary() else {
-        trace!("Received non-binary message");
+    let Some(binary) = response_binary(message) else {
         return HandleResult::Ok;
     };
 
@@ -827,6 +979,12 @@ where
 
     if let Some(context) = &pending.request_context {
         context.mark_completed();
+        // The serial router has joined dispatch and its send/flush before this
+        // response branch. Owner-bearing replay commands were refused before
+        // dispatch, so correlation metadata retains no actual request bytes.
+        if pending.command.is_none() {
+            context.release_payload_after_drain();
+        }
     }
     if let Some(admission) = &pending._admission {
         admission.release();
@@ -924,10 +1082,10 @@ fn park_route(session_state: &SessionState, route: Route) {
     match session_state.deferred.lock() {
         Ok(mut deferred) => {
             if session_state.bounded.load(Ordering::Acquire) && deferred.len() >= 34 {
-                let _ = route.response.try_send(Err(Error::configuration(
-                    "Deferred request capacity exhausted".to_string(),
-                    None,
-                )));
+                refuse_undispatched_route(
+                    route,
+                    Error::configuration("Deferred request capacity exhausted".to_string(), None),
+                );
             } else {
                 deferred.push(route);
             }
@@ -958,8 +1116,17 @@ where
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
 {
+    // Guard the entire drained queue before the first await. A timeout can
+    // otherwise drop untouched, already-enqueued routes outside both the
+    // caller guard and the pending correlation/reset registry.
+    let drained: Vec<UndispatchedRoute> = take_deferred_routes(session_state)
+        .into_iter()
+        .map(UndispatchedRoute::new)
+        .collect();
     let mut outcome = HandleResult::Ok;
-    for route in take_deferred_routes(session_state) {
+    for owned in drained {
+        let _drain = owned.drain;
+        let route = owned.route;
         if let HandleResult::Disconnected =
             dispatch_route::<M, S, E>(route, max_message_size, session_state, sink).await
         {
@@ -972,8 +1139,7 @@ where
 /// Fail the requests parked behind a session setup that did not complete.
 async fn fail_deferred_routes(session_state: &SessionState, error: TypesError) {
     for route in take_deferred_routes(session_state) {
-        route.response.try_send(Err(error.clone())).ok();
-        route.response.close();
+        refuse_undispatched_route(route, error.clone());
     }
 }
 
@@ -1049,6 +1215,26 @@ async fn handle_parse_error(
     binary: &[u8],
     sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
 ) -> HandleResult {
+    // An unreadable response cannot prove authentic completion for an owned
+    // payload. Keep its correlation reachable until the router drops both
+    // physical halves; never strand it in epoch-retired metadata.
+    let mut owned_pending = false;
+    for state in sessions.values().into_iter().flatten() {
+        for pending in state.pending_requests.values() {
+            if pending
+                .request_context
+                .as_ref()
+                .is_some_and(|context| context.payload_owner().is_some())
+            {
+                let _ = pending.response_channel.try_send(Err(error.clone()));
+                owned_pending = true;
+            }
+        }
+    }
+    if owned_pending {
+        return HandleResult::Disconnected;
+    }
+
     #[derive(SurrealValue)]
     #[surreal(crate = "crate::types")]
     struct ErrorResponse {
@@ -1293,11 +1479,41 @@ async fn handle_session_drop<M, S, E>(
     session_id: Uuid,
     sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
     sink: &RwLock<S>,
-) where
+) -> HandleResult
+where
     M: WsMessage,
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
 {
+    if let Some(Ok(state)) = sessions.get(&session_id) {
+        let pending_owner = state.pending_requests.values().into_iter().any(|pending| {
+            pending
+                .request_context
+                .as_ref()
+                .is_some_and(|context| context.payload_owner().is_some())
+        });
+        let deferred_owner = match state.deferred.lock() {
+            Ok(routes) => routes.iter().any(|route| {
+                route
+                    .request
+                    .request_context
+                    .as_ref()
+                    .is_some_and(|context| context.payload_owner().is_some())
+            }),
+            Err(routes) => routes.into_inner().iter().any(|route| {
+                route
+                    .request
+                    .request_context
+                    .as_ref()
+                    .is_some_and(|context| context.payload_owner().is_some())
+            }),
+        };
+        if pending_owner || deferred_owner {
+            // Detach is not drain. Leave all correlation reachable until the
+            // serial router drops both physical halves and resets this state.
+            return HandleResult::Disconnected;
+        }
+    }
     if sessions.get(&session_id).is_some() {
         // Fire-and-forget: the session is going away, so there is nothing left
         // to order the detach against and no one to hand an acknowledgement to.
@@ -1312,6 +1528,7 @@ async fn handle_session_drop<M, S, E>(
         }
     }
     sessions.remove(&session_id);
+    HandleResult::Ok
 }
 
 /// Dispatch a session-lifecycle event to the appropriate handler.
@@ -1319,17 +1536,20 @@ async fn handle_session<M, S, E>(
     session_id: crate::SessionId,
     sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
     sink: &RwLock<S>,
-) where
+) -> HandleResult
+where
     M: WsMessage,
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
 {
     match session_id {
         crate::SessionId::Initial(id) => {
-            handle_session_initial::<M, S, E>(id, sessions, sink).await
+            handle_session_initial::<M, S, E>(id, sessions, sink).await;
+            HandleResult::Ok
         }
         crate::SessionId::Clone { old, new } => {
-            handle_session_clone::<M, S, E>(old, new, sessions, sink).await
+            handle_session_clone::<M, S, E>(old, new, sessions, sink).await;
+            HandleResult::Ok
         }
         crate::SessionId::Drop(id) => handle_session_drop::<M, S, E>(id, sessions, sink).await,
     }
@@ -1348,6 +1568,13 @@ async fn clear_pending_requests(sessions: &HashMap<Uuid, Result<Arc<SessionState
             );
             request.response_channel.try_send(Err(err)).ok();
             request.response_channel.close();
+            // Only qualified nonreplayable payloads have no retained command
+            // bytes in epoch metadata. Unsupported future retention stays charged.
+            if request.command.is_none()
+                && let Some(context) = &request.request_context
+            {
+                context.release_payload_after_drain();
+            }
             if let Some(admission) = &request._admission {
                 admission.release();
             }
@@ -1441,6 +1668,7 @@ impl Surreal<Client> {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::time::Duration;
 
     use surrealdb_rpc::{DbResult, QueryResult, Token};
     use surrealdb_types::{AuthError, Error as TypesError, NotAllowedError};
@@ -2201,6 +2429,592 @@ mod tests {
                 .interruption_error()
                 .to_string()
                 .contains("unknown server outcome")
+        );
+    }
+
+    #[derive(Debug)]
+    struct PayloadBudget {
+        bytes: Vec<u8>,
+        reserved: Arc<std::sync::atomic::AtomicUsize>,
+    }
+    impl Drop for PayloadBudget {
+        fn drop(&mut self) {
+            self.reserved
+                .fetch_sub(self.bytes.len(), std::sync::atomic::Ordering::AcqRel);
+        }
+    }
+    impl PayloadBudget {
+        fn reserve(
+            reserved: &Arc<std::sync::atomic::AtomicUsize>,
+            bytes: usize,
+            limit: usize,
+        ) -> Option<Arc<Self>> {
+            reserved
+                .try_update(
+                    std::sync::atomic::Ordering::AcqRel,
+                    std::sync::atomic::Ordering::Acquire,
+                    |current| current.checked_add(bytes).filter(|next| *next <= limit),
+                )
+                .ok()?;
+            Some(Arc::new(Self {
+                bytes: vec![0; bytes],
+                reserved: reserved.clone(),
+            }))
+        }
+    }
+
+    #[derive(Clone)]
+    struct OwnedResponseFrame {
+        bytes: Vec<u8>,
+        monitor: Option<(
+            Arc<std::sync::atomic::AtomicUsize>,
+            Arc<std::sync::atomic::AtomicUsize>,
+            crate::opt::RequestContext,
+        )>,
+    }
+    impl WsMessage for OwnedResponseFrame {
+        fn binary(bytes: Vec<u8>) -> Self {
+            Self {
+                bytes,
+                monitor: None,
+            }
+        }
+        fn as_binary(&self) -> Option<&[u8]> {
+            Some(&self.bytes)
+        }
+    }
+    impl Drop for OwnedResponseFrame {
+        fn drop(&mut self) {
+            if let Some((reserved, dropped, context)) = &self.monitor {
+                assert_eq!(
+                    context.dispatch_state(),
+                    crate::opt::DispatchState::Dispatched,
+                    "raw frame must drain before response delivery/completion wakes the caller"
+                );
+                assert_eq!(
+                    reserved.load(std::sync::atomic::Ordering::Acquire),
+                    4096,
+                    "actual binary frame must die while its original grant remains held"
+                );
+                dropped.fetch_add(1, std::sync::atomic::Ordering::AcqRel);
+            }
+        }
+    }
+    fn owned_response_frame(
+        session: Uuid,
+        context: &crate::opt::RequestContext,
+        reserved: &Arc<std::sync::atomic::AtomicUsize>,
+        dropped: &Arc<std::sync::atomic::AtomicUsize>,
+    ) -> OwnedResponseFrame {
+        use crate::types::SurrealValue;
+        let value = surrealdb_rpc::DbResponse::success(
+            Some(Value::Number(Number::Int(0))),
+            Some(session),
+            DbResult::Other(Value::String("real decoded response".repeat(64))),
+        )
+        .into_value();
+        OwnedResponseFrame {
+            bytes: surrealdb_types::encode(&value).unwrap(),
+            monitor: Some((reserved.clone(), dropped.clone(), context.clone())),
+        }
+    }
+
+    #[tokio::test]
+    async fn inbound_late_canceled_response_holds_grant_through_failed_send_and_frame_drop() {
+        use surrealdb_engine_api::{EngineContext, RouteChannelEngine, SurrealEngine};
+        let (sender, routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let sink = RwLock::new(futures::sink::drain::<OwnedResponseFrame>());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+        let mut request = engine.query(
+            EngineContext::new(session).with_request_context(Some(context.clone())),
+            std::borrow::Cow::Borrowed("RETURN 1"),
+            Default::default(),
+        );
+        let route = tokio::select! {
+            route=routes.recv()=>route.unwrap(),
+            result=&mut request=>panic!("ended before dispatch: {result:?}"),
+        };
+        assert_eq!(
+            super::dispatch_route::<OwnedResponseFrame, _, _>(route, None, &state, &sink).await,
+            HandleResult::Ok
+        );
+        let retired = state.pending_requests.values().into_iter().next().unwrap();
+        context.cancel();
+        assert!(request.await.is_err());
+        assert!(PayloadBudget::reserve(&reserved, 4096, 4096).is_none());
+        let frame = owned_response_frame(session, &context, &reserved, &dropped);
+        assert_eq!(
+            super::handle_owned_response(frame, None, &sessions, &sink).await,
+            HandleResult::Ok
+        );
+        assert_eq!(dropped.load(std::sync::atomic::Ordering::Acquire), 1);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+        assert!(retired.request_context.is_some());
+        assert!(state.pending_requests.is_empty());
+    }
+
+    #[tokio::test]
+    async fn inbound_successful_queued_response_abandonment_drains_actual_values() {
+        use surrealdb_engine_api::{EngineContext, RouteChannelEngine, SurrealEngine};
+        let (sender, routes) = async_channel::bounded(1);
+        let engine = RouteChannelEngine::new(sender);
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let sink = RwLock::new(futures::sink::drain::<OwnedResponseFrame>());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+        let mut request = engine.query(
+            EngineContext::new(session).with_request_context(Some(context.clone())),
+            std::borrow::Cow::Borrowed("RETURN 1"),
+            Default::default(),
+        );
+        let route = tokio::select! {
+            route=routes.recv()=>route.unwrap(),
+            result=&mut request=>panic!("ended before dispatch: {result:?}"),
+        };
+        assert_eq!(
+            super::dispatch_route::<OwnedResponseFrame, _, _>(route, None, &state, &sink).await,
+            HandleResult::Ok
+        );
+        let retired = state.pending_requests.values().into_iter().next().unwrap();
+        let frame = owned_response_frame(session, &context, &reserved, &dropped);
+        assert_eq!(
+            super::handle_owned_response(frame, None, &sessions, &sink).await,
+            HandleResult::Ok
+        );
+        assert_eq!(dropped.load(std::sync::atomic::Ordering::Acquire), 1);
+        assert!(state.pending_requests.is_empty());
+        assert_eq!(retired.response_channel.len(), 1);
+        assert!(
+            PayloadBudget::reserve(&reserved, 4096, 4096).is_none(),
+            "successful enqueue still owns decoded response bytes after physical frame drain"
+        );
+        drop(request);
+        assert_eq!(
+            retired.response_channel.len(),
+            0,
+            "abandoned caller drains actual queued Values"
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+        assert!(retired.request_context.is_some());
+    }
+
+    #[tokio::test]
+    async fn inbound_response_handler_timeout_drops_decoded_send_and_frame_before_grant() {
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let sink = RwLock::new(futures::sink::drain::<OwnedResponseFrame>());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let dropped = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+        context.mark_dispatched();
+        let (sender, receiver) = async_channel::bounded(1);
+        sender.send(Ok(Vec::new())).await.unwrap(); // Stall the actual decoded response send.
+        let retired = PendingRequest {
+            request_context: Some(context.clone()),
+            _admission: None,
+            interrupted_at: None,
+            command: None,
+            response_channel: sender,
+        };
+        state.pending_requests.insert(0, retired.clone());
+        let frame = owned_response_frame(session, &context, &reserved, &dropped);
+        assert!(
+            tokio::time::timeout(
+                Duration::from_millis(20),
+                super::handle_owned_response(frame, None, &sessions, &sink)
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(dropped.load(std::sync::atomic::Ordering::Acquire), 1);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+        assert!(state.pending_requests.is_empty());
+        assert_eq!(
+            receiver.len(),
+            1,
+            "blocked decoded response was dropped, not queued"
+        );
+        assert!(retired.request_context.is_some());
+    }
+
+    #[tokio::test]
+    async fn authentic_response_restores_capacity_with_retired_pending_metadata_alive() {
+        let sink = RwLock::new(futures::sink::drain::<MockMessage>());
+        let sessions = no_sessions();
+        let state = Arc::new(SessionState::default());
+        let session = Uuid::new_v4();
+        sessions.insert(session, Ok(state.clone()));
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let owner = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        let context = crate::opt::RequestContext::new(
+            std::time::Instant::now() + std::time::Duration::from_secs(30),
+        )
+        .with_payload_owner(owner.clone());
+        drop(owner);
+        let (mut route, response) = route_for(session);
+        route.request.request_context = Some(context.clone());
+        route.request.command = Command::Query {
+            txn: None,
+            query: std::borrow::Cow::Borrowed("RETURN 1"),
+            variables: Default::default(),
+        };
+        assert_eq!(
+            super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
+            HandleResult::Ok
+        );
+        let retired = state.pending_requests.values().into_iter().next().unwrap();
+        assert!(
+            retired.command.is_none(),
+            "owner-bearing result Query never enters replay storage"
+        );
+        assert!(PayloadBudget::reserve(&reserved, 4096, 4096).is_none());
+        assert_eq!(
+            handle_response_with_id::<MockMessage, _, _>(
+                0,
+                Ok(DbResult::Other(Value::None)),
+                session,
+                &state,
+                None,
+                &sessions,
+                &sink
+            )
+            .await,
+            HandleResult::Ok
+        );
+        assert!(response.recv().await.unwrap().is_ok());
+        assert_eq!(
+            context.dispatch_state(),
+            crate::opt::DispatchState::Completed
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        assert!(
+            retired.request_context.is_some(),
+            "live and epoch-retired metadata do not own drained allocation bytes"
+        );
+        drop(restored);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+    }
+
+    #[tokio::test]
+    async fn owner_bearing_replay_refuses_before_effects_and_restores_capacity() {
+        let sink = RwLock::new(Vec::<MockMessage>::new());
+        let state = Arc::new(SessionState::default());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let owner = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        let context = crate::opt::RequestContext::new(
+            std::time::Instant::now() + std::time::Duration::from_secs(30),
+        )
+        .with_payload_owner(owner.clone());
+        drop(owner);
+        let (mut route, response) = route_for(Uuid::new_v4());
+        route.request.request_context = Some(context.clone());
+        route.request.command = set_cmd("payload", 1);
+        assert_eq!(
+            super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
+            HandleResult::Ok
+        );
+        assert!(
+            response
+                .recv()
+                .await
+                .unwrap()
+                .unwrap_err()
+                .to_string()
+                .contains("not qualified")
+        );
+        assert!(sink.read().await.is_empty());
+        assert!(state.pending_requests.is_empty());
+        assert_eq!(state.replay.count(), 0);
+        assert_eq!(
+            context.dispatch_state(),
+            crate::opt::DispatchState::NotDispatched
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+    }
+
+    #[tokio::test]
+    async fn stalled_payload_route_keeps_charge_until_physical_socket_invalidation() {
+        for bounded in [false, true] {
+            let attempted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let sink = RwLock::new(FaultSink {
+                attempted: attempted.clone(),
+                refuse_start: false,
+            });
+            let sessions = no_sessions();
+            let state = Arc::new(SessionState::default());
+            state
+                .bounded
+                .store(bounded, std::sync::atomic::Ordering::Release);
+            let session = Uuid::new_v4();
+            sessions.insert(session, Ok(state.clone()));
+            let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let owner = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + std::time::Duration::from_secs(30),
+            )
+            .with_payload_owner(owner.clone());
+            let (mut route, _response) = route_for(session);
+            route.request.request_context = Some(context.clone());
+            drop(owner);
+            let send = super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink);
+            let interrupt = async {
+                while !attempted.load(std::sync::atomic::Ordering::Acquire) {
+                    tokio::task::yield_now().await;
+                }
+                context.cancel();
+            };
+            let _ = tokio::join!(send, interrupt);
+            let retired = state.pending_requests.values().into_iter().next().unwrap();
+            assert_eq!(
+                state.pending_requests.len(),
+                1,
+                "owner-bearing unbounded routes also stage before polling the sink"
+            );
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+            assert!(PayloadBudget::reserve(&reserved, 4096, 4096).is_none());
+            drop(sink); // Exactly the transport owner's physical invalidation ordering.
+            super::reset_sessions(&sessions).await;
+            assert_eq!(
+                reserved.load(std::sync::atomic::Ordering::Acquire),
+                0,
+                "physical drain restores exact finite capacity without epoch collection"
+            );
+            let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+            assert!(retired.request_context.is_some());
+            assert_eq!(
+                context.dispatch_state(),
+                crate::opt::DispatchState::Dispatched,
+                "socket drain does not turn unknown server outcome into completed permission"
+            );
+            drop(restored);
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        }
+    }
+
+    struct ReadyStallSink {
+        polled: Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl futures::Sink<MockMessage> for ReadyStallSink {
+        type Error = &'static str;
+        fn poll_ready(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            self.polled
+                .store(true, std::sync::atomic::Ordering::Release);
+            std::task::Poll::Pending
+        }
+        fn start_send(self: std::pin::Pin<&mut Self>, _: MockMessage) -> Result<(), Self::Error> {
+            panic!("canceled before start_send")
+        }
+        fn poll_flush(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+        fn poll_close(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn poll_ready_cancellation_restores_capacity_with_retired_pending_alive() {
+        let polled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let sink = RwLock::new(ReadyStallSink {
+            polled: polled.clone(),
+        });
+        let state = Arc::new(SessionState::default());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+        let (mut route, response) = route_for(Uuid::new_v4());
+        route.request.request_context = Some(context.clone());
+        route.request.command = Command::Query {
+            txn: None,
+            query: std::borrow::Cow::Borrowed("RETURN 1"),
+            variables: Default::default(),
+        };
+        let send = super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink);
+        let interrupt = async {
+            while !polled.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+            let retired = state.pending_requests.values().into_iter().next().unwrap();
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+            context.cancel();
+            retired
+        };
+        let (result, retired) = tokio::join!(send, interrupt);
+        assert_eq!(result, HandleResult::Ok);
+        assert!(response.recv().await.unwrap().is_err());
+        assert!(state.pending_requests.is_empty());
+        assert!(retired.request_context.is_some());
+        assert_eq!(
+            context.dispatch_state(),
+            crate::opt::DispatchState::NotDispatched
+        );
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
+        drop(restored);
+    }
+
+    #[tokio::test]
+    async fn deferred_flush_timeout_drains_all_enqueued_payloads_with_live_metadata() {
+        let polled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let sink = RwLock::new(ReadyStallSink {
+            polled: polled.clone(),
+        });
+        let state = Arc::new(SessionState::default());
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut contexts = Vec::new();
+        let mut responses = Vec::new();
+        for _ in 0..3 {
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + Duration::from_secs(30),
+            )
+            .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 12288).unwrap());
+            context.mark_enqueued(); // Caller cleanup cannot reclaim a driver queue.
+            let (mut route, response) = route_for(Uuid::new_v4());
+            route.request.request_context = Some(context.clone());
+            route.request.command = Command::Query {
+                txn: None,
+                query: std::borrow::Cow::Borrowed("RETURN 1"),
+                variables: Default::default(),
+            };
+            super::park_route(&state, route);
+            contexts.push(context);
+            responses.push(response);
+        }
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 12288);
+        let flush = super::flush_deferred_routes::<MockMessage, _, _>(&state, None, &sink);
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), flush)
+                .await
+                .is_err()
+        );
+        assert!(polled.load(std::sync::atomic::Ordering::Acquire));
+        let retired = state.pending_requests.values().into_iter().next().unwrap();
+        assert!(retired.request_context.is_some());
+        assert!(super::take_deferred_routes(&state).is_empty());
+        assert!(contexts.iter().all(|context| context.dispatch_state()==crate::opt::DispatchState::NotDispatched));
+        assert_eq!(
+            reserved.load(std::sync::atomic::Ordering::Acquire),
+            0,
+            "active and untouched iterator routes drop actual bytes before clearing shared cells"
+        );
+        let restored = PayloadBudget::reserve(&reserved, 12288, 12288).unwrap();
+        drop(restored);
+        assert_eq!(responses.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn queued_cancellation_and_unpolled_driver_restore_capacity() {
+        for parked in [false, true] {
+            let sessions = no_sessions();
+            let session = Uuid::new_v4();
+            let state = Arc::new(SessionState::default());
+            sessions.insert(session, Ok(state.clone()));
+            let sink = RwLock::new(Vec::<MockMessage>::new());
+            let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + Duration::from_secs(30),
+            )
+            .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+            let (mut route, response) = route_for(session);
+            route.request.request_context = Some(context.clone());
+            if parked {
+                super::park_route(&state, route);
+                context.cancel();
+                assert!(!super::maintain_request_lifetimes(&sessions).await);
+                assert!(response.recv().await.unwrap().is_err());
+                assert!(super::take_deferred_routes(&state).is_empty());
+            } else {
+                drop(super::handle_route::<MockMessage, _, _>(
+                    route, None, &sessions, &sink,
+                ));
+            }
+            assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+            assert!(sink.read().await.is_empty());
+            assert_eq!(
+                context.dispatch_state(),
+                crate::opt::DispatchState::NotDispatched
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn ordinary_session_drop_preserves_dispatched_owner_until_socket_drain() {
+        let attempted = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let sink = RwLock::new(FaultSink {
+            attempted: attempted.clone(),
+            refuse_start: false,
+        });
+        let sessions = no_sessions();
+        let session = Uuid::new_v4();
+        let state = Arc::new(SessionState::default());
+        sessions.insert(session, Ok(state.clone()));
+        let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let context =
+            crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
+                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+        let (mut route, _response) = route_for(session);
+        route.request.request_context = Some(context.clone());
+        let send = super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink);
+        let interrupt = async {
+            while !attempted.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+            context.cancel();
+        };
+        let _ = tokio::join!(send, interrupt);
+        let retired = state.pending_requests.values().into_iter().next().unwrap();
+        assert_eq!(
+            super::handle_session_drop::<MockMessage, _, _>(session, &sessions, &sink).await,
+            HandleResult::Disconnected
+        );
+        assert!(sessions.contains_key(&session));
+        assert_eq!(state.pending_requests.len(), 1);
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
+        drop(sink);
+        super::reset_sessions(&sessions).await;
+        assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
+        assert!(retired.request_context.is_some());
+        assert_eq!(
+            context.dispatch_state(),
+            crate::opt::DispatchState::Dispatched
         );
     }
 

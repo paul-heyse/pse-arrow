@@ -97,6 +97,10 @@ class OperationRecord(TypedDict):
     cancelled: NotRequired[bool]
     scope_inode: NotRequired[int]
     registration: NotRequired[RegistrationOwner]
+    operation: NotRequired[str]
+    selected_composers: NotRequired[dict[str, dict[str, object]]]
+    cancel_deadline: NotRequired[float]
+    cancel_signal: NotRequired[int]
 
 
 Observed = TypeVar("Observed")
@@ -135,12 +139,16 @@ def admission_remaining(deadline: float) -> float:
     return remaining
 
 
+def manager_control_environment() -> dict[str, str]:
+    # The foreground observer can run outside the composed child environment.
+    # Observation, stop and mandatory kill must address the same user manager.
+    from scripts import pse_env  # noqa: PLC0415 -- reciprocal environment boundary
+
+    return {**os.environ, **pse_env.manager_environment()}
+
+
 def unit_observation(unit: str, *, deadline: float | None = None) -> dict[str, str]:
-    environment = dict(os.environ)
-    runtime = Path(f"/run/user/{os.getuid()}")
-    if (runtime / "bus").is_socket():
-        environment.setdefault("XDG_RUNTIME_DIR", str(runtime))
-        environment.setdefault("DBUS_SESSION_BUS_ADDRESS", f"unix:path={runtime}/bus")
+    environment = manager_control_environment()
     timeout = 10 if deadline is None else min(10, admission_remaining(deadline))
     try:
         result = subprocess.run(
@@ -222,9 +230,15 @@ def populated(group: str) -> bool:
     directory = Path("/sys/fs/cgroup") / group.lstrip("/")
     if not directory.exists():
         return False
-    fields = dict(
-        line.split() for line in (directory / "cgroup.events").read_text().splitlines()
-    )
+    try:
+        fields = dict(
+            line.split()
+            for line in (directory / "cgroup.events").read_text().splitlines()
+        )
+    except FileNotFoundError:
+        if not directory.exists():
+            return False
+        raise
     if fields.get("populated") not in {"0", "1"}:
         raise ValueError("native scope population unavailable")
     return fields["populated"] == "1"
@@ -267,6 +281,16 @@ def drained(
         return DrainObservation(None, DrainPhase.UNAVAILABLE, "missing scope identity")
     selected = dict(owner)
     try:
+        if deadline is not None:
+            admission_remaining(deadline)
+        inode = record.get("scope_inode")
+        if type(inode) is int:
+            from scripts import host_admission  # noqa: PLC0415 -- bound kernel lifetime
+
+            if host_admission.group_identity(owner["group"]) != inode:
+                return DrainObservation(
+                    selected, DrainPhase.COMPLETE, "bound kernel scope lifetime ended"
+                )
         if populated(owner["group"]):
             return DrainObservation(
                 selected, DrainPhase.POPULATED, "owned descendants remain"
@@ -338,7 +362,7 @@ def _record(path: Path) -> OperationRecord:
     return cast("OperationRecord", value)
 
 
-def owner_record(*, deadline: float | None = None) -> Path | None:
+def owner_record(*, deadline: float | None = None, reserve: float = 0) -> Path | None:
     if deadline is not None:
         admission_remaining(deadline)
     marker = os.environ.get(MARKER)
@@ -367,6 +391,12 @@ def owner_record(*, deadline: float | None = None) -> Path | None:
         ):
             return None
         record = _record(path)
+        if deadline is not None and record.get("cancel_deadline") is not None:
+            original = record["cancel_deadline"]
+            if type(original) not in {int, float}:
+                raise ValueError("invalid original cancellation clock")
+            deadline = min(deadline, original - reserve)
+            admission_remaining(deadline)
         owner = record.get("scope")
         if owner:
             return (
@@ -508,6 +538,11 @@ def pinned_generations(base: Path) -> set[str] | None:
                 ):
                     return None
                 if drained(record).complete:
+                    # Allocation guards refer to these exact acknowledgments.
+                    # Retaining metadata does not keep drained generation bytes
+                    # pinned, and avoids a collector racing host release.
+                    if record.get("selected_composers"):
+                        continue
                     # The live parent may still need this exact child binding
                     # during cancellation. Its settled child no longer pins bytes.
                     if registration_pending(record):
@@ -661,6 +696,11 @@ def bind_handoff(path: Path) -> None:
                     "native child handoff differs from its registered scope"
                 )
             record["scope"] = owner
+            operation = owner_record()
+            if operation is None and record.get("foreground"):
+                raise ValueError("native handoff lost its actual operation")
+            if operation is not None:
+                record["operation"] = str(operation)
             if parent is not None or record.get("registration") is not None:
                 from scripts import host_admission  # noqa: PLC0415 -- reciprocal owner
 
@@ -685,25 +725,45 @@ def bind_handoff(path: Path) -> None:
                 raise ValueError("native foreground handoff is cancelled")
 
 
-def fence_foreground_handoff(name: object, parent: Path) -> OperationRecord:
+def fence_foreground_handoff(
+    name: object,
+    parent: Path,
+    *,
+    deadline: float | None = None,
+    signum: int | None = None,
+    cancellation_deadline: float | None = None,
+) -> OperationRecord:
     if isinstance(name, str):
         path = Path(name)
         if path.parent == parent.parent and re.fullmatch(
             r"handoff-[a-f0-9]{32}\.json", path.name
         ):
-            with record_lock(path):
+            with record_lock(path, deadline=deadline):
                 record = _record(path)
                 if record.get("foreground") is not True or record.get("parent") != str(
                     parent
                 ):
                     raise ValueError("foreground handoff parent changed")
                 record["cancelled"] = True
+                original = (
+                    deadline if cancellation_deadline is None else cancellation_deadline
+                )
+                if original is not None and original < record.get(
+                    "cancel_deadline", float("inf")
+                ):
+                    record["cancel_deadline"] = original
+                    if signum is not None:
+                        record["cancel_signal"] = signum
+                elif signum is not None:
+                    record.setdefault("cancel_signal", signum)
                 write_json(path, record)
             return record
     raise ValueError("invalid foreground handoff association")
 
 
-def stop_foreground_handoff(record: OperationRecord) -> None:
+def stop_foreground_handoff(
+    record: OperationRecord, *, deadline: float | None = None
+) -> None:
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal owner
 
     owner = record.get("scope", False)
@@ -714,12 +774,13 @@ def stop_foreground_handoff(record: OperationRecord) -> None:
         not isinstance(owner.get(key), str) for key in ("unit", "group", "invocation")
     ):
         raise ValueError("invalid foreground scope identity")
-    initial = drained(record)
+    options = {"deadline": deadline} if deadline is not None else {}
+    initial = drained(record, **options)
     if initial.complete:
         return
     if initial.phase in {DrainPhase.UNAVAILABLE, DrainPhase.MISMATCH}:
         raise ValueError(initial.diagnostic() + "; foreground cancellation refused")
-    observed = unit_observation(owner["unit"])
+    observed = unit_observation(owner["unit"], **options)
     if (
         observed.get("LoadState") != "loaded"
         or observed.get("InvocationID") != owner["invocation"]
@@ -735,39 +796,535 @@ def stop_foreground_handoff(record: OperationRecord) -> None:
     subprocess.run(
         ["systemctl", "--user", "stop", owner["unit"]],
         check=True,
-        timeout=10,
+        timeout=10 if deadline is None else min(10, admission_remaining(deadline)),
+        env=manager_control_environment(),
     )
-    completion = drained(record)
+    completion = drained(record, **options)
     if not completion.complete:
         raise ValueError(
             completion.diagnostic() + "; foreground observer scope did not drain"
         )
 
 
-def cancel_foreground_handoffs() -> None:
+def cancel_foreground_handoffs(
+    *,
+    deadline: float | None = None,
+    signum: int | None = None,
+    drain_deadline: float | None = None,
+    cancellation_deadline: float | None = None,
+) -> None:
     """Settle only the foreground observers explicitly owned by this operation."""
-    parent = owner_record()
+    parent = owner_record(**({"deadline": deadline} if deadline is not None else {}))
     if parent is None:
         return
     failures: list[str] = []
     bound: list[OperationRecord] = []
-    with record_lock(parent):
+    with record_lock(parent, deadline=deadline):
         registered = _record(parent)
         registered["cancelled"] = True
+        original = deadline if cancellation_deadline is None else cancellation_deadline
+        if original is not None and original < registered.get(
+            "cancel_deadline", float("inf")
+        ):
+            registered["cancel_deadline"] = original
+            if signum is not None:
+                registered["cancel_signal"] = signum
+        elif signum is not None:
+            registered.setdefault("cancel_signal", signum)
         write_json(parent, registered)
         children = foreground_children(registered)[:]
         for name in children:
             try:
-                bound.append(fence_foreground_handoff(name, parent))
+                bound.append(
+                    fence_foreground_handoff(
+                        name,
+                        parent,
+                        **({"deadline": deadline} if deadline is not None else {}),
+                        **({"signum": signum} if signum is not None else {}),
+                        **(
+                            {"cancellation_deadline": original}
+                            if cancellation_deadline is not None
+                            else {}
+                        ),
+                    )
+                )
             except (OSError, ValueError, KeyError) as error:
                 failures.append(str(error))
     for record in bound:
         try:
-            stop_foreground_handoff(record)
+            selected_deadline = deadline if drain_deadline is None else drain_deadline
+            stop_foreground_handoff(
+                record,
+                **(
+                    {"deadline": selected_deadline}
+                    if selected_deadline is not None
+                    else {}
+                ),
+            )
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             failures.append(str(error))
     if failures:
         raise ValueError("foreground cancellation incomplete: " + "; ".join(failures))
+
+
+def composer_registrations(record: OperationRecord) -> dict[str, dict[str, object]]:
+    selected = record.get("selected_composers", {})
+    if not isinstance(selected, dict) or any(
+        not isinstance(nonce, str)
+        or not re.fullmatch(r"[a-f0-9]{32}", nonce)
+        or not isinstance(value, dict)
+        for nonce, value in selected.items()
+    ):
+        raise ValueError("invalid selected terminal associations")
+    return selected
+
+
+def register_composer(
+    invocation: Path, *, deadline: float | None = None
+) -> tuple[Path, str, str] | None:
+    """Publish only a selected live composer under its authentic operation fence.
+
+    The caller installs interruption handling before this transition. The outer
+    owner only requests and observes completion; it never composes test outcomes.
+    """
+    from scripts import (
+        test_resources as resources,
+    )
+
+    deadline = resources.resource_store.clock(deadline)
+    parent = owner_record(deadline=deadline)
+    if parent is None or scope_owner(deadline=deadline) is None:
+        return None
+
+    declaration = resources.read_invocation(invocation)
+    nonce = declaration["nonce"]
+    registry = resources.registry().resolve()
+    if (
+        invocation != registry / "invocations" / f"{nonce}.json"
+        or invocation != invocation.resolve()
+    ):
+        raise ValueError("selected terminal requires its exact private invocation")
+    token = uuid.uuid4().hex
+    with record_lock(parent, deadline=deadline):
+        record = _record(parent)
+        if record.get("cancelled"):
+            raise ValueError("native operation cancelled before selected payload")
+        composers = composer_registrations(record)
+        if nonce in composers:
+            raise ValueError("selected invocation already has a terminal composer")
+        register_terminal_guard(parent, nonce, token, deadline=deadline)
+        composers[nonce] = {
+            "token": token,
+            "pid": os.getpid(),
+            "start": start_identity(os.getpid()),
+            "scope": record["scope"],
+            "invocation": str(invocation),
+            "registry": str(registry),
+            "phase": "registered",
+        }
+        record["selected_composers"] = composers
+        write_json(parent, record)
+    return parent, nonce, token
+
+
+def register_terminal_guard(
+    parent: Path, nonce: str, token: str, *, deadline: float | None = None
+) -> None:
+    from scripts import (
+        host_admission as host,
+    )
+
+    allocation = host.inherit(dict(os.environ), deadline=deadline)
+    if allocation is None:
+        raise ValueError("selected terminal lacks its host allocation")
+    owner = _record(parent)["scope"]
+    if owner is None:
+        raise ValueError("selected terminal lacks its authentic native scope")
+    with host.allocation_metadata(
+        allocation.directory, deadline=deadline, durable=True
+    ) as ledger:
+        allocated = ledger["owners"].get(allocation.nonce)
+        binding = (
+            allocated["units"].get(owner["unit"]) if allocated is not None else None
+        )
+        if (
+            not binding
+            or binding.get("group") != owner["group"]
+            or binding.get("invocation") != owner["invocation"]
+            or type(binding.get("inode")) is not int
+        ):
+            raise ValueError("selected terminal is outside its bound allocation")
+        guards = allocated.setdefault("terminal_guards", {})
+        if nonce in guards:
+            raise ValueError("selected terminal already has an allocation guard")
+        guards[nonce] = {
+            "operation": str(parent),
+            "token": token,
+            "scope": owner,
+            "binding": dict(binding),
+            "phase": "registered",
+        }
+
+
+def terminal_guard_complete(
+    nonce: str, guard: object, *, deadline: float | None = None
+) -> bool:
+    """An exact acknowledgment is an independent premise of host drain."""
+    try:
+        from scripts import (
+            resource_store,
+        )
+
+        if not isinstance(guard, dict) or not re.fullmatch(r"[a-f0-9]{32}", nonce):
+            return False
+        scope = guard.get("scope")
+        if (
+            not isinstance(scope, dict)
+            or not re.fullmatch(
+                r"(?:pse-native-[a-f0-9]{32}\.scope|pse-surreal-worker-[a-f0-9]{16}-[0-9]+\.(?:scope|service))",
+                str(scope.get("unit", "")),
+            )
+            or not isinstance(scope.get("group"), str)
+            or not scope["group"].startswith("/")
+            or not re.fullmatch(r"[a-f0-9]{32}", str(scope.get("invocation", "")))
+            or not re.fullmatch(r"[a-f0-9]{32}", str(guard.get("token", "")))
+        ):
+            return False
+        path = Path(str(guard["operation"]))
+        if (
+            not path.is_absolute()
+            or path != path.resolve()
+            or path.parent.name != ".operations"
+            or not re.fullmatch(r"[a-f0-9]{32}\.json", path.name)
+        ):
+            return False
+        if guard.get("phase") == "acknowledged":
+            # The existing admitted row records only verification of immutable
+            # terminal identities, never another copy of outcomes. Temporary
+            # evidence retirement cannot erase an acknowledgment already proved.
+            return all(
+                re.fullmatch(r"[a-f0-9]{64}", str(guard.get(key, ""))) is not None
+                for key in ("terminal_identity", "evidence_identity")
+            )
+        record = resource_store.read(path)
+        if record.get("version") != VERSION or record.get("scope") != guard["scope"]:
+            return False
+        composer = composer_registrations(record).get(nonce)
+        if (
+            composer is None
+            or composer.get("token") != guard["token"]
+            or composer.get("phase") != "complete"
+        ):
+            return False
+        registry = Path(str(composer["registry"]))
+        invocation = registry / "invocations" / f"{nonce}.json"
+        if (
+            composer.get("invocation") != str(invocation)
+            or invocation != invocation.resolve()
+        ):
+            return False
+        identity, _terminal = resource_store.FileStore(registry).terminal(
+            nonce, deadline=deadline
+        )
+        evidence = resource_store.read(invocation.with_suffix(".terminal.json"))
+        return composer.get("terminal_identity") == identity and composer.get(
+            "evidence_identity"
+        ) == resource_store.digest(evidence)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
+        return False
+
+
+def composer_deadline(registration: tuple[Path, str, str] | None) -> float | None:
+    if registration is None:
+        return None
+    value = _record(registration[0]).get("cancel_deadline")
+    if value is None:
+        inherited = inherited_cancellation(deadline=time.monotonic() + 10)
+        value = inherited[0] if inherited is not None else None
+    if value is not None and type(value) not in {int, float}:
+        raise ValueError("invalid original cancellation clock")
+    return value
+
+
+def composer_signal(registration: tuple[Path, str, str] | None) -> int | None:
+    if registration is None:
+        return None
+    value = _record(registration[0]).get("cancel_signal")
+    if value is None:
+        inherited = inherited_cancellation(
+            deadline=composer_deadline(registration) or time.monotonic() + 10
+        )
+        value = inherited[1] if inherited is not None else None
+    if value is not None and value not in {signal.SIGINT, signal.SIGTERM}:
+        raise ValueError("invalid original cancellation signal")
+    return value
+
+
+def note_composer_cancellation(
+    signum: int, deadline: float, *, control_deadline: float | None = None
+) -> tuple[float, int] | None:
+    """Carry the earliest request through this Operation and its bound parent handoff."""
+    control_deadline = (
+        deadline if control_deadline is None else min(deadline, control_deadline)
+    )
+    reserve = deadline - control_deadline
+    parent = owner_record(
+        deadline=control_deadline, **({"reserve": reserve} if reserve else {})
+    )
+    if parent is None:
+        return None
+    # Authentication can discover an earlier clock on this Operation even
+    # without an inherited handoff. Carry it into the first exclusion wait.
+    known = _record(parent)
+    if known.get("cancel_deadline", float("inf")) <= deadline:
+        deadline, signum = known["cancel_deadline"], known["cancel_signal"]
+        control_deadline = min(control_deadline, deadline - reserve)
+    inherited = inherited_cancellation(
+        deadline=control_deadline, **({"reserve": reserve} if reserve else {})
+    )
+    if inherited is not None and inherited[0] <= deadline:
+        deadline, signum = inherited
+        control_deadline = min(control_deadline, deadline - reserve)
+    with record_lock(parent, deadline=control_deadline):
+        record = _record(parent)
+        if deadline < record.get("cancel_deadline", float("inf")):
+            record.update(cancel_deadline=deadline, cancel_signal=signum)
+        else:
+            deadline, signum = record["cancel_deadline"], record["cancel_signal"]
+            control_deadline = min(control_deadline, deadline - reserve)
+        write_json(parent, record)
+    name = os.environ.get("PSE_NATIVE_HANDOFF")
+    if name:
+        path = Path(name)
+        selected = _record(path)
+        owner = scope_owner(deadline=control_deadline)
+        if selected.get("scope") != owner or selected.get("operation") != str(parent):
+            raise ValueError("cancellation parent handoff changed")
+        ancestor = foreground_parent(selected, path)
+        with record_lock(ancestor, deadline=control_deadline):
+            if str(path) not in foreground_children(_record(ancestor)):
+                raise ValueError("cancellation lost its outer foreground association")
+            with record_lock(path, deadline=control_deadline):
+                selected = _record(path)
+                if deadline < selected.get("cancel_deadline", float("inf")):
+                    selected.update(
+                        cancelled=True, cancel_deadline=deadline, cancel_signal=signum
+                    )
+                    write_json(path, selected)
+    return deadline, signum
+
+
+def inherited_cancellation(
+    *, deadline: float, reserve: float = 0
+) -> tuple[float, int] | None:
+    """An exact bound foreground handoff can carry its original control clock."""
+    name = os.environ.get("PSE_NATIVE_HANDOFF")
+    if not name:
+        return None
+    path = Path(name)
+    child = _record(path)
+    if (
+        not child.get("cancelled")
+        or "cancel_deadline" not in child
+        or "cancel_signal" not in child
+    ):
+        return None
+    if type(child["cancel_deadline"]) not in {int, float}:
+        raise ValueError("invalid inherited original cancellation clock")
+    deadline = min(deadline, child["cancel_deadline"] - reserve)
+    parent = foreground_parent(child, path)
+    with record_lock(parent, deadline=deadline):
+        registered = _record(parent)
+        owner = scope_owner(deadline=deadline)
+        from scripts import (
+            host_admission,
+        )
+
+        if (
+            str(path) not in foreground_children(registered)
+            or child.get("foreground") is not True
+            or owner is None
+            or child.get("scope") != owner
+            or child.get("handoff") != owner["unit"]
+            or child.get("scope_inode") != host_admission.group_identity(owner["group"])
+            or type(child["cancel_deadline"]) not in {int, float}
+            or child["cancel_signal"] not in {signal.SIGINT, signal.SIGTERM}
+        ):
+            raise ValueError("original foreground cancellation authority changed")
+    return child["cancel_deadline"], child["cancel_signal"]
+
+
+def acknowledge_composer(registration: tuple[Path, str, str] | None) -> None:
+    if registration is None:
+        return
+    from scripts import resource_store  # noqa: PLC0415 -- durable terminal evidence
+
+    parent, nonce, token = registration
+    deadline = composer_deadline(registration)
+    with record_lock(parent, deadline=deadline):
+        record = _record(parent)
+        composer = composer_registrations(record).get(nonce)
+        if (
+            composer is None
+            or composer.get("token") != token
+            or composer.get("pid") != os.getpid()
+            or composer.get("start") != start_identity(os.getpid())
+        ):
+            raise ValueError("selected terminal composer identity changed")
+        invocation = Path(str(composer["invocation"]))
+        store = resource_store.FileStore(Path(str(composer["registry"])))
+        identity, _terminal = store.terminal(nonce, deadline=deadline)
+        evidence = resource_store.read(invocation.with_suffix(".terminal.json"))
+        composer.update(
+            phase="complete",
+            terminal_identity=identity,
+            evidence_identity=resource_store.digest(evidence),
+        )
+        write_json(parent, record)
+        acknowledge_terminal_guard(
+            parent,
+            nonce,
+            token,
+            record["scope"],
+            identity,
+            composer["evidence_identity"],
+            deadline=deadline,
+        )
+
+
+def acknowledge_terminal_guard(
+    parent: Path,
+    nonce: str,
+    token: str,
+    scope: object,
+    terminal_identity: str,
+    evidence_identity: str,
+    *,
+    deadline: float | None = None,
+) -> None:
+    from scripts import (
+        host_admission as host,
+    )
+
+    allocation = host.inherit(dict(os.environ), deadline=deadline)
+    if allocation is None:
+        raise ValueError("selected acknowledgment lost its host allocation")
+    with host.allocation_metadata(
+        allocation.directory, deadline=deadline, durable=True
+    ) as ledger:
+        allocated = ledger["owners"].get(allocation.nonce)
+        guard = (
+            allocated.get("terminal_guards", {}).get(nonce)
+            if allocated is not None
+            else None
+        )
+        if guard is None or any(
+            guard.get(key) != value
+            for key, value in (
+                ("operation", str(parent)),
+                ("token", token),
+                ("scope", scope),
+            )
+        ):
+            raise ValueError("selected acknowledgment lost its exact host guard")
+        if guard.get("binding") != allocated["units"].get(scope["unit"]):
+            raise ValueError("selected acknowledgment host binding changed")
+        guard.update(
+            phase="acknowledged",
+            terminal_identity=terminal_identity,
+            evidence_identity=evidence_identity,
+        )
+
+
+def request_composer_completion(signum: int, *, deadline: float) -> None:
+    """Request authenticated composers after child drain, before mandatory kill."""
+    parent = owner_record(deadline=deadline)
+    if parent is None:
+        return
+    with record_lock(parent, deadline=deadline):
+        record = _record(parent)
+        selected = {
+            nonce: dict(value)
+            for nonce, value in composer_registrations(record).items()
+        }
+    for nonce, composer in selected.items():
+        admission_remaining(deadline)
+        if composer.get("phase") == "complete":
+            continue
+        pid = composer.get("pid")
+        owner = composer.get("scope")
+        if (
+            type(pid) is not int
+            or owner != record.get("scope")
+            or not isinstance(owner, dict)
+            or composer.get("invocation")
+            != str(
+                Path(str(composer.get("registry"))) / "invocations" / f"{nonce}.json"
+            )
+        ):
+            raise ValueError("contradictory selected terminal process authority")
+        try:
+            descriptor = os.pidfd_open(pid)
+        except ProcessLookupError:
+            with record_lock(parent, deadline=deadline):
+                current = composer_registrations(_record(parent)).get(nonce)
+                if (
+                    current is not None
+                    and current.get("phase") == "complete"
+                    and current.get("token") == composer.get("token")
+                ):
+                    continue
+            raise
+        try:
+            if (
+                start_identity(pid) != composer.get("start")
+                or process_group(pid) != owner["group"]
+            ):
+                raise ValueError("selected terminal process lifetime changed")
+            signal.pidfd_send_signal(descriptor, signum)
+        finally:
+            os.close(descriptor)
+    pending = set(selected)
+    while pending:
+        admission_remaining(deadline)
+        with record_lock(parent, deadline=deadline):
+            current = composer_registrations(_record(parent))
+            for nonce in list(pending):
+                composer = current.get(nonce)
+                if composer is None or any(
+                    composer.get(key) != selected[nonce].get(key)
+                    for key in (
+                        "token",
+                        "pid",
+                        "start",
+                        "scope",
+                        "invocation",
+                        "registry",
+                    )
+                ):
+                    raise ValueError(
+                        "selected terminal association changed during cancellation"
+                    )
+                if composer.get("phase") == "complete":
+                    from scripts import (
+                        resource_store,
+                    )
+
+                    evidence = resource_store.read(
+                        Path(str(composer["invocation"])).with_suffix(".terminal.json")
+                    )
+                    identity, _terminal = resource_store.FileStore(
+                        Path(str(composer["registry"]))
+                    ).terminal(nonce, deadline=deadline)
+                    if composer.get("terminal_identity") != identity or composer.get(
+                        "evidence_identity"
+                    ) != resource_store.digest(evidence):
+                        raise ValueError(
+                            "selected terminal acknowledgment contradicts durable evidence"
+                        )
+                    pending.remove(nonce)
+        if pending:
+            time.sleep(min(0.02, admission_remaining(deadline)))
 
 
 class Operation:
@@ -813,7 +1370,10 @@ class Operation:
             # The payload can return after its validation process was interrupted
             # without signaling this supervisor. Only the creator retires the
             # operation; nested run() calls continue borrowing its live owner.
-            cancel_foreground_handoffs()
+            deadline = _record(self.path).get("cancel_deadline")
+            cancel_foreground_handoffs(
+                **({"deadline": deadline} if deadline is not None else {})
+            )
         finally:
             if self.previous is None:
                 os.environ.pop(MARKER, None)
@@ -990,10 +1550,44 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
     return result
 
 
-def cancel_children(child: subprocess.Popen, signum: int) -> None:
+def cancel_children(
+    child: subprocess.Popen, signum: int, *, deadline: float | None = None
+) -> None:
+    deadline = time.monotonic() + 10 if deadline is None else deadline
+    completion_deadline = deadline - 0.5
     failure = None
     try:
-        cancel_foreground_handoffs()
+        inherited = inherited_cancellation(deadline=completion_deadline, reserve=0.5)
+        if inherited is not None:
+            deadline = min(deadline, inherited[0])
+            completion_deadline = deadline - 0.5
+            signum = inherited[1]
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        failure = error
+        print(
+            f"native-operation: original cancellation authority unresolved: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+    owner = None
+    try:
+        owner = scope_owner(deadline=completion_deadline)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        failure = error
+        print(
+            f"native-operation: own scope authority unresolved: {error}",
+            file=sys.stderr,
+            flush=True,
+        )
+    # Reserve part of the same fixed cancellation clock for the mandatory kill.
+    # Waiting for an acknowledgment may never consume that final kill budget.
+    try:
+        cancel_foreground_handoffs(
+            deadline=completion_deadline,
+            signum=signum,
+            drain_deadline=completion_deadline,
+            cancellation_deadline=deadline,
+        )
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         failure = error
         print(
@@ -1001,7 +1595,15 @@ def cancel_children(child: subprocess.Popen, signum: int) -> None:
             file=sys.stderr,
             flush=True,
         )
-    owner = scope_owner()
+    try:
+        request_composer_completion(signum, deadline=completion_deadline)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        failure = error
+        print(
+            f"native-operation: selected terminal acknowledgment unresolved: {error}; invocation remains identified and pinned",
+            file=sys.stderr,
+            flush=True,
+        )
     if owner is not None:
         # A cancelled native operation drains the whole authentic child scope,
         # including workers which changed sessions after the supervisor spawned.
@@ -1016,7 +1618,11 @@ def cancel_children(child: subprocess.Popen, signum: int) -> None:
                     owner["unit"],
                 ],
                 check=False,
-                timeout=10,
+                env=manager_control_environment(),
+                # Mandatory kill still occurs when the completion clock expired.
+                # Its IPC is bounded by the same remaining clock, with a minimal
+                # nonblocking launch budget after expiry; no child gets a reset.
+                timeout=max(0.001, min(10, deadline - time.monotonic())),
             )
         except (OSError, subprocess.SubprocessError) as error:
             failure = error
@@ -1031,7 +1637,157 @@ def cancel_children(child: subprocess.Popen, signum: int) -> None:
         raise ValueError("native foreground cancellation incomplete") from failure
 
 
-def run(command: list[str], env: dict[str, str]) -> int:
+def cancel_foreground(
+    child: subprocess.Popen,
+    signum: int,
+    handoff: Path,
+    *,
+    deadline: float | None = None,
+) -> tuple[float, int]:
+    """Cancel one authenticated child scope, preserving its terminal supervisor."""
+    failure = None
+    try:
+        deadline = time.monotonic() + 10 if deadline is None else deadline
+        completion_deadline = deadline - 0.5
+        inherited = inherited_cancellation(deadline=completion_deadline, reserve=0.5)
+        if inherited is not None:
+            deadline, signum = min(deadline, inherited[0]), inherited[1]
+            completion_deadline = min(completion_deadline, deadline - 0.5)
+        parent = owner_record(deadline=completion_deadline, reserve=0.5)
+        if parent is None:
+            raise ValueError("foreground cancellation lost its native parent")
+        original = note_composer_cancellation(
+            signum, deadline, control_deadline=completion_deadline
+        )
+        if isinstance(original, tuple):
+            deadline, signum = original
+            completion_deadline = min(completion_deadline, deadline - 0.5)
+        with record_lock(parent, deadline=completion_deadline):
+            registered = _record(parent)
+            deadline = min(deadline, registered["cancel_deadline"])
+            completion_deadline = min(completion_deadline, deadline - 0.5)
+            signum = registered["cancel_signal"]
+            if str(handoff) not in foreground_children(registered):
+                raise ValueError("foreground cancellation lost its registered child")
+            selected = fence_foreground_handoff(
+                str(handoff),
+                parent,
+                deadline=completion_deadline,
+                cancellation_deadline=deadline,
+                signum=signum,
+            )
+            owner = selected.get("scope")
+            if owner is not None and (
+                not isinstance(owner, dict)
+                or owner.get("unit") != selected.get("handoff")
+                or owner == registered.get("scope")
+            ):
+                raise ValueError(
+                    "foreground cancellation has contradictory child ownership"
+                )
+        stop_foreground_handoff(selected, deadline=completion_deadline)
+    except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
+        failure = error
+    finally:
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(child.pid, signum)
+    if failure is not None:
+        raise ValueError("native foreground cancellation incomplete") from failure
+    return deadline, signum
+
+
+def run_child_scope(
+    command: list[str],
+    env: dict[str, str],
+    *,
+    cwd: Path | None = None,
+    observation: dict[str, object] | None = None,
+) -> int:
+    """Borrow the existing finite allocation for a separately drained workload.
+
+    The selected terminal supervisor stays in its enclosing scope. The existing
+    native child entry authenticates its allocation and handoff before payload.
+    No allocation is acquired or released here.
+    """
+    from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+
+    process_observation = observation if observation is not None else {}
+
+    allocation = host_admission.inherit(env)
+    if allocation is None or scope_owner() is None:
+        raise ValueError("selected native workload requires its admitted parent")
+    unit = f"pse-native-{uuid.uuid4().hex}.scope"
+    allocation.register(unit)
+    handoff = prepare_handoff(unit, foreground=True)
+    if handoff is None:
+        raise ValueError("selected native workload has no authenticated handoff")
+    environment = dict(env)
+    environment.pop(MARKER, None)
+    environment["PSE_NATIVE_HANDOFF"] = str(handoff)
+    launch = [
+        "systemd-run",
+        "--user",
+        "--scope",
+        "--quiet",
+        "--collect",
+        "--no-ask-password",
+        "--expand-environment=no",
+        f"--unit={unit}",
+        f"--slice={host_admission.allocation_slice(allocation)}",
+        f"--property=MemoryMax={allocation.profile.memory}",
+        "--property=MemorySwapMax=0",
+        "--",
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--capabilities",
+        "",
+        "--",
+        *command,
+    ]
+    try:
+        return run(
+            launch,
+            environment,
+            cwd=cwd,
+            observation=process_observation,
+            foreground=handoff,
+        )
+    finally:
+        if observation is not None:
+            observation["owned_drain"] = "unresolved"
+        record = _record(handoff)
+        clocks = [
+            process_observation.get("cancellation_deadline"),
+            record.get("cancel_deadline"),
+        ]
+        if record.get("parent") is not None:
+            clocks.append(
+                _record(foreground_parent(record, handoff)).get("cancel_deadline")
+            )
+        clocks = [value for value in clocks if value is not None]
+        deadline = min(clocks) if clocks else None
+        completion = drained(
+            record, **({"deadline": deadline} if deadline is not None else {})
+        )
+        if observation is not None:
+            observation["owned_drain"] = (
+                "complete" if completion.complete else "unresolved"
+            )
+            observation["scope"] = completion.owner
+        if not completion.complete:
+            raise ValueError(
+                completion.diagnostic() + "; selected workload remains charged"
+            )
+
+
+def run(
+    command: list[str],
+    env: dict[str, str],
+    *,
+    cwd: Path | None = None,
+    observation: dict[str, object] | None = None,
+    foreground: Path | None = None,
+) -> int:
     # Only the measured native owner consumes this marker. Its descendants must
     # not overwrite the initial setup or supervisor-return boundaries.
     timing = env.get(BUILD_TIMING)
@@ -1042,38 +1798,116 @@ def run(command: list[str], env: dict[str, str]) -> int:
     if receipt is not None:
         child_env.pop(BUILD_TIMING, None)
         receipt["child_started_monotonic"] = time.monotonic()
-    child = subprocess.Popen(command, env=child_env, start_new_session=True)
+    child: subprocess.Popen | None = None
+    if observation is not None:
+        observation.update(
+            child_pid=None,
+            child_status=None,
+            forwarded_signal=None,
+            owned_drain="unobserved",
+        )
     old_handlers = {}
     cancelling = False
+    received_signal: int | None = None
     cancel_failure: Exception | None = None
+    cancellation_deadline: float | None = None
 
     def cancel(signum: int, _frame: FrameType | None) -> None:
-        nonlocal cancelling, cancel_failure
+        nonlocal cancelling, cancel_failure, received_signal, cancellation_deadline
         if cancelling:
+            return
+        if received_signal is None:
+            received_signal = signum
+            cancellation_deadline = time.monotonic() + 10
+        if observation is not None:
+            observation["forwarded_signal"] = signum
+            observation["cancellation_deadline"] = cancellation_deadline
+        # Popen may be interrupted before returning its owned PID. Remember the
+        # request without raising through creation, then cancel that exact child.
+        if child is None:
             return
         cancelling = True
         try:
-            cancel_children(child, signum)
+            if foreground is None:
+                cancel_children(child, received_signal, deadline=cancellation_deadline)
+            else:
+                original = cancel_foreground(
+                    child, received_signal, foreground, deadline=cancellation_deadline
+                )
+                if isinstance(original, tuple):
+                    cancellation_deadline, received_signal = original
+                    if observation is not None:
+                        observation.update(
+                            cancellation_deadline=cancellation_deadline,
+                            forwarded_signal=received_signal,
+                        )
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
             cancel_failure = error
 
-    for signum in (signal.SIGTERM, signal.SIGINT):
-        old_handlers[signum] = signal.signal(signum, cancel)
+    previous_mask = signal.pthread_sigmask(
+        signal.SIG_BLOCK, {signal.SIGINT, signal.SIGTERM}
+    )
     try:
-        status = child.wait()
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            old_handlers[signum] = signal.signal(signum, cancel)
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+    try:
+        child = subprocess.Popen(
+            command, env=child_env, cwd=cwd, start_new_session=True
+        )
+        if observation is not None:
+            observation["child_pid"] = child.pid
+        if received_signal is not None:
+            cancel(received_signal, None)
+        escalated = False
+        while True:
+            timeout = 0.1
+            if cancellation_deadline is not None:
+                completion_deadline = cancellation_deadline - 0.5
+                if time.monotonic() >= completion_deadline and not escalated:
+                    # Only this Popen's exact new session is escalation authority.
+                    # Keep reaping out of signal handlers: Popen's waitpid lock
+                    # may belong to the interrupted outer wait at that instant.
+                    with contextlib.suppress(ProcessLookupError):
+                        os.killpg(child.pid, signal.SIGKILL)
+                    escalated = True
+                timeout = max(
+                    0,
+                    min(
+                        0.1,
+                        (cancellation_deadline if escalated else completion_deadline)
+                        - time.monotonic(),
+                    ),
+                )
+            try:
+                status = child.wait(timeout=timeout)
+                break
+            except subprocess.TimeoutExpired:
+                if (
+                    cancellation_deadline is not None
+                    and time.monotonic() >= cancellation_deadline
+                ):
+                    raise ValueError(
+                        "Owned direct child did not reap within original cancellation clock"
+                    ) from cancel_failure
+        if observation is not None:
+            observation["child_status"] = status
         if cancel_failure is not None:
             raise ValueError(
                 "native foreground cancellation incomplete"
             ) from cancel_failure
         # A child killed by signal N reports 128+N, as a shell would, rather than
         # a negative status that `SystemExit` would turn into 256-N.
+        if received_signal is not None:
+            return 128 + received_signal
         return 128 - status if status < 0 else status
     finally:
         for signum, handler in old_handlers.items():
             signal.signal(signum, handler)
         if receipt is not None and timing is not None:
             receipt["child_finished_monotonic"] = time.monotonic()
-            status = child.returncode
+            status = child.returncode if child is not None else None
             receipt["child_exit_code"] = (
                 128 - status if status is not None and status < 0 else status
             )

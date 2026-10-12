@@ -1,0 +1,14 @@
+[package]
+name = "plan36-numerical-probe"
+version = "0.0.0"
+edition = "2024"
+[workspace]
+[dependencies]
+symbolica = { version = "=3.0.1", default-features = false, features = [
+  "integer-gmp",
+  "float-mpfr",
+] }
+faer = { version = "=0.24.4", default-features = false, features = [
+  "std",
+  "sparse-linalg",
+] }

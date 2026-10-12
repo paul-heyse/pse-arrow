@@ -67,3 +67,46 @@ def test_stored_registry_values_are_checked_even_when_identity_is_unchanged(
     assert changed["relation_id"] == original["relation_id"]
     with pytest.raises(cattrs.BaseValidationError):
         structure_rows([changed], ReferenceSchemaRelationsRow)
+
+
+@pytest.mark.component
+def test_python_controlled_table_pull_has_exact_schema_eof_and_one_consumption(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    stream = pse.registry_table(
+        "reference.schema_relations", settings=inspection_settings
+    )
+    schema = pa.schema(stream)
+    first = stream.next_batch()
+    assert first is not None
+    assert first.schema == schema
+    expected = registry_rows("schema_relations", inspection_settings)
+    batches = [first, *stream]
+    assert pa.Table.from_batches(batches, schema=schema).to_pylist() == expected
+    assert stream.next_batch() is None
+    with pytest.raises(pse.InspectionError, match="already consumed"):
+        stream.__arrow_c_stream__()
+    stream.close()
+    assert first.to_pylist() == expected
+
+
+@pytest.mark.component
+def test_capsule_consumption_refuses_controlled_pull_and_cancel_is_not_eof(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    stream = pse.registry_table(
+        "reference.schema_relations", settings=inspection_settings
+    )
+    reader = pa.RecordBatchReader.from_stream(stream)
+    with pytest.raises(pse.InspectionError, match="already consumed"):
+        stream.next_batch()
+    assert reader.read_next_batch().num_rows > 0
+    reader.close()
+    stream.close()
+    cancelled = pse.registry_table(
+        "reference.schema_relations", settings=inspection_settings
+    )
+    cancelled.cancel()
+    with pytest.raises(pse.InspectionError, match="cancelled"):
+        cancelled.next_batch()
+    assert cancelled.failure is not None

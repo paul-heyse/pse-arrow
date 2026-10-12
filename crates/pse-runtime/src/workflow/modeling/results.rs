@@ -348,19 +348,73 @@ impl ModelingResult {
         }))
     }
     fn prediction_sample(&self) -> Result<PredictionSample, WorkflowError> {
-        let receipt = self
-            .portable_prediction()?
-            .ok_or_else(|| contract("prediction needs an original-permitted native point"))?;
-        Ok(PredictionSample {
-            prepared: self.prepared.clone(),
+        self.retained_prediction_sample()?
+            .ok_or_else(|| contract("prediction needs an original-permitted native point"))
+    }
+    /// Copy only original-permitted portable coordinates under their own grant.
+    /// No complete numerical report owner is retained by a continuation sample.
+    pub(in crate::workflow) fn retained_prediction_sample(
+        &self,
+    ) -> Result<Option<PredictionSample>, WorkflowError> {
+        if !self.completion.decision.permits_use() {
+            return Ok(None);
+        }
+        let Outcome::Native(report) = &self.outcome else {
+            return Ok(None);
+        };
+        let Some(candidate) = &report.candidate else {
+            return Ok(None);
+        };
+        // Count borrowed original permission before cloning any Vec/string; the
+        // fixed envelope and coordinate/value bounds cover the portable point and
+        // shared prepared/sample wrappers. Root factor storage retains its own owner.
+        let permission_owner = super::super::durable::completion_retention_owner(
+            &self.runtime.shared.pool(),
+            &self.completion.decision,
+        )?;
+        let extent = report.variables.len().checked_mul(size_of::<SemanticId>())
+            .and_then(|n| n.checked_add(candidate.primal.len().checked_mul(size_of::<u64>())?))
+            .and_then(|n| n.checked_add(report.observation.as_ref().map_or(0, |value| value.values.len())
+                .checked_mul(size_of::<u64>())?))
+            // Keep the original modeling-result copy allowance for cloned
+            // source values/starts/profile metadata (result_bytes), rather than
+            // treating the small portable point as the entire copied source.
+            // This is a conservative copy grant, not the old native-report owner.
+            .and_then(|n| n.checked_add(self._owner.size()))
+            .and_then(|n| n.checked_add(size_of::<ModelingSolvePreparation>()))
+            .and_then(|n| n.checked_add(4096))
+            .ok_or_else(|| contract("retained prediction sample extent"))?;
+        let point_owner = self
+            .runtime
+            .native()
+            .reserve("modeling:retained-prediction-sample", extent)?;
+        let Some(receipt) = self.portable_prediction()? else {
+            return Ok(None);
+        };
+        let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> = vec![permission_owner, point_owner];
+        // Construct explicitly: cloning the whole preparation first would copy
+        // old recovery inventories/task handles before replacing its solve.
+        let prepared = ModelingSolvePreparation {
+            stored_seed_owner: None,
+            bound_source: self.prepared.bound_source.clone(),
+            model: self.prepared.model.clone(),
+            solve: self.prepared.solve.prediction_source_copy(),
+            starts: self.prepared.starts.clone(),
+            providers: self.prepared.providers.clone(),
+            source: self.prepared.source.clone(),
+            compiler: self.prepared.compiler,
+            profile: self.prepared.profile.clone(),
+        };
+        Ok(Some(PredictionSample {
+            prepared,
             runtime: self.runtime.clone(),
             point: Arc::new(pse_columnar::Leased::new(
                 Arc::new(receipt),
-                self._native_owner.clone(),
+                Arc::new(owners),
             )),
             _projection_owner: None,
             root: self.root_predictor(),
-        })
+        }))
     }
     /// Track a genuinely demanded parameter change with a retained original KKT factor.
     /// Coverage and work remain library observations; this endpoint needs original correction.
@@ -1576,7 +1630,7 @@ impl ModelingResult {
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown modeling result relation"))?
             .id;
@@ -1590,7 +1644,7 @@ impl ModelingResult {
     ) -> Result<crate::workflow::ResultCursor<'_>, WorkflowError> {
         let id = self
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown modeling result relation"))?
             .id;
@@ -1604,7 +1658,7 @@ impl ModelingResult {
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
         let runtime = &self.runtime;
         let id = runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown result relation"))?
             .id;
@@ -1615,10 +1669,10 @@ impl ModelingResult {
             return Err(WorkflowError::Shared(error));
         }
         let spec = runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("result declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -1646,10 +1700,10 @@ impl ModelingResult {
         }
         let spec = self
             .runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("modeling result declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&self.runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -1670,10 +1724,10 @@ impl ModelingResult {
     ) -> Result<(), WorkflowError> {
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context()?;
+        let validation = self.runtime.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            &self.runtime.registry,
+            self.runtime.registry(),
             &pool,
             &cancel,
             &validation,

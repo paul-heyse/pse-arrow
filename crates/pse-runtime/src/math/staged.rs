@@ -10,6 +10,9 @@
 //! job slot, stack and worker share until it closes; closing joins the thread, which
 //! witnesses native and thread-local destruction.
 use super::{MathRuntimeError, MathService, WorkerBudget};
+mod driver;
+#[cfg(any(test, feature = "solver-kinsol"))]
+pub(crate) use driver::LocalOperation;
 use pse_backend_native::{
     ProblemError,
     execution::{self, BackendExecution, Retained},
@@ -227,19 +230,22 @@ type Work = Box<dyn FnOnce(Result<&mut Retained, ProblemError>) + Send>;
 /// actual execution clock before the guarded native operation begins.
 #[derive(Clone, Debug)]
 pub(super) struct ComputeOwner {
+    jobs: Arc<tokio::sync::Semaphore>,
     cpu: Arc<tokio::sync::Semaphore>,
     cores: u32,
-    permit: Arc<std::sync::Mutex<Option<tokio::sync::OwnedSemaphorePermit>>>,
+    permit: Arc<std::sync::Mutex<Option<super::jobs::ActivePermits>>>,
     runtime: tokio::runtime::Handle,
 }
 impl ComputeOwner {
     pub(super) fn new(
+        jobs: Arc<tokio::sync::Semaphore>,
         cpu: Arc<tokio::sync::Semaphore>,
         cores: u32,
-        permit: tokio::sync::OwnedSemaphorePermit,
+        permit: super::jobs::ActivePermits,
         runtime: tokio::runtime::Handle,
     ) -> Self {
         Self {
+            jobs,
             cpu,
             cores,
             permit: Arc::new(std::sync::Mutex::new(Some(permit))),
@@ -254,42 +260,247 @@ impl execution::ComputeAdmission for ComputeOwner {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .take();
     }
+    fn try_resume(
+        &mut self,
+        execution: &pse_backend_native::solve::Execution,
+    ) -> Result<execution::ComputeAvailability, ProblemError> {
+        execution.check()?;
+        let mut held = self
+            .permit
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if held.is_some() {
+            return Ok(execution::ComputeAvailability::Acquired);
+        }
+        *held = super::jobs::try_active(&self.jobs, &self.cpu, self.cores)
+            .map_err(MathRuntimeError::into_problem)?;
+        execution.check().inspect_err(|_| {
+            held.take();
+        })?;
+        Ok(if held.is_some() {
+            execution::ComputeAvailability::Acquired
+        } else {
+            execution::ComputeAvailability::Unavailable
+        })
+    }
     fn resume(
         &mut self,
         execution: &pse_backend_native::solve::Execution,
     ) -> Result<(), ProblemError> {
-        execution.check()?;
-        if self
-            .permit
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .is_some()
-        {
-            return Ok(());
-        }
-        let permit = self.runtime.block_on(async {
-            let acquire = self.cpu.clone().acquire_many_owned(self.cores);
-            tokio::pin!(acquire);
+        // Retry complete pairs, without a queued large CPU request blocking smaller work.
+        let runtime = self.runtime.clone();
+        runtime.block_on(async {
             loop {
-                execution.check()?;
-                tokio::select! {
-                    permit = &mut acquire => return permit.map_err(|_| ProblemError::internal("CPU admission closed")),
-                    () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {}
+                if self.try_resume(execution)? == execution::ComputeAvailability::Acquired {
+                    return Ok(());
                 }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
-        })?;
-        *self
-            .permit
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(permit);
-        execution.check()
+        })
     }
+}
+struct OperationContext {
+    #[cfg(any(test, feature = "solver-kinsol"))]
+    lane: Arc<super::jobs::PopulationLane>,
+    _usage: Option<super::jobs::PopulationUse>,
+    #[cfg(any(test, feature = "solver-kinsol"))]
+    runtime: tokio::runtime::Handle,
+}
+// The only reusable scratch owner is the actual native session thread. Nothing
+// inherits this association through Tokio tasks or crosses a worker-thread boundary.
+thread_local! {
+    static SCRATCH_LANE: std::cell::RefCell<Option<ScratchLane>> = const { std::cell::RefCell::new(None) };
+}
+#[derive(Clone)]
+pub(super) struct ScratchOrigin {
+    lane: Arc<()>,
+    request: u64,
+    thread: std::thread::ThreadId,
+}
+struct ScratchEntry {
+    origin: ScratchOrigin,
+    case: Arc<super::ExecutableCase>,
+    scratch: pse_math::assembly::CaseScratch,
+    charge: super::WorkerCharge,
+}
+struct ScratchLane {
+    identity: Arc<()>,
+    request: u64,
+    completed: u64,
+    active: bool,
+    enabled: bool,
+    pending: Option<ScratchEntry>,
+    ready: Option<ScratchEntry>,
+}
+impl ScratchLane {
+    fn new() -> Self {
+        Self {
+            identity: Arc::new(()),
+            request: 0,
+            completed: 0,
+            active: false,
+            enabled: true,
+            pending: None,
+            ready: None,
+        }
+    }
+    fn clear(&mut self) {
+        self.enabled = false;
+        self.pending = None;
+        self.ready = None;
+    }
+    fn begin(&mut self) {
+        // A finite session cannot realistically exhaust this counter; refusing
+        // further recycling at saturation preserves ownership without wrapping.
+        if let Some(next) = self.request.checked_add(1) {
+            self.request = next;
+            self.active = true;
+            self.enabled = true;
+        } else {
+            self.clear();
+        }
+    }
+    fn finish(&mut self) {
+        self.active = false;
+        self.completed = self.request;
+        let promotable = self.pending.as_ref().is_some_and(|entry| {
+            self.enabled && entry.origin.request <= self.completed && entry.charge.exclusive()
+        });
+        if !promotable {
+            return;
+        }
+        let Some(entry) = self.pending.take() else {
+            return;
+        };
+        let ScratchEntry {
+            origin,
+            case,
+            scratch,
+            charge,
+        } = entry;
+        // Reserve all reset overlap before Symbolica allocates a replacement stack.
+        // Refusal/panic destroys the candidate and leaves no old controls alive.
+        let Ok(overlap) = charge.reset_overlap() else {
+            return;
+        };
+        let reset = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scratch.reset()));
+        drop(overlap);
+        if let Ok(Ok(scratch)) = reset {
+            self.ready = Some(ScratchEntry {
+                origin,
+                case,
+                scratch,
+                charge,
+            });
+        }
+    }
+}
+struct ScratchLaneGuard;
+impl ScratchLaneGuard {
+    fn install() -> Self {
+        SCRATCH_LANE.with(|slot| *slot.borrow_mut() = Some(ScratchLane::new()));
+        Self
+    }
+}
+impl Drop for ScratchLaneGuard {
+    fn drop(&mut self) {
+        SCRATCH_LANE.with(|slot| {
+            slot.borrow_mut().take();
+        });
+    }
+}
+pub(super) fn scratch_origin() -> Option<ScratchOrigin> {
+    SCRATCH_LANE.with(|slot| {
+        let lane = slot.borrow();
+        lane.as_ref()
+            .filter(|lane| lane.active && lane.enabled)
+            .map(|lane| ScratchOrigin {
+                lane: lane.identity.clone(),
+                request: lane.request,
+                thread: std::thread::current().id(),
+            })
+    })
+}
+pub(super) fn take_scratch(
+    origin: &ScratchOrigin,
+    case: &Arc<super::ExecutableCase>,
+    budget: &WorkerBudget,
+    bytes: usize,
+) -> Option<(pse_math::assembly::CaseScratch, super::WorkerCharge)> {
+    SCRATCH_LANE.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let lane = slot.as_mut()?;
+        if !lane.active
+            || !lane.enabled
+            || !Arc::ptr_eq(&lane.identity, &origin.lane)
+            || origin.request != lane.request
+            || origin.thread != std::thread::current().id()
+        {
+            return None;
+        }
+        let entry = lane.ready.take()?;
+        if entry.origin.request >= origin.request
+            || !entry.charge.exclusive()
+            || !Arc::ptr_eq(case, &entry.case)
+            || !entry.scratch.compatible(&case.assembly)
+            || !entry.charge.compatible(budget, bytes)
+        {
+            return None;
+        }
+        Some((entry.scratch, entry.charge))
+    })
+}
+pub(super) fn yield_idle_scratch(budget: &WorkerBudget) -> bool {
+    SCRATCH_LANE.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let Some(lane) = slot.as_mut() else {
+            return false;
+        };
+        if lane
+            .ready
+            .as_ref()
+            .is_some_and(|entry| entry.charge.belongs_to(budget))
+        {
+            lane.ready = None;
+            true
+        } else {
+            false
+        }
+    })
+}
+pub(super) fn return_scratch(
+    origin: ScratchOrigin,
+    case: Arc<super::ExecutableCase>,
+    scratch: pse_math::assembly::CaseScratch,
+    charge: super::WorkerCharge,
+) {
+    if origin.thread != std::thread::current().id() {
+        return;
+    }
+    // A teardown after lane retirement or on another thread destroys storage. The
+    // recycler never creates a new lane, task registration or permission source.
+    let _ = SCRATCH_LANE.try_with(|slot| {
+        if let Ok(mut slot) = slot.try_borrow_mut() {
+            if let Some(lane) = slot
+                .as_mut()
+                .filter(|lane| lane.enabled && Arc::ptr_eq(&lane.identity, &origin.lane))
+            {
+                lane.pending = Some(ScratchEntry {
+                    origin,
+                    case,
+                    scratch,
+                    charge,
+                });
+            }
+        }
+    });
 }
 struct Request {
     /// Admitted native threads of this step, which size adapter scopes.
     threads: usize,
     /// Adapter whose scope the step's native state must live in.
     backends: Vec<Backend>,
+    scope_owner: Option<Arc<pse_columnar::AllocationLease>>,
     work: Work,
 }
 /// Adapter scopes currently entered on the session thread.
@@ -319,7 +530,11 @@ impl Scope {
 /// Serve steps until the session closes. Native state is built and torn down inside the
 /// scopes of the adapters that own it; a step needing another scope ends the current one
 /// (dropping retained state there) and re-enters with the extended set.
-fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, service: &MathService) {
+fn serve(
+    receiver: &std::sync::Mutex<mpsc::Receiver<Request>>,
+    service: &MathService,
+    current: &std::sync::Mutex<Scope>,
+) {
     let stack = service.policy.stack_bytes;
     let mut pending: Option<Request> = None;
     let mut scope = Scope {
@@ -327,6 +542,9 @@ fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, service: &MathSer
         threads: 1,
     };
     loop {
+        *current
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = scope.clone();
         let adapters: Vec<&dyn BackendExecution> = scope
             .backends
             .iter()
@@ -338,24 +556,49 @@ fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, service: &MathSer
         // outside `scoped`, whose scoped pools join all threads before it returns.
         let team_owner =
             execution::scope_stack_bytes(&adapters, scope.threads, stack).and_then(|bytes| {
-                service
-                    .reserve("math:native-scope-stacks", bytes)
-                    .map_err(MathRuntimeError::into_problem)
+                match pending
+                    .as_mut()
+                    .and_then(|request| request.scope_owner.take())
+                {
+                    Some(owner) if owner.size() >= bytes => Ok(owner),
+                    Some(_) => Err(ProblemError::Contract(
+                        "native scope exceeds pre-admitted stacks".into(),
+                    )),
+                    None if bytes == 0 => service
+                        .reserve("math:native-scope-stacks", 0)
+                        .map_err(MathRuntimeError::into_problem),
+                    None => Err(ProblemError::Contract(
+                        "native scope has no pre-admitted stacks".into(),
+                    )),
+                }
             });
         let exit = match team_owner {
             Ok(_team_owner) => execution::scoped(&adapters, scope.threads, stack, || {
+                let _scratch_lane = ScratchLaneGuard::install();
                 let mut retained = Retained::default();
                 loop {
-                    let request = match pending.take() {
+                    if pending.is_none() && service.pressure.active() {
+                        SCRATCH_LANE.with(|slot| {
+                            if let Some(lane) = slot.borrow_mut().as_mut() {
+                                lane.clear();
+                            }
+                        });
+                        retained.clear();
+                        retained.release();
+                        if entered.threads != 1 || !entered.backends.is_empty() {
+                            return Ok(Some(Scope {
+                                backends: Vec::new(),
+                                threads: 1,
+                            }));
+                        }
+                    }
+                    let mut request = match pending.take() {
                         Some(request) => request,
                         // Only this thread receives; the lock lends the receiver to the scope.
-                        None => match receiver.lock().map(|r| {
-                            if retained.backend() == Some(Backend::Highs) {
-                                r.recv_timeout(std::time::Duration::from_millis(10))
-                            } else {
-                                r.recv().map_err(|_| mpsc::RecvTimeoutError::Disconnected)
-                            }
-                        }) {
+                        None => match receiver
+                            .lock()
+                            .map(|r| r.recv_timeout(std::time::Duration::from_millis(10)))
+                        {
                             Ok(Ok(request)) => request,
                             Ok(Err(mpsc::RecvTimeoutError::Timeout)) => {
                                 if execution::scheduler_waiting() {
@@ -378,7 +621,25 @@ fn serve(receiver: &std::sync::Mutex<mpsc::Receiver<Request>>, service: &MathSer
                     if execution::scheduler_waiting() {
                         retained.relinquish_scheduler();
                     }
+                    drop(request.scope_owner.take());
+                    SCRATCH_LANE.with(|slot| {
+                        if let Some(lane) = slot.borrow_mut().as_mut() {
+                            lane.begin();
+                            if service.pressure.active() {
+                                lane.clear();
+                            }
+                        }
+                    });
                     (request.work)(Ok(&mut retained));
+                    SCRATCH_LANE.with(|slot| {
+                        if let Some(lane) = slot.borrow_mut().as_mut() {
+                            if service.pressure.active() {
+                                lane.clear();
+                            } else {
+                                lane.finish();
+                            }
+                        }
+                    });
                 }
             }),
             Err(error) => Err(error),
@@ -412,6 +673,9 @@ impl Drop for Stop {
 /// A worker-owned native session shared by the steps of one staged sequence.
 #[derive(Debug)]
 pub(crate) struct NativeSession {
+    population: Arc<super::jobs::PopulationLane>,
+    dispatch: Arc<tokio::sync::Semaphore>,
+    scope: Arc<std::sync::Mutex<Scope>>,
     service: Arc<MathService>,
     sender: Option<mpsc::Sender<Request>>,
     joined: Option<tokio::sync::oneshot::Receiver<()>>,
@@ -437,8 +701,13 @@ impl MathService {
             .jobs
             .clone()
             .try_acquire_owned()
-            .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
-        self.session_on(slot)
+            .map_err(|error| match error {
+                tokio::sync::TryAcquireError::Closed => {
+                    MathRuntimeError::Limit("native population closed")
+                }
+                tokio::sync::TryAcquireError::NoPermits => MathRuntimeError::Limit("native jobs"),
+            })?;
+        self.session_on(Arc::new(slot))
     }
     /// Open a native session for durable work. One population ticket bounds its wait
     /// for memory; no admission waiter sits outside the deployment's job limit.
@@ -454,7 +723,12 @@ impl MathService {
             .jobs
             .clone()
             .try_acquire_owned()
-            .map_err(|_| MathRuntimeError::Limit("native jobs"))?;
+            .map_err(|error| match error {
+                tokio::sync::TryAcquireError::Closed => {
+                    MathRuntimeError::Limit("native population closed")
+                }
+                tokio::sync::TryAcquireError::NoPermits => MathRuntimeError::Limit("native jobs"),
+            })?;
         let bytes = self.session_bytes()?;
         let control = pse_columnar::flight::FlightCancellation::default();
         let lease = tokio::select! {
@@ -467,7 +741,7 @@ impl MathService {
         cancel
             .checkpoint()
             .map_err(|_| MathRuntimeError::Cancelled)?;
-        self.session_on_reserved(slot, lease)
+        self.session_on_reserved(Arc::new(slot), lease)
     }
     fn session_bytes(&self) -> Result<usize, MathRuntimeError> {
         // The session thread's inner-solve session cache is held within its lease (I14);
@@ -480,7 +754,7 @@ impl MathService {
     }
     fn session_on(
         self: &Arc<Self>,
-        slot: tokio::sync::OwnedSemaphorePermit,
+        slot: Arc<tokio::sync::OwnedSemaphorePermit>,
     ) -> Result<NativeSession, MathRuntimeError> {
         let bytes = self.session_bytes()?;
         let lease = self.reserve("math:native-session", bytes)?;
@@ -488,13 +762,18 @@ impl MathService {
     }
     fn session_on_reserved(
         self: &Arc<Self>,
-        slot: tokio::sync::OwnedSemaphorePermit,
+        slot: Arc<tokio::sync::OwnedSemaphorePermit>,
         lease: Arc<pse_columnar::AllocationLease>,
     ) -> Result<NativeSession, MathRuntimeError> {
         let sessions = self.policy.inner_session_bytes;
         let (sender, receiver) = mpsc::channel::<Request>();
         let stack = self.policy.stack_bytes;
         let service = self.clone();
+        let scope = Arc::new(std::sync::Mutex::new(Scope {
+            backends: Vec::new(),
+            threads: 1,
+        }));
+        let native_scope = scope.clone();
         let thread = std::thread::Builder::new()
             .name("pse-math".into())
             .stack_size(stack)
@@ -503,18 +782,25 @@ impl MathService {
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let _ = sessions;
-                serve(&std::sync::Mutex::new(receiver), &service)
+                serve(&std::sync::Mutex::new(receiver), &service, &native_scope)
             })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         let (joined, receiver) = tokio::sync::oneshot::channel();
+        let population = super::jobs::PopulationLane::new(self.jobs.clone(), slot.clone());
+        let joined_population = population.clone();
         tokio::spawn(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
             let _ = tokio::task::spawn_blocking(move || thread.join()).await;
             drop(lease);
+            joined_population.drain().await;
+            drop(joined_population);
             drop(slot);
             let _ = joined.send(());
         });
         Ok(NativeSession {
+            population,
+            dispatch: Arc::new(tokio::sync::Semaphore::new(1)),
+            scope,
             service: self.clone(),
             sender: Some(sender),
             joined: Some(receiver),
@@ -523,6 +809,17 @@ impl MathService {
     }
 }
 impl NativeSession {
+    /// Lend this idle lane's ticket to directly awaited preparation. Independent spawned
+    /// tasks cannot inherit it; an exclusive loan survives through actual child join.
+    pub(crate) async fn prepare<T>(
+        &mut self,
+        work: impl Future<Output = T>,
+    ) -> Result<T, MathRuntimeError> {
+        if !self.population.idle() {
+            return Err(MathRuntimeError::Limit("native session is not quiescent"));
+        }
+        Ok(super::jobs::population_scope(self.population.clone(), work).await)
+    }
     /// Run one step on the session thread with the retained native state, under its own
     /// CPU admission of `cores` permits. `backend` names the adapter whose scope the step's
     /// native state belongs to. Cancelling `cancel` (or dropping the returned future) sets
@@ -607,6 +904,33 @@ impl NativeSession {
         + Send
         + 'static,
     ) -> Result<T, MathRuntimeError> {
+        self.run_task_context(
+            cores,
+            backends,
+            deadline,
+            enclosing,
+            cancel,
+            move |retained, flag, budget, _| work(retained, flag, budget),
+        )
+        .await
+    }
+    /// A prepared task supplies the cancellation owner and clock consumed by every rung.
+    async fn run_task_context<T: Send + 'static>(
+        &self,
+        cores: usize,
+        backends: Vec<Backend>,
+        deadline: Option<std::time::Instant>,
+        enclosing: Option<pse_kernels::ExecutionScope>,
+        cancel: &crate::CancelSource,
+        work: impl FnOnce(
+            &mut Retained,
+            &Arc<AtomicBool>,
+            &Arc<WorkerBudget>,
+            &mut OperationContext,
+        ) -> Result<T, MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<T, MathRuntimeError> {
         if cores == 0 || cores > self.service.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -629,20 +953,59 @@ impl NativeSession {
                 None => std::future::pending::<pse_kernels::ProviderError>().await,
             }
         };
-        let permits = tokio::select! {
-            permits = self.service.cpu.clone().acquire_many_owned(cores as u32) => {
-                permits.map_err(|_| MathRuntimeError::Limit("CPU admission closed"))?
+        tokio::pin!(expires, task_stop);
+        let dispatch = tokio::select! {
+            dispatch = self.dispatch.clone().acquire_owned() => dispatch.map_err(|_| MathRuntimeError::Limit("native dispatch closed"))?,
+            () = cancel.cancelled() => return Err(MathRuntimeError::Cancelled),
+            () = &mut expires => return Err(MathService::admission_timeout()),
+            error = &mut task_stop => return Err(ProblemError::Provider(error).into()),
+        };
+        let usage = self.population.claim()?;
+        // A dispatch owner observes one stable lane. Idle pressure may only shrink the
+        // entered scope, so a stale union is a conservative construction reservation.
+        let next = {
+            let scope = self
+                .scope
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut next = scope.clone();
+            next.threads = cores;
+            for backend in &backends {
+                if !next.backends.contains(backend) {
+                    next.backends.push(*backend);
+                }
             }
+            next
+        };
+        let adapters = next
+            .backends
+            .iter()
+            .map(|backend| execution::adapter(*backend))
+            .collect::<Vec<_>>();
+        let stacks =
+            execution::scope_stack_bytes(&adapters, next.threads, self.service.policy.stack_bytes)?;
+        let control = pse_columnar::flight::FlightCancellation::default();
+        let (reservation, permits) = tokio::select! {
+            permits = self.service.reserve_active("math:native-scope-stacks", cores as u32, stacks, &control, admission_deadline) => permits?,
             () = cancel.cancelled() => {
                 if let Some(scope)=&enclosing {scope.cancellation().store(true,Ordering::Release);}
                 return Err(MathRuntimeError::Cancelled);
             },
-            () = expires => return Err(ProblemError::Limit {
+            () = &mut expires => return Err(ProblemError::Limit {
                 kind:pse_backend_native::LimitKind::Time,
                 detail:"native CPU admission deadline".into(),
             }.into()),
-            error=task_stop=>return Err(ProblemError::Provider(error).into()),
+            error=&mut task_stop=>return Err(ProblemError::Provider(error).into()),
         };
+        cancel
+            .checkpoint()
+            .map_err(|_| MathRuntimeError::Cancelled)?;
+        if std::time::Instant::now() >= admission_deadline {
+            return Err(MathService::admission_timeout());
+        }
+        if let Some(scope) = &enclosing {
+            scope.check().map_err(ProblemError::Provider)?;
+        }
         let flag = enclosing.as_ref().map_or_else(
             || Arc::new(AtomicBool::new(false)),
             |scope| scope.cancellation().clone(),
@@ -651,6 +1014,7 @@ impl NativeSession {
         let budget = self.budget.clone();
         let (reply, result) = tokio::sync::oneshot::channel();
         let compute = ComputeOwner::new(
+            self.service.active_jobs.clone(),
             self.service.cpu.clone(),
             cores as u32,
             permits,
@@ -660,10 +1024,24 @@ impl NativeSession {
         let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
         #[cfg(feature = "canonical-tests")]
         let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
+        let scope_owner = pse_columnar::AllocationLease::new(reservation.split(stacks));
+        #[cfg(any(test, feature = "solver-kinsol"))]
+        let lane = self.population.clone();
+        #[cfg(any(test, feature = "solver-kinsol"))]
+        let runtime = tokio::runtime::Handle::current();
         let request = Request {
             threads: cores,
             backends,
+            scope_owner: Some(scope_owner),
             work: Box::new(move |retained| {
+                let mut context = OperationContext {
+                    #[cfg(any(test, feature = "solver-kinsol"))]
+                    lane,
+                    _usage: Some(usage),
+                    #[cfg(any(test, feature = "solver-kinsol"))]
+                    runtime,
+                };
+                let _dispatch = dispatch;
                 let outcome = execution::compute_scoped(Box::new(compute), || match retained {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -674,7 +1052,7 @@ impl NativeSession {
                             if let Some(entry) = entry {
                                 entry(&flag);
                             }
-                            work(retained, &flag, &budget)
+                            work(retained, &flag, &budget, &mut context)
                         })) {
                             Ok(outcome) => outcome,
                             Err(_) => {
@@ -688,6 +1066,8 @@ impl NativeSession {
                     }
                     Err(error) => Err(error.into()),
                 });
+                drop(context);
+                drop(_dispatch);
                 let _ = reply.send(outcome);
             }),
         };
@@ -708,12 +1088,43 @@ impl NativeSession {
         stop.0 = None;
         outcome.map_err(|_| MathRuntimeError::Infrastructure("lost native session step".into()))?
     }
-    /// Resolve one owner-bound operation at a time. Async preparation never runs inside
-    /// the native worker, and no retry obtains a new task clock or work allowance.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the common step binds its admitted scientific task"
-    )]
+    /// Run a complete serial sequence on this native owner. Child preparation may
+    /// borrow its population only at an explicit quiescent boundary; no block dispatch
+    /// crosses the owner channel, and retained state dies before serial scope guards.
+    #[cfg(any(test, feature = "solver-kinsol"))]
+    pub(crate) async fn sequence<T: Send + 'static>(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+        controls: pse_backend_native::solve::Controls,
+        cancel: &crate::CancelSource,
+        work: impl FnOnce(&LocalOperation<'_>) -> Result<T, MathRuntimeError> + Send + 'static,
+    ) -> Result<T, MathRuntimeError> {
+        let service = self.service.clone();
+        let local_scope = scope.clone();
+        self.run_task_context(
+            1,
+            Vec::new(),
+            scope.deadline(),
+            Some(scope),
+            cancel,
+            move |retained, flag, budget, context| {
+                retained.clear();
+                retained.release();
+                let local = LocalOperation::new(
+                    service,
+                    retained,
+                    context,
+                    flag.clone(),
+                    budget.clone(),
+                    local_scope,
+                    controls,
+                )?;
+                work(&local)
+            },
+        )
+        .await
+    }
+    /// Resolve the existing full strategy on this session's dispatch lane.
     pub(crate) async fn step<T: Send + 'static>(
         &self,
         step: super::solves::PreparedSolve,
@@ -730,1299 +1141,11 @@ impl NativeSession {
         + Send
         + 'static,
     ) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
-        use super::strategy::accuracy_refinement::{Decision, Progress as AccuracyProgress};
-        use pse_model::generated::enums::AccuracyUnavailableReason as U;
-        // Existing journeys without requested output evidence take exactly the
-        // same path, with no additional assessment, factor or admission owner.
-        if step.numerics().policy.goals.is_empty() {
-            return self
-                .step_initial(step, previous, attempt, progress, owner, cancel, assess)
-                .await;
+        driver::StepDriver {
+            service: self.service.clone(),
+            dispatcher: self,
         }
-        let request = step.composition_request();
-        request
-            .validate()
-            .map_err(|e| ProblemError::Contract(e.to_string()))?;
-        let deadline = std::time::Instant::now()
-            .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("accuracy task deadline extent".into()))?;
-        let scope = step
-            .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline)));
-        let mut limits = request
-            .limits
-            .unwrap_or_else(|| step.numerical_strategy().limits);
-        if request.limits.is_none() && !step.composition_is_declared() {
-            if let Some(admission) = step.task_admission() {
-                limits = admission.limits()?;
-            } else {
-                limits.attempts = step.automatic_attempt_capacity(scope.cancellation())?;
-            }
-            if step.task_admission().is_none()
-                && step.numerics().policy.goals.iter().any(|goal| goal.refine)
-            {
-                // A requested goal admits one default original correction before
-                // the first dispatch. The same finite owner applies throughout;
-                // explicit counters and an enclosing admission are never enlarged.
-                limits.attempts = limits
-                    .attempts
-                    .checked_add(1)
-                    .ok_or_else(|| ProblemError::memory("accuracy default attempt capacity"))?;
-            }
-        }
-        let admission = step.task_admission().unwrap_or_else(|| {
-            super::strategy::admission::TaskAdmission::new_for(
-                limits,
-                scope.clone(),
-                &self.service,
-                step.declared_foreign_bytes() > 0,
-            )
-        });
-        let step = step.within_admitted_task(scope.clone(), admission.clone())?;
-        let assess = Arc::new(std::sync::Mutex::new(assess));
-        let signal = Arc::new(std::sync::Mutex::new(AccuracySignal::<T> {
-            original_satisfied: false,
-            goals: Vec::new(),
-            stop: None,
-        }));
-        let callback = accuracy_assessor(assess.clone(), signal.clone());
-        let mut result = self
-            .step_initial(
-                step.clone(),
-                previous,
-                attempt,
-                progress.clone(),
-                owner.clone(),
-                cancel,
-                callback,
-            )
-            .await?;
-        let mut accuracy_progress = AccuracyProgress::default();
-        loop {
-            let (goals, stop, decision) = {
-                let observed = signal.lock().map_err(|_| {
-                    ProblemError::Internal("accuracy assessment owner panicked".into())
-                })?;
-                let goals = observed.goals.clone();
-                let decision = accuracy_progress.next(observed.original_satisfied, &goals);
-                (goals, observed.stop, decision)
-            };
-            let stopped = match decision {
-                Decision::Finish => break,
-                Decision::Stop(reason) => Some(reason),
-                Decision::Refine => {
-                    scope.check().map_err(ProblemError::Provider)?;
-                    if admission.observation()?.attempts >= limits.attempts {
-                        Some(U::Budget)
-                    } else {
-                        None
-                    }
-                }
-            };
-            if let Some(reason) = stopped {
-                if let Some(stop) = stop {
-                    stop(&mut result.1, &result.0, &step.numerics().policy, reason);
-                }
-                result.2 = self.accuracy_stopped_trace(&result.2, reason)?;
-                break;
-            }
-            let point = match &result.0 {
-                super::solves::Outcome::Native(report) => {
-                    report.candidate.as_ref().map(|c| c.primal.as_slice())
-                }
-                _ => None,
-            };
-            let Some(point) = point else {
-                if let Some(stop) = stop {
-                    stop(
-                        &mut result.1,
-                        &result.0,
-                        &step.numerics().policy,
-                        U::MissingObservation,
-                    );
-                }
-                result.2 = self.accuracy_stopped_trace(&result.2, U::MissingObservation)?;
-                break;
-            };
-            let refined = match step.refine_coordinate_accuracy(&goals, point) {
-                Ok(Some(refined)) => {
-                    refined.within_admitted_task(scope.clone(), admission.clone())?
-                }
-                preparation => {
-                    let reason = match preparation {
-                        Ok(None) => U::Unsupported,
-                        Err(error) => return Err(error.into()),
-                        Ok(Some(_)) => {
-                            return Err(ProblemError::Internal(
-                                "accuracy work preparation disappeared".into(),
-                            )
-                            .into());
-                        }
-                    };
-                    if let Some(stop) = stop {
-                        stop(&mut result.1, &result.0, &step.numerics().policy, reason);
-                    }
-                    result.2 = self.accuracy_stopped_trace(&result.2, reason)?;
-                    break;
-                }
-            };
-            if refined.backend() != step.backend()
-                || refined.numerics().key != step.numerics().key
-                || refined.original_identity()? != step.original_identity()?
-            {
-                return Err(ProblemError::Contract(
-                    "accuracy work changed frozen original acceptance".into(),
-                )
-                .into());
-            }
-            let declaration = refined.numerical_strategy();
-            let mut mechanism = declaration.mechanisms.first().cloned().ok_or_else(|| {
-                ProblemError::Contract("accuracy correction has no native execution owner".into())
-            })?;
-            mechanism.required = true;
-            mechanism.limits = limits;
-            mechanism.transitions = vec![
-                pse_model::strategy::Transition::Finish,
-                pse_model::strategy::Transition::Stop,
-            ];
-            let ordinal = attempt
-                .checked_add(
-                    usize::try_from(admission.observation()?.attempts)
-                        .map_err(|_| ProblemError::memory("accuracy attempt ordinal"))?,
-                )
-                .ok_or_else(|| ProblemError::memory("accuracy attempt ordinal"))?;
-            let next = self
-                .step_bound(
-                    refined.clone(),
-                    None,
-                    ordinal,
-                    progress.clone(),
-                    owner.clone(),
-                    cancel,
-                    accuracy_assessor(assess.clone(), signal.clone()),
-                    Some(super::solves::PreparedRung::Original(Box::new(refined))),
-                    Some(mechanism),
-                    None,
-                    false,
-                    Some(admission.clone()),
-                )
-                .await?;
-            let trace = self.accuracy_merged_trace(&result.2, &next.2)?;
-            result = (next.0, next.1, trace);
-        }
-        Ok(result)
-    }
-
-    fn accuracy_stopped_trace(
-        &self,
-        trace: &super::solves::StrategyTrace,
-        reason: pse_model::generated::enums::AccuracyUnavailableReason,
-    ) -> Result<super::solves::StrategyTrace, MathRuntimeError> {
-        let cause = Arc::new(ProblemError::numerical(format!(
-            "output accuracy refinement stopped: {}",
-            reason.as_str()
-        )));
-        let bytes = trace
-            .retained_bytes()?
-            .checked_add(size_of::<super::strategy::Event>())
-            .and_then(|n| n.checked_add(cause.retained_bytes()))
-            .ok_or_else(|| ProblemError::memory("accuracy stopping trace extent"))?;
-        let owner = self
-            .service
-            .reserve("math:accuracy-stopping-trace", bytes)?;
-        let mut events = Vec::with_capacity(
-            trace
-                .events
-                .len()
-                .checked_add(1)
-                .ok_or_else(|| ProblemError::memory("accuracy stopping event extent"))?,
-        );
-        events.extend(trace.events.iter().cloned());
-        if let Some(mechanism) = trace.declaration.mechanisms.len().checked_sub(1) {
-            events.push(super::strategy::Event {
-                mechanism,
-                kind: pse_model::generated::enums::NumericalEventKind::Finished,
-                phase: pse_model::strategy::Phase::Assessment,
-                original: Some(super::strategy::OriginalConclusion::Satisfied),
-                decision: None,
-                observation: None,
-                transition: Some(pse_model::strategy::Transition::Stop),
-                permission: trace.events.iter().rev().find_map(|e| e.permission),
-                work: None,
-                cause: Some(cause),
-            });
-        }
-        Ok(Arc::new(
-            super::strategy::Trace {
-                owner: None,
-                publication_request: trace.publication_request,
-                declaration: trace.declaration.clone(),
-                original: trace.original,
-                backend: trace.backend,
-                profile: trace.profile,
-                start: trace.start,
-                starts: trace.starts.clone(),
-                products: trace.products.clone(),
-                events,
-            }
-            .with_owner(owner),
-        ))
-    }
-
-    fn accuracy_merged_trace(
-        &self,
-        prefix: &super::solves::StrategyTrace,
-        next: &super::solves::StrategyTrace,
-    ) -> Result<super::solves::StrategyTrace, MathRuntimeError> {
-        let bytes = prefix
-            .retained_bytes()?
-            .checked_add(next.retained_bytes()?)
-            .ok_or_else(|| ProblemError::memory("accuracy composed trace extent"))?;
-        let owner = self
-            .service
-            .reserve("math:accuracy-composed-trace", bytes)?;
-        let offset = prefix.declaration.mechanisms.len();
-        let mut declaration = prefix.declaration.clone();
-        let capacity = offset
-            .checked_add(next.declaration.mechanisms.len())
-            .ok_or_else(|| ProblemError::memory("accuracy mechanism extent"))?;
-        declaration.mechanisms = Vec::with_capacity(capacity);
-        declaration
-            .mechanisms
-            .extend(prefix.declaration.mechanisms.iter().cloned());
-        declaration
-            .mechanisms
-            .extend(next.declaration.mechanisms.iter().cloned());
-        let mut starts = Vec::with_capacity(capacity);
-        starts.extend(prefix.starts.iter().copied());
-        starts.extend(next.starts.iter().copied());
-        let mut products = Vec::with_capacity(capacity);
-        products.extend(prefix.products.iter().cloned());
-        products.extend(next.products.iter().cloned());
-        let mut events = Vec::with_capacity(
-            prefix
-                .events
-                .len()
-                .checked_add(next.events.len())
-                .ok_or_else(|| ProblemError::memory("accuracy composed event extent"))?,
-        );
-        events.extend(prefix.events.iter().cloned());
-        for mut event in next.events.iter().cloned() {
-            event.mechanism = event
-                .mechanism
-                .checked_add(offset)
-                .ok_or_else(|| ProblemError::memory("accuracy event mechanism"))?;
-            events.push(event);
-        }
-        Ok(Arc::new(
-            super::strategy::Trace {
-                owner: None,
-                publication_request: prefix.publication_request,
-                declaration,
-                original: prefix.original,
-                backend: prefix.backend,
-                profile: prefix.profile,
-                start: prefix.start,
-                starts,
-                products,
-                events,
-            }
-            .with_owner(owner),
-        ))
-    }
-
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "initial dispatch forwards the same admitted operation contract as step and step_bound"
-    )]
-    async fn step_initial<T: Send + 'static>(
-        &self,
-        step: super::solves::PreparedSolve,
-        previous: Option<super::solves::Predecessor>,
-        attempt: usize,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        cancel: &crate::CancelSource,
-        assess: impl FnMut(
-            &super::solves::Outcome,
-            Option<&pse_kernels::ExecutionScope>,
-            &Arc<WorkerBudget>,
-        ) -> super::strategy::Assessed<T>
-        + Send
-        + 'static,
-    ) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
-        use pse_model::strategy::{CompositionPolicy, Mechanism, Position, Transition};
-        let request = step.composition_request().clone();
-        request
-            .validate()
-            .map_err(|error| ProblemError::Contract(error.to_string()))?;
-        if step.composition_is_declared() {
-            return self
-                .step_bound(
-                    step, previous, attempt, progress, owner, cancel, assess, None, None, None,
-                    false, None,
-                )
-                .await;
-        }
-        if request.policy == CompositionPolicy::Declared {
-            return Err(ProblemError::Contract(
-                "declared composition requires an actually bound declaration".into(),
-            )
-            .into());
-        }
-        let deadline = std::time::Instant::now()
-            .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("automatic task deadline extent".into()))?;
-        let scope = step
-            .task_scope()
-            .unwrap_or_else(|| pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline)));
-        let step = step.within_task(scope.clone())?;
-        let mut declaration = step.numerical_strategy();
-        declaration.branch = request.branch;
-        declaration.start.recovery = request.recovery.clone();
-        if let Some(limits) = request.limits {
-            declaration.limits = limits;
-        }
-        if request.limits.is_none() {
-            if let Some(admission) = step.task_admission() {
-                declaration.limits = admission.limits()?;
-            } else {
-                declaration.limits.attempts =
-                    step.automatic_attempt_capacity(scope.cancellation())?;
-            }
-        }
-        let ledger = step.task_admission().unwrap_or_else(|| {
-            super::strategy::admission::TaskAdmission::new_for(
-                declaration.limits,
-                scope.clone(),
-                &self.service,
-                step.declared_foreign_bytes() > 0,
-            )
-        });
-        let step = step.within_admitted_task(scope.clone(), ledger.clone())?;
-        let capacity = usize::try_from(declaration.limits.attempts)
-            .map_err(|_| ProblemError::memory("automatic product state capacity"))?
-            .checked_mul(3)
-            .ok_or_else(|| ProblemError::memory("automatic product state capacity"))?;
-        let product_owner = self.service.reserve(
-            "math:automatic-product-state",
-            super::strategy::ProductState::extent(capacity)?,
-        )?;
-        let shared_products = Arc::new(std::sync::Mutex::new(
-            super::strategy::ProductState::owned(capacity, product_owner),
-        ));
-        let assess = Arc::new(std::sync::Mutex::new(assess));
-        let initial = step.entry_origin(previous.is_some());
-        let inherited = previous.is_some() && initial == pse_model::strategy::StartOrigin::Accepted;
-        let mut original_operations = step.automatic_operations(None, scope.cancellation())?;
-        for operation in &mut original_operations {
-            if !operation.candidate.replacement {
-                operation.candidate.start = initial;
-            }
-        }
-        let mut operations = original_operations;
-        let mut bound_operations = std::collections::BTreeMap::new();
-        let mut attempted = std::collections::BTreeSet::new();
-        let mut attempted_bindings = std::collections::BTreeSet::new();
-        let mut last_observation = None;
-        let mut last_result = None;
-        let mut current_assessment = false;
-        let mut terminal = None;
-        let mut collected = super::strategy::Trace {
-            owner: None,
-            publication_request: Some(step.request_identity()?),
-            declaration: declaration.clone(),
-            original: step.original_identity()?,
-            backend: step.backend(),
-            profile: step.strategy_profile()?,
-            start: initial,
-            starts: Vec::new(),
-            products: Vec::new(),
-            events: Vec::new(),
-        };
-        collected.declaration.mechanisms.clear();
-        loop {
-            if let Err(error) = scope.check() {
-                // No new preparation, dispatch or assessment may follow task expiry.
-                // Finalization still owns the actual preceding result and its trace.
-                terminal = Some(Arc::new(ProblemError::Provider(error)));
-                break;
-            }
-            let candidates = operations
-                .iter()
-                .map(|operation| operation.candidate.clone())
-                .collect::<Vec<_>>();
-            let mut constrained = request.clone();
-            constrained.limits = Some(declaration.limits);
-            let decision = super::strategy::next_automatic(
-                &constrained,
-                &declaration.start,
-                &candidates,
-                &attempted,
-                last_observation.as_ref(),
-                ledger.observation()?,
-                inherited,
-            );
-            let resolved = super::strategy::automatic_decision_key(
-                &request,
-                &candidates,
-                &decision,
-                last_observation.as_ref(),
-                ledger.observation()?,
-            )?;
-            let mut decision_identity =
-                pse_ids::FramedHasher::new(pse_ids::Frame::NumericalDecisionV2);
-            decision_identity
-                .hash(&collected.original)
-                .hash(&step.preparation_identity()?)
-                .hash(&resolved);
-            let decision_key = decision_identity.finish_hash();
-            match decision {
-                super::strategy::AutoDecision::Finish => break,
-                super::strategy::AutoDecision::Exhausted { cause } => {
-                    if current_assessment {
-                        if let Some(event) = collected.events.last_mut() {
-                            event.transition = Some(Transition::Stop);
-                            if event.cause.is_none() {
-                                event.cause = cause;
-                            }
-                        }
-                    } else {
-                        terminal = Some(
-                            collected
-                                .events
-                                .iter()
-                                .rev()
-                                .find_map(|event| event.cause.clone())
-                                .unwrap_or_else(|| {
-                                    Arc::new(ProblemError::Unsupported(
-                                        "catalog exhausted after an unassessed operation".into(),
-                                    ))
-                                }),
-                        );
-                    }
-                    break;
-                }
-                super::strategy::AutoDecision::Assess => {
-                    return Err(ProblemError::Internal(
-                        "original assessment must execute on its admitted worker".into(),
-                    )
-                    .into());
-                }
-                super::strategy::AutoDecision::Stop { cause } => {
-                    terminal = cause.clone();
-                    if let Some(cause) = cause
-                        && let Some(index) = collected.declaration.mechanisms.len().checked_sub(1)
-                    {
-                        collected.events.push(super::strategy::Event {
-                            mechanism: index,
-                            kind: pse_model::generated::enums::NumericalEventKind::Abandoned,
-                            phase: pse_model::strategy::Phase::Assessment,
-                            original: None,
-                            decision: Some(decision_key),
-                            observation: Some(super::strategy::failure(&cause)),
-                            transition: Some(Transition::Stop),
-                            permission: None,
-                            work: None,
-                            cause: Some(cause),
-                        });
-                    }
-                    break;
-                }
-                super::strategy::AutoDecision::Prepare { candidate }
-                | super::strategy::AutoDecision::Dispatch { candidate } => {
-                    current_assessment = false;
-                    let preparing =
-                        matches!(decision, super::strategy::AutoDecision::Prepare { .. });
-                    if !preparing {
-                        attempted.insert(candidate);
-                    }
-                    let operation = operations[candidate].clone();
-                    if !preparing && !attempted_bindings.insert(operation.candidate.identity) {
-                        continue;
-                    }
-                    let description = operation.candidate.clone();
-                    let mechanism = Mechanism {
-                        kind: description.kind,
-                        position: if preparing {
-                            Position::Preparation
-                        } else {
-                            Position::Execution
-                        },
-                        required: description.kind == pse_model::strategy::MechanismKind::Direct,
-                        operation: Default::default(),
-                        profile: None,
-                        support: description.support.iter().copied().collect(),
-                        limits: declaration.limits,
-                        starts: vec![description.start],
-                        transitions: vec![
-                            Transition::Finish,
-                            Transition::Continue,
-                            Transition::Recover,
-                            Transition::Stop,
-                        ],
-                    };
-                    let index = collected.declaration.mechanisms.len();
-                    collected.declaration.mechanisms.push(mechanism.clone());
-                    // Binding preparations reserve before effects; execution admission
-                    // belongs to run_admitted and must not reserve the same work twice.
-                    let admitted = if preparing {
-                        ledger.reserve_attempt().and_then(|()| {
-                            ledger.reserve(mechanism.limits, description.reservation, false)
-                        })
-                    } else {
-                        Ok(())
-                    };
-                    let preparation_dispatched =
-                        preparing && admitted.is_ok() && !bound_operations.contains_key(&candidate);
-                    let prepared = match admitted {
-                        Ok(()) if bound_operations.contains_key(&candidate) => {
-                            Ok(bound_operations.remove(&candidate).ok_or_else(|| {
-                                ProblemError::Internal("selected preparation disappeared".into())
-                            })?)
-                        }
-                        Ok(()) => {
-                            self.service
-                                .prepare_automatic_operation(operation, scope.clone(), cancel)
-                                .await
-                        }
-                        Err(error) => Err(error.into()),
-                    };
-                    let prepared = match prepared {
-                        Ok(prepared) => prepared,
-                        Err(error) => {
-                            let mut identity =
-                                pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
-                            identity.hash(&decision_key).str("automatic-preparation");
-                            let failed_work = if preparation_dispatched {
-                                Some(ledger.complete_charge(pse_model::strategy::WorkCharge {
-                                    phase: pse_model::strategy::Phase::Preparation,
-                                    scope: pse_model::strategy::Scope::Task,
-                                    charging_owner: identity.finish_hash(),
-                                    observed: pse_model::strategy::WorkObservation {
-                                        attempts: 1,
-                                        evaluations: None,
-                                        iterations: None,
-                                        factorizations: None,
-                                        proof_steps: None,
-                                    },
-                                })?)
-                            } else {
-                                None
-                            };
-                            let observation = super::strategy::runtime_failure(&error);
-                            let recoverable = !mechanism.required && matches!(observation, pse_model::generated::enums::NumericalAttemptObservation::CapabilityRefusal);
-                            let cause = Arc::new(error.into_problem());
-                            collected.starts.push(description.start);
-                            collected.products.push(Default::default());
-                            collected.events.push(super::strategy::Event {
-                                mechanism: index,
-                                kind: pse_model::generated::enums::NumericalEventKind::Refused,
-                                phase: pse_model::strategy::Phase::Preparation,
-                                original: None,
-                                observation: Some(observation),
-                                transition: Some(if recoverable {
-                                    Transition::Continue
-                                } else {
-                                    Transition::Stop
-                                }),
-                                permission: None,
-                                work: failed_work,
-                                cause: Some(cause.clone()),
-                                decision: Some(decision_key),
-                            });
-                            if recoverable {
-                                attempted.insert(candidate);
-                                attempted_bindings.insert(description.identity);
-                                continue;
-                            } else {
-                                let bytes = collected.retained_bytes()?;
-                                let trace = Arc::new(
-                                    collected.with_owner(
-                                        self.service
-                                            .reserve("math:automatic-refusal-trace", bytes)?,
-                                    ),
-                                );
-                                return Err(MathRuntimeError::Strategy {
-                                    cause: Arc::new(
-                                        ProblemError::Math(pse_math::MathError::Typed {
-                                            retained: cause.retained_bytes(),
-                                            cause:
-                                                pse_model::diagnostic::DiagnosticCause::from_shared(
-                                                    cause,
-                                                ),
-                                        })
-                                        .into(),
-                                    ),
-                                    trace,
-                                });
-                            }
-                        }
-                    };
-                    if preparing {
-                        let mut work_identity =
-                            pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
-                        work_identity
-                            .hash(&decision_key)
-                            .str("automatic-preparation");
-                        let work = pse_model::strategy::WorkCharge {
-                            phase: pse_model::strategy::Phase::Preparation,
-                            scope: pse_model::strategy::Scope::Task,
-                            charging_owner: work_identity.finish_hash(),
-                            observed: pse_model::strategy::WorkObservation {
-                                attempts: 1,
-                                evaluations: None,
-                                iterations: None,
-                                factorizations: None,
-                                proof_steps: None,
-                            },
-                        };
-                        let work = ledger.complete_charge(work)?;
-                        operations[candidate].candidate.prepared = true;
-                        bound_operations.insert(candidate, prepared);
-                        collected.starts.push(description.start);
-                        collected.products.push(super::strategy::RungProducts {
-                            provider: Some(super::strategy::ProviderEvidence::NonNative),
-                            ..Default::default()
-                        });
-                        collected.events.push(super::strategy::Event {
-                            mechanism: index,
-                            kind: pse_model::generated::enums::NumericalEventKind::Finished,
-                            phase: pse_model::strategy::Phase::Preparation,
-                            original: None,
-                            observation: None,
-                            transition: Some(Transition::Continue),
-                            permission: None,
-                            work: Some(work),
-                            cause: None,
-                            decision: Some(decision_key),
-                        });
-                        continue;
-                    }
-                    let assessor = assess.clone();
-                    let one = self
-                        .step_bound(
-                            step.clone(),
-                            previous.clone(),
-                            attempt
-                                .checked_add(index)
-                                .ok_or_else(|| ProblemError::memory("automatic attempt ordinal"))?,
-                            progress.clone(),
-                            owner.clone(),
-                            cancel,
-                            move |outcome, scope, budget| {
-                                match assessor.lock() {
-                                    Ok(mut assess) => assess(outcome, scope, budget),
-                                    Err(poisoned) => {
-                                        // A poisoned scientific owner cannot be retried. The original
-                                        // task propagates panic before further numerical work.
-                                        let mut assess = poisoned.into_inner();
-                                        let rejected = super::solves::Outcome::Rejected(Arc::new(
-                                            MathRuntimeError::Panic(
-                                                "scientific assessment owner panicked".into(),
-                                            ),
-                                        ));
-                                        assess(&rejected, scope, budget)
-                                    }
-                                }
-                            },
-                            Some(prepared),
-                            Some(mechanism),
-                            Some(shared_products.clone()),
-                            true,
-                            Some(ledger.clone()),
-                        )
-                        .await?;
-                    if let Some(actual) = one.2.declaration.mechanisms.first() {
-                        collected.declaration.mechanisms[index] = actual.clone();
-                    }
-                    collected
-                        .declaration
-                        .mechanisms
-                        .extend(one.2.declaration.mechanisms.iter().skip(1).cloned());
-                    last_observation = super::strategy::automatic_observation(&one.2.events);
-                    let report = match &one.0 {
-                        super::solves::Outcome::Native(report) => Some(report.as_ref()),
-                        _ => None,
-                    };
-                    if scope.check().is_ok()
-                        && report.is_some()
-                        && last_observation.as_ref().is_some_and(|last| {
-                            !last
-                                .original
-                                .as_ref()
-                                .is_some_and(super::strategy::OriginalConclusion::satisfied)
-                        })
-                    {
-                        let more = step.automatic_operations(report, scope.cancellation())?;
-                        let mut known = operations
-                            .iter()
-                            .map(|operation| operation.candidate.identity)
-                            .collect::<std::collections::BTreeSet<_>>();
-                        operations.extend(more.into_iter().filter(|operation| {
-                            !attempted_bindings.contains(&operation.candidate.identity)
-                                && known.insert(operation.candidate.identity)
-                        }));
-                    }
-                    if one.2.starts.len() != one.2.declaration.mechanisms.len()
-                        || one.2.products.len() != one.2.declaration.mechanisms.len()
-                        || collected.starts.len() < index
-                        || collected.products.len() < index
-                    {
-                        return Err(ProblemError::Internal(
-                            "automatic trace operation slots are misaligned".into(),
-                        )
-                        .into());
-                    }
-                    // Bind actual operation slots by their declaration index. A
-                    // prior binding-preparation slot remains separate from execution.
-                    collected.starts.truncate(index);
-                    collected.products.truncate(index);
-                    collected.starts.extend(one.2.starts.iter().copied());
-                    collected.products.extend(one.2.products.iter().cloned());
-                    collected
-                        .events
-                        .extend(one.2.events.iter().cloned().map(|mut event| {
-                            event.mechanism += index;
-                            if event.decision.is_none() {
-                                event.decision = Some(decision_key);
-                            }
-                            event
-                        }));
-                    last_result = Some(one);
-                    current_assessment = true;
-                }
-            }
-        }
-        let bytes = collected.retained_bytes()?;
-        let trace = Arc::new(
-            collected.with_owner(
-                self.service
-                    .reserve("math:automatic-strategy-trace", bytes)?,
-            ),
-        );
-        if let Some(cause) = terminal {
-            return finish_automatic_stop(
-                cause,
-                current_assessment,
-                last_observation.as_ref(),
-                last_result,
-                trace,
-            );
-        }
-        match last_result {
-            Some((outcome, product, _)) => Ok((outcome, product, trace)),
-            None => Err(MathRuntimeError::Strategy {
-                cause: Arc::new(
-                    ProblemError::Unsupported(
-                        "no automatic operation satisfies the admitted task constraints".into(),
-                    )
-                    .into(),
-                ),
-                trace,
-            }),
-        }
-    }
-
-    /// Execute one bound solve step on the retained native state and `assess` its outcome
-    /// on the same worker, charged to the session's worker share (A6). A foreign allowance
-    /// the step declares is reserved on admission and retained with escaping native state;
-    /// otherwise its work releases it on the session thread. The session also holds the deployment's. Native events go to
-    /// `progress`: one stream per step, or one shared by an authored sequence and its run
-    /// handle. `assess` returns its product, composed candidate permission and session
-    /// admission. A step without both original permission and artifact admission
-    /// drops the retained native state, so it cannot poison a later step; the sequence
-    /// itself continues.
-    ///
-    /// # Errors
-    /// Admission, cancellation before admission or a lost session.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one staged step binds its solve, predecessor, attempt, progress, lease, cancellation and assessment"
-    )]
-    async fn step_bound<T: Send + 'static>(
-        &self,
-        mut step: super::solves::PreparedSolve,
-        previous: Option<super::solves::Predecessor>,
-        attempt: usize,
-        progress: Arc<Progress>,
-        owner: Arc<pse_columnar::AllocationLease>,
-        cancel: &crate::CancelSource,
-        mut assess: impl FnMut(
-            &super::solves::Outcome,
-            Option<&pse_kernels::ExecutionScope>,
-            &Arc<WorkerBudget>,
-        ) -> super::strategy::Assessed<T>
-        + Send
-        + 'static,
-        operation: Option<super::solves::PreparedRung>,
-        mechanism: Option<pse_model::strategy::Mechanism>,
-        shared_products: Option<super::strategy::SharedProducts>,
-        original_completion: bool,
-        shared_admission: Option<Arc<super::strategy::admission::TaskAdmission>>,
-    ) -> Result<(super::solves::Outcome, T, super::solves::StrategyTrace), MathRuntimeError> {
-        let service = self.service.clone();
-        let (threads, backend) = (step.threads(), step.backend());
-        let deadline = std::time::Instant::now()
-            .checked_add(step.time_limit())
-            .ok_or_else(|| ProblemError::Contract("task deadline extent".into()))?;
-        let mut declaration = step.numerical_strategy();
-        if let Some(mechanism) = mechanism {
-            declaration.limits = mechanism.limits;
-            declaration.mechanisms = vec![mechanism];
-            declaration.branch = step.composition_request().branch;
-            declaration.start.recovery = step.composition_request().recovery.clone();
-            if let Some(limits) = step.composition_request().limits {
-                declaration.limits = limits;
-            }
-        }
-        let original = step.original_identity()?;
-        let profile = step.strategy_profile()?;
-        let start = match declaration.start.policy {
-            pse_model::strategy::StartPolicy::Explicit => {
-                pse_model::strategy::StartOrigin::Explicit
-            }
-            pse_model::strategy::StartPolicy::PreviousAccepted if previous.is_some() => {
-                pse_model::strategy::StartOrigin::Accepted
-            }
-            _ => pse_model::strategy::StartOrigin::Specification,
-        };
-
-        let mut declared_foreign = step.declared_foreign_bytes();
-        let composition = step.take_composition();
-        use super::solves::PreparedRung;
-        let paired_correction = original_completion
-            && operation.as_ref().is_some_and(|rung| match rung {
-                PreparedRung::Path { .. } | PreparedRung::Surrogate(_) => true,
-                #[cfg(feature = "solver-petsc")]
-                PreparedRung::Petsc(_) => true,
-                _ => false,
-            });
-        let mut rungs = operation.map_or_else(
-            || composition.map_or_else(|| vec![step.clone().into()], |c| c.rungs.clone()),
-            |operation| vec![operation],
-        );
-        if paired_correction {
-            rungs.push(PreparedRung::Original(Box::new(step.clone())));
-            let mut correction = step.numerical_strategy().mechanisms[0].clone();
-            correction.required = true;
-            correction.limits = declaration.limits;
-            correction.starts = declaration.start.recovery.clone();
-            declaration.mechanisms.push(correction);
-        }
-        for (rung, mechanism) in rungs.iter().zip(&mut declaration.mechanisms) {
-            declared_foreign = declared_foreign.max(rung.declared_foreign_bytes());
-            if mechanism.profile.is_none() {
-                mechanism.profile = rung
-                    .backend()
-                    .map(|backend| {
-                        rung.strategy_profile()
-                            .map(|key| pse_model::strategy::ProfileRef { backend, key })
-                    })
-                    .transpose()?;
-            }
-            let supplied = rung.operation_contract()?;
-            for input in supplied.inputs {
-                if !mechanism.operation.inputs.contains(&input) {
-                    mechanism.operation.inputs.push(input);
-                }
-            }
-            for output in supplied.outputs {
-                if !mechanism.operation.outputs.contains(&output) {
-                    mechanism.operation.outputs.push(output);
-                }
-            }
-        }
-        let start = rungs
-            .first()
-            .map_or(start, |rung| rung.entry_origin(previous.is_some()));
-        let inherited = start == pse_model::strategy::StartOrigin::Accepted;
-        let backends = rungs.iter().filter_map(PreparedRung::backend).collect();
-        let threads = rungs
-            .iter()
-            .map(PreparedRung::threads)
-            .max()
-            .unwrap_or(threads);
-        let task_scope = step
-            .task_scope()
-            .or_else(|| rungs.iter().find_map(PreparedRung::task_scope));
-        let deadline = task_scope
-            .as_ref()
-            .and_then(pse_kernels::ExecutionScope::deadline)
-            .map_or(deadline, |outer| outer.min(deadline));
-        let products = rungs
-            .iter()
-            .map(|rung| super::strategy::RungProducts {
-                provider: match rung {
-                    PreparedRung::Surrogate(p) => {
-                        Some(super::strategy::ProviderEvidence::Library(p.key()))
-                    }
-                    PreparedRung::Derived(_) | PreparedRung::Original(_)
-                        if rung.backend().is_none() =>
-                    {
-                        Some(super::strategy::ProviderEvidence::NonNative)
-                    }
-                    _ => None,
-                },
-                derived: match rung {
-                    PreparedRung::Multistart(p) => Some(p.key()),
-                    PreparedRung::Surrogate(p) => Some(p.key()),
-                    PreparedRung::Derived(p) => Some(p.family().key()),
-                    #[cfg(feature = "solver-kinsol")]
-                    PreparedRung::Blocks(p) => Some(p.key()),
-                    #[cfg(feature = "solver-kinsol")]
-                    PreparedRung::Causal(p) => Some(p.key()),
-                    PreparedRung::Path { prepared, .. } => Some(prepared.family().key()),
-                    #[cfg(feature = "solver-petsc")]
-                    PreparedRung::Petsc(p) => Some(p.key()),
-                    PreparedRung::Original(_) => None,
-                },
-                ..Default::default()
-            })
-            .collect::<Vec<_>>();
-        let supports = rungs
-            .iter()
-            .map(PreparedRung::support)
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let starts: Vec<_> = rungs
-            .iter()
-            .enumerate()
-            .map(|(index, rung)| {
-                if index == 0 {
-                    start
-                } else {
-                    rung.entry_origin(false)
-                }
-            })
-            .collect();
-        let initial = if rungs
-            .iter()
-            .any(|rung| !matches!(rung, PreparedRung::Original(_) | PreparedRung::Path { .. }))
-        {
-            Some(step.source_start(previous.as_ref())?)
-        } else {
-            None
-        };
-        let product_owner = service.reserve(
-            "math:actual-product-state",
-            super::strategy::ProductState::extent(
-                rungs
-                    .len()
-                    .checked_mul(3)
-                    .ok_or_else(|| ProblemError::memory("rung product state extent"))?,
-            )?,
-        )?;
-        let allowance = service.reserve("math:step-foreign", declared_foreign)?;
-        let product_capacity = rungs
-            .len()
-            .checked_mul(3)
-            .ok_or_else(|| ProblemError::memory("rung product state extent"))?;
-        let shared_admission = shared_admission.or_else(|| step.task_admission());
-        self.run_task(threads, backends, Some(deadline), task_scope.clone(), cancel, move |retained, flag, budget| {
-            enum RungOutcome { Original(Box<super::solves::ScopedOutcome>), Derived(Box<super::solves::DerivedAttempt>), Path(Box<super::solves::paths::PathOutcome>), Surrogate(Box<super::surrogate::SurrogatePhaseOutcome>) }
-            let _allowance = allowance;
-            let enclosing = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
-            let admission=shared_admission.unwrap_or_else(||super::strategy::admission::TaskAdmission::new_for(declaration.limits,enclosing.clone(),&service,declared_foreign>0));
-            if !admission.matches_scope(&enclosing) { return Err(ProblemError::Contract("bound operation differs from its task admission scope".into()).into()); }
-            admission.retain_storage_allowance(_allowance.clone())?;
-            let scoped_budget=budget.with_admission(admission.clone());
-            let budget=&scoped_budget;
-            let mut assessed = None;
-            let product_state=shared_products.unwrap_or_else(||Arc::new(std::sync::Mutex::new(super::strategy::ProductState::owned(product_capacity,product_owner))));
-            let prepared=std::cell::RefCell::new(rungs.into_iter().map(Some).collect::<Vec<_>>());
-            let mut previous = previous;
-            let point=std::cell::RefCell::new(initial);
-            let fresh_start=std::cell::Cell::new(None::<pse_model::strategy::StartOrigin>);
-            let screened_start=std::cell::RefCell::new(None::<super::prediction::Screened>);
-            let pending_screened=std::cell::RefCell::new(None::<super::prediction::Screened>);
-            let connected=std::cell::Cell::new(false);
-            let completion_witness=std::cell::RefCell::new(None::<super::solves::paths::PathCompletion>);
-            let actual_starts=std::cell::RefCell::new(starts);
-            let actual_products=std::cell::RefCell::new(products);
-            // Execute and assess run serially; repeated same-case assessments
-            // retain the actual dispatched mechanism as part of their occurrence.
-            let dispatched_mechanism=std::cell::Cell::new(0usize);
-            let result = super::strategy::run_admitted(
-                &declaration, &enclosing, admission.clone(),
-                |index| {
-                    let declared=actual_starts.borrow()[index];
-                    let fresh=fresh_start.get().filter(|origin|index>0 && !matches!(prepared.borrow()[index].as_ref(),Some(PreparedRung::Multistart(_))) && declared!=pse_model::strategy::StartOrigin::Explicit
-                        && declaration.start.permits_recovery(*origin,false)
-                        && declaration.mechanisms[index].starts.contains(origin));
-                    let actual=fresh.unwrap_or(declared);
-                    actual_starts.borrow_mut()[index]=actual;
-                    let origin=prepared.borrow()[index].as_ref().and_then(|rung|match rung {PreparedRung::Path{prepared,start}=>Some(prepared.origin_connected(start)),_=>None});
-                    let (bound,refusal)=match origin {Some(Ok(bound))=>(bound,None),Some(Err(error))=>(false,Some(Arc::new(error))),None=>(connected.get(),None)};
-                    let contract = &declaration.mechanisms[index].operation;
-                    let consumed = super::strategy::products(&product_state).and_then(|state| state.consume(contract));
-                    let (accuracy,accuracy_refusal)=match consumed {Ok(accuracy)=>(accuracy,None),Err(error)=>(Vec::new(),Some(Arc::new(error)))};
-                    let local_refusal=prepared.borrow()[index].as_ref().and_then(|rung|match rung {PreparedRung::Derived(p)=>p.local_scope_refusal(&enclosing),_=>None});
-                    let work_admitted=prepared.borrow()[index].as_ref().is_some_and(|rung|match rung {PreparedRung::Original(target)=>target.work_admitted(declaration.limits,&enclosing,admission.clone()) && target.work_admitted(declaration.mechanisms[index].limits,&enclosing,admission.clone()),_=>false});
-                    super::strategy::Facts { support:supports[index].clone(), accuracy, consumption:contract.inputs.iter().map(|input|input.accuracy).collect(), reservation:None, work_admitted, start:actual, inherited:index==0 && inherited, connected:bound, refusal:refusal.or(local_refusal).or(accuracy_refusal) }
-                },
-                |index,mechanism| {
-                    dispatched_mechanism.set(index);
-                    *pending_screened.borrow_mut()=None;
-                    let rung = prepared.borrow_mut()[index].take().ok_or_else(|| Arc::new(ProblemError::Internal("strategy mechanism executed twice".into())))?;
-                    let input=match &rung {
-                        PreparedRung::Original(p)=>if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {point.borrow().clone().or_else(||p.source_start(previous.as_ref()).ok())} else {p.source_start(previous.as_ref()).ok()},
-                        PreparedRung::Multistart(p)=>Some(p.point()),
-                        PreparedRung::Surrogate(_)=>point.borrow().clone(),
-                        PreparedRung::Derived(p)=>if Some(actual_starts.borrow()[index])==fresh_start.get() {point.borrow().clone()} else {Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?)},
-                        #[cfg(feature="solver-kinsol")]
-                        PreparedRung::Blocks(p)=>Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?),
-                        #[cfg(feature="solver-kinsol")]
-                        PreparedRung::Causal(p)=>Some(p.original().source_start(previous.as_ref()).map_err(Arc::new)?),
-                        PreparedRung::Path{start,..}=>Some(start.point().to_vec()),
-                        #[cfg(feature="solver-petsc")] PreparedRung::Petsc(p)=>if Some(actual_starts.borrow()[index])==fresh_start.get() {point.borrow().clone()} else {Some(p.source().original().source_start(previous.as_ref()).map_err(Arc::new)?)},
-                    };
-                    let actual_input=input.clone();
-                    if let Some(input)=input {
-                        let mut identity=pse_ids::FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-                        identity.str("actual-original-coordinate-start").hash(&original);
-                        for x in input {identity.f64(x);}
-                        actual_products.borrow_mut()[index].start=Some(identity.finish_hash());
-                    }
-                    let (value,observation,observed)=match rung {
-                        PreparedRung::Original(mut prepared_step)=>{
-                            prepared_step.inherit_point_accuracy(&step);
-                            let step = prepared_step;
-                            let mut step=*step;
-                            if matches!(actual_starts.borrow()[index],pse_model::strategy::StartOrigin::Auxiliary|pse_model::strategy::StartOrigin::Surrogate) {
-                                if let Some(screened)=screened_start.borrow().as_ref() {
-                                    let branch=completion_witness.borrow().as_ref().map_or(Ok(declaration.branch),|witness|witness.recovery_branch(declaration.branch,screened.proposal())).map_err(Arc::new)?;
-                                    step=step.within_admitted_task(enclosing.clone(),admission.clone()).and_then(|step|step.with_composed_recovery_start(screened,&declaration.start,branch)).map_err(Arc::new)?;
-                                } else if !step.has_screened_start() {
-                                    return Err(Arc::new(ProblemError::Contract("original correction requires the actual screened producer receipt".into())).into());
-                                }
-                            }
-                            if let Some(backend)=step.backend() {
-                                actual_products.borrow_mut()[index].provider=Some(super::strategy::ProviderEvidence::Native(pse_model::strategy::ProfileRef {backend,key:step.strategy_profile().map_err(Arc::new)?}));
-                            }
-                            let target=step.clone();
-                            let mut value = service.execute(step, previous.take(), attempt, retained, flag, &progress, budget, &owner, &enclosing)
-                                .unwrap_or_else(|error| (super::solves::Outcome::Rejected(Arc::new(error)), Some(enclosing.clone())));
-                            if let Some(witness)=completion_witness.borrow().as_ref()
-                                && let super::solves::Outcome::Native(report)=&mut value.0
-                                && let Some(candidate)=&report.candidate {
-                                let execution=pse_backend_native::solve::Execution::within(flag.clone(),&pse_backend_native::solve::Controls::default(),enclosing.clone()).map_err(Arc::new)?;
-                                if let Err(cause)=witness.validate_original_candidate(&target,&candidate.primal,&execution) {
-                                    report.record_validation_failure(cause);
-                                    let failure_owner=service.reserve("math:path-completion-failure",report.failure_bytes()).map_err(|error|Arc::new(error.into_problem()))?;
-                                    report.retain_failure_owner(failure_owner);
-                                }
-                            }
-                            let observation=super::strategy::observe(&value.0);
-                            let observed=target.inclusive_work(&value.0);
-                            (RungOutcome::Original(Box::new(value)),observation,observed)
-                        },
-                        #[cfg(feature="solver-kinsol")]
-                        PreparedRung::Blocks(prepared)=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
-                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
-                            let outcome=service.blocks_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original block start absent".into())))?)?;
-                            let observed=super::strategy::work(&outcome);let observation=super::strategy::observe(&outcome);
-                            (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
-                        },
-                        #[cfg(feature="solver-kinsol")]
-                        PreparedRung::Causal(prepared)=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.original().controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
-                            execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.original().controls()));
-                            let outcome=service.causal_step(&prepared,execution,retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("complete original causal start absent".into())))?)?;
-                            let observed=super::strategy::work(&outcome);let observation=super::strategy::observe(&outcome);
-                            (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
-                        },
-                        PreparedRung::Derived(prepared)=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();
-                            execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
-                            let mut value=match service.derived_step(&prepared,execution.clone(),retained,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::Internal("original source point absent".into())))?) {
-                                Ok(value)=>value,
-                                Err(error)=>{
-                                    retained.clear();
-                                    return Err(error.effect(&prepared,&enclosing));
-                                }
-                            };
-                            if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {retained.clear();return Err(failed);}
-                            if !original_completion && let Some(proposal)=&value.proposal {
-                                    let mut evaluations=0;
-                                    match service.screen_auxiliary_start_worker_observed(prepared.original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
-                                        Ok(screened)=>*pending_screened.borrow_mut()=Some(screened),
-                                        Err(error)=>{value.screening_failure=Some(Arc::new(error.into_problem()));},
-                                    }
-                                    if let super::solves::Outcome::Native(report)=&mut value.outcome {report.evidence.work.evaluations=report.evidence.work.evaluations.and_then(|n|n.checked_add(evaluations));}
-                            }
-                            let evidence=prepared.produced_evidence(&value,declaration.branch).map_err(|cause|super::strategy::EffectFailure::component(Arc::new(cause),value.work(),super::strategy::observe(&value.outcome)))?;
-                            for product in &evidence {
-                                if product.derivative_order == 0 {actual_products.borrow_mut()[index].accuracy=Some(product.accuracy);}
-                                actual_products.borrow_mut()[index].evidence.push(product.clone());
-                            }
-                            super::strategy::validate_outputs(&mechanism.operation,&evidence).map_err(|cause|super::strategy::EffectFailure::component(value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome)).unwrap_or_else(||Arc::new(cause)),value.work(),super::strategy::observe(&value.outcome)))?;
-                            for product in evidence {
-                                super::strategy::products(&product_state).and_then(|mut state|state.publish(product)).map_err(Arc::new)?;
-                            }
-                            if original_completion && value.proposal.is_some() {
-                                let outcome=service.derived_original_outcome(&prepared,&value,&execution,budget).map_err(|error|Arc::new(error.into_problem()))?;
-                                let observed=super::strategy::work(&outcome);
-                                let observation=super::strategy::observe(&outcome);
-                                (RungOutcome::Original(Box::new((outcome,Some(enclosing.clone())))),observation,observed)
-                            } else {
-                                let observed=value.work();
-                                let observation=super::strategy::observe(&value.outcome);
-                                (RungOutcome::Derived(Box::new(value)),observation,observed)
-                            }
-                        },
-                        PreparedRung::Multistart(prepared)=>{
-                            let mut screening_work=0;
-                            let super::solves::multistart::BoundMultistart {step,_bindings,screening_evaluations}=service.screen_composed_multistart_worker_observed(&prepared,enclosing.clone(),budget,&mut screening_work,admission.clone(),&declaration).map_err(|error|super::strategy::EffectFailure::observed(Arc::new(error.into_problem()),pse_model::strategy::WorkObservation {attempts:1,evaluations:Some(screening_work),iterations:None,factorizations:None,proof_steps:None}))?;
-                            let value=service.execute(step,None,attempt,retained,flag,&progress,budget,&owner,&enclosing)
-                                .unwrap_or_else(|error|(super::solves::Outcome::Rejected(Arc::new(error)),Some(enclosing.clone())));
-                            let observation=super::strategy::observe(&value.0);
-                            let mut observed=super::strategy::work(&value.0);
-                            observed.evaluations=observed.evaluations.and_then(|n|n.checked_add(screening_evaluations));
-                            (RungOutcome::Original(Box::new(value)),observation,observed)
-                        },
-                        PreparedRung::Surrogate(prepared)=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),&pse_backend_native::solve::Controls::default(),enclosing.clone()).map_err(Arc::new)?;
-                            let phase_budget=WorkerBudget::drawing_for(prepared.worker_bytes().max(service.policy.worker_bytes),&service);
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});
-                            let phase_budget=phase_budget.with_admission(admission.clone());
-                            let value=prepared.advance(&execution,&phase_budget,owner.clone());
-                            actual_products.borrow_mut()[index].statistical=value.statistical.clone();
-                            if let Some(screened)=&value.screened {*pending_screened.borrow_mut()=Some(screened.clone());}
-                            let observed=value.work;
-                            let observation=value.terminal.as_deref().map_or(pse_model::generated::enums::NumericalAttemptObservation::Auxiliary,super::strategy::failure);
-                            (RungOutcome::Surrogate(Box::new(value)),observation,observed)
-                        },
-                        PreparedRung::Path{prepared,start}=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),&prepared.profile().controls,enclosing.clone()).map_err(Arc::new)?;
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(&prepared.profile().controls));
-                            let path_budget=WorkerBudget::drawing_for(prepared.worker_bytes().max(service.policy.worker_bytes),&service);
-                            let path_budget=path_budget.with_admission(admission.clone());
-                            let mut value=super::solves::paths::run_path(&service,&prepared,*start,execution,&path_budget,owner.clone());
-                            let mut observed=value.work();
-                            if let Some(proposal)=value.proposal.take() {
-                                let mut screening_evaluations=0;
-                                match service.screen_start_worker_observed(prepared.original_target(),proposal.clone(),proposal.branch(),enclosing.clone(),budget,&mut screening_evaluations) {
-                                    Ok(screened)=>{value.proposal=Some(screened.proposal().clone());*pending_screened.borrow_mut()=Some(screened);},
-                                    Err(error)=>value.terminal=Some(Arc::new(error.into_problem())),
-                                }
-                                observed.evaluations=observed.evaluations.and_then(|n|n.checked_add(screening_evaluations));
-                            }
-                            actual_products.borrow_mut()[index].path_events=Some(value.events.clone());
-                            actual_products.borrow_mut()[index].transport=value.connected.map(|proof|proof.transport);
-                            let observation=value.terminal.as_deref().map_or(pse_model::generated::enums::NumericalAttemptObservation::Auxiliary,super::strategy::failure);
-                            (RungOutcome::Path(Box::new(value)),observation,observed)
-                        },
-                        #[cfg(feature="solver-petsc")]
-                        PreparedRung::Petsc(prepared)=>{
-                            let mut execution=pse_backend_native::solve::Execution::within(flag.clone(),prepared.controls(),enclosing.clone()).map_err(Arc::new)?;
-                            execution.work_admission=budget.admission().map(|owner|->Arc<dyn pse_backend_native::solve::WorkAdmission>{owner});execution.progress=progress.clone();execution.memory=Some(service.policy.foreign_allowance(prepared.controls()));
-                            let mut value=service.execute_petsc(&prepared,execution,budget,actual_input.as_deref().ok_or_else(||Arc::new(ProblemError::internal("original PETSc start missing")))?).map_err(|error|Arc::new(error.into_problem()))?;
-                            let mut observed=value.work();
-                            if let Some(proposal)=&value.proposal {
-                                let mut evaluations=0;
-                                match service.screen_auxiliary_start_worker_observed(prepared.source().original(),proposal,declaration.branch,enclosing.clone(),budget,&mut evaluations) {
-                                    Ok(screened)=>*pending_screened.borrow_mut()=Some(screened),
-                                    Err(error)=>{value.screening_failure=Some(Arc::new(error.into_problem()));},
-                                }
-                                observed.evaluations=observed.evaluations.and_then(|n|n.checked_add(evaluations));
-                            }
-                            let observation=super::strategy::observe(&value.outcome);
-                            (RungOutcome::Derived(Box::new(value)),observation,observed)
-                        },
-                    };
-                    let evidence=actual_products.borrow()[index].evidence.clone();
-                    super::strategy::validate_outputs(&mechanism.operation,&evidence).map_err(|cause| {
-                        let actual_cause=match &value {
-                            RungOutcome::Original(value)=>super::strategy::cause(&value.0),
-                            RungOutcome::Derived(value)=>value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome)),
-                            RungOutcome::Surrogate(value)=>value.terminal.clone(),
-                            RungOutcome::Path(value)=>value.terminal.clone(),
-                        };
-                        super::strategy::EffectFailure::component(actual_cause.unwrap_or_else(||Arc::new(cause)),observed,observation)
-                    })?;
-                    let mut charge=pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
-                    charge.hash(&original).hash(&profile).u64(attempt as u64).u64(index as u64);
-                    let phase=if mechanism.position==pse_model::strategy::Position::Preparation {pse_model::strategy::Phase::Preparation} else {pse_model::strategy::Phase::Native};
-                    Ok(super::strategy::Attempt { value, observation, evidence, work:pse_model::strategy::WorkCharge {phase, scope:pse_model::strategy::Scope::Task, charging_owner:charge.finish_hash(), observed } })
-                },
-                |value,observation| match value {
-                    RungOutcome::Original(value)=>{
-                        let (outcome,scope)=value.as_ref();
-                        let mut assessment = assess(outcome,scope.as_ref(),budget);
-                        for charge in &mut assessment.work {
-                            let mut occurrence=pse_ids::FramedHasher::new(pse_ids::Frame::NumericalWorkV1);
-                            occurrence.hash(&charge.charging_owner).hash(&profile).u64(attempt as u64).u64(dispatched_mechanism.get() as u64);
-                            charge.charging_owner=occurrence.finish_hash();
-                        }
-                        assessed = Some(assessment.product);
-                        super::strategy::Assessment { auxiliary:false, retention:assessment.retention, original:assessment.original, work:assessment.work, observation, cause:super::strategy::cause(outcome) }
-                    },
-                    RungOutcome::Derived(value)=>{
-                        let cause=value.screening_failure.clone().or_else(||super::strategy::cause(&value.outcome));
-                        let screened=value.screening_failure.is_none() && pending_screened.borrow().is_some();
-                        if screened && let Some(proposal)=&value.proposal {
-                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
-                            *point.borrow_mut()=Some(proposal.coordinates.clone());
-                            fresh_start.set(Some(pse_model::strategy::StartOrigin::Auxiliary));
-                        }
-                        let decision=crate::workflow::numerics::auxiliary_start(screened && value.proposal.is_some());
-                        let observation=cause.as_deref().map_or_else(||if screened && value.proposal.is_some() {pse_model::generated::enums::NumericalAttemptObservation::Auxiliary} else {observation},super::strategy::failure);
-                        super::strategy::Assessment {auxiliary:true,original:super::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:decision,session:SessionDisposition::Discard},observation,cause}
-                    },
-                    RungOutcome::Surrogate(value)=>{
-                        if let Some(statistical)=&value.statistical {
-                            let product_index=actual_products.borrow().iter().position(|p|matches!(p.provider,Some(super::strategy::ProviderEvidence::Library(_))) && p.statistical.is_none());
-                            if let Some(index)=product_index {actual_products.borrow_mut()[index].statistical=Some(statistical.clone());}
-                        }
-                        if let Some(proposal)=&value.proposal {
-                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
-                            *point.borrow_mut()=Some(proposal.values().map(|(_,v)|v).collect());
-                            fresh_start.set(Some(pse_model::strategy::StartOrigin::Surrogate));
-                        }
-                        let observation=if value.callback_terminal && super::strategy::permits_numerical_continuation(observation) {pse_model::generated::enums::NumericalAttemptObservation::ContractFailure} else {observation};
-                        super::strategy::Assessment {auxiliary:true,original:super::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some() && !value.callback_terminal),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
-                    },
-                    RungOutcome::Path(value)=>{
-                        if let Some(event)=value.events.first() {
-                            let product_index=actual_products.borrow().iter().position(|p|p.derived==Some(event.family));
-                            if let Some(index)=product_index {actual_products.borrow_mut()[index].path_events=Some(value.events.clone());}
-                        }
-                        if let Some(proposal)=&value.proposal {
-                            *screened_start.borrow_mut()=pending_screened.borrow_mut().take();
-                            *completion_witness.borrow_mut()=value.completion_witness();
-                            connected.set(completion_witness.borrow().is_some());
-                            *point.borrow_mut()=Some(proposal.values().map(|(_,v)|v).collect());fresh_start.set(Some(pse_model::strategy::StartOrigin::Auxiliary));
-                            let product_index=actual_products.borrow().iter().position(|p|p.derived==proposal.source().derivation);
-                            if let Some(index)=product_index {actual_products.borrow_mut()[index].transport=value.connected.map(|p|p.transport);}
-                        }
-                        super::strategy::Assessment {auxiliary:true,original:super::strategy::OriginalConclusion::Unavailable {cause:Arc::new(ProblemError::Unsupported("auxiliary result requires original correction".into()))},work:Vec::new(),retention:StepRetention {candidate:crate::workflow::numerics::auxiliary_start(value.proposal.is_some()),session:SessionDisposition::Discard},observation,cause:value.terminal.clone()}
-                    },
-                },
-            );
-            let trace = super::strategy::Trace { owner:None, publication_request:None, declaration, original, backend, profile, start, starts:actual_starts.into_inner(), products:actual_products.into_inner(), events:result.events };
-            let bytes=trace.retained_bytes()?;
-            let trace=Arc::new(trace.with_owner(service.reserve("math:strategy-trace",bytes)?));
-            match (result.value, assessed, result.terminal) {
-                (Some(RungOutcome::Original(value)), Some(product), None) => {
-                    let (outcome,_)=*value;
-                    if let Some(assessment) = result.assessment { assessment.retention.apply(retained); }
-                    retained.charge_session(Box::new(_allowance.clone()));
-                    Ok((outcome,product,trace))
-                }
-                (_, _, terminal) => {
-                    retained.clear();
-                    let error = terminal.map_or_else(|| ProblemError::Internal("strategy ended without an assessed original".into()), |error| ProblemError::Math(pse_math::MathError::Typed {retained:error.retained_bytes(),cause:pse_model::diagnostic::DiagnosticCause::from_shared(error)}));
-                    let outcome = super::solves::Outcome::Rejected(Arc::new(error.into()));
-                    let product = assess(&outcome,Some(&enclosing),budget).product;
-                    Ok((outcome,product,trace))
-                }
-            }
-        })
+        .step(step, previous, attempt, progress, owner, cancel, assess)
         .await
     }
     /// Execute the independent steps of one batch on the retained native state under one
@@ -2231,6 +1354,7 @@ impl NativeSession {
     }
     /// Close the session and wait until its thread has joined.
     pub(crate) async fn close(mut self) {
+        self.population.close();
         self.sender.take();
         if let Some(joined) = self.joined.take() {
             let _ = joined.await;
@@ -2239,6 +1363,7 @@ impl NativeSession {
 }
 impl Drop for NativeSession {
     fn drop(&mut self) {
+        self.population.close();
         // Without an explicit close the thread still exits after its last step and the
         // supervisor joins it before releasing the admission.
         self.sender.take();
@@ -2249,6 +1374,358 @@ impl Drop for NativeSession {
 mod admission_tests {
     use super::*;
     use std::sync::{Condvar, Mutex};
+
+    #[tokio::test]
+    async fn exclusive_session_scratch_waits_for_request_return_and_native_sibling_drain() {
+        let service = super::super::tests::service();
+        let (prepared, mut values, parameter) = super::super::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        values.scalars.insert(case.assembly.columns()[0], 1.0);
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        let bytes = case.assembly.numeric_worker_bytes() + 1024;
+        let work_service = service.clone();
+        let first_case = case.clone();
+        let first_values = values.clone();
+        session
+            .run(1, None, &cancel, move |retained, _, budget| {
+                let stop = Arc::new(AtomicBool::new(false));
+                let weak = Arc::downgrade(&stop);
+                let super::super::ExecutionWorker {
+                    mut worker,
+                    _case,
+                    _charge,
+                } = work_service.reusable_worker(
+                    first_case.clone(),
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(stop.clone(), None),
+                    budget,
+                )?;
+                worker.constraints(&first_values)?;
+                drop(worker);
+                drop(stop);
+                assert!(
+                    weak.upgrade().is_none(),
+                    "pending scratch owns no old cancellation"
+                );
+                let origin = scratch_origin().unwrap();
+                assert!(
+                    take_scratch(&origin, &first_case, budget, bytes).is_none(),
+                    "work has not returned"
+                );
+                retained.session(
+                    Backend::Kinsol,
+                    pse_backend_native::solve::ReusePolicy::AllowRebuild,
+                    |_: &mut super::super::WorkerCharge| Ok(false),
+                    || Ok(_charge),
+                )?;
+                drop(_case);
+                assert_eq!(budget.used(), bytes);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session
+            .run(1, None, &cancel, move |retained, _, budget| {
+                assert_eq!(budget.used(), bytes);
+                SCRATCH_LANE.with(|slot| {
+                    let slot = slot.borrow();
+                    let lane = slot.as_ref().unwrap();
+                    assert!(lane.pending.is_some());
+                    assert!(lane.ready.is_none());
+                });
+                retained.clear();
+                SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_none()));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let work_service = service.clone();
+        let next_case = case.clone();
+        let mut next_values = values.clone();
+        next_values.scalars.insert(parameter, 2.0);
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                assert_eq!(budget.used(), bytes, "idle storage stays charged");
+                SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_some()));
+                let mut reused = work_service.reusable_worker(
+                    next_case.clone(),
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?;
+                assert_eq!(
+                    budget.used(),
+                    bytes,
+                    "exclusive attach neither releases nor charges again"
+                );
+                let actual = reused.worker.constraints(&next_values)?;
+                let mut independent = work_service.worker(
+                    next_case,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?;
+                assert_eq!(
+                    budget.used(),
+                    bytes + bytes - 1024,
+                    "independent original worker is cold"
+                );
+                assert_eq!(actual, independent.worker.constraints(&next_values)?);
+                drop(independent);
+                drop(reused);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let budget = session.budget.clone();
+        session
+            .run(1, None, &cancel, move |_, _, budget| {
+                assert_eq!(budget.used(), bytes);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session.close().await;
+        assert_eq!(budget.used(), 0);
+    }
+
+    #[tokio::test]
+    async fn exclusive_session_scratch_refuses_foreign_budget_and_pressure_destroys_idle_storage() {
+        let service = super::super::tests::service();
+        let (prepared, _, _) = super::super::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        let bytes = case.assembly.numeric_worker_bytes() + 1024;
+        let work_service = service.clone();
+        let first = case.clone();
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                drop(work_service.reusable_worker(
+                    first,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let next = case.clone();
+        session
+            .run(1, None, &cancel, move |_, _, budget| {
+                assert_eq!(budget.used(), bytes);
+                let origin = scratch_origin().unwrap();
+                let mut wrong_lane = origin.clone();
+                wrong_lane.lane = Arc::new(());
+                assert!(take_scratch(&wrong_lane, &next, budget, bytes).is_none());
+                let mut old_request = origin.clone();
+                old_request.request -= 1;
+                assert!(take_scratch(&old_request, &next, budget, bytes).is_none());
+                SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_some()));
+                let foreign = WorkerBudget::new(bytes * 4);
+                assert!(take_scratch(&origin, &next, &foreign, bytes).is_none());
+                assert_eq!(budget.used(), 0, "incompatible idle candidate destroyed");
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let work_service = service.clone();
+        let first = case.clone();
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                drop(work_service.reusable_worker(
+                    first,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session
+            .run(1, None, &cancel, move |_, _, budget| {
+                assert_eq!(budget.used(), bytes);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let pressure = service.pressure.demand();
+        // A real request boundary also witnesses pressure, without a guessed delay
+        // or a second permission poll. All idle transfer charges must then depart.
+        session
+            .run(1, None, &cancel, move |_, _, _| Ok(()))
+            .await
+            .unwrap();
+        assert_eq!(session.budget.used(), 0);
+        drop(pressure);
+        session.close().await;
+    }
+
+    #[tokio::test]
+    async fn exclusive_session_reset_overlap_refusal_destroys_candidate_before_next_attempt() {
+        let service = super::super::tests::service();
+        let (prepared, mut values, _) = super::super::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        values.scalars.insert(case.assembly.columns()[0], 1.0);
+        let bytes = case.assembly.numeric_worker_bytes() + 1024;
+        let mut session = service.open_session().unwrap();
+        session.budget = WorkerBudget::drawing_for(bytes, &service);
+        let cancel = crate::CancelSource::new();
+        let work_service = service.clone();
+        let first = case.clone();
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                let mut worker = work_service.reusable_worker(
+                    first,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?;
+                worker.worker.constraints(&values)?;
+                drop(worker);
+                assert_eq!(budget.used(), bytes);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session
+            .run(1, None, &cancel, move |_, _, budget| {
+                assert_eq!(
+                    budget.used(),
+                    0,
+                    "reset overlap refuses before allocation and destroys candidate"
+                );
+                SCRATCH_LANE.with(|slot| {
+                    let slot = slot.borrow();
+                    let lane = slot.as_ref().unwrap();
+                    assert!(lane.ready.is_none());
+                    assert!(lane.pending.is_none());
+                });
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session.close().await;
+    }
+
+    #[tokio::test]
+    async fn cold_independent_worker_can_yield_optional_idle_scratch_for_required_admission() {
+        let service = super::super::tests::service();
+        let (prepared, _, _) = super::super::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        let work_service = service.clone();
+        let first = case.clone();
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                drop(work_service.reusable_worker(
+                    first,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let work_service = service.clone();
+        session
+            .run(1, None, &cancel, move |_, flag, budget| {
+                let cold = case.assembly.numeric_worker_bytes();
+                let used = budget.used();
+                assert!(used > cold);
+                let fill = budget.charge(budget.capacity() - used - cold + 1)?;
+                let worker = work_service.worker(
+                    case,
+                    &Default::default(),
+                    pse_kernels::ExecutionScope::new(flag.clone(), None),
+                    budget,
+                )?;
+                SCRATCH_LANE.with(|slot| assert!(slot.borrow().as_ref().unwrap().ready.is_none()));
+                drop(worker);
+                drop(fill);
+                assert_eq!(budget.used(), 0);
+                Ok(())
+            })
+            .await
+            .unwrap();
+        session.close().await;
+    }
+
+    #[tokio::test]
+    async fn optional_scratch_metadata_does_not_reduce_cold_policy_capacity() {
+        let original = super::super::tests::service();
+        let (prepared, _, _) = super::super::tests::component_fixture(&original);
+        let case = original.assemble(prepared).await.unwrap();
+        let cold = case.assembly.numeric_worker_bytes();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            512 << 20,
+            super::super::MathPolicy {
+                worker_bytes: cold,
+                ..original.policy.clone()
+            },
+        );
+        let session = service.open_session().unwrap();
+        let worker_service = service.clone();
+        session
+            .run(
+                1,
+                None,
+                &crate::CancelSource::new(),
+                move |_, flag, budget| {
+                    let worker = worker_service.reusable_worker(
+                        case,
+                        &Default::default(),
+                        pse_kernels::ExecutionScope::new(flag.clone(), None),
+                        budget,
+                    )?;
+                    assert_eq!(budget.used(), cold);
+                    drop(worker);
+                    assert_eq!(budget.used(), 0);
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        session.close().await;
+    }
+
+    #[tokio::test]
+    async fn optional_scratch_metadata_does_not_reduce_cold_live_budget_capacity() {
+        let service = super::super::tests::service();
+        let (prepared, _, _) = super::super::tests::component_fixture(&service);
+        let case = service.assemble(prepared).await.unwrap();
+        let cold = case.assembly.numeric_worker_bytes();
+        let session = service.open_session().unwrap();
+        let worker_service = service.clone();
+        session
+            .run(
+                1,
+                None,
+                &crate::CancelSource::new(),
+                move |_, flag, budget| {
+                    let fill = budget.charge(budget.capacity() - cold)?;
+                    let worker = worker_service.reusable_worker(
+                        case,
+                        &Default::default(),
+                        pse_kernels::ExecutionScope::new(flag.clone(), None),
+                        budget,
+                    )?;
+                    assert_eq!(budget.used(), budget.capacity());
+                    drop(worker);
+                    drop(fill);
+                    assert_eq!(budget.used(), 0);
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        session.close().await;
+    }
 
     #[test]
     fn expired_driver_retains_actual_assessed_native_time_stop_and_trace() {
@@ -2805,6 +2282,153 @@ mod admission_tests {
         assert_eq!(service.cpu.available_permits(), service.cores);
         assert_eq!(service.pool.reserved(), baseline);
     }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn serial_operation_retains_native_state_and_loans_saturated_population_once() {
+        use driver::Dispatch;
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let mut idle = Vec::new();
+        for _ in 1..service.policy.jobs {
+            idle.push(service.open_session().unwrap());
+        }
+        assert_eq!(service.jobs.available_permits(), 0);
+        let cancel = crate::CancelSource::new();
+        let flag = Arc::new(AtomicBool::new(false));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+        let entries = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let seen = entries.clone();
+        let worker_service = service.clone();
+        let worker_cancel = cancel.clone();
+        let worker_scope = scope.clone();
+        observed_native_entry(
+            Arc::new(move |_| {
+                seen.fetch_add(1, Ordering::AcqRel);
+            }),
+            session.sequence(scope, Default::default(), &cancel, move |local| {
+                assert!(Arc::ptr_eq(&local.execution().cancel, &flag));
+                assert_eq!(local.execution().scope()?.deadline(), Some(deadline));
+                let started = local.execution().started;
+                for expected in 1..=3 {
+                    let actual = local.run_ready(Dispatch::run_task(
+                        local,
+                        1,
+                        vec![Backend::Kinsol],
+                        Some(deadline),
+                        Some(worker_scope.clone()),
+                        &worker_cancel,
+                        move |retained, _, _| {
+                            let (count, reused) = retained.session(
+                                Backend::Kinsol,
+                                pse_backend_native::solve::ReusePolicy::AllowRebuild,
+                                |count: &mut usize| {
+                                    *count += 1;
+                                    Ok(true)
+                                },
+                                || Ok(1usize),
+                            )?;
+                            assert_eq!(reused, expected > 1);
+                            Ok(*count)
+                        },
+                    ))?;
+                    assert_eq!(actual, expected);
+                    // The direct child receives this operation's ticket even when all
+                    // four finite population slots belong to resident sessions.
+                    let child_service = worker_service.clone();
+                    let child_flag = flag.clone();
+                    let child = local.preparation(worker_service.job_scoped(
+                        1,
+                        0,
+                        pse_columnar::flight::FlightCancellation::default(),
+                        Some(deadline),
+                        move |_| {
+                            assert_eq!(child_service.jobs.available_permits(), 0);
+                            assert!(!child_flag.load(Ordering::Acquire));
+                            Ok(expected)
+                        },
+                    ))?;
+                    assert_eq!(child, expected);
+                    assert_eq!(local.execution().started, started);
+                    assert_eq!(local.execution().scope()?.deadline(), Some(deadline));
+                }
+                assert!(matches!(
+                    local.run_ready(std::future::pending::<Result<(), MathRuntimeError>>()),
+                    Err(MathRuntimeError::Infrastructure(_))
+                ));
+                Ok(())
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(entries.load(Ordering::Acquire), 1);
+        session.close().await;
+        for resident in idle {
+            resident.close().await;
+        }
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
+    async fn cancelled_serial_preparation_keeps_loan_and_storage_until_child_drain() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let mut idle = Vec::new();
+        for _ in 1..service.policy.jobs {
+            idle.push(service.open_session().unwrap());
+        }
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let gate = Gate::new();
+        let held = gate.0.clone();
+        let observed = entered.clone();
+        let worker_service = service.clone();
+        let cancel = crate::CancelSource::new();
+        let flag = Arc::new(AtomicBool::new(false));
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+        let mut sequence =
+            Box::pin(
+                session.sequence(scope, Default::default(), &cancel, move |local| {
+                    local.preparation(worker_service.job_scoped(
+                        1,
+                        4096,
+                        pse_columnar::flight::FlightCancellation::default(),
+                        Some(deadline),
+                        move |_| {
+                            observed.notify_one();
+                            wait_gate(&held);
+                            Ok(())
+                        },
+                    ))
+                }),
+            );
+        assert!(futures_util::poll!(sequence.as_mut()).is_pending());
+        entered.notified().await;
+        let reserved = service.pool.reserved();
+        cancel.cancel();
+        assert!(futures_util::poll!(sequence.as_mut()).is_pending());
+        assert!(flag.load(Ordering::Acquire));
+        assert_eq!(service.jobs.available_permits(), 0);
+        assert_eq!(
+            service.active_jobs.available_permits(),
+            service.policy.jobs - 1
+        );
+        assert_eq!(service.pool.reserved(), reserved);
+        gate.release();
+        assert!(sequence.await.is_err());
+        session.close().await;
+        for resident in idle {
+            resident.close().await;
+        }
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
     #[tokio::test]
     async fn abandoned_session_waiter_keeps_dispatched_cpu() {
         stopped_waiter_keeps_dispatched_capacity(true).await;
@@ -2832,8 +2456,9 @@ mod admission_tests {
     async fn compute_owner_wait_uses_original_clock_and_shared_permit() {
         use execution::ComputeAdmission;
         let service = super::super::tests::service();
-        let permit = service.cpu.clone().acquire_owned().await.unwrap();
+        let permit = service.try_active(1).unwrap().unwrap();
         let owner = ComputeOwner::new(
+            service.active_jobs.clone(),
             service.cpu.clone(),
             1,
             permit,
@@ -2881,6 +2506,142 @@ mod admission_tests {
         drop(retained);
         assert_eq!(service.cpu.available_permits(), service.cores);
     }
+    #[tokio::test]
+    async fn same_session_dispatch_waiter_takes_no_compute_before_parent_resume() {
+        let service = super::super::tests::service();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let seen = entered.clone();
+        let gate = Gate::new();
+        let held = gate.0.clone();
+        let mut first = Box::pin(session.run(2, None, &cancel, move |_, flag, _| {
+            execution::pause_compute();
+            seen.notify_one();
+            wait_gate(&held);
+            let execution =
+                pse_backend_native::solve::Execution::new(flag.clone(), &Default::default());
+            execution::resume_compute(&execution)?;
+            Ok(())
+        }));
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        entered.notified().await;
+        let mut next = Box::pin(session.run(2, None, &cancel, |_, _, _| Ok(())));
+        assert!(futures_util::poll!(next.as_mut()).is_pending());
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        gate.release();
+        tokio::time::timeout(std::time::Duration::from_secs(1), first)
+            .await
+            .unwrap()
+            .unwrap();
+        next.await.unwrap();
+        session.close().await;
+    }
+    #[tokio::test]
+    async fn idle_pressure_destroys_optional_state_before_capacity_can_progress() {
+        use datafusion::execution::memory_pool::{MemoryConsumer, MemoryLimit};
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let session = service.open_session().unwrap();
+        let gate = Gate::new();
+        let held = gate.0.clone();
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let seen = entered.clone();
+        let optional = service
+            .reserve("optional-session-control", 64 << 20)
+            .unwrap();
+        session
+            .run(
+                1,
+                None,
+                &crate::CancelSource::new(),
+                move |retained, _, _| {
+                    retained.session(
+                        Backend::Ipopt,
+                        pse_backend_native::solve::ReusePolicy::AllowRebuild,
+                        |_: &mut NativeState| Ok(true),
+                        || {
+                            Ok(NativeState {
+                                entered: seen,
+                                gate: held,
+                            })
+                        },
+                    )?;
+                    retained.charge_session(Box::new(optional));
+                    Ok(())
+                },
+            )
+            .await
+            .unwrap();
+        let MemoryLimit::Finite(capacity) = service.pool.memory_limit() else {
+            panic!("finite pool control");
+        };
+        let fill = MemoryConsumer::new("required-capacity-control").register(&service.pool);
+        fill.try_grow(capacity - service.pool.reserved()).unwrap();
+        let pending = service.submit(1, 0, |_, _| Ok(((), 0))).unwrap();
+        let mut pending = Box::pin(pending.finish());
+        assert!(futures_util::poll!(pending.as_mut()).is_pending());
+        tokio::time::timeout(std::time::Duration::from_secs(1), entered.notified())
+            .await
+            .unwrap();
+        assert_eq!(service.pool.reserved(), capacity);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        gate.release();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(1), pending)
+            .await
+            .unwrap()
+            .unwrap();
+        drop(result);
+        drop(fill);
+        session.close().await;
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test]
+    async fn compute_try_resume_never_holds_partial_active_admission() {
+        use execution::{ComputeAdmission, ComputeAvailability};
+        let service = super::super::tests::service();
+        let active = service.try_active(2).unwrap().unwrap();
+        let mut owner = ComputeOwner::new(
+            service.active_jobs.clone(),
+            service.cpu.clone(),
+            2,
+            active,
+            tokio::runtime::Handle::current(),
+        );
+        owner.pause();
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        let one_cpu = service.cpu.clone().acquire_owned().await.unwrap();
+        let execution =
+            pse_backend_native::solve::Execution::new(Arc::default(), &Default::default());
+        assert_eq!(
+            owner.try_resume(&execution).unwrap(),
+            ComputeAvailability::Unavailable
+        );
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
+        assert_eq!(service.cpu.available_permits(), service.cores - 1);
+        drop(one_cpu);
+        assert_eq!(
+            owner.try_resume(&execution).unwrap(),
+            ComputeAvailability::Acquired
+        );
+        assert_eq!(
+            service.active_jobs.available_permits(),
+            service.policy.jobs - 1
+        );
+        owner.pause();
+        execution.cancel.store(true, Ordering::Release);
+        assert!(matches!(
+            owner.try_resume(&execution),
+            Err(ProblemError::Cancelled)
+        ));
+        service.active_jobs.close();
+        let execution =
+            pse_backend_native::solve::Execution::new(Arc::default(), &Default::default());
+        assert!(owner.try_resume(&execution).is_err());
+        assert_eq!(service.cpu.available_permits(), service.cores);
+    }
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
     async fn persistent_scope_stacks_survive_idle_and_nested_scope_replacement() {
@@ -2915,7 +2676,7 @@ mod admission_tests {
     }
     #[cfg(feature = "solver-pounce")]
     #[tokio::test]
-    async fn persistent_scope_refuses_before_creation_and_restores_session() {
+    async fn persistent_scope_reserves_before_active_and_restores_session() {
         use datafusion::execution::memory_pool::MemoryConsumer;
         let service = super::super::tests::service();
         let baseline = service.pool.reserved();
@@ -2931,22 +2692,21 @@ mod admission_tests {
         let entered = Arc::new(AtomicBool::new(false));
         let observed = entered.clone();
         let cancel = crate::CancelSource::new();
-        assert!(
-            session
-                .run(2, Some(Backend::Pounce), &cancel, move |_, _, _| {
+        let mut waiting =
+            Box::pin(
+                session.run(2, Some(Backend::Pounce), &cancel, move |_, _, _| {
                     observed.store(true, Ordering::Release);
                     Ok(())
-                })
-                .await
-                .is_err()
-        );
+                }),
+            );
+        assert!(futures_util::poll!(waiting.as_mut()).is_pending());
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
         assert!(!entered.load(Ordering::Acquire));
         assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
         drop(held);
-        session
-            .run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(()))
-            .await
-            .unwrap();
+        waiting.await.unwrap();
+        assert!(entered.load(Ordering::Acquire));
         session.close().await;
         assert_eq!(service.pool.reserved(), baseline);
     }

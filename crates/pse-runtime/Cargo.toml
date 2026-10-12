@@ -18,6 +18,7 @@ workspace = true
 
 [features]
 force-validate = [
+  "pse-admission/force-validate",
   "pse-columnar/force-validate",
   "pse-engine/force-validate",
   "pse-operations/force-validate",
@@ -56,6 +57,13 @@ native-solvers = [
 ]
 
 [dependencies]
+egobox-ego.workspace = true
+egobox-moe.workspace = true
+egobox-gp.workspace = true
+argmin.workspace = true
+ndarray.workspace = true
+rayon.workspace = true
+pse-admission.workspace = true
 pse-buildinfo.workspace = true
 pse-rules.workspace = true
 tracing.workspace = true
@@ -101,10 +109,10 @@ miette.workspace = true
 # The operational store: durable attempts, jobs, streams and seeds (ADR-0112).
 pse-operations.workspace = true
 chrono.workspace = true
-pse-workspace-hack.workspace = true
 flatbuffers.workspace = true
 
 [dev-dependencies]
+egobox-doe.workspace = true
 uuid.workspace = true
 pse-operations = { workspace = true, features = ["test-support"] }
 tempfile.workspace = true

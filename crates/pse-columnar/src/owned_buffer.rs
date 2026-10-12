@@ -427,6 +427,55 @@ impl AllocationScope {
     ) -> Result<OwnedRecordBatch, CanonError> {
         self.attach(batch, Some(reservation), None)
     }
+    /// Transfer only previously unowned native allocations from a borrowed grant.
+    /// Imported input allocations keep their existing owners; unused capacity
+    /// remains with the caller, including any transport response owner. The
+    /// caller must keep concurrent transport storage covered independently of
+    /// the capacity transferred here.
+    /// # Errors
+    /// Insufficient reservation, invalid extent or Arrow representation.
+    pub fn attach_borrowed_reserved(
+        &self,
+        batch: RecordBatch,
+        reservation: &crate::MemoryReservation,
+    ) -> Result<OwnedRecordBatch, CanonError> {
+        attach_native(batch, Some(reservation), None, self)
+    }
+    /// Transfer one native backing allocation and its pre-acquired reservation.
+    /// Slices produced by a decoder retain this same owner, so attaching its
+    /// output under this scope does not charge the input allocation again.
+    /// # Errors
+    /// Insufficient admitted capacity, conflicting ownership or poisoned state.
+    pub fn attach_buffer(
+        &self,
+        buffer: Buffer,
+        reservation: crate::MemoryReservation,
+    ) -> Result<Buffer, CanonError> {
+        let bytes = extent(&buffer)?;
+        if bytes == 0 {
+            return Ok(buffer);
+        }
+        if reservation.size() < bytes {
+            return Err(ReserveError::Exhausted {
+                owner: "owned-buffer:input".into(),
+                requested: bytes,
+                reserved: reservation.size(),
+                limit_hint: "pre-admitted native capacity".into(),
+            }
+            .into());
+        }
+        let owner = Arc::new(BufferOwner {
+            storage: buffer.clone(),
+            lease: AllocationLease::new(reservation.split(bytes)),
+        });
+        let wrapped = Buffer::from(Bytes::from_owner(LeasedBuffer {
+            buffer,
+            _owner: owner.clone(),
+        }));
+        let mut inventory = self.lock()?;
+        merge_owner(&mut inventory, wrapped.data_ptr().as_ptr() as usize, &owner)?;
+        Ok(wrapped)
+    }
     fn retained_bytes(&self, batch: &RecordBatch) -> Result<usize, CanonError> {
         let owners = self.lock()?;
         let mut allocations = BTreeMap::new();
@@ -441,7 +490,7 @@ impl AllocationScope {
         supplied: Option<crate::MemoryReservation>,
         pool: Option<&Arc<dyn MemoryPool>>,
     ) -> Result<OwnedRecordBatch, CanonError> {
-        attach_native(batch, supplied, pool, self)
+        attach_native(batch, supplied.as_ref(), pool, self)
     }
 }
 
@@ -507,7 +556,7 @@ fn native_buffers(data: &ArrayData, out: &mut BTreeMap<usize, Buffer>) -> Result
 }
 fn attach_native(
     batch: RecordBatch,
-    supplied: Option<crate::MemoryReservation>,
+    supplied: Option<&crate::MemoryReservation>,
     pool: Option<&Arc<dyn MemoryPool>>,
     scope: &AllocationScope,
 ) -> Result<OwnedRecordBatch, CanonError> {
@@ -532,13 +581,14 @@ fn attach_native(
             needed = checked_sum(needed, extent(buffer)?)?;
         }
     }
+    let allocated;
     let reservation = if let Some(reservation) = supplied {
         reservation
     } else {
         let pool = pool.ok_or_else(|| CanonError::Internal("native pool absent".into()))?;
-        let reservation = crate::MemoryConsumer::new("result:retained-native").register(pool);
-        reservation.try_grow(needed)?;
-        reservation
+        allocated = crate::MemoryConsumer::new("result:retained-native").register(pool);
+        allocated.try_grow(needed)?;
+        &allocated
     };
     if reservation.size() < needed {
         return Err(ReserveError::Exhausted {
@@ -961,6 +1011,178 @@ mod tests {
     use arrow_schema::{DataType, Field, Schema};
 
     use super::*;
+
+    #[test]
+    fn attached_input_slices_keep_full_charge_without_charging_output_aliases() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(crate::GreedyMemoryPool::new(4096));
+        let mut bytes = Vec::with_capacity(128);
+        bytes.extend(0u8..64);
+        let extent = bytes.capacity();
+        let source = crate::MemoryConsumer::new("input:test").register(&pool);
+        source.try_grow(extent).unwrap();
+        let scope = AllocationScope::default();
+        let input = scope
+            .attach_buffer(Buffer::from_vec(bytes), source)
+            .unwrap();
+        let array = arrow_array::UInt8Array::new(
+            arrow_buffer::ScalarBuffer::new(input.slice(16), 0, 8),
+            None,
+        );
+        drop(input);
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::UInt8,
+                false,
+            )])),
+            vec![Arc::new(array)],
+        )
+        .unwrap();
+        let output = crate::MemoryConsumer::new("output:test").register(&pool);
+        let owned = scope.attach_reserved(batch, output).unwrap();
+        assert_eq!(owned.retained_bytes().unwrap(), extent);
+        assert_eq!(pool.reserved(), extent);
+        let escaped = owned.column(0).clone();
+        drop(owned);
+        drop(scope);
+        assert_eq!(pool.reserved(), extent);
+        assert_eq!(
+            escaped
+                .as_any()
+                .downcast_ref::<arrow_array::UInt8Array>()
+                .unwrap()
+                .value(0),
+            16
+        );
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn borrowed_grant_transfers_native_extents_without_retaining_unused_capacity() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(crate::GreedyMemoryPool::new(1024));
+        let reservation = Arc::new(crate::MemoryConsumer::new("input:borrowed").register(&pool));
+        reservation.try_grow(1024).unwrap();
+        let response_owner = reservation.clone();
+        let scope = AllocationScope::default();
+        let input = scope
+            .attach_buffer(Buffer::from_vec(vec![1u8, 2, 3, 4]), reservation.split(4))
+            .unwrap();
+        let source =
+            arrow_array::UInt8Array::new(arrow_buffer::ScalarBuffer::new(input, 0, 4), None);
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("source", DataType::UInt8, false),
+                Field::new("native", DataType::Int32, false),
+            ])),
+            vec![
+                Arc::new(source),
+                Arc::new(Int32Array::from(vec![5, 6, 7, 8])),
+            ],
+        )
+        .unwrap();
+        let owned = scope
+            .attach_borrowed_reserved(batch, reservation.as_ref())
+            .unwrap();
+        let retained = owned.retained_bytes().unwrap();
+        assert!(retained > 4 && retained < 1024);
+        assert_eq!(
+            pool.reserved(),
+            1024,
+            "partition never releases and reacquires capacity"
+        );
+        assert_eq!(reservation.size() + retained, 1024);
+        drop(reservation);
+        assert_eq!(
+            pool.reserved(),
+            1024,
+            "the other response owner still owns the remainder"
+        );
+        drop(response_owner);
+        assert_eq!(pool.reserved(), retained);
+        let escaped = owned.columns().to_vec();
+        drop(owned);
+        drop(scope);
+        assert_eq!(pool.reserved(), retained);
+        assert_eq!(
+            escaped[0]
+                .as_any()
+                .downcast_ref::<arrow_array::UInt8Array>()
+                .unwrap()
+                .value(2),
+            3
+        );
+        assert_eq!(
+            escaped[1]
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap()
+                .value(2),
+            7
+        );
+        drop(escaped);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn borrowed_grant_refuses_before_partitioning_insufficient_capacity() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(crate::GreedyMemoryPool::new(64));
+        let reservation =
+            Arc::new(crate::MemoryConsumer::new("input:borrowed-refusal").register(&pool));
+        reservation.try_grow(1).unwrap();
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![Field::new(
+                "value",
+                DataType::Int32,
+                false,
+            )])),
+            vec![Arc::new(Int32Array::from(vec![1, 2]))],
+        )
+        .unwrap();
+        assert!(
+            AllocationScope::default()
+                .attach_borrowed_reserved(batch, reservation.as_ref())
+                .is_err()
+        );
+        assert_eq!(reservation.size(), 1);
+        assert_eq!(pool.reserved(), 1);
+        drop(reservation);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn attached_input_refuses_unadmitted_backing_capacity_and_releases_charge() {
+        let pool: Arc<dyn MemoryPool> = Arc::new(crate::GreedyMemoryPool::new(4096));
+        let mut bytes = Vec::with_capacity(128);
+        bytes.push(1u8);
+        let source = crate::MemoryConsumer::new("input:test-refusal").register(&pool);
+        source.try_grow(bytes.capacity() - 1).unwrap();
+        assert!(
+            AllocationScope::default()
+                .attach_buffer(Buffer::from_vec(bytes), source)
+                .is_err()
+        );
+        assert_eq!(pool.reserved(), 0);
+        let scope = AllocationScope::default();
+        let first = scope
+            .attach_buffer(
+                Buffer::from_vec(Vec::<u8>::new()),
+                crate::MemoryConsumer::new("input:empty-first").register(&pool),
+            )
+            .unwrap();
+        let second = scope
+            .attach_buffer(
+                Buffer::from_vec(Vec::<u8>::new()),
+                crate::MemoryConsumer::new("input:empty-second").register(&pool),
+            )
+            .unwrap();
+        assert!(first.is_empty() && second.is_empty());
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "empty buffers have no allocation identity to register"
+        );
+    }
 
     #[test]
     fn payload_export_refuses_bufferless_storage_before_retaining_owner() {

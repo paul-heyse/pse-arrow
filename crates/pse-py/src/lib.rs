@@ -38,12 +38,30 @@ fn registry_fingerprint() -> String {
     pse_relations::generated::REGISTRY_FINGERPRINT.to_prefixed()
 }
 
+/// Features of this actual extension binary, independent of its launch environment.
+#[pyfunction]
+fn compiled_features() -> Vec<String> {
+    [
+        ("force-validate", cfg!(feature = "force-validate")),
+        ("native-solvers", cfg!(feature = "native-solvers")),
+        ("solver-diffsol", cfg!(feature = "solver-diffsol")),
+        ("solver-highs", cfg!(feature = "solver-highs")),
+        ("solver-ipopt", cfg!(feature = "solver-ipopt")),
+        ("solver-kinsol", cfg!(feature = "solver-kinsol")),
+        ("solver-pounce", cfg!(feature = "solver-pounce")),
+        ("solver-scip", cfg!(feature = "solver-scip")),
+    ]
+    .into_iter()
+    .filter_map(|(name, enabled)| enabled.then(|| name.to_owned()))
+    .collect()
+}
+
 /// Immutable admitted data inspection and build provenance.
 #[pymodule]
 mod _native {
     #[pymodule_export]
     use super::{
-        build_info,
+        build_info, compiled_features,
         identities::{
             content_hash_from_prefixed, content_hash_to_prefixed, semantic_id_from_hex,
             semantic_id_to_hex,

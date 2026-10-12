@@ -346,7 +346,9 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         "the ingress cache retains a compact immutable revision handle"
     );
     let mut other_context = runtime.clone();
-    other_context.sessions = Arc::new(runtime.sessions.as_ref().clone());
+    other_context.model = Arc::new(runtime.sessions().as_ref().clone())
+        .bind_model(runtime.registry().clone())
+        .unwrap();
     let scoped = other_context
         .package_from_sources(
             std::slice::from_ref(&texts),
@@ -626,6 +628,70 @@ async fn checked_selected_admission_rechecks_fresh_protection_and_retains_a_b_a(
         .release(fresh.read.selection())
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_window() {
+    let runtime = super::super::tests::runtime();
+    let source = "package p { def Root { var x:Scalar; eq a:x*x==1; } }";
+    let rows = declarations(source);
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let mut package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let first = package.checked_selection(&[root], &cancel).await.unwrap();
+    let original = first.admission.revision.clone();
+    let request = first.admission.request.clone();
+    first.read.finish().await.unwrap();
+    for literal in 2..=10 {
+        package = package
+            .with_declarations(declarations(&format!(
+                "package p {{ def Root {{ var x:Scalar; eq a:x*x=={literal}; }} }}"
+            )))
+            .await
+            .unwrap();
+        let selected = package.checked_selection(&[root], &cancel).await.unwrap();
+        assert!(!original.same_admission(&selected.admission.revision));
+        selected.read.finish().await.unwrap();
+    }
+    assert!(
+        runtime
+            .shared
+            .math()
+            .modeling_cache
+            .selected(&request)
+            .unwrap()
+            .len()
+            >= 10,
+        "the fixture retains history beyond one bounded lookup window"
+    );
+    package = package
+        .with_declarations(declarations(source))
+        .await
+        .unwrap();
+    let before = runtime.shared.math().preparation_effects();
+    let restored = package.checked_selection(&[root], &cancel).await.unwrap();
+    assert!(
+        original.same_admission(&restored.admission.revision),
+        "lookup must continue beyond the newest eight rejected admissions"
+    );
+    assert_eq!(
+        runtime
+            .shared
+            .math()
+            .preparation_effects()
+            .since(before)
+            .workspaces,
+        0,
+        "the retained oldest candidate needs no new compiler workspace"
+    );
+    restored.read.finish().await.unwrap();
 }
 
 #[tokio::test]
@@ -1378,7 +1444,15 @@ async fn ordinary_preparation_exact_basis_hit_rebinds_current_attribution_and_se
             anchor as *const () as usize,
             Arc::new(move || {
                 observed.fetch_add(1, Ordering::SeqCst);
-                Ok(configuration.lock().unwrap().clone())
+                // SAFETY: this native test root has no libc environment writers.
+                let environment =
+                    pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(
+                        &|| Ok(()),
+                    )?;
+                crate::math::portable::RuntimeConfigurationObservation::new(
+                    configuration.lock().unwrap().clone(),
+                    environment,
+                )
             }),
         )
     }
@@ -1463,10 +1537,15 @@ async fn ordinary_preparation_exact_basis_hit_rebinds_current_attribution_and_se
         .iter()
         .find(|description| description.semantic_identity == old_description.semantic_identity)
         .unwrap();
-    assert!(
-        Arc::ptr_eq(warm_description, &old_description),
-        "warm settlement reuses owned encoded description material"
+    assert_eq!(
+        warm_description.description.descriptor().as_ptr(),
+        old_description.description.descriptor().as_ptr(),
+        "warm settlement rebinds the current receipt while sharing original encoded content"
     );
+    assert!(Arc::ptr_eq(
+        warm_description.description.selection_material(),
+        warm.selection_material.as_ref().unwrap()
+    ));
     assert_eq!(
         store
             .acknowledge_description(&old_description.description)
@@ -2224,7 +2303,18 @@ async fn ordinary_preparation_many_body_inventory_settles_partial_descriptions_b
         .cloned()
         .collect::<Vec<_>>();
     let service = runtime.shared.math();
-    let partial = Arc::new(basis.with_descriptions(service, retained).unwrap());
+    let shared = basis.selection_material.as_ref().unwrap();
+    assert!(
+        basis
+            .descriptions
+            .iter()
+            .all(|description| Arc::ptr_eq(shared, description.description.selection_material()))
+    );
+    let partial = Arc::new(
+        basis
+            .with_descriptions(service, shared.clone(), retained)
+            .unwrap(),
+    );
     assert!(partial.description(missing).is_none());
     assert!(
         partial
@@ -2270,11 +2360,116 @@ async fn ordinary_preparation_many_body_inventory_settles_partial_descriptions_b
     .unwrap();
     assert_eq!(settled.descriptions.len(), basis.descriptions.len());
     assert!(settled.description(missing).is_some());
+    let shared = settled.selection_material.as_ref().unwrap();
+    assert!(
+        settled
+            .descriptions
+            .iter()
+            .all(|description| Arc::ptr_eq(shared, description.description.selection_material())),
+        "all ACK hits and newly established bodies retain one complete current receipt"
+    );
     for old in &partial.descriptions {
-        assert!(Arc::ptr_eq(
-            old,
-            settled.description(old.semantic_identity).unwrap()
-        ));
+        assert_eq!(
+            old.description.descriptor().as_ptr(),
+            settled
+                .description(old.semantic_identity)
+                .unwrap()
+                .description
+                .descriptor()
+                .as_ptr(),
+            "rebinding preserves the original immutable body/blob allocation"
+        );
+    }
+    service.clear_program_cache();
+}
+
+#[tokio::test]
+async fn ordinary_preparation_failed_publication_retains_shared_material_for_exact_retry() {
+    let runtime = super::super::tests::runtime();
+    let rows =
+        declarations("package p {def Root {var x:Scalar; eq first:x==1; eq second:x*x==2;}}");
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    let instance = pse_modeling::specialize::root_instance(root);
+    let package = runtime
+        .modeling_package(rows, super::super::tests::physical())
+        .await
+        .unwrap();
+    let service = runtime.shared.math();
+    let store = runtime.canonical.store();
+    let cancel = crate::CancelSource::new();
+    let mut selected = package.checked_selection(&[root], &cancel).await.unwrap();
+    let key = service
+        .basis_key(
+            &selected.admission,
+            root,
+            instance,
+            Bindings::default(),
+            Limits::default(),
+        )
+        .unwrap();
+    // Actual revoked publication authority refuses the stage after descriptions
+    // have been established; no fake ACK or writer success is injected.
+    store.release(selected.read.selection()).await.unwrap();
+    assert!(
+        package
+            .prepare_selected(
+                &mut selected,
+                root,
+                instance,
+                Bindings::default(),
+                Limits::default(),
+                &cancel,
+                std::time::Instant::now() + std::time::Duration::from_secs(30)
+            )
+            .await
+            .is_err()
+    );
+    let retained = service
+        .modeling_cache
+        .basis(&key)
+        .expect("immutable descriptions survive failed publication");
+    assert!(retained.descriptions.len() >= 2);
+    let material = retained.selection_material.as_ref().unwrap();
+    assert!(
+        retained
+            .descriptions
+            .iter()
+            .all(|description| Arc::ptr_eq(material, description.description.selection_material()))
+    );
+    for description in &retained.descriptions {
+        assert!(
+            store
+                .acknowledge_description(&description.description)
+                .await
+                .unwrap()
+                .is_none(),
+            "retention is never treated as ACK authority"
+        );
+    }
+    let retried = prepared(&package).await;
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &retained.compiled().admitted,
+        &retried.compiled().admitted
+    ));
+    let settled = service.modeling_cache.basis(&key).unwrap();
+    for old in &retained.descriptions {
+        let current = settled.description(old.semantic_identity).unwrap();
+        assert_eq!(
+            old.description.descriptor().as_ptr(),
+            current.description.descriptor().as_ptr(),
+            "exact retry shares original uncertain body/blob bytes"
+        );
+        assert!(
+            store
+                .acknowledge_description(&current.description)
+                .await
+                .unwrap()
+                .is_some()
+        );
     }
     service.clear_program_cache();
 }

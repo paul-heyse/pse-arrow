@@ -965,98 +965,120 @@ def run_gates(
             )
             gate_env[test_resources.MARKER] = str(resource_invocation)
             record["resource_invocation"] = str(resource_invocation)
-        record.update(execute(root, output, gate.name, command, gate_env))
-        record["evidence_kind"] = "executed"
-        interrupted = record["status"] == "interrupted"
-        receipt["evidence"] = "Tested"
-        checkpoint(output, receipt)  # Command survives collector or source errors.
-        if report:
-            compose_terminal(record, report, output, gate.name, reconcile=False)
-        if gate.name == "setup-test" and gate.recipe == "setup-test-report":
-            selected_path = output / "setup-test-selected.json"
-            try:
-                record["selected"] = json.loads(selected_path.read_text())
-                record["artifacts"][selected_path.name] = validation_receipts.digest(
-                    selected_path
+        try:
+            record.update(execute(root, output, gate.name, command, gate_env))
+            record["evidence_kind"] = "executed"
+            interrupted = record["status"] == "interrupted"
+            receipt["evidence"] = "Tested"
+            checkpoint(output, receipt)  # Command survives collector or source errors.
+            if report:
+                compose_terminal(record, report, output, gate.name, reconcile=False)
+            if gate.name == "setup-test" and gate.recipe == "setup-test-report":
+                selected_path = output / "setup-test-selected.json"
+                try:
+                    record["selected"] = json.loads(selected_path.read_text())
+                    record["artifacts"][selected_path.name] = (
+                        validation_receipts.digest(selected_path)
+                    )
+                except (OSError, ValueError, TypeError) as error:
+                    record["report_errors"].append(
+                        f"setup selection unavailable: {error}"
+                    )
+            if gate.name in {"producer-deployment", "python-deployment-association"}:
+                artifacts = (
+                    [
+                        output / "deployment" / f"{role}.json"
+                        for role in (
+                            "runtime",
+                            "worker",
+                            "python",
+                            "outer-observation",
+                            "observed-artifacts",
+                        )
+                    ]
+                    if gate.name == "producer-deployment"
+                    else [Path(deployment_env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"])]
                 )
-            except (OSError, ValueError, TypeError) as error:
-                record["report_errors"].append(f"setup selection unavailable: {error}")
-        if gate.name in {"producer-deployment", "python-deployment-association"}:
-            artifacts = (
-                [
-                    output / "deployment" / f"{role}.json"
-                    for role in (
-                        "runtime",
-                        "worker",
-                        "python",
-                        "outer-observation",
-                        "observed-artifacts",
-                    )
-                ]
-                if gate.name == "producer-deployment"
-                else [Path(deployment_env["PSE_PYTHON_DEPLOYMENT_ATTESTATION"])]
-            )
-            for artifact in artifacts:
+                for artifact in artifacts:
+                    if artifact.is_file():
+                        record["artifacts"][str(artifact.relative_to(output))] = (
+                            validation_receipts.digest(artifact)
+                        )
+                    elif record["status"] == "passed":
+                        record["status"] = "failed"
+                        record["report_errors"].append(
+                            f"deployment step completed without {artifact.name}"
+                        )
+                if (
+                    gate.name == "python-deployment-association"
+                    and record["status"] == "passed"
+                ):
+                    try:
+                        observed_deployment_attestation(artifacts[0])
+                        producer_deployment.validate_receipts(
+                            output / "deployment",
+                        )
+                    except (OSError, ValueError, KeyError, TypeError) as error:
+                        record["status"] = "failed"
+                        record["report_errors"].append(
+                            f"deployment association refused: {error}"
+                        )
+            if gate.name == "producer-fixture" and record["status"] == "passed":
+                artifact = output / "producer-fixture.json"
                 if artifact.is_file():
-                    record["artifacts"][str(artifact.relative_to(output))] = (
-                        validation_receipts.digest(artifact)
+                    record["artifacts"][artifact.name] = validation_receipts.digest(
+                        artifact
                     )
-                elif record["status"] == "passed":
+                else:
                     record["status"] = "failed"
                     record["report_errors"].append(
-                        f"deployment step completed without {artifact.name}"
+                        "producer fixture completed without receipt"
                     )
-            if (
-                gate.name == "python-deployment-association"
-                and record["status"] == "passed"
-            ):
+            if recipe == "native-test":
+                raw_selection = output / f"{gate.name}-selected.json"
                 try:
-                    observed_deployment_attestation(artifacts[0])
-                    producer_deployment.validate_receipts(
-                        output / "deployment",
+                    validation_receipts.require_fresh(
+                        raw_selection, record["started"], "native"
+                    )
+                    record["selected"] = validation_receipts.native_selection(
+                        raw_selection.read_text()
+                    )
+                    record["artifacts"][raw_selection.name] = (
+                        validation_receipts.digest(raw_selection)
                     )
                 except (OSError, ValueError, KeyError, TypeError) as error:
-                    record["status"] = "failed"
                     record["report_errors"].append(
-                        f"deployment association refused: {error}"
+                        f"native selection unavailable: {error}"
                     )
-        if gate.name == "producer-fixture" and record["status"] == "passed":
-            artifact = output / "producer-fixture.json"
-            if artifact.is_file():
-                record["artifacts"][artifact.name] = validation_receipts.digest(
-                    artifact
-                )
-            else:
-                record["status"] = "failed"
-                record["report_errors"].append(
-                    "producer fixture completed without receipt"
-                )
-        if recipe == "native-test":
-            raw_selection = output / f"{gate.name}-selected.json"
-            try:
-                validation_receipts.require_fresh(
-                    raw_selection, record["started"], "native"
-                )
-                record["selected"] = validation_receipts.native_selection(
-                    raw_selection.read_text()
-                )
-                record["artifacts"][raw_selection.name] = validation_receipts.digest(
-                    raw_selection
-                )
-            except (OSError, ValueError, KeyError, TypeError) as error:
-                record["report_errors"].append(f"native selection unavailable: {error}")
-        selected_path = output / f"{gate.name}-selected.txt"
-        if gate_env.get("PSE_TEST_ENUMERATION"):
-            try:
-                record["selected"] = validation_receipts.python_selection(selected_path)
-                record["artifacts"][selected_path.name] = validation_receipts.digest(
-                    selected_path
-                )
-            except (OSError, ValueError) as error:
-                record["report_errors"].append(f"missing current collection: {error}")
-        compose_selection(record)
-        if resource_invocation is not None:
-            test_run.finish(resource_invocation, record, "assessment")
+            selected_path = output / f"{gate.name}-selected.txt"
+            if gate_env.get("PSE_TEST_ENUMERATION"):
+                try:
+                    record["selected"] = validation_receipts.python_selection(
+                        selected_path
+                    )
+                    record["artifacts"][selected_path.name] = (
+                        validation_receipts.digest(selected_path)
+                    )
+                except (OSError, ValueError) as error:
+                    record["report_errors"].append(
+                        f"missing current collection: {error}"
+                    )
+            compose_selection(record)
+        except BaseException as error:
+            record["report_errors"].append(
+                f"terminal composition interrupted: {type(error).__name__}: {error}"
+            )
+            raise
+        finally:
+            if resource_invocation is not None:
+                try:
+                    test_run.finish(resource_invocation, record, "assessment")
+                except Exception as error:
+                    record["report_errors"].append(
+                        f"terminal reconciliation: {type(error).__name__}: {error}"
+                    )
+                    record["status"] = "failed"
+                checkpoint(output, receipt)
         validation_receipts.classify(record, output)
         record["artifacts"][record["log"]] = validation_receipts.digest(
             output / record["log"]

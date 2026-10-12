@@ -62,10 +62,10 @@ def sipopt() -> dict[str, float]:
 
 
 def pse_prediction(
-    runtime: pse.Runtime,
+    parity_context: support.ParityContext,
 ) -> tuple[dict[str, float], dict[str, float], dict[str, float], dict[str, float]]:
     """Actual production candidate, physical increment, prediction, and budgets."""
-    authored, declarations = support.package(runtime, QUADRATIC)
+    authored, declarations = support.package(parity_context, QUADRATIC)
     root = declarations["Root"]
     plain = pse.SolveSettings(
         backend=NativeBackend.IPOPT, intent=NativeSolveIntent.OPTIMIZE
@@ -214,7 +214,9 @@ def pse_prediction(
 
 @pytest.mark.integration
 @pytest.mark.parity
-def test_sensitivity_agrees_with_ipopt_sens(runtime: pse.Runtime) -> None:
+def test_sensitivity_agrees_with_ipopt_sens(
+    parity_context: support.ParityContext,
+) -> None:
     """ADR-0118's named comparison on a nondegenerate program.
 
     Original-coordinate increments are checked independently of the actual base
@@ -222,7 +224,7 @@ def test_sensitivity_agrees_with_ipopt_sens(runtime: pse.Runtime) -> None:
     accuracy as production; sIPOPT remains an independent comparison.
     """
     reference = sipopt()
-    base, increment, predicted, allowances = pse_prediction(runtime)
+    base, increment, predicted, allowances = pse_prediction(parity_context)
     a, b = PERTURBED
     exact = {"x": (b + 2 * a) / 3, "y": (a - b) / 3, "z": 0.0}
     a0, b0 = NOMINAL

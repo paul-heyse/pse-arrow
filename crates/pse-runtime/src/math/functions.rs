@@ -24,12 +24,17 @@ impl MathService {
             artifacts.push(self.artifact(request.clone()).await?);
         }
         let plan = Arc::new(prepared.plan.as_ref().clone().with_owner(owner.clone()));
+        let layout = self.reserve(
+            "case_operation_layout",
+            plan.operation_layout_allocation_bound()?,
+        )?;
         let _span = tracing::info_span!("pse.case.function_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);
         Ok(Arc::new(ExecutableCase {
             assembly,
             _artifacts: artifacts,
+            _layout: layout,
             _owner: owner,
         }))
     }

@@ -1000,7 +1000,7 @@ impl Engine<'_, '_> {
             reader: self.reader,
             selections: Some(&self.selection_collector),
         };
-        let value = match &occurrence.syntax {
+        let value = match occurrence.syntax.as_ref() {
             crate::expression::occurrences::Syntax::Expression(expression) => {
                 evaluator.expr(expression, expected, 0)?
             }

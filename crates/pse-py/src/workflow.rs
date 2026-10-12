@@ -31,42 +31,25 @@ use std::{
 
 /// Observe interpreter configuration outside the bounded Rust reconstruction scope.
 /// No Python callback or import runs while the native loader lock is held.
-fn local_python_configuration(anchor: usize) -> std::io::Result<Vec<u8>> {
-    Python::attach(|py| -> PyResult<Vec<u8>> {
-        let sys = py.import("sys")?;
-        let module = sys.getattr("modules")?.get_item("pse._native")?;
-        let imported: std::path::PathBuf = module.getattr("__file__")?.extract()?;
-        let actual = pse_buildinfo::loaded_module_path(anchor)
-            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
-        let imported = imported
-            .canonicalize()
-            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
-        let actual = actual
-            .canonicalize()
-            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
-        if imported != actual {
-            return Err(pyo3::exceptions::PyRuntimeError::new_err(
-                "imported native module changed",
-            ));
-        }
-        let mut configuration = std::collections::BTreeMap::<String, String>::new();
-        for name in [
-            "version",
-            "executable",
-            "prefix",
-            "base_prefix",
-            "exec_prefix",
-            "base_exec_prefix",
-            "flags",
-            "_xoptions",
-        ] {
-            configuration.insert(name.into(), sys.getattr(name)?.repr()?.to_str()?.into());
-        }
-        let paths: Vec<String> = sys.getattr("path")?.extract()?;
-        serde_json::to_vec(&(configuration, paths, imported))
-            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))
-    })
-    .map_err(|error| std::io::Error::other(error.to_string()))
+#[cfg(Py_GIL_DISABLED)]
+fn local_python_configuration(
+    _anchor: usize,
+) -> std::io::Result<pse_runtime::math::portable::RuntimeConfigurationObservation> {
+    Err(std::io::Error::other(
+        "local replay requires a genuine GIL environment owner; free-threaded Python is unsupported",
+    ))
+}
+#[cfg(not(Py_GIL_DISABLED))]
+fn local_python_configuration(
+    _anchor: usize,
+) -> std::io::Result<pse_runtime::math::portable::RuntimeConfigurationObservation> {
+    // The abi3 boundary exposes no protected interpreter inventory or process-wide
+    // environment owner. A main GIL cannot exclude another interpreter's writers.
+    // Refuse local evidence before borrowing libc; startup retains the safe fresh
+    // path and independently qualified deployment receipts remain available.
+    Err(std::io::Error::other(
+        "local replay requires a process-wide environment owner unavailable through the supported Python ABI",
+    ))
 }
 
 /// Compact exact persisted graph; every page uses the runtime's retained pool.
@@ -233,6 +216,7 @@ impl NativeStoredResult {
             owner: self.owner.clone(),
             run_key: self.run.clone(),
             attempt_key: self.attempt.clone(),
+            coverage: stream.coverage().clone(),
             cancel,
             slot: Mutex::new(ProgressSlot::Idle(Box::new(ProgressState {
                 stream,
@@ -295,6 +279,63 @@ fn blocking_on<T: Send, F: Future<Output = Result<T, native::WorkflowError>> + S
     cancel: impl Fn(),
 ) -> PyResult<T> {
     blocking_on_with_recovery(py, executor, future, cancel, |_| None)
+}
+/// Own a synchronous native pull through signal observation, cancellation and join.
+/// The callback never attaches to Python; exports happen only after its drain.
+pub(crate) fn blocking_native_call<T: Send>(
+    py: Python<'_>,
+    work: impl FnOnce() -> Result<T, pse_engine::EngineError> + Send,
+    cancel: impl Fn(),
+) -> PyResult<T> {
+    py.check_signals()?;
+    std::thread::scope(|scope| {
+        let (sender, mut receiver) = std::sync::mpsc::sync_channel(1);
+        let worker = std::thread::Builder::new()
+            .name("pse-python-pull".into())
+            .spawn_scoped(scope, move || {
+                let _ = sender.send(work());
+            })
+            .map_err(|error| pyo3::exceptions::PyRuntimeError::new_err(error.to_string()))?;
+        let mut signal = None;
+        let value = loop {
+            let receiving = &mut receiver;
+            let ready = py.detach(move || receiving.recv_timeout(Duration::from_millis(100)));
+            match ready {
+                Ok(value) => break Some(value),
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break None,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            }
+            if signal.is_none()
+                && let Err(error) = py.check_signals()
+            {
+                cancel();
+                signal = Some(error);
+            }
+        };
+        let joined = py.detach(|| worker.join());
+        if signal.is_none()
+            && let Err(error) = py.check_signals()
+        {
+            cancel();
+            signal = Some(error);
+        }
+        if let Some(error) = signal {
+            if let Some(Err(cause)) = &value {
+                error.set_cause(py, Some(errors::diagnostic(py, cause)));
+            }
+            return Err(error);
+        }
+        if joined.is_err() {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "native Arrow pull panicked after drain",
+            ));
+        }
+        value
+            .ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err("native Arrow pull returned no outcome")
+            })?
+            .map_err(|error| errors::diagnostic(py, &error))
+    })
 }
 fn blocking_analysis<
     F: Future<Output = Result<native::AnalysisHandle, native::WorkflowError>> + Send,
@@ -516,11 +557,37 @@ impl NativeRuntime {
                 "Python import does not identify the actual loaded native module",
             ));
         }
-        let outer = pse_buildinfo::observe_deployment(&actual)
-            .map_err(|error| invalid(py, error.to_string()))?;
+        use pse_runtime::math::portable::{PortableError, ReplayAdmission};
+        // One original startup clock covers checkout capture, strict inputs and
+        // receiving observation. Retaining these hashes records startup checkout
+        // context; it does not refresh current run or loaded-artifact assurance.
+        let deadline = std::time::Instant::now()
+            .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
+            .ok_or_else(|| invalid(py, "deployment startup deadline extent"))?;
+        let cancelled = CancelSource::new();
+        let captured_stop = cancelled.clone();
+        let math = owner.shared.math().clone();
+        let actual_artifact = actual.clone();
+        let receipt = producer.map(std::path::PathBuf::from);
+        let startup = blocking(
+            py,
+            &owner,
+            async move {
+                #[allow(unsafe_code, reason = "actual imported composition root verifies the operator-owned strict receipt under its startup owner")]
+                // SAFETY: actual_artifact is this imported composition root, and
+                // a selected receipt retains the existing reviewed provenance contract.
+                let observation = unsafe { math.observe_deployment_runtime(
+                    actual_artifact, receipt,
+                    pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
+                    deadline, &captured_stop,
+                ) }.await;
+                Ok(observation)
+            },
+            || cancelled.cancel(),
+        )?.map_err(|error| errors::diagnostic(py, &error))?;
         let attestation = native::OuterAttestation {
-            source: outer.source,
-            build: outer.build,
+            source: startup.outer.source,
+            build: startup.outer.build,
         };
         let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
             std::path::Path::new(substrate),
@@ -542,25 +609,10 @@ impl NativeRuntime {
             },
             || {},
         )?;
-        let strict = producer.map(|path| {
-            let bytes = std::fs::read(path).map_err(|e| invalid(py, e.to_string()))?;
-            let artifact = pse_buildinfo::verify_receipt_artifact(&bytes, &actual).map_err(|error| invalid(py,error.to_string()))?;
-            #[allow(unsafe_code, reason = "ADR-0164 controlled deployment qualification; no unsafe memory operation")]
-            // SAFETY: reviewed capture is bound to the actual native code mapping,
-            // imported module and current consumed inputs before qualification.
-            unsafe { pse_runtime::math::portable::QualifiedProducer::from_deployment_receipt(&bytes, &artifact.sha256, pse_runtime::math::portable::ExpectedProducerTarget::PYTHON) }
-                .map_err(|e| errors::diagnostic(py, &e))
-        }).transpose()?.flatten();
         let producer = if producer.is_some() {
-            strict.map(Into::into)
+            startup.producer.clone().map(Into::into)
         } else {
-            use pse_runtime::math::portable::{PortableError, ReplayAdmission};
-
             let anchor = Self::new as *const () as usize;
-            let deadline = std::time::Instant::now()
-                .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
-                .ok_or_else(|| invalid(py, "local replay startup deadline extent"))?;
-            let cancelled = CancelSource::new();
             let captured_stop = cancelled.clone();
             let math = owner.shared.math().clone();
             // SAFETY: this actual imported Rust composition root observes its own
@@ -603,8 +655,7 @@ impl NativeRuntime {
         };
         let inner = native::Runtime::from_shared(
             owner.shared.clone(),
-            owner.registry.clone(),
-            owner.sessions.clone(),
+            owner.model.clone(),
             native::CanonicalDeployment::new(canonical, attestation, producer),
         )
         .map_err(|error| errors::diagnostic(py, &error))?;
@@ -646,20 +697,18 @@ impl NativeRuntime {
             async {
                 let pool = self.owner.shared.pool();
                 let token = cancel.token();
-                let validation = self
-                    .owner
-                    .sessions
-                    .validation_context(&self.owner.registry)?;
-                let bundle = pse_runtime::authoring_driver::document::load_package_documents_owned(
-                    &documents,
-                    &self.owner.registry,
-                    pse_authoring::ParseBudget::default(),
-                    &pool,
-                    &token,
-                    &validation,
-                )?;
+                let validation = self.owner.model.validation_context();
+                let bundle =
+                    pse_admission::authoring_driver::document::load_package_documents_owned(
+                        &documents,
+                        self.owner.model.registry(),
+                        pse_authoring::ParseBudget::default(),
+                        &pool,
+                        &token,
+                        &validation,
+                    )?;
                 let owned =
-                    pse_runtime::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
+                    pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
                         vec![bundle],
                         &pool,
                         &token,
@@ -891,6 +940,7 @@ impl NativeRuntime {
             owner: self.owner.clone(),
             run_key: run.into(),
             attempt_key: attempt.into(),
+            coverage: stream.coverage().clone(),
             cancel,
             slot: Mutex::new(ProgressSlot::Idle(Box::new(ProgressState {
                 stream,
@@ -1247,6 +1297,7 @@ pub(crate) struct NativeProgressStream {
     owner: Arc<runtime::Runtime>,
     run_key: String,
     attempt_key: String,
+    coverage: native::ProgressCoverage,
     cancel: pse_columnar::CancellationToken,
     slot: Mutex<ProgressSlot>,
 }
@@ -1273,6 +1324,11 @@ impl NativeProgressStream {
     #[getter]
     fn attempt_key(&self) -> &str {
         &self.attempt_key
+    }
+    /// Original terminal sampling loss and writer coverage, distinct from science.
+    #[getter]
+    fn coverage(&self) -> documents::DocumentValue<native::ProgressCoverage> {
+        documents::DocumentValue(self.coverage.clone())
     }
     /// The next event in observation order; `None` once the stream ended or was closed.
     /// Reads the next page from the store (waiting for it when following) only when the

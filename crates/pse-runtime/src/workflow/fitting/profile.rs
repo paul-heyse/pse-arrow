@@ -7,8 +7,8 @@
 //! with [`native::transform::Pinned`] on the fit prepared once and re-solves the fit over
 //! the other coordinates through the one NLP runner; its seed is the solution of the
 //! chain's latest accepted point below the threshold, or the fit estimate, and is recorded
-//! as the point's input (PS-11). Chains run in parallel, as many at once as the fit's job
-//! admitted cores for, each pinned fit on the fit's own threads.
+//! as the point's input (PS-11). After estimation relinquishes active admission, the
+//! profile phase admits its team, each pinned fit on the fit's own threads.
 //!
 //! **Statistic.** With `f = ½·χ²` the objective, the signed root `r = √(2(f - f*))` of the
 //! likelihood-ratio statistic is compared with `r* = √χ²₁(level)`. On a linear model `r`
@@ -761,26 +761,67 @@ impl FitProblem {
             points: controls.points.into_inner(),
         };
         let stack = self.runtime.native().stack_bytes();
-        let (mut result, started, scheduling) = dispatch(
-            tasks.len(),
-            workers,
+        let cores = threads.checked_mul(workers).ok_or_else(|| {
+            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                ProblemError::memory("profile team cores"),
+            )))
+        })?;
+        // Parent estimation storage stays resident. Guard each chain's additional
+        // scratch and native thread/team stacks before the team is created.
+        let adapter_stacks = native::execution::scope_stack_bytes(
+            &[native::execution::adapter(backend)],
+            threads,
             stack,
-            |index| chains.run(tasks[index]),
-            |index, failure| chains.failed(tasks[index], failure),
-            |work| {
-                native::execution::scoped(
-                    &[native::execution::adapter(backend)],
-                    threads,
+        )
+        .map_err(|error| {
+            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(error)))
+        })?;
+        let bytes = self
+            .bytes
+            .checked_mul(workers.saturating_sub(1))
+            .and_then(|bytes| {
+                stack
+                    .checked_add(adapter_stacks)
+                    .and_then(|per_worker| workers.checked_mul(per_worker))
+                    .and_then(|stacks| bytes.checked_add(stacks))
+            })
+            .ok_or_else(|| {
+                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                    ProblemError::memory("profile team extent"),
+                )))
+            })?;
+        let (mut result, started, scheduling) = self
+            .runtime
+            .native()
+            .quiescent_phase(cores, bytes, execution, || {
+                dispatch(
+                    tasks.len(),
+                    workers,
                     stack,
-                    || -> Result<(), ProblemError> {
-                        work();
-                        Ok(())
+                    |index| chains.run(tasks[index]),
+                    |index, failure| chains.failed(tasks[index], failure),
+                    |work| {
+                        native::execution::scoped(
+                            &[native::execution::adapter(backend)],
+                            threads,
+                            stack,
+                            || -> Result<(), ProblemError> {
+                                work();
+                                Ok(())
+                            },
+                        )
+                        .map_err(|error| {
+                            ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error)))
+                        })
                     },
+                    |_| Ok(()),
                 )
-                .map_err(|error| ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error))))
-            },
-            |_| Ok(()),
-        );
+            })
+            .map_err(|error| {
+                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                    error.into_problem(),
+                )))
+            })?;
         for chain in &mut result {
             chain.actual_parallelism = started;
             chain.scheduling_failures = scheduling.clone();

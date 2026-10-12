@@ -1914,7 +1914,7 @@ pub struct Evaluation {
     /// Ordered function values.
     pub values: Vec<f64>,
     /// Canonical sparse raw partials, present only on derivative demand.
-    pub jacobian: Option<faer::sparse::SparseColMat<usize, f64>>,
+    pub jacobian: Option<pse_math::SharedAllocation<faer::sparse::SparseColMat<usize, f64>>>,
 }
 /// One structural entry of a dynamic function's raw partials: a row of the function's
 /// values and a coordinate of the state followed by the parameters, both positions as
@@ -1952,6 +1952,16 @@ pub trait Oracle: std::fmt::Debug {
     fn contract(&self) -> &Contract;
     /// Complete all-branch sparse support for the selected function and mode.
     fn support(&self, mode: usize, function: Function) -> Vec<SupportEntry>;
+    /// Reserve an independently retained owned derivative snapshot before its
+    /// allocation. Adapters forward this to the actual allocation owner.
+    fn snapshot_owner(
+        &self,
+        _bytes: usize,
+    ) -> Result<Arc<dyn pse_math::AllocationOwner>, ProblemError> {
+        Err(ProblemError::memory(
+            "dynamic snapshot allocation owner absent",
+        ))
+    }
     /// Evaluate exact compiled functions and requested raw partials.
     fn evaluate(
         &mut self,

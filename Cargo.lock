@@ -216,6 +216,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "archery"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ca55ee147b1926dbea904f50fe4902494e97bc742205abbbf10c709e43815f"
+dependencies = [
+ "triomphe",
+]
+
+[[package]]
 name = "argmin"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -844,7 +853,6 @@ dependencies = [
  "cfg-if",
  "constant_time_eq",
  "cpufeatures 0.3.1",
- "rayon-core",
 ]
 
 [[package]]
@@ -1258,7 +1266,7 @@ version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2503,7 +2511,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2898,7 +2906,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3665,7 +3673,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.1.5",
- "rayon",
 ]
 
 [[package]]
@@ -3688,6 +3695,7 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
+ "rayon",
 ]
 
 [[package]]
@@ -5089,7 +5097,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5990,6 +5998,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "pse-admission"
+version = "0.0.1"
+dependencies = [
+ "bytes",
+ "datafusion",
+ "miette",
+ "parquet",
+ "pse-authoring",
+ "pse-columnar",
+ "pse-diagnostics",
+ "pse-engine",
+ "pse-ids",
+ "pse-model",
+ "pse-modeling",
+ "pse-quantity",
+ "pse-relations",
+ "pse-rules",
+ "pse-schema",
+ "pse-testkit",
+ "serde",
+ "serde-saphyr",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml",
+]
+
+[[package]]
 name = "pse-authoring"
 version = "0.0.1"
 dependencies = [
@@ -6064,6 +6101,7 @@ dependencies = [
  "datafusion",
  "futures-util",
  "parquet",
+ "pse-admission",
  "pse-authoring",
  "pse-backend-native",
  "pse-codegen",
@@ -6118,7 +6156,6 @@ dependencies = [
  "pse-ids",
  "pse-quantity",
  "pse-schema",
- "pse-workspace-hack",
  "quote",
  "serde_json",
  "syn 3.0.5",
@@ -6144,7 +6181,6 @@ dependencies = [
  "proptest",
  "pse-diagnostics",
  "pse-ids",
- "pse-workspace-hack",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -6208,7 +6244,6 @@ dependencies = [
  "pse-model",
  "pse-relations",
  "pse-schema",
- "pse-workspace-hack",
  "schemars",
  "serde",
  "serde_json",
@@ -6261,16 +6296,10 @@ dependencies = [
 name = "pse-math"
 version = "0.0.1"
 dependencies = [
- "argmin",
- "egobox-doe",
- "egobox-ego",
- "egobox-gp",
- "egobox-moe",
  "enum-map",
  "faer",
  "gmp-mpfr-sys",
  "miette",
- "ndarray 0.16.1",
  "pounce-nlp",
  "pounce-presolve",
  "pse-diagnostics",
@@ -6278,7 +6307,6 @@ dependencies = [
  "pse-kernels",
  "pse-model",
  "pse-quantity",
- "rayon",
  "rustc-hash 2.1.3",
  "schemars",
  "serde",
@@ -6317,7 +6345,9 @@ dependencies = [
  "pse-ids",
  "pse-model",
  "pse-quantity",
+ "rpds",
  "serde",
+ "serde_json",
  "thiserror 2.0.21",
 ]
 
@@ -6330,14 +6360,15 @@ dependencies = [
  "miette",
  "petgraph",
  "pse-codegen",
+ "pse-columnar",
  "pse-diagnostics",
  "pse-ids",
  "pse-model",
  "pse-schema",
- "pse-workspace-hack",
  "schemars",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "surrealdb",
  "thiserror 2.0.21",
  "tokio",
@@ -6363,6 +6394,7 @@ version = "0.0.1"
 dependencies = [
  "datafusion",
  "miette",
+ "pse-admission",
  "pse-authoring",
  "pse-backend-native",
  "pse-buildinfo",
@@ -6377,10 +6409,10 @@ dependencies = [
  "pse-relations",
  "pse-runtime",
  "pse-schema",
- "pse-workspace-hack",
  "pyo3",
  "pyo3-arrow",
  "pyo3-async-runtimes",
+ "pyo3-build-config",
  "serde",
  "serde_json",
  "tokio",
@@ -6424,7 +6456,6 @@ dependencies = [
  "pse-quantity",
  "pse-relations",
  "pse-schema",
- "pse-workspace-hack",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -6447,7 +6478,6 @@ dependencies = [
  "pse-relations",
  "pse-schema",
  "pse-testkit",
- "pse-workspace-hack",
  "serde_json",
  "thiserror 2.0.21",
  "tokio",
@@ -6457,18 +6487,25 @@ dependencies = [
 name = "pse-runtime"
 version = "0.0.1"
 dependencies = [
+ "argmin",
  "bytes",
  "chrono",
  "datafusion",
  "datafusion-common",
  "datafusion-execution",
+ "egobox-doe",
+ "egobox-ego",
+ "egobox-gp",
+ "egobox-moe",
  "faer",
  "flatbuffers",
  "futures-util",
  "miette",
+ "ndarray 0.16.1",
  "object_store",
  "parquet",
  "petgraph",
+ "pse-admission",
  "pse-authoring",
  "pse-backend-native",
  "pse-buildinfo",
@@ -6488,8 +6525,8 @@ dependencies = [
  "pse-schema",
  "pse-structural",
  "pse-testkit",
- "pse-workspace-hack",
  "quick_cache",
+ "rayon",
  "rustc-hash 2.1.3",
  "schemars",
  "serde",
@@ -6523,7 +6560,6 @@ dependencies = [
  "pse-ids",
  "pse-quantity",
  "pse-vocabulary",
- "pse-workspace-hack",
  "serde",
  "serde_json",
  "sqlparser",
@@ -6559,7 +6595,6 @@ dependencies = [
  "pse-columnar",
  "pse-engine",
  "pse-schema",
- "pse-workspace-hack",
  "serde_json",
  "tempfile",
  "tokio",
@@ -6580,6 +6615,7 @@ dependencies = [
  "object_store",
  "parquet",
  "proptest",
+ "pse-admission",
  "pse-authoring",
  "pse-backend-native",
  "pse-columnar",
@@ -6685,94 +6721,6 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
-]
-
-[[package]]
-name = "pse-workspace-hack"
-version = "0.0.1"
-dependencies = [
- "ahash",
- "aho-corasick",
- "approx",
- "arrayvec",
- "arrow-schema",
- "base64 0.23.1",
- "bitflags 2.13.2",
- "blake2",
- "blake3",
- "brotli",
- "bytemuck",
- "bytes",
- "cc",
- "chrono",
- "crc32fast",
- "datafusion-common",
- "datafusion-execution",
- "datafusion-expr",
- "datafusion-functions",
- "datafusion-optimizer",
- "datafusion-physical-expr",
- "either",
- "fastrand",
- "fixedbitset",
- "flatbuffers",
- "flate2",
- "foldhash 0.1.5",
- "foldhash 0.2.0",
- "futures-channel",
- "futures-io",
- "futures-task",
- "getrandom 0.4.3",
- "half",
- "hashbrown 0.15.5",
- "hashbrown 0.17.1",
- "indexmap",
- "itertools 0.13.0",
- "libc",
- "log",
- "matrixmultiply",
- "memchr",
- "num-complex",
- "num-integer",
- "num-traits",
- "object_store",
- "once_cell",
- "percent-encoding",
- "petgraph",
- "phf_shared 0.13.1",
- "ppv-lite86",
- "proc-macro2",
- "quote",
- "rand 0.8.8",
- "rand 0.9.5",
- "rand_chacha 0.9.0",
- "regex-automata",
- "regex-syntax",
- "rustix 1.1.5",
- "semver",
- "serde",
- "serde_core",
- "serde_derive",
- "serde_json",
- "simd-adler32",
- "simdutf8",
- "similar",
- "smallvec",
- "sqlparser",
- "subtle",
- "syn 2.0.119",
- "syn 3.0.5",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-core",
- "tracing-subscriber",
- "typenum",
- "url",
- "uuid",
- "winnow",
- "zerocopy",
- "zlib-rs",
 ]
 
 [[package]]
@@ -7024,7 +6972,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7431,6 +7379,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e27ee8bb91ca0adcf0ecb116293afa12d393f9c2b9b9cd54d33e8078fe19839"
 
 [[package]]
+name = "rpds"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e025feb26210bc196b908e72deb063b1b4000754304341cbc168a1e72c857ebc"
+dependencies = [
+ "archery",
+ "smallvec",
+]
+
+[[package]]
 name = "rstar"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7576,7 +7534,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7635,7 +7593,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7670,7 +7628,7 @@ checksum = "54299df1d95fb17c25f9ae7f4169db76de708c231a19e29a50b7d74e87853246"
 dependencies = [
  "fixedbitset",
  "foldhash 0.1.5",
- "hashbrown 0.15.5",
+ "hashbrown 0.17.1",
  "indexmap",
  "ndarray 0.17.2",
  "num-traits",
@@ -7877,7 +7835,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b55fb86dfd3a2f5f76ea78310a88f96c4ea21a3031f8d212443d56123fd0521"
 dependencies = [
  "libc",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -8657,7 +8615,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9071,6 +9029,12 @@ dependencies = [
  "tracing-log",
  "tracing-serde",
 ]
+
+[[package]]
+name = "triomphe"
+version = "0.1.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d15f4f5898bcfc5d8a8e45ed30b2f108d710c1a2e5489dbf80e078f707181bc"
 
 [[package]]
 name = "try-lock"
@@ -9557,7 +9521,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -9827,6 +9791,7 @@ dependencies = [
  "nalgebra 0.35.0",
  "parquet",
  "prettyplease 0.3.0",
+ "pse-admission",
  "pse-authoring",
  "pse-backend-native",
  "pse-buildinfo",
@@ -9841,7 +9806,6 @@ dependencies = [
  "pse-rules",
  "pse-runtime",
  "pse-schema",
- "pse-workspace-hack",
  "pyo3-introspection",
  "quantity",
  "quote",

@@ -3,12 +3,13 @@
 
 //! Filesystem boundary for pure schema generators (ADR-0051).
 
-#[cfg(feature = "package-fixtures")]
+#[cfg(feature = "physical-admission")]
 mod physical;
 
+#[cfg(feature = "native-abi")]
 mod ipopt;
 pub(super) mod python_stubs;
-#[cfg(feature = "package-fixtures")]
+#[cfg(feature = "product-schemas")]
 mod schemas;
 
 use std::collections::BTreeSet;
@@ -23,17 +24,27 @@ use sha2::{Digest, Sha256};
 
 use crate::Target;
 
+#[cfg(feature = "native-abi")]
 const BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
 const PYTHON_ROOT: &str = "python/pse/contracts";
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only.is_none()
+        && !(cfg!(feature = "physical-admission")
+            && cfg!(feature = "product-schemas")
+            && cfg!(feature = "native-abi"))
+    {
+        bail!(
+            "aggregate generation requires full-codegen; select an independent --only capability or run just codegen"
+        );
+    }
     let languages = match only {
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Python) => vec![Language::Python],
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
-        Some(Target::Bindgen) => return ipopt::run(root, check),
-        Some(Target::Schemas) => Vec::new(),
+        Some(Target::Bindgen) => return native_abi(root, check),
+        Some(Target::Schemas | Target::Physical) => Vec::new(),
         None => Language::ALL.to_vec(),
     };
     let registry = pse_schema::registry()?;
@@ -62,6 +73,13 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
         trees.push(tree);
     }
+    if only == Some(Target::Physical) {
+        let mut tree =
+            GeneratedTree::empty(vec![PathBuf::from("crates/pse-quantity/src/generated")]);
+        append_physical(root, registry, &mut tree)?;
+        validate_tree(&tree)?;
+        trees.push(tree);
+    }
     if matches!(only, None | Some(Target::Schemas)) {
         let mut tree = document_schemas(registry)?;
         add_python_manifest(&mut tree, Path::new(documents::PYTHON_ROOT))?;
@@ -80,7 +98,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         }
     }
     if only.is_none() {
-        ipopt::run(root, check)?;
+        native_abi(root, check)?;
     }
 
     println!(
@@ -89,6 +107,16 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         trees.len()
     );
     Ok(())
+}
+
+#[cfg(feature = "native-abi")]
+fn native_abi(root: &Path, check: bool) -> Result<()> {
+    ipopt::run(root, check)
+}
+
+#[cfg(not(feature = "native-abi"))]
+fn native_abi(_: &Path, _: bool) -> Result<()> {
+    bail!("native bindings require native-abi and the actual selected headers")
 }
 
 /// Validate the actual candidate Python bytes before comparison or publication.
@@ -122,7 +150,7 @@ fn check_python_candidate(root: &Path, tree: &GeneratedTree, mode: Option<&str>)
 
 /// The published document schemas and Python document types, derived from the owning
 /// crates' serde types (ADR-0116 Outcome 7).
-#[cfg(feature = "package-fixtures")]
+#[cfg(feature = "product-schemas")]
 fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
     let mut tree = documents::generate(registry, &schemas::documents())?;
     let fixtures = schemas::boundary_fixtures()?;
@@ -131,14 +159,14 @@ fn document_schemas(registry: &pse_schema::Registry) -> Result<GeneratedTree> {
     Ok(tree)
 }
 
-#[cfg(not(feature = "package-fixtures"))]
+#[cfg(not(feature = "product-schemas"))]
 fn document_schemas(_: &pse_schema::Registry) -> Result<GeneratedTree> {
     bail!(
-        "the document schemas derive from the runtime's types and require package-fixtures; run the complete generator"
+        "the document schemas derive from the runtime's types and require product-schemas; select that capability or run the complete generator"
     )
 }
 
-#[cfg(feature = "package-fixtures")]
+#[cfg(feature = "physical-admission")]
 fn append_physical(
     root: &Path,
     registry: &pse_schema::Registry,
@@ -147,10 +175,10 @@ fn append_physical(
     physical::append(root, registry, tree)
 }
 
-#[cfg(not(feature = "package-fixtures"))]
+#[cfg(not(feature = "physical-admission"))]
 fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) -> Result<()> {
     bail!(
-        "complete Rust generation requires package-fixtures; `just codegen` regenerates the contracts first and then rebuilds the admitted package loader"
+        "complete Rust generation requires physical-admission; `just codegen` regenerates the contracts first and then rebuilds the admitted package loader"
     )
 }
 
@@ -437,6 +465,7 @@ mod tests {
                 "pse-model",
                 "pse-authoring",
                 "pse-catalog",
+                "pse-admission",
                 "pse-runtime",
                 "pse-columnar"
             ]

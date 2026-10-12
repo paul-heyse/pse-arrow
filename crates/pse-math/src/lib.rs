@@ -30,7 +30,6 @@ pub mod normalization;
 pub mod numerics;
 pub mod presolve;
 pub mod sparse;
-pub mod surrogate;
 pub mod typed;
 pub use error::MathError;
 pub use functions::{Function, Implementation, UnaryFunction};

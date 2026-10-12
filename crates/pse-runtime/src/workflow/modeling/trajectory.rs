@@ -43,7 +43,7 @@ impl ModelingTrajectory {
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let runtime = &self.inner.prepared.runtime;
         let id = runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown trajectory relation"))?
             .id;
@@ -64,7 +64,7 @@ impl ModelingTrajectory {
             .inner
             .prepared
             .runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown trajectory relation"))?
             .id;
@@ -78,7 +78,7 @@ impl ModelingTrajectory {
     ) -> Result<crate::workflow::ResultCursor<'static>, WorkflowError> {
         let runtime = &self.inner.prepared.runtime;
         let id = runtime
-            .registry
+            .registry()
             .relation(name)
             .ok_or_else(|| contract("unknown result relation"))?
             .id;
@@ -89,10 +89,10 @@ impl ModelingTrajectory {
             return Err(WorkflowError::Shared(error));
         }
         let spec = runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("result declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(
@@ -121,10 +121,10 @@ impl ModelingTrajectory {
         }
         let runtime = &self.inner.prepared.runtime;
         let spec = runtime
-            .registry
+            .registry()
             .relation_by_id(id)
             .ok_or_else(|| contract("trajectory declaration absent"))?;
-        let schema = pse_schema::arrow::relation_schema_ref(&runtime.registry, spec)
+        let schema = pse_schema::arrow::relation_schema_ref(runtime.registry(), spec)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
         crate::workflow::ResultCursor::new(schema, id, rows, order, |request| async move {
@@ -155,10 +155,10 @@ impl ModelingTrajectory {
         let product = p.model().compiled();
         let pool = p.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = p.runtime.validation_context()?;
+        let validation = p.runtime.validation_context();
         let mut columns = crate::workflow::result_export::SelectedCollection::new(
             request,
-            &p.runtime.registry,
+            p.runtime.registry(),
             &pool,
             &cancel,
             &validation,

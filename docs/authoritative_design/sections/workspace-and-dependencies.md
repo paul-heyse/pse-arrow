@@ -41,6 +41,12 @@ numerical algorithms, relational execution and storage.
 > ADR-0122 still owns the toolchain, feature-unification, lockfile and supply-chain
 > decisions above. Implemented.
 
+> Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
+> (proposed; maintainer-authorized Plan 36 target). The supported pinned nightly owns
+> workspace feature unification. The workspace-hack fallback and its generation routes
+> are retired. Actual selected target/host/dev/native graph controls preserve family
+> identity and explicit Arrow validation; source/consumer qualification remains Plan 36e-owned.
+
 **Authority.** Every third-party Rust dependency is declared once, in
 `[workspace.dependencies]` of the root `Cargo.toml`. Members inherit it with
 `.workspace = true`. Every registry requirement is exact (`=x.y.z`, `cargo add
@@ -107,9 +113,23 @@ evidence.
 
 ### 3.2 Workspace crates and dependency direction
 
+> Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
+> (proposed; maintainer-authorized Plan 36 target).
+
+Native document/physical source admission belongs to `pse-admission`, below Runtime and
+without math/compiler/operations/native-solver dependencies. It retains actual bound
+engine validation, source and finite allocation ownership. Runtime owns scientific
+preparation/publication and its surrogate library integration. Generator capabilities
+have actual dependency roots for registry bootstrap, physical admission, full product
+schemas and native ABI; full schemas still derive actual product DTOs. Plan 36e owns
+the migration and actual closure qualification. The supported pinned nightly retains
+workspace feature unification; ADR-0122's stable-Cargo workspace-hack fallback retires
+only after the selected target/host/dev/native feature and validation controls pass.
+All other ADR-0122 toolchain, target-directory and family/lock guarantees remain.
+
 > Decision: [ADR-0160](../../adr/0160-centralize-testing-responsibility.md) — empty structural test package retired; production structural analysis remains.
 
-> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; maintainer-authorized implementation). The canonical SurrealDB client and registry-generated schema replace the PostgreSQL/Delta publication composition. The workspace hack attaches to actual Arrow/DataFusion/storage consumers; pure semantic and numerical roots do not acquire those dependencies solely for feature unification. Cargo's workspace feature unification and the single resolved type universe remain in force.
+> Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed; maintainer-authorized implementation). The canonical SurrealDB client and registry-generated schema replace the PostgreSQL/Delta publication composition. Cargo's supported-nightly workspace feature unification and the single resolved type universe remain in force; ADR-0175 retires the former fallback.
 >
 > [ADR-0117](../../adr/0117-platform-vocabulary-crate.md) retains the shared vocabulary owner beneath the registry and generated model.
 
@@ -126,6 +146,7 @@ register crates.
 | `pse-modeling` | Pure checking and specialization of generic declarations, interfaces, sets, functions, contributions and annotations |
 | `pse-model` | Registry-generated plain semantic values, enums and typed ids, without Arrow; validated scalar settings and generated canonical protocol rows |
 | `pse-authoring` | Modeling language and shared expression grammar, spans and parse budgets, identity assignment, exact package resolution |
+| `pse-admission` | Owned source documents, native parsing/loading/editing, generated adapters and physical inventories over the actual bound engine; no Runtime, mathematics, compiler, operations or native-backend dependency |
 | `pse-kernels` | Generic external-function contracts, typed shapes, derivative/smoothness declarations and attempt-local workers ([§9](physical-semantics.md#section-9)) |
 | `pse-structural` | Selected incidence, matching/DM/BTF, flowsheet and initialization analysis ([§15](numerical-execution.md#section-15)) |
 | `pse-math` | Physically admitted Symbolica bodies, guarded evaluation, coefficients, sparse assembly and library bindings ([§7](mathematics-and-compilation.md#section-7)) |
@@ -143,7 +164,6 @@ register crates.
 | `pse-buildinfo` | Role-specific linked build-input identity and actual deployed artifact association; complete dirty source/build observation is retained at deployment/run admission, separately from scientific eligibility |
 | `pse-py` | The PyO3 extension `pse._native`, which is the whole Rust/Python boundary ([§21](workflows-and-results.md#section-21)) |
 | `pse-testkit` | Development-only fixtures that use production engine factories; never a production dependency |
-| `pse-workspace-hack` | No code: cargo-hakari generates its dependencies so every package selection resolves one feature set per dependency ([ADR-0122](../../adr/0122-nightly-toolchain-and-feature-unification.md)) |
 
 | Non-product member | Role |
 |---|---|
@@ -163,9 +183,10 @@ expression APIs. `pse-engine` adds sessions. `pse-rules` builds on the
 engine. `pse-vocabulary` sits beneath `pse-schema` and `pse-model`, so the registry and the
 generated model share one type per platform vocabulary without either ceiling giving way.
 `pse-operations` uses the remote SDK and generated plain-value contracts, without an embedded database engine or a columnar payload decoder. Semantic and numerical roots remain independent of it.
-`pse-runtime` is the only crate that joins the semantic/native side with the
-columnar/storage side and the canonical substrate. It owns document I/O,
-compilation, native attempts, durable execution and exact result admission. `pse-py` depends on the
+`pse-admission` joins source/physical domain admission with the bound engine, without
+scientific compilation or canonical storage. `pse-runtime` joins scientific/native
+execution with the canonical substrate. It owns compilation, native attempts, durable
+execution and exact result admission. `pse-py` depends on the
 runtime and the inspection crates.
 `pse-codegen` runs outside the product's normal dependency graph and never depends on
 generated values. Generated code is placed in its consumers: see
@@ -224,7 +245,7 @@ units, identity, schemas or canonical encoding merely because it is present.
 | Salsa | `pse-compiler` | Synchronous semantic reuse over admitted values | No I/O, native state or effects in tracked queries |
 | rustworkx-core, petgraph | `pse-structural` | Deterministic ordering, acyclicity and graph projections | Graph indices never cross the projection boundary |
 | BLAKE3 | `pse-ids` only | Content hashing and derived identity | The canonicalizer, not the hash, defines coverage |
-| `serde-saphyr`, `toml`, `winnow`, `sqlparser` | `pse-runtime`, `pse-authoring`, `pse-schema` | YAML/TOML loading with spans, the expression DSL, declared SQL predicates | Parsing evaluates nothing; budgets bound hostile input ([ADR-0021](../../adr/0021-serde-saphyr-replaces-serde-yaml.md)) |
+| `serde-saphyr`, `toml`, `winnow`, `sqlparser` | `pse-admission`, `pse-runtime`, `pse-authoring`, `pse-schema` | YAML/TOML loading with spans, the expression DSL, declared SQL predicates | Parsing evaluates nothing; budgets bound hostile input ([ADR-0021](../../adr/0021-serde-saphyr-replaces-serde-yaml.md)) |
 | `syn`, `quote`, `prettyplease` | `pse-codegen`, `xtask` | Deterministic registry and bindgen rendering | Output is committed and checked by regeneration |
 | Tokio, Rayon, tracing | runtime, engine, native | One process executor, admitted native pools and structured observation | Observation never changes results ([§23](operations-and-validation.md#section-23)) |
 | PyO3, `pyo3-arrow`, `pyo3-async-runtimes` | `pse-py` | Extension module, PyCapsule streams and async jobs | [ADR-0024](../../adr/0024-pyo3-arrow-over-arrow-pyarrow.md) |
@@ -318,7 +339,7 @@ everything.
 
 | Operation | Mechanism | Owner |
 |---|---|---|
-| Parsing, identity assignment, target and package resolution | Typed Rust over spans | `pse-authoring`, `pse-runtime::authoring_driver` |
+| Parsing, identity assignment, target and package resolution | Typed Rust over spans | `pse-authoring`, `pse-admission::authoring_driver` |
 | Relation admission, invariants, inspection, set-oriented model/result work | Arrow and DataFusion | `pse-schema`, `pse-engine`, `pse-rules` |
 | Package admission; pure checking and specialization | Explicit immutable closure; generic typed Rust | `pse-runtime::workflow::modeling`; `pse-modeling` |
 | Physical typing, finite expansion, body preparation | Typed Rust, then Symbolica | `pse-modeling`, `pse-compiler`, `pse-math` |

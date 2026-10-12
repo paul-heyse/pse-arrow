@@ -794,6 +794,7 @@ impl Execution {
         work: WorkEvidence,
         operation: impl FnOnce() -> Result<T, ProblemError>,
     ) -> Result<T, ProblemError> {
+        let _original = crate::execution::original_scope(self);
         self.check()?;
         if let Some(admission) = &self.work_admission {
             crate::quality::contained(|| admission.admit(work))?;

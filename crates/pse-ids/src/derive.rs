@@ -453,6 +453,12 @@ frames! {
         CanonicalVersionV1 => "pse.canonical-version.v1",
         /// Portable product content and its complete captured canonical dependency meaning.
         CanonicalProductV1 => "pse.canonical-product.v1",
+        /// Immutable scientific body bytes and their exact reconstruction meaning.
+        CanonicalBodyContentV1 => "pse.canonical-body-content.v1",
+        /// Complete immutable selected and acquired predicate receipt.
+        CanonicalSelectionReceiptV1 => "pse.canonical-selection-receipt.v1",
+        /// Exact issuing-store scoped physical product descriptor.
+        CanonicalProductDescriptorV1 => "pse.canonical-product-descriptor.v1",
         /// Exact generated native schema and codec interpretation at database opening.
         CanonicalSchemaV1 => "pse.canonical-schema.v1",
         /// Exact authenticated subvalues of a qualified portable scientific recipe.
@@ -509,6 +515,8 @@ frames! {
         /// A durable rolling horizon's request: its plant, loop and stage templates (Plan 22
         /// Y5c).
         DurableHorizonRequestV1 => "pse.durable.horizon_request.v1",
+        /// Horizon request with explicit output demand; V1 remains historical identity.
+        DurableHorizonRequestV2 => "pse.durable.horizon_request.v2",
         /// A durable job request.
         DurableJobRequestV2 => "pse.durable.job_request.v2",
         /// Canonical role-typed operational job request, with explicit nonfinite framing.
@@ -730,6 +738,117 @@ impl FramedHasher {
         self
     }
 
+    /// One exact length-prefixed part, streamed with an operation checkpoint.
+    /// Failed, cancelled, short or overlong reads leave this hasher unchanged.
+    pub fn part_reader(
+        &mut self,
+        length: u64,
+        reader: &mut impl std::io::Read,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+    ) -> std::io::Result<&mut Self> {
+        checkpoint()?;
+        let mut pending = self.hasher.clone();
+        pending.update(&length.to_le_bytes());
+        let mut remaining = length;
+        let mut buffer = [0_u8; 65_536];
+        while remaining != 0 {
+            checkpoint()?;
+            let width = remaining.min(buffer.len() as u64) as usize;
+            let count = reader.read(&mut buffer[..width])?;
+            if count == 0 {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    "short framed part",
+                ));
+            }
+            pending.update(&buffer[..count]);
+            remaining -= count as u64;
+        }
+        checkpoint()?;
+        if reader.read(&mut buffer[..1])? != 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "overlong framed part",
+            ));
+        }
+        checkpoint()?;
+        self.hasher = pending;
+        Ok(self)
+    }
+
+    /// Write one exact length-prefixed part without retaining its encoded bytes.
+    /// The original hasher is unchanged after short/overlong output, a failed
+    /// writer or checkpoint, or a failed producer. Ignoring a writer error cannot
+    /// seal a partial part. The producer must emit the independently counted length.
+    pub fn part_writer(
+        &mut self,
+        length: u64,
+        checkpoint: &dyn Fn() -> std::io::Result<()>,
+        produce: impl FnOnce(&mut dyn std::io::Write) -> std::io::Result<()>,
+    ) -> std::io::Result<&mut Self> {
+        struct PartWriter<'a> {
+            hash: &'a mut blake3::Hasher,
+            remaining: u64,
+            checkpoint: &'a dyn Fn() -> std::io::Result<()>,
+            failed: Option<std::io::ErrorKind>,
+        }
+        impl std::io::Write for PartWriter<'_> {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                if let Some(kind) = self.failed {
+                    return Err(std::io::Error::new(kind, "framed writer already failed"));
+                }
+                if let Err(error) = (self.checkpoint)() {
+                    self.failed = Some(error.kind());
+                    return Err(error);
+                }
+                if bytes.len() as u64 > self.remaining {
+                    self.failed = Some(std::io::ErrorKind::InvalidData);
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "overlong framed part",
+                    ));
+                }
+                self.hash.update(bytes);
+                self.remaining -= bytes.len() as u64;
+                Ok(bytes.len())
+            }
+            fn write_all(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+                // `write` consumes the whole slice or fails. A checkpoint's
+                // Interrupted means cancellation, so the default retry loop
+                // must not retry the latched failure indefinitely.
+                self.write(bytes).map(|_| ())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                self.write(&[]).map(|_| ())
+            }
+        }
+        checkpoint()?;
+        let mut pending = self.hasher.clone();
+        pending.update(&length.to_le_bytes());
+        let mut writer = PartWriter {
+            hash: &mut pending,
+            remaining: length,
+            checkpoint,
+            failed: None,
+        };
+        produce(&mut writer)?;
+        if let Some(kind) = writer.failed {
+            return Err(std::io::Error::new(
+                kind,
+                "framed producer ignored a writer failure",
+            ));
+        }
+        if writer.remaining != 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::UnexpectedEof,
+                "short framed part",
+            ));
+        }
+        checkpoint()?;
+        self.hasher = pending;
+        Ok(self)
+    }
+
     /// One part: the UTF-8 bytes of `text`, length-prefixed.
     pub fn str(&mut self, text: &str) -> &mut Self {
         self.part(text.as_bytes())
@@ -946,5 +1065,131 @@ mod consolidation_unit {
         let id = derive_id(Frame::RegistryV1, parts);
         let hash = derive_hash(Frame::RegistryV1, parts);
         assert_eq!(id.as_bytes(), &hash.as_bytes()[..SemanticId::WIDTH]);
+    }
+
+    #[test]
+    fn streamed_parts_preserve_exact_owned_framing_at_chunk_boundaries() {
+        for length in [0, 1, 65_535, 65_536, 65_537, 3 * 65_536 + 17] {
+            let bytes: Vec<_> = (0..length).map(|i| (i % 251) as u8).collect();
+            let mut owned = FramedHasher::new(Frame::BuildInputsV1);
+            owned.str("before").part(&bytes).str("after");
+            let mut streamed = FramedHasher::new(Frame::BuildInputsV1);
+            streamed.str("before");
+            streamed
+                .part_reader(length as u64, &mut std::io::Cursor::new(&bytes), &|| Ok(()))
+                .unwrap();
+            streamed.str("after");
+            assert_eq!(streamed.finish_hash(), owned.finish_hash());
+        }
+    }
+
+    #[test]
+    fn failed_streamed_parts_leave_no_partial_identity() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let mut hash = FramedHasher::new(Frame::BuildInputsV1);
+        hash.str("retained prefix");
+        let expected = hash.clone().finish_hash();
+        for length in [2, 4] {
+            assert!(
+                hash.part_reader(length, &mut std::io::Cursor::new(b"abc"), &|| Ok(()))
+                    .is_err()
+            );
+            assert_eq!(hash.clone().finish_hash(), expected);
+        }
+        let calls = AtomicUsize::new(0);
+        let bytes = vec![19; 4 * 65_536];
+        let error = hash
+            .part_reader(
+                bytes.len() as u64,
+                &mut std::io::Cursor::new(&bytes),
+                &|| {
+                    if calls.fetch_add(1, Ordering::Relaxed) == 2 {
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::Interrupted,
+                            "original stop",
+                        ))
+                    } else {
+                        Ok(())
+                    }
+                },
+            )
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
+        assert_eq!(calls.load(Ordering::Relaxed), 3);
+        assert_eq!(hash.finish_hash(), expected);
+    }
+
+    #[test]
+    fn written_parts_preserve_exact_framing_without_an_encoded_buffer() {
+        for length in [0, 1, 65_535, 65_536, 65_537, 3 * 65_536 + 17] {
+            let bytes: Vec<_> = (0..length).map(|i| (i % 251) as u8).collect();
+            let mut expected = FramedHasher::new(Frame::BuildInputsV1);
+            expected.str("prefix").part(&bytes).str("suffix");
+            let mut actual = FramedHasher::new(Frame::BuildInputsV1);
+            actual.str("prefix");
+            actual
+                .part_writer(length as u64, &|| Ok(()), |writer| {
+                    for chunk in bytes.chunks(37) {
+                        writer.write_all(chunk)?;
+                    }
+                    Ok(())
+                })
+                .unwrap();
+            actual.str("suffix");
+            assert_eq!(actual.finish_hash(), expected.finish_hash());
+        }
+    }
+
+    #[test]
+    fn failed_written_parts_never_change_the_original_identity() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let mut hash = FramedHasher::new(Frame::BuildInputsV1);
+        hash.str("retained prefix");
+        let original = hash.clone().finish_hash();
+        for length in [2, 4] {
+            assert!(
+                hash.part_writer(length, &|| Ok(()), |writer| writer.write_all(b"abc"))
+                    .is_err()
+            );
+            assert_eq!(hash.clone().finish_hash(), original);
+        }
+        assert!(
+            hash.part_writer(3, &|| Ok(()), |writer| {
+                writer.write_all(b"abc")?;
+                Err(std::io::Error::other("producer failed after writing"))
+            })
+            .is_err()
+        );
+        assert_eq!(hash.clone().finish_hash(), original);
+        assert!(
+            hash.part_writer(2, &|| Ok(()), |writer| {
+                let _ = writer.write_all(b"abc");
+                writer.write_all(b"ab").or(Ok(()))
+            })
+            .is_err()
+        );
+        let polls = AtomicUsize::new(0);
+        let error = hash
+            .part_writer(
+                3,
+                &|| {
+                    if polls.fetch_add(1, Ordering::Relaxed) == 2 {
+                        Err(std::io::Error::new(
+                            std::io::ErrorKind::Interrupted,
+                            "original stop",
+                        ))
+                    } else {
+                        Ok(())
+                    }
+                },
+                |writer| {
+                    writer.write_all(b"a")?;
+                    writer.write_all(b"bc")
+                },
+            )
+            .unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Interrupted);
+        assert_eq!(polls.load(Ordering::Relaxed), 3);
+        assert_eq!(hash.finish_hash(), original);
     }
 }

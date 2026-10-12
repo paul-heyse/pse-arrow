@@ -98,8 +98,8 @@ pub struct ProfileControls {
     /// Relative tolerance on the signed-root statistic at a threshold end.
     #[serde(default = "ProfileControls::default_tolerance")]
     pub tolerance: Fraction,
-    /// Chains solved at once, each pinned fit on the fit's own threads; the fit's job admits
-    /// the cores of all of them. Absent solves as many at once as one job's cores admit.
+    /// Chains solved at once, each pinned fit on the fit's own threads. Their phase admits
+    /// the team after estimation relinquishes active capacity. Absent uses available cores.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub workers: Option<PositiveCount>,
 }
@@ -212,7 +212,7 @@ pub(crate) struct FitProblem {
     pub(crate) profile: FitProfile,
     pub(crate) key: ContentHash,
     pub(crate) profile_key: pse_ids::roles::ProfileHash,
-    pub(crate) numerics: Arc<ResolvedNumericalPolicy>,
+    pub(crate) numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
     pub(crate) normalization: Normalization,
     pub(crate) tolerances: native::quality::Tolerances,
     /// Stopping budgets resolved from the fit's numerical policy (F20).
@@ -450,6 +450,7 @@ impl PreparedFit {
             original: problem.source_identity,
             preparation: problem.key,
             profile: problem.profile_key.as_id(),
+            profile_projection: None,
             backend: match self.route {
                 native::routing::Route::Native(backend) => Some(backend),
                 native::routing::Route::Constant => None,

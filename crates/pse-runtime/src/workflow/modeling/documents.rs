@@ -14,6 +14,57 @@ pub struct DeclarationEdit {
     #[doc = "Declarations from the selected authored revision."]
     pub declarations: Vec<pse_authoring::language::Declaration>,
 }
+/// An atomic source edit against one exact canonical parent. Omission retains
+/// inherited objects; deletion must be named explicitly.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SourceDelta {
+    /// Exact canonical revision key of the receiver, also used for publication CAS.
+    pub parent: String,
+    /// New declarations, appended in this order after retained parent rows.
+    #[serde(default)]
+    pub additions: Vec<pse_authoring::language::Declaration>,
+    /// Existing declarations replaced in their original ordered positions.
+    #[serde(default)]
+    pub replacements: Vec<pse_authoring::language::Declaration>,
+    /// Existing declarations explicitly removed.
+    #[serde(default)]
+    pub removals: Vec<DeclarationId>,
+    /// Explicit document ownership changes, including their data payloads.
+    #[serde(default)]
+    pub documents: SourceDocumentDelta,
+    /// Explicit fit ownership changes; omitted fits remain inherited.
+    #[serde(default)]
+    pub fits: SourceFitDelta,
+}
+/// Parent-qualified document additions, replacements and removals.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SourceDocumentDelta {
+    /// Newly owned documents.
+    #[serde(default)]
+    pub additions: Vec<pse_model::generated::authored::documents::Row>,
+    /// Complete replacement of an existing document and its optional data bytes.
+    #[serde(default)]
+    pub replacements: Vec<pse_model::generated::authored::documents::Row>,
+    /// Documents whose ownership and optional data payload are explicitly removed.
+    #[serde(default)]
+    pub removals: Vec<SemanticId>,
+}
+/// Parent-qualified fitting declaration changes.
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SourceFitDelta {
+    /// New fitting declarations.
+    #[serde(default)]
+    pub additions: Vec<pse_model::generated::authored::fit_cases::Row>,
+    /// Existing fitting declarations replaced in full.
+    #[serde(default)]
+    pub replacements: Vec<pse_model::generated::authored::fit_cases::Row>,
+    /// Explicitly removed fit identities.
+    #[serde(default)]
+    pub removals: Vec<pse_model::generated::identities::FitId>,
+}
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 #[doc = "Declarations retained by the selected revision."]

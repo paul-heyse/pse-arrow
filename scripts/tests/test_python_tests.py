@@ -17,6 +17,17 @@ from scripts import python_tests, surreal_server
 
 class PythonProcessRoutingTests(unittest.TestCase):
     def setUp(self) -> None:
+        capture = patch.object(
+            python_tests.python_extension,
+            "capture",
+            return_value={
+                "binary": "/selected/_native.so",
+                "sha256": "selected-digest",
+                "features": ["force-validate"],
+            },
+        )
+        capture.start()
+        self.addCleanup(capture.stop)
         environment = {
             name: value
             for name, value in os.environ.items()
@@ -25,6 +36,13 @@ class PythonProcessRoutingTests(unittest.TestCase):
         isolated = patch.dict(os.environ, environment, clear=True)
         isolated.start()
         self.addCleanup(isolated.stop)
+        composer = patch.object(
+            python_tests,
+            "python_observer",
+            side_effect=lambda _command, _extra, launch, **_options: launch({}),
+        )
+        self.composer = composer.start()
+        self.addCleanup(composer.stop)
 
     def test_ordinary_defaults_keep_four_workers_and_original_categories(
         self,
@@ -43,6 +61,10 @@ class PythonProcessRoutingTests(unittest.TestCase):
             command[-2:], ["-m", "(unit or component) and not managed_primary"]
         )
         self.assertEqual(python_tests.ROOT, Path(__file__).resolve().parents[2])
+        self.assertEqual(
+            run.call_args.kwargs["env"]["PSE_NATIVE_EXPECTED_FEATURES"],
+            '["force-validate"]',
+        )
 
     def test_explicit_integration_keeps_selection_inside_ordinary_partition(
         self,
@@ -97,6 +119,11 @@ class PythonProcessRoutingTests(unittest.TestCase):
         worker.assert_called_once()
         binding.assert_called_once_with(Path("/selected/worker"))
         self.assertEqual(placed.call_args.kwargs["profile"], "reference")
+        self.assertEqual(self.composer.call_args.kwargs["terminal_owner"], "runner")
+        self.assertTrue(self.composer.call_args.kwargs["default_report"])
+        self.assertEqual(
+            self.composer.call_args.kwargs["artifact"]["sha256"], "selected-digest"
+        )
         state, command = placed.call_args.args
         self.assertEqual(state, Path("/owned/state"))
         self.assertEqual(
@@ -172,7 +199,10 @@ class PythonProcessRoutingTests(unittest.TestCase):
                 ],
             ),
         )
-        self.assertEqual(placed.call_args.kwargs, {"profile": "exclusive-observer"})
+        self.assertEqual(
+            placed.call_args.kwargs,
+            {"profile": "exclusive-observer", "observation": {}},
+        )
         run.assert_not_called()
 
     def test_managed_route_requires_selected_state(self) -> None:

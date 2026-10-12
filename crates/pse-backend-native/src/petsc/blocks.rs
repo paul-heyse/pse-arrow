@@ -231,7 +231,7 @@ struct Child<'a, 'b> {
     ghost_indices: Vec<i32>,
     options: ffi::Handle,
     snes: ffi::Handle,
-    label: String,
+    ordinal: usize,
 }
 fn finite(values: &[f64]) -> Result<(), ProblemError> {
     if values.iter().any(|v| !v.is_finite()) {
@@ -339,39 +339,46 @@ unsafe extern "C" fn block_function(
     // SAFETY: Shared is pinned through teardown and parent/child callbacks execute serially without lending its pointer to suppliers.
     let shared = unsafe { &mut *c.shared };
     let n = c.columns.len();
-    let output = shared.state.evaluate(&format!("{}.residual", c.label), || {
-        if c.oracle.family().key() != c.family.key() || c.oracle.realization() != c.realization {
-            return Err(ProblemError::Contract(
-                "PETSc block supplier changed its admitted family/binding".into(),
-            ));
-        }
-        let local = read(x, n)?;
-        let ghost = read(ghost, c.ghosts.len())?;
-        point_fields(
-            shared.domain,
-            &shared.anchor,
-            &mut shared.scratch,
-            &c.ghosts,
-            &ghost,
-        )?;
-        let mut values = vec![0.0; n];
-        c.oracle.residual(
-            &local,
-            GhostCoordinates {
-                columns: &c.ghosts,
-                values: &ghost,
-            },
-            &mut values,
-        )?;
-        finite(&values)?;
-        shared.domain.check(&shared.scratch)?;
-        if c.oracle.realization() != c.realization {
-            return Err(ProblemError::Contract(
-                "PETSc block binding changed during residual evaluation".into(),
-            ));
-        }
-        Ok(values)
-    });
+    let output = shared.state.evaluate(
+        crate::callback::CallbackKey::Block {
+            index: c.ordinal,
+            demand: "residual",
+        },
+        || {
+            if c.oracle.family().key() != c.family.key() || c.oracle.realization() != c.realization
+            {
+                return Err(ProblemError::Contract(
+                    "PETSc block supplier changed its admitted family/binding".into(),
+                ));
+            }
+            let local = read(x, n)?;
+            let ghost = read(ghost, c.ghosts.len())?;
+            point_fields(
+                shared.domain,
+                &shared.anchor,
+                &mut shared.scratch,
+                &c.ghosts,
+                &ghost,
+            )?;
+            let mut values = vec![0.0; n];
+            c.oracle.residual(
+                &local,
+                GhostCoordinates {
+                    columns: &c.ghosts,
+                    values: &ghost,
+                },
+                &mut values,
+            )?;
+            finite(&values)?;
+            shared.domain.check(&shared.scratch)?;
+            if c.oracle.realization() != c.realization {
+                return Err(ProblemError::Contract(
+                    "PETSc block binding changed during residual evaluation".into(),
+                ));
+            }
+            Ok(values)
+        },
+    );
     let Some(output) = output else {
         owner::terminal(&mut shared.state, "domain-safe NASM block residual refused");
         return ffi::EVAL_TERMINAL;
@@ -414,39 +421,46 @@ unsafe extern "C" fn block_jacobian(
     // SAFETY: Shared is pinned through teardown and parent/child callbacks execute serially without lending its pointer to suppliers.
     let shared = unsafe { &mut *c.shared };
     let n = c.columns.len();
-    let output = shared.state.evaluate(&format!("{}.jacobian", c.label), || {
-        if c.oracle.family().key() != c.family.key() || c.oracle.realization() != c.realization {
-            return Err(ProblemError::Contract(
-                "PETSc block derivative supplier changed its admitted family/binding".into(),
-            ));
-        }
-        let local = read(x, n)?;
-        let ghost = read(ghost, c.ghosts.len())?;
-        point_fields(
-            shared.domain,
-            &shared.anchor,
-            &mut shared.scratch,
-            &c.ghosts,
-            &ghost,
-        )?;
-        let mut values = vec![0.0; c.rows.len()];
-        c.oracle.jacobian(
-            &local,
-            GhostCoordinates {
-                columns: &c.ghosts,
-                values: &ghost,
-            },
-            &mut values,
-        )?;
-        finite(&values)?;
-        shared.domain.check(&shared.scratch)?;
-        if c.oracle.realization() != c.realization {
-            return Err(ProblemError::Contract(
-                "PETSc block binding changed during derivative evaluation".into(),
-            ));
-        }
-        Ok(values)
-    });
+    let output = shared.state.evaluate(
+        crate::callback::CallbackKey::Block {
+            index: c.ordinal,
+            demand: "jacobian",
+        },
+        || {
+            if c.oracle.family().key() != c.family.key() || c.oracle.realization() != c.realization
+            {
+                return Err(ProblemError::Contract(
+                    "PETSc block derivative supplier changed its admitted family/binding".into(),
+                ));
+            }
+            let local = read(x, n)?;
+            let ghost = read(ghost, c.ghosts.len())?;
+            point_fields(
+                shared.domain,
+                &shared.anchor,
+                &mut shared.scratch,
+                &c.ghosts,
+                &ghost,
+            )?;
+            let mut values = vec![0.0; c.rows.len()];
+            c.oracle.jacobian(
+                &local,
+                GhostCoordinates {
+                    columns: &c.ghosts,
+                    values: &ghost,
+                },
+                &mut values,
+            )?;
+            finite(&values)?;
+            shared.domain.check(&shared.scratch)?;
+            if c.oracle.realization() != c.realization {
+                return Err(ProblemError::Contract(
+                    "PETSc block binding changed during derivative evaluation".into(),
+                ));
+            }
+            Ok(values)
+        },
+    );
     let Some(output) = output else {
         owner::terminal(&mut shared.state, "domain-safe NASM block Jacobian refused");
         return ffi::EVAL_TERMINAL;
@@ -536,22 +550,28 @@ unsafe extern "C" fn child_convergence(
     let mut observed = 0;
     let ok = shared
         .state
-        .evaluate(&format!("{}.convergence", c.label), || {
-            check(
-                // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
-                unsafe {
-                    ffi::pse_petsc_snes_default_convergence(
-                        c.snes,
-                        iteration,
-                        xnorm,
-                        ynorm,
-                        fnorm,
-                        &mut observed,
-                    )
-                },
-                "block native convergence",
-            )
-        })
+        .evaluate(
+            crate::callback::CallbackKey::Block {
+                index: c.ordinal,
+                demand: "convergence",
+            },
+            || {
+                check(
+                    // SAFETY: The serialized admission retains these live handles, and the checked-size buffers and pinned callback context outlive this call.
+                    unsafe {
+                        ffi::pse_petsc_snes_default_convergence(
+                            c.snes,
+                            iteration,
+                            xnorm,
+                            ynorm,
+                            fnorm,
+                            &mut observed,
+                        )
+                    },
+                    "block native convergence",
+                )
+            },
+        )
         .is_some();
     // SAFETY: The C trampoline supplies a non-null aligned writable scalar for this callback result.
     unsafe {
@@ -763,7 +783,7 @@ pub fn solve_blocks(
             ghost_indices,
             options,
             snes: ptr::null_mut(),
-            label: format!("block.{number}"),
+            ordinal: number,
         }));
     }
     let x = objects.vector(start)?;
@@ -927,7 +947,10 @@ pub fn solve_blocks(
         if !shared
             .state
             .counts
-            .contains_key(&format!("{}.residual", child.label))
+            .contains_key(&crate::callback::CallbackKey::Block {
+                index: child.ordinal,
+                demand: "residual",
+            })
         {
             continue;
         }

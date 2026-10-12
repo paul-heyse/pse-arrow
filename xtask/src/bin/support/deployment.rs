@@ -96,7 +96,18 @@ pub(super) async fn open(
             math.observe_local_runtime(
                 pse_runtime::math::portable::ExpectedProducerTarget::WORKER,
                 local_code_anchor as *const () as usize,
-                std::sync::Arc::new(|| Ok(Vec::new())),
+                std::sync::Arc::new(|| {
+                    // SAFETY: this supervised worker's controlled reconstruction
+                    // lifetime excludes all current-environment writers.
+                    let environment =
+                        pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(
+                            &|| Ok(()),
+                        )?;
+                    pse_runtime::math::portable::RuntimeConfigurationObservation::new(
+                        Vec::new(),
+                        environment,
+                    )
+                }),
                 deadline,
                 &cancelled,
             )

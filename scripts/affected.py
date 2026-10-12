@@ -34,8 +34,6 @@ WORKSPACE_WIDE = (
     "clippy.toml",
     ".cargo/",
     ".config/nextest.toml",
-    ".config/hakari.toml",
-    "crates/pse-workspace-hack/",
 )
 GENERATOR_INPUTS = ("xtask/src/codegen", "crates/pse-codegen/", "crates/pse-schema/")
 NATIVE_PACKAGES = {

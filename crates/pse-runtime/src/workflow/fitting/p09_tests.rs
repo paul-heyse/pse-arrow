@@ -1956,7 +1956,7 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
             let controls = native::solve::Controls::default();
             let execution = Execution::new(flag, &controls);
             let scope = execution.scope()?;
-            let mut worker = s.program.worker(scope)?;
+            let mut worker = s.program.worker(scope, s.snapshots.clone())?;
             let state = worker
                 .evaluate(
                     0,
@@ -1989,6 +1989,7 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
     assert!(report.complete && report.passed(), "{}", report.summary());
     // Known diagnostic projection: use the actual producer extent to construct and
     // exercise a real worker, with the same physical values, guards and cell policy.
+    let snapshots = service.dynamic_snapshots();
     let report = service
         .job_scoped(
             1,
@@ -1999,7 +2000,7 @@ async fn fitting_and_dynamic_diagnostic_construction_use_source_under_generous_c
                 let controls = native::solve::Controls::default();
                 let execution = Execution::new(flag, &controls);
                 let scope = execution.scope()?;
-                let mut worker = projection.worker(scope)?;
+                let mut worker = projection.worker(scope, snapshots.clone())?;
                 let state = worker
                     .evaluate(
                         0,

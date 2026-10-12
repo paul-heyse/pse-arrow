@@ -1,0 +1,12 @@
+{"case":"valid","outcome":"accepted 1 batches"}
+{"case":"no_explicit_EOS","outcome":"accepted 1 batches"}
+{"case":"trailing_after_EOS","outcome":"error: Ipc error: Unexpected EOS"}
+{"case":"short_struct_validity","outcome":"PANIC"}
+{"case":"oversized_struct_node","outcome":"PANIC"}
+{"case":"overlapping_primitive_values","outcome":"accepted 1 batches"}
+{"case":"negative_metadata_length","outcome":"error: Ipc error: Unexpected End of Stream"}
+{"case":"unaligned_owned_payload","default_accepts_and_survives_owner_drop":true,"require_alignment_refuses":true}
+{"case":"malformed_string_offset","outcome":"error: Invalid argument error: Error converting offset[2] (-1) to usize for Utf8"}
+{"case":"primitive_take_kernel_equivalence","duplicates_order_nulls":true}
+{"case":"serde_float_roundtrip","exact_values":5,"feature":true}
+{"case":"serde_shortest_decimal_samples","feature":true,"first":null,"mismatches":0,"samples":10000}

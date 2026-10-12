@@ -208,7 +208,9 @@ impl Problem {
             .map_err(|e| MathError::Library(e.to_string()))?;
         let symbolic = lu::factorize_symbolic_lu(pattern.as_ref(), Default::default())
             .map_err(|e| MathError::Library(e.to_string()))?;
-        let parallel = faer::get_global_parallelism();
+        // Nested provider work runs inside the outer worker's admitted allowance.
+        // It cannot silently create a process-global Rayon team.
+        let parallel = Par::Seq;
         let rhs = match body.compiled_order() {
             DerivativeOrder::Value => 1,
             DerivativeOrder::First => inputs.max(1),
@@ -454,6 +456,16 @@ impl Problem {
         cancel: &Arc<AtomicBool>,
     ) -> Result<ProviderValues, MathError> {
         self.verify(parameters, point, options, cancel)?;
+        self.derivatives_at_verified_point(parameters, point, order, options, cancel)
+    }
+    fn derivatives_at_verified_point(
+        &self,
+        parameters: &[f64],
+        point: &[f64],
+        order: DerivativeOrder,
+        options: &Options,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<ProviderValues, MathError> {
         let n = self.unknowns.len();
         let p = self.inputs;
         let width = n + p;
@@ -590,14 +602,54 @@ pub trait InnerSolver: std::fmt::Debug + Send + Sync {
     }
     /// Versioned algorithm identity included in attempt configuration and provider reuse.
     fn identity(&self) -> ContentHash;
-    /// Solve for the unknowns at the given parameters, within the options' budgets.
+    /// Construct exclusive mutable scratch for one admitted provider/attempt.
+    fn worker(&self) -> Box<dyn InnerWorker>;
+    /// Complete immutable capability storage, reserved by factory admission.
+    fn retained_bytes(&self) -> usize {
+        size_of_val(self)
+    }
+    /// Complete private worker storage, reserved before worker construction.
+    fn worker_bytes(&self) -> usize {
+        size_of_val(self)
+    }
+}
+
+/// Exclusive attempt-local execution of a retained implicit solver definition.
+pub trait InnerWorker: std::fmt::Debug + Send {
+    /// Solve within the original options and cancellation owner's budgets.
     fn solve(
-        &self,
+        &mut self,
         problem: Arc<Problem>,
         parameters: &[f64],
         options: &Options,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Vec<f64>, MathError>;
+}
+
+#[derive(Debug)]
+struct SolverWorker {
+    identity: ContentHash,
+    worker: Box<dyn InnerWorker>,
+}
+impl SolverWorker {
+    fn new(definition: &dyn InnerSolver) -> Self {
+        Self {
+            identity: definition.identity(),
+            worker: definition.worker(),
+        }
+    }
+    fn identity(&self) -> ContentHash {
+        self.identity
+    }
+    fn solve(
+        &mut self,
+        problem: Arc<Problem>,
+        parameters: &[f64],
+        options: &Options,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Vec<f64>, MathError> {
+        self.worker.solve(problem, parameters, options, cancel)
+    }
 }
 
 /// Frame an implementation's explicitly versioned capability name.
@@ -652,6 +704,8 @@ struct NumericalProduct {
     key: ContentHash,
     order: DerivativeOrder,
     values: ProviderValues,
+    inputs: Vec<u64>,
+    fixed_configuration: Option<ContentHash>,
 }
 pub(super) fn numerical_product_bytes(inputs: usize, unknowns: usize) -> Result<usize, MathError> {
     inputs
@@ -724,6 +778,9 @@ impl ImplicitFactory {
             .body
             .retained_bytes()
             .checked_add(factory.body.scratch_bytes())?
+            .checked_add(factory.solver.retained_bytes())?
+            .checked_add(factory.solver.worker_bytes())?
+            .checked_add(size_of::<SolverWorker>())?
             .checked_add(factory.max_entries.checked_mul(8)?)?
             .checked_add(factor_workspace_bytes(factory.unknowns.len())?)
             .and_then(|n| n.checked_add(factory.configuration.retained_bytes()))
@@ -925,7 +982,7 @@ impl pse_kernels::ProviderFactory for Factory {
                 self.hints.as_ref(),
                 self.terms.as_ref(),
             ),
-            solver: self.solver.clone(),
+            solver: SolverWorker::new(self.solver.as_ref()),
             cancel: scope.cancellation().clone(),
             scope,
             selection: selection::SelectionWorker::new(&self.selection),
@@ -1001,7 +1058,7 @@ struct Nested {
     spec: pse_kernels::ProviderSpec,
     problem: Arc<Problem>,
     configuration: ConfigurationWorker,
-    solver: Arc<dyn InnerSolver>,
+    solver: SolverWorker,
     cancel: Arc<AtomicBool>,
     numerical: Option<NumericalProduct>,
 }
@@ -1010,6 +1067,20 @@ impl pse_kernels::Provider for Nested {
         &self.spec
     }
     fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        request: &pse_kernels::ProviderRequest,
+        context: &pse_kernels::EvaluationContext<'_>,
+    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
+        let result = self.evaluate_inner(inputs, request, context);
+        if result.is_err() {
+            self.numerical = None;
+        }
+        result
+    }
+}
+impl Nested {
+    fn evaluate_inner(
         &mut self,
         inputs: &[f64],
         request: &pse_kernels::ProviderRequest,
@@ -1028,6 +1099,26 @@ impl pse_kernels::Provider for Nested {
             ));
         }
         let started = std::time::Instant::now();
+        // A fixed configuration and the immutable worker's residual, provider and
+        // selector definitions cover this premise. Hint resolvers are not assumed
+        // immutable here: they still run in their original refusal order below.
+        if let Some((identity, allowance)) = self.configuration.fixed_identity()
+            && let Some(product) = &self.numerical
+            && product.fixed_configuration == Some(identity)
+            && product.inputs.len() == inputs.len()
+            && product
+                .inputs
+                .iter()
+                .zip(inputs)
+                .all(|(a, b)| *a == b.to_bits())
+            && product.order >= request.order
+        {
+            self.scope.remaining(allowance)?;
+            let out = self.project(&product.values, request, inputs.len())?;
+            self.scope
+                .remaining(allowance.saturating_sub(started.elapsed()))?;
+            return Ok(out);
+        }
         let anchor = self
             .selection
             .anchor(&self.problem, inputs, &self.cancel)
@@ -1064,9 +1155,15 @@ impl pse_kernels::Provider for Nested {
         };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
-        self.problem
-            .verify(inputs, &point, &options, &self.cancel)
-            .map_err(provider_error)?;
+        if self
+            .numerical
+            .as_ref()
+            .is_none_or(|product| product.key != numerical_key)
+        {
+            self.problem
+                .verify(inputs, &point, &options, &self.cancel)
+                .map_err(provider_error)?;
+        }
         let all = match self
             .numerical
             .as_ref()
@@ -1075,20 +1172,57 @@ impl pse_kernels::Provider for Nested {
             Some(product) => product.values.clone(),
             None => self
                 .problem
-                .derivatives(inputs, &point, request.order, &options, &self.cancel)
+                .derivatives_at_verified_point(
+                    inputs,
+                    &point,
+                    request.order,
+                    &options,
+                    &self.cancel,
+                )
                 .map_err(provider_error)?,
         };
         self.scope
             .remaining(allowance.saturating_sub(started.elapsed()))?;
-        self.selection
-            .verify(&self.problem, inputs, &point, request.order, &self.cancel)
-            .map_err(provider_error)?;
-        let n = inputs.len();
+        if self
+            .numerical
+            .as_ref()
+            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
+        {
+            self.selection
+                .verify(&self.problem, inputs, &point, request.order, &self.cancel)
+                .map_err(provider_error)?;
+        }
         if started.elapsed() >= allowance {
             return Err(pse_kernels::ProviderError::Limit(
                 "implicit evaluation time",
             ));
         }
+        let out = self.project(&all, request, inputs.len())?;
+        self.scope.check()?;
+        if self
+            .numerical
+            .as_ref()
+            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
+        {
+            self.numerical = Some(NumericalProduct {
+                key: numerical_key,
+                order: request.order,
+                values: all,
+                inputs: inputs.iter().map(|value| value.to_bits()).collect(),
+                fixed_configuration: self
+                    .configuration
+                    .fixed_identity()
+                    .map(|(identity, _)| identity),
+            });
+        }
+        Ok(out)
+    }
+    fn project(
+        &self,
+        all: &ProviderValues,
+        request: &pse_kernels::ProviderRequest,
+        n: usize,
+    ) -> Result<ProviderValues, pse_kernels::ProviderError> {
         let mut out = ProviderValues {
             values: Vec::new(),
             jacobian: Vec::new(),
@@ -1107,17 +1241,6 @@ impl pse_kernels::Provider for Nested {
         }
         out.validate(&self.spec, request)?;
         self.scope.check()?;
-        if self
-            .numerical
-            .as_ref()
-            .is_none_or(|product| product.key != numerical_key || product.order < request.order)
-        {
-            self.numerical = Some(NumericalProduct {
-                key: numerical_key,
-                order: request.order,
-                values: all,
-            });
-        }
         Ok(out)
     }
 }
@@ -1442,7 +1565,7 @@ mod tests {
         assert_eq!(options.start, [3.0]);
         assert_eq!(options.variable_nominals, [5.0]);
     }
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     struct CountedLinear(Arc<std::sync::atomic::AtomicUsize>);
     impl InnerSolver for CountedLinear {
         fn minimum_order(&self) -> DerivativeOrder {
@@ -1451,8 +1574,14 @@ mod tests {
         fn identity(&self) -> ContentHash {
             solver_identity("test.counted-linear.v1")
         }
+
+        fn worker(&self) -> Box<dyn InnerWorker> {
+            Box::new(self.clone())
+        }
+    }
+    impl InnerWorker for CountedLinear {
         fn solve(
-            &self,
+            &mut self,
             _: Arc<Problem>,
             parameters: &[f64],
             _: &Options,
@@ -1584,6 +1713,35 @@ mod tests {
             )
             .unwrap();
         assert_eq!(calls.load(Ordering::Relaxed), 2);
+        // Invalid trial failure must clear carried numerical validity, even if a
+        // following trial returns to the last accepted input bit pattern.
+        assert!(
+            provider
+                .evaluate(
+                    &[f64::NAN],
+                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                    &context,
+                )
+                .is_err()
+        );
+        provider
+            .evaluate(
+                &[2.1],
+                &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::First),
+                &context,
+            )
+            .unwrap();
+        assert_eq!(calls.load(Ordering::Relaxed), 4);
+        for value in [0.0, -0.0] {
+            provider
+                .evaluate(
+                    &[value],
+                    &pse_kernels::ProviderRequest::all(&factory.spec, DerivativeOrder::Value),
+                    &context,
+                )
+                .unwrap();
+        }
+        assert_eq!(calls.load(Ordering::Relaxed), 6);
         let problem = factory
             .problem(pse_kernels::ExecutionScope::new(cancel.clone(), None))
             .unwrap();

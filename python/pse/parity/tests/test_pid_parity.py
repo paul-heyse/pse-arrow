@@ -140,9 +140,9 @@ def petsc_response() -> list[float]:
     return [float(v) for v in trajectory.get_vec(m.fs.y[END])]
 
 
-def pse_response(runtime: pse.Runtime) -> list[float]:
+def pse_response(parity_context: support.ParityContext) -> list[float]:
     """The pse control-library PID on the plant, integrated by the authored fixture."""
-    package = support.reference_package(runtime, LOOP)
+    package = support.reference_package(parity_context, LOOP)
     fixture = next(
         d.declaration_id for d in package.declarations() if d.name == "pi_loop"
     )
@@ -178,11 +178,11 @@ def pse_response(runtime: pse.Runtime) -> list[float]:
 
 @pytest.mark.integration
 @pytest.mark.parity
-def test_pi_loop_agrees_with_petsc(runtime: pse.Runtime) -> None:
+def test_pi_loop_agrees_with_petsc(parity_context: support.ParityContext) -> None:
     """Production and PETSc agree with the exact response at Scalar accuracy."""
     reference = exact()
     integrated = petsc_response()
-    simulated = pse_response(runtime)
+    simulated = pse_response(parity_context)
     for t, want, idaes, ours in zip(
         SAMPLES, reference, integrated, simulated, strict=True
     ):

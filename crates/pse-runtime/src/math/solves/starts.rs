@@ -45,8 +45,8 @@ impl PreparedSolve {
     /// Changed target, fidelity, task, physical inventory or required connected branch.
     pub fn surrogate_start(
         &self,
-        point: &pse_math::surrogate::SurrogateProposal,
-        correspondence: &pse_math::surrogate::FidelityCorrespondence,
+        point: &crate::math::surrogate::SurrogateProposal,
+        correspondence: &crate::math::surrogate::FidelityCorrespondence,
         task: pse_ids::ContentHash,
         branch: BranchPolicy,
     ) -> Result<Proposal, ProblemError> {
@@ -165,8 +165,10 @@ impl PreparedSolve {
             compatibility,
             payload,
         };
-        self.explicit_start = Some(Arc::new(seed));
-        self._explicit_start_owner = None;
+        self.explicit_start = Some(Arc::new(pse_columnar::Leased::new(
+            Arc::new(seed),
+            Arc::new(start.clone()),
+        )));
         self.proposal_start = Some(start.clone());
         self.task_scope = Some(start.scope().clone());
         Ok(self)

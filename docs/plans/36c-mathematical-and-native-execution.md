@@ -1,8 +1,8 @@
 ---
 title: Mathematical and native execution
-status: draft
+status: in-progress
 date: 2026-10-11
-adrs: []
+adrs: [ADR-0176]
 review_sources:
   - docs/design_review/reviews/design_review_efficiency-alignment-codebase_2026-10-11.md
   - docs/design_review/reviews/design_review_efficiency-alignment-audit_2026-10-11.md
@@ -14,29 +14,51 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 
 # Plan 36c: Mathematical and native execution
 
-Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. No product implementation, tests or measurements are established by plan authoring.
+Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline refreshed for the investigations: `2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. No product implementation, tests or measurements are established by plan authoring.
 
 ## Implementation packets
 
-Every packet is scheduled design work awaiting separate implementation authorization. Required input means the delivered, verified slice described below, not completion of an entire other document. Conditional investigations have their own decision outcomes; no finding closes merely because a packet is written.
+The bounded investigations are delivered below; the maintainer authorized accepted-target product implementation on 2026-10-11. Required input means the delivered, verified slice described below, not completion of an entire other document. Conditional investigations have their own decision outcomes; no finding closes merely because a packet is written.
 
 | Packet | Required input | Delivery and acceptance | Status |
 |---|---|---|---|
-| P-C1 | Existing assembly/physical/provider contracts | Compact layouts, trial buffers and witnesses; checks before consumers and independent original assessment. | Scheduled |
-| P-C2 | Accepted RC13 for optional exclusive transfer | Scalar optimization once, actual derivative demand and lazy admitted per-order workers. | Scheduled |
-| P-C3 | Exact provider/attempt lifetime | Private cubic coefficient scratch and complete memo validity; separately decide certified fast algorithm. | Scheduled |
-| P-C4 | P-C1 compact layouts; native retained-session contract | Conditional allocation reuse and one block-sequence operation with preserved starts, refresh and rollback. | Scheduled |
-| P-C5 | Same-point matrix identity; honest sparse-fill admission | Share sparse factor/actions while retaining singular-value rank meaning; decide remaining scale limitations. | Scheduled |
-| P-C6 | Existing grouped tear policy and independent DAG witness | SCC-local constraints with global shared decisions, honest incumbent status and revised bounds. | Scheduled |
-| P-C7 | Complete target/policy/physical inputs | Index resolution; retain immutable products only under complete identity. | Scheduled |
-| P-C8 | P-B3 active/resident split and quiescent handoff slice | IBEX wait admission and all request variants; retain team allowance where quiescence is absent. | Scheduled |
-| P-C9 | Existing surrogate/shooting owners; coordinate P-E4 relocation | Explicit compact surrogate advancement and requested/achieved shooting order with consumer migration. | Scheduled |
+| P-C1 | Existing assembly/physical/provider contracts | Compact layouts, trial buffers and witnesses; checks before consumers and independent original assessment. | In progress |
+| P-C2 | Accepted RC13 for optional exclusive transfer | Scalar optimization once, actual derivative demand and lazy admitted per-order workers. | In progress |
+| P-C3 | Exact provider/attempt lifetime | Private cubic coefficient scratch, complete memo validity and guarded real-only certified isolation with explicit fallback. | In progress |
+| P-C4 | P-C1 compact layouts; native retained-session contract | Conditional allocation reuse and one block-sequence operation with preserved starts, refresh and rollback. | In progress |
+| P-C5 | Same-point matrix identity; honest sparse-fill admission | Share same-point sparse factor/actions; retain bounded singular-value rank and named large-sparse support blocker; R36-01 is separate. | In progress |
+| P-C6 | Existing grouped tear policy and independent DAG witness | SCC-local constraints with global shared decisions, honest incumbent status and revised bounds. | In progress |
+| P-C7 | Complete target/policy/physical inputs | Index resolution; retain immutable products only under complete identity. | In progress |
+| P-C8 | P-B3 active/resident split and quiescent handoff slice | IBEX wait admission and all request variants; retain team allowance where quiescence is absent. | In progress |
+| P-C9 | Existing surrogate/shooting owners; coordinate P-E4 relocation | Explicit compact surrogate advancement and requested/achieved shooting order with consumer migration. | In progress |
+
+## Investigation checkpoint, 2026-10-11
+
+[Numerical evidence](36-investigation-evidence/numerics.md) records exact library/fork sources, proposed interfaces, optional decisions and disposable controls. **Tested:** isolated exact Symbolica 3.0.1/faer 0.24.4 crate, seven cubic root-count/multiplicity controls, two sparse multi-RHS scales and an SVD-versus-QR rank counterexample; final corrected run exit 0 with zero warnings/assertion failures. The first refiner spike failed on a different root at an isolation-interval endpoint; that failure narrows the selected guarded route and remains evidence. The independent rational/closed-form oracle passed. These do not qualify original providers, physical models, product integration or factor allocation peaks.
+
+F18 now has a concrete complete library route with degree/repetition/near-critical fallback and explicit achieved-order validity. F20 has a selected same-point sparse solve design, bounded retained singular-value rank support and a named large-sparse public-response blocker. [R36-01 in the coordinator](36-efficiency-alignment.md) is the separate method-tagged sparse-rank public contract proposal; it does not relabel current singular-value evidence. The numerical evidence specifies the proposed threshold/evidence migration and outstanding native/memory qualification. Native admission consumes nonblocking compute reacquisition; FERAL default Markowitz cannot be claimed to reuse symbolic ordering. Every optional branch below has a settled investigation outcome in the evidence. Product implementation and original finding closure are not established.
 
 ## Target and decisions settled during authoring
 
+Implementation checkpoint: the conditional unit adapter now retains one private compact
+oracle and native session per causal-map owner. Boundary changes refill compact values;
+original-space assessment still reconstructs the actual full binding independently.
+Declared Root and automatic causal preparation account for the additive retained-unit
+foreign residency before active CPU entry. The integrated native Runtime/Python
+all-target compile passed with zero diagnostics before the later block-assessor and
+result migrations. Targeted original-row, affine-boundary, memory-plateau and
+declared-residency controls await execution. The whole block sequence now has one
+owner-thread operation using the shared stage-policy driver. A fresh independent
+block assessor supplies original-space quality before commit and recovery; its
+original clock, cancellation, admission and scratch ownership survive the crossing.
+Independent source review found no remaining material issue after this repair.
+The new stale-native-permission, recovery, atomic-refusal and original-clock controls
+remain unrun; the first combined compile exposed test-code errors, which were repaired.
+P-C4 remains open for integrated functional acceptance.
+
 Retain authored scientific authority, exact derivative axes, class-specific library algorithms, immutable prepared products and independent original-space qualification. Change physical evaluation and native-state lifetimes inside their existing owners. An immutable layout describes where values and contributions go; attempt-owned buffers hold the current trial. Numerical validity belongs to the exact inputs, physical context, order and selected branch that established it. Resource observations, cancellation and deadlines stay live.
 
-The numerical target has five deliberate limits. First, Symbolica 3.0.1 remains the interpreted evaluator: common scalar optimization and demand-specific instantiation are feasible through its public APIs, but a shared immutable instruction program with independent stacks is not. Its `ExpressionEvaluator` owns stack/instructions; `ProgramView` and `program()` are `pub(super)`. The portable skill covers 3.0.0; the actual 3.0.1 registry source was checked. Second, scratch transfer is optional exclusive transfer after drain/reset, never shared simultaneous mutation. Third, cubic ownership/memo improvements proceed independently of replacing certified isolation; no unproved candidate-only fast path is selected. Fourth, Root response initially retains public singular-value rank/cutoff semantics. Fifth, shooting makes requested/achieved order explicit; eager First evaluation is an intentional policy option when observed callback demand warrants it.
+The numerical target has five deliberate limits. First, Symbolica 3.0.1 remains the interpreted evaluator: common scalar optimization and demand-specific instantiation are feasible through its public APIs, but a shared immutable instruction program with independent stacks is not. Its `ExpressionEvaluator` owns stack/instructions; `ProgramView` and `program()` are `pub(super)`. The portable skill covers 3.0.0; the actual 3.0.1 registry source was checked. Second, scratch transfer is optional exclusive transfer after drain/reset, never shared simultaneous mutation. Third, cubic ownership/memo improvements use the investigated guarded real-interval route while retaining exact isolated-root fallback; approximate candidates alone never establish completeness. Fourth, Root response initially retains public singular-value rank/cutoff semantics. Fifth, shooting makes requested/achieved order explicit; eager First evaluation is an intentional policy option when observed callback demand warrants it.
 
 **RC13:** accepted 2026-10-11 as recorded in the coordinator. The clarification of blueprint §14.3 retains DP-19: an old attempt relinquishes empty scratch only after native/provider/callback drain, caches and controls are reset, and the receiving attempt exclusively acquires it with correct charges. Keeping literal fresh allocation limits the work to lazy per-order cloning. This does not authorize the simultaneous F18 coefficient sharing.
 
@@ -60,6 +82,15 @@ Finiteness is checked before the first provider/native consumer relies on a valu
 
 ## P-C2 — Optimize scalar stages once and instantiate actual derivative demand
 
+Implementation checkpoint, 2026-10-11: scalar preparation now shares repeated
+provider lifts while retaining distinct order identities. Mutable evaluator/frame
+growth is lazy and precharged; cloning a warm worker creates a cold independent
+worker. Seven focused mathematical controls pass, covering requested-only growth,
+refusal before allocation, cancellation, provider-lift sharing, demand upgrades,
+packed second partials and independent original assessment. These checks do not
+close RC13's lane-local exclusive scratch transfer, which still requires callback
+return/drain, reset and resident charge ownership across attempts.
+
 **Coverage:** F17; B-07/B-08; L1-03; B-P2/L1-P4. Owners: `execution::{compile_scope,compile_stages,CompiledBody::worker_scoped}`, `library::{exact_evaluator,admission::bounded_evaluator}`, assembly `LocalDemand`, compiler artifact requests and runtime worker construction.
 
 Separate source/scalar admission and exact scalar optimization from per-order expansion admission. Construct an exact optimized evaluator once for each actual scalar block/read-set/options tuple, including repeated Value-only guard bodies. Clone that public evaluator into each demanded `vectorize(Dualizer)`/`map_coeff` product, preserving structural Taylor zeros and block-local axes. Provider lifts share only genuinely common preparation, retaining order-specific work. Do not claim preparation becomes three times faster: source establishes up to three scalar optimizer invocations; derivative preparation and vectorization remain different work.
@@ -67,6 +98,22 @@ Separate source/scalar admission and exact scalar optimization from per-order ex
 Give Objective and Constraints their actual maximum consumed order (normally First), and All the necessary Second ceiling. When an identical output/coordinate selection serves several groups, deduplicate to their maximum demanded ceiling rather than accidentally selecting the lowest first request. Artifact/admission identities must represent the resulting ordered selection, ceiling, directional mode, providers and optimizer profile. Old persisted descriptions are readmitted/rebuilt through existing identity rules; changing physical layout alone is not permission to change semantic hashing.
 
 Worker construction initially keeps no mutable program for unrequested orders. First use clones an already prepared order product under its admitted allowance; it does not perform unbounded symbolic compilation in a callback. Charges grow before allocation or remain within a prepaid complete extent. Cold, First-only, quasi-Newton and Value-only routes therefore need not clone Second instructions. Original PS-10 workers remain independent.
+
+Implementation checkpoint, 2026-10-11: exclusive scratch transfer now reaches the
+actual native session owner, with passive continuous allocation charges, one
+pending/ready carrier, promotion after request return and sibling-owner drain,
+full supported evaluator reset and fresh provider construction. Independent
+original-assessment workers remain cold. Four focused lower mathematics controls
+pass. Independent source review found optional metadata could shrink cold-worker
+eligibility; cold fallback and two revealing policy/live-budget controls are
+written. Seven focused Runtime transfer controls now pass, covering actual native
+request return and sibling drain, reset-overlap refusal, passive allocation,
+optional metadata under live policy/budget pressure and cold-worker fallback.
+The same focused native-local run also passed both affected rebind controls
+(nine tests, zero failures). Fixture profile and numeric-point omissions were
+corrected without weakening production admission. Combined native all-target
+compilation passed; its warnings remain for scope-end repair. This does not
+establish enclosing scientific acceptance.
 
 Under accepted RC13, add one lane-local transfer seam keyed by exact assembly/program/profile compatibility. Transfer only poisoned/reset frames, instruction-bearing evaluator storage and reusable empty buffers. Discard providers, memo products, applicability witnesses, numerical factors, failure latches and scope/cancellation handles unless a separate existing native session contract expressly owns them. Reset failure destroys the candidate transfer object. Idle transferred storage remains charged to its actual lane owner; charge release occurs on destruction/drain, not on logical attempt completion. No global worker cache is needed.
 
@@ -78,13 +125,22 @@ Under accepted RC13, add one lane-local transfer seam keyed by exact assembly/pr
 
 Prepared cubic admission owns immutable coefficient program/parameter descriptors. Attempt/provider construction creates private coefficient evaluator scratch and accounts it there. Evolve the factory-to-inner-solver construction seam so a retained immutable solver definition can create an exclusive worker; update injected native/affine solvers and tests as required rather than making every shared solver mutable by accident. Current `Mutex` protects only `.evaluate(parameters, coefficients)`; Rational conversion, isolation, refinement and verification run after its guard drops. Removing the shared coefficient lock is an ownership correction, not proof that complete root solves were serialized.
 
-Retain exact polynomial isolation/refinement initially. It certifies the polynomial formed from evaluated f64 coefficients, so the independent original residual/bounds/branch check remains mandatory. Schedule a bounded algorithm decision before replacing this path: compare Symbolica float `roots`/`roots_hot_start` candidates, library-owned interval/certified isolation and restricted-branch exact work. The selected fast scope must establish complete branch root count/separation, not merely small residual or coefficient backward error. Degree reduction, repeated/near-critical roots, boundaries and uncertain rounding all fall back to the existing certified path. Symbolica documentation explicitly supplies no root-error certificate for Aberth. A handwritten Newton/bisection controller is not selected without a demonstrated library gap and PS-09 review. If no fitting completeness mechanism is established, retain exact isolation, record measured limitations and keep this sub-obligation open; do not mark all F18 resolved from the mutex fix.
+Select the public Symbolica 3.0.1 `isolate_real_root_intervals` route for complete real roots/multiplicities of the exact rational polynomial formed from evaluated f64 coefficients, followed by original residual/bounds/branch checks. Refine only nonpoint intervals whose endpoints are not other roots; the executable near-critical control showed that calling the whole-polynomial `refine_root_interval` at another-root endpoint fails its sign assertion. Such cases, unresolved boundary/separation or uncertain rounding use the existing `IsolatedRoot::refined` certified fallback. Keep exact degree reduction, repeated-root Value validity and independently withheld higher-order IFT support explicit. Full details and failed/passing controls are in the numerical evidence. This is a concrete guarded exact-library choice, not an approximate candidate-only fast path or a measured speed claim. Cancellation is checked before/after uninterruptible library sections; no prompt mid-isolation cancellation guarantee is added. Remove the old default general-root call only after the guarded route and all original acceptance controls pass; retained fallback remains part of the selected algorithm.
 
 Memo products retain separate achieved Value/First/Second validity, complete input bit patterns, immutable problem/provider/configuration/solver identity, starts, tolerances, branch/anchor and selector premises. Existing `numerical_product_key` frames compiled order and options; achieved order is separately stored. The new hit path may bypass unchanged configuration/anchor/residual/selection work only where their dependencies are actually covered. A Value hit never establishes nonsingular First/Second IFT or neighborhood support. Upgrade derivatives and branch proof at the higher order before publication. Reuse a residual jet for the same residual check only when it supplies the identical original obligation. Deadlines, cancellation and remaining work are never cached; a hit still observes them.
 
 Compile provider fan-out per actual spec/input/active branch, requesting the maximum consumed order once only where evaluation/refusal order and attribution remain equivalent. Otherwise preserve stage order and reuse the product opportunistically. Failure clears validity; new numerical states are independently checked.
 
-**Acceptance/removal:** ordinary, degree-reduced, repeated/near-critical and interval-boundary cubics against the old exact oracle; ambiguity refusal, original residual checks and cancellation; Value→First→Second upgrades, changed hints/start/tolerance/anchor/provider, same-bit hits and selector refusals. Delete shared mutable coefficient scratch and duplicated same-premise verification only after these controls establish carried validity. Fast algorithm selection has its own decision and acceptance; it is not inferred from a microbenchmark.
+Implementation decision, 2026-10-11: retain generic provider evaluation in its existing stage order. The mutable `Provider::evaluate` contract permits trial rejection and terminal failure and does not establish order-independent effects or refusal attribution. Eagerly requesting a later stage's higher derivative order could therefore fail before an earlier guard or change the reported source. The implicit provider's existing exact-premise, achieved-order memo supplies opportunistic reuse without changing that order; failures clear its validity and cancellation/deadline checks remain live. Reopen compiled cross-stage fan-out only for a provider contract that establishes equivalent guard, failure and attribution order. No generic eagerness or new permission cache is introduced by this decision.
+
+**Acceptance/removal:** ordinary, degree-reduced, repeated/near-critical and interval-boundary cubics against the old exact oracle; ambiguity refusal, original residual checks and cancellation; Value→First→Second upgrades, changed hints/start/tolerance/anchor/provider, same-bit hits and selector refusals. Delete shared mutable coefficient scratch and duplicated same-premise verification only after these controls establish carried validity. Guarded real-only selection has its own product acceptance, including the observed endpoint-root failure control; it is not inferred from a microbenchmark.
+
+Implementation checkpoint, 2026-10-11: eighteen focused linked-native implicit
+and assembled-callback controls pass, including actual deadline/terminal witness
+propagation, session reuse and byte bounds, physical nominals, sparse support,
+original root/guard checks and atomic callback recovery. These supplement the
+guarded cubic controls; they do not establish the complete changed-provider or
+assembled physical-model qualification.
 
 ## P-C4 — Retain conditional allocations and execute block sequences at operation grain
 
@@ -106,11 +162,19 @@ Build fresh original state/parameter partials once when both response and predic
 
 Keep bounded dense spectrum computation for the current singular-value rank/cutoff evidence, with no U/V vectors requested. Replace the extra dense LU and dense backward check by the valid sparse factor/solve/check. Physical back-mapping, inactive-bound neighborhood checks, original residual budgets, independent withholding and finite checks remain. Fitting's observation/sensitivity rank is a different matrix from Fx and cannot inherit the Root factor's rank conclusion.
 
-Additional foundation prerequisite: `SparseFactor::allowance(n)` currently reserves `64*n*n + 512*n + 4096` bytes. Its sparse stored matrix does not eliminate that dense conservative allowance. Before claiming large sparse support, investigate faer symbolic/scratch and numeric-fill allocation contracts under admitted growth. Numerical pivoting can create real fill: do not substitute an nnz guess as a hard bound. Select a source-supported fill bound/growth mechanism or explicitly retain the bounded supported scope. A library allocation seam may require upstream work; factor sharing alone does not settle it.
+Additional foundation prerequisite: `SparseFactor::allowance(n)` currently reserves `64*n*n + 512*n + 4096` bytes. Its sparse stored matrix does not eliminate that dense conservative allowance. The source investigation found private Vec numeric growth: public factor scratch does not bound fill, and Vec reallocation may overlap old/new capacity. Retain the conservative quadratic allowance and bounded SVD scope; select no proportional-nnz admission guess. A complete forced-simplicial capacity bound is unestablished. The concrete upstream alternative is an operation-owned factor-growth reservation hook covering symbolic/numeric storage, reallocation overlap, scratch and retained lifetime, with refusal before publication. Until such a bound/hook is qualified, opaque factor growth and dense spectrum remain explicit large-sparse support blockers; factor sharing alone does not settle them.
 
-Schedule an optional rank-method investigation separately: qualified sparse rank-revealing QR/SPQR, method-tagged evidence, scaling/pivot/threshold semantics and near-cutoff comparison. `suitesparse_sys 0.1.4` exposes optional `spqr`, currently disabled; a feature toggle does not qualify the numerical method or native ABI. Return a concrete design for operator decision before migration. Retaining current evidence leaves dense spectrum cost/large-n withholding explicit; full F20 stays open unless that scope is deliberately accepted or a qualified alternative lands.
+The investigation delivered the separate R36-01 method-tagged sparse-rank proposal in the numerical evidence: current singular-value method remains the default; sparse QR has explicit ordering/pivot policy and its own relative/absolute pivot thresholds, reconstruction/orthogonality and same-original-matrix evidence. It cannot populate a singular-value cutoff field. The executable A=[[1,1],[0,2^-30]] control yields different rank at the same relative numerical threshold, establishing the necessary public-method distinction. The [exact SPQR investigation](36-investigation-evidence/sparse-rank.md) proposes `spqr_scaled_colnorm_v1`, fixed COLAMD2 and tau=rho*max-column-2norm of the existing normalized A, with required reconstruction/orthogonality/backward limits and bracket-stability withholding. It also found a concrete binding/native blocker: pinned `suitesparse_sys 0.1.4` includes nonexistent `spqr.h` for its disabled feature, and the managed native image lacks the required SPQR/CHOLMOD closure. An owned corrected C binding/image, bounded factor growth and scientific method qualification precede adoption; a feature toggle is insufficient. Migration covers Rust/Python/schema/completion consumers and preserves old evidence meaning. Full F20 remains open: large sparse public rank is explicitly blocked by dense spectrum and opaque factor-growth admission unless the maintainer accepts bounded supported scope or adopts and qualifies that concrete proposal. Sparse predictor/actions alone do not settle it.
 
 **Acceptance/removal:** same-point shared construction counts, sparse/dense derivative agreement, independent perturbed-root controls, mismatched-point/scale/row/provider refusal, near-cutoff and numerically rank-deficient structurally square controls, memory refusal and physical back-mapping. Existing `fresh_sparse_actions_reuse_factor_and_match_independent_perturbed_roots` and `parameter_actions_share_fresh_factor_without_dense_responses` are useful focused controls, not rank-method qualification. Delete the duplicate dense LU/Jacobian evaluation after consumers move; keep the spectrum boundary explicitly demanded.
+
+Implementation checkpoint, 2026-10-11: all thirteen focused native `square_response`
+controls pass. They cover same-point shared construction, independently perturbed
+roots, physical scaling, transpose/multiple-RHS actions, failed construction
+accounting, escaped allocation owners, singular-value withholding and mismatched
+point/scale/support/provider refusal. Duplicate dense factorization is replaced
+by the shared sparse factor; singular-value rank and conservative fill admission
+remain. Runtime consumer acceptance and enclosing qualification remain open.
 
 ## P-C6 — SCC-local tear constraints with global decision coupling preserved
 
@@ -120,9 +184,21 @@ Choose one HiGHS model with SCC-local order variables/constraints and globally s
 
 Apply the existing whole-graph policy/DAG witness to the returned set, and preserve native incumbent/limit/optimality meaning. A time limit can have a usable incumbent; do not infer inevitable failure. Lazy cycle generation is an alternative only if measurements justify its callback/termination complexity.
 
+Implementation checkpoint, 2026-10-11: the projection now emits only intra-SCC order rows and component-local bounds, retaining all globally shared decisions and costs. Admission computes a conservative full structural ceiling with explicit SCC scratch before allocating the decomposition. All eight focused controls pass with the linked HiGHS adapter, including exhaustive selected-group feasibility versus the independent DAG witness, disconnected shared groups, self loops, acyclic policies and the real shared-group optimum. An actual solution-limited incumbent retains its native limit status and independent original graph witness; deterministic interruption at an entered native callback returns no invented candidate or tear set. Enclosing qualification remains open; no latency or allocation savings are claimed. Proposed ADR-0179 and blueprint revision 153 record the selected formulation.
+
 **Acceptance/removal:** grouped multi-SCC costs, mandatory acyclic decisions, forbidden cycles, self loops, disconnected graphs and limited incumbents; compare optimum/witness with the old global formulation on bounded fixtures. Delete global inter-SCC rows/big-M and update allocation bounds after replacement acceptance. This is once-per-structure work; give it lower consequence priority than callbacks without inventing timing claims.
 
 ## P-C7 — Index policy resolution and retain only complete-premise products
+
+Implementation checkpoint, 2026-10-11: complete-premise policy retention now reaches
+Runtime preparation, fitting, initialization and recycle consumers. Equality retains
+ordered target fields, bit-exact floating values, all sourced declarations, complete
+finite policy encoding and actual registry/precondition owners; hashes only index
+the cache. Keys, resolved products and derived policies reserve their storage before
+construction and retain original charges through cache eviction and service drain.
+Independent source review found no material issue. Two focused mathematical
+premise/order controls pass. Runtime compilation, escaped-owner controls and actual
+value-only versus structural/physical invalidation journeys remain open.
 
 **Coverage:** F22/B-09. `pse-math::numerics::resolve` builds one checked target inventory and declaration buckets by `(kind,id)`; it uses these for declaration validation and per-target candidates instead of `targets.any` and whole-declaration filters. Preserve caller order, source/priority tie/conflict meaning, duplicate IDs, engineering-rule inheritance, provenance and unit/physical-precondition checks.
 
@@ -136,7 +212,7 @@ Retain the immutable resolved policy with the prepared view only after its ident
 
 Use the coordination owner's resident-session/population token separately from the active job/CPU lease. Queued stages acquire their transient/construction demand before active dispatch; no resident native session or empty retained evaluator holds an active job merely to preserve memory. Nested synchronous work borrows the enclosing active lease; genuinely independent child work waits only after quiescent parent release. Do not grow demand while retaining CPU that the required child admission needs.
 
-Never hold the IBEX guard across blocking compute reacquisition. An active-team callback may legitimately keep its team's allowance while waiting for IBEX; if a quiescent waiter acquired IBEX and then waited for that allowance, the two would deadlock. After observing library availability, obtain both resources without hold-and-wait: if immediate compute reacquisition fails, release the library guard and retry through the original-clock cancellable owner, or use an equivalent request-local coordinated admission. Any fairness/backoff keeps finite waiters and does not introduce a fresh deadline. Native entry requires both owned resources. Mere cancellation cleanup after a blocked reacquisition is insufficient.
+Never hold the IBEX guard across blocking compute reacquisition. An active-team callback may legitimately keep its team's allowance while waiting for IBEX; if a quiescent waiter acquired IBEX and then waited for that allowance, the two would deadlock. Add `ComputeAdmission::try_resume(original_execution) -> Acquired | Unavailable` and cancellable readiness/retry because current blocking `resume` cannot implement this safely. After observing library availability, obtain both resources without hold-and-wait: if immediate compute reacquisition fails, release the library guard and retry through the original-clock cancellable owner, or use an equivalent request-local coordinated admission. Any fairness/backoff keeps finite waiters and does not introduce a fresh deadline. Native entry requires both owned resources. Mere cancellation cleanup after a blocked reacquisition is insufficient.
 
 Cover point arithmetic, promote/connect/refine, action/neighborhood, chain and interval-cover entrypoints through one owned admission helper, including current optional-Execution variants. Do not create a fresh deadline for a legacy entrypoint. An active native team callback cannot release its whole team's allowance while other threads still work. Such routes retain team charges unless a genuine request-local quiescent owner is established; this is a visible support/lifetime distinction, not a blanket `pause_compute` insertion. The current pause/resume bridge is feature-gated only for HiGHS/Uno/PETSc, so extend its applicable feature boundary deliberately.
 
@@ -156,18 +232,18 @@ Expose a deliberate operation policy: demanded-order by default; eager First onl
 
 ## Bounded opportunities and evidence branches retained in Plan36
 
-These are scheduled decisions or explicitly conditional opportunities, not hidden implementation promises. This document owns their technical decision and next step; the coordinator alone owns source finding dispositions.
+Their investigation decisions are recorded in the linked numerical evidence; selected product changes remain Proposed and conditional alternatives have exact reopening triggers, rather than hidden implementation promises. This document owns their technical decision and next step; the coordinator alone owns source finding dispositions.
 
 | Topic / original source | Owner and settling branch |
 |---|---|
-| KLU refactor/rcond; C-08/L1-05 | `dynamics/linear::Klu`: evaluate `klu_l_refactor` with rcond/condest or growth guard and full-factor fallback, using bundled SUNDIALS KLU as release-specific precedent. Exercise changed numeric pivots, singular/nonfinite input and fallback before replacing unconditional factor. Never weaken original accuracy. |
-| FERAL SparseLu/KKT; C-08/L1-05 | `kinsol/block` may retain `SparseLuSymbolic`/fixed sparse storage and call qualified `SparseLu::factor` or refactor. Markowitz versus fixed-order pivot strategy differs; compare stability/fill before choosing. Retain KKT symbolic state only for an unchanged pattern; always refresh numeric values/inertia/LICQ. Do not substitute solver factors for independent original KKT analysis. |
-| Presolve sharing; C-P3 | `presolve::Pipeline::new`: classify passes by structure/fixed bounds versus start/duals/LICQ premises. If repeated start-independent work is material, retain only that immutable product and reconstruction map under a complete identity; warm/start-dependent stages remain per attempt. Otherwise retain current pipeline and record the result. |
-| IDAS reverse cursor; audit opportunity | `idas::Session::backward`: one reverse sample cursor or prepared segment ranges, preserving later-segment ownership at change-time and jump order. Keep required segment replay: pinned `IDAAdjReInit` deletes checkpoints. Many-change fixture decides materiality; do not delete sensitivities needed by second-order jumps/shooting. |
-| Proof transport lifetime; audit opportunity | `root_isolation::encode` and C++ Graph: distinguish frozen source/order transport from request bounds/providers before deciding reusable transport. Prefer immutable Rust transport if useful; shared mutable C++ IBEX Function/System is not selected. If no stable premise owner exists, retain request construction. |
-| Value-rebind factorable/class analysis; B §4 | Split immutable structure/rules from substituted values, enclosures and zero-coefficient class changes. Measure actual rebind phases before adding retention. Never reuse class/enclosure evidence by structure alone. |
+| KLU refactor/rcond; C-08/L1-05 | `dynamics/linear::Klu`: select a bounded `klu_l_refactor` adapter candidate with rcond/condest and full-factor fallback, using the exact bundled SUNDIALS eps^(2/3) diagnostic policy as precedent. Exercise changed numeric pivots, singular/nonfinite input and fallback before replacing unconditional factor. Never weaken original accuracy. |
+| FERAL SparseLu/KKT; C-08/L1-05 | `kinsol/block` selects fixed CSC storage/refill and retains Markowitz. Exact FERAL default `SparseLu::factor` ignores symbolic ordering and delegates to Markowitz; an explicit GilbertPeierls symbolic route is a separate method proposal requiring stability/fill controls. Retain KKT symbolic state only for an unchanged pattern; always refresh numeric values/inertia/LICQ. Do not substitute solver factors for independent original KKT analysis. |
+| Presolve sharing; C-P3 | `presolve::Pipeline::new`: retain the current native pipeline; it consumes start/duals/accuracy/normalization as well as structure. Select separable immutable structural/fixed-bound declarations and reconstruction maps only under complete identity. Reusable native prefix extraction is a separate library-adapter proposal when native owner profiling identifies material repeated start-independent work; projection/LICQ/duals stay fresh. |
+| IDAS reverse cursor; audit opportunity | `idas::Session::backward`: select one reverse sample cursor or prepared segment ranges, preserving later-segment ownership at change-time and jump order. Keep required segment replay: pinned `IDAAdjReInit` deletes checkpoints. Many-change independent derivative controls are required; do not delete sensitivities needed by second-order jumps/shooting. |
+| Proof transport lifetime; audit opportunity | `root_isolation::encode`: select immutable Rust source/order transport under exact provider/formulation/scales/profile identity; bounds/point/stop remain request-local. Retain request-local C++ Function/System and IBEX exclusion. Reopen shared native graph only with a named thread-safety/lifetime owner and exact source evidence; test provider/order/bound changes. |
+| Value-rebind factorable/class analysis; B §4 | Select immutable authored graph/topology/read maps; retain numeric substitution/enclosures/zero-coefficient class decisions per rebind. Test coefficients crossing zero and changed guards/envelopes. Numerical owner may propose further retention only after measured material rebind work; structure alone never proves class/physical validity. |
 | JIT/SIMD/batching and evaluator persistence; B/L1 §4 | Deferred optional design after P-C1/P-C2 and callback/cold profiles. JIT/SIMD needs separate rule confirmation, artifact profile, determinism/FMA and W^X ownership. Serialization needs version/options/provider/runtime binding and readmission. No private program reinterpretation or unqualified persistence selected. |
-| FeOS production provider; B-P4/L1-P5 | Measure component-growth of authored PC-SAFT versus matched reference oracle. FeOS stays reference-only under ADR-0098 unless a separate scientific-authority/physical-contract decision changes it. Timing alone does not select a production provider. |
+| FeOS production provider; B-P4/L1-P5 | Retain FeOS reference-only under ADR-0098. A separate production-provider proposal requires a named physical owner and matched component-growth comparison with equal parameters/mixing rules/units/reference/envelope/order plus independent physical qualification. Timing alone cannot select it. |
 | Derivative strategy and guards; B §4 | Retain Taylor/structural-zero strategy and typed external barriers. Symbolic derivatives or higher-order subsumption are considered only for identical genuine demands with evidence of benefit; no mandatory alternate engine. Property data literals remain definition edits distinct from case-value changes. |
 | Cross-owner coverage | B-10/nonflat construction bounds → F10 coordination; C-04 sampled state sensitivities → F13 publication demand; C-07 durable progress → F14; L1-06 Salsa request identity and implicit hierarchy access scans → compiler owner; L1-07 surrogate dependency closure → build owner. Native session lifetime across study points and POUNCE scoped-pool reuse → coordinated session/capacity owner. These are handoffs, not numerical acceptance claims. |
 

@@ -29,6 +29,7 @@ use datafusion::{
             TableScopedPath,
             cache_manager::{
                 CacheManagerConfig, CachedFileList, CachedFileMetadata, CachedFileMetadataEntry,
+                FileMetadataCache, FileStatisticsCache, ListFilesCache,
             },
         },
         memory_pool::MemoryPool,
@@ -109,9 +110,7 @@ pub struct NativeCacheService {
     policy: CacheBudget,
     pub(crate) model: Arc<crate::session::cache::model::ModelCache>,
     syntax: Arc<syntax::SyntaxCache>,
-    metadata: Arc<Envelope<Path, CachedFileMetadataEntry>>,
-    statistics: Arc<Envelope<TableScopedPath, CachedFileMetadata>>,
-    listing: Arc<Envelope<TableScopedPath, CachedFileList>>,
+    files: Mutex<Arc<FileCacheBinding>>,
     stores: Mutex<Vec<StoreBinding>>,
     store_counters: StoreCounters,
     pool: Arc<dyn MemoryPool>,
@@ -122,6 +121,19 @@ pub struct NativeCacheService {
     predicate_live: Arc<AtomicUsize>,
     maintenance: Arc<pse_columnar::retention::RetentionFence>,
 }
+#[derive(Debug, Default)]
+struct FileCacheBinding {
+    metadata: Option<Arc<Envelope<Path, CachedFileMetadataEntry>>>,
+    statistics: Option<Arc<Envelope<TableScopedPath, CachedFileMetadata>>>,
+    listing: Option<Arc<Envelope<TableScopedPath, CachedFileList>>>,
+}
+
+#[derive(Clone, Copy)]
+enum FileCacheDemand {
+    MetadataStatistics,
+    WithListing,
+}
+
 /// An independently owned cache family sharing the deployment's native resources.
 pub trait CacheComponent: std::fmt::Debug + Send + Sync {
     /// Whether storage maintenance invalidates this family's semantic dependencies.
@@ -180,12 +192,19 @@ impl NativeCacheService {
             }
         }
         self.maintenance.clear(|| {
-            self.metadata.clear();
-            self.statistics.clear();
-            self.listing.clear();
+            let files = self.file_caches();
+            if let Some(cache) = &files.metadata {
+                cache.clear();
+            }
+            if let Some(cache) = &files.statistics {
+                cache.clear();
+            }
+            if let Some(cache) = &files.listing {
+                cache.clear();
+            }
         });
     }
-    /// Reserve every native file-cache capacity before creating its cache.
+    /// Reserve mandatory native capacity; file-cache families activate on qualified binding.
     /// # Errors
     /// The shared memory pool cannot reserve the configured capacity envelopes.
     pub fn new(policy: CacheBudget, pool: &Arc<dyn MemoryPool>) -> Result<Arc<Self>> {
@@ -199,14 +218,7 @@ impl NativeCacheService {
             model: crate::session::cache::model::ModelCache::new(policy.model_result_bytes),
             metrics: metrics::Metrics::default(),
             syntax: Envelope::new("pse.cache.syntax", policy.syntax_bytes, None, pool)?,
-            metadata: Envelope::new("pse.cache.metadata", policy.metadata_bytes, None, pool)?,
-            statistics: Envelope::new("pse.cache.statistics", policy.statistics_bytes, None, pool)?,
-            listing: Envelope::new(
-                "pse.cache.listing",
-                policy.listing_bytes,
-                policy.listing_ttl,
-                pool,
-            )?,
+            files: Mutex::default(),
             components: Mutex::default(),
             loads: tokio::sync::Semaphore::new(policy.concurrent_loads.get()),
             queries: Arc::new(tokio::sync::Semaphore::new(policy.concurrent_queries.get())),
@@ -243,28 +255,102 @@ impl NativeCacheService {
     pub fn policy(&self) -> &CacheBudget {
         &self.policy
     }
-    /// Native configuration retaining all capacity owners through cache Arcs.
-    fn config(&self, generation: usize) -> CacheManagerConfig {
-        CacheManagerConfig::default()
-            .with_file_metadata_cache(Some(Namespaced::new(
-                self.metadata.clone(),
-                generation,
-                self.maintenance.clone(),
-            )))
+    fn file_caches(&self) -> Arc<FileCacheBinding> {
+        self.files
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Stage requested capacity and publish all missing families together.
+    /// No lock spans native configuration, I/O, planning or an await.
+    fn activate(&self, demand: FileCacheDemand) -> Result<Arc<FileCacheBinding>> {
+        let mut active = self.files.lock().map_err(|_| {
+            datafusion::common::DataFusionError::Internal(
+                "file-cache activation lock poisoned".into(),
+            )
+        })?;
+        let with_listing =
+            matches!(demand, FileCacheDemand::WithListing) || active.listing.is_some();
+        let maximum = match self.pool.memory_limit() {
+            datafusion::execution::memory_pool::MemoryLimit::Finite(bytes) => bytes,
+            _ => usize::MAX,
+        };
+        if self
+            .policy
+            .activation_commitment(true, true, with_listing)
+            .is_none_or(|bytes| bytes > maximum)
+        {
+            return Err(datafusion::common::DataFusionError::ResourcesExhausted("activated file-cache, staging, predicate and working capacities exceed the shared pool".into()));
+        }
+        if active.metadata.is_some()
+            && active.statistics.is_some()
+            && (!with_listing || active.listing.is_some())
+        {
+            return Ok(active.clone());
+        }
+        let metadata = match &active.metadata {
+            Some(cache) => cache.clone(),
+            None => Envelope::new(
+                "pse.cache.metadata",
+                self.policy.metadata_bytes,
+                None,
+                &self.pool,
+            )?,
+        };
+        let statistics = match &active.statistics {
+            Some(cache) => cache.clone(),
+            None => Envelope::new(
+                "pse.cache.statistics",
+                self.policy.statistics_bytes,
+                None,
+                &self.pool,
+            )?,
+        };
+        let listing = match &active.listing {
+            Some(cache) => Some(cache.clone()),
+            None if with_listing => Some(Envelope::new(
+                "pse.cache.listing",
+                self.policy.listing_bytes,
+                self.policy.listing_ttl,
+                &self.pool,
+            )?),
+            None => None,
+        };
+        let binding = Arc::new(FileCacheBinding {
+            metadata: Some(metadata),
+            statistics: Some(statistics),
+            listing,
+        });
+        *active = binding.clone();
+        Ok(binding)
+    }
+
+    /// Native configuration retaining only the source's demanded capacity owners.
+    fn config(&self, generation: usize, demand: FileCacheDemand) -> Result<CacheManagerConfig> {
+        let files = self.activate(demand)?;
+        let mut config = Self::unbound_config()
+            .with_file_metadata_cache(files.metadata.as_ref().map(
+                |cache| -> Arc<FileMetadataCache> {
+                    Namespaced::new(cache.clone(), generation, self.maintenance.clone())
+                },
+            ))
             .with_metadata_cache_limit(self.policy.metadata_bytes)
-            .with_file_statistics_cache(Some(Namespaced::new(
-                self.statistics.clone(),
-                generation,
-                self.maintenance.clone(),
-            )))
-            .with_file_statistics_cache_limit(self.policy.statistics_bytes)
-            .with_list_files_cache(Some(Namespaced::new(
-                self.listing.clone(),
-                generation,
-                self.maintenance.clone(),
-            )))
-            .with_list_files_cache_limit(self.policy.listing_bytes)
-            .with_list_files_cache_ttl(self.policy.listing_ttl)
+            .with_file_statistics_cache(files.statistics.as_ref().map(
+                |cache| -> Arc<FileStatisticsCache> {
+                    Namespaced::new(cache.clone(), generation, self.maintenance.clone())
+                },
+            ))
+            .with_file_statistics_cache_limit(self.policy.statistics_bytes);
+        if matches!(demand, FileCacheDemand::WithListing) {
+            config = config
+                .with_list_files_cache(files.listing.as_ref().map(|cache| -> Arc<ListFilesCache> {
+                    Namespaced::new(cache.clone(), generation, self.maintenance.clone())
+                }))
+                .with_list_files_cache_limit(self.policy.listing_bytes)
+                .with_list_files_cache_ttl(self.policy.listing_ttl);
+        }
+        Ok(config)
     }
     /// Unqualified stores cannot safely use native Path-keyed caches.
     pub fn unbound_config() -> CacheManagerConfig {
@@ -279,29 +365,32 @@ impl NativeCacheService {
         root: &url::Url,
         store: Arc<dyn object_store::ObjectStore>,
     ) -> Option<usize> {
-        self.source_generation(root, store, None)
+        let (generation, reused) = self.source_generation(root, store, None)?;
+        if reused {
+            self.store_counters.hits.fetch_add(1, Ordering::Relaxed);
+        }
+        Some(generation)
     }
     fn source_generation(
         &self,
         root: &url::Url,
         store: Arc<dyn object_store::ObjectStore>,
         source_generation: Option<&str>,
-    ) -> Option<usize> {
+    ) -> Option<(usize, bool)> {
         let mut stores = self.stores.lock().ok()?;
         if let Some(index) = stores.iter().position(|binding| {
             binding.root == *root
                 && binding.source_generation.as_deref() == source_generation
                 && Arc::ptr_eq(&binding.store, &store)
         }) {
-            self.store_counters.hits.fetch_add(1, Ordering::Relaxed);
-            return Some(index);
+            return Some((index, true));
         }
         self.store_counters.misses.fetch_add(1, Ordering::Relaxed);
         let result = self.bind_store(root, store, source_generation, &mut stores);
         if result.is_none() {
             self.store_counters.bypasses.fetch_add(1, Ordering::Relaxed);
         }
-        result
+        result.map(|generation| (generation, false))
     }
     fn bind_store(
         &self,
@@ -339,10 +428,8 @@ impl NativeCacheService {
     pub fn bind_state(&self, root: &url::Url, state: &SessionState) -> Result<Arc<SessionState>> {
         let runtime = state.runtime_env();
         let store = runtime.object_store_registry.get_store(root)?;
-        let config = self
-            .generation(root, store)
-            .map_or_else(Self::unbound_config, |generation| self.config(generation));
-        self.configured_state(state, &config)
+        let namespace = self.source_generation(root, store, None);
+        self.configured_source_state(state, namespace, FileCacheDemand::WithListing)
     }
     /// Bind file-cache namespaces to a source owner's established generation.
     /// `None` disables file metadata/statistics/listing reuse. The caller must
@@ -357,11 +444,25 @@ impl NativeCacheService {
         source_generation: Option<&str>,
     ) -> Result<Arc<SessionState>> {
         let store = state.runtime_env().object_store_registry.get_store(root)?;
-        let config = source_generation
-            .and_then(|generation| self.source_generation(root, store, Some(generation)))
-            .map_or_else(Self::unbound_config, |generation| self.config(generation))
-            .with_list_files_cache_limit(0);
-        self.configured_state(state, &config)
+        let namespace = source_generation
+            .and_then(|generation| self.source_generation(root, store, Some(generation)));
+        self.configured_source_state(state, namespace, FileCacheDemand::MetadataStatistics)
+    }
+    fn configured_source_state(
+        &self,
+        state: &SessionState,
+        namespace: Option<(usize, bool)>,
+        demand: FileCacheDemand,
+    ) -> Result<Arc<SessionState>> {
+        let config = match namespace {
+            Some((generation, _)) => self.config(generation, demand)?,
+            None => Self::unbound_config(),
+        };
+        let configured = self.configured_state(state, &config)?;
+        if namespace.is_some_and(|(_, reused)| reused) {
+            self.store_counters.hits.fetch_add(1, Ordering::Relaxed);
+        }
+        Ok(configured)
     }
     fn configured_state(
         &self,
@@ -400,11 +501,21 @@ impl NativeCacheService {
     }
     /// Constant-space aggregate inspection, never an entry enumeration.
     pub fn report(&self) -> Vec<CacheReport> {
+        let files = self.file_caches();
         let mut reports = vec![
             self.syntax.report(),
-            self.metadata.report(),
-            self.statistics.report(),
-            self.listing.report(),
+            files.metadata.as_ref().map_or_else(
+                || inactive_report("pse.cache.metadata", self.policy.metadata_bytes),
+                |cache| cache.report(),
+            ),
+            files.statistics.as_ref().map_or_else(
+                || inactive_report("pse.cache.statistics", self.policy.statistics_bytes),
+                |cache| cache.report(),
+            ),
+            files.listing.as_ref().map_or_else(
+                || inactive_report("pse.cache.listing", self.policy.listing_bytes),
+                |cache| cache.report(),
+            ),
             self.store_report(),
         ];
         for component in self.components() {
@@ -480,5 +591,23 @@ async fn admit(
         biased;
         () = cancel.cancelled() => Err(datafusion::common::DataFusionError::Execution("native admission cancelled".into())),
         permit = gate.acquire_owned() => permit.map_err(|error| datafusion::common::DataFusionError::External(Box::new(error))),
+    }
+}
+
+fn inactive_report(name: &str, policy_limit_bytes: usize) -> CacheReport {
+    CacheReport {
+        name: name.into(),
+        capacity_bytes: 0,
+        retained_bytes: 0,
+        policy_limit_bytes,
+        live_bytes: None,
+        pinned_bytes: None,
+        inflight_bytes: None,
+        active_loads: None,
+        evictions: None,
+        entries: 0,
+        hits: 0,
+        misses: 0,
+        bypasses: 0,
     }
 }

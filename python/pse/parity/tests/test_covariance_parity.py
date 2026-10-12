@@ -93,10 +93,10 @@ def identity(n: int) -> SemanticId:
 
 
 def pse_estimate(
-    runtime: pse.Runtime,
+    parity_context: support.ParityContext,
 ) -> tuple[dict[str, float], dict[tuple[str, str], float], dict[str, float]]:
     """The fitted parameters, covariance and frozen parameter allowances."""
-    authored, declarations = support.package(runtime, LINE)
+    authored, declarations = support.package(parity_context, LINE)
     case = declarations["Line"]
     parameters = {"a": identity(151), "b": identity(152)}
     experiment = InstanceId(identity(159))
@@ -194,10 +194,12 @@ def pse_estimate(
 
 @pytest.mark.integration
 @pytest.mark.parity
-def test_fit_covariance_agrees_with_parmest(runtime: pse.Runtime) -> None:
+def test_fit_covariance_agrees_with_parmest(
+    parity_context: support.ParityContext,
+) -> None:
     """Contextual estimate accuracy and independent inverse-information precision."""
     theta, covariance = parmest_estimate()
-    estimate, published, allowances = pse_estimate(runtime)
+    estimate, published, allowances = pse_estimate(parity_context)
     for name in ("a", "b"):
         assert estimate[name] == pytest.approx(
             theta[name], rel=0.0, abs=allowances[name]

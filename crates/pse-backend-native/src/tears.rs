@@ -24,17 +24,46 @@ fn id(frame: Frame, source: SemanticId) -> SemanticId {
     h.id(&source);
     h.finish_id()
 }
+// Components are structural facts. Decision columns remain global because one
+// authored group can remove connections in several independent components.
+fn order_components(graph: &FlowGraph) -> BTreeMap<SemanticId, (usize, usize)> {
+    let self_loops: BTreeSet<_> = graph
+        .declaration()
+        .connections
+        .iter()
+        .filter(|edge| edge.from == edge.to)
+        .map(|edge| edge.from)
+        .collect();
+    graph
+        .components()
+        .into_iter()
+        .enumerate()
+        .filter(|(_, nodes)| {
+            nodes.len() > 1 || nodes.first().is_some_and(|node| self_loops.contains(node))
+        })
+        .flat_map(|(component, nodes)| {
+            let width = nodes.len();
+            nodes
+                .into_iter()
+                .map(move |node| (node, (component, width)))
+        })
+        .collect()
+}
+
 /// Known native MILP construction arrays plus the independent graph witness.
 /// HiGHS opaque storage remains the execution's foreign allocation allowance.
 pub fn construction_allocation_bound(graph: &FlowGraph) -> Result<usize, ProblemError> {
     let d = graph.declaration();
     let overflow = || ProblemError::Contract("tear construction extent overflow".into());
+    // Admission precedes SCC construction: use the conservative structural
+    // ceiling here, rather than allocating a temporary decomposition uncharged.
+    let rows = d.connections.len();
     let variables = d
         .nodes
         .len()
         .checked_add(d.decisions.len())
         .ok_or_else(overflow)?;
-    let entries = d.connections.len().checked_mul(3).ok_or_else(overflow)?;
+    let entries = rows.checked_mul(3).ok_or_else(overflow)?;
     let mut bytes = graph
         .tear_allocation_bound()
         .map_err(|e| ProblemError::Contract(e.to_string()))?;
@@ -47,12 +76,19 @@ pub fn construction_allocation_bound(graph: &FlowGraph) -> Result<usize, Problem
             d.nodes.len(),
             11 * size_of::<(SemanticId, usize)>() + 16 * size_of::<usize>(),
         ),
+        // SCC member vectors, component lookup and singleton self-loop set.
+        (
+            d.nodes.len(),
+            size_of::<Vec<SemanticId>>()
+                + 11 * size_of::<(SemanticId, (usize, usize))>()
+                + 16 * size_of::<usize>(),
+        ),
         (
             d.decisions.len(),
             11 * size_of::<(SemanticId, usize)>() + 16 * size_of::<usize>(),
         ),
         (
-            d.connections.len(),
+            rows,
             size_of::<SemanticId>() + size_of::<(f64, f64)>() + 2 * size_of::<f64>(),
         ),
         // Triplet input, faer sorted/deduplicated source, CSC output and permutations.
@@ -78,8 +114,9 @@ pub fn construction_allocation_bound(graph: &FlowGraph) -> Result<usize, Problem
         .checked_add(size_of::<TearProblem>() + size_of::<CoefficientProblem>())
         .ok_or_else(overflow)
 }
-/// `r_u + 1 <= r_v + |V| t_group(edge)` for every connection occurrence.
-/// This formulation has linear model size and does not enumerate cycles.
+/// `r_u + 1 <= r_v + |SCC| t_group(edge)` for each intra-SCC occurrence.
+/// Inter-component edges cannot be cyclic; globally shared decision columns keep
+/// every authored group cost and policy intact without independent solve/merge.
 pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
     let d = graph.declaration();
     let n = d.nodes.len();
@@ -88,19 +125,28 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
             "empty graph needs no native tear attempt".into(),
         ));
     }
-    let mut variables: Vec<_> = d
+    let components = order_components(graph);
+    let order_nodes: Vec<_> = d
         .nodes
         .iter()
-        .map(|v| Variable {
-            id: id(Frame::TearOrderV1, v.id),
+        .filter(|node| components.contains_key(&node.id))
+        .collect();
+    let mut variables: Vec<_> = order_nodes
+        .iter()
+        .map(|node| Variable {
+            id: id(Frame::TearOrderV1, node.id),
             lower: 0.0,
-            upper: (n - 1) as f64,
+            upper: (components[&node.id].1 - 1) as f64,
         })
         .collect();
-    let nodes: BTreeMap<_, _> = d.nodes.iter().enumerate().map(|(i, n)| (n.id, i)).collect();
+    let nodes: BTreeMap<_, _> = order_nodes
+        .iter()
+        .enumerate()
+        .map(|(i, node)| (node.id, i))
+        .collect();
     let mut decisions = BTreeMap::new();
-    let mut domains = vec![ModelingVariableDomain::Continuous; n];
-    let mut objective = vec![0.0; n];
+    let mut domains = vec![ModelingVariableDomain::Continuous; order_nodes.len()];
+    let mut objective = vec![0.0; order_nodes.len()];
     for g in &d.decisions {
         decisions.insert(g.id, variables.len());
         variables.push(Variable {
@@ -119,27 +165,34 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         domains.push(ModelingVariableDomain::Binary);
         objective.push(g.cost);
     }
+    let mut rows = Vec::new();
     let mut entries = Vec::new();
-    for (r, e) in d.connections.iter().enumerate() {
+    for e in &d.connections {
+        let Some((from, to)) = components.get(&e.from).zip(components.get(&e.to)) else {
+            continue;
+        };
+        if from.0 != to.0 {
+            continue;
+        }
+        let r = rows.len();
+        rows.push(e.id);
         entries.push(faer::sparse::Triplet::new(r, nodes[&e.from], 1.0));
         entries.push(faer::sparse::Triplet::new(r, nodes[&e.to], -1.0));
         entries.push(faer::sparse::Triplet::new(
             r,
             decisions[&e.decision],
-            -(n as f64),
+            -(from.1 as f64),
         ));
     }
-    let constraints = faer::sparse::SparseColMat::try_new_from_triplets(
-        d.connections.len(),
-        variables.len(),
-        &entries,
-    )
-    .map_err(|e| ProblemError::Internal(e.to_string()))?;
+    let bounds = vec![(f64::NEG_INFINITY, -1.0); rows.len()];
+    let constraints =
+        faer::sparse::SparseColMat::try_new_from_triplets(rows.len(), variables.len(), &entries)
+            .map_err(|e| ProblemError::Internal(e.to_string()))?;
     let problem = CoefficientProblem {
         contract: OracleContract {
             identity: graph.key(),
             variables,
-            rows: d.connections.iter().map(|e| e.id).collect(),
+            rows,
             derivatives: pse_kernels::DerivativeOrder::Value,
             smoothness: pse_kernels::DerivativeOrder::Value,
         },
@@ -150,7 +203,7 @@ pub fn compile(graph: &FlowGraph) -> Result<TearProblem, ProblemError> {
         assumptions: graph.key(),
         constraints,
         hessian: None,
-        bounds: vec![(f64::NEG_INFINITY, -1.0); d.connections.len()],
+        bounds,
         objectives: Vec::new(),
     };
     problem.validate()?;
@@ -291,9 +344,14 @@ mod tests {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let q = pse_quantity::standard::ids::quantity("neutral");
         let unit = registry.quantity_type(q).unwrap().canonical_unit;
-        let mut nodes: Vec<_> = (0..3)
+        let node_count = edges
+            .iter()
+            .flat_map(|(from, to, _)| [*from, *to])
+            .max()
+            .map_or(3, |n| (n + 1).max(3));
+        let mut nodes: Vec<_> = (0..node_count)
             .map(|i| Node {
-                id: sid(i + 1),
+                id: sid(i as u8 + 1),
                 ports: vec![],
             })
             .collect();
@@ -358,19 +416,13 @@ mod tests {
     }
     #[test]
     fn exhaustive_tiny_milp_feasibility_matches_independent_dag_witness() {
-        let permutations = [
-            [0., 1., 2.],
-            [0., 2., 1.],
-            [1., 0., 2.],
-            [1., 2., 0.],
-            [2., 0., 1.],
-            [2., 1., 0.],
-        ];
         for edges in [
             vec![(0, 1, 0), (1, 2, 1), (2, 0, 2)],
             vec![(0, 1, 0), (0, 1, 1), (1, 0, 2)],
             vec![(0, 0, 0), (0, 1, 1), (1, 2, 1)],
             vec![(0, 1, 0), (1, 0, 0)],
+            vec![(0, 1, 0), (1, 0, 1), (1, 2, 2), (2, 3, 0), (3, 2, 3)],
+            vec![(0, 1, 0), (1, 2, 1)],
         ] {
             let g = graph(&edges);
             let p = compile(&g).unwrap();
@@ -382,10 +434,29 @@ mod tests {
                     .filter_map(|(i, id)| (mask & (1 << i) != 0).then_some(*id))
                     .collect();
                 let witness = g.witness(&selected).is_ok();
-                let feasible = permutations.iter().any(|rank| {
-                    let mut x = rank.to_vec();
+                let order_count = p.problem.contract.variables.len() - groups.len();
+                let ranges: Vec<_> = p.problem.contract.variables[..order_count]
+                    .iter()
+                    .map(|v| v.upper as usize + 1)
+                    .collect();
+                let assignments: usize = ranges.iter().product();
+                let feasible = (0..assignments).any(|mut ranks| {
+                    let mut x: Vec<_> = ranges
+                        .iter()
+                        .map(|width| {
+                            let rank = (ranks % width) as f64;
+                            ranks /= width;
+                            rank
+                        })
+                        .collect();
                     x.extend(groups.iter().map(|id| f64::from(selected.contains(id))));
-                    let mut rows = vec![0.0; edges.len()];
+                    if x.iter()
+                        .zip(&p.problem.contract.variables)
+                        .any(|(value, variable)| *value < variable.lower || *value > variable.upper)
+                    {
+                        return false;
+                    }
+                    let mut rows = vec![0.0; p.problem.constraints.nrows()];
                     for (c, v) in x.iter().enumerate() {
                         for (r, a) in p
                             .problem
@@ -396,11 +467,201 @@ mod tests {
                             rows[r] += v * a;
                         }
                     }
-                    rows.iter().all(|v| *v <= -1.0)
+                    rows.iter()
+                        .zip(&p.problem.bounds)
+                        .all(|(v, (lower, upper))| *v >= *lower && *v <= *upper)
                 });
                 assert_eq!(feasible, witness, "edges={edges:?}, mask={mask}");
             }
         }
+    }
+    #[test]
+    fn tear_components_keep_shared_groups_and_drop_only_inter_component_rows() {
+        let g = graph(&[(0, 1, 0), (1, 0, 1), (1, 2, 2), (2, 3, 0), (3, 2, 3)]);
+        let p = compile(&g).unwrap();
+        assert_eq!(p.problem.constraints.nrows(), 4);
+        assert_eq!(p.problem.contract.variables.len(), 8);
+        assert!(
+            p.problem.contract.variables[..4]
+                .iter()
+                .all(|v| v.upper == 1.0)
+        );
+        let shared = p.decisions[&sid(40)];
+        assert_eq!(p.problem.constraints.val_of_col(shared), &[-2.0, -2.0]);
+        assert_eq!(p.problem.objective[shared], 1.0, "shared cost occurs once");
+        assert!(
+            !p.problem.contract.rows.contains(&sid(22)),
+            "acyclic bridge has no order row"
+        );
+        assert!(construction_allocation_bound(&g).unwrap() > 0);
+    }
+    #[cfg(feature = "highs")]
+    #[test]
+    fn tear_component_native_optimum_charges_shared_group_once() {
+        let g = graph(&[(0, 1, 0), (1, 0, 1), (1, 2, 2), (2, 3, 0), (3, 2, 3)]);
+        let controls = Controls::default();
+        let (selected, report) =
+            solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        let selected = selected.unwrap();
+        assert_eq!(selected.decisions, BTreeSet::from([sid(40)]));
+        assert_eq!(selected.cost, 1.0);
+        assert_eq!(selected.order.len(), 4);
+        assert!(
+            report
+                .quality
+                .as_ref()
+                .is_some_and(crate::quality::Quality::feasible)
+        );
+        assert!(report.candidate.is_some());
+    }
+    #[cfg(feature = "highs")]
+    fn limited_native_graph() -> FlowGraph {
+        let edges: Vec<_> = (0..5)
+            .flat_map(|from| {
+                (0..5)
+                    .filter(move |to| *to != from)
+                    .map(move |to| (from, to))
+            })
+            .enumerate()
+            .map(|(group, (from, to))| (from, to, group))
+            .collect();
+        graph(&edges)
+    }
+    #[cfg(feature = "highs")]
+    #[test]
+    fn tear_native_solution_limit_keeps_feasible_original_witness_and_limit_status() {
+        let g = limited_native_graph();
+        let controls = Controls {
+            options: Options::from([
+                ("presolve".into(), OptionValue::Text("off".into())),
+                ("mip_max_improving_sols".into(), OptionValue::Integer(1)),
+            ]),
+            ..Controls::default()
+        };
+        let (selected, report) =
+            solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        assert_eq!(
+            report.termination.category,
+            Termination::SolutionLimit,
+            "native status must remain a limit: {:?}",
+            report.termination
+        );
+        let selected = selected.expect("actual feasible incumbent survives the limit");
+        assert_eq!(selected.order, g.witness(&selected.decisions).unwrap());
+        assert!(
+            report
+                .quality
+                .as_ref()
+                .is_some_and(crate::quality::Quality::feasible)
+        );
+        assert!(selected.method.contains("limit status retained"));
+        assert_eq!(
+            selected.cost,
+            g.declaration()
+                .decisions
+                .iter()
+                .filter(|decision| selected.decisions.contains(&decision.id))
+                .map(|decision| decision.cost)
+                .sum::<f64>()
+        );
+    }
+    #[cfg(feature = "highs")]
+    #[test]
+    fn tear_native_interruption_without_incumbent_never_invents_a_tear_set() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        #[derive(Debug)]
+        struct StopAtNativeEntry {
+            cancel: Arc<AtomicBool>,
+            entered: AtomicBool,
+        }
+        impl ProgressTap for StopAtNativeEntry {
+            fn observe(&self, event: &Event) {
+                if event.phase == "highs.callback" {
+                    self.entered.store(true, Ordering::Release);
+                    self.cancel.store(true, Ordering::Release);
+                }
+            }
+        }
+        let g = limited_native_graph();
+        let controls = Controls {
+            options: Options::from([
+                ("presolve".into(), OptionValue::Text("off".into())),
+                ("mip_heuristic_effort".into(), OptionValue::Real(0.0)),
+                (
+                    "mip_heuristic_run_feasibility_jump".into(),
+                    OptionValue::Bool(false),
+                ),
+            ]),
+            ..Controls::default()
+        };
+        let tap = Arc::new(StopAtNativeEntry {
+            cancel: Arc::default(),
+            entered: AtomicBool::new(false),
+        });
+        let mut execution = Execution::new(tap.cancel.clone(), &controls);
+        execution.progress = Arc::new(Progress::tapped(controls.history, tap.clone()));
+        let (selected, report) = solve(&g, &controls, execution).unwrap();
+        assert!(
+            tap.entered.load(Ordering::Acquire),
+            "actual linked callback must run"
+        );
+        assert_eq!(
+            report.termination.category,
+            Termination::Cancelled,
+            "{:?}",
+            report.termination
+        );
+        assert!(
+            report.candidate.is_none(),
+            "no original candidate: {:?}",
+            report.candidate
+        );
+        assert!(
+            selected.is_none(),
+            "native interruption grants no invented witness"
+        );
+    }
+    #[test]
+    fn tear_acyclic_decisions_preserve_mandatory_forbidden_and_self_loop_policy() {
+        let base = graph(&[(0, 0, 0), (0, 1, 1), (1, 2, 2)]);
+        let mut declaration = base.declaration().clone();
+        declaration.decisions.iter_mut().for_each(|g| {
+            if g.id == sid(41) {
+                g.policy = Policy::Mandatory;
+            }
+            if g.id == sid(42) {
+                g.policy = Policy::Forbidden;
+            }
+        });
+        let registry = pse_quantity::standard::standard_registry().unwrap();
+        let g = FlowGraph::admit(
+            declaration,
+            &registry,
+            pse_structural::projection::GraphLimits {
+                nodes: 20,
+                edges: 20,
+            },
+        )
+        .unwrap();
+        let p = compile(&g).unwrap();
+        assert_eq!(p.problem.constraints.nrows(), 1);
+        assert_eq!(p.problem.contract.variables.len(), 4);
+        assert_eq!(p.problem.contract.variables[0].upper, 0.0);
+        assert_eq!(
+            p.problem.contract.variables[p.decisions[&sid(41)]].lower,
+            1.0
+        );
+        assert_eq!(
+            p.problem.contract.variables[p.decisions[&sid(42)]].upper,
+            0.0
+        );
+        let report = recover(&g, BTreeSet::from([sid(40), sid(41)]), "fixture").unwrap();
+        assert_eq!(report.cost, 3.0);
+        assert_eq!(report.connections.len(), 2);
+        assert_eq!(report.order.len(), 3);
     }
     #[test]
     fn grouped_parallel_tears_and_self_loops_preserve_policy() {

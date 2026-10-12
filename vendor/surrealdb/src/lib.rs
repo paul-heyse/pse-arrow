@@ -213,6 +213,8 @@ where
 pub(crate) enum ExtraFeatures {
     Backup,
     LiveQueries,
+    /// Exact transport qualified to retain owned payload bytes through drain.
+    PayloadOwnership,
 }
 
 #[derive(Debug, Clone)]

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    93u8, 164u8, 247u8, 106u8, 164u8, 93u8, 28u8, 148u8, 150u8, 137u8, 170u8, 191u8,
-    229u8, 158u8, 106u8, 165u8, 161u8, 146u8, 21u8, 179u8, 239u8, 56u8, 97u8, 57u8,
-    245u8, 113u8, 161u8, 182u8, 75u8, 187u8, 79u8, 85u8,
+    154u8, 43u8, 3u8, 97u8, 18u8, 161u8, 245u8, 74u8, 5u8, 161u8, 118u8, 140u8, 173u8,
+    245u8, 64u8, 26u8, 37u8, 253u8, 242u8, 41u8, 23u8, 47u8, 230u8, 228u8, 141u8, 97u8,
+    149u8, 59u8, 210u8, 141u8, 58u8, 107u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
     fn append(
@@ -41,6 +41,10 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
             &self.r#schema_digest,
             children[2usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#issuing_store,
+            children[3usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -54,6 +58,7 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -74,6 +79,10 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalInterpretationsRow {
             )?,
             r#schema_digest: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
+                index,
+            )?,
+            r#issuing_store: <String as crate::columnar::ArrowValue>::read(
+                input.column(3usize).as_ref(),
                 index,
             )?,
         })
@@ -141,6 +150,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
             &self.r#schema_digest,
             columns[2usize].as_mut(),
         )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#issuing_store,
+            columns[3usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -180,10 +193,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        6_144_usize + size_of::<Self::Builder>()
+        8_192_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        48usize
+        64usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -199,6 +212,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalInterpretationsRow {
             bytes,
             crate::columnar::allocation_add(8, (self.r#schema_digest).len())?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#issuing_store).len())?,
+        )?;
         Ok(bytes)
     }
 }
@@ -209,7 +226,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 4usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -225,6 +242,11 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
         name: "schema_digest",
         position: 2usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "issuing_store",
+        position: 3usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -234,15 +256,19 @@ pub mod columns {
     pub const INTERPRETATION: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///schema_digest
     pub const SCHEMA_DIGEST: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///issuing_store
+    pub const ISSUING_STORE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
 #[derive(Debug)]
 pub struct RuntimeCanonicalInterpretationsView<'a> {
     batch: &'a crate::RecordBatch,
+    checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     interpretation_column: &'a arrow_array::StringArray,
     schema_digest_column: &'a arrow_array::StringArray,
+    issuing_store_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalInterpretationsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -266,7 +292,7 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
             .map_err(|errors| crate::RelationError::Validation {
                 errors,
             })?;
-        Self::borrow_columns(batch)
+        Self::borrow_columns(batch, None)
     }
     /// Borrows a checked owner without rescanning visible values.
     /// The private owner must carry this exact relation and complete declaration.
@@ -277,13 +303,16 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
     ) -> Result<Self, crate::RelationError> {
         Self::borrow_columns(
             owner.for_generated(RELATION_ID, crate::generated::contracts::expected())?,
+            Some(owner),
         )
     }
     fn borrow_columns(
         batch: &'a crate::RecordBatch,
+        checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     ) -> Result<Self, crate::RelationError> {
         Ok(Self {
             batch,
+            checked,
             key_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
@@ -293,6 +322,9 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
             schema_digest_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
+            issuing_store_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(3usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -343,6 +375,18 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
     pub fn schema_digest_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[2usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "issuing_store",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn issuing_store_column(&self) -> &'a arrow_array::StringArray {
+        self.issuing_store_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "issuing_store", "`.")]
+    pub fn issuing_store_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -362,6 +406,10 @@ impl<'a> RuntimeCanonicalInterpretationsView<'a> {
             )?,
             r#schema_digest: crate::columnar::ArrowValue::read(
                 self.schema_digest_column,
+                index,
+            )?,
+            r#issuing_store: crate::columnar::ArrowValue::read(
+                self.issuing_store_column,
                 index,
             )?,
         })
@@ -384,5 +432,8 @@ impl crate::columnar::RelationView for RuntimeCanonicalInterpretationsView<'_> {
     type Row = RuntimeCanonicalInterpretationsRow;
     fn batch(&self) -> &crate::RecordBatch {
         self.batch
+    }
+    fn checked(&self) -> Option<&crate::columnar::FieldCheckedBatch> {
+        self.checked
     }
 }

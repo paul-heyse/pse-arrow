@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from scripts import (
     build_environment,
@@ -1293,6 +1293,742 @@ class NativeOperationTests(unittest.TestCase):
         self.assertTrue(observed["scope"]["unit"].startswith("pse-native-"))
         self.assertEqual(len(observed["scope"]["invocation"]), 32)
         self.await_drain({"scope": observed["scope"]})
+
+    def test_real_selected_terminal_survives_native_scope_signal_and_opaque_child_drain(
+        self,
+    ) -> None:
+        self.check_real_selected_signal("composer")
+
+    def test_real_selected_terminal_survives_outer_native_owner_signal(self) -> None:
+        self.check_real_selected_signal("owner")
+
+    def test_real_selected_terminal_survives_outer_pse_env_entry_signal(self) -> None:
+        self.check_real_selected_signal("entry")
+
+    def test_real_entry_cancellation_without_inherited_manager_environment(
+        self,
+    ) -> None:
+        self.check_real_selected_signal("entry", inherited_manager=False)
+
+    def test_real_uninterrupted_selected_composer_owns_one_durable_terminal(
+        self,
+    ) -> None:
+        with contextlib.nullcontext(
+            tempfile.mkdtemp(prefix="pse36-e2-actual-")
+        ) as directory:
+            base = Path(directory)
+            environment = self.fixture_environment(base)
+            environment["PSE_TEST_RESOURCE_STATE"] = str(base / "registry")
+            junit = '<testsuite><testcase classname="control.py" name="test_case"><properties><property name="nodeid" value="control.py::test_case"/></properties></testcase></testsuite>'
+            payload = f"import sys; from pathlib import Path; Path(sys.argv[1]).write_text({junit!r})"
+            composer = "\n".join(
+                [
+                    "import os,sys; from pathlib import Path",
+                    "from scripts import native_operation as n,test_run,test_resources as r,host_admission as h",
+                    "base=Path(sys.argv[1]); path=r.invocation('python',[{'name':'control.py::test_case'}])",
+                    f"code=test_run.execute_selected(path,[sys.executable,'-c',{payload!r},str(path.with_suffix('.xml'))],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",
+                    "n.write_json(base/'completed.json',{'code':code,'scope':n.scope_owner(),'operation':n._record(n.owner_record()),'invocation':str(path),'allocation':os.environ[h.MARKER]})",
+                    "raise SystemExit(code)",
+                ]
+            )
+            result = subprocess.run(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native=",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    composer,
+                    str(base),
+                ],
+                cwd=cache.ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            completed = self.await_file(base / "completed.json")
+            path = Path(completed["invocation"])
+            evidence = json.loads(path.with_suffix(".terminal.json").read_text())
+            self.assertEqual(evidence["exit_code"], 0)
+            self.assertEqual(evidence["report_errors"], [])
+            self.assertEqual(evidence["process"]["owned_drain"], "complete")
+            state = json.loads(
+                (base / "registry/invocation-state" / path.name).read_text()
+            )
+            self.assertTrue(state["terminal"]["complete"])
+            registrations = completed["operation"]["selected_composers"]
+            self.assertEqual(list(registrations), [path.stem])
+            self.assertEqual(registrations[path.stem]["phase"], "complete")
+            owners = [completed["scope"], evidence["process"]["scope"]]
+            for owner in owners:
+                self.fixture_units.add(owner["unit"])
+                self.assert_fixture_scope(owner, live=False)
+                self.await_drain({"scope": owner})
+            allocation = Path(completed["allocation"])
+            with pse_env.host.allocation_metadata(allocation.parent) as ledger:
+                self.assertNotIn(allocation.name, ledger["owners"])
+            self.assert_parent_scope_unchanged()
+
+    def test_real_unacknowledged_composer_is_killed_without_fabricated_terminal(
+        self,
+    ) -> None:
+        with contextlib.nullcontext(
+            tempfile.mkdtemp(prefix="pse36-e2-actual-")
+        ) as directory:
+            base = Path(directory)
+            environment = self.fixture_environment(base)
+            environment["PSE_TEST_RESOURCE_STATE"] = str(base / "registry")
+            composer = "\n".join(
+                [
+                    "import signal,sys,time; from pathlib import Path",
+                    "from scripts import native_operation as n,test_resources as r",
+                    "signal.signal(signal.SIGINT,signal.SIG_IGN); signal.signal(signal.SIGTERM,signal.SIG_IGN)",
+                    # This control deliberately leaves no terminal acknowledgment.
+                    # Real shared-host guard retention is tested in a private ledger
+                    # so this disposable scope cannot strand host admission.
+                    "n.register_terminal_guard=lambda *_args,**_kwargs:None",
+                    "base=Path(sys.argv[1]); path=r.invocation('python',[]); n.register_composer(path)",
+                    "n.write_json(base/'ready.json',{'scope':n.scope_owner(),'operation':str(n.owner_record()),'owner':n._record(n.owner_record()),'invocation':str(path)})",
+                    "time.sleep(30)",
+                ]
+            )
+            command = self.fixture_command(
+                [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native=",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    composer,
+                    str(base),
+                ],
+                environment,
+            )
+            with (base / "fixture.log").open("w") as log:
+                process = subprocess.Popen(
+                    command,
+                    cwd=cache.ROOT,
+                    env=environment,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
+                owner = None
+                try:
+                    selected = self.await_file(base / "ready.json", process)
+                    owner = selected["scope"]
+                    self.assert_fixture_scope(owner)
+                    started = time.monotonic()
+                    os.kill(selected["owner"]["pid"], signal.SIGTERM)
+                    process.wait(timeout=15)
+                    self.assertLess(time.monotonic() - started, 12)
+                    normalized = (
+                        128 - process.returncode
+                        if process.returncode < 0
+                        else process.returncode
+                    )
+                    self.assertEqual(
+                        normalized,
+                        128 + signal.SIGKILL,
+                        (base / "fixture.log").read_text(),
+                    )
+                    self.assertIn(
+                        "acknowledgment unresolved", (base / "fixture.log").read_text()
+                    )
+                    self.await_drain({"scope": owner})
+                    path = Path(selected["invocation"])
+                    self.assertFalse(path.with_suffix(".terminal.json").exists())
+                    state = json.loads(
+                        (base / "registry/invocation-state" / path.name).read_text()
+                    )
+                    self.assertEqual(state["phase"], "open")
+                    record = operation._record(Path(selected["operation"]))
+                    self.assertEqual(
+                        record["selected_composers"][path.stem]["phase"], "registered"
+                    )
+                    self.assert_parent_scope_unchanged()
+                finally:
+                    if owner is not None:
+                        self.kill_scope(owner["unit"])
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait(timeout=10)
+
+    def check_real_selected_signal(
+        self, target: str, *, inherited_manager: bool = True
+    ) -> None:
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            with (
+                self.subTest(signal=signum),
+                contextlib.nullcontext(
+                    tempfile.mkdtemp(prefix="pse36-e2-actual-")
+                ) as directory,
+            ):
+                base = Path(directory)
+                environment = self.fixture_environment(base)
+                environment["PSE_TEST_RESOURCE_STATE"] = str(base / "registry")
+                if not inherited_manager:
+                    environment.pop("XDG_RUNTIME_DIR", None)
+                    environment.pop("DBUS_SESSION_BUS_ADDRESS", None)
+                opaque = "import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN); time.sleep(30)"
+                workload = "\n".join(
+                    [
+                        "import os,signal,subprocess,sys,time; from pathlib import Path",
+                        "from scripts import native_operation as n",
+                        "base=Path(sys.argv[1])",
+                        "signal.signal(signal.SIGTERM,signal.SIG_IGN); signal.signal(signal.SIGINT,signal.SIG_IGN)",
+                        f"opaque=subprocess.Popen([sys.executable,'-c',{opaque!r}],start_new_session=True)",
+                        "n.write_json(base/'workload-ready.json',{'record':n._record(n.owner_record()),'opaque':opaque.pid,'session':os.getsid(opaque.pid)})",
+                        "time.sleep(30)",
+                    ]
+                )
+                composer = "\n".join(
+                    [
+                        "import os,sys; from pathlib import Path",
+                        "from scripts import native_operation as n,test_run,test_resources as r",
+                        "base=Path(sys.argv[1]); path=r.invocation('python',[{'name':'control.py::test_case'}])",
+                        "n.write_json(base/'composer-ready.json',{'scope':n.scope_owner(),'pid':os.getpid(),'owner':n._record(n.owner_record()),'invocation':str(path)})",
+                        f"code=test_run.execute_selected(path,[sys.executable,'-c',{workload!r},str(base)],os.environ,path.with_suffix('.xml'),selected=[{{'nodeid':'control.py::test_case'}}])",
+                        "n.write_json(base/'composer-finished.json',{'code':code})",
+                        "raise SystemExit(code)",
+                    ]
+                )
+                command = [
+                    str(cache.ROOT / "scripts/pse-env"),
+                    "--native=",
+                    "--",
+                    sys.executable,
+                    "-c",
+                    composer,
+                    str(base),
+                ]
+                if target != "entry":
+                    command = self.fixture_command(command, environment)
+                log = (base / "fixture.log").open("w")
+                process = subprocess.Popen(
+                    command,
+                    cwd=cache.ROOT,
+                    env=environment,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                )
+                owners = []
+                try:
+                    parent = self.await_file(base / "composer-ready.json", process)
+                    child = self.await_file(base / "workload-ready.json", process)
+                    owners = [parent["scope"], child["record"]["scope"]]
+                    if target == "entry":
+                        self.fixture_units.add(owners[0]["unit"])
+                    self.fixture_units.add(owners[1]["unit"])
+                    for owner in owners:
+                        self.assert_fixture_scope(owner)
+                    self.assertNotEqual(owners[0], owners[1])
+                    self.assertEqual(child["opaque"], child["session"])
+                    self.assertEqual(
+                        operation.process_group(child["opaque"]), owners[1]["group"]
+                    )
+                    recipient = (
+                        parent["pid"]
+                        if target == "composer"
+                        else process.pid
+                        if target == "entry"
+                        else parent["owner"]["pid"]
+                    )
+                    os.kill(recipient, signum)
+                    process.wait(timeout=20)
+                    normalized = (
+                        128 - process.returncode
+                        if process.returncode < 0
+                        else process.returncode
+                    )
+                    self.assertEqual(
+                        normalized,
+                        128 + signal.SIGKILL if target == "owner" else 128 + signum,
+                        (base / "fixture.log").read_text()[-4000:],
+                    )
+                    if target == "composer":
+                        self.assertEqual(
+                            self.await_file(base / "composer-finished.json")["code"],
+                            128 + signum,
+                        )
+                    path = Path(parent["invocation"])
+                    terminal = json.loads(
+                        path.with_suffix(".terminal.json").read_text()
+                    )
+                    self.assertEqual(terminal["exit_code"], 128 + signum)
+                    self.assertEqual(terminal["process"]["forwarded_signal"], signum)
+                    self.assertEqual(terminal["process"]["owned_drain"], "complete")
+                    self.assertEqual(terminal["process"]["scope"], owners[1])
+                    state = json.loads(
+                        (base / "registry/invocation-state" / path.name).read_text()
+                    )
+                    self.assertEqual(state["phase"], "frozen")
+                    self.assertFalse(state["terminal"]["complete"])
+                    for owner in owners:
+                        self.await_drain({"scope": owner})
+                    self.assert_parent_scope_unchanged()
+                    if target != "entry":
+                        allocation = pse_env.host.inherit(environment)
+                        assert allocation is not None
+                        self.assertTrue(
+                            allocation.release(),
+                            "retain fixture evidence until exact allocation release",
+                        )
+                finally:
+                    for owner in reversed(owners):
+                        self.kill_scope(owner["unit"])
+                    if process.poll() is None:
+                        process.kill()
+                    process.wait(timeout=10)
+                    log.close()
+
+    def test_selected_workload_wrapper_exit_does_not_prove_child_scope_drain(
+        self,
+    ) -> None:
+        from scripts import host_admission as host  # noqa: PLC0415 -- control owner
+
+        allocation = MagicMock(spec=host.Allocation)
+        allocation.nonce = "c" * 32
+        allocation.profile = host.select("light")
+        selected = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": "/child",
+            "invocation": "b" * 32,
+        }
+        observation = {}
+        original = time.monotonic() + 1
+
+        def completed(_command, _environment, **options):
+            options["observation"].update(
+                child_status=0, cancellation_deadline=original
+            )
+            return 0
+
+        with (
+            patch.object(host, "inherit", return_value=allocation),
+            patch.object(
+                host, "acquire", side_effect=AssertionError("second allocation")
+            ),
+            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(
+                operation, "prepare_handoff", return_value=Path("/owned/handoff")
+            ),
+            patch.object(operation, "run", side_effect=completed) as run,
+            patch.object(operation, "_record", return_value={"scope": selected}),
+            patch.object(
+                operation, "drained", return_value=drain_fixture(False)
+            ) as drain,
+            self.assertRaisesRegex(ValueError, "selected workload remains charged"),
+        ):
+            operation.run_child_scope(
+                ["selected-command"],
+                {operation.MARKER: "parent"},
+                observation=observation,
+            )
+        self.assertEqual(observation["child_status"], 0)
+        self.assertEqual(observation["owned_drain"], "unresolved")
+        self.assertNotIn(operation.MARKER, run.call_args.args[1])
+        self.assertEqual(run.call_args.args[1]["PSE_NATIVE_HANDOFF"], "/owned/handoff")
+        allocation.release.assert_not_called()
+        self.assertEqual(drain.call_args.kwargs["deadline"], original)
+
+    def test_composer_existing_clock_bounds_first_cancellation_lock(self) -> None:
+        parent = Path("/owned/parent")
+        original = time.monotonic() + 1
+        selected = {"cancel_deadline": original, "cancel_signal": signal.SIGINT}
+        with (
+            patch.dict(os.environ, {"PSE_NATIVE_HANDOFF": ""}),
+            patch.object(operation, "owner_record", return_value=parent),
+            patch.object(operation, "_record", return_value=selected),
+            patch.object(operation, "inherited_cancellation", return_value=None),
+            patch.object(
+                operation,
+                "record_lock",
+                side_effect=operation.DeadlineExpiredError("contended original clock"),
+            ) as lock,
+            self.assertRaises(operation.DeadlineExpiredError),
+        ):
+            operation.note_composer_cancellation(
+                signal.SIGTERM, original + 10, control_deadline=original + 9.5
+            )
+        self.assertEqual(lock.call_args.kwargs["deadline"], original - 0.5)
+
+    def test_cancellation_handler_does_not_reenter_owned_child_wait(self) -> None:
+        child = MagicMock()
+        child.pid = 987654
+        child.returncode = 0
+        wait_lock = threading.Lock()
+        delivered = False
+
+        def wait(*, timeout):
+            nonlocal delivered
+            if not wait_lock.acquire(timeout=timeout):
+                raise subprocess.TimeoutExpired("owned-child", timeout)
+            try:
+                if not delivered:
+                    delivered = True
+                    os.kill(os.getpid(), signal.SIGTERM)
+                return 0
+            finally:
+                wait_lock.release()
+
+        child.wait.side_effect = wait
+        observed = {}
+        with (
+            patch.object(operation.subprocess, "Popen", return_value=child),
+            patch.object(operation, "scope_owner", return_value=None),
+            patch.object(operation, "owner_record", return_value=None),
+            patch.object(operation.os, "killpg") as forward,
+        ):
+            self.assertEqual(
+                operation.run(["owned-child"], {}, observation=observed), 143
+            )
+        self.assertEqual(observed["child_status"], 0)
+        self.assertEqual(child.wait.call_count, 1)
+        forward.assert_called_once_with(child.pid, signal.SIGTERM)
+
+    def test_foreground_cancellation_refuses_parent_scope_substitution(self) -> None:
+        parent, handoff = Path("/owned/parent"), Path("/owned/handoff")
+        own = {"unit": "parent.scope", "group": "/parent", "invocation": "a" * 32}
+        child = MagicMock()
+        with (
+            patch.object(operation, "owner_record", return_value=parent),
+            patch.object(operation, "note_composer_cancellation"),
+            patch.object(
+                operation, "record_lock", return_value=contextlib.nullcontext()
+            ),
+            patch.object(
+                operation,
+                "_record",
+                return_value={
+                    "scope": own,
+                    "foreground_children": [str(handoff)],
+                    "cancel_deadline": time.monotonic() + 10,
+                    "cancel_signal": signal.SIGTERM,
+                },
+            ),
+            patch.object(
+                operation,
+                "fence_foreground_handoff",
+                return_value={"scope": own, "handoff": own["unit"]},
+            ),
+            patch.object(operation, "stop_foreground_handoff") as stop,
+            patch.object(operation.os, "killpg") as group,
+            self.assertRaisesRegex(ValueError, "foreground cancellation incomplete"),
+        ):
+            operation.cancel_foreground(child, signal.SIGTERM, handoff)
+        stop.assert_not_called()
+        group.assert_called_once_with(child.pid, signal.SIGTERM)
+
+    def test_foreground_first_auth_uses_reserved_original_clock_and_always_forwards(
+        self,
+    ) -> None:
+        deadline = time.monotonic() + 0.05
+        child = MagicMock()
+        with (
+            patch.object(
+                operation,
+                "owner_record",
+                side_effect=operation.DeadlineExpiredError("contended first authority"),
+            ) as authority,
+            patch.object(operation.os, "killpg") as direct,
+            self.assertRaisesRegex(ValueError, "foreground cancellation incomplete"),
+        ):
+            operation.cancel_foreground(
+                child, signal.SIGTERM, Path("/unproved/handoff"), deadline=deadline
+            )
+        self.assertEqual(authority.call_args.kwargs["deadline"], deadline - 0.5)
+        direct.assert_called_once_with(child.pid, signal.SIGTERM)
+
+    def test_masked_registration_host_lock_refuses_by_one_finite_clock(self) -> None:
+        from scripts import test_resources as resources
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            allocation = host_admission.acquire(
+                host_admission.select("light"), directory=base / "admission"
+            )
+            own = {
+                "unit": "pse-native-" + "a" * 32 + ".scope",
+                "group": self.fixture_parent_group,
+                "invocation": "b" * 32,
+            }
+            with host_admission.allocation_metadata(allocation.directory) as ledger:
+                ledger["owners"][allocation.nonce]["units"][own["unit"]] = {
+                    "group": own["group"],
+                    "invocation": own["invocation"],
+                    "inode": 17,
+                }
+            with (
+                patch.dict(
+                    os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
+                ),
+                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(host_admission, "inherit", return_value=allocation),
+                operation.Operation(base) as parent,
+            ):
+                path = resources.invocation("python", [])
+                descriptor = os.open(allocation.directory / ".lock", os.O_RDWR)
+                fcntl.flock(descriptor, fcntl.LOCK_EX)
+                signals = []
+                previous = signal.signal(
+                    signal.SIGTERM, lambda signum, _frame: signals.append(signum)
+                )
+                mask = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGTERM})
+                timer = threading.Timer(
+                    0.01, os.kill, args=(os.getpid(), signal.SIGTERM)
+                )
+                timer.start()
+                started = time.monotonic()
+                try:
+                    with self.assertRaises(host_admission.AdmissionError):
+                        operation.register_composer(path, deadline=started + 0.04)
+                finally:
+                    os.close(descriptor)
+                    timer.join(timeout=0.1)
+                    signal.pthread_sigmask(signal.SIG_SETMASK, mask)
+                    signal.signal(signal.SIGTERM, previous)
+                self.assertLess(time.monotonic() - started, 0.2)
+                self.assertEqual(signals, [signal.SIGTERM])
+                self.assertEqual(
+                    operation.composer_registrations(operation._record(parent.path)), {}
+                )
+                with host_admission.allocation_metadata(allocation.directory) as ledger:
+                    self.assertEqual(
+                        ledger["owners"][allocation.nonce].get("terminal_guards", {}),
+                        {},
+                    )
+
+    def test_composer_registration_cancel_fence_and_pending_sigterm_are_atomic(
+        self,
+    ) -> None:
+        from scripts import (  # noqa: PLC0415 -- selected terminal controls
+            test_resources as resources,
+        )
+        from scripts import test_run
+
+        own = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": self.fixture_parent_group,
+            "invocation": "b" * 32,
+        }
+        for cancelled in (False, True):
+            with (
+                self.subTest(cancelled=cancelled),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                base = Path(directory)
+                with (
+                    patch.dict(
+                        os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
+                    ),
+                    patch.object(operation, "scope_owner", return_value=own),
+                    patch.object(operation, "register_terminal_guard"),
+                    patch.object(operation, "acknowledge_terminal_guard"),
+                    operation.Operation(base) as parent,
+                ):
+                    path = resources.invocation("python", [])
+                    register = operation.register_composer
+
+                    def transition(selected):
+                        registration = register(selected)
+                        os.kill(os.getpid(), signal.SIGTERM)
+                        return registration
+
+                    if cancelled:
+                        operation.cancel_foreground_handoffs(
+                            deadline=time.monotonic() + 5, signum=signal.SIGTERM
+                        )
+                    with (
+                        patch.object(
+                            operation, "register_composer", side_effect=transition
+                        ),
+                        patch.object(
+                            operation,
+                            "run_child_scope",
+                            side_effect=AssertionError("payload after cancellation"),
+                        ) as payload,
+                        self.assertRaises(
+                            ValueError if cancelled else KeyboardInterrupt
+                        ),
+                    ):
+                        test_run.execute_selected(
+                            path,
+                            ["unlaunched"],
+                            dict(os.environ),
+                            path.with_suffix(".xml"),
+                        )
+                    payload.assert_not_called()
+                    terminal = resources.storage().terminal(path.stem)[1]
+                    self.assertFalse(terminal["complete"])
+                    registered = operation.composer_registrations(
+                        operation._record(parent.path)
+                    )
+                    if cancelled:
+                        self.assertEqual(registered, {})
+                    else:
+                        self.assertEqual(registered[path.stem]["phase"], "complete")
+                        self.assertEqual(
+                            json.loads(path.with_suffix(".terminal.json").read_text())[
+                                "exit_code"
+                            ],
+                            128 + signal.SIGTERM,
+                        )
+
+    def test_unresolved_composer_ack_keeps_identity_and_still_attempts_own_scope_kill(
+        self,
+    ) -> None:
+        from scripts import (
+            test_resources as resources,
+        )
+
+        own = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": self.fixture_parent_group,
+            "invocation": "b" * 32,
+        }
+        child = MagicMock()
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            with (
+                patch.dict(
+                    os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
+                ),
+                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(operation, "register_terminal_guard"),
+                patch.object(operation, "acknowledge_terminal_guard"),
+                operation.Operation(base) as parent,
+            ):
+                path = resources.invocation("python", [])
+                operation.register_composer(path)
+                elapsed = [0.0]
+
+                def advance(delay):
+                    elapsed[0] += delay
+
+                with (
+                    patch.object(
+                        operation.time, "monotonic", side_effect=lambda: elapsed[0]
+                    ),
+                    patch.object(operation.time, "sleep", side_effect=advance),
+                    patch.object(operation.signal, "pidfd_send_signal") as forwarded,
+                    patch.object(operation.subprocess, "run") as manager,
+                    patch.object(operation.os, "killpg"),
+                    contextlib.redirect_stderr(io.StringIO()) as errors,
+                    self.assertRaisesRegex(ValueError, "cancellation incomplete"),
+                ):
+                    operation.cancel_children(child, signal.SIGTERM)
+                self.assertLessEqual(elapsed[0], 10)
+                forwarded.assert_called_once()
+                self.assertIn("--signal=SIGKILL", manager.call_args.args[0])
+                self.assertIn("acknowledgment unresolved", errors.getvalue())
+                record = operation._record(parent.path)
+                self.assertTrue(record["cancelled"])
+                self.assertEqual(
+                    record["selected_composers"][path.stem]["phase"], "registered"
+                )
+                self.assertEqual(
+                    record["selected_composers"][path.stem]["invocation"], str(path)
+                )
+                self.assertFalse(path.with_suffix(".terminal.json").exists())
+                # The control used a synthetic monotonic epoch; restore the real
+                # clock only for this fixture's normal Operation finalizer.
+                record["cancel_deadline"] = time.monotonic() + 5
+                operation.write_json(parent.path, record)
+
+    def test_signal_during_popen_is_forwarded_after_exact_child_returns(self) -> None:
+        child = MagicMock()
+        child.wait.return_value = -signal.SIGKILL
+        observation = {}
+        before = {
+            name: signal.getsignal(name) for name in (signal.SIGINT, signal.SIGTERM)
+        }
+
+        def spawn(*_args, **_options):
+            os.kill(os.getpid(), signal.SIGTERM)
+            return child
+
+        handoff = Path("/owned/handoff")
+        with (
+            patch.object(operation.subprocess, "Popen", side_effect=spawn),
+            patch.object(operation, "cancel_foreground") as cancel,
+        ):
+            self.assertEqual(
+                operation.run(
+                    ["controlled-payload"],
+                    {},
+                    observation=observation,
+                    foreground=handoff,
+                ),
+                128 + signal.SIGTERM,
+            )
+        cancel.assert_called_once_with(
+            child,
+            signal.SIGTERM,
+            handoff,
+            deadline=observation["cancellation_deadline"],
+        )
+        self.assertEqual(observation["forwarded_signal"], signal.SIGTERM)
+        self.assertEqual(observation["child_status"], -signal.SIGKILL)
+        self.assertEqual({name: signal.getsignal(name) for name in before}, before)
+
+    def test_composer_uses_original_handoff_signal_before_parent_copies_it(
+        self,
+    ) -> None:
+        from scripts import (  # noqa: PLC0415 -- terminal owner
+            test_resources as resources,
+        )
+        from scripts import test_run
+
+        own = {
+            "unit": "pse-native-" + "a" * 32 + ".scope",
+            "group": self.fixture_parent_group,
+            "invocation": "b" * 32,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            with (
+                patch.dict(
+                    os.environ, {"PSE_TEST_RESOURCE_STATE": str(base / "registry")}
+                ),
+                patch.object(operation, "scope_owner", return_value=own),
+                patch.object(operation, "register_terminal_guard"),
+                patch.object(operation, "acknowledge_terminal_guard"),
+                operation.Operation(base) as parent,
+            ):
+                path = resources.invocation("python", [])
+                deadline = time.monotonic() + 5
+
+                def stop(observation):
+                    observation.update(
+                        child_status=-signal.SIGKILL,
+                        forwarded_signal=signal.SIGTERM,
+                        owned_drain="complete",
+                    )
+                    return 128 + signal.SIGTERM
+
+                with patch.object(
+                    operation,
+                    "inherited_cancellation",
+                    return_value=(deadline, signal.SIGINT),
+                ):
+                    self.assertEqual(
+                        test_run.execute_selected(
+                            path,
+                            ["controlled"],
+                            dict(os.environ),
+                            path.with_suffix(".xml"),
+                            launch=stop,
+                        ),
+                        128 + signal.SIGINT,
+                    )
+                self.assertNotIn("cancel_signal", operation._record(parent.path))
+                terminal = json.loads(path.with_suffix(".terminal.json").read_text())
+                self.assertEqual(terminal["exit_code"], 128 + signal.SIGINT)
+                self.assertEqual(terminal["process"]["forwarded_signal"], signal.SIGINT)
+                self.assertEqual(terminal["process"]["child_status"], -signal.SIGKILL)
 
     def test_handcrafted_marker_and_incomplete_capability_cannot_grant_admission(
         self,

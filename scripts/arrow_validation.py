@@ -275,8 +275,6 @@ def reached(
         unit = graph.units[index]
         if unit.pkg_id not in packages:
             raise ValidationError(f"unresolved Cargo unit package {unit.pkg_id}")
-        if packages[unit.pkg_id].name == "pse-workspace-hack":
-            continue
         seen.add(index)
         pending.extend(edge.index for edge in unit.dependencies)
     return seen
