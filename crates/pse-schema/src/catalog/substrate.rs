@@ -11,7 +11,7 @@ use crate::{
 use arrow_schema::DataType;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v4";
+pub const INTERPRETATION: &str = "pse.substrate.v5";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 512 * 1024;
@@ -123,8 +123,15 @@ indexes! {
     analysis_edges: canonical_analysis_edges [analysis, key] false,
     analysis_edge_source: canonical_analysis_edges [source, key] false,
     analysis_edge_target: canonical_analysis_edges [target, key] false,
+    artifact_blocks: canonical_artifact_blocks [artifact, ordinal] true,
+    artifact_obligations: canonical_artifact_obligations [artifact, key] false,
+    artifact_owner: canonical_artifact_obligations [owner_kind, owner, key] false,
+    artifact_reads: canonical_artifact_reads [artifact, key] false,
+    artifact_staging_run: canonical_artifact_staging_inputs [run, key] false,
+    artifact_staging_owner: canonical_artifact_staging_inputs [artifact, key] false,
+    study_inputs: canonical_study_inputs [study, solution] true,
     analysis_inputs: canonical_analysis_inputs [analysis, key] false,
-    analysis_input_run: canonical_analysis_inputs [run, analysis] false,
+    analysis_input_artifact: canonical_analysis_inputs [artifact, analysis] false,
 }
 
 pub(super) fn declare(builder: &mut RegistryBuilder) {
@@ -134,6 +141,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     let flag = || FieldContract::native(DataType::Boolean);
     let timestamp = || FieldContract::native(crate::model::extension::timestamp_micros_storage());
     let declarations = [
+        (
+            "canonical_maintenance_activations",
+            vec![column("key", text()),column("input_sha256", text()),column("predecessor", bytes()),column("interpretation", text()),column("schema_digest", text()),column("issuing_store", text())],
+            "Exact immutable schema activation effect receipt under the original rollout nonce; marker and issuing identity publication are atomic with this acknowledgement.",
+        ),
         (
             "canonical_interpretations",
             vec![
@@ -202,6 +214,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("generation", uint()),
                 column("incarnation", text()).optional(),
                 column("analysis_creation_closed_through", uint()).optional(),
+                column("artifact_creation_closed_through", uint()).optional(),
                 column("protection_closed_through", uint()).optional(),
             ],
             "Named conflict register; generation is separate from semantic eligibility.",
@@ -584,6 +597,53 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "Explicit withdrawal of a terminal study's result retention obligation; its occurrence and scientific outcome receipts remain immutable.",
         ),
         (
+            "canonical_artifacts",
+            vec![
+                column("key", text()),
+                column("kind", text()),
+                column("revision", text()),
+                column("primary_problem", text()),
+                column("primary_authority", text()),
+                column("creation_nonce", text()),
+                column("creation_expires_at", uint()),
+                column("creation_request_digest", text()),
+                column("interpretation", text()),
+                column("provenance", bytes()),
+                column("block_count", uint()),
+                column("payload_bytes", uint()),
+                column("active", flag()),
+                column("retiring", flag()),
+            ],
+            "Independent selected scientific closure; finite original creation authority, owned copied content and source roots survive producer collection.",
+        ),
+        (
+            "canonical_artifact_blocks",
+            vec![column("key", text()), column("artifact", text()), column("ordinal", uint()),
+                column("relation", text()), column("payload", bytes()), column("digest", text()),
+                column("original_digest", text()), column("rows", uint())],
+            "One bounded artifact-owned capsule or standalone IPC block; original and copied encoding digests are distinct provenance.",
+        ),
+        (
+            "canonical_artifact_obligations",
+            vec![column("key", text()), column("artifact", text()), column("owner_kind", text()), column("owner", text())],
+            "Independent attributed study, user, project, analysis or audit obligation; only the matching owner releases it.",
+        ),
+        (
+            "canonical_artifact_reads",
+            vec![column("key", text()), column("artifact", text())],
+            "Artifact read association to the same-key finite canonical source protection grant; collection joins actual grant settlement.",
+        ),
+        (
+            "canonical_artifact_staging_inputs",
+            vec![column("key", text()), column("artifact", text()), column("run", text()), column("attempt", text()), column("manifest", text())],
+            "Protective exact producer selection during staged or uncertain scientific transfer; removed only after activation or exact creation settlement.",
+        ),
+        (
+            "canonical_study_inputs",
+            vec![column("key", text()), column("study", text()), column("solution", text()), column("artifact", text())],
+            "Exact external seed selection admitted before study activation; one obligation per distinct selected solution preserves original occurrence policy.",
+        ),
+        (
             "canonical_analyses",
             vec![
                 column("key", text()),
@@ -626,7 +686,10 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                     .with_fk("runtime.canonical_analysis_nodes", "key")
                     .with_graph_endpoint(false),
                 column("kind", text()),
-                column("evidence", text()).optional(),
+                column("evidence_artifact", text()).optional(),
+                column("evidence_block", uint()).optional(),
+                column("evidence_row", uint()).optional(),
+                column("evidence_field", text()).optional(),
             ],
             "Method-scoped incidence, dependency, topology or quantitative evidence edge; each relation meaning is explicit.",
         ),
@@ -637,13 +700,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("analysis", text())
                     .with_fk("runtime.canonical_analyses", "key")
                     .with_graph_endpoint(true),
-                column("run", text()),
-                column("attempt", text())
-                    .with_fk("runtime.canonical_attempts", "key")
+                column("artifact", text())
+                    .with_fk("runtime.canonical_artifacts", "key")
                     .with_graph_endpoint(false),
-                column("manifest", text()),
             ],
-            "Exact admitted result selection consumed by a retained derived analysis; native cleanup respects this retention obligation.",
+            "Independent scientific input artifact consumed by a retained derived analysis; explicit attributed obligations survive original producer collection.",
         ),
         (
             "canonical_result_seeds",
@@ -719,6 +780,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("study", text()),
                 column("ordinal", uint()),
                 column("occurrence", uint()),
+                column("seed_solution", text()).optional(),
                 column("policy", bytes()),
                 column("descriptor", bytes()),
                 column("facts", bytes()),

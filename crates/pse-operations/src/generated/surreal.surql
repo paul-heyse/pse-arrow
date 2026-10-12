@@ -25,17 +25,18 @@ DEFINE FIELD source ON canonical_analysis_edges TYPE string;
 DEFINE FIELD OVERWRITE out ON canonical_analysis_edges TYPE record<canonical_analysis_nodes> ASSERT $value = type::record('canonical_analysis_nodes', $this.target);
 DEFINE FIELD target ON canonical_analysis_edges TYPE string;
 DEFINE FIELD kind ON canonical_analysis_edges TYPE string;
-DEFINE FIELD evidence ON canonical_analysis_edges TYPE option<string>;
+DEFINE FIELD evidence_artifact ON canonical_analysis_edges TYPE option<string>;
+DEFINE FIELD evidence_block ON canonical_analysis_edges TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD evidence_row ON canonical_analysis_edges TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD evidence_field ON canonical_analysis_edges TYPE option<string>;
 DEFINE INDEX canonical_analysis_edges_key ON canonical_analysis_edges FIELDS key UNIQUE;
 
-DEFINE TABLE canonical_analysis_inputs TYPE RELATION IN canonical_analyses OUT canonical_attempts ENFORCED SCHEMAFULL;
+DEFINE TABLE canonical_analysis_inputs TYPE RELATION IN canonical_analyses OUT canonical_artifacts ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_analysis_inputs TYPE string;
 DEFINE FIELD OVERWRITE in ON canonical_analysis_inputs TYPE record<canonical_analyses> ASSERT $value = type::record('canonical_analyses', $this.analysis);
 DEFINE FIELD analysis ON canonical_analysis_inputs TYPE string;
-DEFINE FIELD run ON canonical_analysis_inputs TYPE string;
-DEFINE FIELD OVERWRITE out ON canonical_analysis_inputs TYPE record<canonical_attempts> ASSERT $value = type::record('canonical_attempts', $this.attempt);
-DEFINE FIELD attempt ON canonical_analysis_inputs TYPE string;
-DEFINE FIELD manifest ON canonical_analysis_inputs TYPE string;
+DEFINE FIELD OVERWRITE out ON canonical_analysis_inputs TYPE record<canonical_artifacts> ASSERT $value = type::record('canonical_artifacts', $this.artifact);
+DEFINE FIELD artifact ON canonical_analysis_inputs TYPE string;
 DEFINE INDEX canonical_analysis_inputs_key ON canonical_analysis_inputs FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_analysis_nodes SCHEMAFULL;
@@ -44,6 +45,54 @@ DEFINE FIELD analysis ON canonical_analysis_nodes TYPE string;
 DEFINE FIELD semantic ON canonical_analysis_nodes TYPE string;
 DEFINE FIELD kind ON canonical_analysis_nodes TYPE string;
 DEFINE INDEX canonical_analysis_nodes_key ON canonical_analysis_nodes FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_artifact_blocks SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifact_blocks TYPE string;
+DEFINE FIELD artifact ON canonical_artifact_blocks TYPE string;
+DEFINE FIELD ordinal ON canonical_artifact_blocks TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD relation ON canonical_artifact_blocks TYPE string;
+DEFINE FIELD payload ON canonical_artifact_blocks TYPE bytes;
+DEFINE FIELD digest ON canonical_artifact_blocks TYPE string;
+DEFINE FIELD original_digest ON canonical_artifact_blocks TYPE string;
+DEFINE FIELD rows ON canonical_artifact_blocks TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE INDEX canonical_artifact_blocks_key ON canonical_artifact_blocks FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_artifact_obligations SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifact_obligations TYPE string;
+DEFINE FIELD artifact ON canonical_artifact_obligations TYPE string;
+DEFINE FIELD owner_kind ON canonical_artifact_obligations TYPE string;
+DEFINE FIELD owner ON canonical_artifact_obligations TYPE string;
+DEFINE INDEX canonical_artifact_obligations_key ON canonical_artifact_obligations FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_artifact_reads SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifact_reads TYPE string;
+DEFINE FIELD artifact ON canonical_artifact_reads TYPE string;
+DEFINE INDEX canonical_artifact_reads_key ON canonical_artifact_reads FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_artifact_staging_inputs SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifact_staging_inputs TYPE string;
+DEFINE FIELD artifact ON canonical_artifact_staging_inputs TYPE string;
+DEFINE FIELD run ON canonical_artifact_staging_inputs TYPE string;
+DEFINE FIELD attempt ON canonical_artifact_staging_inputs TYPE string;
+DEFINE FIELD manifest ON canonical_artifact_staging_inputs TYPE string;
+DEFINE INDEX canonical_artifact_staging_inputs_key ON canonical_artifact_staging_inputs FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_artifacts SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifacts TYPE string;
+DEFINE FIELD kind ON canonical_artifacts TYPE string;
+DEFINE FIELD revision ON canonical_artifacts TYPE string;
+DEFINE FIELD primary_problem ON canonical_artifacts TYPE string;
+DEFINE FIELD primary_authority ON canonical_artifacts TYPE string;
+DEFINE FIELD creation_nonce ON canonical_artifacts TYPE string;
+DEFINE FIELD creation_expires_at ON canonical_artifacts TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD creation_request_digest ON canonical_artifacts TYPE string;
+DEFINE FIELD interpretation ON canonical_artifacts TYPE string;
+DEFINE FIELD provenance ON canonical_artifacts TYPE bytes;
+DEFINE FIELD block_count ON canonical_artifacts TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD payload_bytes ON canonical_artifacts TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD active ON canonical_artifacts TYPE bool;
+DEFINE FIELD retiring ON canonical_artifacts TYPE bool;
+DEFINE INDEX canonical_artifacts_key ON canonical_artifacts FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_attempts SCHEMAFULL;
 DEFINE FIELD key ON canonical_attempts TYPE string;
@@ -96,6 +145,7 @@ DEFINE FIELD key ON canonical_guards TYPE string;
 DEFINE FIELD generation ON canonical_guards TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD incarnation ON canonical_guards TYPE option<string>;
 DEFINE FIELD analysis_creation_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD artifact_creation_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD protection_closed_through ON canonical_guards TYPE option<decimal> ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE INDEX canonical_guards_key ON canonical_guards FIELDS key UNIQUE;
 
@@ -122,6 +172,15 @@ DEFINE FIELD interpretation ON canonical_interpretations TYPE string;
 DEFINE FIELD schema_digest ON canonical_interpretations TYPE string;
 DEFINE FIELD issuing_store ON canonical_interpretations TYPE string;
 DEFINE INDEX canonical_interpretations_key ON canonical_interpretations FIELDS key UNIQUE;
+
+DEFINE TABLE canonical_maintenance_activations SCHEMAFULL;
+DEFINE FIELD key ON canonical_maintenance_activations TYPE string;
+DEFINE FIELD input_sha256 ON canonical_maintenance_activations TYPE string;
+DEFINE FIELD predecessor ON canonical_maintenance_activations TYPE bytes;
+DEFINE FIELD interpretation ON canonical_maintenance_activations TYPE string;
+DEFINE FIELD schema_digest ON canonical_maintenance_activations TYPE string;
+DEFINE FIELD issuing_store ON canonical_maintenance_activations TYPE string;
+DEFINE INDEX canonical_maintenance_activations_key ON canonical_maintenance_activations FIELDS key UNIQUE;
 
 DEFINE TABLE canonical_memberships TYPE RELATION IN canonical_problems OUT canonical_version_manifests ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON canonical_memberships TYPE string;
@@ -437,11 +496,19 @@ DEFINE FIELD predecessor ON canonical_study_dependencies TYPE string;
 DEFINE FIELD kind ON canonical_study_dependencies TYPE string;
 DEFINE INDEX canonical_study_dependencies_key ON canonical_study_dependencies FIELDS key UNIQUE;
 
+DEFINE TABLE canonical_study_inputs SCHEMAFULL;
+DEFINE FIELD key ON canonical_study_inputs TYPE string;
+DEFINE FIELD study ON canonical_study_inputs TYPE string;
+DEFINE FIELD solution ON canonical_study_inputs TYPE string;
+DEFINE FIELD artifact ON canonical_study_inputs TYPE string;
+DEFINE INDEX canonical_study_inputs_key ON canonical_study_inputs FIELDS key UNIQUE;
+
 DEFINE TABLE canonical_study_points SCHEMAFULL;
 DEFINE FIELD key ON canonical_study_points TYPE string;
 DEFINE FIELD study ON canonical_study_points TYPE string;
 DEFINE FIELD ordinal ON canonical_study_points TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
 DEFINE FIELD occurrence ON canonical_study_points TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);
+DEFINE FIELD seed_solution ON canonical_study_points TYPE option<string>;
 DEFINE FIELD policy ON canonical_study_points TYPE bytes;
 DEFINE FIELD descriptor ON canonical_study_points TYPE bytes;
 DEFINE FIELD facts ON canonical_study_points TYPE bytes;
@@ -577,8 +644,15 @@ DEFINE INDEX analysis_nodes ON canonical_analysis_nodes FIELDS analysis, key;
 DEFINE INDEX analysis_edges ON canonical_analysis_edges FIELDS analysis, key;
 DEFINE INDEX analysis_edge_source ON canonical_analysis_edges FIELDS source, key;
 DEFINE INDEX analysis_edge_target ON canonical_analysis_edges FIELDS target, key;
+DEFINE INDEX artifact_blocks ON canonical_artifact_blocks FIELDS artifact, ordinal UNIQUE;
+DEFINE INDEX artifact_obligations ON canonical_artifact_obligations FIELDS artifact, key;
+DEFINE INDEX artifact_owner ON canonical_artifact_obligations FIELDS owner_kind, owner, key;
+DEFINE INDEX artifact_reads ON canonical_artifact_reads FIELDS artifact, key;
+DEFINE INDEX artifact_staging_run ON canonical_artifact_staging_inputs FIELDS run, key;
+DEFINE INDEX artifact_staging_owner ON canonical_artifact_staging_inputs FIELDS artifact, key;
+DEFINE INDEX study_inputs ON canonical_study_inputs FIELDS study, solution UNIQUE;
 DEFINE INDEX analysis_inputs ON canonical_analysis_inputs FIELDS analysis, key;
-DEFINE INDEX analysis_input_run ON canonical_analysis_inputs FIELDS run, analysis;
+DEFINE INDEX analysis_input_artifact ON canonical_analysis_inputs FIELDS artifact, analysis;
 
 DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     IF time::micros() >= $rpc_expiry { THROW 'original canonical RPC deadline expired'; };
@@ -720,7 +794,7 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
 
 DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
-    IF $row.interpretation!='pse.substrate.v4' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v4' { THROW 'stale execution publication interpretation'; };
+    IF $row.interpretation!='pse.substrate.v5' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v5' { THROW 'stale execution publication interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:' + $row.key);
     LET $old = SELECT * FROM ONLY type::record('canonical_runs', $row.key);
@@ -764,14 +838,14 @@ DEFINE FUNCTION fn::pse_execution_v1::current_writer($rpc_expiry:int,$run:string
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
     LET $row=SELECT * FROM ONLY type::record('canonical_runs',$run);
-    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v4' OR $row=NONE OR $row.interpretation!='pse.substrate.v4' { THROW 'historical execution is read-only'; };
+    IF $marker=NONE OR $marker.interpretation!='pse.substrate.v5' OR $row=NONE OR $row.interpretation!='pse.substrate.v5' { THROW 'historical execution is read-only'; };
     RETURN true;
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int, $interpretation: string, $finalization_study: option<string>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $interpretation!='pse.substrate.v4' { THROW 'stale execution claim interpretation'; };
+    IF $interpretation!='pse.substrate.v5' { THROW 'stale execution claim interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'claim', $request);
     IF $op != NONE { LET $rpc_result = SELECT * FROM ONLY type::record('canonical_attempts', $op.attempt); fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
@@ -808,7 +882,7 @@ DEFINE FUNCTION fn::pse_execution_v1::claim($rpc_expiry: int, $run: string, $ope
 DEFINE FUNCTION fn::pse_execution_v1::append($rpc_expiry: int, $run: string, $attempt: string, $generation: decimal, $operation: string, $request: bytes, $set: object, $batch: object, $block: option<object>, $row_indexes: array<object>, $outputs: array<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::current_writer($rpc_expiry,$run);
-    IF $set.interpretation!='pse.substrate.v4' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v4') OR array::len($row_indexes[WHERE interpretation!='pse.substrate.v4'])!=0 OR array::len($outputs[WHERE interpretation!='pse.substrate.v4'])!=0 { THROW 'stale execution append interpretation'; };
+    IF $set.interpretation!='pse.substrate.v5' OR ($block!=NONE AND $block.interpretation!='pse.substrate.v5') OR array::len($row_indexes[WHERE interpretation!='pse.substrate.v5'])!=0 OR array::len($outputs[WHERE interpretation!='pse.substrate.v5'])!=0 { THROW 'stale execution append interpretation'; };
     IF array::len($row_indexes) > 18724 OR array::len($outputs) > 18724 OR bytes::len(encoding::cbor::encode({block:$block,row_indexes:$row_indexes,outputs:$outputs})) > 131072 { THROW 'execution index metadata extent exceeded'; };
     fn::pse_execution_v1::available($rpc_expiry, $run);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'append', $request);
@@ -892,7 +966,7 @@ DEFINE FUNCTION fn::pse_execution_v1::empty($rpc_expiry: int, $run: string, $att
     LET $writer=IF $op=NONE { fn::pse_execution_v1::writer($rpc_expiry,$run,$attempt,$generation,$operation,'empty') } ELSE { NONE };
     IF $writer!=NONE AND $writer.pse_writer != 'admitted' { RETURN $writer; };
     IF $op=NONE AND ($writer.attempt.closed OR $writer.attempt.ingestion_open=false) { THROW 'execution empty declaration ingestion closed'; };
-    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v4' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'execution empty declaration mismatch'; };
+    IF $set.attempt != $attempt OR $set.interpretation != 'pse.substrate.v5' OR $set.next_ordinal != 0dec OR $set.row_count != 0dec { THROW 'execution empty declaration mismatch'; };
     LET $old = SELECT * FROM ONLY type::record('canonical_result_sets',$set.key);
     IF $old != NONE {
         IF object::remove($old,'id') != $set { THROW 'execution demanded empty set changed'; };
@@ -920,12 +994,12 @@ DEFINE FUNCTION fn::pse_execution_v1::verify_acknowledged($rpc_expiry: int, $run
     FOR $s IN $sets {
         LET $matching=$proofs.filter(|$p| $p.set=$s.key);
         IF array::len($matching)=0 {
-            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v4' OR $s.row_count>$progress_queued { THROW 'execution unacknowledged set membership differs'; };
+            IF $progress_queued=NONE OR $s.name!='__progress' OR $s.attempt!=$attempt OR $s.interpretation!='pse.substrate.v5' OR $s.row_count>$progress_queued { THROW 'execution unacknowledged set membership differs'; };
         } ELSE {
         IF array::len($matching)!=1 { THROW 'execution advertised set ambiguous'; };
         LET $p=$matching[0];
         LET $uncertain=$s.name='__progress' AND $progress_queued!=NONE;
-        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v4' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'execution acknowledged set coverage differs'; };
+        IF $s.attempt != $attempt OR $s.name != $p.name OR $s.interpretation != 'pse.substrate.v5' OR (!$uncertain AND ($s.next_ordinal != $p.count OR $s.row_count != $p.row_count)) OR ($uncertain AND ($s.next_ordinal<$p.count OR $s.row_count<$p.row_count OR $s.row_count>$progress_queued)) { THROW 'execution acknowledged set coverage differs'; };
         LET $receipt=SELECT * FROM ONLY type::record('canonical_execution_operations',$p.operation);
         IF $receipt=NONE OR $receipt.run != $run OR $receipt.attempt != $attempt OR $receipt.kind != $p.kind OR $receipt.request != $p.request OR $receipt.result != $p.request { THROW 'execution actual final receipt differs'; };
         IF $p.count=0dec {
@@ -1147,7 +1221,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed_eligible($seed: object) -> bool {
     IF $a = NONE OR $a.terminal = false OR $a.closed = false OR $a.ingestion_open OR $a.seed_manifest = NONE OR $a.seed_manifest != $a.closed_manifest OR $a.run != $seed.run OR $a.generation != $seed.attempt_generation { RETURN false; };
     LET $r = SELECT sequence,interpretation FROM ONLY type::record('canonical_runs', $seed.run);
     LET $installed=SELECT interpretation FROM ONLY canonical_interpretations:current;
-    IF $r=NONE OR $r.interpretation!='pse.substrate.v4' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v4' { RETURN false; };
+    IF $r=NONE OR $r.interpretation!='pse.substrate.v5' OR $installed=NONE OR $installed.interpretation!='pse.substrate.v5' { RETURN false; };
     LET $m = SELECT attempt,generation FROM ONLY type::record('canonical_result_manifests', $a.seed_manifest);
     RETURN $r != NONE AND $r.sequence = $seed.run_sequence AND $m != NONE AND $m.attempt = $seed.attempt AND $m.generation = $seed.attempt_generation;
 };
@@ -1291,9 +1365,16 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
     IF array::len($existing) != 0 AND array::len($existing) != array::len($points) { THROW 'study occurrence batch mixed settlement'; };
     FOR $point IN $points {
         IF $point.study != $study { THROW 'study occurrence belongs elsewhere'; };
+        IF $point.seed_solution!=NONE {
+            LET $input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
+            IF $input=NONE OR $input.study!=$study OR $input.solution!=$point.seed_solution { THROW 'study external seed was not retained'; };
+            fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
+            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
+            IF array::len($owners)!=1 { THROW 'study external seed obligation absent'; };
+        };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
         IF $old != NONE {
-            IF $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'study immutable occurrence changed'; };
+            IF $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'study immutable occurrence changed'; };
         } ELSE {
             fn::pse_execution_v1::result_creator($rpc_expiry,$point.run);
             fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$point.run);
@@ -1540,7 +1621,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
     IF $header=NONE OR !$header.terminal { THROW 'only terminal studies may be retired'; };
     UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
-    LET $rpc_result = true;
+    LET $inputs=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
+    FOR $input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($input,['id'])); };
+    LET $rpc_result = array::len($inputs)<64;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
 };
@@ -1562,8 +1645,8 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     IF array::len($edges)!=0 { DELETE $edges.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $nodes=SELECT id FROM canonical_analysis_nodes WHERE analysis=$analysis ORDER BY key LIMIT 64;
     IF array::len($nodes)!=0 { DELETE $nodes.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    LET $inputs=SELECT id FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
-    IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $inputs=SELECT id,artifact FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
+    IF array::len($inputs)!=0 { FOR $input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 64;
     IF array::len($roots)!=0 {
         FOR $root IN $roots {
@@ -1623,8 +1706,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
         SELECT * FROM ONLY type::record('canonical_study_retirements',$study) FOR UPDATE;
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'run results are retained by a study'; };
     };
-    LET $analyses=SELECT analysis FROM canonical_analysis_inputs WHERE run=$run LIMIT 1;
-    IF array::len($analyses)!=0 { THROW 'run results are retained by an analysis'; };
+    LET $staging=SELECT key FROM canonical_artifact_staging_inputs WHERE run=$run LIMIT 1;
+    IF array::len($staging)!=0 { THROW 'run results have unsettled artifact transfer'; };
+
     LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='run' AND owner=$run ORDER BY key LIMIT 66;
     IF array::len($roots)>65 { THROW 'run source retention limit'; };
     FOR $root IN $roots { fn::pse_execution_v1::source_creator($rpc_expiry,$root.problem,$root.key); };
@@ -1720,7 +1804,7 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         };
         FOR $input IN $inputs {
             LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key);
-            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'immutable analysis input changed'; };
+            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$input.artifact { THROW 'immutable analysis input changed'; };
         };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
@@ -1737,27 +1821,20 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
     };
     IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 OR $row.revision NOT IN $sources.revision { THROW 'analysis primary source omitted'; };
     FOR $input IN $inputs {
-        LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$input.run) FOR UPDATE;
-        IF $guard=NONE { THROW 'analysis run authority unavailable'; };
-        fn::pse_execution_v1::result_creator($rpc_expiry,$input.run);
-        SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key) FOR UPDATE;
-        fn::pse_execution_v1::available($rpc_expiry, $input.run);
-        LET $run=SELECT * FROM ONLY type::record('canonical_runs',$input.run);
-        LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);
-        LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$input.manifest);
+        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
-        LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
-        IF $selected_pin=NONE OR $selected_pin.run!=$input.run OR $selected_pin.attempt!=$input.attempt OR $selected_pin.manifest!=$input.manifest { THROW 'analysis result protection differs'; };
-        IF $run=NONE OR $attempt=NONE OR $manifest=NONE OR $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$run.revision OR $attempt.run!=$input.run OR !$attempt.terminal OR !$attempt.closed OR $attempt.ingestion_open OR $attempt.closed_manifest!=$input.manifest OR $manifest.attempt!=$input.attempt OR $manifest.generation!=$attempt.generation OR $input.analysis!=$row.key { THROW 'analysis input not admitted'; };
-        LET $selected=SELECT revision FROM canonical_run_sources WHERE run=$input.run LIMIT 66;
-        IF array::len($selected)>65 OR array::len($selected)=0 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'analysis omitted actual result source'; };
+        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$input.protection);
+        IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'analysis artifact input not admitted'; };
+        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$input.artifact LIMIT 66;
+        IF array::len($selected)=0 OR array::len($selected)>65 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'analysis omitted artifact source'; };
     };
     LET $saved=CREATE ONLY type::record('canonical_analyses',$row.key) CONTENT $row;
     FOR $source IN $sources {
         CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='analysis',owner=$row.key;
     };
     FOR $input IN $inputs {
-        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_attempts',$input.attempt)}) RETURN NONE;
+        fn::pse_artifact_v1::attach($rpc_expiry,$input.artifact,$input.obligation,true);
+        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$input.artifact)}) RETURN NONE;
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -1776,8 +1853,14 @@ DEFINE FUNCTION fn::pse_analysis_v1::append($rpc_expiry: int, $key: string,$node
     };
     FOR $edge IN $edges {
         IF $edge.analysis!=$key OR type::record('canonical_analysis_nodes',$edge.source).analysis!=$key OR type::record('canonical_analysis_nodes',$edge.target).analysis!=$key { THROW 'analysis edge membership'; };
+        IF ($edge.evidence_artifact=NONE)!=($edge.evidence_block=NONE) OR ($edge.evidence_artifact=NONE AND ($edge.evidence_row!=NONE OR $edge.evidence_field!=NONE)) { THROW 'analysis typed evidence incomplete'; };
+        IF $edge.evidence_artifact!=NONE {
+            LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact=$edge.evidence_artifact LIMIT 1;
+            LET $blocks=SELECT rows FROM canonical_artifact_blocks WHERE artifact=$edge.evidence_artifact AND ordinal=$edge.evidence_block LIMIT 1;
+            IF array::len($inputs)!=1 OR array::len($blocks)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$blocks[0].rows) { THROW 'analysis evidence outside retained artifact'; };
+        };
         LET $old=SELECT * FROM ONLY type::record('canonical_analysis_edges',$edge.key);
-        IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence!=$edge.evidence { THROW 'immutable analysis edge changed'; }; }
+        IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence_artifact!=$edge.evidence_artifact OR $old.evidence_block!=$edge.evidence_block OR $old.evidence_row!=$edge.evidence_row OR $old.evidence_field!=$edge.evidence_field { THROW 'immutable analysis edge changed'; }; }
         ELSE { IF $row.active { THROW 'analysis graph closed'; }; INSERT RELATION INTO canonical_analysis_edges object::extend($edge,{id:type::record('canonical_analysis_edges',$edge.key),in:type::record('canonical_analysis_nodes',$edge.source),out:type::record('canonical_analysis_nodes',$edge.target)}) RETURN NONE; };
     };
     LET $rpc_result = true;
@@ -1803,4 +1886,153 @@ DEFINE FUNCTION fn::pse_analysis_v1::read($rpc_expiry: int, $key: string,$after:
     IF $kind='nodes' { LET $rpc_result = SELECT * FROM canonical_analysis_nodes WHERE analysis=$key AND key>$after ORDER BY key LIMIT 64; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     IF $kind='edges' { LET $rpc_result = SELECT * FROM canonical_analysis_edges WHERE analysis=$key AND key>$after ORDER BY key LIMIT 64; fn::pse_execution_v1::deadline($rpc_expiry); RETURN $rpc_result; };
     THROW 'analysis page kind';
+};
+
+DEFINE FUNCTION fn::pse_artifact_v1::authority($rpc_expiry:int,$row:object) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.primary_problem) FOR UPDATE;
+    IF $guard=NONE OR $guard.incarnation!=$row.primary_authority OR $row.key!='pse.artifact.v1:'+$row.primary_authority+':'+$row.creation_nonce+':'+<string><int>$row.creation_expires_at { THROW 'artifact creation authority differs'; };
+    RETURN $guard;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::available($rpc_expiry:int,$key:string) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
+    IF $row=NONE OR !$row.active OR $row.retiring { THROW 'artifact unavailable'; };
+    RETURN $row;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::producer($rpc_expiry:int,$input:object) -> bool {
+    fn::pse_execution_v1::result_creator($rpc_expiry,$input.run);
+    fn::pse_execution_v1::available($rpc_expiry,$input.run);
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);
+    LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$input.manifest);
+    IF $attempt=NONE OR $manifest=NONE OR $attempt.run!=$input.run OR !$attempt.terminal OR !$attempt.closed OR $attempt.ingestion_open OR $attempt.closed_manifest!=$input.manifest OR $manifest.attempt!=$input.attempt OR $manifest.generation!=$attempt.generation { THROW 'artifact producer inventory unavailable'; };
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:array<object>,$inputs:array<object>) -> object {
+    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$row);
+    LET $now=time::micros();
+    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($guard.artifact_creation_closed_through ?? 0dec) { THROW 'artifact creation window closed'; };
+    IF $row.active OR $row.retiring OR string::len($row.creation_nonce)!=36 OR string::len($row.creation_request_digest)!=64 OR array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.block_count=0dec OR bytes::len($row.provenance)>131072 { THROW 'artifact closure admission bound'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_artifacts',$row.key) FOR UPDATE;
+    IF $old!=NONE {
+        IF $old.retiring OR object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'immutable artifact request changed'; };
+        RETURN $old;
+    };
+    FOR $source IN $sources {
+        fn::pse_execution_v1::source_creator($rpc_expiry,$source.problem,$source.key);
+        LET $revision=SELECT * FROM ONLY type::record('canonical_revisions',$source.revision);
+        LET $pruned=SELECT key FROM canonical_reclaimed_ranges WHERE problem=$source.problem AND from_sequence<=$source.sequence AND to_sequence>$source.sequence LIMIT 1;
+        IF $revision=NONE OR $revision.problem!=$source.problem OR $revision.sequence!=$source.sequence OR $revision.interpretation!=$row.interpretation OR array::len($pruned)!=0 { THROW 'artifact source unavailable'; };
+    };
+    IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 { THROW 'artifact primary source omitted'; };
+    FOR $input IN $inputs {
+        fn::pse_artifact_v1::producer($rpc_expiry,$input);
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
+        LET $selected=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
+        IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $selected=NONE OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'artifact exact producer protection absent'; };
+        LET $actual=SELECT revision FROM canonical_run_sources WHERE run=$input.run LIMIT 66;
+        IF array::len($actual)=0 OR array::len($actual)>65 OR array::len(array::complement($actual.revision,$sources.revision))!=0 { THROW 'artifact actual source omitted'; };
+    };
+    CREATE ONLY type::record('canonical_artifacts',$row.key) CONTENT $row;
+    FOR $source IN $sources { CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='artifact',owner=$row.key; };
+    FOR $input IN $inputs { CREATE ONLY type::record('canonical_artifact_staging_inputs',$input.key) CONTENT object::remove($input,['protection']); };
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN $row;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:object) -> bool {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
+    IF $row=NONE OR $row.retiring OR $block.artifact!=$key OR $block.ordinal>=$row.block_count OR bytes::len($block.payload)>524288 OR string::len($block.digest)!=64 { THROW 'artifact block admission'; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_artifact_blocks',$block.key);
+    IF $old!=NONE { IF object::remove($old,['id'])!=$block { THROW 'immutable artifact block changed'; }; }
+    ELSE { IF $row.active { THROW 'artifact content sealed'; }; CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$obligation:object) -> object {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
+    IF $row=NONE OR $row.retiring { THROW 'artifact staging unavailable'; };
+    fn::pse_artifact_v1::authority($rpc_expiry,$row);
+    IF !$row.active AND $row.creation_expires_at<=time::micros() { THROW 'artifact creation expired before activation'; };
+    LET $inputs=SELECT * FROM canonical_artifact_staging_inputs WHERE artifact=$key ORDER BY key LIMIT 65;
+    IF array::len($inputs)>64 { THROW 'artifact input bound'; };
+    FOR $input IN $inputs { fn::pse_artifact_v1::producer($rpc_expiry,$input); };
+    LET $coverage=SELECT count() AS n, math::sum(bytes::len(payload)) AS bytes FROM canonical_artifact_blocks WHERE artifact=$key GROUP ALL;
+    IF $coverage[0].n!=$row.block_count OR $coverage[0].bytes!=$row.payload_bytes { THROW 'artifact content incomplete'; };
+    fn::pse_artifact_v1::attach($rpc_expiry,$key,$obligation,false);
+    DELETE $inputs.id;
+    LET $saved=UPDATE ONLY type::record('canonical_artifacts',$key) SET active=true;
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN $saved;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::attach($rpc_expiry:int,$key:string,$obligation:object,$require_active:bool) -> bool {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
+    IF $row=NONE OR $row.retiring OR ($require_active AND !$row.active) OR $obligation.artifact!=$key OR $obligation.owner_kind NOT IN ['study','user','project','analysis','audit'] OR string::len($obligation.owner)=0 { THROW 'artifact obligation unavailable'; };
+    IF $obligation.owner_kind='study' { fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))!=NONE { THROW 'study artifact owner retired'; }; };
+    IF $obligation.owner_kind='analysis' { LET $analysis=SELECT * FROM ONLY type::record('canonical_analyses',$obligation.owner) FOR UPDATE; IF $analysis=NONE OR $analysis.retiring { THROW 'analysis artifact owner retired'; }; };
+    LET $old=SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key) FOR UPDATE;
+    IF $old!=NONE { IF object::remove($old,['id'])!=$obligation { THROW 'artifact obligation identity changed'; }; }
+    ELSE { CREATE ONLY type::record('canonical_artifact_obligations',$obligation.key) CONTENT $obligation; };
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::release($rpc_expiry:int,$obligation:object) -> bool {
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    SELECT * FROM ONLY type::record('canonical_artifacts',$obligation.artifact) FOR UPDATE;
+    LET $old=SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key) FOR UPDATE;
+    IF $old!=NONE AND object::remove($old,['id'])!=$obligation { THROW 'artifact release owner differs'; };
+    IF $obligation.owner_kind='study' {
+        fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner);
+        IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))=NONE { THROW 'study input release requires explicit study retirement'; };
+    };
+    DELETE ONLY type::record('canonical_artifact_obligations',$obligation.key);
+    RETURN true;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::acquire($rpc_expiry:int,$key:string,$protection:string) -> object {
+    LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
+    LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$protection) FOR UPDATE;
+    IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$row.revision { THROW 'artifact read protection absent'; };
+    UPSERT type::record('canonical_artifact_reads',$protection) SET key=$protection,artifact=$key;
+    RETURN $row;
+};
+DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protection:string,$ordinal:decimal) -> object {
+    LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
+    LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$protection) FOR UPDATE;
+    LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$protection);
+    IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$row.revision OR $read=NONE OR $read.artifact!=$key { THROW 'artifact read grant unavailable'; };
+    LET $blocks=SELECT * FROM canonical_artifact_blocks WHERE artifact=$key AND ordinal=$ordinal LIMIT 1;
+    IF array::len($blocks)!=1 { THROW 'artifact block unavailable'; };
+    RETURN $blocks[0];
+};
+DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> object {
+    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$intent);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
+    LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$intent.key LIMIT 1;
+    IF array::len($owners)!=0 { THROW 'artifact has retained obligations'; };
+    IF $row!=NONE AND ($row.creation_request_digest!=$intent.creation_request_digest OR $row.creation_expires_at!=$intent.creation_expires_at) { THROW 'artifact settlement requires original intent'; };
+    LET $reads=SELECT key FROM canonical_artifact_reads WHERE artifact=$intent.key ORDER BY key LIMIT 64;
+    FOR $read IN $reads {
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$read.key) FOR UPDATE;
+        IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
+        LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$intent.primary_problem,$read.key,false);
+        IF time::micros()<$grant.grant_deadline { RETURN {complete:false,waiting:true}; };
+        fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
+        DELETE ONLY type::record('canonical_artifact_reads',$read.key);
+    };
+    IF array::len($reads)=64 { RETURN {complete:false,waiting:false}; };
+    IF $row!=NONE { UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET retiring=true; };
+    IF time::micros()<$intent.creation_expires_at { RETURN {complete:false,waiting:true}; };
+    LET $blocks=SELECT id FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
+    IF array::len($blocks)!=0 { DELETE $blocks.id; RETURN {complete:false,waiting:false}; };
+    LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
+    FOR $input IN $inputs { fn::pse_execution_v1::result_creator($rpc_expiry,$input.run); };
+    IF array::len($inputs)!=0 { DELETE $inputs.id; RETURN {complete:false,waiting:false}; };
+    LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='artifact' AND owner=$intent.key ORDER BY key LIMIT 64;
+    FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
+    IF array::len($roots)!=0 { DELETE $roots.id; RETURN {complete:false,waiting:false}; };
+    UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+    DELETE ONLY type::record('canonical_artifacts',$intent.key);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    RETURN {complete:true,waiting:false};
 };

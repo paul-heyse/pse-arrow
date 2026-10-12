@@ -42,6 +42,7 @@ pub(super) async fn seed(
             generation: 1,
             incarnation: Some("original-retention-owner".into()),
             analysis_creation_closed_through: None,
+            artifact_creation_closed_through: None,
             protection_closed_through: None
         },
         wire::encode_canonical_guards
@@ -319,6 +320,7 @@ pub(super) async fn seed(
             study: "original-study".into(),
             ordinal: 0,
             occurrence: 13,
+            seed_solution: None,
             policy: b"original-policy".to_vec().into(),
             descriptor: b"original-descriptor".to_vec().into(),
             facts: b"original-facts".to_vec().into(),
@@ -363,14 +365,23 @@ pub(super) async fn seed(
         },
         wire::encode_canonical_analysis_nodes
     );
+    save!(
+        "canonical_artifacts",
+        pse_model::generated::runtime::canonical_artifacts::Row {
+            key: "original-artifact".into(), kind:"analysis".into(),
+            revision:"original-revision".into(), primary_problem:"fixture-problem".into(),
+            primary_authority:"original-retention-owner".into(), creation_nonce:"original-artifact-nonce".into(),
+            creation_expires_at:0,creation_request_digest:"original-artifact-request".into(),
+            interpretation:"pse.substrate.v3".into(),provenance:vec![1].into(),block_count:1,payload_bytes:1,active:true,retiring:false
+        },
+        wire::encode_canonical_artifacts
+    );
     save_relation!(
         "canonical_analysis_inputs",
         pse_model::generated::runtime::canonical_analysis_inputs::Row {
             key: "original-analysis:input".into(),
             analysis: "original-analysis".into(),
-            run: run.into(),
-            attempt: attempt.clone(),
-            manifest: attempt
+            artifact: "original-artifact".into()
         },
         wire::encode_canonical_analysis_inputs
     );

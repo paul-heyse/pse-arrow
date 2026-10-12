@@ -1203,11 +1203,7 @@ fn validate_owners(catalog: &Catalog) -> Result<(), CanonicalError> {
     for key in catalog.table("canonical_analysis_inputs") {
         let input =
             wire::decode_canonical_analysis_inputs(catalog.get("canonical_analysis_inputs", key)?)?;
-        let attempt =
-            wire::decode_canonical_attempts(catalog.get("canonical_attempts", &input.attempt)?)?;
-        if attempt.run != input.run || attempt.closed_manifest.as_deref() != Some(&input.manifest) {
-            return Err(invalid("historical analysis exact result input differs"));
-        }
+        wire::decode_canonical_artifacts(catalog.get("canonical_artifacts", &input.artifact)?)?;
     }
     Ok(())
 }

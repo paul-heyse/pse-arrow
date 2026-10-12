@@ -35,6 +35,9 @@ fn serialization_consumers(reg: &crate::Registry) -> BTreeSet<String> {
             "runtime.computation_runs".into(),
             "runtime.run_lineage".into(),
             "runtime.candidate_assessments".into(),
+            "runtime.canonical_result_seeds".into(),
+            "runtime.canonical_result_manifests".into(),
+            "runtime.canonical_artifacts".into(),
         ])
         .collect()
 }

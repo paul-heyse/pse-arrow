@@ -19,6 +19,16 @@ pub mod r#canonical_analysis_inputs;
 ///Generated relation contract.
 pub mod r#canonical_analysis_nodes;
 ///Generated relation contract.
+pub mod r#canonical_artifact_blocks;
+///Generated relation contract.
+pub mod r#canonical_artifact_obligations;
+///Generated relation contract.
+pub mod r#canonical_artifact_reads;
+///Generated relation contract.
+pub mod r#canonical_artifact_staging_inputs;
+///Generated relation contract.
+pub mod r#canonical_artifacts;
+///Generated relation contract.
 pub mod r#canonical_attempts;
 ///Generated relation contract.
 pub mod r#canonical_body_contents;
@@ -32,6 +42,8 @@ pub mod r#canonical_guards;
 pub mod r#canonical_historical_results;
 ///Generated relation contract.
 pub mod r#canonical_interpretations;
+///Generated relation contract.
+pub mod r#canonical_maintenance_activations;
 ///Generated relation contract.
 pub mod r#canonical_memberships;
 ///Generated relation contract.
@@ -86,6 +98,8 @@ pub mod r#canonical_stages;
 pub mod r#canonical_studies;
 ///Generated relation contract.
 pub mod r#canonical_study_dependencies;
+///Generated relation contract.
+pub mod r#canonical_study_inputs;
 ///Generated relation contract.
 pub mod r#canonical_study_points;
 ///Generated relation contract.

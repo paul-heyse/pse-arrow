@@ -127,6 +127,24 @@ pub enum FactBatch {
     r#RuntimeCanonicalAnalysisNodes(
         Vec<super::r#runtime::r#canonical_analysis_nodes::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifactBlocks)]
+    r#RuntimeCanonicalArtifactBlocks(
+        Vec<super::r#runtime::r#canonical_artifact_blocks::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifactObligations)]
+    r#RuntimeCanonicalArtifactObligations(
+        Vec<super::r#runtime::r#canonical_artifact_obligations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifactReads)]
+    r#RuntimeCanonicalArtifactReads(
+        Vec<super::r#runtime::r#canonical_artifact_reads::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifactStagingInputs)]
+    r#RuntimeCanonicalArtifactStagingInputs(
+        Vec<super::r#runtime::r#canonical_artifact_staging_inputs::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifacts)]
+    r#RuntimeCanonicalArtifacts(Vec<super::r#runtime::r#canonical_artifacts::Row>),
     #[doc = stringify!(r#RuntimeCanonicalAttempts)]
     r#RuntimeCanonicalAttempts(Vec<super::r#runtime::r#canonical_attempts::Row>),
     #[doc = stringify!(r#RuntimeCanonicalBodyContents)]
@@ -148,6 +166,10 @@ pub enum FactBatch {
     #[doc = stringify!(r#RuntimeCanonicalInterpretations)]
     r#RuntimeCanonicalInterpretations(
         Vec<super::r#runtime::r#canonical_interpretations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalMaintenanceActivations)]
+    r#RuntimeCanonicalMaintenanceActivations(
+        Vec<super::r#runtime::r#canonical_maintenance_activations::Row>,
     ),
     #[doc = stringify!(r#RuntimeCanonicalMemberships)]
     r#RuntimeCanonicalMemberships(Vec<super::r#runtime::r#canonical_memberships::Row>),
@@ -227,6 +249,8 @@ pub enum FactBatch {
     r#RuntimeCanonicalStudyDependencies(
         Vec<super::r#runtime::r#canonical_study_dependencies::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalStudyInputs)]
+    r#RuntimeCanonicalStudyInputs(Vec<super::r#runtime::r#canonical_study_inputs::Row>),
     #[doc = stringify!(r#RuntimeCanonicalStudyPoints)]
     r#RuntimeCanonicalStudyPoints(Vec<super::r#runtime::r#canonical_study_points::Row>),
     #[doc = stringify!(r#RuntimeCanonicalStudyReadiness)]
@@ -688,6 +712,36 @@ impl FactBatch {
                     73u8, 145u8, 20u8, 195u8, 186u8, 232u8,
                 ])
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    0u8, 71u8, 176u8, 248u8, 120u8, 203u8, 125u8, 133u8, 184u8, 27u8,
+                    190u8, 244u8, 224u8, 121u8, 152u8, 95u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    42u8, 39u8, 43u8, 225u8, 211u8, 76u8, 138u8, 128u8, 32u8, 56u8,
+                    167u8, 252u8, 232u8, 86u8, 209u8, 179u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalArtifactReads(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    117u8, 61u8, 239u8, 19u8, 119u8, 108u8, 209u8, 185u8, 188u8, 197u8,
+                    158u8, 75u8, 157u8, 159u8, 4u8, 194u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    157u8, 81u8, 127u8, 17u8, 52u8, 200u8, 191u8, 124u8, 131u8, 195u8,
+                    199u8, 7u8, 146u8, 3u8, 169u8, 14u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalArtifacts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    192u8, 68u8, 38u8, 7u8, 169u8, 145u8, 146u8, 104u8, 11u8, 88u8,
+                    135u8, 176u8, 218u8, 224u8, 144u8, 251u8,
+                ])
+            }
             Self::r#RuntimeCanonicalAttempts(_) => {
                 pse_ids::SemanticId::from_bytes([
                     13u8, 241u8, 44u8, 247u8, 230u8, 234u8, 242u8, 128u8, 20u8, 231u8,
@@ -728,6 +782,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     174u8, 21u8, 161u8, 39u8, 0u8, 16u8, 234u8, 79u8, 2u8, 202u8, 26u8,
                     223u8, 144u8, 122u8, 255u8, 40u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    51u8, 116u8, 220u8, 119u8, 253u8, 190u8, 229u8, 122u8, 51u8, 28u8,
+                    110u8, 97u8, 145u8, 159u8, 101u8, 141u8,
                 ])
             }
             Self::r#RuntimeCanonicalMemberships(_) => {
@@ -890,6 +950,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     145u8, 234u8, 135u8, 5u8, 16u8, 217u8, 227u8, 42u8, 148u8, 227u8,
                     252u8, 237u8, 55u8, 248u8, 164u8, 201u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalStudyInputs(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    172u8, 20u8, 182u8, 164u8, 38u8, 110u8, 11u8, 154u8, 1u8, 64u8,
+                    206u8, 98u8, 189u8, 214u8, 0u8, 176u8,
                 ])
             }
             Self::r#RuntimeCanonicalStudyPoints(_) => {
@@ -1302,6 +1368,11 @@ impl FactBatch {
             Self::r#RuntimeCanonicalAnalysisEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalAnalysisInputs(rows) => rows.len(),
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifactReads(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifacts(rows) => rows.len(),
             Self::r#RuntimeCanonicalAttempts(rows) => rows.len(),
             Self::r#RuntimeCanonicalBodyContents(rows) => rows.len(),
             Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
@@ -1309,6 +1380,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalGuards(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoricalResults(rows) => rows.len(),
             Self::r#RuntimeCanonicalInterpretations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMemberships(rows) => rows.len(),
             Self::r#RuntimeCanonicalPayloadBlocks(rows) => rows.len(),
             Self::r#RuntimeCanonicalProblemRuns(rows) => rows.len(),
@@ -1336,6 +1408,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalStages(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudies(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyDependencies(rows) => rows.len(),
+            Self::r#RuntimeCanonicalStudyInputs(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyPoints(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyReadiness(rows) => rows.len(),
             Self::r#RuntimeCanonicalStudyReadinessCursors(rows) => rows.len(),
@@ -1662,6 +1735,31 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalArtifacts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -1693,6 +1791,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -1828,6 +1931,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalStudyDependencies(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalStudyInputs(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2333,6 +2441,30 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalAnalysisNodes(vec![row.clone()]))
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifactBlocks(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifactObligations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifactReads(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifactStagingInputs(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalArtifacts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifacts(vec![row.clone()]))
+            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalAttempts(vec![row.clone()]))
@@ -2364,6 +2496,12 @@ impl FactBatch {
             Self::r#RuntimeCanonicalInterpretations(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalInterpretations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalMaintenanceActivations(
                         vec![row.clone()],
                     ))
             }
@@ -2492,6 +2630,10 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeCanonicalStudyDependencies(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeCanonicalStudyInputs(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalStudyInputs(vec![row.clone()]))
             }
             Self::r#RuntimeCanonicalStudyPoints(rows) => {
                 rows.get(index)
@@ -3269,6 +3411,61 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalArtifactBlocks(left),
+                Self::r#RuntimeCanonicalArtifactBlocks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactObligations(left),
+                Self::r#RuntimeCanonicalArtifactObligations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactReads(left),
+                Self::r#RuntimeCanonicalArtifactReads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactStagingInputs(left),
+                Self::r#RuntimeCanonicalArtifactStagingInputs(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifacts(left),
+                Self::r#RuntimeCanonicalArtifacts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalAttempts(left),
                 Self::r#RuntimeCanonicalAttempts(right),
             ) => {
@@ -3337,6 +3534,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalInterpretations(left),
                 Self::r#RuntimeCanonicalInterpretations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalMaintenanceActivations(left),
+                Self::r#RuntimeCanonicalMaintenanceActivations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -3631,6 +3839,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalStudyDependencies(left),
                 Self::r#RuntimeCanonicalStudyDependencies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStudyInputs(left),
+                Self::r#RuntimeCanonicalStudyInputs(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4621,6 +4840,41 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalArtifacts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -4664,6 +4918,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -4853,6 +5114,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalStudyDependencies(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalStudyInputs(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -5932,6 +6200,61 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeCanonicalArtifactBlocks(left),
+                Self::r#RuntimeCanonicalArtifactBlocks(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactObligations(left),
+                Self::r#RuntimeCanonicalArtifactObligations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactReads(left),
+                Self::r#RuntimeCanonicalArtifactReads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactStagingInputs(left),
+                Self::r#RuntimeCanonicalArtifactStagingInputs(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifacts(left),
+                Self::r#RuntimeCanonicalArtifacts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeCanonicalAttempts(left),
                 Self::r#RuntimeCanonicalAttempts(right),
             ) => {
@@ -6000,6 +6323,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalInterpretations(left),
                 Self::r#RuntimeCanonicalInterpretations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalMaintenanceActivations(left),
+                Self::r#RuntimeCanonicalMaintenanceActivations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6294,6 +6628,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalStudyDependencies(left),
                 Self::r#RuntimeCanonicalStudyDependencies(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalStudyInputs(left),
+                Self::r#RuntimeCanonicalStudyInputs(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -7482,6 +7827,26 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalArtifacts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalAttempts(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -7507,6 +7872,10 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
@@ -7615,6 +7984,10 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
             Self::r#RuntimeCanonicalStudyDependencies(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalStudyInputs(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
@@ -8279,6 +8652,41 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalArtifactBlocks(left),
+                Self::r#RuntimeCanonicalArtifactBlocks(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactObligations(left),
+                Self::r#RuntimeCanonicalArtifactObligations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactReads(left),
+                Self::r#RuntimeCanonicalArtifactReads(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactStagingInputs(left),
+                Self::r#RuntimeCanonicalArtifactStagingInputs(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalArtifacts(left),
+                Self::r#RuntimeCanonicalArtifacts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalAttempts(left),
                 Self::r#RuntimeCanonicalAttempts(mut right),
             ) => {
@@ -8323,6 +8731,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalInterpretations(left),
                 Self::r#RuntimeCanonicalInterpretations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalMaintenanceActivations(left),
+                Self::r#RuntimeCanonicalMaintenanceActivations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -8512,6 +8927,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalStudyDependencies(left),
                 Self::r#RuntimeCanonicalStudyDependencies(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalStudyInputs(left),
+                Self::r#RuntimeCanonicalStudyInputs(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -9010,6 +9432,19 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalAnalysisNodes(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeCanonicalArtifactBlocks(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalArtifactObligations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalArtifacts(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalAttempts(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalBodyContents(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -9023,6 +9458,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalMaintenanceActivations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalMemberships(rows) => {
@@ -9090,6 +9528,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalStages(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalStudies(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalStudyDependencies(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalStudyInputs(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalStudyPoints(rows) => {

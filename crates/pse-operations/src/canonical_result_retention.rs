@@ -44,13 +44,13 @@ impl CanonicalStore {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(study)?;
             self.ensure_writes()?;
-            protected_query("canonical_result_retention::forget_study_results", || {
-                Ok(self
-                    .db
-                    .query("RETURN fn::pse_retention_v1::forget_study($pse_rpc_expires_at, $study);")
-                    .bind(("study", study.to_owned())))
-            })
-            .await?;
+            loop {
+                let mut response=protected_query("canonical_result_retention::forget_study_results", || {
+                    Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::forget_study($pse_rpc_expires_at, $study); COMMIT;").bind(("study",study.to_owned())))
+                }).await?;
+                let index=response.num_statements().saturating_sub(2);
+                if response.take::<Option<bool>>(index)?.ok_or(CanonicalError::IncompleteResponse)? { break; }
+            }
             Ok(())
         }).await
             }).await
@@ -469,6 +469,11 @@ mod canonical_result_retention_server_unit {
             .await
             .unwrap();
         store.forget_history(&request.revision).await.unwrap();
+        let mut artifact = store.new_artifact(&request.revision,"analysis-fixture",vec![1],1,2).await.unwrap();
+        let block = crate::canonical_artifacts::artifact_block(&artifact.key,0,&set,vec![0,17],&escaped.batch.digest,1);
+        crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&request.revision),std::slice::from_ref(&read),std::slice::from_ref(&block));
+        store.persist_artifact(&artifact,std::slice::from_ref(&request.revision),std::slice::from_ref(&read),&[block],"user","multipage-artifact").await.unwrap();
+        let artifact_read=store.read_artifact(&artifact.key,Duration::from_secs(60)).await.unwrap();
         let mut header = store
             .new_analysis(
                 &request.revision,
@@ -490,7 +495,7 @@ mod canonical_result_retention_server_unit {
         crate::canonical_analyses::seal_analysis_request(
             &mut header,
             std::slice::from_ref(&request.revision),
-            std::slice::from_ref(&read),
+            std::slice::from_ref(&artifact_read),
             &nodes,
             &[],
         );
@@ -498,7 +503,7 @@ mod canonical_result_retention_server_unit {
             store.persist_analysis(
                 &header,
                 std::slice::from_ref(&request.revision),
-                std::slice::from_ref(&read),
+                std::slice::from_ref(&artifact_read),
                 &nodes,
                 &[]
             ),
@@ -542,10 +547,9 @@ mod canonical_result_retention_server_unit {
         assert_eq!(escaped.batch.payload.as_slice(), &[0, 17]);
         drop(escaped);
         store.result_read_drain.drain().await.unwrap();
-        assert!(
-            store.forget_run_results(&request.key).await.is_err(),
-            "analysis input retention must take over before reader release"
-        );
+        store.forget_run_results(&request.key).await.unwrap();
+        assert_eq!(artifact_read.block(0).await.unwrap().payload.as_slice(), &[0,17]);
+        artifact_read.release().await.unwrap();
         let mut roots = store
             .db
             .query(

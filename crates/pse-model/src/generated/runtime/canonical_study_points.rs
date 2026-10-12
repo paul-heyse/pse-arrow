@@ -17,6 +17,8 @@ pub struct RuntimeCanonicalStudyPointsRow {
     pub r#ordinal: u64,
     ///occurrence
     pub r#occurrence: u64,
+    ///seed_solution
+    pub r#seed_solution: Option<String>,
     ///policy
     pub r#policy: crate::Bytes,
     ///descriptor
@@ -44,7 +46,10 @@ impl crate::SemanticEq for RuntimeCanonicalStudyPointsRow {
             && crate::SemanticEq::semantic_eq(&self.r#study, &other.r#study)
             && crate::SemanticEq::semantic_eq(&self.r#ordinal, &other.r#ordinal)
             && crate::SemanticEq::semantic_eq(&self.r#occurrence, &other.r#occurrence)
-            && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#seed_solution,
+                &other.r#seed_solution,
+            ) && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
             && crate::SemanticEq::semantic_eq(&self.r#descriptor, &other.r#descriptor)
             && crate::SemanticEq::semantic_eq(&self.r#facts, &other.r#facts)
             && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
@@ -73,6 +78,8 @@ impl crate::SemanticFrame for RuntimeCanonicalStudyPointsRow {
         crate::SemanticFrame::frame(&self.r#ordinal, hash);
         hash.str(stringify!(r#occurrence));
         crate::SemanticFrame::frame(&self.r#occurrence, hash);
+        hash.str(stringify!(r#seed_solution));
+        crate::SemanticFrame::frame(&self.r#seed_solution, hash);
         hash.str(stringify!(r#policy));
         crate::SemanticFrame::frame(&self.r#policy, hash);
         hash.str(stringify!(r#descriptor));
@@ -102,6 +109,7 @@ impl crate::HeapUsage for RuntimeCanonicalStudyPointsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#ordinal))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#occurrence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_solution))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#descriptor))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facts))

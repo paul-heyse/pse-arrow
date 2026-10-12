@@ -623,6 +623,66 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            0u8, 71u8, 176u8, 248u8, 120u8, 203u8, 125u8, 133u8, 184u8, 27u8, 190u8,
+            244u8, 224u8, 121u8, 152u8, 95u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactBlocks(
+                super::r#runtime::r#canonical_artifact_blocks::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            42u8, 39u8, 43u8, 225u8, 211u8, 76u8, 138u8, 128u8, 32u8, 56u8, 167u8, 252u8,
+            232u8, 86u8, 209u8, 179u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactObligations(
+                super::r#runtime::r#canonical_artifact_obligations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            117u8, 61u8, 239u8, 19u8, 119u8, 108u8, 209u8, 185u8, 188u8, 197u8, 158u8,
+            75u8, 157u8, 159u8, 4u8, 194u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactReads(
+                super::r#runtime::r#canonical_artifact_reads::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            157u8, 81u8, 127u8, 17u8, 52u8, 200u8, 191u8, 124u8, 131u8, 195u8, 199u8,
+            7u8, 146u8, 3u8, 169u8, 14u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactStagingInputs(
+                super::r#runtime::r#canonical_artifact_staging_inputs::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            192u8, 68u8, 38u8, 7u8, 169u8, 145u8, 146u8, 104u8, 11u8, 88u8, 135u8, 176u8,
+            218u8, 224u8, 144u8, 251u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifacts(
+                super::r#runtime::r#canonical_artifacts::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             13u8, 241u8, 44u8, 247u8, 230u8, 234u8, 242u8, 128u8, 20u8, 231u8, 8u8, 40u8,
             82u8, 230u8, 224u8, 145u8,
         ])
@@ -702,6 +762,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalInterpretations(
                 super::r#runtime::r#canonical_interpretations::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            51u8, 116u8, 220u8, 119u8, 253u8, 190u8, 229u8, 122u8, 51u8, 28u8, 110u8,
+            97u8, 145u8, 159u8, 101u8, 141u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMaintenanceActivations(
+                super::r#runtime::r#canonical_maintenance_activations::Row::rows(batch)?,
             ),
         );
     }
@@ -1026,6 +1098,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyDependencies(
                 super::r#runtime::r#canonical_study_dependencies::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            172u8, 20u8, 182u8, 164u8, 38u8, 110u8, 11u8, 154u8, 1u8, 64u8, 206u8, 98u8,
+            189u8, 214u8, 0u8, 176u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyInputs(
+                super::r#runtime::r#canonical_study_inputs::Row::rows(batch)?,
             ),
         );
     }
@@ -1905,6 +1989,21 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalAnalysisNodes(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactBlocks(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactObligations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactReads(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactStagingInputs(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifacts(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalAttempts(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
@@ -1924,6 +2023,9 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalInterpretations(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMaintenanceActivations(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalMemberships(rows) => {
@@ -2007,6 +2109,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyDependencies(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyInputs(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalStudyPoints(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }

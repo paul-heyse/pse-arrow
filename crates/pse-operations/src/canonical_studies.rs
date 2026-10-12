@@ -434,6 +434,29 @@ fn creation_observed(boundary: CreationBoundary) {
 }
 
 impl CanonicalStore {
+    /// Install one deduplicated exact independent seed selection before study activation.
+    pub async fn retain_study_input(&self, study:&str, solution:&str, artifact:&str)->Result<(),CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            self.ensure_writes()?;
+            let row=pse_model::generated::runtime::canonical_study_inputs::Row { key:format!("{study}:{solution}"),study:study.into(),solution:solution.into(),artifact:artifact.into() };
+            let row=wire::encode_canonical_study_inputs(&row)?;
+            let owner=wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(artifact,"study",study))?;
+            protected_query("canonical_studies::retain_study_input",||Ok(self.db.query("BEGIN; fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'study inputs closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'study input is not a seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'study exact seed changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; }; COMMIT;")
+                .bind(("study",study.to_owned())).bind(("row",row.clone())).bind(("owner",owner.clone())))).await?;
+            Ok(())
+        }).await
+    }
+    /// Resolve the originally retained selection, never rediscover the producer on retry.
+    pub async fn study_input(&self,study:&str,solution:&str)->Result<String,CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            let mut response=protected_query("canonical_studies::study_input",||Ok(self.db.query("BEGIN; fn::pse_execution_v1::register($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study inputs retired'; }; LET $row=SELECT * FROM ONLY type::record('canonical_study_inputs',$key); IF $row=NONE OR $row.study!=$study OR $row.solution!=$solution { THROW 'retained study input unavailable'; }; fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); RETURN $row.artifact; COMMIT;")
+                .bind(("study",study.to_owned())).bind(("solution",solution.to_owned())).bind(("key",format!("{study}:{solution}"))))).await?;
+            let index=response.num_statements().saturating_sub(2);
+            response.take::<Option<String>>(index)?.ok_or(CanonicalError::IncompleteResponse)
+        }).await
+    }
     /// Study-only decisions join the same immutable problem owner as execution.
     /// This narrow lookup is pacing metadata; server predicates remain authority.
     async fn protected_study_query<F, Q>(
@@ -575,6 +598,7 @@ impl CanonicalStore {
                                 study: row.key.clone(),
                                 ordinal: ordinal as u64,
                                 occurrence: u64::from(point.policy.key.0),
+                                seed_solution: match &point.policy.start { StartPolicy::Explicit { seed, .. } => Some(seed.to_string()), _ => None },
                                 policy: encode(&point.policy)?.into(),
                                 descriptor: point.descriptor.clone().into(),
                                 facts: encode(&facts)?.into(),

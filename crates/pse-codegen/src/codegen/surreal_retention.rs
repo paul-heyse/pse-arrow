@@ -30,7 +30,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
     IF $header=NONE OR !$header.terminal { THROW 'only terminal studies may be retired'; };
     UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
-    LET $rpc_result = true;
+    LET $inputs=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
+    FOR $input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($input,['id'])); };
+    LET $rpc_result = array::len($inputs)<64;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
 };
@@ -52,8 +54,8 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     IF array::len($edges)!=0 { DELETE $edges.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $nodes=SELECT id FROM canonical_analysis_nodes WHERE analysis=$analysis ORDER BY key LIMIT 64;
     IF array::len($nodes)!=0 { DELETE $nodes.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
-    LET $inputs=SELECT id FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
-    IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    LET $inputs=SELECT id,artifact FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
+    IF array::len($inputs)!=0 { FOR $input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 64;
     IF array::len($roots)!=0 {
         FOR $root IN $roots {
@@ -113,8 +115,9 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
         SELECT * FROM ONLY type::record('canonical_study_retirements',$study) FOR UPDATE;
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'run results are retained by a study'; };
     };
-    LET $analyses=SELECT analysis FROM canonical_analysis_inputs WHERE run=$run LIMIT 1;
-    IF array::len($analyses)!=0 { THROW 'run results are retained by an analysis'; };
+    LET $staging=SELECT key FROM canonical_artifact_staging_inputs WHERE run=$run LIMIT 1;
+    IF array::len($staging)!=0 { THROW 'run results have unsettled artifact transfer'; };
+
     LET $roots=SELECT key,problem FROM canonical_roots WHERE owner_kind='run' AND owner=$run ORDER BY key LIMIT 66;
     IF array::len($roots)>65 { THROW 'run source retention limit'; };
     FOR $root IN $roots { fn::pse_execution_v1::source_creator($rpc_expiry,$root.problem,$root.key); };

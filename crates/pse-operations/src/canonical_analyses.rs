@@ -7,7 +7,7 @@ use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, Revision, bounded_query, protected_query},
     canonical_codec as codec,
-    canonical_results::ResultRead,
+    canonical_artifacts::ArtifactRead,
     generated::surreal as wire,
 };
 use pse_ids::{Frame, FramedHasher};
@@ -85,7 +85,7 @@ pub fn analysis_key(kind: &str, parts: &[&[u8]]) -> String {
 pub fn seal_analysis_request(
     header: &mut Analysis,
     sources: &[Revision],
-    inputs: &[ResultRead],
+    inputs: &[ArtifactRead],
     nodes: &[AnalysisNode],
     edges: &[AnalysisEdge],
 ) {
@@ -96,7 +96,7 @@ pub fn seal_analysis_request(
 fn request_digest(
     header: &Analysis,
     sources: &[Revision],
-    inputs: &[ResultRead],
+    inputs: &[ArtifactRead],
     nodes: &[AnalysisNode],
     edges: &[AnalysisEdge],
 ) -> String {
@@ -114,9 +114,7 @@ fn request_digest(
     }
     hash.str("inputs").u64(inputs.len() as u64);
     for input in inputs {
-        input.run().frame(&mut hash);
-        input.attempt().frame(&mut hash);
-        input.manifest().frame(&mut hash);
+        input.header().frame(&mut hash);
         hash.str(input.protected_selection().key());
     }
     hash.str("nodes").u64(nodes.len() as u64);
@@ -223,7 +221,7 @@ impl CanonicalStore {
         &self,
         header: &Analysis,
         sources: &[Revision],
-        inputs: &[ResultRead],
+        inputs: &[ArtifactRead],
         nodes: &[AnalysisNode],
         edges: &[AnalysisEdge],
     ) -> Result<Analysis, CanonicalError> {
@@ -269,10 +267,10 @@ impl CanonicalStore {
             for (ordinal, edge) in edges.iter().enumerate() {
                 identity(&edge.key)?;
                 identity(&edge.kind)?;
-                if edge
-                    .evidence
-                    .as_ref()
-                    .is_some_and(|value| value.len() > 4096)
+                if edge.evidence_artifact.as_ref().is_some_and(|value|value.len()>4096)
+                    || edge.evidence_field.as_ref().is_some_and(|value|value.len()>128)
+                    || edge.evidence_artifact.is_some()!=edge.evidence_block.is_some()
+                    || (edge.evidence_artifact.is_none() && (edge.evidence_row.is_some() || edge.evidence_field.is_some()))
                     || edge.analysis != header.key
                     || !edge_keys.insert(&edge.key)
                     || publication.classify(ordinal, edge, &node_pages).is_none()
@@ -306,20 +304,18 @@ impl CanonicalStore {
                             "pse.analysis.input.v1",
                             &[
                                 header.key.as_bytes(),
-                                input.attempt().key.as_bytes(),
-                                input.manifest().key.as_bytes(),
+                                input.header().key.as_bytes(),
                             ],
                         ),
                         analysis: header.key.clone(),
-                        run: input.run().key.clone(),
-                        attempt: input.attempt().key.clone(),
-                        manifest: input.manifest().key.clone(),
+                        artifact: input.header().key.clone(),
                     };
                     let mut row = wire::encode_canonical_analysis_inputs(&row)?;
                     row.insert(
                         "protection",
                         codec::encode_string(input.protected_selection().key().to_owned())?,
                     );
+                    row.insert("obligation", wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(&input.header().key,"analysis",&header.key))?);
                     selected.push(row);
                 }
                 let row = wire::encode_canonical_analyses(header)?;
@@ -510,7 +506,7 @@ mod canonical_analysis_publication_unit {
             source: format!("node-{source}"),
             target: format!("node-{target}"),
             kind: "incidence".into(),
-            evidence: None,
+            evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
         }
     }
 
@@ -636,7 +632,7 @@ mod canonical_analyses_server_unit {
             source: first.key.clone(),
             target: second.key.clone(),
             kind: "incidence".into(),
-            evidence: None,
+            evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
         };
         seal_analysis_request(
             &mut header,
@@ -861,7 +857,7 @@ mod canonical_analyses_server_unit {
                 source: nodes[0].key.clone(),
                 target: nodes[1 + n % 127].key.clone(),
                 kind: "incidence".into(),
-                evidence: None,
+                evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
             })
             .collect::<Vec<_>>();
         seal_analysis_request(

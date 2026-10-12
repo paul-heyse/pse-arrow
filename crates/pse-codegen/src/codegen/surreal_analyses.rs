@@ -37,7 +37,7 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         };
         FOR $input IN $inputs {
             LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key);
-            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'immutable analysis input changed'; };
+            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$input.artifact { THROW 'immutable analysis input changed'; };
         };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
@@ -54,27 +54,20 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
     };
     IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 OR $row.revision NOT IN $sources.revision { THROW 'analysis primary source omitted'; };
     FOR $input IN $inputs {
-        LET $guard=SELECT * FROM ONLY type::record('canonical_guards','execution-run:'+$input.run) FOR UPDATE;
-        IF $guard=NONE { THROW 'analysis run authority unavailable'; };
-        fn::pse_execution_v1::result_creator($rpc_expiry,$input.run);
-        SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key) FOR UPDATE;
-        fn::pse_execution_v1::available($rpc_expiry, $input.run);
-        LET $run=SELECT * FROM ONLY type::record('canonical_runs',$input.run);
-        LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);
-        LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$input.manifest);
+        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
-        LET $selected_pin=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
-        IF $selected_pin=NONE OR $selected_pin.run!=$input.run OR $selected_pin.attempt!=$input.attempt OR $selected_pin.manifest!=$input.manifest { THROW 'analysis result protection differs'; };
-        IF $run=NONE OR $attempt=NONE OR $manifest=NONE OR $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$run.revision OR $attempt.run!=$input.run OR !$attempt.terminal OR !$attempt.closed OR $attempt.ingestion_open OR $attempt.closed_manifest!=$input.manifest OR $manifest.attempt!=$input.attempt OR $manifest.generation!=$attempt.generation OR $input.analysis!=$row.key { THROW 'analysis input not admitted'; };
-        LET $selected=SELECT revision FROM canonical_run_sources WHERE run=$input.run LIMIT 66;
-        IF array::len($selected)>65 OR array::len($selected)=0 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'analysis omitted actual result source'; };
+        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$input.protection);
+        IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'analysis artifact input not admitted'; };
+        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$input.artifact LIMIT 66;
+        IF array::len($selected)=0 OR array::len($selected)>65 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'analysis omitted artifact source'; };
     };
     LET $saved=CREATE ONLY type::record('canonical_analyses',$row.key) CONTENT $row;
     FOR $source IN $sources {
         CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='analysis',owner=$row.key;
     };
     FOR $input IN $inputs {
-        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_attempts',$input.attempt)}) RETURN NONE;
+        fn::pse_artifact_v1::attach($rpc_expiry,$input.artifact,$input.obligation,true);
+        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$input.artifact)}) RETURN NONE;
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -93,8 +86,14 @@ DEFINE FUNCTION fn::pse_analysis_v1::append($rpc_expiry: int, $key: string,$node
     };
     FOR $edge IN $edges {
         IF $edge.analysis!=$key OR type::record('canonical_analysis_nodes',$edge.source).analysis!=$key OR type::record('canonical_analysis_nodes',$edge.target).analysis!=$key { THROW 'analysis edge membership'; };
+        IF ($edge.evidence_artifact=NONE)!=($edge.evidence_block=NONE) OR ($edge.evidence_artifact=NONE AND ($edge.evidence_row!=NONE OR $edge.evidence_field!=NONE)) { THROW 'analysis typed evidence incomplete'; };
+        IF $edge.evidence_artifact!=NONE {
+            LET $inputs=SELECT key FROM canonical_analysis_inputs WHERE analysis=$key AND artifact=$edge.evidence_artifact LIMIT 1;
+            LET $blocks=SELECT rows FROM canonical_artifact_blocks WHERE artifact=$edge.evidence_artifact AND ordinal=$edge.evidence_block LIMIT 1;
+            IF array::len($inputs)!=1 OR array::len($blocks)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$blocks[0].rows) { THROW 'analysis evidence outside retained artifact'; };
+        };
         LET $old=SELECT * FROM ONLY type::record('canonical_analysis_edges',$edge.key);
-        IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence!=$edge.evidence { THROW 'immutable analysis edge changed'; }; }
+        IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence_artifact!=$edge.evidence_artifact OR $old.evidence_block!=$edge.evidence_block OR $old.evidence_row!=$edge.evidence_row OR $old.evidence_field!=$edge.evidence_field { THROW 'immutable analysis edge changed'; }; }
         ELSE { IF $row.active { THROW 'analysis graph closed'; }; INSERT RELATION INTO canonical_analysis_edges object::extend($edge,{id:type::record('canonical_analysis_edges',$edge.key),in:type::record('canonical_analysis_nodes',$edge.source),out:type::record('canonical_analysis_nodes',$edge.target)}) RETURN NONE; };
     };
     LET $rpc_result = true;

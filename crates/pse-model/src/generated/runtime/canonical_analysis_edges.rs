@@ -19,8 +19,14 @@ pub struct RuntimeCanonicalAnalysisEdgesRow {
     pub r#target: String,
     ///kind
     pub r#kind: String,
-    ///evidence
-    pub r#evidence: Option<String>,
+    ///evidence_artifact
+    pub r#evidence_artifact: Option<String>,
+    ///evidence_block
+    pub r#evidence_block: Option<u64>,
+    ///evidence_row
+    pub r#evidence_row: Option<u64>,
+    ///evidence_field
+    pub r#evidence_field: Option<String>,
 }
 impl crate::SemanticEq for RuntimeCanonicalAnalysisEdgesRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -29,7 +35,22 @@ impl crate::SemanticEq for RuntimeCanonicalAnalysisEdgesRow {
             && crate::SemanticEq::semantic_eq(&self.r#source, &other.r#source)
             && crate::SemanticEq::semantic_eq(&self.r#target, &other.r#target)
             && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
-            && crate::SemanticEq::semantic_eq(&self.r#evidence, &other.r#evidence)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_artifact,
+                &other.r#evidence_artifact,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_block,
+                &other.r#evidence_block,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_row,
+                &other.r#evidence_row,
+            )
+            && crate::SemanticEq::semantic_eq(
+                &self.r#evidence_field,
+                &other.r#evidence_field,
+            )
     }
 }
 impl PartialEq for RuntimeCanonicalAnalysisEdgesRow {
@@ -51,8 +72,14 @@ impl crate::SemanticFrame for RuntimeCanonicalAnalysisEdgesRow {
         crate::SemanticFrame::frame(&self.r#target, hash);
         hash.str(stringify!(r#kind));
         crate::SemanticFrame::frame(&self.r#kind, hash);
-        hash.str(stringify!(r#evidence));
-        crate::SemanticFrame::frame(&self.r#evidence, hash);
+        hash.str(stringify!(r#evidence_artifact));
+        crate::SemanticFrame::frame(&self.r#evidence_artifact, hash);
+        hash.str(stringify!(r#evidence_block));
+        crate::SemanticFrame::frame(&self.r#evidence_block, hash);
+        hash.str(stringify!(r#evidence_row));
+        crate::SemanticFrame::frame(&self.r#evidence_row, hash);
+        hash.str(stringify!(r#evidence_field));
+        crate::SemanticFrame::frame(&self.r#evidence_field, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalAnalysisEdgesRow {
@@ -63,6 +90,9 @@ impl crate::HeapUsage for RuntimeCanonicalAnalysisEdgesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#source))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#target))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_artifact))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_block))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_row))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#evidence_field))
     }
 }

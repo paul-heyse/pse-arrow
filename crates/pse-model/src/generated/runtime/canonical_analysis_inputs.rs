@@ -13,20 +13,14 @@ pub struct RuntimeCanonicalAnalysisInputsRow {
     pub r#key: String,
     ///analysis
     pub r#analysis: String,
-    ///run
-    pub r#run: String,
-    ///attempt
-    pub r#attempt: String,
-    ///manifest
-    pub r#manifest: String,
+    ///artifact
+    pub r#artifact: String,
 }
 impl crate::SemanticEq for RuntimeCanonicalAnalysisInputsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
             && crate::SemanticEq::semantic_eq(&self.r#analysis, &other.r#analysis)
-            && crate::SemanticEq::semantic_eq(&self.r#run, &other.r#run)
-            && crate::SemanticEq::semantic_eq(&self.r#attempt, &other.r#attempt)
-            && crate::SemanticEq::semantic_eq(&self.r#manifest, &other.r#manifest)
+            && crate::SemanticEq::semantic_eq(&self.r#artifact, &other.r#artifact)
     }
 }
 impl PartialEq for RuntimeCanonicalAnalysisInputsRow {
@@ -42,12 +36,8 @@ impl crate::SemanticFrame for RuntimeCanonicalAnalysisInputsRow {
         crate::SemanticFrame::frame(&self.r#key, hash);
         hash.str(stringify!(r#analysis));
         crate::SemanticFrame::frame(&self.r#analysis, hash);
-        hash.str(stringify!(r#run));
-        crate::SemanticFrame::frame(&self.r#run, hash);
-        hash.str(stringify!(r#attempt));
-        crate::SemanticFrame::frame(&self.r#attempt, hash);
-        hash.str(stringify!(r#manifest));
-        crate::SemanticFrame::frame(&self.r#manifest, hash);
+        hash.str(stringify!(r#artifact));
+        crate::SemanticFrame::frame(&self.r#artifact, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalAnalysisInputsRow {
@@ -55,8 +45,6 @@ impl crate::HeapUsage for RuntimeCanonicalAnalysisInputsRow {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#key))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#analysis))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#attempt))
-            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#manifest))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#artifact))
     }
 }

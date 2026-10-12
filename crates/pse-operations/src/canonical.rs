@@ -104,6 +104,15 @@ pub enum CanonicalError {
         #[source]
         source: Box<CanonicalError>,
     },
+    /// Scientific transfer may have reached the server; retain the exact sealed intent.
+    #[error("artifact {key} publication did not complete: {source}", key = .intent.key)]
+    ArtifactUnsettled {
+        /// Original finite creation authority and exact selected closure.
+        intent: Box<crate::canonical_artifacts::Artifact>,
+        /// Original failure, never inferred to mean rollback.
+        #[source]
+        source: Box<CanonicalError>,
+    },
     /// Source publication may have reached the server; recover only this issue.
     #[error("source edit {operation} for {problem} did not settle: {source}")]
     SourceEditUnsettled {
@@ -4539,7 +4548,7 @@ mod canonical_server_unit {
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {
-                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None };
+                let row = pse_model::generated::runtime::canonical_guards::Row { key: format!("boundary-{index}"), generation: value, incarnation: None, protection_closed_through: None, analysis_creation_closed_through: None, artifact_creation_closed_through: None };
                 let mut response = store.db.query("CREATE type::record('canonical_guards', $key) CONTENT $row;").bind(("key", row.key.clone())).bind(("row", wire::encode_canonical_guards(&row)?)).await.and_then(checked)?;
                 let saved: Option<Object> = response.take(0)?;
                 assert_eq!(wire::decode_canonical_guards(saved.unwrap())?.generation, value);

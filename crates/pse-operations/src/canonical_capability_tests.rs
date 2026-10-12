@@ -24,7 +24,6 @@ use pse_model::{
     },
     study::{ActionKind, Dependency, OccurrenceKey, PointPolicy, SeedNeed, StartPolicy},
 };
-use std::time::Duration;
 use surrealdb::types::{NotFoundError, Object, ToSql, Value};
 
 async fn fixture() -> CanonicalStore {
@@ -141,10 +140,6 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         .await
         .unwrap();
     store.begin_run(&request(&revision, "run")).await.unwrap();
-    let fence = store
-        .claim_run("run", "claim", "fixture", Duration::from_secs(60))
-        .await
-        .unwrap();
     let mut analysis = store
         .new_analysis(
             &revision,
@@ -176,7 +171,7 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         source: nodes[0].key.clone(),
         target: nodes[1].key.clone(),
         kind: "incidence".into(),
-        evidence: None,
+        evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
     };
     seal_analysis_request(
         &mut analysis,
@@ -195,6 +190,10 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         )
         .await
         .unwrap();
+    let mut artifact=store.new_artifact(&revision,"endpoint-fixture",vec![],1,1).await.unwrap();
+    let block=crate::canonical_artifacts::artifact_block(&artifact.key,0,"fixture",vec![1],"original",1);
+    crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block));
+    store.persist_artifact(&artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture").await.unwrap();
     let cases = [
         RelationCase {
             table: "canonical_memberships",
@@ -225,15 +224,13 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         RelationCase {
             table: "canonical_analysis_inputs",
             source_field: "analysis",
-            target_field: "attempt",
+            target_field: "artifact",
             source: endpoint(&store, "canonical_analyses", &analysis.key).await,
-            target: endpoint(&store, "canonical_attempts", fence.attempt()).await,
+            target: endpoint(&store, "canonical_artifacts", &artifact.key).await,
             row: wire::encode_canonical_analysis_inputs(&canonical_analysis_inputs::Row {
                 key: "control".into(),
                 analysis: analysis.key.clone(),
-                run: "run".into(),
-                attempt: fence.attempt().into(),
-                manifest: "native-endpoint-control".into(),
+                artifact: artifact.key.clone(),
             })
             .unwrap(),
         },
@@ -569,6 +566,10 @@ async fn native_canonical_interval_dereference_and_supplier_plans_report_access_
         )
         .await
         .unwrap();
+    let mut artifact=store.new_artifact(&revision,"endpoint-fixture",vec![],1,1).await.unwrap();
+    let block=crate::canonical_artifacts::artifact_block(&artifact.key,0,"fixture",vec![1],"original",1);
+    crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block));
+    store.persist_artifact(&artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture").await.unwrap();
     let cases = [
         (
             "membership-interval",

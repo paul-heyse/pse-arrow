@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    56u8, 248u8, 168u8, 162u8, 45u8, 50u8, 132u8, 246u8, 249u8, 1u8, 21u8, 10u8, 5u8,
-    14u8, 191u8, 86u8, 213u8, 34u8, 235u8, 145u8, 240u8, 103u8, 151u8, 49u8, 176u8,
-    166u8, 164u8, 203u8, 39u8, 191u8, 116u8, 68u8,
+    121u8, 66u8, 84u8, 74u8, 90u8, 58u8, 193u8, 247u8, 103u8, 235u8, 94u8, 162u8, 163u8,
+    83u8, 12u8, 95u8, 220u8, 58u8, 149u8, 240u8, 59u8, 39u8, 13u8, 178u8, 155u8, 19u8,
+    29u8, 153u8, 69u8, 195u8, 180u8, 37u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalStudyPointsRow {
     fn append(
@@ -39,31 +39,35 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyPointsRow {
             &self.r#occurrence,
             children[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#policy, children[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#seed_solution,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#policy, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#descriptor,
-            children[5usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#facts, children[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outcome, children[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#run, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#facts, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#run, children[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#revision,
-            children[9usize].as_mut(),
-        )?;
-        crate::columnar::ArrowValue::append(
-            &self.r#assigned,
             children[10usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#settled,
+            &self.r#assigned,
             children[11usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#attempt,
+            &self.r#settled,
             children[12usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#start, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#attempt,
+            children[13usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#start, children[14usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -78,28 +82,31 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyPointsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <u64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <u64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
-            children[4usize].as_mut(),
-        )?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
         )?;
         <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
             children[6usize].as_mut(),
         )?;
+        <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
         <Option<
             pse_model::Bytes,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
-        <u64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <u64 as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <bool as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Option<
             String,
-        > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
         <Option<
             pse_model::Bytes,
-        > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -126,50 +133,56 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalStudyPointsRow {
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#policy: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
+            r#seed_solution: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#descriptor: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
+            r#policy: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#facts: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
+            r#descriptor: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#facts: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
                 index,
             )?,
             r#outcome: <Option<
                 pse_model::Bytes,
             > as crate::columnar::ArrowValue>::read(
-                input.column(7usize).as_ref(),
-                index,
-            )?,
-            r#run: <String as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#revision: <u64 as crate::columnar::ArrowValue>::read(
+            r#run: <String as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#assigned: <bool as crate::columnar::ArrowValue>::read(
+            r#revision: <u64 as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#settled: <bool as crate::columnar::ArrowValue>::read(
+            r#assigned: <bool as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
+                index,
+            )?,
+            r#settled: <bool as crate::columnar::ArrowValue>::read(
+                input.column(12usize).as_ref(),
                 index,
             )?,
             r#attempt: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
-                input.column(12usize).as_ref(),
+                input.column(13usize).as_ref(),
                 index,
             )?,
             r#start: <Option<
                 pse_model::Bytes,
             > as crate::columnar::ArrowValue>::read(
-                input.column(13usize).as_ref(),
+                input.column(14usize).as_ref(),
                 index,
             )?,
         })
@@ -235,22 +248,29 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyPointsRow {
             &self.r#occurrence,
             columns[3usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#policy, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#seed_solution,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#policy, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#descriptor,
-            columns[5usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#facts, columns[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outcome, columns[7usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#run, columns[8usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#revision, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#facts, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outcome, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#run, columns[9usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#assigned,
+            &self.r#revision,
             columns[10usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#settled, columns[11usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#attempt, columns[12usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#start, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#assigned,
+            columns[11usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#settled, columns[12usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#attempt, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#start, columns[14usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -286,10 +306,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyPointsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        28_672_usize + size_of::<Self::Builder>()
+        30_720_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        224usize
+        240usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -308,6 +328,17 @@ impl crate::columnar::RelationRow for RuntimeCanonicalStudyPointsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#seed_solution).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -380,7 +411,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 15usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -403,53 +434,58 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 14usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "policy",
+        name: "seed_solution",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "descriptor",
+        name: "policy",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "facts",
+        name: "descriptor",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outcome",
+        name: "facts",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "run",
+        name: "outcome",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "revision",
+        name: "run",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "assigned",
+        name: "revision",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "settled",
+        name: "assigned",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "attempt",
+        name: "settled",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "start",
+        name: "attempt",
         position: 13usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "start",
+        position: 14usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -462,26 +498,28 @@ pub mod columns {
     pub const ORDINAL: crate::columnar::ColumnReference = super::COLUMNS[2usize];
     ///occurrence
     pub const OCCURRENCE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///seed_solution
+    pub const SEED_SOLUTION: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///policy
-    pub const POLICY: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const POLICY: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///descriptor
-    pub const DESCRIPTOR: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const DESCRIPTOR: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///facts
-    pub const FACTS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const FACTS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///outcome
-    pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const OUTCOME: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///run
-    pub const RUN: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const RUN: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///revision
-    pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const REVISION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///assigned
-    pub const ASSIGNED: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const ASSIGNED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///settled
-    pub const SETTLED: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const SETTLED: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///attempt
-    pub const ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///start
-    pub const START: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const START: crate::columnar::ColumnReference = super::COLUMNS[14usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -493,6 +531,7 @@ pub struct RuntimeCanonicalStudyPointsView<'a> {
     study_column: &'a arrow_array::StringArray,
     ordinal_column: &'a arrow_array::UInt64Array,
     occurrence_column: &'a arrow_array::UInt64Array,
+    seed_solution_column: &'a arrow_array::StringArray,
     policy_column: &'a arrow_array::BinaryArray,
     descriptor_column: &'a arrow_array::BinaryArray,
     facts_column: &'a arrow_array::BinaryArray,
@@ -559,36 +598,39 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
             occurrence_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
             >(batch.column(3usize).as_ref())?,
+            seed_solution_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(4usize).as_ref())?,
             policy_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(4usize).as_ref())?,
+            >(batch.column(5usize).as_ref())?,
             descriptor_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(5usize).as_ref())?,
+            >(batch.column(6usize).as_ref())?,
             facts_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(7usize).as_ref())?,
             outcome_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             run_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             revision_column: crate::columnar::array::<
                 arrow_array::UInt64Array,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             assigned_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             settled_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             attempt_column: crate::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             start_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -653,6 +695,18 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "seed_solution",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn seed_solution_column(&self) -> &'a arrow_array::StringArray {
+        self.seed_solution_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "seed_solution", "`.")]
+    pub fn seed_solution_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "policy",
         "`, including its offsets and validity bitmap.",
     )]
@@ -661,7 +715,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "policy", "`.")]
     pub fn policy_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -673,7 +727,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "descriptor", "`.")]
     pub fn descriptor_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -685,7 +739,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "facts", "`.")]
     pub fn facts_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -697,7 +751,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outcome", "`.")]
     pub fn outcome_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -709,7 +763,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "run", "`.")]
     pub fn run_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -721,7 +775,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "revision", "`.")]
     pub fn revision_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -733,7 +787,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "assigned", "`.")]
     pub fn assigned_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -745,7 +799,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "settled", "`.")]
     pub fn settled_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -757,7 +811,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "attempt", "`.")]
     pub fn attempt_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -769,7 +823,7 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "start", "`.")]
     pub fn start_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -788,6 +842,10 @@ impl<'a> RuntimeCanonicalStudyPointsView<'a> {
             r#ordinal: crate::columnar::ArrowValue::read(self.ordinal_column, index)?,
             r#occurrence: crate::columnar::ArrowValue::read(
                 self.occurrence_column,
+                index,
+            )?,
+            r#seed_solution: crate::columnar::ArrowValue::read(
+                self.seed_solution_column,
                 index,
             )?,
             r#policy: crate::columnar::ArrowValue::read(self.policy_column, index)?,

@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    216u8, 26u8, 46u8, 6u8, 111u8, 220u8, 230u8, 6u8, 138u8, 108u8, 56u8, 251u8, 167u8,
-    42u8, 178u8, 105u8, 81u8, 125u8, 255u8, 139u8, 87u8, 217u8, 161u8, 215u8, 32u8,
-    230u8, 221u8, 209u8, 109u8, 116u8, 243u8, 215u8,
+    171u8, 122u8, 113u8, 219u8, 92u8, 54u8, 13u8, 76u8, 9u8, 144u8, 64u8, 73u8, 208u8,
+    24u8, 80u8, 166u8, 69u8, 39u8, 214u8, 196u8, 140u8, 114u8, 16u8, 190u8, 74u8, 151u8,
+    198u8, 98u8, 201u8, 14u8, 0u8, 83u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisInputsRow {
     fn append(
@@ -37,11 +37,9 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisInputsRow {
             &self.r#analysis,
             children[1usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#run, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#attempt, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#manifest,
-            children[4usize].as_mut(),
+            &self.r#artifact,
+            children[2usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -56,8 +54,6 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisInputsRow {
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -76,16 +72,8 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisInputsRow {
                 input.column(1usize).as_ref(),
                 index,
             )?,
-            r#run: <String as crate::columnar::ArrowValue>::read(
+            r#artifact: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-            r#attempt: <String as crate::columnar::ArrowValue>::read(
-                input.column(3usize).as_ref(),
-                index,
-            )?,
-            r#manifest: <String as crate::columnar::ArrowValue>::read(
-                input.column(4usize).as_ref(),
                 index,
             )?,
         })
@@ -146,9 +134,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisInputsRow {
     ) -> Result<(), crate::RelationError> {
         crate::columnar::ArrowValue::append(&self.r#key, columns[0usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#analysis, columns[1usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#run, columns[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#attempt, columns[3usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#manifest, columns[4usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#artifact, columns[2usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -184,10 +170,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisInputsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        10_240_usize + size_of::<Self::Builder>()
+        6_144_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        80usize
+        48usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -201,15 +187,7 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisInputsRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            crate::columnar::allocation_add(8, (self.r#run).len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            crate::columnar::allocation_add(8, (self.r#attempt).len())?,
-        )?;
-        bytes = crate::columnar::allocation_add(
-            bytes,
-            crate::columnar::allocation_add(8, (self.r#manifest).len())?,
+            crate::columnar::allocation_add(8, (self.r#artifact).len())?,
         )?;
         Ok(bytes)
     }
@@ -221,7 +199,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 3usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -234,18 +212,8 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 5usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "run",
+        name: "artifact",
         position: 2usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "attempt",
-        position: 3usize,
-    },
-    crate::columnar::ColumnReference {
-        relation_id: RELATION_ID,
-        name: "manifest",
-        position: 4usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -254,12 +222,8 @@ pub mod columns {
     pub const KEY: crate::columnar::ColumnReference = super::COLUMNS[0usize];
     ///analysis
     pub const ANALYSIS: crate::columnar::ColumnReference = super::COLUMNS[1usize];
-    ///run
-    pub const RUN: crate::columnar::ColumnReference = super::COLUMNS[2usize];
-    ///attempt
-    pub const ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[3usize];
-    ///manifest
-    pub const MANIFEST: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    ///artifact
+    pub const ARTIFACT: crate::columnar::ColumnReference = super::COLUMNS[2usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -269,9 +233,7 @@ pub struct RuntimeCanonicalAnalysisInputsView<'a> {
     checked: Option<&'a crate::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
     analysis_column: &'a arrow_array::StringArray,
-    run_column: &'a arrow_array::StringArray,
-    attempt_column: &'a arrow_array::StringArray,
-    manifest_column: &'a arrow_array::StringArray,
+    artifact_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -322,15 +284,9 @@ impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
             analysis_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(1usize).as_ref())?,
-            run_column: crate::columnar::array::<
+            artifact_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(2usize).as_ref())?,
-            attempt_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(3usize).as_ref())?,
-            manifest_column: crate::columnar::array::<
-                arrow_array::StringArray,
-            >(batch.column(4usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -371,39 +327,15 @@ impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "run",
+        "artifact",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn run_column(&self) -> &'a arrow_array::StringArray {
-        self.run_column
+    pub const fn artifact_column(&self) -> &'a arrow_array::StringArray {
+        self.artifact_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "run", "`.")]
-    pub fn run_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "artifact", "`.")]
+    pub fn artifact_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[2usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "attempt",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn attempt_column(&self) -> &'a arrow_array::StringArray {
-        self.attempt_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "attempt", "`.")]
-    pub fn attempt_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
-    }
-    #[doc = concat!(
-        "Borrows the actual Arrow column `",
-        "manifest",
-        "`, including its offsets and validity bitmap.",
-    )]
-    pub const fn manifest_column(&self) -> &'a arrow_array::StringArray {
-        self.manifest_column
-    }
-    #[doc = concat!("Borrows the exact declared field for `", "manifest", "`.")]
-    pub fn manifest_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -419,9 +351,7 @@ impl<'a> RuntimeCanonicalAnalysisInputsView<'a> {
         Ok(RuntimeCanonicalAnalysisInputsRow {
             r#key: crate::columnar::ArrowValue::read(self.key_column, index)?,
             r#analysis: crate::columnar::ArrowValue::read(self.analysis_column, index)?,
-            r#run: crate::columnar::ArrowValue::read(self.run_column, index)?,
-            r#attempt: crate::columnar::ArrowValue::read(self.attempt_column, index)?,
-            r#manifest: crate::columnar::ArrowValue::read(self.manifest_column, index)?,
+            r#artifact: crate::columnar::ArrowValue::read(self.artifact_column, index)?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

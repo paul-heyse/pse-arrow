@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    39u8, 182u8, 80u8, 88u8, 4u8, 231u8, 150u8, 75u8, 165u8, 240u8, 141u8, 40u8, 72u8,
-    144u8, 99u8, 100u8, 164u8, 73u8, 208u8, 27u8, 22u8, 253u8, 217u8, 234u8, 102u8,
-    198u8, 79u8, 188u8, 208u8, 117u8, 1u8, 30u8,
+    102u8, 235u8, 84u8, 205u8, 246u8, 92u8, 184u8, 250u8, 255u8, 86u8, 130u8, 246u8,
+    221u8, 103u8, 43u8, 27u8, 91u8, 83u8, 247u8, 157u8, 193u8, 254u8, 79u8, 202u8, 200u8,
+    24u8, 151u8, 202u8, 168u8, 14u8, 150u8, 143u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisEdgesRow {
     fn append(
@@ -41,8 +41,20 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisEdgesRow {
         crate::columnar::ArrowValue::append(&self.r#target, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#kind, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#evidence,
+            &self.r#evidence_artifact,
             children[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_block,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_row,
+            children[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_field,
+            children[8usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -62,6 +74,15 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisEdgesRow {
         <Option<
             String,
         > as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            u64,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -92,10 +113,28 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalAnalysisEdgesRow {
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#evidence: <Option<
+            r#evidence_artifact: <Option<
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#evidence_block: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#evidence_row: <Option<
+                u64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#evidence_field: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
                 index,
             )?,
         })
@@ -159,7 +198,22 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisEdgesRow {
         crate::columnar::ArrowValue::append(&self.r#source, columns[2usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#target, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#kind, columns[4usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#evidence, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_artifact,
+            columns[5usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_block,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_row,
+            columns[7usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#evidence_field,
+            columns[8usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -195,10 +249,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisEdgesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        12_288_usize + size_of::<Self::Builder>()
+        18_432_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        96usize
+        144usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -224,7 +278,40 @@ impl crate::columnar::RelationRow for RuntimeCanonicalAnalysisEdgesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            if let Some(value) = (self.r#evidence).as_ref() {
+            if let Some(value) = (self.r#evidence_artifact).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#evidence_block).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if (self.r#evidence_row).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(8usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#evidence_field).as_ref() {
                 crate::columnar::allocation_add(
                     1,
                     crate::columnar::allocation_add(8, (value).len())?,
@@ -243,7 +330,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 9usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -271,8 +358,23 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "evidence",
+        name: "evidence_artifact",
         position: 5usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "evidence_block",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "evidence_row",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "evidence_field",
+        position: 8usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -287,8 +389,14 @@ pub mod columns {
     pub const TARGET: crate::columnar::ColumnReference = super::COLUMNS[3usize];
     ///kind
     pub const KIND: crate::columnar::ColumnReference = super::COLUMNS[4usize];
-    ///evidence
-    pub const EVIDENCE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///evidence_artifact
+    pub const EVIDENCE_ARTIFACT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///evidence_block
+    pub const EVIDENCE_BLOCK: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///evidence_row
+    pub const EVIDENCE_ROW: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///evidence_field
+    pub const EVIDENCE_FIELD: crate::columnar::ColumnReference = super::COLUMNS[8usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -301,7 +409,10 @@ pub struct RuntimeCanonicalAnalysisEdgesView<'a> {
     source_column: &'a arrow_array::StringArray,
     target_column: &'a arrow_array::StringArray,
     kind_column: &'a arrow_array::StringArray,
-    evidence_column: &'a arrow_array::StringArray,
+    evidence_artifact_column: &'a arrow_array::StringArray,
+    evidence_block_column: &'a arrow_array::UInt64Array,
+    evidence_row_column: &'a arrow_array::UInt64Array,
+    evidence_field_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalAnalysisEdgesView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -361,9 +472,18 @@ impl<'a> RuntimeCanonicalAnalysisEdgesView<'a> {
             kind_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(4usize).as_ref())?,
-            evidence_column: crate::columnar::array::<
+            evidence_artifact_column: crate::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(5usize).as_ref())?,
+            evidence_block_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(6usize).as_ref())?,
+            evidence_row_column: crate::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(7usize).as_ref())?,
+            evidence_field_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -440,15 +560,51 @@ impl<'a> RuntimeCanonicalAnalysisEdgesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
-        "evidence",
+        "evidence_artifact",
         "`, including its offsets and validity bitmap.",
     )]
-    pub const fn evidence_column(&self) -> &'a arrow_array::StringArray {
-        self.evidence_column
+    pub const fn evidence_artifact_column(&self) -> &'a arrow_array::StringArray {
+        self.evidence_artifact_column
     }
-    #[doc = concat!("Borrows the exact declared field for `", "evidence", "`.")]
-    pub fn evidence_field(&self) -> &'a crate::FieldRef {
+    #[doc = concat!("Borrows the exact declared field for `", "evidence_artifact", "`.")]
+    pub fn evidence_artifact_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[5usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "evidence_block",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn evidence_block_column(&self) -> &'a arrow_array::UInt64Array {
+        self.evidence_block_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "evidence_block", "`.")]
+    pub fn evidence_block_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "evidence_row",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn evidence_row_column(&self) -> &'a arrow_array::UInt64Array {
+        self.evidence_row_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "evidence_row", "`.")]
+    pub fn evidence_row_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "evidence_field",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn evidence_field_column(&self) -> &'a arrow_array::StringArray {
+        self.evidence_field_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "evidence_field", "`.")]
+    pub fn evidence_field_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -467,7 +623,22 @@ impl<'a> RuntimeCanonicalAnalysisEdgesView<'a> {
             r#source: crate::columnar::ArrowValue::read(self.source_column, index)?,
             r#target: crate::columnar::ArrowValue::read(self.target_column, index)?,
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
-            r#evidence: crate::columnar::ArrowValue::read(self.evidence_column, index)?,
+            r#evidence_artifact: crate::columnar::ArrowValue::read(
+                self.evidence_artifact_column,
+                index,
+            )?,
+            r#evidence_block: crate::columnar::ArrowValue::read(
+                self.evidence_block_column,
+                index,
+            )?,
+            r#evidence_row: crate::columnar::ArrowValue::read(
+                self.evidence_row_column,
+                index,
+            )?,
+            r#evidence_field: crate::columnar::ArrowValue::read(
+                self.evidence_field_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

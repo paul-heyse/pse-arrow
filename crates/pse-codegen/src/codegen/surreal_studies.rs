@@ -121,9 +121,16 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
     IF array::len($existing) != 0 AND array::len($existing) != array::len($points) { THROW 'study occurrence batch mixed settlement'; };
     FOR $point IN $points {
         IF $point.study != $study { THROW 'study occurrence belongs elsewhere'; };
+        IF $point.seed_solution!=NONE {
+            LET $input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
+            IF $input=NONE OR $input.study!=$study OR $input.solution!=$point.seed_solution { THROW 'study external seed was not retained'; };
+            fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
+            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
+            IF array::len($owners)!=1 { THROW 'study external seed obligation absent'; };
+        };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
         IF $old != NONE {
-            IF $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'study immutable occurrence changed'; };
+            IF $old.seed_solution != $point.seed_solution OR $old.ordinal != $point.ordinal OR $old.occurrence != $point.occurrence OR $old.policy != $point.policy OR $old.descriptor != $point.descriptor OR $old.run != $point.run { THROW 'study immutable occurrence changed'; };
         } ELSE {
             fn::pse_execution_v1::result_creator($rpc_expiry,$point.run);
             fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$point.run);
