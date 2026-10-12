@@ -666,6 +666,11 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
             "Independent attributed study, user, project, analysis or audit obligation; only the matching owner releases it.",
         ),
         (
+            "canonical_artifact_releases",
+            vec![column("key", text()), column("artifact", text()), column("owner_kind", text()), column("owner", text())],
+            "Permanent exact obligation release; a delayed attach cannot recreate a released owner lifetime.",
+        ),
+        (
             "canonical_artifact_reads",
             vec![column("key", text()), column("artifact", text())],
             "Artifact read association to the same-key finite canonical source protection grant; collection joins actual grant settlement.",

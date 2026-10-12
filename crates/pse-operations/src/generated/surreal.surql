@@ -69,6 +69,13 @@ DEFINE FIELD key ON canonical_artifact_reads TYPE string;
 DEFINE FIELD artifact ON canonical_artifact_reads TYPE string;
 DEFINE INDEX canonical_artifact_reads_key ON canonical_artifact_reads FIELDS key UNIQUE;
 
+DEFINE TABLE canonical_artifact_releases SCHEMAFULL;
+DEFINE FIELD key ON canonical_artifact_releases TYPE string;
+DEFINE FIELD artifact ON canonical_artifact_releases TYPE string;
+DEFINE FIELD owner_kind ON canonical_artifact_releases TYPE string;
+DEFINE FIELD owner ON canonical_artifact_releases TYPE string;
+DEFINE INDEX canonical_artifact_releases_key ON canonical_artifact_releases FIELDS key UNIQUE;
+
 DEFINE TABLE canonical_artifact_staging_inputs SCHEMAFULL;
 DEFINE FIELD key ON canonical_artifact_staging_inputs TYPE string;
 DEFINE FIELD artifact ON canonical_artifact_staging_inputs TYPE string;
@@ -1304,6 +1311,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed($rpc_expiry: int, $run: string, $atte
     LET $set = SELECT * FROM ONLY type::record('canonical_result_sets', $seed.result_set);
     LET $batch = SELECT * FROM ONLY type::record('canonical_result_batches', $seed.batch);
     IF $set = NONE OR $batch = NONE OR $set.attempt != $attempt OR $set.next_ordinal < $seed.first_ordinal + $seed.batch_count OR $batch.attempt != $attempt OR $batch.result_set != $seed.result_set OR $batch.ordinal != $seed.first_ordinal { THROW 'execution seed chunks incomplete'; };
+    fn::pse_history_v1::identity($rpc_expiry,'seed',$seed.key,$run);
     IF $old = NONE { CREATE ONLY type::record('canonical_result_seeds', $seed.key) CONTENT $seed; };
     fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'seed',$request,$request,NONE,NONE);
     LET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_seeds', $seed.key);
@@ -1680,6 +1688,8 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     IF array::len($pending) != 0 { THROW 'study occurrences not all settled'; };
     LET $run = SELECT * FROM ONLY type::record('canonical_runs',$s.run);
     IF $run = NONE OR $run.terminal_attempt = NONE { THROW 'study result manifest not admitted'; };
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$run.terminal_attempt);
+    IF $attempt=NONE OR !$attempt.terminal OR $attempt.run!=$s.run OR $attempt.finalization_study!=$study OR $attempt.closed_manifest=NONE OR ($s.cancelled AND $attempt.outcome!='cancelled') { THROW 'study conclusion requires its exact admitted summary'; };
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET terminal = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -2068,6 +2078,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::attach($rpc_expiry:int,$key:string,$obligat
     IF $row=NONE OR $row.retiring OR ($require_active AND !$row.active) OR $obligation.artifact!=$key OR $obligation.owner_kind NOT IN ['study','user','project','analysis','audit'] OR string::len($obligation.owner)=0 { THROW 'artifact obligation unavailable'; };
     IF $obligation.owner_kind='study' { fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))!=NONE { THROW 'study artifact owner retired'; }; };
     IF $obligation.owner_kind='analysis' { LET $analysis=SELECT * FROM ONLY type::record('canonical_analyses',$obligation.owner) FOR UPDATE; IF $analysis=NONE OR $analysis.retiring { THROW 'analysis artifact owner retired'; }; };
+    IF (SELECT * FROM ONLY type::record('canonical_artifact_releases',$obligation.key) FOR UPDATE)!=NONE { THROW 'artifact obligation permanently released'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key) FOR UPDATE;
     IF $old!=NONE { IF object::remove($old,['id'])!=$obligation { THROW 'artifact obligation identity changed'; }; }
     ELSE { CREATE ONLY type::record('canonical_artifact_obligations',$obligation.key) CONTENT $obligation; };
@@ -2082,6 +2093,9 @@ DEFINE FUNCTION fn::pse_artifact_v1::release($rpc_expiry:int,$obligation:object)
         fn::pse_execution_v1::register($rpc_expiry,'study:'+$obligation.owner);
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$obligation.owner))=NONE { THROW 'study input release requires explicit study retirement'; };
     };
+    LET $released=SELECT * FROM ONLY type::record('canonical_artifact_releases',$obligation.key) FOR UPDATE;
+    IF $released!=NONE { IF object::remove($released,['id'])!=$obligation { THROW 'artifact release identity changed'; }; }
+    ELSE { CREATE ONLY type::record('canonical_artifact_releases',$obligation.key) CONTENT $obligation; };
     DELETE ONLY type::record('canonical_artifact_obligations',$obligation.key);
     RETURN true;
 };
@@ -2245,6 +2259,38 @@ DEFINE FUNCTION fn::pse_history_v1::effect_free($rpc_expiry:int,$point:object) -
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
+// Inventory pages omit released detail while exact identity reads refuse it.
+DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_execution_v1::register($rpc_expiry,'history:run:'+$run);
+    IF (SELECT * FROM ONLY type::record('canonical_history_retirements','run:'+$run) FOR UPDATE)!=NONE { RETURN false; };
+    LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'history inventory association bound'; };
+    FOR $parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
+        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$parent.study) FOR UPDATE)!=NONE { RETURN false; };
+    };
+    RETURN true;
+};
+
+// A release must not invalidate a shared child's other parent's audit.
+DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string) -> bool {
+    LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'history obligation association bound'; };
+    FOR $parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
+        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+        IF ($count.count ?? 0dec)>0dec { RETURN true; };
+    };
+    RETURN false;
+};
+
+DEFINE FUNCTION fn::pse_history_v1::read_seed($rpc_expiry:int,$key:string) -> option<object> {
+    fn::pse_history_v1::check_identity($rpc_expiry,'seed',$key);
+    LET $row=SELECT * FROM ONLY type::record('canonical_result_seeds',$key);
+    IF $row!=NONE { fn::pse_history_v1::run($rpc_expiry,$row.run); };
+    RETURN $row;
+};
+
 DEFINE FUNCTION fn::pse_history_v1::read_run($rpc_expiry:int,$key:string) -> option<object> {
     fn::pse_history_v1::run($rpc_expiry,$key);
     RETURN SELECT * FROM ONLY type::record('canonical_runs',$key);
@@ -2276,7 +2322,7 @@ DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:str
     LET $header=IF $kind='run' {SELECT key FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT key FROM ONLY type::record('canonical_studies',$owner)};
     IF $header=NONE { THROW 'history obligation owner unavailable'; };
     IF $kind='study' {
-        LET $retired=SELECT key FROM canonical_history_locators WHERE study=$owner AND type::record('canonical_history_retirements','run:'+run)!=NONE LIMIT 1;
+        LET $retired=SELECT key FROM canonical_history_locators WHERE study=$owner AND !fn::pse_history_v1::visible_run($rpc_expiry,run) LIMIT 1;
         IF array::len($retired)!=0 { THROW 'study audit cannot restore retired member history'; };
     };
     LET $old=SELECT * FROM ONLY type::record('canonical_history_obligations',$key) FOR UPDATE;
@@ -2333,6 +2379,8 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF !$header.terminal OR (SELECT * FROM ONLY type::record('canonical_study_retirements',$owner) FOR UPDATE)=NONE { THROW 'history release requires terminal retired study'; };
         LET $protected=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_history_obligation_counts','run:'+run).count ?? 0dec)>0dec LIMIT 1;
         IF array::len($protected)!=0 { THROW 'point or summary audit retains study history'; };
+        LET $shared=SELECT key FROM canonical_history_locators WHERE study=$owner AND fn::pse_history_v1::parent_obligated($rpc_expiry,run) LIMIT 1;
+        IF array::len($shared)!=0 { THROW 'another parent study audit retains shared run history'; };
         LET $unsettled=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_result_retirements',run).complete ?? false)=false LIMIT 1;
         IF array::len($unsettled)!=0 { THROW 'study history requires all linked run payloads settled'; };
     };

@@ -155,9 +155,17 @@ mod canonical_history_tests {
         RunRequest { key:key.into(), revision:store.edit(key,None,&format!("source-{key}"),&[]).await.unwrap(),sources:vec![],request:vec![1],source_selection:vec![2],attestation:vec![3] }
     }
     async fn finish(store: &CanonicalStore, request: &RunRequest) -> String {
-        store.begin_run(request).await.unwrap();
+        let run=store.begin_run(request).await.unwrap();
         let fence=store.claim_run(&request.key,&format!("claim-{}",request.key),"worker",Duration::from_secs(60)).await.unwrap();
-        store.append_result_batch(&fence,&format!("append-{}",request.key),"values",0,crate::canonical_execution::ResultPayload::new(vec![17]).unwrap(),1).await.unwrap();
+        let batch=store.append_result_batch(&fence,&format!("append-{}",request.key),"values",0,crate::canonical_execution::ResultPayload::new(vec![17]).unwrap(),1).await.unwrap();
+        let seed=pse_model::generated::runtime::canonical_result_seeds::Row {
+            key:format!("seed-{}",request.key),batch:batch.key.clone(),result_set:batch.result_set.clone(),first_ordinal:0,
+            attempt:fence.attempt().into(),run:request.key.clone(),layout:"layout".into(),preparation:"preparation".into(),profile:"profile".into(),
+            data:"data".into(),backend:"constant".into(),step:0,batch_count:1,payload_bytes:1,
+            digest:crate::canonical_execution::result_payload_digest(&[17]),run_sequence:run.sequence,attempt_generation:fence.generation(),
+        };
+        store.register_result_seed(&fence,&format!("register-{}",request.key),&seed).await.unwrap();
+        assert!(store.result_seed(&seed.key).await.unwrap().is_some());
         let closed=store.close_result_ingestion(&fence,&format!("close-{}",request.key)).await.unwrap();
         let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
         // SAFETY: the fixture owns this empty attempt; partial classification promises no scientific success.
@@ -207,9 +215,15 @@ mod canonical_history_tests {
         assert!(store.begin_run(&request).await.is_err());
         assert!(store.claim_run(&request.key,"late-claim","late",Duration::from_secs(1)).await.is_err());
         assert!(store.canonical_attempt(&attempt).await.is_err());
+        assert!(store.result_seed_page(&attempt,None).await.is_err());
+        assert!(store.result_seed_candidates("layout","preparation","backend",Some(&attempt)).await.is_err());
+        assert!(store.execution_run_page(&request.revision.problem,None,64).await.unwrap().is_empty());
         assert!(store.canonical_result_manifest(&attempt).await.is_err());
         assert!(store.settle_operation_for_run("absent","claim",&[],Some(&request.key)).await.is_err());
-        assert_eq!(collect(&store,&owner).await,4);
+        assert!(store.result_seed(&format!("seed-{}",request.key)).await.is_err());
+        assert_eq!(collect(&store,&owner).await,5);
+        assert!(store.result_seed(&format!("seed-{}",request.key)).await.is_err());
+        assert!(store.result_seed_page(&attempt,None).await.is_err());
         // Exact old identity dominates changed caller bytes and owner substitution.
         assert!(store.settle_operation_for_run("claim-exploratory","claim",&[9],Some("unrelated-new-run")).await.is_err());
         let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_execution_operations','seal-exploratory');")).await.unwrap();
@@ -225,4 +239,120 @@ mod canonical_history_tests {
         assert!(store.retain_history_obligation(&audit).await.is_err());
         store.remove_isolated_fixture().await.unwrap();
     }
+    fn occurrence(parent: &RunRequest, key: &str) -> crate::canonical_studies::NewOccurrence {
+        crate::canonical_studies::NewOccurrence {
+            policy:pse_model::study::PointPolicy {
+                key:pse_model::study::OccurrenceKey(0),dependencies:vec![],
+                start:pse_model::study::StartPolicy::Fresh,
+                seed_need:pse_model::study::SeedNeed::NotNeeded,attempt_limit:1,
+            },
+            descriptor:vec![42],run:RunRequest{key:key.into(),..parent.clone()},
+        }
+    }
+    async fn cancel_point(store: &CanonicalStore, study: &str) {
+        store.cancel_study(study).await.unwrap();
+        let point=crate::canonical_studies::point_key(study,pse_model::study::OccurrenceKey(0));
+        let scope=store.study_scope(&point).await.unwrap();
+        let action=scope.action(None).unwrap();
+        assert!(matches!(action.kind,pse_model::study::ActionKind::Cancel));
+        let settled=store.refuse_study_point(&scope,&action,None).await.unwrap();
+        assert!(settled.settled && !settled.assigned && settled.attempt.is_none());
+    }
+    async fn summary(store: &CanonicalStore, study: &str) -> String {
+        let header=store.canonical_study(study).await.unwrap().unwrap();
+        let fence=store.begin_study_finalization(&crate::canonical_studies::StudySummary::from(&header),"summary-worker",Duration::from_secs(60)).await.unwrap().unwrap();
+        let closed=store.close_result_ingestion(&fence,&format!("close-{study}")).await.unwrap();
+        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: only cancellation/partial storage observations are asserted, never numerical success.
+        unsafe { store.seal_study_summary(study,&manifest,&format!("seal-{study}"),if header.cancelled {TerminalClass::Cancelled} else {TerminalClass::Partial},b"settled fixture observations").await }.unwrap();
+        fence.attempt().into()
+    }
+    #[tokio::test]
+    async fn study_audit_effect_free_member_and_restarted_cascade_preserve_exact_fences() {
+        let store=fixture().await;
+        let parent=request(&store,"study-summary").await;
+        let child=occurrence(&parent,"not-executed-point");
+        store.create_study("study",&parent,&[1],std::slice::from_ref(&child),&||false).await.unwrap().unwrap();
+        let owner=HistoryOwner::Study("study".into());
+        let audit=HistoryObligation{key:"study-audit".into(),owner:owner.clone(),purpose:HistoryPurpose::Audit,attribution:"actual study membership".into()};
+        store.retain_history_obligation(&audit).await.unwrap();
+        cancel_point(&store,"study").await;
+        assert!(store.claim_run(&child.run.key,"late-native","worker",Duration::from_secs(1)).await.is_err(),"effect-free settlement permanently excludes a late native claim");
+        let attempt=summary(&store,"study").await;
+        store.forget_study_results("study").await.unwrap();
+        retire_payload(&store,&parent.key).await;
+        retire_payload(&store,&child.run.key).await;
+        assert!(store.release_history(&owner).await.is_err());
+        assert!(store.release_history(&HistoryOwner::Run(child.run.key.clone())).await.is_err());
+        store.release_history_obligation(&audit).await.unwrap();
+        // A separately held member obligation protects the enclosing study.
+        let member=HistoryObligation{key:"member-audit".into(),owner:HistoryOwner::Run(child.run.key.clone()),..audit.clone()};
+        store.retain_history_obligation(&member).await.unwrap();
+        assert!(store.release_history(&owner).await.is_err());
+        store.release_history_obligation(&member).await.unwrap();
+        store.release_history(&owner).await.unwrap();
+        let point=crate::canonical_studies::point_key("study",pse_model::study::OccurrenceKey(0));
+        assert!(store.study_scope(&point).await.is_err());
+        assert!(store.study_has_pending("study").await.is_err());
+        assert!(store.study_candidates("study",None).await.is_err());
+        assert!(store.study_point_page("study",None).await.is_err());
+        assert!(store.canonical_attempt(&attempt).await.is_err());
+        // Each call resumes from persisted locator/cursor state, with no in-memory collector owner.
+        collect(&store,&owner).await;
+        assert!(store.reclaim_history_page(&owner).await.unwrap().complete);
+        assert!(store.canonical_study_point(&point).await.is_err());
+        assert!(store.begin_run(&child.run).await.is_err());
+        let mut changed=parent.clone();changed.key="replacement-summary".into();
+        assert!(store.create_study("study",&changed,&[9],std::slice::from_ref(&child),&||false).await.is_err());
+        let mut response=bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_history_retirements','run:not-executed-point');")).await.unwrap();
+        let row=crate::generated::surreal::decode_canonical_history_retirements(response.take::<Option<Object>>(0).unwrap().unwrap()).unwrap();
+        assert!(row.complete);assert_eq!(row.outcome,"not-executed");
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn member_release_refuses_late_study_audit_and_shared_parent_audit_wins() {
+        let store=fixture().await;
+        let parent=request(&store,"first-summary").await;
+        let child=occurrence(&parent,"shared-run");
+        store.create_study("first",&parent,&[1],std::slice::from_ref(&child),&||false).await.unwrap().unwrap();
+        // A completed point can also be the original summary run of another study.
+        let sibling=occurrence(&child.run,"second-point");
+        store.create_study("second",&child.run,&[2],std::slice::from_ref(&sibling),&||false).await.unwrap().unwrap();
+        let point=crate::canonical_studies::point_key("first",pse_model::study::OccurrenceKey(0));
+        let scope=store.study_scope(&point).await.unwrap();
+        let claim=store.claim_study_point(&scope,None,"shared-claim","worker",Duration::from_secs(60)).await.unwrap();
+        let closed=store.close_result_ingestion(&claim.fence,"shared-close").await.unwrap();
+        let manifest=store.reconcile_closed_attempt(&closed).await.unwrap();
+        // SAFETY: this fixture establishes only failed synthetic storage observations.
+        unsafe { store.seal_attempt(&manifest,"shared-seal",TerminalClass::Failed,b"fixture failure",SeedEligibility::Unavailable).await }.unwrap();
+        let mut facts:pse_model::study::PointFacts=serde_json::from_slice(claim.point.facts.as_slice()).unwrap();
+        facts.lifecycle=pse_model::generated::enums::StudyPointState::Failed;
+        facts.effect=pse_model::study::EffectState::Present;
+        let outcome=pse_model::study::PointOutcome {
+            key:facts.key,lifecycle:facts.lifecycle,scientific:facts.scientific.clone(),diagnostic:None,
+            start:None,effect:facts.effect,attempts:vec![],
+        };
+        // SAFETY: the exact failed attempt above backs the original occurrence observation.
+        unsafe {store.observe_study_point(&claim.point,&facts,&outcome,true).await}.unwrap();
+        summary(&store,"first").await;
+        cancel_point(&store,"second").await;
+        assert!(store.conclude_study("second").await.is_err(),"a point result cannot stand in for this study's summary");
+        summary(&store,"second").await;
+        store.conclude_study("second").await.unwrap();
+        let other=HistoryObligation{key:"other-study-audit".into(),owner:HistoryOwner::Study("second".into()),purpose:HistoryPurpose::Audit,attribution:"shared scientific history".into()};
+        store.retain_history_obligation(&other).await.unwrap();
+        store.forget_study_results("first").await.unwrap();
+        store.forget_study_results("second").await.unwrap();
+        for run in [&parent.key,&child.run.key,&sibling.run.key] {retire_payload(&store,run).await;}
+        assert!(store.release_history(&HistoryOwner::Study("first".into())).await.is_err(),"another parent's selected audit must win before publication of any fence");
+        assert!(store.canonical_run(&child.run.key).await.unwrap().is_some());
+        store.release_history_obligation(&other).await.unwrap();
+        store.release_history(&HistoryOwner::Study("first".into())).await.unwrap();
+        let late=HistoryObligation{key:"late-study-audit".into(),..other};
+        assert!(store.retain_history_obligation(&late).await.is_err(),"a live parent cannot reacquire history already fenced through another parent before child collection");
+        collect(&store,&HistoryOwner::Study("first".into())).await;
+        assert!(store.retain_history_obligation(&late).await.is_err(),"the direct child retirement also permanently prevents late acquisition");
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
 }

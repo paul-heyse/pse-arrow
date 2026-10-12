@@ -13,7 +13,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v5";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "01447cfce3169a08ed0ddd174303db4eabc7b1f25fadcde2a97cbfe070e96e82";
+pub const SCHEMA_DIGEST: &str = "38c070d2afd4a754a980a2235c046e9a5e5818b640c7722c8b2403a4b8604919";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -546,6 +546,59 @@ pub fn decode_canonical_artifact_reads(
         crate::canonical_codec::check_record_identity(
             native_id,
             "canonical_artifact_reads",
+            &row.r#key,
+        )?;
+    }
+    if !object.is_empty() {
+        return Err(crate::canonical_codec::CodecError::UnknownFields);
+    }
+    Ok(row)
+}
+///Encode the registry row using native exact values.
+pub fn encode_canonical_artifact_releases(
+    row: &pse_model::generated::runtime::canonical_artifact_releases::RuntimeCanonicalArtifactReleasesRow,
+) -> Result<surrealdb::types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb::types::Object::new();
+    object.insert("key", crate::canonical_codec::encode_string(row.r#key.clone())?);
+    object
+        .insert(
+            "artifact",
+            crate::canonical_codec::encode_string(row.r#artifact.clone())?,
+        );
+    object
+        .insert(
+            "owner_kind",
+            crate::canonical_codec::encode_string(row.r#owner_kind.clone())?,
+        );
+    object.insert("owner", crate::canonical_codec::encode_string(row.r#owner.clone())?);
+    Ok(object)
+}
+///Decode the registry row; native id metadata is distinct from the declared key.
+pub fn decode_canonical_artifact_releases(
+    mut object: surrealdb::types::Object,
+) -> Result<
+    pse_model::generated::runtime::canonical_artifact_releases::RuntimeCanonicalArtifactReleasesRow,
+    crate::canonical_codec::CodecError,
+> {
+    let native_id = object.remove("id");
+    let row = pse_model::generated::runtime::canonical_artifact_releases::RuntimeCanonicalArtifactReleasesRow {
+        r#key: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "key")?,
+        )?,
+        r#artifact: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "artifact")?,
+        )?,
+        r#owner_kind: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "owner_kind")?,
+        )?,
+        r#owner: crate::canonical_codec::decode_string(
+            crate::canonical_codec::required(&mut object, "owner")?,
+        )?,
+    };
+    if let Some(native_id) = native_id {
+        crate::canonical_codec::check_record_identity(
+            native_id,
+            "canonical_artifact_releases",
             &row.r#key,
         )?;
     }

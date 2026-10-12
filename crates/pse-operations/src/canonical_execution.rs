@@ -3263,7 +3263,7 @@ impl CanonicalStore {
                 .map(canonical_codec::encode_uint)
                 .transpose()?
                 .unwrap_or(canonical_codec::encode_int(-1)?);
-            let mut result=bounded_query(self.db.query("SELECT key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class FROM canonical_runs WHERE problem=$problem AND sequence>$after ORDER BY sequence LIMIT $limit;").bind(("problem",problem.to_owned())).bind(("after",after)).bind(("limit",limit))).await?;
+            let mut result=bounded_query(self.db.query("SELECT key,problem,revision,source_sequence,sequence,interpretation,current_generation,current_attempt,cancelled,terminal_attempt,terminal_class FROM canonical_runs WHERE problem=$problem AND sequence>$after AND fn::pse_history_v1::visible_run($pse_rpc_expires_at,key) ORDER BY sequence LIMIT $limit;").bind(("problem",problem.to_owned())).bind(("after",after)).bind(("limit",limit))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -3286,7 +3286,7 @@ impl CanonicalStore {
                     let mut result = bounded_query(
                         self.db
                             .query(
-                                "SELECT * FROM ONLY type::record('canonical_result_seeds',$key);",
+                                "RETURN fn::pse_history_v1::read_seed($pse_rpc_expires_at,$key);",
                             )
                             .bind(("key", key.to_owned())),
                     )
@@ -3314,7 +3314,7 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let query = if attempt.is_some() {
-                "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64;"
+                "RETURN { fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt); SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64; };"
             } else {
                 "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64;"
             };
@@ -3350,7 +3350,7 @@ impl CanonicalStore {
                 .map(canonical_codec::encode_uint)
                 .transpose()?
                 .unwrap_or(canonical_codec::encode_int(-1)?);
-            let mut result=bounded_query(self.db.query("SELECT * FROM canonical_result_seeds WHERE attempt=$attempt AND step>$after ORDER BY step LIMIT 64;").bind(("attempt",attempt.to_owned())).bind(("after",after))).await?;
+            let mut result=bounded_query(self.db.query("RETURN { fn::pse_history_v1::check_identity($pse_rpc_expires_at,'attempt',$attempt); SELECT * FROM canonical_result_seeds WHERE attempt=$attempt AND step>$after ORDER BY step LIMIT 64; };").bind(("attempt",attempt.to_owned())).bind(("after",after))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()

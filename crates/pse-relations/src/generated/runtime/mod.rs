@@ -25,6 +25,8 @@ pub mod r#canonical_artifact_obligations;
 ///Generated relation contract.
 pub mod r#canonical_artifact_reads;
 ///Generated relation contract.
+pub mod r#canonical_artifact_releases;
+///Generated relation contract.
 pub mod r#canonical_artifact_staging_inputs;
 ///Generated relation contract.
 pub mod r#canonical_artifacts;

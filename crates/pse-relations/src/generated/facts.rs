@@ -659,6 +659,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            155u8, 84u8, 32u8, 151u8, 242u8, 216u8, 48u8, 222u8, 207u8, 49u8, 35u8,
+            254u8, 50u8, 83u8, 4u8, 33u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactReleases(
+                super::r#runtime::r#canonical_artifact_releases::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             157u8, 81u8, 127u8, 17u8, 52u8, 200u8, 191u8, 124u8, 131u8, 195u8, 199u8,
             7u8, 146u8, 3u8, 169u8, 14u8,
         ])
@@ -2060,6 +2072,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactReads(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
+        pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactReleases(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeCanonicalArtifactStagingInputs(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),

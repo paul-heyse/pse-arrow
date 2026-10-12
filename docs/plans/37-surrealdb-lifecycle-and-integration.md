@@ -142,9 +142,24 @@ Completion requires adopted packages implemented and replacements deleted, I out
 D0/A1–A3/persistent C2/C3/Q1/H1 route. Proposed ADR-0182 and architecture revision158 record
 the shared target before dependent code. The [independent bounded target review](../design_review/reviews/design_review_plan37-remaining-target_2026-10-12.md)
 accepted it at Proposed design level with no new material findings or rule impacts.
-Scientific and operational executor preparation is complete; dependent implementation is starting. Existing plans remain unchanged
-until H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original
-scope and evidence. The current execution is not yet implemented or accepted.
+The scientific storage foundation, copied seed/graph consumers, typed Rust/Python history
+adapters, explicit history obligations, permanent operation/owner fences and bounded history
+collector are integrated on main. Persistent maintenance now has a generated-definition
+validator, exact settled-phase activation and a frozen beta.6 rollout producer; the owned
+persistent rollout/regeneration journey is authored but not yet executed against the final
+schema. Fresh regeneration no longer requires preserving old data. The scientific producer
+context and public artifact consumers are still being completed in an isolated worktree.
+
+Independent implementation review exposed and drove corrections to selected-client authority,
+released-obligation resurrection, effect-free occurrence settlement, exact operation attribution,
+shared-parent audit ordering and reads after history release. Targeted actual native storage
+controls exercised the first integrated artifact/history tranche with zero failures; expanded
+both-order study/seed controls and the final scientific consumers still require verification.
+The obsolete preparation/backfill/history paths are mapped and their removal is prepared;
+integration awaits actual replacement activation verification and matching schema regeneration.
+These are implementation checkpoints, not Q1 acceptance. Existing plans remain unchanged until
+H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original scope
+and evidence. Persistent C2/C3, final A1–A3 verification, Q1 and H1 remain open.
 
 
 **2026-10-12:** completed the maintainer-approved investigation/foundation tranche begun on baseline `a6aedd31`. The approved choice includes settled A4/B1–B3 foundations and disposable C1/C2 controls. Production scientific artifact/history implementation A1–A3, persistent deployment rollout/C3, assembled Q1 and existing-plan reconciliation H1 remain scheduled for later execution. Existing plans/status have not been revised.

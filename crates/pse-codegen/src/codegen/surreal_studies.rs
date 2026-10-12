@@ -376,6 +376,8 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
     IF array::len($pending) != 0 { THROW 'study occurrences not all settled'; };
     LET $run = SELECT * FROM ONLY type::record('canonical_runs',$s.run);
     IF $run = NONE OR $run.terminal_attempt = NONE { THROW 'study result manifest not admitted'; };
+    LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$run.terminal_attempt);
+    IF $attempt=NONE OR !$attempt.terminal OR $attempt.run!=$s.run OR $attempt.finalization_study!=$study OR $attempt.closed_manifest=NONE OR ($s.cancelled AND $attempt.outcome!='cancelled') { THROW 'study conclusion requires its exact admitted summary'; };
     LET $rpc_result = UPDATE ONLY type::record('canonical_studies', $study) SET terminal = true;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;

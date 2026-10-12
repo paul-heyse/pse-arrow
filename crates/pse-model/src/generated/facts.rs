@@ -139,6 +139,10 @@ pub enum FactBatch {
     r#RuntimeCanonicalArtifactReads(
         Vec<super::r#runtime::r#canonical_artifact_reads::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalArtifactReleases)]
+    r#RuntimeCanonicalArtifactReleases(
+        Vec<super::r#runtime::r#canonical_artifact_releases::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalArtifactStagingInputs)]
     r#RuntimeCanonicalArtifactStagingInputs(
         Vec<super::r#runtime::r#canonical_artifact_staging_inputs::Row>,
@@ -748,6 +752,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     117u8, 61u8, 239u8, 19u8, 119u8, 108u8, 209u8, 185u8, 188u8, 197u8,
                     158u8, 75u8, 157u8, 159u8, 4u8, 194u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalArtifactReleases(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    155u8, 84u8, 32u8, 151u8, 242u8, 216u8, 48u8, 222u8, 207u8, 49u8,
+                    35u8, 254u8, 50u8, 83u8, 4u8, 33u8,
                 ])
             }
             Self::r#RuntimeCanonicalArtifactStagingInputs(_) => {
@@ -1421,6 +1431,7 @@ impl FactBatch {
             Self::r#RuntimeCanonicalArtifactBlocks(rows) => rows.len(),
             Self::r#RuntimeCanonicalArtifactObligations(rows) => rows.len(),
             Self::r#RuntimeCanonicalArtifactReads(rows) => rows.len(),
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => rows.len(),
             Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => rows.len(),
             Self::r#RuntimeCanonicalArtifacts(rows) => rows.len(),
             Self::r#RuntimeCanonicalAttempts(rows) => rows.len(),
@@ -1801,6 +1812,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2534,6 +2550,12 @@ impl FactBatch {
             Self::r#RuntimeCanonicalArtifactReads(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalArtifactReads(vec![row.clone()]))
+            }
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalArtifactReleases(
+                        vec![row.clone()],
+                    ))
             }
             Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
                 rows.get(index)
@@ -3545,6 +3567,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalArtifactReads(left),
                 Self::r#RuntimeCanonicalArtifactReads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactReleases(left),
+                Self::r#RuntimeCanonicalArtifactReleases(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5026,6 +5059,13 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -6424,6 +6464,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalArtifactReads(left),
                 Self::r#RuntimeCanonicalArtifactReads(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalArtifactReleases(left),
+                Self::r#RuntimeCanonicalArtifactReleases(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -8094,6 +8145,10 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -8948,6 +9003,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalArtifactReleases(left),
+                Self::r#RuntimeCanonicalArtifactReleases(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalArtifactStagingInputs(left),
                 Self::r#RuntimeCanonicalArtifactStagingInputs(mut right),
             ) => {
@@ -9749,6 +9811,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalArtifactReads(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalArtifactReleases(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalArtifactStagingInputs(rows) => {

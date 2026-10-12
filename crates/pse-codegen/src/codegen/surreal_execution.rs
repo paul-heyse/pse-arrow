@@ -622,6 +622,7 @@ DEFINE FUNCTION fn::pse_execution_v1::seed($rpc_expiry: int, $run: string, $atte
     LET $set = SELECT * FROM ONLY type::record('canonical_result_sets', $seed.result_set);
     LET $batch = SELECT * FROM ONLY type::record('canonical_result_batches', $seed.batch);
     IF $set = NONE OR $batch = NONE OR $set.attempt != $attempt OR $set.next_ordinal < $seed.first_ordinal + $seed.batch_count OR $batch.attempt != $attempt OR $batch.result_set != $seed.result_set OR $batch.ordinal != $seed.first_ordinal { THROW 'execution seed chunks incomplete'; };
+    fn::pse_history_v1::identity($rpc_expiry,'seed',$seed.key,$run);
     IF $old = NONE { CREATE ONLY type::record('canonical_result_seeds', $seed.key) CONTENT $seed; };
     fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'seed',$request,$request,NONE,NONE);
     LET $rpc_result = SELECT * FROM ONLY type::record('canonical_result_seeds', $seed.key);

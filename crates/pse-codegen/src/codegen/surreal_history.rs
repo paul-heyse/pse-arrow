@@ -120,6 +120,38 @@ DEFINE FUNCTION fn::pse_history_v1::effect_free($rpc_expiry:int,$point:object) -
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
+// Inventory pages omit released detail while exact identity reads refuse it.
+DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> bool {
+    fn::pse_execution_v1::register($rpc_expiry,'history:run:'+$run);
+    IF (SELECT * FROM ONLY type::record('canonical_history_retirements','run:'+$run) FOR UPDATE)!=NONE { RETURN false; };
+    LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'history inventory association bound'; };
+    FOR $parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
+        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$parent.study) FOR UPDATE)!=NONE { RETURN false; };
+    };
+    RETURN true;
+};
+
+// A release must not invalidate a shared child's other parent's audit.
+DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string) -> bool {
+    LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
+    IF array::len($parents)>2 { THROW 'history obligation association bound'; };
+    FOR $parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
+        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+        IF ($count.count ?? 0dec)>0dec { RETURN true; };
+    };
+    RETURN false;
+};
+
+DEFINE FUNCTION fn::pse_history_v1::read_seed($rpc_expiry:int,$key:string) -> option<object> {
+    fn::pse_history_v1::check_identity($rpc_expiry,'seed',$key);
+    LET $row=SELECT * FROM ONLY type::record('canonical_result_seeds',$key);
+    IF $row!=NONE { fn::pse_history_v1::run($rpc_expiry,$row.run); };
+    RETURN $row;
+};
+
 DEFINE FUNCTION fn::pse_history_v1::read_run($rpc_expiry:int,$key:string) -> option<object> {
     fn::pse_history_v1::run($rpc_expiry,$key);
     RETURN SELECT * FROM ONLY type::record('canonical_runs',$key);
@@ -151,7 +183,7 @@ DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:str
     LET $header=IF $kind='run' {SELECT key FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT key FROM ONLY type::record('canonical_studies',$owner)};
     IF $header=NONE { THROW 'history obligation owner unavailable'; };
     IF $kind='study' {
-        LET $retired=SELECT key FROM canonical_history_locators WHERE study=$owner AND type::record('canonical_history_retirements','run:'+run)!=NONE LIMIT 1;
+        LET $retired=SELECT key FROM canonical_history_locators WHERE study=$owner AND !fn::pse_history_v1::visible_run($rpc_expiry,run) LIMIT 1;
         IF array::len($retired)!=0 { THROW 'study audit cannot restore retired member history'; };
     };
     LET $old=SELECT * FROM ONLY type::record('canonical_history_obligations',$key) FOR UPDATE;
@@ -208,6 +240,8 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF !$header.terminal OR (SELECT * FROM ONLY type::record('canonical_study_retirements',$owner) FOR UPDATE)=NONE { THROW 'history release requires terminal retired study'; };
         LET $protected=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_history_obligation_counts','run:'+run).count ?? 0dec)>0dec LIMIT 1;
         IF array::len($protected)!=0 { THROW 'point or summary audit retains study history'; };
+        LET $shared=SELECT key FROM canonical_history_locators WHERE study=$owner AND fn::pse_history_v1::parent_obligated($rpc_expiry,run) LIMIT 1;
+        IF array::len($shared)!=0 { THROW 'another parent study audit retains shared run history'; };
         LET $unsettled=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_result_retirements',run).complete ?? false)=false LIMIT 1;
         IF array::len($unsettled)!=0 { THROW 'study history requires all linked run payloads settled'; };
     };
