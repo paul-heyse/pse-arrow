@@ -146,17 +146,26 @@ The scientific storage foundation, copied seed/graph consumers, typed Rust/Pytho
 adapters, explicit history obligations, permanent operation/owner fences and bounded history
 collector are integrated on main. Persistent maintenance now has a generated-definition
 validator, exact settled-phase activation and a frozen beta.6 rollout producer; the owned
-persistent rollout/regeneration journey is authored but not yet executed against the final
-schema. Fresh regeneration no longer requires preserving old data. The scientific producer
-context and public artifact consumers are still being completed in an isolated worktree.
+persistent rollout/regeneration journey has reached actual beta schema application, but
+acceptance remains open: its first invocation lacked native child ownership, and its next
+invocation exposed a strict post-reap manager-transition race. Both failed fixtures remain
+retained with SQL uncertainty; their exact processes and services drained. The fixture now
+requires authenticated native ownership before effects and gives borrower release a fresh
+metadata clock. The bounded native drain correction and a fresh matching-binary run are next.
+Fresh regeneration no longer requires preserving old data. Scientific producer contexts,
+public Rust/Python artifact consumers and settlement-only original-intent recovery are now
+integrated; full generation and actual consumer verification remain in progress.
 
 Independent implementation review exposed and drove corrections to selected-client authority,
 released-obligation resurrection, effect-free occurrence settlement, exact operation attribution,
 shared-parent audit ordering and reads after history release. Targeted actual native storage
 controls exercised the first integrated artifact/history tranche with zero failures; expanded
 both-order study/seed controls and the final scientific consumers still require verification.
-The obsolete preparation/backfill/history paths are mapped and their removal is prepared;
-integration awaits actual replacement activation verification and matching schema regeneration.
+The obsolete preparation/backfill/history paths, callers and declarations have been removed.
+Current split-product decoding, authored revisions, current backup/recovery and anti-forgery
+checks remain. Expanded history controls, live artifact readers, inactive-intent recovery and
+explicit retained-input worker replacement still require final actual verification after
+matching schema regeneration.
 These are implementation checkpoints, not Q1 acceptance. Existing plans remain unchanged until
 H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original scope
 and evidence. Persistent C2/C3, final A1–A3 verification, Q1 and H1 remain open.

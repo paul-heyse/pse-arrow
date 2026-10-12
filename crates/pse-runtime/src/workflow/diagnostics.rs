@@ -36,13 +36,13 @@ impl DiagnosticProjection for super::WorkflowError {
                 d
             }
             Self::StudyCreationUnsettled{study,source,cleanup}=>{
-                let mut diagnostic=source.boundary_diagnostic(stage);
+                let mut diagnostic=DiagnosticProjection::boundary_diagnostic(source.as_ref(),stage);
                 diagnostic.observations.insert("study_key".into(),Observation::Text(study.to_string()));
                 diagnostic.causes.push(pse_model::diagnostic::project_typed(cleanup.as_ref(),stage));
                 diagnostic
             }
             Self::ArtifactTransferUnsettled{analysis,artifact,owner_kind,owner,read,source}=>{
-                let mut diagnostic=source.boundary_diagnostic(stage);
+                let mut diagnostic=DiagnosticProjection::boundary_diagnostic(source.as_ref(),stage);
                 for (key,value) in [("artifact_key",Some(artifact.key.clone())),("analysis_key",analysis.clone()),("artifact_owner_kind",Some(owner_kind.clone())),("artifact_owner",Some(owner.clone())),("artifact_read_key",read.clone())] {
                     if let Some(value)=value {diagnostic.observations.insert(key.into(),Observation::Text(value));}
                 }

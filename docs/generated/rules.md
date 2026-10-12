@@ -103,16 +103,27 @@
 | `runtime.canonical_analysis_edges` | `foreign_key:target` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."target" AS "__pse_value" FROM "runtime"."canonical_analysis_edges" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_analysis_nodes" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_analysis_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_analysis_inputs` | `foreign_key:analysis` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."analysis" AS "__pse_value" FROM "runtime"."canonical_analysis_inputs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_analyses" t WHERE s."__pse_value" = t."key")` |
-| `runtime.canonical_analysis_inputs` | `foreign_key:attempt` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."attempt" AS "__pse_value" FROM "runtime"."canonical_analysis_inputs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_attempts" t WHERE s."__pse_value" = t."key")` |
+| `runtime.canonical_analysis_inputs` | `foreign_key:artifact` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."artifact" AS "__pse_value" FROM "runtime"."canonical_analysis_inputs" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_artifacts" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_analysis_inputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_inputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_analysis_nodes` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_analysis_nodes" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifact_blocks` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifact_blocks" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifact_obligations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifact_obligations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifact_reads` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifact_reads" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifact_releases` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifact_releases" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifact_staging_inputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifact_staging_inputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_artifacts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_artifacts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_attempts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_attempts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_body_contents` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_body_contents" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_guards` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_guards" s GROUP BY s."key" HAVING COUNT(*) > 1` |
-| `runtime.canonical_historical_results` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_historical_results" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_history_identities` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_identities" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_history_locators` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_locators" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_history_obligation_counts` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_obligation_counts" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_history_obligations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_obligations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_history_retirements` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_history_retirements" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_interpretations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_interpretations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_maintenance_activations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_maintenance_activations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_memberships` | `foreign_key:problem` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."problem" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_problems" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `foreign_key:version` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."version" AS "__pse_value" FROM "runtime"."canonical_memberships" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_version_manifests" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_memberships` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_memberships" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -148,6 +159,7 @@
 | `runtime.canonical_study_dependencies` | `foreign_key:dependent` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."dependent" AS "__pse_value" FROM "runtime"."canonical_study_dependencies" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_study_points" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_study_dependencies` | `foreign_key:predecessor` | `SELECT DISTINCT s."key" FROM (SELECT * FROM (SELECT s."key", s."predecessor" AS "__pse_value" FROM "runtime"."canonical_study_dependencies" s) s WHERE s."__pse_value" IS NOT NULL) s WHERE s."__pse_value" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "runtime"."canonical_study_points" t WHERE s."__pse_value" = t."key")` |
 | `runtime.canonical_study_dependencies` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_dependencies" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_study_inputs` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_inputs" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_points` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_points" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_readiness` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_readiness" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_study_readiness_cursors` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_study_readiness_cursors" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -193,6 +205,7 @@
 | `runtime.response_sensitivities` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" FROM "runtime"."response_sensitivities" s GROUP BY s."run_id", s."experiment_id", s."sample", s."output_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.route_decisions` | `unique:pk` | `SELECT s."request_identity", s."step" FROM "runtime"."route_decisions" s GROUP BY s."request_identity", s."step" HAVING COUNT(*) > 1` |
 | `runtime.run_lineage` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."run_lineage" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.scientific_contexts` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."scientific_contexts" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.simulation_events` | `unique:pk` | `SELECT s."run_id", s."ordinal", s."symbol_id" FROM "runtime"."simulation_events" s GROUP BY s."run_id", s."ordinal", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.simulation_samples` | `unique:pk` | `SELECT s."run_id", s."sample", s."symbol_id" FROM "runtime"."simulation_samples" s GROUP BY s."run_id", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.solution_pool` | `unique:pk` | `SELECT s."run_id", s."step", s."rank", s."symbol_id" FROM "runtime"."solution_pool" s GROUP BY s."run_id", s."step", s."rank", s."symbol_id" HAVING COUNT(*) > 1` |

@@ -158,10 +158,13 @@ class RuntimeCanonicalAnalysisEdgesRow:
     source: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     target: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    evidence: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_artifact: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    evidence_block: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    evidence_row: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    evidence_field: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.source), v.scalar_key(self.target), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.evidence),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.source), v.scalar_key(self.target), v.scalar_key(self.kind), v.optional_key(v.scalar_key)(self.evidence_artifact), v.optional_key(v.scalar_key)(self.evidence_block), v.optional_key(v.scalar_key)(self.evidence_row), v.optional_key(v.scalar_key)(self.evidence_field),))
 
 
 @attrs.frozen(kw_only=True)
@@ -170,12 +173,10 @@ class RuntimeCanonicalAnalysisInputsRow:
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     analysis: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    attempt: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    manifest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.run), v.scalar_key(self.attempt), v.scalar_key(self.manifest),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.artifact),))
 
 
 @attrs.frozen(kw_only=True)
@@ -189,6 +190,97 @@ class RuntimeCanonicalAnalysisNodesRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.analysis), v.scalar_key(self.semantic), v.scalar_key(self.kind),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactBlocksRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    relation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    payload: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    original_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    rows: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.ordinal), v.scalar_key(self.relation), v.scalar_key(self.payload), v.scalar_key(self.digest), v.scalar_key(self.original_digest), v.scalar_key(self.rows),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactObligationsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.owner_kind), v.scalar_key(self.owner),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactReadsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactReleasesRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.owner_kind), v.scalar_key(self.owner),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactStagingInputsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    attempt: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    manifest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.artifact), v.scalar_key(self.run), v.scalar_key(self.attempt), v.scalar_key(self.manifest),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalArtifactsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    primary_problem: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    primary_authority: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    creation_nonce: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    creation_expires_at: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    creation_request_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    provenance: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    block_count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    payload_bytes: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    active: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    retiring: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.kind), v.scalar_key(self.revision), v.scalar_key(self.primary_problem), v.scalar_key(self.primary_authority), v.scalar_key(self.creation_nonce), v.scalar_key(self.creation_expires_at), v.scalar_key(self.creation_request_digest), v.scalar_key(self.interpretation), v.scalar_key(self.provenance), v.scalar_key(self.block_count), v.scalar_key(self.payload_bytes), v.scalar_key(self.active), v.scalar_key(self.retiring),))
 
 
 @attrs.frozen(kw_only=True)
@@ -256,9 +348,14 @@ class RuntimeCanonicalExecutionOperationsRow:
     kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     request: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     result: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    point: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    minimal: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    disposition: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.kind), v.scalar_key(self.request), v.scalar_key(self.result),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.attempt), v.scalar_key(self.kind), v.scalar_key(self.request), v.scalar_key(self.result), v.scalar_key(self.issuing_store), v.optional_key(v.scalar_key)(self.study), v.optional_key(v.scalar_key)(self.point), v.scalar_key(self.minimal), v.scalar_key(self.disposition),))
 
 
 @attrs.frozen(kw_only=True)
@@ -269,33 +366,82 @@ class RuntimeCanonicalGuardsRow:
     generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     incarnation: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     analysis_creation_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
+    artifact_creation_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
     protection_closed_through: b.int | None = attrs.field(validator=attrs.validators.optional(v.integer_range(0, 18446744073709551615)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.incarnation), v.optional_key(v.scalar_key)(self.analysis_creation_closed_through), v.optional_key(v.scalar_key)(self.protection_closed_through),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.generation), v.optional_key(v.scalar_key)(self.incarnation), v.optional_key(v.scalar_key)(self.analysis_creation_closed_through), v.optional_key(v.scalar_key)(self.artifact_creation_closed_through), v.optional_key(v.scalar_key)(self.protection_closed_through),))
 
 
 @attrs.frozen(kw_only=True)
-class RuntimeCanonicalHistoricalResultsRow:
+class RuntimeCanonicalHistoryIdentitiesRow:
     """Declared relation row or nested value."""
 
     key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    attempt: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    category: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    identity: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    revision: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    sequence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    generation: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
-    manifest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    manifest_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    outcome: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    migration: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    snapshot: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    source_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.attempt), v.scalar_key(self.run), v.scalar_key(self.revision), v.scalar_key(self.sequence), v.scalar_key(self.generation), v.scalar_key(self.manifest), v.scalar_key(self.manifest_digest), v.scalar_key(self.outcome), v.scalar_key(self.interpretation), v.scalar_key(self.issuing_store), v.scalar_key(self.migration), v.scalar_key(self.snapshot), v.scalar_key(self.source_digest),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.category), v.scalar_key(self.identity), v.scalar_key(self.run), v.scalar_key(self.issuing_store),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalHistoryLocatorsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    point: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.run), v.optional_key(v.scalar_key)(self.point), v.scalar_key(self.issuing_store),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalHistoryObligationCountsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    count: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.count),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalHistoryObligationsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    purpose: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    attribution: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    released: b.bool = attrs.field(validator=v.exact_type(b.bool))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.owner_kind), v.scalar_key(self.owner), v.scalar_key(self.purpose), v.scalar_key(self.attribution), v.scalar_key(self.issuing_store), v.scalar_key(self.released),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalHistoryRetirementsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner_kind: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    owner: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    outcome: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    complete: b.bool = attrs.field(validator=v.exact_type(b.bool))
+    after_locator: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.owner_kind), v.scalar_key(self.owner), v.scalar_key(self.issuing_store), v.scalar_key(self.outcome), v.scalar_key(self.complete), v.optional_key(v.scalar_key)(self.after_locator),))
 
 
 @attrs.frozen(kw_only=True)
@@ -309,6 +455,21 @@ class RuntimeCanonicalInterpretationsRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.key), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeCanonicalMaintenanceActivationsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    input_sha256: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    predecessor: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    schema_digest: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    issuing_store: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.input_sha256), v.scalar_key(self.predecessor), v.scalar_key(self.interpretation), v.scalar_key(self.schema_digest), v.scalar_key(self.issuing_store),))
 
 
 @attrs.frozen(kw_only=True)
@@ -382,10 +543,9 @@ class RuntimeCanonicalProductAssociationsRow:
     descriptor: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     producer: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     interpretation: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
-    historical_blob: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.request), v.scalar_key(self.payload), v.scalar_key(self.dependencies), v.scalar_key(self.content), v.scalar_key(self.receipt), v.scalar_key(self.descriptor), v.scalar_key(self.producer), v.scalar_key(self.interpretation), v.optional_key(v.scalar_key)(self.historical_blob),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.issuing_store), v.scalar_key(self.problem), v.scalar_key(self.revision), v.scalar_key(self.request), v.scalar_key(self.payload), v.scalar_key(self.dependencies), v.scalar_key(self.content), v.scalar_key(self.receipt), v.scalar_key(self.descriptor), v.scalar_key(self.producer), v.scalar_key(self.interpretation),))
 
 
 @attrs.frozen(kw_only=True)
@@ -772,6 +932,19 @@ class RuntimeCanonicalStudyDependenciesRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeCanonicalStudyInputsRow:
+    """Declared relation row or nested value."""
+
+    key: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    study: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    solution: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    artifact: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.solution), v.scalar_key(self.artifact),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeCanonicalStudyPointsRow:
     """Declared relation row or nested value."""
 
@@ -779,6 +952,7 @@ class RuntimeCanonicalStudyPointsRow:
     study: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
     ordinal: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
     occurrence: b.int = attrs.field(validator=v.integer_range(0, 18446744073709551615))
+    seed_solution: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     policy: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     descriptor: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     facts: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
@@ -791,7 +965,7 @@ class RuntimeCanonicalStudyPointsRow:
     start: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.ordinal), v.scalar_key(self.occurrence), v.scalar_key(self.policy), v.scalar_key(self.descriptor), v.scalar_key(self.facts), v.optional_key(v.scalar_key)(self.outcome), v.scalar_key(self.run), v.scalar_key(self.revision), v.scalar_key(self.assigned), v.scalar_key(self.settled), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.start),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.ordinal), v.scalar_key(self.occurrence), v.optional_key(v.scalar_key)(self.seed_solution), v.scalar_key(self.policy), v.scalar_key(self.descriptor), v.scalar_key(self.facts), v.optional_key(v.scalar_key)(self.outcome), v.scalar_key(self.run), v.scalar_key(self.revision), v.scalar_key(self.assigned), v.scalar_key(self.settled), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.start),))
 
 
 @attrs.frozen(kw_only=True)
@@ -2937,6 +3111,34 @@ class RuntimeRunLineageRow:
 
 
 @attrs.frozen(kw_only=True)
+class RuntimeScientificContextsRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    step: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    model_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    fit_id: i.FitId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    instance_id: i.InstanceId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
+    source_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    physical_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    preparation_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    profile_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    configuration: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    binding: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
+    state: b.tuple[s.ScientificArtifactCoordinate, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ScientificArtifactCoordinate), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    inputs: b.tuple[s.ScientificArtifactCoordinate, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ScientificArtifactCoordinate), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    outputs: b.tuple[s.ScientificArtifactCoordinate, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ScientificArtifactCoordinate), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    integrals: b.tuple[s.ScientificArtifactCoordinate, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(s.ScientificArtifactCoordinate), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    time: s.ScientificArtifactCoordinate | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(s.ScientificArtifactCoordinate)))
+    mode_names: b.tuple[b.str, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(b.str), iterable_validator=attrs.validators.instance_of(b.tuple)))
+    mode_identities: b.tuple[v.ContentHash, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.ContentHash), iterable_validator=attrs.validators.instance_of(b.tuple)))
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.optional_key(v.scalar_key)(self.model_id), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.instance_id), v.scalar_key(self.source_identity), v.scalar_key(self.physical_identity), v.scalar_key(self.preparation_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.configuration), v.optional_key(v.scalar_key)(self.binding), v.sequence_key(v.record_key)(self.state), v.sequence_key(v.record_key)(self.inputs), v.sequence_key(v.record_key)(self.outputs), v.sequence_key(v.record_key)(self.integrals), v.optional_key(v.record_key)(self.time), v.sequence_key(v.scalar_key)(self.mode_names), v.sequence_key(v.scalar_key)(self.mode_identities),))
+
+
+@attrs.frozen(kw_only=True)
 class RuntimeSimulationEventsRow:
     """Declared relation row or nested value."""
 
@@ -4336,6 +4538,8 @@ class RuntimeTrajectoryEndpointsRow:
     event_id: v.SemanticId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     time: b.float = attrs.field(validator=v.finite_float)
     mode: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    mode_name: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
+    mode_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
     state_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     input_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
     output_ids: b.tuple[v.SemanticId, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(v.SemanticId), iterable_validator=attrs.validators.instance_of(b.tuple)))
@@ -4349,7 +4553,7 @@ class RuntimeTrajectoryEndpointsRow:
     missing_observations: b.tuple[b.float, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=v.finite_float, iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.requirement), v.optional_key(v.scalar_key)(self.required_event), v.optional_key(v.scalar_key)(self.event_id), v.scalar_key(self.time), v.scalar_key(self.mode), v.sequence_key(v.scalar_key)(self.state_ids), v.sequence_key(v.scalar_key)(self.input_ids), v.sequence_key(v.scalar_key)(self.output_ids), v.sequence_key(v.scalar_key)(self.state), v.sequence_key(v.scalar_key)(self.outputs), v.sequence_key(v.scalar_key)(self.integrals), v.sequence_key(v.scalar_key)(self.input_columns), v.sequence_key(v.scalar_key)(self.inputs), v.scalar_key(self.endpoint_satisfied), v.scalar_key(self.prefix_complete), v.sequence_key(v.scalar_key)(self.missing_observations),))
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.requirement), v.optional_key(v.scalar_key)(self.required_event), v.optional_key(v.scalar_key)(self.event_id), v.scalar_key(self.time), v.scalar_key(self.mode), v.scalar_key(self.mode_name), v.scalar_key(self.mode_identity), v.sequence_key(v.scalar_key)(self.state_ids), v.sequence_key(v.scalar_key)(self.input_ids), v.sequence_key(v.scalar_key)(self.output_ids), v.sequence_key(v.scalar_key)(self.state), v.sequence_key(v.scalar_key)(self.outputs), v.sequence_key(v.scalar_key)(self.integrals), v.sequence_key(v.scalar_key)(self.input_columns), v.sequence_key(v.scalar_key)(self.inputs), v.scalar_key(self.endpoint_satisfied), v.scalar_key(self.prefix_complete), v.sequence_key(v.scalar_key)(self.missing_observations),))
 
 
 @attrs.frozen(kw_only=True)

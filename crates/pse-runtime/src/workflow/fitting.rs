@@ -165,13 +165,6 @@ struct Measurement {
     experiment: usize,
     row: usize,
     time: Option<f64>,
-    #[cfg_attr(
-        not(feature = "solver-diffsol"),
-        expect(
-            dead_code,
-            reason = "prepared sample binding is consumed by the linked dynamic fit oracle"
-        )
-    )]
     sample_index: Option<usize>,
     included: bool,
     value: Option<f64>,

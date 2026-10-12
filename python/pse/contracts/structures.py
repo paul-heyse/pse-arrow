@@ -26,6 +26,20 @@ class VersionRequirement:
 
 
 @attrs.frozen(kw_only=True)
+class ScientificArtifactCoordinate:
+    """Declared relation row or nested value."""
+
+    id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    scale: b.float = attrs.field(validator=v.finite_float)
+    offset: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.scale), v.scalar_key(self.offset),))
+
+
+@attrs.frozen(kw_only=True)
 class ModelingUnitFactor:
     """Declared relation row or nested value."""
 

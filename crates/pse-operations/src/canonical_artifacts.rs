@@ -291,7 +291,7 @@ mod canonical_artifact_tests {
     #[tokio::test]
     async fn canonical_artifact_live_read_prevents_collection_after_owner_release() {
         let (store,revision)=fixture().await;
-        let (intent,blocks)=content(&store,&revision).await;
+        let (intent,blocks)=content(&store,&revision,"user","reader").await;
         store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","reader").await.unwrap();
         let read=store.read_artifact(&intent.key,Duration::from_secs(10)).await.unwrap();
         let copied=read.block(0).await.unwrap();

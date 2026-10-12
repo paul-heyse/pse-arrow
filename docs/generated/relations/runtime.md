@@ -153,11 +153,14 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `source` | `Utf8` | false | `payload` | `runtime.canonical_analysis_nodes.key` | — |
 | `target` | `Utf8` | false | `payload` | `runtime.canonical_analysis_nodes.key` | — |
 | `kind` | `Utf8` | false | `payload` | — | — |
-| `evidence` | `Utf8` | true | `payload` | — | — |
+| `evidence_artifact` | `Utf8` | true | `payload` | — | — |
+| `evidence_block` | `UInt64` | true | `payload` | — | — |
+| `evidence_row` | `UInt64` | true | `payload` | — | — |
+| `evidence_field` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_analysis_inputs`
 
-Exact admitted result selection consumed by a retained derived analysis; native cleanup respects this retention obligation.
+Independent scientific input artifact consumed by a retained derived analysis; explicit attributed obligations survive original producer collection.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
@@ -165,9 +168,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
 | `analysis` | `Utf8` | false | `payload` | `runtime.canonical_analyses.key` | — |
-| `run` | `Utf8` | false | `payload` | — | — |
-| `attempt` | `Utf8` | false | `payload` | `runtime.canonical_attempts.key` | — |
-| `manifest` | `Utf8` | false | `payload` | — | — |
+| `artifact` | `Utf8` | false | `payload` | `runtime.canonical_artifacts.key` | — |
 
 ## `canonical_analysis_nodes`
 
@@ -181,6 +182,97 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `analysis` | `Utf8` | false | `payload` | — | — |
 | `semantic` | `Utf8` | false | `payload` | — | — |
 | `kind` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_artifact_blocks`
+
+One bounded artifact-owned capsule or standalone IPC block; original and copied encoding digests are distinct provenance.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `relation` | `Utf8` | false | `payload` | — | — |
+| `payload` | `Binary` | false | `payload` | — | — |
+| `digest` | `Utf8` | false | `payload` | — | — |
+| `original_digest` | `Utf8` | false | `payload` | — | — |
+| `rows` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_artifact_obligations`
+
+Independent attributed study, user, project, analysis or audit obligation; only the matching owner releases it.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_artifact_reads`
+
+Artifact read association to the same-key finite canonical source protection grant; collection joins actual grant settlement.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_artifact_releases`
+
+Permanent exact obligation release; a delayed attach cannot recreate a released owner lifetime.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_artifact_staging_inputs`
+
+Protective exact producer selection during staged or uncertain scientific transfer; removed only after activation or exact creation settlement.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_artifacts`
+
+Independent selected scientific closure; finite original creation authority, owned copied content and source roots survive producer collection.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `kind` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `primary_problem` | `Utf8` | false | `payload` | — | — |
+| `primary_authority` | `Utf8` | false | `payload` | — | — |
+| `creation_nonce` | `Utf8` | false | `payload` | — | — |
+| `creation_expires_at` | `UInt64` | false | `payload` | — | — |
+| `creation_request_digest` | `Utf8` | false | `payload` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `provenance` | `Binary` | false | `payload` | — | — |
+| `block_count` | `UInt64` | false | `payload` | — | — |
+| `payload_bytes` | `UInt64` | false | `payload` | — | — |
+| `active` | `Boolean` | false | `payload` | — | — |
+| `retiring` | `Boolean` | false | `payload` | — | — |
 
 ## `canonical_attempts`
 
@@ -251,6 +343,11 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `kind` | `Utf8` | false | `payload` | — | — |
 | `request` | `Binary` | false | `payload` | — | — |
 | `result` | `Binary` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `study` | `Utf8` | true | `payload` | — | — |
+| `point` | `Utf8` | true | `payload` | — | — |
+| `minimal` | `Boolean` | false | `payload` | — | — |
+| `disposition` | `Utf8` | false | `payload` | — | — |
 
 ## `canonical_guards`
 
@@ -264,30 +361,79 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `generation` | `UInt64` | false | `payload` | — | — |
 | `incarnation` | `Utf8` | true | `payload` | — | — |
 | `analysis_creation_closed_through` | `UInt64` | true | `payload` | — | — |
+| `artifact_creation_closed_through` | `UInt64` | true | `payload` | — | — |
 | `protection_closed_through` | `UInt64` | true | `payload` | — | — |
 
-## `canonical_historical_results`
+## `canonical_history_identities`
 
-Exact offline admission of an original sealed terminal historical attempt; current protection and retirement remain required and no current execution or seed eligibility is minted.
+Permanent original attempt, manifest, seed and effect-free run owner attribution; no successful numerical result is invented for absent effects.
 
 Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
-| `attempt` | `Utf8` | false | `payload` | — | — |
+| `category` | `Utf8` | false | `payload` | — | — |
+| `identity` | `Utf8` | false | `payload` | — | — |
 | `run` | `Utf8` | false | `payload` | — | — |
-| `revision` | `Utf8` | false | `payload` | — | — |
-| `sequence` | `UInt64` | false | `payload` | — | — |
-| `generation` | `UInt64` | false | `payload` | — | — |
-| `manifest` | `Utf8` | false | `payload` | — | — |
-| `manifest_digest` | `Utf8` | false | `payload` | — | — |
-| `outcome` | `Utf8` | false | `payload` | — | — |
-| `interpretation` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
-| `migration` | `Utf8` | false | `payload` | — | — |
-| `snapshot` | `Utf8` | false | `payload` | — | — |
-| `source_digest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_history_locators`
+
+Permanent exact point and summary owner attribution created atomically with study membership; opaque identities remain fenced after detail deletion.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `point` | `Utf8` | true | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_history_obligation_counts`
+
+Transactionally maintained bounded owner-obligation lookup; counts cannot substitute for immutable obligation attribution.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `count` | `UInt64` | false | `payload` | — | — |
+
+## `canonical_history_obligations`
+
+Independent attributed audit or unsettled-effect history obligation; exact released tombstones reject delayed re-acquisition and identity reuse.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `purpose` | `Utf8` | false | `payload` | — | — |
+| `attribution` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `released` | `Boolean` | false | `payload` | — | — |
+
+## `canonical_history_retirements`
+
+Permanent explicit detailed-history release and truthful minimal outcome; bounded collection cursor never grants replay or resurrection.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `owner_kind` | `Utf8` | false | `payload` | — | — |
+| `owner` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+| `outcome` | `Utf8` | false | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `after_locator` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_interpretations`
 
@@ -298,6 +444,21 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
 | `key` | `Utf8` | false | `key` | — | — |
+| `interpretation` | `Utf8` | false | `payload` | — | — |
+| `schema_digest` | `Utf8` | false | `payload` | — | — |
+| `issuing_store` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_maintenance_activations`
+
+Exact immutable schema activation effect receipt under the original rollout nonce; marker and issuing identity publication are atomic with this acknowledgement.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `input_sha256` | `Utf8` | false | `payload` | — | — |
+| `predecessor` | `Binary` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
 | `schema_digest` | `Utf8` | false | `payload` | — | — |
 | `issuing_store` | `Utf8` | false | `payload` | — | — |
@@ -377,7 +538,6 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `descriptor` | `Utf8` | false | `payload` | — | — |
 | `producer` | `Utf8` | false | `payload` | — | — |
 | `interpretation` | `Utf8` | false | `payload` | — | — |
-| `historical_blob` | `Utf8` | true | `payload` | — | — |
 
 ## `canonical_product_descriptors`
 
@@ -762,6 +922,19 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `predecessor` | `Utf8` | false | `payload` | `runtime.canonical_study_points.key` | — |
 | `kind` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_study_inputs`
+
+Exact external seed selection admitted before study activation; one obligation per distinct selected solution preserves original occurrence policy.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `study` | `Utf8` | false | `payload` | — | — |
+| `solution` | `Utf8` | false | `payload` | — | — |
+| `artifact` | `Utf8` | false | `payload` | — | — |
+
 ## `canonical_study_points`
 
 Distinct requested occurrence, immutable operation and policy, fenced observations and actual selected start. Query flags are derived from the shared policy owner.
@@ -774,6 +947,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `study` | `Utf8` | false | `payload` | — | — |
 | `ordinal` | `UInt64` | false | `payload` | — | — |
 | `occurrence` | `UInt64` | false | `payload` | — | — |
+| `seed_solution` | `Utf8` | true | `payload` | — | — |
 | `policy` | `Binary` | false | `payload` | — | — |
 | `descriptor` | `Binary` | false | `payload` | — | — |
 | `facts` | `Binary` | false | `payload` | — | — |
@@ -2265,6 +2439,65 @@ Version: 2. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `physical_identity` | `content_hash` | false | `payload` | — | — |
 | `environment_identity` | `content_hash` | false | `payload` | — | — |
 
+## `scientific_contexts`
+
+Original prepared scientific interpretation for independent result artifacts. Ordered coordinate inventories carry canonical physical unit/basis via the retained physical source, and explicit normalized-to-physical scales/offsets. Profile and binding are exact owner-encoded documents, never inferred from an artifact selector. Empty mode/time inventories identify nontransient producers. This metadata confers no reuse/restart permission.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `model_id` | `semantic_id` | true | `payload` | — | — |
+| `fit_id` | `semantic_id` | true | `payload` | — | — |
+| `case_id` | `semantic_id` | true | `payload` | — | — |
+| `instance_id` | `semantic_id` | true | `payload` | — | — |
+| `source_identity` | `content_hash` | false | `payload` | — | — |
+| `physical_identity` | `content_hash` | false | `payload` | — | — |
+| `preparation_identity` | `content_hash` | false | `payload` | — | — |
+| `profile_identity` | `content_hash` | false | `payload` | — | — |
+| `configuration` | `Binary` | false | `payload` | — | — |
+| `binding` | `Binary` | true | `payload` | — | — |
+| `state` | `List` | false | `payload` | — | — |
+| `state.item` | `Struct ScientificArtifactCoordinate` | false | `payload` | — | — |
+| `state.item.id` | `semantic_id` | false | `payload` | — | — |
+| `state.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `state.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `state.item.scale` | `Float64` | false | `payload` | — | — |
+| `state.item.offset` | `Float64` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Struct ScientificArtifactCoordinate` | false | `payload` | — | — |
+| `inputs.item.id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.scale` | `Float64` | false | `payload` | — | — |
+| `inputs.item.offset` | `Float64` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `Struct ScientificArtifactCoordinate` | false | `payload` | — | — |
+| `outputs.item.id` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.scale` | `Float64` | false | `payload` | — | — |
+| `outputs.item.offset` | `Float64` | false | `payload` | — | — |
+| `integrals` | `List` | false | `payload` | — | — |
+| `integrals.item` | `Struct ScientificArtifactCoordinate` | false | `payload` | — | — |
+| `integrals.item.id` | `semantic_id` | false | `payload` | — | — |
+| `integrals.item.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `integrals.item.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `integrals.item.scale` | `Float64` | false | `payload` | — | — |
+| `integrals.item.offset` | `Float64` | false | `payload` | — | — |
+| `time` | `Struct ScientificArtifactCoordinate` | true | `payload` | — | — |
+| `time.id` | `semantic_id` | false | `payload` | — | — |
+| `time.quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `time.unit_id` | `semantic_id` | false | `payload` | — | — |
+| `time.scale` | `Float64` | false | `payload` | — | — |
+| `time.offset` | `Float64` | false | `payload` | — | — |
+| `mode_names` | `List` | false | `payload` | — | — |
+| `mode_names.item` | `Utf8` | false | `payload` | — | — |
+| `mode_identities` | `List` | false | `payload` | — | — |
+| `mode_identities.item` | `content_hash` | false | `payload` | — | — |
+
 ## `simulation_events`
 
 Physical pre/post root and scheduled-input transitions. Absent after means a terminal or failed transition.
@@ -3172,7 +3405,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 
 Actual completion state and inputs in canonical physical coordinates, with stable coordinate IDs, and live pre-termination input segment, separate from requested samples. Future required observations remain explicitly missing; fixed-domain integrals retain their extent.
 
-Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
+Version: 2. Snapshot class: `derived`. Primary key: `run_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -3182,6 +3415,8 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id`.
 | `event_id` | `semantic_id` | true | `payload` | — | — |
 | `time` | `Float64` | false | `payload` | — | — |
 | `mode` | `Int64` | false | `payload` | — | — |
+| `mode_name` | `Utf8` | false | `payload` | — | — |
+| `mode_identity` | `content_hash` | false | `payload` | — | — |
 | `state_ids` | `List` | false | `payload` | — | — |
 | `state_ids.item` | `semantic_id` | false | `payload` | — | — |
 | `input_ids` | `List` | false | `payload` | — | — |
