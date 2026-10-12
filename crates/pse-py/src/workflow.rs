@@ -79,7 +79,7 @@ impl NativeScientificArtifact {
     fn kind(&self)->String {self.inner.header().kind.clone()}
     /// Original immutable recovery document, never a content-acquisition capability.
     #[getter]
-    fn original_intent(&self,py:Python<'_>)->PyResult<Vec<u8>> {crate::documents::encode(py,self.inner.header())}
+    fn original_intent(&self,py:Python<'_>)->PyResult<Vec<u8>> {documents::encode(py,self.inner.header())}
     fn metadata(&self,py:Python<'_>)->PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.metadata(),||{})?).map_err(|error|errors::diagnostic(py,&error))
     }
@@ -428,13 +428,13 @@ fn blocking_on_with_recovery<
                     match &value {
                         Ok(value)=>if let Some((field,key,intent))=recovery_key(value) {
                             e.value(py).setattr(field,key)?;
-                            if let Some(intent)=intent {e.value(py).setattr("artifact_intent",crate::documents::encode(py,&intent)?)?;}
+                            if let Some(intent)=intent {e.value(py).setattr("artifact_intent",documents::encode(py,&intent)?)?;}
                         },
                         Err(error)=>{
                             for (field,key) in [("analysis_key",error.report_analysis_key()),("artifact_key",error.report_artifact_key()),("study_key",error.report_study_key())] {
                                 if let Some(key)=key {e.value(py).setattr(field,key)?;}
                             }
-                            if let Some(intent)=error.report_artifact_intent() {e.value(py).setattr("artifact_intent",crate::documents::encode(py,&intent)?)?;}
+                            if let Some(intent)=error.report_artifact_intent() {e.value(py).setattr("artifact_intent",documents::encode(py,&intent)?)?;}
                             if let Some((kind,owner,read))=error.report_artifact_cleanup() {
                                 e.value(py).setattr("artifact_owner_kind",kind)?;
                                 e.value(py).setattr("artifact_owner",owner)?;

@@ -136,7 +136,7 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {Self::Canonical(error)=>error.report_artifact_intent(),Self::Shared(error)=>error.report_artifact_intent(),Self::StudyCreationUnsettled{source,..}=>source.report_artifact_intent(),Self::ArtifactTransferUnsettled{artifact,..}=>Some((**artifact).clone()),_=>None}
     }
     fn report_artifact_cleanup(&self)->Option<(String,String,Option<String>)> {
-        match self {Self::ArtifactTransferUnsettled{owner_kind,owner,read,..}=>Some((owner_kind.clone(),owner.clone(),read.clone())),Self::Shared(error)|Self::StudyCreationUnsettled{source:error,..}=>error.report_artifact_cleanup(),_=>None}
+        match self {Self::ArtifactTransferUnsettled{owner_kind,owner,read,..}=>Some((owner_kind.clone(),owner.clone(),read.clone())),Self::Shared(error)=>error.report_artifact_cleanup(),Self::StudyCreationUnsettled{source,..}=>source.report_artifact_cleanup(),_=>None}
     }
     fn report_study_key(&self)->Option<String> {
         match self {Self::StudyCreationUnsettled{study,..}=>Some(study.to_string()),Self::Shared(error)=>error.report_study_key(),_=>None}
