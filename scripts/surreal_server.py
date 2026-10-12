@@ -3391,8 +3391,36 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
         or cpu < integer(execution["cpu_threads"])
         or not role_affinity_ready(pid, execution, cpus)
     ):
+        # Explain the actual failed role without exposing environment values.
+        # The launch receipt precedes native library/thread initialization, so
+        # identify later affinity changes on the process that requested admission.
+        affinity: dict[str, object] = {"expected": cpus}
+        try:
+            affinity["leader"] = sorted(os.sched_getaffinity(pid))
+            mismatches: list[dict[str, object]] = []
+            inspected = 0
+            for thread in (Path("/proc") / str(pid) / "task").iterdir():
+                if inspected == 128:
+                    affinity["truncated"] = True
+                    break
+                inspected += 1
+                try:
+                    actual = os.sched_getaffinity(int(thread.name))
+                    if not actual or not actual <= set(cpus):
+                        if len(mismatches) < 16:
+                            mismatches.append(
+                                {"tid": int(thread.name), "comm": (thread / "comm").read_text().strip()[:64], "cpus": sorted(actual)}
+                            )
+                except OSError as error:
+                    if len(mismatches) < 16:
+                        mismatches.append({"tid": int(thread.name), "observation_error": str(error)})
+            affinity["threads_inspected"] = inspected
+            affinity["thread_mismatches"] = mismatches
+        except OSError as error:
+            affinity["observation_error"] = str(error)
         raise SupervisorError(
-            f"Observer placement required: PSE_SLICE={execution_slice(state)} PSE_MEMORY_MAX=4G scripts/pse-env -- <observer command>"
+            "Observer placement differs: "
+            + json.dumps({"pid": pid, "expected_group": str(profile), "actual_group": str(group), "expected_memory_max": integer(execution["observer_memory_bytes"]), "actual_memory_max": memory, "minimum_cpu_quota": integer(execution["cpu_threads"]), "actual_cpu_quota": cpu, "affinity": affinity}, sort_keys=True)
         )
     # The envelope includes one observer process, not arbitrarily many independent
     # four-GiB ceilings. Kernel membership and PID start time establish live reuse.
