@@ -216,6 +216,9 @@ impl CanonicalStore {
             within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
                 let config = self.maintenance_config()?;
                 let pending = config.get("surrealkit_rollout_pending").ok_or_else(|| invalid("exact pending rollout required"))?;
+                if pending.get("phase").and_then(serde_json::Value::as_str) != Some("settled") {
+                    return Err(invalid("exact rollout phase is not completely settled"));
+                }
                 let nonce = pending.get("nonce").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("pending nonce absent"))?;
                 if nonce.len() != 32 || !nonce.bytes().all(|byte| byte.is_ascii_hexdigit()) || settlement_path != self.state_path.join(".surrealkit").join(nonce).join("settled.json") || settlement_path.symlink_metadata().map_err(|error| invalid(error.to_string()))?.file_type().is_symlink() { return Err(invalid("exact owned settlement path required")); }
                 let settled: serde_json::Value = serde_json::from_slice(&std::fs::read(settlement_path).map_err(|error| invalid(error.to_string()))?).map_err(|error| invalid(error.to_string()))?;
@@ -223,6 +226,9 @@ impl CanonicalStore {
                     if pending.get(key).is_none() || pending.get(key) != settled.get(key) { return Err(invalid(format!("settlement binding differs: {key}"))); }
                 }
                 let evidence = settled.get("settlement").ok_or_else(|| invalid("settlement absent"))?;
+                if evidence.get("phase_complete") != Some(&serde_json::Value::Bool(true)) {
+                    return Err(invalid("SQL settlement alone cannot activate an incomplete rollout"));
+                }
                 if evidence.get("outcome").and_then(serde_json::Value::as_str) != Some("settled") || evidence.get("nonce").and_then(serde_json::Value::as_str) != Some(nonce) || evidence.get("input_sha256") != pending.get("input_sha256") { return Err(invalid("actual operation settlement required")); }
                 let recorded: DefinitionWitness = serde_json::from_value(evidence.get("canonical").cloned().ok_or_else(|| invalid("canonical definition witness absent"))?).map_err(|error| invalid(error.to_string()))?;
                 let witness = self.validate_definitions().await?;
