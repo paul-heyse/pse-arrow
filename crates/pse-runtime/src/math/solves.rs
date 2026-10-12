@@ -2303,7 +2303,7 @@ impl<T: Send + 'static> SolveHandle<T> {
         let source = crate::CancelSource::new();
         let operation = work(source.clone());
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             tokio::pin!(operation);
             let result = tokio::select! {
                 result = &mut operation => result,
@@ -2313,7 +2313,7 @@ impl<T: Send + 'static> SolveHandle<T> {
                 }
             };
             let _ = sender.send(result);
-        });
+        }));
         Self {
             cancel,
             receiver: Some(receiver),

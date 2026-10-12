@@ -32,6 +32,8 @@ impl Runtime {
         attempt: &str,
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let read = self
             .canonical_store()
@@ -59,6 +61,8 @@ impl Runtime {
             owner: None,
             cancel,
         })
+    
+        }).await
     }
 }
 impl ProgressStream {

@@ -132,7 +132,7 @@ impl MathService {
         let events = progress.clone();
         let service = self.clone();
         let (tx, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let result = service
                 .job_scoped_on_entry(
                     controls.threads,
@@ -177,7 +177,7 @@ impl MathService {
                 )
                 .await;
             let _ = tx.send(result);
-        });
+        }));
         Ok(SolveHandle {
             cancel,
             receiver: Some(receiver),

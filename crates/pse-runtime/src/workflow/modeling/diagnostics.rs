@@ -360,6 +360,8 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let resolved = self
             .resolve_case(
                 analysis.root,
@@ -417,6 +419,8 @@ impl ModelingPackage {
             admission_identity,
             providers: resolved.providers,
         })
+    
+        }).await
     }
     /// Diagnostic-only model analysis. It neither changes a candidate nor upgrades solver status.
     pub async fn diagnose_case(
@@ -427,6 +431,8 @@ impl ModelingPackage {
         compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         policy.validate()?;
         prepared.validate_point(&values)?;
         let ModelingDiagnosticPreparation {
@@ -1071,6 +1077,8 @@ impl ModelingPackage {
             }
         }
         Ok(report)
+    
+        }).await
     }
 }
 
@@ -1556,6 +1564,8 @@ impl ModelingPackage {
         controls: pse_backend_native::solve::Controls,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
@@ -1655,5 +1665,7 @@ impl ModelingPackage {
             evidence,
             _owner: owner,
         })
+    
+        }).await
     }
 }

@@ -3174,6 +3174,8 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.protected_query(
             &format!("execution-run:{run}"),
             crate::canonical::QueryEffect::Mutation,
@@ -3181,9 +3183,12 @@ impl CanonicalStore {
             build,
         )
         .await
+            }).await
     }
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let (row, sources) = run_request_receipt(request)?;
             let encoded = wire::encode_canonical_runs(&row)?;
@@ -3213,12 +3218,15 @@ impl CanonicalStore {
                 },
             }
         }).await
+            }).await
     }
     /// Check the complete immutable run receipt without publication or retention effects.
     pub(crate) async fn check_execution_run_identity(
         &self,
         request: &RunRequest,
     ) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let (expected, _) = run_request_receipt(request)?;
             let saved = self
@@ -3231,6 +3239,7 @@ impl CanonicalStore {
             Ok(())
         })
         .await
+            }).await
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
     pub async fn execution_run_page(
@@ -3239,6 +3248,8 @@ impl CanonicalStore {
         after: Option<u64>,
         limit: usize,
     ) -> Result<Vec<RunSummary>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(problem)?;
             if !(1..=64).contains(&limit) {
@@ -3255,6 +3266,7 @@ impl CanonicalStore {
                 .map(decode_run_summary)
                 .collect()
         }).await
+            }).await
     }
     /// Exact scalar metadata for one retained seed; payload selection requires its manifest.
     pub async fn result_seed(
@@ -3262,6 +3274,8 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(key)?;
             let mut result = bounded_query(
@@ -3277,6 +3291,7 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     /// Filter sealed complete-original inventory before cutoff; admission remains independent.
     pub async fn result_seed_candidates(
@@ -3287,6 +3302,8 @@ impl CanonicalStore {
         attempt: Option<&str>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let query = if attempt.is_some() {
                 "SELECT * FROM canonical_result_seeds WHERE layout=$layout AND preparation=$preparation AND backend=$backend AND attempt=$attempt AND fn::pse_execution_v1::seed_eligible($this) AND (SELECT VALUE key FROM canonical_result_retirements WHERE run=$parent.run LIMIT 1) = [] ORDER BY run_sequence DESC,attempt_generation DESC,step DESC,key DESC LIMIT 64;"
@@ -3308,6 +3325,7 @@ impl CanonicalStore {
                 .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
                 .collect()
         }).await
+            }).await
     }
     /// Narrow immutable seed headers for one explicit attempt, ordered by scientific step.
     pub async fn result_seed_page(
@@ -3316,6 +3334,8 @@ impl CanonicalStore {
         after: Option<u64>,
     ) -> Result<Vec<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(attempt)?;
             let after = after
@@ -3329,6 +3349,7 @@ impl CanonicalStore {
                 .map(|row| wire::decode_canonical_result_seeds(row).map_err(Into::into))
                 .collect()
         }).await
+            }).await
     }
     /// Renew the current live worker fence; expired or cancelled workers cannot revive.
     pub async fn renew_attempt(
@@ -3336,6 +3357,8 @@ impl CanonicalStore {
         fence: &AttemptFence,
         lifetime: Duration,
     ) -> Result<CanonicalAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let lifetime =
                 i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
@@ -3365,6 +3388,7 @@ impl CanonicalStore {
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)?)
         }).await
+            }).await
     }
     /// Register only a structurally complete immutable chunked seed under its live gate.
     /// Eligibility still comes from the scientific completion owner and terminal descriptor.
@@ -3374,6 +3398,8 @@ impl CanonicalStore {
         operation: &str,
         seed: &pse_model::generated::runtime::canonical_result_seeds::Row,
     ) -> Result<SeedAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             identity(&seed.key)?;
@@ -3418,6 +3444,7 @@ impl CanonicalStore {
                 },
             }
         }).await
+            }).await
     }
     /// Coherent bounded recovery observation. It grants no claim or fence;
     /// the recovery effect independently checks current expiration/cancellation.
@@ -3433,6 +3460,8 @@ impl CanonicalStore {
         ),
         CanonicalError,
     > {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(key)?;
             let mut response = bounded_query(self.db.query("BEGIN; LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
@@ -3467,9 +3496,12 @@ impl CanonicalStore {
             }
             Ok((point, attempt, study, run))
         }).await
+            }).await
     }
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(
                 self.db
@@ -3484,12 +3516,15 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
     pub async fn canonical_attempt(
         &self,
         key: &str,
     ) -> Result<Option<CanonicalAttempt>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(
                 self.db
@@ -3504,12 +3539,15 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     /// Read a closed manifest; admission additionally requires a terminal attempt.
     pub async fn canonical_result_manifest(
         &self,
         key: &str,
     ) -> Result<Option<ResultManifest>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(
                 self.db
@@ -3527,6 +3565,7 @@ impl CanonicalStore {
             Ok(row)
         })
         .await
+            }).await
     }
     async fn ensure_execution_retained(&self, run: &str) -> Result<(), CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3553,6 +3592,8 @@ impl CanonicalStore {
         kind: &str,
         request: &[u8],
     ) -> Result<Option<String>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(
                 self.db
@@ -3573,6 +3614,7 @@ impl CanonicalStore {
             Ok(row.attempt)
         })
         .await
+            }).await
     }
     /// Claim a fresh actual attempt, or settle the same claim after lost acknowledgment.
     pub async fn claim_run(
@@ -3582,6 +3624,8 @@ impl CanonicalStore {
         worker: &str,
         lifetime: Duration,
     ) -> Result<AttemptFence, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(run)?;
             identity(operation)?;
@@ -3614,6 +3658,7 @@ impl CanonicalStore {
                 generation: row.generation,
             })
         }).await
+            }).await
     }
     /// Append an exact bounded batch under the attempt's live ingestion gate.
     pub async fn append_result_batch(
@@ -3625,6 +3670,8 @@ impl CanonicalStore {
         payload: ResultPayload,
         row_count: u64,
     ) -> Result<AppendAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.append_execution_batch(
                 fence,
@@ -3640,6 +3687,7 @@ impl CanonicalStore {
             .await
         })
         .await
+            }).await
     }
     /// Append an independently decodable scientific block and its indexed metadata atomically.
     #[allow(
@@ -3656,6 +3704,8 @@ impl CanonicalStore {
         row_count: u64,
         block: &ResultBlock,
     ) -> Result<AppendAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.append_execution_batch(
                 fence,
@@ -3671,6 +3721,7 @@ impl CanonicalStore {
             .await
         })
         .await
+            }).await
     }
     /// Retain complete scalar row locators and their batch receipt under one ingestion gate.
     #[allow(
@@ -3688,6 +3739,8 @@ impl CanonicalStore {
         block: &ResultBlock,
         row_indexes: &[ResultRow],
     ) -> Result<AppendAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             if row_indexes
                 .windows(2)
@@ -3711,6 +3764,7 @@ impl CanonicalStore {
             .await
         })
         .await
+            }).await
     }
     /// Atomically index original IPC rows and scientific output groups with their one immutable payload.
     #[allow(
@@ -3729,6 +3783,8 @@ impl CanonicalStore {
         row_indexes: &[ResultRow],
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             if row_indexes
                 .windows(2)
@@ -3753,6 +3809,7 @@ impl CanonicalStore {
             .await
         })
         .await
+            }).await
     }
     #[allow(
         clippy::too_many_arguments,
@@ -3810,6 +3867,8 @@ impl CanonicalStore {
         fence: &AttemptFence,
         items: Vec<ResultBlockAppend>,
     ) -> Result<Vec<AppendAck>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             validate_append_group(fence, &items)?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
@@ -3846,6 +3905,7 @@ impl CanonicalStore {
             }
             Ok(items.into_iter().map(|item| item.acknowledgment).collect())
         }).await
+            }).await
     }
     /// Authenticate demanded zero-row membership without writing a schema-only IPC batch.
     pub async fn declare_empty_result_set(
@@ -3854,6 +3914,8 @@ impl CanonicalStore {
         operation: &str,
         name: &str,
     ) -> Result<EmptySetAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             identity(name)?;
@@ -3875,6 +3937,7 @@ impl CanonicalStore {
             }
             Ok(EmptySetAck { fence: fence.clone(), name: name.into(), key, operation: operation.into(), request })
         }).await
+            }).await
     }
     /// Close the complete actual acknowledged inventory and admit its unchanged
     /// framed descriptor in the same fenced transaction. Server coverage checks
@@ -3885,6 +3948,8 @@ impl CanonicalStore {
         operation: &str,
         acknowledgments: ResultAcknowledgments,
     ) -> Result<ClosedManifest, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             acknowledgments.same_fence(fence)?;
@@ -3905,6 +3970,7 @@ impl CanonicalStore {
             // an acknowledged reply itself carries the actual closed authority.
             Ok(ClosedManifest { closed, row: manifest })
         }).await
+            }).await
     }
     /// Fence late batches before reconciling immutable metadata outside a transaction.
     pub async fn close_result_ingestion(
@@ -3912,6 +3978,8 @@ impl CanonicalStore {
         fence: &AttemptFence,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(operation)?;
             let request = json(&(&fence.run, &fence.attempt, fence.generation))?;
@@ -3921,6 +3989,7 @@ impl CanonicalStore {
             self.closed_response(result, operation, "close", &request, Some(fence))
                 .await
         }).await
+            }).await
     }
     async fn closure_operation(
         &self,
@@ -4006,6 +4075,8 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<CanonicalRun, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(run)?;
             identity(operation)?;
@@ -4041,6 +4112,7 @@ impl CanonicalStore {
                 }
             }
         }).await
+            }).await
     }
     /// Current recovery owner closes expired or cancelled staging; no stale worker can use this authority.
     pub async fn recover_closed_attempt(
@@ -4048,6 +4120,8 @@ impl CanonicalStore {
         run: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(run)?;
             identity(operation)?;
@@ -4066,6 +4140,7 @@ impl CanonicalStore {
             self.closed_response(result, operation, "recover", &request, None)
                 .await
         }).await
+            }).await
     }
     /// Resume an already closed live operation after restart without repeating native work.
     pub async fn resume_closed_attempt(
@@ -4073,6 +4148,8 @@ impl CanonicalStore {
         attempt: &str,
         operation: &str,
     ) -> Result<ClosedAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response=bounded_query(self.db.query("SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
             let mut row = response
@@ -4096,6 +4173,7 @@ impl CanonicalStore {
             value.authority = authority;
             Ok(value)
         }).await
+            }).await
     }
     /// Reconcile a joined optional progress writer's uncertain tail. Actual ACKs
     /// still describe only the observed prefix; this readback never promotes the
@@ -4106,6 +4184,8 @@ impl CanonicalStore {
         acknowledgments: ResultAcknowledgments,
         queued: u64,
     ) -> Result<ClosedManifest, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             acknowledgments.same_fence(closed.fence())?;
             if closed.authority != closed.fence.generation || acknowledgments.rows("__progress") > queued { return Err(CanonicalError::OperationReused); }
@@ -4130,12 +4210,15 @@ impl CanonicalStore {
             if expected.iter().any(|set|actual_sets.iter().all(|actual|actual.key!=set.key)) { return Err(CanonicalError::OperationReused); }
             Ok(actual)
         }).await
+            }).await
     }
     /// Reconcile exact immutable batch membership in bounded metadata pages, then admit its descriptor.
     pub async fn reconcile_closed_attempt(
         &self,
         closed: &ClosedAttempt,
     ) -> Result<ClosedManifest, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let attempt = self
                 .canonical_attempt(&closed.fence.attempt)
@@ -4280,6 +4363,7 @@ impl CanonicalStore {
                 row,
             })
         }).await
+            }).await
     }
     /// Atomically expose the frozen selection with the actual scientific terminal class.
     ///
@@ -4303,12 +4387,15 @@ impl CanonicalStore {
         completion: &[u8],
         seeds: SeedEligibility,
     ) -> Result<CanonicalAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.seal_execution(manifest, operation, outcome, completion, None, seeds, None)
                 .await
                 .map(|ack| ack.attempt)
         })
         .await
+            }).await
     }
     /// Atomically admit the owning study summary and conclude its exact study header.
     ///
@@ -4328,6 +4415,8 @@ impl CanonicalStore {
         outcome: TerminalClass,
         completion: &[u8],
     ) -> Result<CanonicalAttempt, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(study)?;
             self.seal_execution(
@@ -4343,6 +4432,7 @@ impl CanonicalStore {
             .map(|ack| ack.attempt)
         })
         .await
+            }).await
     }
     /// Seal joined scientific observations and return both actual terminal headers.
     /// # Safety
@@ -4360,6 +4450,8 @@ impl CanonicalStore {
         completion: &[u8],
         seeds: SeedEligibility,
     ) -> Result<SealAck, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let header: serde_json::Value = serde_json::from_slice(completion)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
         if header.get("version").and_then(serde_json::Value::as_u64) != Some(1)
@@ -4405,6 +4497,7 @@ impl CanonicalStore {
             Some(coverage),
         )
         .await
+            }).await
     }
     #[allow(
         clippy::too_many_arguments,

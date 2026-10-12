@@ -18,6 +18,8 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<crate::math::solves::paths::PathCurvature, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         scope
             .check()
             .map_err(pse_backend_native::ProblemError::Provider)
@@ -56,5 +58,7 @@ impl ModelingPackage {
             .native()
             .prepare_path_curvature(original.solve.clone(), program, scope, driver)
             .await?)
+    
+        }).await
     }
 }

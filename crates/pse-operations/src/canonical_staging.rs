@@ -652,6 +652,8 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<StageOutcome, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if edits.iter().any(|edit| {
             edit.version.as_ref().is_some_and(|version| {
                 matches!(
@@ -676,6 +678,7 @@ impl CanonicalStore {
         };
         self.stage_plan(&token, &plan, edits).await?;
         Ok(StageOutcome::Closed(token))
+            }).await
     }
 
     async fn source_edit_receipt(
@@ -761,6 +764,8 @@ impl CanonicalStore {
         payload: &[u8],
         dependencies: &[u8],
     ) -> Result<Option<ClosedStage>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let receipt = descriptor
             .receipt
             .as_ref()
@@ -875,6 +880,7 @@ impl CanonicalStore {
         }
         self.close_stage(&token).await?;
         Ok(Some(token))
+            }).await
     }
 
     async fn stage_plan(
@@ -1204,7 +1210,10 @@ impl CanonicalStore {
         &self,
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.assemble_source(None, version, None).await
+            }).await
     }
 
     /// Every header/block read validates the same exact selected revision and live
@@ -1215,7 +1224,10 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         self.assemble_source(Some(selection), version, None).await
+            }).await
     }
 
     /// Read the exact selected payload extent before allocating scientific bytes.
@@ -1226,6 +1238,8 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         version: &str,
     ) -> Result<Option<usize>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         let Some(header) = self
             .source_record(
                 "canonical_version_manifests",
@@ -1256,6 +1270,7 @@ impl CanonicalStore {
             ));
         }
         Ok(Some(length))
+            }).await
     }
 
     /// Acquire bounded selected headers together, without assembling payloads.
@@ -1265,6 +1280,8 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         versions: &[String],
     ) -> Result<SelectedObjectBatch, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         if versions.is_empty()
             || versions.len() > SELECTED_OBJECT_BATCH
             || versions
@@ -1306,6 +1323,7 @@ impl CanonicalStore {
             selection: selection.clone(),
             headers: ordered,
         })
+            }).await
     }
 
     /// Read at most 512 KiB of source blocks, leaving cancellation and resource
@@ -1323,6 +1341,8 @@ impl CanonicalStore {
         )>,
         CanonicalError,
     > {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let mut requests = Vec::new();
         let mut bytes = 0usize;
         'objects: for (index, header) in batch.headers.iter().enumerate().skip(object) {
@@ -1396,6 +1416,7 @@ impl CanonicalStore {
             ordered.push((index, block));
         }
         Ok(ordered)
+            }).await
     }
 
     /// Close the whole acquisition after its last block. No object escapes on
@@ -1405,6 +1426,8 @@ impl CanonicalStore {
         batch: SelectedObjectBatch,
         payloads: Vec<Vec<u8>>,
     ) -> Result<Vec<ObjectVersion>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if payloads.len() != batch.headers.len() {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -1442,6 +1465,7 @@ impl CanonicalStore {
                 payload: payload.into(),
             })
             .collect())
+            }).await
     }
 
     async fn selected_source_records(
@@ -1487,6 +1511,8 @@ impl CanonicalStore {
         product: &pse_model::generated::runtime::canonical_products::Row,
         descriptor: &ProductBlob,
     ) -> Result<(), CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         let receipt = descriptor.receipt.as_ref().ok_or_else(|| {
             CanonicalError::Configuration("historical product needs explicit activation".into())
         })?;
@@ -1575,6 +1601,7 @@ impl CanonicalStore {
             }
         }
         Ok(())
+            }).await
     }
     pub(crate) async fn assemble_product_blob(
         &self,
@@ -1582,6 +1609,8 @@ impl CanonicalStore {
         product: &pse_model::generated::runtime::canonical_products::Row,
         descriptor: &ProductBlob,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         self.validate_product_candidate(selection, product, descriptor)
             .await?;
         let receipt = descriptor
@@ -1616,6 +1645,7 @@ impl CanonicalStore {
         descriptor.split(&bytes)?;
         body.payload = bytes.into();
         Ok(Some(body))
+            }).await
     }
 
     async fn source_record(
@@ -2004,6 +2034,8 @@ impl CanonicalStore {
         problem: &str,
         after: &str,
     ) -> Result<StagingReclamationPage, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.ensure_writes()?;
         let mut response = bounded_query(self.db.query("SELECT key FROM canonical_stages WHERE problem = $problem AND key > $after AND cleanup_complete = false AND (activated = true OR abandoned = true OR expires_at <= time::micros()) ORDER BY key LIMIT 1;")
             .bind(("problem", problem.to_owned())).bind(("after", after.to_owned()))).await?;
@@ -2070,6 +2102,7 @@ impl CanonicalStore {
             Some(operation)
         };
         Ok(page)
+            }).await
     }
 
     async fn cleanup_stage_query(

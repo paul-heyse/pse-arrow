@@ -98,6 +98,8 @@ impl ModelingPackage {
         read: &mut SelectedRead,
         cancel: &crate::CancelSource,
     ) -> Result<Parent, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical.store();
         let mut frame_objects =
             objects(&self.runtime, read, &[INGRESS_FRAME.into()], cancel).await?;
@@ -218,6 +220,8 @@ impl ModelingPackage {
             fields: index.fields,
             _leases: leases,
         })
+    
+        }).await
     }
 
     /// Publish an atomic, explicit edit of this exact parent. Missing objects are
@@ -227,6 +231,8 @@ impl ModelingPackage {
         delta: SourceDelta,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if delta.parent != self.revision.canonical.key {
             return Err(contract("source delta names a different canonical parent"));
         }
@@ -255,6 +261,8 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
 
     async fn apply_delta(
@@ -276,6 +284,8 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
     ) -> Result<Self, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let original_physical = parent.physical.clone();
         let fit_intents = delta
             .fits
@@ -901,6 +911,8 @@ impl ModelingPackage {
             },
             ..self.clone()
         })
+    
+        }).await
     }
 }
 

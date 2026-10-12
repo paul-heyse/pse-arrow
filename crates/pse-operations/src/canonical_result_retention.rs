@@ -39,6 +39,8 @@ impl CanonicalStore {
     /// scientific occurrence and outcome receipts. Individual runs are retired
     /// explicitly, and protected readers and retained analyses still prevent it.
     pub async fn forget_study_results(&self, study: &str) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(study)?;
             self.ensure_writes()?;
@@ -51,11 +53,14 @@ impl CanonicalStore {
             .await?;
             Ok(())
         }).await
+            }).await
     }
     /// Retire an analysis and remove one bounded page of owned state.
     /// False means cleanup or immutable creation-window settlement remains pending.
     /// Unknown keys refuse; absence alone is not proof of settled creation authority.
     pub async fn forget_analysis_results(&self, analysis: &str) -> Result<bool, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         identity(analysis)?;
         self.ensure_writes()?;
         let mut response = protected_query("canonical_result_retention::forget_analysis_results", || {
@@ -69,6 +74,7 @@ impl CanonicalStore {
         Ok(canonical_codec::decode_boolean(canonical_codec::required(
             &mut row, "complete",
         )?)?)
+            }).await
     }
     /// Resolve an uncertain final acknowledgement using the original immutable intent.
     /// This does not authorize creation or renew its expiry.
@@ -76,6 +82,8 @@ impl CanonicalStore {
         &self,
         intent: &crate::canonical_analyses::Analysis,
     ) -> Result<bool, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.ensure_writes()?;
         let row = crate::generated::surreal::encode_canonical_analyses(intent)?;
         let mut response = protected_query("canonical_result_retention::settle_analysis", || {
@@ -89,12 +97,15 @@ impl CanonicalStore {
         Ok(canonical_codec::decode_boolean(canonical_codec::required(
             &mut row, "complete",
         )?)?)
+            }).await
     }
     /// Irreversibly withdraw scientific payloads only after recovery is complete
     /// and no live reader, retained study or analysis needs them. This atomically
     /// fences future claims/reads and releases every selected run source root.
     /// Repeating it resumes the same retirement after an uncertain acknowledgment.
     pub async fn forget_run_results(&self, run: &str) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -115,6 +126,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
     /// Reclaim at most one payload and 64 indexes of each supported class. A
     /// persistent generation cursor preserves progress across interruption.
@@ -123,6 +135,8 @@ impl CanonicalStore {
         &self,
         run: &str,
     ) -> Result<ResultReclamationPage, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(run)?;
             self.ensure_writes()?;
@@ -146,6 +160,7 @@ impl CanonicalStore {
                 sets: canonical_codec::decode_uint(canonical_codec::required(&mut row, "sets")?)?,
             })
         }).await
+            }).await
     }
 }
 

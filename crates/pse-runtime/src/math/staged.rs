@@ -787,7 +787,7 @@ impl MathService {
         let (joined, receiver) = tokio::sync::oneshot::channel();
         let population = super::jobs::PopulationLane::new(self.jobs.clone(), slot.clone());
         let joined_population = population.clone();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
             let _ = tokio::task::spawn_blocking(move || thread.join()).await;
             drop(lease);
@@ -795,7 +795,7 @@ impl MathService {
             drop(joined_population);
             drop(slot);
             let _ = joined.send(());
-        });
+        }));
         Ok(NativeSession {
             population,
             dispatch: Arc::new(tokio::sync::Semaphore::new(1)),

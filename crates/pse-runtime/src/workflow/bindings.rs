@@ -109,6 +109,8 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         cancel
             .token()
             .checkpoint()
@@ -158,6 +160,8 @@ impl ModelingPackage {
             .admit_binding_seed_need(self, &binding, admission, cancel)
             .await?;
         Ok((binding, seed_need))
+    
+        }).await
     }
     /// Reconstruct the existing operation and apply its admitted coordinates once.
     pub(in crate::workflow) async fn prepare_bound_operation(
@@ -166,8 +170,12 @@ impl ModelingPackage {
         binding: &AdmittedBinding,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
             .await
+    
+        }).await
     }
     /// The lane retains the existing membership authority; point values remain fresh.
     pub(in crate::workflow) async fn prepare_bound_operation_with_admission(
@@ -177,6 +185,8 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         operation.source.check(self)?;
         if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
             operation
@@ -235,6 +245,8 @@ impl ModelingPackage {
             .into());
         }
         operation.prepare(self, cancel).await
+    
+        }).await
     }
     /// Admit one operation-owned parameter or prior coordinate through the same physical contract.
     pub(in crate::workflow) fn admit_target_quantity(

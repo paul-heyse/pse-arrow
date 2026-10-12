@@ -49,6 +49,8 @@ impl ModelingPackage {
         maximum_bytes: usize,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<ModelingKnowledge, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if maximum_cells == 0 || maximum_cells > 1_000_000 || maximum_bytes == 0 {
             return Err(contract("bounded knowledge projection policy"));
         }
@@ -204,6 +206,8 @@ impl ModelingPackage {
             source_revision: revision.identity(),
             table,
         })
+    
+        }).await
     }
 }
 fn empty(kind: Kind) -> Node {

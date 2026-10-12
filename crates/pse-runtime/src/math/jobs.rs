@@ -715,7 +715,7 @@ impl MathService {
         let flag = cancel.clone();
         let events = progress.clone();
         let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let result = service
                 .admitted(
                     cores,
@@ -727,7 +727,7 @@ impl MathService {
                 )
                 .await;
             let _ = sender.send(result);
-        });
+        }));
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -1042,7 +1042,7 @@ impl MathService {
         let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let result = async {
                 let (lease, active) = service
                     .reserve_active("math:native-job", cores as u32, bytes, &cancel, at)
@@ -1139,7 +1139,7 @@ impl MathService {
             .await;
             drop(slot);
             let _ = tx.send(result);
-        });
+        }));
         let result = rx
             .await
             .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;

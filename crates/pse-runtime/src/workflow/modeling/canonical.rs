@@ -1256,6 +1256,8 @@ impl ModelingPackage {
     pub(super) async fn declaration_inventory(
         &self,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical.store();
         let protection = store
             .protect(
@@ -1308,11 +1310,15 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     /// Explicit full fitting inventory, retaining each generated row decode lease.
     pub async fn fit_declarations(
         &self,
     ) -> Result<super::super::fitting::FitDeclarations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical.store();
         let protection = store
             .protect(
@@ -1347,11 +1353,15 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     pub(in crate::workflow) async fn fit_declaration(
         &self,
         id: pse_model::generated::identities::FitId,
     ) -> Result<pse_model::generated::authored::fit_cases::Row, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical.store();
         let protection = store
             .protect(
@@ -1371,11 +1381,15 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     pub(in crate::workflow) async fn replace_fits(
         &self,
         fits: &[pse_model::generated::authored::fit_cases::Row],
     ) -> Result<SourceRevision, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let extent = fits
             .iter()
             .try_fold(size_of::<Vec<Declaration>>(), |n, row| {
@@ -1469,6 +1483,8 @@ impl ModelingPackage {
             canonical,
             identity: self.revision.identity,
         })
+    
+        }).await
     }
     /// Explicit full inventory/export request. This path is never a prerequisite
     /// of a selected preparation and keeps no source rows on the package handle.
@@ -1484,6 +1500,8 @@ impl ModelingPackage {
         ),
         WorkflowError,
     > {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_operations::canonical_staging::SELECTED_OBJECT_BATCH;
         use pse_relations::generated::authored::{documents, fit_cases, packages};
         let store = self.runtime.canonical.store();
@@ -1679,6 +1697,8 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     /// Read the exact fixture selection in canonical membership order.
     pub(super) async fn selected_declarations(
@@ -1686,6 +1706,8 @@ impl ModelingPackage {
         selected: &BTreeSet<DeclarationId>,
         cancel: &crate::CancelSource,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if selected.is_empty() {
             return Err(contract("a fixture selection names at least one test"));
         }
@@ -1738,12 +1760,16 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     /// Read exactly one authored declaration for an operation's entry policy.
     pub(super) async fn declaration(
         &self,
         id: DeclarationId,
     ) -> Result<Declaration, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical.store();
         let protection = store
             .protect(
@@ -1764,6 +1790,8 @@ impl ModelingPackage {
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     async fn qualified_selected_candidate(
         &self,
@@ -1868,6 +1896,8 @@ impl ModelingPackage {
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<CheckedSelection, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let deadline = super::preparation_deadline(cancel)?;
         let store = self.runtime.canonical.store();
         let math = self.runtime.shared.math();
@@ -2007,6 +2037,8 @@ impl ModelingPackage {
                 Err(error)
             }
         }
+    
+        }).await
     }
     fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
         Ok(crate::math::modeling::CompilerLineage::new(
@@ -2029,28 +2061,38 @@ impl ModelingPackage {
         root: DeclarationId,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let selected = self.checked_selection(&[root], cancel).await?;
         let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
         let release = selected.read.finish().await;
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     pub(in crate::workflow) async fn selected_revision_roots(
         &self,
         roots: &[DeclarationId],
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let selected = self.checked_selection(roots, cancel).await?;
         let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
         let release = selected.read.finish().await;
         let result = result?;
         release?;
         Ok(result)
+    
+        }).await
     }
     pub(in crate::workflow) async fn all_revision(
         &self,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let (rows, physical, documents, _, _source_owners) = self.full_source().await?;
         Ok(self.runtime.shared.math().modeling_revision(
             &self.numerical_workspace()?,
@@ -2059,6 +2101,8 @@ impl ModelingPackage {
             documents,
             &self.physical.key,
         )?)
+    
+        }).await
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) async fn selected_source(
@@ -2066,7 +2110,11 @@ impl ModelingPackage {
         root: DeclarationId,
         cancel: &crate::CancelSource,
     ) -> Result<SelectedSource, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.selected_sources(&[root], cancel).await
+    
+        }).await
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     async fn selected_sources(

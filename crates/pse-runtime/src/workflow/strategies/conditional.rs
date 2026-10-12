@@ -41,12 +41,16 @@ impl PreparedInitializationStrategy {
     }
     /// Execute with this revision's original values and provider bindings.
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         Ok(self.runtime.native().initialize(
             self.prepared.clone(),
             self.values.clone(),
             self.providers.clone(),
             self.profile.clone(),
         )?)
+    
+        })
     }
 }
 
@@ -472,6 +476,8 @@ impl PreparedRecycle {
     }
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         let factory_bytes = self.factory_allocation_bound()?;
         let prepared = self.clone();
         let candidate = Arc::new(std::sync::Mutex::new(None));
@@ -491,6 +497,8 @@ impl PreparedRecycle {
             self.resident_foreign_bytes,
             move |execution, budget| prepared.function(execution, budget, observed),
         )?)
+    
+        })
     }
     fn function(
         self,
@@ -775,6 +783,8 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let profile = analysis.solver.clone();
         let compiler = analysis.compiler;
         if profile.intent != SolveIntent::Root
@@ -827,6 +837,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     async fn finish_recycle(
         &self,

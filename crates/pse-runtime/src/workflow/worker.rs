@@ -755,6 +755,8 @@ impl Operations {
         &self,
         sources: &BTreeMap<String, Vec<u8>>,
     ) -> Result<PhysicalSource, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let identity = package_checksum(sources);
         let problem = format!("physical:documents:{identity}");
         let reservation = pse_columnar::MemoryConsumer::new("canonical:source-package-publication")
@@ -852,12 +854,16 @@ impl Operations {
             revision: revision.key,
             identity,
         })
+    
+        }).await
     }
     /// Load only the selected protected document-kind revision, preserving original bytes.
     pub async fn sources(
         &self,
         source: &PhysicalSource,
     ) -> Result<Arc<pse_columnar::Leased<BTreeMap<String, Vec<u8>>>>, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let revision = self
             .store()
             .revision(&source.revision)
@@ -1085,6 +1091,8 @@ impl Operations {
         .await;
         self.store().release(read.selection()).await?;
         result
+    
+        }).await
     }
 }
 
@@ -1095,6 +1103,8 @@ impl Runtime {
         &self,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         if cancel.token().is_cancelled() {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
@@ -1168,6 +1178,8 @@ impl Runtime {
         }
         selected.require_current()?;
         Ok(())
+    
+        }).await
     }
     /// A definite decision rejection can demand a fresh shared-policy decision.
     /// Never replay an effect-free mutation after uncertain completion.
@@ -1176,6 +1188,8 @@ impl Runtime {
         scope: &pse_operations::canonical_studies::StudyScope,
         action: &pse_model::study::PointAction,
     ) -> Result<Option<pse_operations::canonical_studies::StudyPoint>, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let deadline = tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
         tokio::time::timeout_at(deadline, async {
             match self.settle_study_candidate(scope, action, None).await {
@@ -1202,16 +1216,24 @@ impl Runtime {
                 }
             }
         }).await.map_err(|_| WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Timeout))?
+    
+        }).await
     }
 
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         Ok(self.work_once_with_result().await?.0)
+    
+        }).await
     }
     /// Return one drained native result, whose owner remains retained by this view.
     pub async fn work_once_with_result(
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let mut lane = super::study::StudyCandidateLane::new();
         let recovery = tokio::sync::Mutex::new(None);
         let result = self
@@ -1225,6 +1247,8 @@ impl Runtime {
             .await;
         lane.close().await?;
         result
+    
+        }).await
     }
     async fn work_once_scoped(
         &self,
@@ -1410,7 +1434,7 @@ impl Runtime {
                             claim.fence.clone(),
                             run,
                             attempt_id,
-                        );
+                        )?;
                         attempt.set_output(prepared.output.clone());
                         let stop = cancel.clone();
                         if let Err(error) = attempt.start(Arc::new(move || stop.cancel())).await {
@@ -1601,6 +1625,8 @@ impl Runtime {
         settings: WorkerSettings,
         stop: &crate::CancelSource,
     ) -> Result<usize, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         if settings.poll.is_zero() || settings.recovery.is_zero() {
             return Err(contract(
                 "worker polling and recovery intervals must be positive",
@@ -1651,6 +1677,8 @@ impl Runtime {
             return Err(error);
         }
         result
+    
+        }).await
     }
     /// Shared document physical admission stays with its scientific owner.
     pub(crate) async fn physical_from_sources(
@@ -1658,6 +1686,8 @@ impl Runtime {
         sources: &BTreeMap<String, Vec<u8>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PhysicalContext, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let validation = self.validation_context();
         let pool = self.shared.pool();
         let token = cancel.token();
@@ -1671,6 +1701,8 @@ impl Runtime {
         )?;
         let documents = OwnedDocumentSet::try_from_bundles(vec![bundle], &pool, &token)?;
         self.physical_from_documents(&documents, &token).await
+    
+        }).await
     }
     pub(super) async fn package_from_sources(
         &self,
@@ -1678,6 +1710,8 @@ impl Runtime {
         physical: super::PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<super::ModelingPackage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let token = cancel.token();
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
         // Source bytes and load order define the complete immutable admission closure.
@@ -1735,5 +1769,7 @@ impl Runtime {
             .modeling_cache
             .retain_package(generation, identity, package.admission()?);
         Ok(package)
+    
+        }).await
     }
 }

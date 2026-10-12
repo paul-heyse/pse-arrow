@@ -157,6 +157,8 @@ impl CanonicalStore {
         node_count: u64,
         edge_count: u64,
     ) -> Result<Analysis, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let mut response = bounded_query(self.db.query("LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $guard=NONE OR $guard.incarnation=NONE { THROW 'analysis source authority unavailable'; }; RETURN {authority:$guard.incarnation,now:time::micros()};").bind(("problem",revision.problem.clone()))).await?;
         let index = response.num_statements().saturating_sub(1);
         let mut row = response
@@ -187,10 +189,13 @@ impl CanonicalStore {
             active: false,
             retiring: false,
         })
+            }).await
     }
 
     /// Retrieve only the actual primary and physical source receipts of a run.
     pub async fn analysis_run_sources(&self, run: &str) -> Result<Vec<Revision>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(run)?;
             let mut response=bounded_query(self.db.query("SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
@@ -208,6 +213,7 @@ impl CanonicalStore {
             }
             Ok(sources)
         }).await
+            }).await
     }
 
     /// Persist admitted graph pages, then activate exact complete membership.
@@ -221,6 +227,8 @@ impl CanonicalStore {
         nodes: &[AnalysisNode],
         edges: &[AnalysisEdge],
     ) -> Result<Analysis, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if header.creation_request_digest != request_digest(header, sources, inputs, nodes, edges) {
             return Err(CanonicalError::OperationReused);
         }
@@ -367,6 +375,7 @@ impl CanonicalStore {
             intent: Box::new(header.clone()),
             source: Box::new(source),
         })
+            }).await
     }
     async fn append_analysis(
         &self,
@@ -389,6 +398,8 @@ impl CanonicalStore {
     }
     /// Exact active header; incomplete or explicitly withdrawn graphs refuse reads.
     pub async fn analysis(&self, key: &str) -> Result<Analysis, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(key)?;
             let mut result=protected_query("canonical_analyses::analysis", ||Ok(self.db.query("BEGIN; LET $row=fn::pse_analysis_v1::available($pse_rpc_expires_at, $key); IF !$row.active { THROW 'analysis graph incomplete'; }; RETURN $row; COMMIT;").bind(("key",key.to_owned())))).await?;
@@ -399,6 +410,7 @@ impl CanonicalStore {
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
         }).await
+            }).await
     }
     /// Ordered bounded graph nodes from one exact active analysis.
     pub async fn analysis_node_page(
@@ -406,6 +418,8 @@ impl CanonicalStore {
         key: &str,
         after: Option<&str>,
     ) -> Result<Vec<AnalysisNode>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -417,6 +431,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
     /// Ordered bounded native graph edges from one exact active analysis.
     pub async fn analysis_edge_page(
@@ -424,6 +439,8 @@ impl CanonicalStore {
         key: &str,
         after: Option<&str>,
     ) -> Result<Vec<AnalysisEdge>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -435,6 +452,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
     async fn analysis_page(
         &self,

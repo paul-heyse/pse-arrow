@@ -44,6 +44,8 @@ impl ModelingPackage {
         time_limit: Duration,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticSamples, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         policy.validate()?;
         if maximum_samples == 0
             || time_limit.is_zero()
@@ -147,5 +149,7 @@ impl ModelingPackage {
             }
         }
         Ok(report)
+    
+        }).await
     }
 }

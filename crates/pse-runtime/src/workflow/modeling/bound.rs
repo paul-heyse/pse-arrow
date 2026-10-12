@@ -26,10 +26,14 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let prepared = self
             .prepare_bound_solve(case, overlay, compiler, solver, numerical, limits, cancel)
             .await?;
         self.solve_case(prepared, compiler, cancel).await
+    
+        }).await
     }
 
     /// Retain a stored, already admitted binding under its own allocation owner.
@@ -82,6 +86,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         cancel
             .token()
             .checkpoint()
@@ -158,6 +164,8 @@ impl ModelingPackage {
             owner,
         )));
         Ok(prepared)
+    
+        }).await
     }
 }
 

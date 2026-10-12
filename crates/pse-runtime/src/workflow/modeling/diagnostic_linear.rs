@@ -32,6 +32,8 @@ impl ModelingPackage {
         maximum_entries: usize,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLinearDiagnostics, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         controls
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
@@ -144,6 +146,8 @@ impl ModelingPackage {
             evidence,
             _owner: owner,
         })
+    
+        }).await
     }
 }
 

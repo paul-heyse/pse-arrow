@@ -104,6 +104,9 @@ impl Operations {
             pool,
         }
     }
+    fn admitted(&self) -> Result<Self, WorkflowError> {
+        Ok(Self { store: self.store.activity_store()?, ..self.clone() })
+    }
     /// Exact canonical deployment used by executions and connected readers.
     pub fn store(&self) -> &CanonicalStore {
         &self.store
@@ -132,7 +135,11 @@ impl Operations {
     }
     /// Persist cancellation under an explicit immutable effect identity.
     pub async fn cancel(&self, run: &str, operation: &str) -> Result<CanonicalRun, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         Ok(self.store.cancel_run(run, operation).await?)
+    
+        }).await
     }
     /// Bounded per-problem recorded execution summaries, excluding scientific payloads.
     pub async fn runs(
@@ -141,10 +148,16 @@ impl Operations {
         after: Option<u64>,
         limit: usize,
     ) -> Result<Vec<pse_operations::canonical_execution::RunSummary>, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         Ok(self.store.execution_run_page(problem, after, limit).await?)
+    
+        }).await
     }
     /// Reopen the exact historical admitted completion and eligible seed inventory.
     pub async fn record(&self, run: &str, attempt: &str) -> Result<DurableRecord, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let read = self
             .store
             .read_results(run, attempt, Duration::from_secs(60))
@@ -192,6 +205,8 @@ impl Operations {
             solutions,
             _solutions_owner: None,
         })
+    
+        }).await
     }
     /// Reopen only the original completion under fresh exact terminal permission.
     pub async fn completion(
@@ -199,12 +214,16 @@ impl Operations {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let read = self
             .store
             .read_completion(run, attempt, Duration::from_secs(60))
             .await?;
         self.decode_completion(CompletionSelection::Slim(&read))
             .await
+    
+        }).await
     }
 
     pub(super) async fn progress_coverage(
@@ -340,6 +359,8 @@ impl Operations {
         reason = "current recovery authority records truthful worker loss; never promotes arbitrary rows to scientific success"
     )]
     pub async fn recover(&self, run: &str, operation: &str) -> Result<Recovery, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let current = self
             .store
             .canonical_run(run)
@@ -414,6 +435,8 @@ impl Operations {
         Ok(Recovery {
             recovered: vec![closed.fence().attempt().into()],
         })
+    
+        }).await
     }
 }
 /// Whether application execution persists its complete scientific result.
@@ -656,7 +679,7 @@ pub(crate) struct DurableAttempt {
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
     horizon_seed_next: u64,
     horizon_prefix_failure: Option<Arc<WorkflowError>>,
     output: super::StudyOutputDemand,
@@ -674,13 +697,14 @@ pub(crate) struct DurableAttempt {
     heartbeat: Option<Heartbeat>,
 }
 impl DurableAttempt {
-    pub(super) fn new(operations: &Operations) -> Self {
+    pub(super) fn new(operations: &Operations) -> Result<Self, WorkflowError> {
+        let operations = operations.admitted()?;
         let attempt: AttemptId = pse_operations::mint_id();
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
-        Self {
+        Ok(Self {
             horizon_prefix: None,
-            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -688,7 +712,7 @@ impl DurableAttempt {
             attempt,
             run_id: None,
             claim_operation: format!("claim:{attempt}"),
-            stream: Streamer::new(operations, fence.clone(), acknowledgments.clone()),
+            stream: Streamer::new(&operations, fence.clone(), acknowledgments.clone()),
             acknowledgments,
             solutions: Vec::new(),
             solutions_owner: None,
@@ -696,20 +720,21 @@ impl DurableAttempt {
             fence,
             run: OnceLock::new(),
             heartbeat: None,
-        }
+        })
     }
     pub(crate) fn claimed(
         operations: &Operations,
         fence: AttemptFence,
         run_id: RunId,
         attempt: AttemptId,
-    ) -> Self {
+    ) -> Result<Self, WorkflowError> {
+        let operations = operations.admitted()?;
         let shared = Arc::new(OnceLock::new());
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
-        Self {
+        Ok(Self {
             horizon_prefix: None,
-            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -717,7 +742,7 @@ impl DurableAttempt {
             attempt,
             run_id: Some(run_id),
             claim_operation: format!("claimed:{attempt}"),
-            stream: Streamer::new(operations, shared.clone(), acknowledgments.clone()),
+            stream: Streamer::new(&operations, shared.clone(), acknowledgments.clone()),
             acknowledgments,
             solutions: Vec::new(),
             solutions_owner: None,
@@ -725,7 +750,7 @@ impl DurableAttempt {
             fence: shared,
             run: OnceLock::new(),
             heartbeat: None,
-        }
+        })
     }
     pub(super) const fn attempt_id(&self) -> AttemptId {
         self.attempt
@@ -887,7 +912,7 @@ impl DurableAttempt {
     pub(crate) fn set_output(&mut self, output: super::StudyOutputDemand) {
         self.output = output;
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
     pub(super) fn begin_horizon_prefix(
         &mut self,
         output: super::StudyOutputDemand,
@@ -907,13 +932,13 @@ impl DurableAttempt {
         self.horizon_prefix = Some(Default::default());
         Ok(())
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
     pub(super) fn refuse_horizon_prefix(&mut self, error: Arc<WorkflowError>) {
         if self.horizon_prefix_failure.is_none() {
             self.horizon_prefix_failure = Some(error);
         }
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests")))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
     pub(super) async fn publish_horizon_step(
         &mut self,
         result: &RunResult,
@@ -1068,7 +1093,7 @@ impl DurableAttempt {
                 .ok_or_else(|| contract("horizon seed identity owner absent"))?,
         ))
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
     pub(in crate::workflow) fn pause_completion_export(
         &self,
     ) -> (
@@ -1920,13 +1945,13 @@ impl Heartbeat {
         let operations = operations.clone();
         let failure = Arc::new(Mutex::new(None));
         let recorded = failure.clone();
-        let task = tokio::spawn(async move {
+        let task = tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let mut interval = tokio::time::interval(operations.policy.heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
                 tokio::select! {_=&mut stopped=>break,_=interval.tick()=>{if let Err(error)=operations.store.renew_attempt(&fence,operations.policy.lease).await{let error=super::diagnostics::operation_context(WorkflowError::Canonical(error),"durable.heartbeat.renew");if let Ok(mut failure)=recorded.lock(){*failure=Some(Arc::new(error));}cancel();break;}}}
             }
-        });
+        }));
         Self {
             stop,
             task,
@@ -2112,7 +2137,7 @@ impl Streamer {
         let writer_gate = export_gate.clone();
         let writer_acknowledgments = acknowledgments.clone();
         let writer_fence = fence.clone();
-        let task = tokio::spawn(async move {
+        let task = tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let fence = writer_fence;
             while fence.get().is_none() {
                 tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim {});}return Ok(());}}
@@ -2198,7 +2223,7 @@ impl Streamer {
                 }
             }
             Ok(())
-        });
+        }));
         Self {
             tap,
             ready,
@@ -2849,12 +2874,16 @@ impl Operations {
     }
     /// Acquire one explicitly selected original seed and its optional prediction once.
     pub async fn seed(&self, solution: SolutionId) -> Result<AdmittedSeed, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let row = self
             .store
             .result_seed(&solution.to_string())
             .await?
             .ok_or(SeedReadError::Missing { solution })?;
         self.admit_seed(solution, row).await
+    
+        }).await
     }
     /// Bounded eligible index pages use recorded order and then exact scientific admission.
     pub async fn latest_seed(
@@ -2863,6 +2892,8 @@ impl Operations {
         preparation: &ContentHash,
         attempt: Option<&str>,
     ) -> Result<Option<AdmittedSeed>, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let rows = self
             .store
             .result_seed_candidates(
@@ -2879,6 +2910,8 @@ impl Operations {
             .map(SolutionId::from_id)
             .map_err(|e| contract(format!("seed identity: {e}")))?;
         self.admit_seed(solution, row).await.map(Some)
+    
+        }).await
     }
 }
 
@@ -2919,6 +2952,8 @@ impl Operations {
         runtime: &super::Runtime,
         physical: &super::PhysicalContext,
     ) -> Result<super::physical_cache::PhysicalRows, WorkflowError> {
+        let activity = self.store().admit_activity()?;
+        activity.scope(async {
         let generation = runtime.physical_cache.rows_generation();
         if let Some(revisions) = runtime.physical_cache.rows(runtime, self, physical) {
             return runtime
@@ -3021,6 +3056,8 @@ impl Operations {
             .physical_cache
             .retain_rows(generation, runtime, self, physical, &result);
         Ok(result)
+    
+        }).await
     }
 }
 
@@ -3152,7 +3189,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        );
+        ).unwrap();
         attempt.stream.finish().await;
         let detail = failure(&Arc::new(contract("synthetic partial original")), false).detail;
         let stored = StoredCompletion {
@@ -3229,7 +3266,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        );
+        ).unwrap();
         attempt.stream.finish().await;
         let event = Event {
             phase: "uncertain".into(),
@@ -3448,7 +3485,7 @@ mod canonical_durable_codec {
                 .unwrap();
             let attempt_id = pse_operations::mint_id();
             let mut attempt =
-                DurableAttempt::claimed(&operations, fence.clone(), result.run_id, attempt_id);
+                DurableAttempt::claimed(&operations, fence.clone(), result.run_id, attempt_id).unwrap();
             let (reached, reached_rx) = tokio::sync::oneshot::channel();
             let (release, release_rx) = tokio::sync::oneshot::channel();
             let unrelated = Arc::new(WorkflowError::Canonical(
@@ -3831,7 +3868,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        );
+        ).unwrap();
         // The earlier heartbeat observation is healthy. Its final joined result
         // observes the cancellation acknowledged after export has already begun.
         let (noticed, notice) = tokio::sync::oneshot::channel();
@@ -4035,7 +4072,7 @@ mod canonical_durable_codec {
             .unwrap_err();
         assert!(acknowledged_cancellation(&refusal, &fence));
         let mut attempt =
-            DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id);
+            DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id).unwrap();
         attempt.stream.finish().await;
         let record = attempt.terminate(original.clone()).await.unwrap();
         assert_eq!(
@@ -4061,7 +4098,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             pse_operations::mint_id(),
-        );
+        ).unwrap();
         assert!(attempt.cancelled_refusal(&refused));
         // No heartbeat or scientific owner has entered: the direct response alone
         // must retain the exact cancellation and unavailable scientific facts.
@@ -4086,7 +4123,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             pse_operations::mint_id(),
-        );
+        ).unwrap();
         let unrelated = Arc::new(WorkflowError::Shared(Arc::new(WorkflowError::Canonical(
             pse_operations::canonical::CanonicalError::Timeout,
         ))));
@@ -4117,7 +4154,7 @@ mod canonical_durable_codec {
                 fence.clone(),
                 pse_operations::mint_id(),
                 attempt_id,
-            );
+            ).unwrap();
             let original = StoredCompletion {
                 version: 1,
                 attempt_id,
@@ -4281,7 +4318,7 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        );
+        ).unwrap();
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt
             .begin_horizon_prefix(super::super::StudyOutputDemand::Full {}, 1)
@@ -4352,7 +4389,7 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        );
+        ).unwrap();
         let detail = super::super::StudyDetailDemand {
             relations: vec!["runtime.solve_variables".into()],
             members: Vec::new(),
@@ -4478,7 +4515,7 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        );
+        ).unwrap();
         attempt.stream.finish().await;
         let record = attempt.reject_export(Arc::new(failure)).await;
         assert!(record.attempt.is_err());
@@ -4642,7 +4679,7 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        );
+        ).unwrap();
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt.stream.tap.observe(&Event {
             phase: "counter".into(),

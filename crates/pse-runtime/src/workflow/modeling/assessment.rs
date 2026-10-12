@@ -138,6 +138,8 @@ impl ModelingPackage {
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Result<Assessment, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let product = prepared.model.model.compiled();
         let mut units = assessment_units(product);
         if obligations == Obligations::Intermediate {
@@ -168,6 +170,8 @@ impl ModelingPackage {
             scope,
             required_closure: product.model.required_closure_checks(),
         })
+    
+        }).await
     }
 }
 impl Assessment {

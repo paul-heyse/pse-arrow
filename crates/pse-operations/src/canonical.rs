@@ -6,6 +6,9 @@
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
 #[path = "canonical_transport.rs"]
 pub(crate) mod transport;
+#[path = "canonical_lifetime.rs"]
+pub(crate) mod lifetime;
+pub use lifetime::{ConnectionActivity, inherit_activity};
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
     canonical_versions::Row as ObjectVersion,
@@ -38,6 +41,25 @@ const GUARDED_ATTEMPTS: u32 = 32;
 #[derive(Debug, thiserror::Error, miette::Diagnostic)]
 #[diagnostic(code(runtime::infrastructure))]
 pub enum CanonicalError {
+    /// This logical caller has released admission; already admitted work is unaffected.
+    #[error("canonical caller is closed")]
+    CallerClosed,
+    /// The actual connection pair is closing or terminal and cannot admit fresh work.
+    #[error("canonical connection is unavailable")]
+    ConnectionUnavailable,
+    /// Physical shutdown refused without changing admission or cancelling activities.
+    #[error("canonical connection still has {activities} admitted activities")]
+    ConnectionBusy {
+        /// Actual continuing dependencies, independent of idle aliases.
+        activities: usize,
+    },
+    /// A physical drain attempt failed; the owner stays Closing for explicit recovery.
+    #[error("canonical physical close did not finish: {source}")]
+    PhysicalClose {
+        /// Retained original failure from the owned teardown task.
+        #[source]
+        source: Arc<CanonicalError>,
+    },
     #[error("canonical store configuration: {0}")]
     /// Invalid deployment or operation configuration.
     Configuration(String),
@@ -429,6 +451,7 @@ struct ProtectionOwner {
     revision: Revision,
     store: Option<CanonicalStore>,
     executor: Option<tokio::runtime::Handle>,
+    activity: std::sync::Mutex<Option<ConnectionActivity>>,
     released: std::sync::atomic::AtomicBool,
 }
 impl ProtectedSelection {
@@ -484,6 +507,7 @@ impl ProtectedSelection {
     /// Other live followers retain their authority until they finish or drop.
     pub async fn finish(self) -> Result<(), CanonicalError> {
         if let Some(owner) = Arc::into_inner(self.owner) {
+            if owner.released.load(std::sync::atomic::Ordering::Acquire) { return Ok(()); }
             let Some(store) = owner.store.as_ref() else {
                 return Ok(());
             };
@@ -493,13 +517,14 @@ impl ProtectedSelection {
             let executor = owner.executor.clone().ok_or_else(|| {
                 CanonicalError::Configuration("protection cleanup executor unavailable".into())
             })?;
-            let task = executor.spawn(async move {
+            let activity = owner.activity()?;
+            let task = executor.spawn(activity.scope(async move {
                 let result = store.release_protection(&revision, &key).await;
                 if result.is_ok() {
                     owner.acknowledge_release();
                 }
                 result
-            });
+            }));
             return task.await.map_err(|error| {
                 CanonicalError::Configuration(format!("protection cleanup task failed: {error}"))
             })?;
@@ -508,6 +533,10 @@ impl ProtectedSelection {
     }
 }
 impl ProtectionOwner {
+    fn activity(&self) -> Result<ConnectionActivity, CanonicalError> {
+        self.activity.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone()
+            .ok_or_else(|| CanonicalError::Configuration("source protection was released".into()))
+    }
     fn acknowledge_release(&self) {
         if !self
             .released
@@ -515,6 +544,7 @@ impl ProtectionOwner {
             && let Some(store) = &self.store
         {
             store.result_read_drain.release().complete(Ok(()));
+            self.activity.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
         }
     }
 }
@@ -524,7 +554,6 @@ impl Drop for ProtectionOwner {
             return;
         }
         if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
-            let release = store.result_read_drain.release();
             let store = store.clone();
             #[cfg(any(test, feature = "test-support"))]
             let store = {
@@ -539,6 +568,13 @@ impl Drop for ProtectionOwner {
             };
             let revision = self.revision.clone();
             let key = self.key.clone();
+            let activity = match self.activity.get_mut().unwrap_or_else(std::sync::PoisonError::into_inner).take() {
+                Some(activity) => activity,
+                None => return,
+            };
+            let store = activity.sync_scope(|| store.activity_store());
+            let store = match store { Ok(store) => store, Err(error) => { operation_failed("canonical::protection_drop", &error); return; } };
+            let release = store.result_read_drain.release_protection(store.clone(), revision.clone(), key.clone());
             executor.spawn(async move {
                 let result = store.release_protection(&revision, &key).await;
                 if let Err(error) = &result {
@@ -637,6 +673,42 @@ impl std::fmt::Debug for CanonicalStore {
     }
 }
 impl CanonicalStore {
+    /// Release this logical caller. Clones and extracted aliases share its admission.
+    /// This neither cancels admitted work nor disconnects the physical clients.
+    pub fn close(&self) { self.db.access.close_caller(); }
+
+    /// Construct independent caller authority over this still-open connection pair.
+    /// Ordinary cloning preserves the existing caller instead.
+    pub fn independent_caller(&self) -> Result<Self, CanonicalError> {
+        Ok(self.with_access(self.db.access.independent()?))
+    }
+
+    /// Admit a real operation before its first native or canonical effect.
+    pub fn admit_activity(&self) -> Result<ConnectionActivity, CanonicalError> {
+        self.db.access.admit()
+    }
+
+    /// Retain admitted work through required children and cleanup. An idle alias
+    /// should use ordinary `Clone`, which grants no continuation authority.
+    /// # Errors
+    /// The caller or physical connection no longer admits new work.
+    pub fn activity_store(&self) -> Result<Self, CanonicalError> {
+        Ok(self.with_access(self.db.access.with_activity()?))
+    }
+
+    fn with_access(&self, access: lifetime::ConnectionAccess) -> Self {
+        Self { db: Arc::new(self.db.with_access(access.clone())),
+            activation_db: Arc::new(self.activation_db.with_access(access)), ..self.clone() }
+    }
+
+    pub(crate) fn selection_activity(&self, selection: &ProtectedSelection) -> Result<ConnectionActivity, CanonicalError> {
+        match &selection.owner.store {
+            Some(store) if self.db.same_driver(&store.db) => selection.owner.activity(),
+            Some(_) => self.admit_activity(),
+            None => self.admit_activity(),
+        }
+    }
+
     /// Heap owned by this handle's cloned values; shared physical clients are
     /// charged by their deployment owner rather than by every selection alias.
     pub(crate) fn handle_heap_bytes(&self) -> Option<usize> {
@@ -664,10 +736,21 @@ impl CanonicalStore {
     /// Drain local result readers and close both physical SDK drivers.
     /// This establishes local transport drain, not server scientific completion.
     pub async fn disconnect(&self) -> Result<(), CanonicalError> {
-        self.result_read_drain.close_and_drain().await?;
-        self.db.disconnect().await?;
-        self.activation_db.disconnect().await?;
-        Ok(())
+        let readers = self.result_read_drain.clone();
+        let ordinary = self.db.clone();
+        let activation = self.activation_db.clone();
+        self.db.access.physical.close(
+            move || async move { readers.close_and_drain().await },
+            move || async move { ordinary.disconnect().await.map_err(Into::into) },
+            move || async move { activation.disconnect().await.map_err(Into::into) },
+        ).await
+    }
+    /// Retry only exact automatic releases whose original response failed.
+    /// Their retained activity remains authoritative after logical caller close.
+    /// # Errors
+    /// An original grant still cannot be acknowledged released.
+    pub async fn recover_protection_releases(&self) -> Result<(), CanonicalError> {
+        self.result_read_drain.recover().await
     }
     /// State selected by this authenticated deployment handle.
     pub fn deployment_state(&self) -> &Path {
@@ -684,6 +767,8 @@ impl CanonicalStore {
     where
         F: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.problem_turns
             .run(
                 problem,
@@ -692,6 +777,7 @@ impl CanonicalStore {
                 bounded_query(future),
             )
             .await
+            }).await
     }
 
     /// Pace a complete protected RPC alongside staging under its original request
@@ -708,6 +794,8 @@ impl CanonicalStore {
         F: FnMut() -> Result<Q, CanonicalError>,
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         let mut build = build;
         within_clock(deadline, async {
@@ -726,6 +814,7 @@ impl CanonicalStore {
             }
             Err(CanonicalError::IncompleteResponse)
         }).await
+            }).await
     }
 
     /// Endpoint actually selected by this authenticated storage handle.
@@ -797,6 +886,8 @@ impl CanonicalStore {
             Ok((db, activation_db))
         })
         .await?;
+        let access = db.access.clone();
+        let activation_db = Arc::new(activation_db.with_access(access));
         Ok(Self {
             db,
             problem_turns: Arc::default(),
@@ -813,7 +904,10 @@ impl CanonicalStore {
     }
     /// Explicit schema creation; ordinary opening never mutates an unknown schema.
     pub async fn create(&self) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.initialize_with(|| self.submit_initialization()).await
+            }).await
     }
     async fn initialize_with<F, Q>(&self, mut submit: F) -> Result<(), CanonicalError>
     where
@@ -944,6 +1038,8 @@ impl CanonicalStore {
     }
     /// Read and verify the installed interpretation without DDL.
     pub async fn open(&self) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             if !self.database_exists().await? {
                 return Err(CanonicalError::Interpretation {
@@ -992,9 +1088,12 @@ impl CanonicalStore {
             Ok(())
         })
         .await
+            }).await
     }
     /// Exact canonical revision retained by this protection.
     pub async fn revision(&self, id: &str) -> Result<Option<Revision>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let row: Option<Object> = request(
             self.db
                 .control_query("SELECT * FROM ONLY type::record('canonical_revisions', $key);")
@@ -1005,6 +1104,7 @@ impl CanonicalStore {
         row.map(wire::decode_canonical_revisions)
             .transpose()
             .map_err(Into::into)
+            }).await
     }
     /// Atomic head-CAS edit. The operation ID settles an acknowledgment lost after commit.
     pub async fn edit(
@@ -1014,6 +1114,8 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let stage = match self
@@ -1028,12 +1130,15 @@ impl CanonicalStore {
             self.activate_source_stage(&stage).await
         })
         .await
+            }).await
     }
     /// Activate only the caller's closed source stage under its generation and head fences.
     pub(crate) async fn activate_source_stage(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
         within_clock(deadline, async {
         for attempt in 0..GUARDED_ATTEMPTS {
@@ -1086,6 +1191,7 @@ impl CanonicalStore {
             "staged activation retries exhausted".into(),
         ))
         }).await
+            }).await
     }
     /// Explicit historical inventory, indexed by problem and revision interval.
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -1093,6 +1199,8 @@ impl CanonicalStore {
         &self,
         revision: &Revision,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let mut response = bounded_query(self.db.query("SELECT * FROM canonical_memberships WHERE problem = $problem AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) ORDER BY scope, name;")
             .bind(("problem", revision.problem.clone())).bind(("sequence", crate::canonical_codec::encode_uint(revision.sequence)?))).await?;
         let rows: Vec<Object> = response.take(0)?;
@@ -1100,6 +1208,7 @@ impl CanonicalStore {
             .map(wire::decode_canonical_memberships)
             .collect::<Result<_, _>>()
             .map_err(Into::into)
+            }).await
     }
     /// Read an immutable version by exact identity.
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -1107,7 +1216,10 @@ impl CanonicalStore {
         &self,
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.assemble_object(version).await
+            }).await
     }
     async fn protection_grant_key(&self, problem: &str) -> Result<String, CanonicalError> {
         let mut response = bounded_query(self.db.query("LET $authority=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$problem); IF $authority=NONE OR $authority.incarnation=NONE { THROW 'source protection authority unavailable'; }; RETURN {incarnation:$authority.incarnation,deadline:time::micros()+30000000};").bind(("problem",problem.to_owned()))).await?;
@@ -1137,6 +1249,8 @@ impl CanonicalStore {
         problem: &str,
         key: &str,
     ) -> Result<bool, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.ensure_writes()?;
         let mut response = self.protected_query(&format!("pin:{key}"), QueryEffect::Mutation,
             "canonical::settle_protection_grant", || Ok(self.db.query("BEGIN; RETURN fn::pse_retention_v1::settle_protection($pse_rpc_expires_at,$problem,$key); COMMIT;").bind(("problem",problem.to_owned())).bind(("key",key.to_owned())))).await?;
@@ -1146,6 +1260,7 @@ impl CanonicalStore {
         Ok(crate::canonical_codec::decode_boolean(
             crate::canonical_codec::required(&mut row, "complete")?,
         )?)
+            }).await
     }
 
     /// Protect before off-transaction scientific work. Server time controls expiration.
@@ -1154,6 +1269,8 @@ impl CanonicalStore {
         revision: Revision,
         lifetime: std::time::Duration,
     ) -> Result<ProtectedSelection, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         // Read protections are lease bookkeeping, including gated restore
         // verification. Scientific mutation and reclamation remain quiesced.
         let micros = i64::try_from(lifetime.as_micros())
@@ -1181,6 +1298,7 @@ impl CanonicalStore {
                 key: grant_key,
                 revision,
                 store: Some(self.clone()),
+                activity: std::sync::Mutex::new(Some(self.admit_activity()?)),
                 executor: Some(executor),
                 released: std::sync::atomic::AtomicBool::new(false),
             }),
@@ -1188,13 +1306,14 @@ impl CanonicalStore {
         let store = self.clone();
         // Submission owns the protection before any RPC. Abandoning the caller detaches
         // this task; its eventual result still owns cleanup through acknowledgement.
-        tokio::spawn(transport::inherit_response_ownership(async move {
+        tokio::spawn(inherit_activity(transport::inherit_response_ownership(async move {
             within_clock(deadline, store.acquire_protection(selection, micros)).await
-        }))
+        })))
         .await
         .map_err(|error| {
             CanonicalError::Configuration(format!("protection acquisition task failed: {error}"))
         })?
+            }).await
     }
     async fn acquire_protection(
         &self,
@@ -1235,6 +1354,8 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         lifetime: std::time::Duration,
     ) -> Result<(), CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         let micros = i64::try_from(lifetime.as_micros())
             .map_err(|_| CanonicalError::Configuration("protection lifetime overflow".into()))?;
         if micros <= 0 {
@@ -1270,6 +1391,7 @@ impl CanonicalStore {
             return Err(CanonicalError::IncompleteResponse);
         }
         Ok(())
+        }).await
     }
     /// Resolve a bounded namespace/name premise in the exact protected revision.
     pub async fn select_names(
@@ -1278,6 +1400,8 @@ impl CanonicalStore {
         scope: &str,
         names: &[String],
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         if names.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -1288,6 +1412,7 @@ impl CanonicalStore {
             .map(wire::decode_canonical_memberships)
             .collect::<Result<_, _>>()
             .map_err(Into::into)
+            }).await
     }
     fn product_descriptor_row(
         &self,
@@ -1328,6 +1453,8 @@ impl CanonicalStore {
         product: &pse_model::generated::runtime::canonical_products::Row,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
         self.ensure_writes()?;
         if product.problem != selection.revision().problem
@@ -1407,11 +1534,14 @@ impl CanonicalStore {
             "product admission retries exhausted".into(),
         ))
         }).await
+            }).await
     }
     pub(crate) async fn product_acknowledged(
         &self,
         product: &pse_model::generated::runtime::canonical_products::Row,
     ) -> Result<Option<String>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let descriptor = self.product_descriptor_row(product)?;
         let mut response = self
             .protected_query(
@@ -1435,9 +1565,13 @@ impl CanonicalStore {
             return Ok(None);
         }
         Ok(Some(crate::canonical_codec::decode_string(value)?))
+            }).await
     }
     /// End a selection protection through its issuing store and retention conflict guard.
     pub async fn release(&self, selection: &ProtectedSelection) -> Result<(), CanonicalError> {
+        if selection.owner.released.load(std::sync::atomic::Ordering::Acquire) { return Ok(()); }
+        let activity = selection.owner.activity()?;
+        activity.scope(async {
         let store = selection.owner.store.as_ref().ok_or_else(|| {
             CanonicalError::Configuration("protection issuing store unavailable".into())
         })?;
@@ -1446,8 +1580,9 @@ impl CanonicalStore {
             .await?;
         selection.owner.acknowledge_release();
         Ok(())
+            }).await
     }
-    async fn release_protection(
+    pub(crate) async fn release_protection(
         &self,
         revision: &Revision,
         key: &str,
@@ -2574,6 +2709,7 @@ mod description_unit {
         let mut read = SelectedRead::new(ProtectedSelection {
             owner: Arc::new(ProtectionOwner {
                 store: None,
+                activity: std::sync::Mutex::new(None),
                 executor: None,
                 released: std::sync::atomic::AtomicBool::new(false),
                 key: protection.into(),
@@ -3243,6 +3379,28 @@ mod canonical_server_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    async fn source_protection_acquisition_and_renewal_continue_after_caller_close() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store.edit("close-during-protection", None, "initial", &[]).await.unwrap();
+        let held = store.problem_turns.gate(&revision.problem).unwrap().write_owned().await;
+        let acquiring = store.clone();
+        let pending = tokio::spawn(async move {
+            acquiring.protect(revision, std::time::Duration::from_secs(30)).await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while store.result_read_drain.live() == 0 { tokio::task::yield_now().await; }
+        }).await.unwrap();
+        store.close();
+        assert!(matches!(store.disconnect().await, Err(CanonicalError::ConnectionBusy { .. })));
+        drop(held);
+        let selection = pending.await.unwrap().unwrap();
+        selection.renew(std::time::Duration::from_secs(60)).await.unwrap();
+        store.release(&selection).await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn source_protection_renewal_preserves_original_grant_and_never_revives() {
         let (store, _) = initialization_fixture().await;
         store.create().await.unwrap();
@@ -3336,6 +3494,7 @@ mod canonical_server_unit {
                 key: key.clone(),
                 revision: revision.clone(),
                 store: Some(store.clone()),
+                activity: std::sync::Mutex::new(Some(store.admit_activity().unwrap())),
                 executor: Some(tokio::runtime::Handle::current()),
                 released: std::sync::atomic::AtomicBool::new(false),
             }),

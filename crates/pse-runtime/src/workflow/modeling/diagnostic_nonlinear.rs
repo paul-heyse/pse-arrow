@@ -86,6 +86,8 @@ impl ModelingPackage {
         policy: ModelingNonlinearPolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if policy.maximum_attempts == 0
             || policy.maximum_attempts > 10000
             || policy.time_limit.is_zero()
@@ -288,6 +290,8 @@ impl ModelingPackage {
             }
         }
         Ok(report)
+    
+        }).await
     }
 }
 /// The explanation's own explicit route: POUNCE's ell-1 exact penalty minimizes the violation of
@@ -357,6 +361,8 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_backend_native::{
             execution::{BackendSettings, ScipSettings},
             solve::{Backend, SolverSelection},
@@ -396,6 +402,8 @@ impl ModelingPackage {
             irreducible: iis.is_some_and(|i| i.irreducible),
             result: result.clone(),
         })
+    
+        }).await
     }
 }
 fn classify(

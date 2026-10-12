@@ -127,7 +127,11 @@ impl PreparedConic {
     }
     /// Submit to the existing finite solve lifecycle, including native destruction and join.
     pub fn start(&self) -> Result<SolveHandle, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         Ok(self.runtime.native().solve(self.solve.clone())?)
+    
+        })
     }
 }
 impl Runtime {
@@ -138,6 +142,8 @@ impl Runtime {
         physical: &PhysicalContext,
         profile: SolverProfile,
     ) -> Result<PreparedConic, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_model::generated::enums::NumericalTarget;
         // Preserve the original encoded-size ceiling without first allocating a
         // full request encoding. Identity still uses the canonical serde framer.
@@ -315,6 +321,8 @@ impl Runtime {
             solve,
             _owner: owner,
         })
+    
+        }).await
     }
 }
 

@@ -426,6 +426,8 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let token = cancel.token();
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
         let validation = self.validation_context();
@@ -456,6 +458,8 @@ impl Runtime {
         let _ = canonical::reload::retain_initial(&package, documents);
         token.checkpoint().map_err(pse_engine::EngineError::from)?;
         Ok(package)
+    
+        }).await
     }
     /// Persist registry-generated rows without serializing through a text document.
     pub async fn modeling_package(
@@ -463,8 +467,12 @@ impl Runtime {
         rows: Vec<Declaration>,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.modeling_package_registered(rows, physical, BTreeMap::new())
             .await
+    
+        }).await
     }
     /// Native capabilities remain explicitly supplied services; source names load no code.
     pub async fn modeling_package_registered(
@@ -473,6 +481,8 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let scope = PhysicalScope {
             package: physical.package.as_ref().map(|p| p.name.clone()),
             documents: None,
@@ -488,6 +498,8 @@ impl Runtime {
             None,
         )
         .await
+    
+        }).await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -533,8 +545,12 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let source = canonical::SourceRevision::open(self, revision).await?;
         self.package_from_canonical(source, physical, providers)
+    
+        }).await
     }
 }
 /// Which documents see the physical names (ADR-0123 Outcome 6): those of packages whose
@@ -645,7 +661,11 @@ impl ModelingPackage {
 
     /// Explicit full source inventory; ordinary preparation reads only its dependency closure.
     pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.declaration_inventory().await
+    
+        }).await
     }
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
     pub fn canonical_revision(&self) -> &pse_model::generated::runtime::canonical_revisions::Row {
@@ -656,7 +676,11 @@ impl ModelingPackage {
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.encode_source_tables().await
+    
+        }).await
     }
     async fn encode_source_tables(
         &self,
@@ -778,6 +802,8 @@ impl ModelingPackage {
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let profile = crate::math::initialization::InitializationProfile {
             solver: a.solver.clone(),
             stages,
@@ -817,6 +843,8 @@ impl ModelingPackage {
             prepared,
             profile,
         })
+    
+        }).await
     }
     /// Prepare declared topology independently of the selected case's numerical incidence.
     pub async fn prepare_flow(
@@ -825,6 +853,8 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let deadline = preparation_deadline(cancel)?;
         let scoped_driver = cancel.with_deadline(Some(deadline));
         let cancel = &scoped_driver;
@@ -875,11 +905,15 @@ impl ModelingPackage {
             .native()
             .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
             .await?)
+    
+        }).await
     }
     /// Replace source declarations while preserving which documents see the physical
     /// names and the package data documents. No old document text is retained as the source
     /// of the edited IR.
     pub async fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let (_, scope, mut documents, mut sources, _source_owners) = self.full_source().await?;
         Arc::make_mut(&mut documents).field_spans.clear();
         if let Some(batch) =
@@ -914,6 +948,8 @@ impl ModelingPackage {
             held_preparation: None,
             ..self.clone()
         })
+    
+        }).await
     }
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
     pub async fn prepare(
@@ -924,6 +960,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if let Some(scope) = &self.held_preparation {
             return scope
                 .prepare(self, root, instance, bindings, limits, cancel)
@@ -935,6 +973,8 @@ impl ModelingPackage {
         let model = engagement.model().clone();
         engagement.close().await?;
         Ok(model)
+    
+        }).await
     }
 }
 

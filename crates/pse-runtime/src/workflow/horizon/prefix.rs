@@ -484,7 +484,7 @@ impl OriginalHistory {
         })
         .ok_or_else(|| contract("horizon aggregate capacity extent"))
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn retained_owner_bytes(&self) -> usize {
         self.owners.iter().map(|owner| owner.size()).sum()
     }

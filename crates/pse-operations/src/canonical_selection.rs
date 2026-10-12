@@ -1123,6 +1123,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         receipt: &SelectionDependencyReceipt,
     ) -> Result<bool, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         read.complete()?;
         if read.selection.revision() != &receipt.revision {
             return Ok(false);
@@ -1181,6 +1183,7 @@ impl CanonicalStore {
         }
         read.merge_delta(delta)?;
         Ok(true)
+            }).await
     }
     /// Resolve exact authored identities, including inspected absent identities.
     pub async fn resolve_logicals(
@@ -1188,6 +1191,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         logicals: &[String],
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         if logicals.len() > 256 {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -1210,6 +1215,7 @@ impl CanonicalStore {
             read.logicals.insert(logical.clone(), version);
         }
         Ok(members)
+            }).await
     }
     /// Enumerate a requested declaration kind without hydrating unrelated source objects.
     pub async fn resolve_kind_scope(
@@ -1218,6 +1224,8 @@ impl CanonicalStore {
         scope: Option<&str>,
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let mut cursor = self.kind_pages(read, scope, source_kind)?;
         let mut members = Vec::new();
         loop {
@@ -1228,6 +1236,7 @@ impl CanonicalStore {
             members.extend(page);
         }
         Ok(members)
+            }).await
     }
     /// Follow authored inverse references at this revision; scientific resolution stays
     /// with the compiler, while the complete filtered membership is a reuse premise.
@@ -1238,6 +1247,8 @@ impl CanonicalStore {
         target_name: &str,
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let mut cursor = self.reference_pages(read, target_scope, target_name, source_kind)?;
         let mut members = Vec::new();
         loop {
@@ -1248,6 +1259,7 @@ impl CanonicalStore {
             members.extend(page);
         }
         Ok(members)
+            }).await
     }
 
     /// Begin an exact full namespace inventory; only its protected terminal page
@@ -1316,10 +1328,13 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         cursor: &mut SelectedMemberships,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let mut pages = self
             .next_membership_pages(read, std::slice::from_mut(cursor))
             .await?;
         Ok(pages.remove(0))
+            }).await
     }
     /// Group exact inventory cursors in one protected transaction. The combined
     /// response contains at most 64 memberships, regardless of cursor count.
@@ -1328,6 +1343,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         cursors: &mut [SelectedMemberships],
     ) -> Result<Vec<Vec<Membership>>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         if cursors.is_empty() || cursors.len() > SELECTED_INVENTORY_BATCH {
             return Err(CanonicalError::PayloadLimit);
         }
@@ -1420,6 +1437,7 @@ impl CanonicalStore {
             self.accept_membership_page(read, cursor, page)?;
         }
         Ok(pages)
+            }).await
     }
     fn accept_membership_page(
         &self,
@@ -1630,6 +1648,8 @@ impl CanonicalStore {
         scope: &str,
         names: &[String],
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let members = self.select_names(&read.selection, scope, names).await?;
         read.invalidate_material();
         for name in names {
@@ -1648,6 +1668,7 @@ impl CanonicalStore {
             );
         }
         Ok(members)
+            }).await
     }
     /// Resolve an exact sparse set of lexical pairs, preserving absent pairs
     /// without admitting the cross product of independently grouped scopes/names.
@@ -1656,6 +1677,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         pairs: &[(String, String)],
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         if pairs.is_empty() {
             return Ok(Vec::new());
         }
@@ -1725,6 +1748,7 @@ impl CanonicalStore {
             read.names.insert(pair.clone(), present.get(pair).cloned());
         }
         Ok(members)
+            }).await
     }
     /// One bounded inventory page; no cursor exposes unprotected subsequent reads.
     pub async fn membership_page(
@@ -1733,6 +1757,8 @@ impl CanonicalStore {
         scope: Option<&str>,
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         let mut response = self
             .protected_query(
                 &selection.revision().problem,
@@ -1759,6 +1785,7 @@ impl CanonicalStore {
             .map(wire::decode_canonical_memberships)
             .collect::<Result<_, _>>()
             .map_err(Into::into)
+            }).await
     }
     /// Enumerate an explicitly required scope, preserving its complete membership premise.
     pub async fn resolve_scope(
@@ -1766,6 +1793,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         scope: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let mut cursor = self.scope_pages(read, scope)?;
         let mut members = Vec::new();
         loop {
@@ -1776,6 +1805,7 @@ impl CanonicalStore {
             members.extend(page);
         }
         Ok(members)
+            }).await
     }
     /// Fetch an exact immutable object within a live selection. Independent pages
     /// and payloads remain below the transport's individual-message bound.
@@ -1784,7 +1814,10 @@ impl CanonicalStore {
         selection: &ProtectedSelection,
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         self.assemble_selected_object(selection, version).await
+            }).await
     }
     /// Encode the selected description without a store effect or publication permission.
     pub fn prepare_description(
@@ -1800,11 +1833,14 @@ impl CanonicalStore {
         &self,
         description: &ProductDescription,
     ) -> Result<Option<String>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         self.acknowledge_description_until(
             description,
             crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
+            }).await
     }
     /// Exact settlement on the caller's original operation clock. Dropping the future
     /// stops retries; it cannot undo a transaction already committed by the server.
@@ -1813,6 +1849,8 @@ impl CanonicalStore {
         description: &ProductDescription,
         deadline: tokio::time::Instant,
     ) -> Result<Option<String>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if tokio::time::Instant::now() >= deadline {
             return Err(CanonicalError::Timeout);
         }
@@ -1821,6 +1859,7 @@ impl CanonicalStore {
             self.product_acknowledged(&description.material.product),
         )
         .await
+            }).await
     }
     /// Settle or publish reusable material against the exact current consumer read.
     pub async fn publish_description(
@@ -1828,12 +1867,15 @@ impl CanonicalStore {
         read: &SelectedRead,
         description: &ProductDescription,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         self.publish_description_until(
             read,
             description,
             crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
+            }).await
     }
     /// Generic publication on the caller's original clock, including staging and waiters.
     pub async fn publish_description_until(
@@ -1842,6 +1884,8 @@ impl CanonicalStore {
         description: &ProductDescription,
         deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         if is_replay_producer(&description.material.product.producer) {
             return Err(CanonicalError::Configuration(
                 "generic product publication cannot impersonate scientific admission".into(),
@@ -1849,6 +1893,7 @@ impl CanonicalStore {
         }
         self.publish_description_inner(read, description, deadline)
             .await
+            }).await
     }
     /// Publish compiler-issued immutable material through the controlled writer.
     ///
@@ -1865,12 +1910,15 @@ impl CanonicalStore {
         read: &SelectedRead,
         description: &ProductDescription,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         self.publish_scientific_description_inner(
             read,
             description,
             crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
         )
         .await
+            }).await
     }
     /// Controlled publication with the original enclosing operation deadline.
     ///
@@ -1886,8 +1934,11 @@ impl CanonicalStore {
         description: &ProductDescription,
         deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         self.publish_scientific_description_inner(read, description, deadline)
             .await
+            }).await
     }
     async fn publish_scientific_description_inner(
         &self,
@@ -1909,6 +1960,8 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let deadline =
             crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
         if is_replay_producer(&product.producer) {
@@ -1919,6 +1972,7 @@ impl CanonicalStore {
         let description = self.prepare_description(read, product)?;
         self.publish_description_inner(read, &description, deadline)
             .await
+            }).await
     }
     /// Publish a description issued by the scientific admission owner.
     ///
@@ -1934,6 +1988,8 @@ impl CanonicalStore {
         read: &SelectedRead,
         product: Product,
     ) -> Result<String, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         let deadline =
             crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
         if !scientific_producer(&product.producer) {
@@ -1944,6 +2000,7 @@ impl CanonicalStore {
         let description = self.prepare_description(read, product)?;
         self.publish_description_inner(read, &description, deadline)
             .await
+            }).await
     }
     async fn publish_description_inner(
         &self,
@@ -2003,6 +2060,8 @@ impl CanonicalStore {
     /// Corrupt only a disposable native fixture's first immutable product block.
     #[cfg(feature = "canonical-tests")]
     pub async fn corrupt_product_block(&self, key: &str) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if !self.database().starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "corruption requires isolated canonical fixture".into(),
@@ -2024,10 +2083,13 @@ impl CanonicalStore {
         )
         .await?;
         Ok(())
+            }).await
     }
     /// Corrupt an isolated fixture's product descriptor without touching protected roots.
     #[cfg(feature = "canonical-tests")]
     pub async fn corrupt_product_descriptor(&self, key: &str) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         if !self.database().starts_with("canonical_test_") {
             return Err(CanonicalError::Configuration(
                 "corruption requires isolated canonical fixture".into(),
@@ -2044,6 +2106,7 @@ impl CanonicalStore {
         )
         .await?;
         Ok(())
+            }).await
     }
     /// Probe for one protected product key without decoding its bounded blob descriptor.
     /// This lets a receiving owner decide whether a producer-context check is needed
@@ -2055,6 +2118,8 @@ impl CanonicalStore {
         producer: &str,
         after: &str,
     ) -> Result<bool, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         if request.len() > crate::canonical::PAYLOAD_BYTES
             || producer.len() > crate::canonical_staging::IDENTITY_BYTES
             || after.len() > crate::canonical_staging::IDENTITY_BYTES
@@ -2082,6 +2147,7 @@ impl CanonicalStore {
         .await?;
         let rows: Vec<bool> = response.take(response.num_statements().saturating_sub(2))?;
         Ok(rows.into_iter().next().unwrap_or(false))
+            }).await
     }
     /// Discover one eligible request/producer header without hydrating its scientific bytes.
     pub async fn product_candidate(
@@ -2091,6 +2157,8 @@ impl CanonicalStore {
         producer: &str,
         after: &str,
     ) -> Result<Option<ProductCandidate>, CanonicalError> {
+        let activity = self.selection_activity(selection)?;
+        activity.scope(async {
         if request.len() > crate::canonical::PAYLOAD_BYTES
             || producer.len() > crate::canonical_staging::IDENTITY_BYTES
             || after.len() > crate::canonical_staging::IDENTITY_BYTES
@@ -2120,6 +2188,7 @@ impl CanonicalStore {
             descriptor,
             retained_bytes,
         }))
+            }).await
     }
     /// Hydrate only after the caller reserved the issued bound; check every premise
     /// against the protected revision without contaminating rejected read sessions.
@@ -2128,6 +2197,8 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         candidate: &ProductCandidate,
     ) -> Result<Option<ReusableProduct>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         read.complete()?;
         if candidate.product.problem != read.selection().revision().problem {
             return Err(CanonicalError::Configuration(
@@ -2155,6 +2226,7 @@ impl CanonicalStore {
         product.payload = payload.to_vec().into();
         product.dependencies = dependencies_bytes.to_vec().into();
         Ok(Some(ReusableProduct { product }))
+            }).await
     }
     /// Resolve common keys in bounded rounds, rejecting candidates after each
     /// response. Cached observations are private to this exact protected epoch;
@@ -2164,6 +2236,8 @@ impl CanonicalStore {
         read: &SelectedRead,
         window: &mut SelectedRecheckWindow,
     ) -> Result<Option<usize>, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         window.check_epoch(read)?;
         window.qualified = None;
         let mut live = [false; SELECTED_RECHECK_WINDOW];
@@ -2349,6 +2423,7 @@ impl CanonicalStore {
             }
         }
         Ok(None)
+            }).await
     }
     /// Recheck immutable in-memory premises through the same eligibility mechanism
     /// as durable scientific products. Rejected candidates do not contaminate the read.
@@ -2357,8 +2432,11 @@ impl CanonicalStore {
         read: &mut SelectedRead,
         dependencies: &SelectedDependencies,
     ) -> Result<bool, CanonicalError> {
+        let activity = self.selection_activity(read.selection())?;
+        activity.scope(async {
         self.recheck_dependencies(read, &dependencies.dependencies)
             .await
+            }).await
     }
     async fn recheck_dependencies(
         &self,

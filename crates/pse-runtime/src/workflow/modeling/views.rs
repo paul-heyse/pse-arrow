@@ -24,6 +24,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let product = model.compiled();
         let bound = product
             .bound_structure(states)
@@ -59,6 +61,8 @@ impl ModelingPackage {
             case,
             tightenings: bound.tightenings,
         })
+    
+        }).await
     }
     /// The parametric program of the solver view `prepared` over `parameters`, in request
     /// order (Plan 22 S1), compiled once per view and parameter selection and cached with
@@ -72,6 +76,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let structure = prepared.case.compiled().plan.structure();
         let declared: BTreeSet<_> = structure.parameters().iter().map(|p| p.id).collect();
         if let Some(unknown) = parameters.iter().find(|p| !declared.contains(p)) {
@@ -106,6 +112,8 @@ impl ModelingPackage {
             true,
         );
         Ok(program)
+    
+        }).await
     }
     /// The value-independent program observing `rows` of `model`, compiled once per
     /// structure.
@@ -116,6 +124,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let generation = self.runtime.shared.math().modeling_cache.generation();
         let product = model.compiled();
         let structure = product
@@ -155,5 +165,7 @@ impl ModelingPackage {
             false,
         );
         Ok(program)
+    
+        }).await
     }
 }

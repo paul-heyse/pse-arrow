@@ -282,6 +282,8 @@ impl ModelingPackage {
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let providers = self
             .inner_registrations(
                 model.clone(),
@@ -297,6 +299,8 @@ impl ModelingPackage {
             .await?;
         self.observe_registered(model, rows, values, profile, providers, cancel)
             .await
+    
+        }).await
     }
     pub(in crate::workflow) async fn observe_registered(
         &self,
@@ -307,6 +311,8 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let service = self.runtime.shared.math();
         let bytes = rows
             .len()
@@ -357,6 +363,8 @@ impl ModelingPackage {
             applicability,
             _owner: owner,
         })
+    
+        }).await
     }
     pub(in crate::workflow) fn registrations(
         &self,
@@ -375,6 +383,8 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let product = model.compiled();
         let inner_unknowns = product
             .admitted
@@ -550,6 +560,8 @@ impl ModelingPackage {
             pending.retain(|v| !ready.contains(v));
         }
         Ok((values, starts))
+    
+        }).await
     }
     /// The assignment an initialization's stage and homotopy steps fix (ADR-0103 item 6):
     /// every discrete variable the case leaves free, at its specification start value or
@@ -563,6 +575,8 @@ impl ModelingPackage {
         policy: &DiscreteInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use DiscreteInitialization as Policy;
         use pse_modeling::DomainRefusal;
         let declared = match policy {
@@ -670,6 +684,8 @@ impl ModelingPackage {
                 Ok((variable.port.id, value))
             })
             .collect()
+    
+        }).await
     }
     /// Resolve starts in dependency order; explicit case values override every hint.
     /// No value is fabricated for a missing coordinate, and starts never fix variables.
@@ -690,6 +706,8 @@ impl ModelingPackage {
         numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_solve_seed(
             root,
             instance,
@@ -704,6 +722,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -723,6 +743,8 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let resolution = self
             .resolve_case(
                 root, instance, bindings, limits, case, order, compiler, solver, numerical,
@@ -730,12 +752,16 @@ impl ModelingPackage {
             )
             .await?;
         self.finish_case(resolution, cancel).await
+    
+        }).await
     }
     pub(in crate::workflow) async fn finish_case(
         &self,
         resolution: ModelingCaseResolution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let ModelingCaseResolution {
             compiler,
             case_bindings,
@@ -896,6 +922,8 @@ impl ModelingPackage {
             starts,
             providers,
         })
+    
+        }).await
     }
     /// Resolve an authored case into its bound solver view and numerical policy. The
     /// responsibilities are separate steps: specification values and starts, variable
@@ -920,6 +948,8 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         bindings
             .demand
             .extend(case.values.keys().chain(case.variables.keys()).cloned());
@@ -940,6 +970,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Bind fresh numerical inputs to an already admitted parent specialization.
     #[expect(
@@ -958,6 +990,8 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
             || solver.reconstruction.is_some()
             || implicit::declared_accuracy(&model, &solver.numerics))
@@ -1195,6 +1229,8 @@ impl ModelingPackage {
             solver,
             parametric,
         })
+    
+        }).await
     }
     /// Variable states of the solver view: evaluated bound hints, nominal declarations for
     /// the numerical policy, and the case's fixed/free and bound overrides.

@@ -545,6 +545,8 @@ impl Runtime {
         &self,
         run: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_runs as rows;
         let extent = response_owner(self, "canonical:result-header")?;
         let row = pse_operations::canonical::response_ownership_scope(
@@ -562,12 +564,16 @@ impl Runtime {
             .map_err(super::relation)?
             .retained(&self.shared.pool(), &CancellationToken::new())
             .map_err(super::relation)
+    
+        }).await
     }
     /// Read the actual attempt's recorded lifecycle and completion without substitution.
     pub async fn attempt_record(
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_attempts as rows;
         let extent = response_owner(self, "canonical:result-header")?;
         let row = pse_operations::canonical::response_ownership_scope(
@@ -585,12 +591,16 @@ impl Runtime {
             .map_err(super::relation)?
             .retained(&self.shared.pool(), &CancellationToken::new())
             .map_err(super::relation)
+    
+        }).await
     }
     /// Read one admitted terminal attempt's exact closed manifest as a typed row.
     pub async fn result_manifest(
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_result_manifests as rows;
         let extent = response_owner(self, "canonical:result-header")?;
         let store = self.canonical_store();
@@ -616,6 +626,8 @@ impl Runtime {
             .map_err(super::relation)?
             .retained(&self.shared.pool(), &CancellationToken::new())
             .map_err(super::relation)
+    
+        }).await
     }
     /// Select a problem's newest admitted terminal run under explicit outcome classes.
     pub async fn latest_results(
@@ -627,6 +639,8 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let extent = response_owner(self, "canonical:result-selection")?;
         let read = pse_operations::canonical::response_ownership_scope(
@@ -636,6 +650,8 @@ impl Runtime {
         )
         .await?;
         self.result_selection(read, relation, start, end, cancel, &extent)
+    
+        }).await
     }
     /// Reopen one exact terminal run/attempt and registry relation after restart.
     /// `start..end` are half-open recorded row coordinates; partial/failure
@@ -649,6 +665,8 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         if start > end {
             return Err(contract("result row range is reversed"));
@@ -661,6 +679,8 @@ impl Runtime {
         )
         .await?;
         self.result_selection(read, relation, start, end, cancel, &extent)
+    
+        }).await
     }
     fn result_selection(
         &self,
@@ -742,6 +762,8 @@ impl Runtime {
         missing: Option<bool>,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         if minimum.is_some_and(|value| !value.is_finite())
             || maximum.is_some_and(|value| !value.is_finite())
             || minimum.zip(maximum).is_some_and(|(min, max)| min > max)
@@ -811,6 +833,8 @@ impl Runtime {
         reader._selection_owner.shrink(admitted - retained);
         reader.output = Some(filter);
         Ok(reader)
+    
+        }).await
     }
 }
 

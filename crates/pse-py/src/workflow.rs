@@ -409,22 +409,9 @@ pub(crate) struct NativeRuntime {
 }
 #[pymethods]
 impl NativeRuntime {
-    /// Evict optional retention, then drain local readers and close physical RPC drivers.
-    /// Independently supervised native workers retain their separate drain owner.
-    fn close(&self, py: Python<'_>) -> PyResult<()> {
-        self.inner.clear_program_cache();
-        blocking(
-            py,
-            &self.owner,
-            async {
-                self.inner
-                    .canonical_store()
-                    .disconnect()
-                    .await
-                    .map_err(native::WorkflowError::Canonical)
-            },
-            || {},
-        )
+    /// Release this caller and its aliases while admitted work drains independently.
+    fn close(&self) {
+        self.inner.close();
     }
 
     /// Reopen an exact retained canonical source selection without authored document replay.

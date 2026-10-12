@@ -92,6 +92,7 @@ impl Drop for FixtureLifetime {
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
+                    self.executor.block_on(self.store.result_read_drain.drain())?;
                     self.executor.block_on(self.store.disconnect())?;
                     for peer in self
                         .peers

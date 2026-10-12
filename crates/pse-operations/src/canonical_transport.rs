@@ -17,6 +17,9 @@ use surrealdb::{Surreal, engine::remote::ws::Client, opt::RequestContext};
 #[cfg(test)]
 #[path = "canonical_transport_tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "canonical-tests"))]
+#[path = "canonical_lifetime_peer_tests.rs"]
+mod lifetime_tests;
 
 tokio::task_local! {
     static OPERATION_DEADLINE: tokio::time::Instant;
@@ -90,7 +93,17 @@ pub(crate) async fn operation_scope<F: Future>(
     OPERATION_DEADLINE.scope(deadline, future).await
 }
 
+#[derive(Clone)]
 pub(crate) struct CanonicalClient {
+    inner: Arc<ClientState>,
+    pub(crate) access: super::lifetime::ConnectionAccess,
+}
+impl std::ops::Deref for CanonicalClient {
+    type Target = ClientState;
+    fn deref(&self) -> &Self::Target { &self.inner }
+}
+
+pub(crate) struct ClientState {
     client: Arc<Surreal<Client>>,
     budget: Duration,
     namespace: String,
@@ -128,6 +141,8 @@ impl CanonicalClient {
         options: &super::CanonicalOptions,
     ) -> Self {
         Self {
+            access: super::lifetime::ConnectionAccess::default(),
+            inner: Arc::new(ClientState {
             client: Arc::new(client),
             budget,
             namespace: options.namespace.clone(),
@@ -143,7 +158,15 @@ impl CanonicalClient {
             },
             blocked: AtomicBool::new(false),
             checkpoint: uuid::Uuid::new_v4(),
+            }),
         }
+    }
+
+    pub(crate) fn with_access(&self, access: super::lifetime::ConnectionAccess) -> Self {
+        Self { inner: self.inner.clone(), access }
+    }
+    pub(crate) fn same_driver(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
     }
 
     /// VIEWER cannot implicitly define catalog entries during USE. Probe one
@@ -151,7 +174,8 @@ impl CanonicalClient {
     /// Acknowledged setup replays in this same authorization order. A registered
     /// active context cannot be reclaimed while this handle borrows it.
     pub(crate) async fn select_existing(&self) -> Result<bool, super::CanonicalError> {
-        within_clock(original_deadline(self.budget), async {
+        let activity = self.access.admit()?;
+        activity.scope(within_clock(original_deadline(self.budget), async {
             let mut selection = self.selection.lock().await;
             if self.blocked.load(Ordering::Acquire) {
                 return Err(super::CanonicalError::Configuration(
@@ -163,7 +187,8 @@ impl CanonicalClient {
             }
             self.blocked.store(true, Ordering::Release);
             let transition = SelectionTransition(&self.blocked);
-            let context = || RequestContext::control(original_deadline(self.budget).into_std());
+            let context = || RequestContext::control(original_deadline(self.budget).into_std())
+                .with_lifetime_owner(Arc::new(activity.clone()));
             self.client
                 .signin(self.viewer.clone())
                 .request_context(context())
@@ -207,20 +232,22 @@ impl CanonicalClient {
                 .request_context(RequestContext::selection_checkpoint(
                     original_deadline(self.budget).into_std(),
                     self.checkpoint,
-                ))
+                ).with_lifetime_owner(Arc::new(activity.clone())))
                 .await?;
             *selection = next;
             transition.acknowledged();
             Ok(next.1)
-        })
+        }))
         .await
     }
 
     /// Explicit creation starts on a fresh, unselected administrative session.
     /// A failed read-only probe must never become the catalog context for DDL.
     pub(crate) async fn provision(&self) -> Result<(), super::CanonicalError> {
-        within_clock(original_deadline(self.budget), async {
-            let context = || RequestContext::control(original_deadline(self.budget).into_std());
+        let activity = self.access.admit()?;
+        activity.scope(within_clock(original_deadline(self.budget), async {
+            let context = || RequestContext::control(original_deadline(self.budget).into_std())
+                .with_lifetime_owner(Arc::new(activity.clone()));
             self.client
                 .signin(self.owner.clone())
                 .request_context(context())
@@ -248,7 +275,7 @@ impl CanonicalClient {
                 .await?,
             )?;
             Ok(())
-        })
+        }))
         .await
     }
 
@@ -306,7 +333,10 @@ impl CanonicalClient {
         if self.blocked.load(Ordering::Acquire) {
             context.cancel();
         }
-        context
+        match self.access.admit() {
+            Ok(activity) => context.with_lifetime_owner(Arc::new(activity)),
+            Err(_) => { context.cancel(); context }
+        }
     }
 
     pub(crate) async fn disconnect(&self) -> Result<(), surrealdb::Error> {

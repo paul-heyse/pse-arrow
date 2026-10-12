@@ -38,6 +38,9 @@ impl CanonicalDeployment {
             producer,
         }
     }
+    pub(super) fn independent_caller(&self) -> Result<Self, super::WorkflowError> {
+        Ok(Self { store: self.store.independent_caller()?, ..self.clone() })
+    }
     /// The sole canonical scientific storage boundary.
     pub fn store(&self) -> &CanonicalStore {
         &self.store

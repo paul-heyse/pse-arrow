@@ -28,10 +28,10 @@ fn watch(cancel: &crate::CancelSource) -> (Arc<AtomicBool>, StopWatch) {
     let token = cancel.token();
     (
         flag,
-        StopWatch(tokio::spawn(async move {
+        StopWatch(tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             token.cancelled().await;
             watched.store(true, Ordering::Release);
-        })),
+        }))),
     )
 }
 
@@ -114,6 +114,8 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<canonical::CheckedSelection, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let phase = cancel.child_with_deadline(Some(deadline));
         let deadline = phase.deadline().unwrap_or(deadline);
         if cancel.token().is_cancelled() {
@@ -142,6 +144,8 @@ impl ModelingPackage {
             },
             result = &mut operation => result,
         }
+    
+        }).await
     }
     #[cfg(test)]
     #[expect(
@@ -158,9 +162,13 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<ModelingPreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_selected_basis(selected, root, instance, bindings, limits, cancel, deadline)
             .await
             .map(|(model, _)| model)
+    
+        }).await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -176,6 +184,8 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         deadline: Instant,
     ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let math = self.runtime.shared.math();
         let store = self.runtime.canonical.store();
         let context = compiler_context(&self.physical, &self.providers);
@@ -339,6 +349,8 @@ impl ModelingPackage {
                 selected.admission.metadata.clone(),
             );
         Ok((model, retained))
+    
+        }).await
     }
 
     #[expect(

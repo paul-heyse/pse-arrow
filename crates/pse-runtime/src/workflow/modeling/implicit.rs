@@ -277,6 +277,8 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
         demand: ProviderDemand<'_>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let product = model.compiled();
         if product.admitted.implicit_systems().next().is_none() {
             return Ok(self.registrations());
@@ -473,6 +475,8 @@ impl ModelingPackage {
                 cancel,
             )
             .await?)
+    
+        }).await
     }
 }
 

@@ -22,6 +22,8 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetscSource, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if self.revision.identity() != original.source.revision.identity()
             || self.physical.key != original.source.physical.key
         {
@@ -44,6 +46,8 @@ impl ModelingPackage {
             ));
         }
         Ok(source)
+    
+        }).await
     }
     /// Prepare complete BTF First block products through the actual source workspace.
     /// The explicit declaration records the domain-safe block admission; every trial
@@ -59,6 +63,8 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let source = self.prepare_petsc_source(original, scope, driver).await?;
         Ok(self
             .runtime
@@ -75,6 +81,8 @@ impl ModelingPackage {
                 driver,
             )
             .await?)
+    
+        }).await
     }
 }
 

@@ -135,6 +135,8 @@ impl AnalysisHandle {
     pub async fn header(
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_analyses as rows;
         let owner =
             MemoryConsumer::new("canonical:analysis-header").register(&self.runtime.shared.pool());
@@ -151,12 +153,16 @@ impl AnalysisHandle {
             .map_err(relation)?
             .retained(&self.runtime.shared.pool(), &CancellationToken::new())
             .map_err(relation)
+    
+        }).await
     }
     /// Native ordered node page, at most 64 rows, retaining actual Arrow buffers.
     pub async fn nodes(
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
         let owner =
             MemoryConsumer::new("canonical:analysis-page").register(&self.runtime.shared.pool());
@@ -180,12 +186,16 @@ impl AnalysisHandle {
             .map_err(relation)?
             .retained(&self.runtime.shared.pool(), &CancellationToken::new())
             .map_err(relation)
+    
+        }).await
     }
     /// Native directed graph edge page with original result evidence references.
     pub async fn edges(
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_relations::generated::runtime::canonical_analysis_edges as rows;
         let owner =
             MemoryConsumer::new("canonical:analysis-page").register(&self.runtime.shared.pool());
@@ -209,6 +219,8 @@ impl AnalysisHandle {
             .map_err(relation)?
             .retained(&self.runtime.shared.pool(), &CancellationToken::new())
             .map_err(relation)
+    
+        }).await
     }
 }
 impl Runtime {
@@ -219,15 +231,23 @@ impl Runtime {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.operations()?.completion(run, attempt).await
+    
+        }).await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.canonical_store().analysis(key).await?;
         Ok(AnalysisHandle {
             runtime: self.clone(),
             key: key.into(),
         })
+    
+        }).await
     }
 
     #[allow(
@@ -368,6 +388,8 @@ impl Runtime {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         controls.validate()?;
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         let owner = MemoryConsumer::new("canonical:result-analysis").register(&self.shared.pool());
@@ -541,6 +563,8 @@ impl Runtime {
             controls,
         )
         .await
+    
+        }).await
     }
 }
 impl ModelingSolvePreparation {
@@ -551,6 +575,8 @@ impl ModelingSolvePreparation {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
+        let activity = self.source.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         controls.validate()?;
         let runtime = &self.source.runtime;
         let owner =
@@ -666,6 +692,8 @@ impl ModelingSolvePreparation {
         // Keep the admitted physical source protection until analysis roots acknowledge.
         drop(physical_rows);
         Ok(analysis)
+    
+        }).await
     }
 }
 

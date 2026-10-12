@@ -90,7 +90,7 @@ class Runtime:
         )
 
     def close(self) -> None:
-        """Evict optional caches, then drain local readers and canonical connections."""
+        """Release this caller and its aliases; admitted work continues through drain."""
         self._handle.close()
 
     @property

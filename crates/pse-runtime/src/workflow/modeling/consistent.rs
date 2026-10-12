@@ -264,6 +264,8 @@ impl ModelingSimulation {
         scope: ExecutionScope,
         cancellation: FlightCancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let submission = Submission {
             cancel: cancellation,
             progress: Arc::new(Progress::new(controls.history)),
@@ -279,6 +281,8 @@ impl ModelingSimulation {
                 _owner: owner,
             }),
         })
+    
+        }).await
     }
     pub(crate) fn submit_consistent(
         &self,

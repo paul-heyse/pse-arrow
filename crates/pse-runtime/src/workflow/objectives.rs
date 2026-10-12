@@ -219,6 +219,8 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLevelsReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if analysis
             .bindings
             .facts
@@ -269,6 +271,8 @@ impl ModelingPackage {
             };
         staged.close().await;
         report
+    
+        }).await
     }
     /// Query declared native priority semantics, otherwise admit one backend for staging.
     async fn level_route(

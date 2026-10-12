@@ -211,11 +211,15 @@ impl super::ModelingPackage {
         limits: pse_modeling::Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let execution = self
             .declared_execution(root, compiler, solver, Default::default(), limits, cancel)
             .await?;
         self.shooting_for_declared(&execution, profile, cancel)
             .await
+    
+        }).await
     }
     /// Prepare shooting from the operation's already admitted authored execution.
     pub(in crate::workflow) async fn shooting_for_declared(
@@ -224,6 +228,8 @@ impl super::ModelingPackage {
         profile: Option<native::dynamics::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if !matches!(
             execution.procedure,
             super::modeling::DeclaredProcedure::Shooting { .. }
@@ -256,6 +262,8 @@ impl super::ModelingPackage {
                 Err(crate::math::MathRuntimeError::Cancelled.into())
             }
         }
+    
+        }).await
     }
 }
 

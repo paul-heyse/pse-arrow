@@ -28,6 +28,8 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_simulation_for(
             root,
             instance,
@@ -41,6 +43,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Prepare the mandatory exact transient consumer before choosing a dynamic method.
     #[expect(
@@ -60,6 +64,8 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_simulation_with_controls(
             root,
             instance,
@@ -75,6 +81,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Only the authored profile factory supplies provisional quadrature slots.
     #[expect(
@@ -96,6 +104,8 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if bindings
             .facts
             .keys()
@@ -165,6 +175,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Compile all modes before native admission. Layout, units and state scaling stay fixed.
     #[expect(

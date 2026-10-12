@@ -469,6 +469,8 @@ impl CanonicalStore {
         points: &[NewOccurrence],
         cancelled: &(impl Fn() -> bool + Sync),
     ) -> Result<Option<Study>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
             async {
@@ -673,6 +675,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
 
     async fn stop_study_creation(
@@ -814,14 +817,19 @@ impl CanonicalStore {
         &self,
         key: &str,
     ) -> Result<Option<StudySummary>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);")
                 .bind(("key",key.to_owned()))).await?;
             result.take::<Option<Object>>(0)?.map(decode_study_summary).transpose()
         }).await
+            }).await
     }
     /// Read the complete stored study header when its definition is needed.
     pub async fn canonical_study(&self, key: &str) -> Result<Option<Study>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(
                 self.db
@@ -836,12 +844,15 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     /// Read one requested occurrence's immutable operation and current observation.
     pub async fn canonical_study_point(
         &self,
         key: &str,
     ) -> Result<Option<StudyPoint>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(
                 self.db
@@ -856,6 +867,7 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     async fn readiness_cursor(&self, study: &str) -> Result<ReadinessCursor, CanonicalError> {
         self.ensure_writes()?;
@@ -1032,6 +1044,8 @@ impl CanonicalStore {
         &self,
         study: &str,
     ) -> Result<ReadinessAdvance, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT),async {
             self.ensure_writes()?;
             let Some(owner)=self.canonical_study(study).await? else {return Err(CanonicalError::IncompleteResponse);};
@@ -1080,6 +1094,7 @@ impl CanonicalStore {
             let _=self.readiness_scan_advance(&cursor,"notify",Some(source.ordinal),false).await?;
             Ok(ReadinessAdvance {examined,pending:self.readiness_pending(study).await?})
         }).await
+            }).await
     }
     /// Verify one bounded authoritative point page on scheduled recovery. This
     /// repairs stale false/missing hints without making each claim scan the study.
@@ -1087,6 +1102,8 @@ impl CanonicalStore {
         &self,
         study: &str,
     ) -> Result<ReadinessAdvance, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let Some(owner) = self.canonical_study(study).await? else {
@@ -1100,6 +1117,7 @@ impl CanonicalStore {
                 .await
         })
         .await
+            }).await
     }
     /// Narrow ordered discovery from derived hints. Cancellation bypasses hints.
     /// This read has no mutation/admission effect and never grants a claim.
@@ -1108,6 +1126,8 @@ impl CanonicalStore {
         study: &str,
         after: Option<u64>,
     ) -> Result<Vec<ScopedStudyPoint>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result=bounded_query(self.db.query("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled { SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 } ELSE { SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64 }; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
@@ -1116,6 +1136,7 @@ impl CanonicalStore {
                 .map(decode_scope_point)
                 .collect()
         }).await
+            }).await
     }
     /// Bounded explicit occurrence page, including history for user summaries.
     pub async fn study_point_page(
@@ -1123,6 +1144,8 @@ impl CanonicalStore {
         study: &str,
         after: Option<u64>,
     ) -> Result<Vec<ScopedStudyPoint>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result=bounded_query(self.db.query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
@@ -1131,14 +1154,18 @@ impl CanonicalStore {
                 .map(decode_scope_point)
                 .collect()
         }).await
+            }).await
     }
     /// Read-only discovery hint. A false result never replaces guarded finalization.
     pub async fn study_has_pending(&self, study: &str) -> Result<bool, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut response = bounded_query(self.db.query("SELECT key FROM canonical_study_points WHERE study=$study AND settled=false LIMIT 1;")
                 .bind(("study", study.to_owned()))).await?;
             Ok(!response.take::<Vec<Object>>(0)?.is_empty())
         }).await
+            }).await
     }
     /// Original outcome and definition arrive together, without one later read per point.
     pub async fn study_outcome_page(
@@ -1146,6 +1173,8 @@ impl CanonicalStore {
         study: &str,
         after: Option<u64>,
     ) -> Result<Vec<StudyOutcomePoint>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             // Four maximum-size definitions/outcomes fit below the existing message
             // bound. Do not use the 64-row metadata-page limit for these byte payloads.
@@ -1154,9 +1183,12 @@ impl CanonicalStore {
                 .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             response.take::<Vec<Object>>(0)?.into_iter().map(decode_outcome_point).collect()
         }).await
+            }).await
     }
     /// One snapshot supplies only the candidate and immediate decision premises.
     pub async fn study_scope(&self, point: &str) -> Result<StudyScope, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(
                 self.db
@@ -1201,6 +1233,7 @@ impl CanonicalStore {
             })
         })
         .await
+            }).await
     }
 
     /// Recompute shared policy then atomically fence every consumed premise and claim.
@@ -1212,6 +1245,8 @@ impl CanonicalStore {
         worker: &str,
         lifetime: Duration,
     ) -> Result<StudyClaim, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let action = scope.action(seed.clone())?;
             let ActionKind::Start(start) = action.kind else {
@@ -1277,6 +1312,7 @@ impl CanonicalStore {
             self.finish_study_claim(scope, start, operation, &request, &claim_request, response)
                 .await
         }).await
+            }).await
     }
 
     // The operation receipt is the sole acknowledgment authority. A readable point
@@ -1351,6 +1387,8 @@ impl CanonicalStore {
         action: &pse_model::study::PointAction,
         diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     ) -> Result<StudyPoint, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             if action.occurrence.0 as u64 != scope.point.occurrence
                 || action.expected_revision != scope.point.revision
@@ -1399,6 +1437,7 @@ impl CanonicalStore {
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
         }).await
+            }).await
     }
     /// Record the exact pre-dispatch boundary under current cancellation and attempt
     /// authority. Each invocation owns a fresh exact receipt; only that receipt may
@@ -1407,6 +1446,8 @@ impl CanonicalStore {
         &self,
         claim: &StudyClaim,
     ) -> Result<StudyPoint, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let admission = claim.begin_dispatch()?;
@@ -1414,6 +1455,7 @@ impl CanonicalStore {
             self.finish_study_started(admission, result).await
         })
         .await
+            }).await
     }
 
     async fn send_study_started(
@@ -1501,6 +1543,8 @@ impl CanonicalStore {
         &self,
         run: &str,
     ) -> Result<Option<Study>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result = bounded_query(
                 self.db
@@ -1515,6 +1559,7 @@ impl CanonicalStore {
                 .map_err(Into::into)
         })
         .await
+            }).await
     }
     /// Assign the effect-free parent summary only after all occurrences are settled.
     pub async fn begin_study_finalization(
@@ -1523,6 +1568,8 @@ impl CanonicalStore {
         worker: &str,
         lifetime: Duration,
     ) -> Result<Option<AttemptFence>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let parent = self
                 .canonical_run(&study.run)
@@ -1562,6 +1609,7 @@ impl CanonicalStore {
             self.finish_study_finalization(&study.run, &operation, &request, result)
                 .await
         }).await
+            }).await
     }
 
     async fn finish_study_finalization(
@@ -1600,6 +1648,8 @@ impl CanonicalStore {
         study: &str,
         after: Option<u64>,
     ) -> Result<Vec<ScopedStudyPoint>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result=bounded_query(self.db.query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
@@ -1608,6 +1658,7 @@ impl CanonicalStore {
                 .map(decode_scope_point)
                 .collect()
         }).await
+            }).await
     }
     /// Record only observations of the exact admitted attempt; no raw successful flag.
     /// # Safety
@@ -1625,6 +1676,8 @@ impl CanonicalStore {
         outcome: &PointOutcome,
         settled: bool,
     ) -> Result<StudyPoint, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             if facts.key != outcome.key || u64::from(facts.key.0) != point.occurrence {
                 return Err(CanonicalError::Configuration(
@@ -1645,9 +1698,12 @@ impl CanonicalStore {
                     .ok_or(CanonicalError::IncompleteResponse)?,
             )?)
         }).await
+            }).await
     }
     /// Revoke future claims; supervisor still cancels/drains each assigned native attempt.
     pub async fn cancel_study(&self, key: &str) -> Result<Study, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let result = self
@@ -1668,6 +1724,7 @@ impl CanonicalStore {
             self.finish_study_cancel(key, response).await
         })
         .await
+            }).await
     }
     async fn finish_study_cancel(
         &self,
@@ -1696,6 +1753,8 @@ impl CanonicalStore {
     }
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let mut result = self
@@ -1713,6 +1772,7 @@ impl CanonicalStore {
             )?)
         })
         .await
+            }).await
     }
 
     /// Active metadata pages for managed workers; no definition/result hydration.
@@ -1720,6 +1780,8 @@ impl CanonicalStore {
         &self,
         after: Option<&str>,
     ) -> Result<Vec<StudySummary>, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut result=bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM canonical_studies WHERE active=true AND terminal=false AND key>$after ORDER BY key LIMIT 64;").bind(("after",after.unwrap_or("").to_owned()))).await?;
             result
@@ -1728,6 +1790,7 @@ impl CanonicalStore {
                 .map(decode_study_summary)
                 .collect()
         }).await
+            }).await
     }
 }
 

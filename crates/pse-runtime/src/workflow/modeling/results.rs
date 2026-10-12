@@ -1051,6 +1051,8 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let mut prepared = prepared;
         prepared.compiler = compiler;
         let handle = prepared.start()?;
@@ -1068,6 +1070,8 @@ impl ModelingPackage {
             Err(error) => Err(WorkflowError::Shared(error.clone())),
             _ => Err(contract("authored solve report mismatch")),
         }
+    
+        }).await
     }
 }
 /// A step's certified dual bound on its authored objective (ADR-0119 Outcome 5): a bound

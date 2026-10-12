@@ -933,7 +933,7 @@ impl MathService {
             ));
         let run_id = pse_operations::mint_id();
         let (tx, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Known factories draw each live evaluator before allocating it; the
             // entry lease covers their separately bounded container construction.
             // Unknown factories retain the pre-reserved conservative worker extent.
@@ -1062,7 +1062,7 @@ impl MathService {
                 })
                 .await;
             let _ = tx.send(result);
-        });
+        }));
         Ok(SolveHandle {
             cancel,
             receiver: Some(receiver),

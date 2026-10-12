@@ -95,6 +95,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let (mut problem, assessments) = self
             .prepare_fit_problem(id, profile, compiler, limits, cancel)
             .await?;
@@ -171,6 +173,8 @@ impl ModelingPackage {
             route,
             assessments,
         })
+    
+        }).await
     }
     pub(in crate::workflow::fitting) async fn prepare_fit_problem(
         &self,
@@ -180,6 +184,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(FitProblem, Vec<Assessment>), WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         // Charged once the layout bound is known, before the layout is built.
         let reservation = datafusion::execution::memory_pool::MemoryConsumer::new("fit:prepared")
             .register(&self.runtime.shared.pool());
@@ -966,6 +972,8 @@ impl ModelingPackage {
             }
         };
         Ok((problem, assessments))
+    
+        }).await
     }
 }
 impl PreparedFit {

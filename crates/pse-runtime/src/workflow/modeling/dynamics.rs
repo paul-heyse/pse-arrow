@@ -767,6 +767,8 @@ impl ModelingSimulation {
         &self,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let handle = self.start()?;
         let wait = handle.wait();
         tokio::pin!(wait);
@@ -778,6 +780,8 @@ impl ModelingSimulation {
             Err(error) => Err(WorkflowError::Shared(error.clone())),
             _ => Err(contract("simulation report mismatch")),
         }
+    
+        }).await
     }
 }
 /// One owner for integrated state/parameter layout, shared with data-authored fixtures.
@@ -1040,6 +1044,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let execution = self
             .declared_execution(
                 root,
@@ -1057,6 +1063,8 @@ impl ModelingPackage {
         }
         self.simulation_for_declared(&execution, profile, cancel)
             .await
+    
+        }).await
     }
     /// Internal integration projection; the declared operation owner retains its procedure.
     pub(in crate::workflow) async fn simulation_for_declared(
@@ -1065,6 +1073,8 @@ impl ModelingPackage {
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if !matches!(
             execution.procedure,
             DeclaredProcedure::Integrate(_) | DeclaredProcedure::Shooting { .. }
@@ -1103,6 +1113,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Prepare integrated dynamics from one specialized definition. Rates are compiler
     /// projections; all original equations, hints and source identities remain inspectable.

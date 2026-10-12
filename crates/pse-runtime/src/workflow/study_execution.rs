@@ -120,6 +120,8 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let (report, preparations) = crate::math::counted(async {
             match self.runtime.durability() {
                 super::Durability::Durable(_) => {
@@ -134,6 +136,8 @@ impl ModelingPackage {
         let mut report = report?;
         report.preparations = preparations;
         Ok(report)
+    
+        }).await
     }
     async fn study_durable(
         &self,

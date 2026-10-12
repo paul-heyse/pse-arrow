@@ -35,6 +35,16 @@ pub(crate) struct ResultReadDrain {
     closing: std::sync::Mutex<bool>,
     releases: tokio_util::task::TaskTracker,
     error: std::sync::Mutex<Option<Arc<CanonicalError>>>,
+    failed_protections: std::sync::Mutex<Vec<Arc<FailedProtection>>>,
+}
+#[derive(Debug)]
+struct FailedProtection {
+    store: CanonicalStore,
+    revision: crate::canonical::Revision,
+    key: String,
+    error: Arc<CanonicalError>,
+    retry: tokio::sync::Mutex<()>,
+    done: std::sync::atomic::AtomicBool,
 }
 impl ResultReadDrain {
     #[cfg(all(test, feature = "canonical-tests"))]
@@ -58,8 +68,32 @@ impl ResultReadDrain {
         ResultReleaseTask {
             drain: self.clone(),
             completed: false,
+            recovery: None,
             _token: token,
         }
+    }
+    pub(crate) fn release_protection(self: &Arc<Self>, store: CanonicalStore,
+        revision: crate::canonical::Revision, key: String) -> ResultReleaseTask {
+        let mut release = self.release();
+        release.recovery = Some((store, revision, key));
+        release
+    }
+    pub(crate) async fn recover(self: &Arc<Self>) -> Result<(), CanonicalError> {
+        let failed = self.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+        for entry in failed {
+            let drain = self.clone();
+            let task = tokio::spawn(async move {
+                let _retry = entry.retry.lock().await;
+                if entry.done.load(std::sync::atomic::Ordering::Acquire) { return Ok(()); }
+                entry.store.release_protection(&entry.revision, &entry.key).await?;
+                entry.done.store(true, std::sync::atomic::Ordering::Release);
+                drain.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .retain(|entry| !entry.done.load(std::sync::atomic::Ordering::Acquire));
+                Ok::<(), CanonicalError>(())
+            });
+            task.await.map_err(|error| invalid(&format!("protection recovery task failed: {error}")))??;
+        }
+        Ok(())
     }
     fn failure(&self, error: CanonicalError) {
         let mut saved = self
@@ -98,6 +132,9 @@ impl ResultReadDrain {
         tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, self.releases.wait())
             .await
             .map_err(|_| CanonicalError::Timeout)?;
+        if let Some(entry) = self.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner).first() {
+            return Err(CanonicalError::ProtectionRelease { source: entry.error.clone() });
+        }
         if let Some(error) = self
             .error
             .lock()
@@ -114,12 +151,20 @@ impl ResultReadDrain {
 pub(crate) struct ResultReleaseTask {
     drain: Arc<ResultReadDrain>,
     completed: bool,
+    recovery: Option<(CanonicalStore, crate::canonical::Revision, String)>,
     _token: tokio_util::task::task_tracker::TaskTrackerToken,
 }
 impl ResultReleaseTask {
+    fn failure(&mut self, error: CanonicalError) {
+        if let Some((store, revision, key)) = self.recovery.take() {
+            self.drain.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push(Arc::new(FailedProtection { store, revision, key, error: Arc::new(error),
+                    retry: tokio::sync::Mutex::new(()), done: std::sync::atomic::AtomicBool::new(false) }));
+        } else { self.drain.failure(error); }
+    }
     pub(crate) fn complete(mut self, result: Result<(), CanonicalError>) {
         if let Err(error) = result {
-            self.drain.failure(error);
+            self.failure(error);
         }
         self.completed = true;
     }
@@ -127,7 +172,7 @@ impl ResultReleaseTask {
 impl Drop for ResultReleaseTask {
     fn drop(&mut self) {
         if !self.completed {
-            self.drain.failure(invalid(
+            self.failure(invalid(
                 "result protection release task ended before completion",
             ));
         }
@@ -227,7 +272,7 @@ impl ResultRead {
         &self.owner.selection
     }
     pub(crate) fn belongs_to(&self, store: &CanonicalStore) -> bool {
-        Arc::ptr_eq(&store.db, &self.owner.store.db)
+        store.db.same_driver(&self.owner.store.db)
     }
     /// Exact semantic run and immutable source selection.
     pub fn run(&self) -> &Run {
@@ -258,6 +303,8 @@ impl ResultRead {
 }
 impl ReadOwner {
     async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
+        let activity = self.store.selection_activity(&self.selection)?;
+        activity.scope(async {
         let micros =
             i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
         if micros <= 0 {
@@ -286,6 +333,7 @@ impl ReadOwner {
             )
             .await?;
         Ok(())
+        }).await
     }
 }
 
@@ -507,7 +555,9 @@ impl CanonicalStore {
         maximum: Option<f64>,
         missing: Option<bool>,
     ) -> Result<ResultOutputPage, CanonicalError> {
-        if !Arc::ptr_eq(&self.db, &read.owner.store.db) {
+        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
+        if !self.db.same_driver(&read.owner.store.db) {
             return Err(invalid("result read belongs to another store"));
         }
         let set = read.set(result_set)?;
@@ -696,6 +746,7 @@ impl CanonicalStore {
             previous = Some(lower);
         }
         Ok(page)
+            }).await
     }
     /// Select the newest semantic run whose current terminal attempt has an
     /// explicitly requested recorded class. Empty classes include all outcomes.
@@ -706,6 +757,8 @@ impl CanonicalStore {
         classes: &[crate::canonical_execution::TerminalClass],
         lifetime: Duration,
     ) -> Result<ResultRead, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         identity(problem)?;
         if classes.len() > 4 {
             return Err(invalid("terminal result class bound"));
@@ -740,6 +793,7 @@ impl CanonicalStore {
             return Err(invalid("latest result selection changed meaning"));
         }
         Ok(read)
+            }).await
     }
 
     async fn terminal_read_owner(
@@ -854,6 +908,8 @@ impl CanonicalStore {
         attempt_key: &str,
         lifetime: Duration,
     ) -> Result<ResultRead, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let (owner, run, attempt) = self
             .terminal_read_owner(run_key, attempt_key, lifetime)
             .await?;
@@ -887,6 +943,7 @@ impl CanonicalStore {
             manifest,
             sets,
         })
+            }).await
     }
 
     /// Pin one terminal completion without fetching its manifest descriptors or
@@ -897,6 +954,8 @@ impl CanonicalStore {
         attempt_key: &str,
         lifetime: Duration,
     ) -> Result<CompletionRead, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         let (owner, run, attempt) = self
             .terminal_read_owner(run_key, attempt_key, lifetime)
             .await?;
@@ -937,6 +996,7 @@ impl CanonicalStore {
             attempt,
             chunks,
         })
+            }).await
     }
 
     /// Fetch only an ordinal in the frozen original-completion set.
@@ -945,6 +1005,8 @@ impl CanonicalStore {
         read: &CompletionRead,
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
+        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
         let set = read
             .chunks
             .as_ref()
@@ -958,6 +1020,7 @@ impl CanonicalStore {
             ordinal,
         )
         .await
+            }).await
     }
 
     /// Discover at most one narrow metadata page for an admitted output range.
@@ -976,7 +1039,9 @@ impl CanonicalStore {
         end: u64,
         after: Option<u64>,
     ) -> Result<Vec<BlockMetadata>, CanonicalError> {
-        if !Arc::ptr_eq(&self.db, &read.owner.store.db) {
+        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
+        if !self.db.same_driver(&read.owner.store.db) {
             return Err(invalid("result read belongs to another store"));
         }
         let set = read.set(result_set)?;
@@ -1026,6 +1091,7 @@ impl CanonicalStore {
                 Ok(metadata)
             })
             .collect()
+            }).await
     }
 
     /// Read one exact closed-descriptor member for its declared scientific codec.
@@ -1036,6 +1102,8 @@ impl CanonicalStore {
         result_set: &str,
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
+        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
         let set = read.set(result_set)?;
         self.read_payload(
             &read.owner,
@@ -1046,6 +1114,7 @@ impl CanonicalStore {
             ordinal,
         )
         .await
+            }).await
     }
 
     async fn read_payload(
@@ -1057,7 +1126,7 @@ impl CanonicalStore {
         batch_count: u64,
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
-        if !Arc::ptr_eq(&self.db, &owner.store.db) {
+        if !self.db.same_driver(&owner.store.db) {
             return Err(invalid("result read belongs to another store"));
         }
         if ordinal >= batch_count {
@@ -1095,7 +1164,9 @@ impl CanonicalStore {
         read: &ResultRead,
         metadata: BlockMetadata,
     ) -> Result<ResultBlock, CanonicalError> {
-        if !Arc::ptr_eq(&self.db, &read.owner.store.db) {
+        let activity = read.owner.store.selection_activity(&read.owner.selection)?;
+        activity.scope(async {
+        if !self.db.same_driver(&read.owner.store.db) {
             return Err(invalid("result read belongs to another store"));
         }
         let set = read.set(&metadata.result_set)?;
@@ -1136,6 +1207,7 @@ impl CanonicalStore {
             batch,
             owner: read.owner.clone(),
         })
+            }).await
     }
 }
 

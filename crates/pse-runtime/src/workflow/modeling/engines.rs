@@ -264,8 +264,12 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
             .await
+    
+        }).await
     }
     /// Bind one attempt: the analysis with a predecessor's seed, parameter replacements and
     /// temporary fixes. Its structure is prepared once per package and rebound per values
@@ -276,6 +280,8 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.prepare_solve_seed(
             a.root,
             a.instance,
@@ -290,6 +296,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// A sum-of-squares bound on the optimum of `analysis`'s polynomial program (Plan 22 N5;
     /// I5): a lower bound on a minimization, an upper bound on a maximization, from the
@@ -305,6 +313,8 @@ impl ModelingPackage {
         order: Option<usize>,
         cancel: &crate::CancelSource,
     ) -> Result<pse_backend_native::execution::sos::SosBound, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let prepared = self.prepare_analysis(analysis, cancel).await?;
         Ok(self
             .runtime
@@ -312,6 +322,8 @@ impl ModelingPackage {
             .math()
             .sos_bound(&prepared.solve, order)
             .await?)
+    
+        }).await
     }
     /// Accepted values advance through immutable stage overlays. Homotopy retries from
     /// the last accepted point, shrinks failures and qualifies the final original model.
@@ -323,8 +335,12 @@ impl ModelingPackage {
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.initialize_model_with_prepared(analysis, policy, None, cancel)
             .await
+    
+        }).await
     }
     /// Run initialization from an exact retained declared preparation.
     pub(in crate::workflow) async fn initialize_model_with_prepared(
@@ -334,6 +350,8 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         policy.validate()?;
         if analysis
             .bindings
@@ -473,6 +491,8 @@ impl ModelingPackage {
         let Initializer { staged, report, .. } = run;
         staged.close().await;
         Ok(report)
+    
+        }).await
     }
 }
 /// The initialization planner over one staged sequence. Each method returns whether the

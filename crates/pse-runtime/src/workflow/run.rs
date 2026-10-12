@@ -337,7 +337,7 @@ pub(super) fn attempt_for(
         (Durability::Ephemeral, Some(_)) => {
             Err(contract("a claimed job runs only on a durable runtime"))
         }
-        (Durability::Durable(operations), None) => Ok(Some(DurableAttempt::new(operations))),
+        (Durability::Durable(operations), None) => Ok(Some(DurableAttempt::new(operations)?)),
         (Durability::Durable(_), Some(attempt)) => Ok(Some(attempt)),
     }
 }
@@ -408,6 +408,8 @@ impl super::ModelingSimulation {
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let admission = self.admission_deadline().and_then(|deadline| {
             if matches!(self.runtime.durability(), Durability::Ephemeral) {
                 Err(contract(
@@ -426,6 +428,8 @@ impl super::ModelingSimulation {
             }
         };
         self.start_owned(Some(attempt), deadline)
+    
+        }).await
     }
     fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
         std::time::Instant::now()
@@ -437,6 +441,8 @@ impl super::ModelingSimulation {
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         let runtime = self.runtime.clone();
         let run_id: RunId = pse_operations::mint_id();
         let mut durable = attempt_for(&runtime, attempt)?;
@@ -464,7 +470,7 @@ impl super::ModelingSimulation {
             .map(|attempt| attempt.canonical_keys(run_id));
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let prepared = self.clone();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let request = RunRequest::Simulation(Box::new(prepared.clone()));
             let stop = cancel.clone();
             let registered = async {
@@ -536,7 +542,7 @@ impl super::ModelingSimulation {
                 .finished(durable, cancelled)
                 .await;
             sender.send_replace(Some(Arc::new(result)));
-        });
+        }));
         Ok(RunHandle {
             lease,
             receiver,
@@ -544,6 +550,8 @@ impl super::ModelingSimulation {
             run_id,
             attempt_id,
             canonical_keys,
+        })
+    
         })
     }
 }
@@ -570,6 +578,8 @@ impl super::ShootingProblem {
         self: &Arc<Self>,
         initial: Option<Vec<f64>>,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         let runtime = self.runtime.clone();
         let run_id: RunId = pse_operations::mint_id();
         let mut durable = attempt_for(&runtime, None)?;
@@ -626,7 +636,7 @@ impl super::ShootingProblem {
             problem: self.clone(),
             initial,
         };
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let stop = cancel.clone();
             let registered = async {
                 if let Some(attempt) = durable.as_mut() {
@@ -694,7 +704,7 @@ impl super::ShootingProblem {
                 .finished(durable, cancelled)
                 .await;
             sender.send_replace(Some(Arc::new(result)));
-        });
+        }));
         Ok(RunHandle {
             lease,
             receiver,
@@ -702,6 +712,8 @@ impl super::ShootingProblem {
             run_id,
             attempt_id,
             canonical_keys,
+        })
+    
         })
     }
 }
@@ -715,6 +727,8 @@ impl super::PreparedFit {
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.problem.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let admission = self.admission_deadline().and_then(|deadline| {
             if matches!(self.problem.runtime.durability(), Durability::Ephemeral) {
                 Err(contract("a claimed fit runs only on a durable runtime"))
@@ -731,6 +745,8 @@ impl super::PreparedFit {
             }
         };
         self.start_owned(Some(attempt), deadline)
+    
+        }).await
     }
     fn admission_deadline(&self) -> Result<std::time::Instant, WorkflowError> {
         std::time::Instant::now()
@@ -742,6 +758,8 @@ impl super::PreparedFit {
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.problem.runtime.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         let runtime = self.problem.runtime.clone();
         let prepared = self.clone();
         let run_id: RunId = pse_operations::mint_id();
@@ -795,7 +813,7 @@ impl super::PreparedFit {
             .map(|attempt| attempt.canonical_keys(run_id));
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let request = RunRequest::Fit(Box::new(self.clone()));
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let stop = cancel.clone();
             let registered = async {
                 if let Some(attempt) = durable.as_mut() {
@@ -863,7 +881,7 @@ impl super::PreparedFit {
                 .finished(durable, cancelled)
                 .await;
             sender.send_replace(Some(Arc::new(result)));
-        });
+        }));
         Ok(RunHandle {
             lease,
             receiver,
@@ -871,6 +889,8 @@ impl super::PreparedFit {
             run_id,
             attempt_id,
             canonical_keys,
+        })
+    
         })
     }
 }
@@ -968,11 +988,15 @@ impl Runtime {
         continue_independent: bool,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.check_sequence(&steps)?;
         if cancel.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled.into());
         }
         self.launch(steps, continue_independent, None)
+    
+        }).await
     }
     /// Run a claimed job's prepared steps as its attempt, which the worker already holds
     /// under its lease; the attempt ends through the job's retry policy.
@@ -981,6 +1005,8 @@ impl Runtime {
         steps: Vec<super::ModelingSolvePreparation>,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let admission = self.check_sequence(&steps).and_then(|()| {
             if matches!(self.durability(), Durability::Ephemeral) {
                 Err(contract("a claimed solve runs only on a durable runtime"))
@@ -994,6 +1020,8 @@ impl Runtime {
             return Err(WorkflowError::Shared(error));
         }
         self.launch(steps, false, Some(attempt))
+    
+        }).await
     }
     fn check_sequence(
         &self,
@@ -1041,6 +1069,8 @@ impl Runtime {
         continue_independent: bool,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.sync_scope(|| {
         let history = steps
             .iter()
             .map(|s| s.profile.controls.history)
@@ -1066,7 +1096,7 @@ impl Runtime {
             .as_ref()
             .map(|attempt| attempt.canonical_keys(run_id));
         let shared = progress.clone();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             let request = RunRequest::Modeling(steps.clone());
             let stop = cancel.clone();
             let session = async {
@@ -1148,7 +1178,7 @@ impl Runtime {
             result.modeling_failure = modeling_failure;
             let result = result.finished(durable, cancelled).await;
             sender.send_replace(Some(Arc::new(result)));
-        });
+        }));
         Ok(RunHandle::staged(
             checks,
             receiver,
@@ -1157,6 +1187,8 @@ impl Runtime {
             attempt_id,
             canonical_keys,
         ))
+    
+        })
     }
 }
 

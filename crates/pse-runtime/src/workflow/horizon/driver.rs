@@ -37,11 +37,15 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         if cancel.token().is_cancelled() {
             return Err(MathRuntimeError::Cancelled.into());
         }
         let admitted = Admitted::new(self, horizon, cancel).await?;
         admitted.close_sources().await
+    
+        }).await
     }
 
     /// Start a rolling horizon (Plan 22 Y5c; ADR-0110 Outcome 5): one run of closed-loop
@@ -60,7 +64,11 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.start_horizon_owned(horizon, cancel, None).await
+    
+        }).await
     }
     pub(crate) async fn start_horizon_attempt(
         &self,
@@ -68,8 +76,12 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.start_horizon_owned(horizon, cancel, Some(attempt))
             .await
+    
+        }).await
     }
     async fn start_horizon_owned(
         &self,
@@ -77,6 +89,8 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let mut attempt = attempt;
         if cancel.token().is_cancelled() {
             let error = Arc::new(WorkflowError::from(MathRuntimeError::Cancelled));
@@ -134,7 +148,7 @@ impl Runtime {
             .as_ref()
             .map(|attempt| attempt.canonical_keys(run_id));
         let stream = progress.clone();
-        tokio::spawn(async move {
+        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             use futures_util::FutureExt;
             let source_owner = admitted.clone();
             let scopes = admitted
@@ -231,7 +245,7 @@ impl Runtime {
                 result.report = Err(Arc::new(error));
             }
             sender.send_replace(Some(Arc::new(result)));
-        });
+        }));
         Ok(RunHandle::staged(
             checks,
             receiver,
@@ -240,6 +254,8 @@ impl Runtime {
             attempt_id,
             canonical_keys,
         ))
+    
+        }).await
     }
 }
 
@@ -1216,9 +1232,9 @@ pub(super) struct Loop {
     publication_failure: Option<Arc<WorkflowError>>,
     unmerged: Option<Box<RunResult>>,
     capture_failure: Option<Arc<WorkflowError>>,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pressure_next_export: bool,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     original_before_refusal: Option<serde_json::Value>,
     steps: Vec<HorizonStep>,
     /// Plant outputs at every sample so far.
@@ -1297,9 +1313,9 @@ impl Loop {
             publication_failure: None,
             unmerged: None,
             capture_failure: None,
-            #[cfg(test)]
+            #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
             pressure_next_export: false,
-            #[cfg(test)]
+            #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
             original_before_refusal: None,
             steps: Vec::new(),
             measured: VecDeque::new(),
@@ -1711,7 +1727,7 @@ impl Loop {
             self.unmerged = Some(Box::new(original));
             return Err(self.refuse_publication(WorkflowError::Shared(error)));
         }
-        #[cfg(test)]
+        #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
         let pressure = if std::mem::take(&mut self.pressure_next_export) {
             self.original_before_refusal = Some(
                 serde_json::to_value(
@@ -1745,7 +1761,7 @@ impl Loop {
         // Even an allocation/encoding/append refusal transfers the latest actual
         // scientific rows. All aggregate capacity and owners predate dispatch.
         self.original.take_original(&mut original);
-        #[cfg(test)]
+        #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
         drop(pressure);
         if let Err(error) = publication {
             return Err(self.refuse_publication(error));
@@ -1757,11 +1773,11 @@ impl Loop {
             .get(&ordinal)
             .ok_or_else(|| contract("horizon role result is no longer retained"))
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn refuse_next_export(&mut self) {
         self.pressure_next_export = true;
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn before_export_refusal(&self) -> Option<&serde_json::Value> {
         self.original_before_refusal.as_ref()
     }
@@ -1769,7 +1785,7 @@ impl Loop {
     pub(super) fn cancel_before_first_step(&self) {
         self.cancel.cancel();
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn retained_counts(&self) -> (usize, usize, usize, usize, usize) {
         (
             self.results.len(),
@@ -1779,19 +1795,19 @@ impl Loop {
             self.history.len(),
         )
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn accepted_role(&self, role: Role) -> Option<usize> {
         self.accepted[role as usize]
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn last_sample(&self) -> Option<&HorizonStep> {
         self.steps.last()
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn retained_result(&self, ordinal: usize) -> Option<&ModelingResult> {
         self.results.get(&ordinal)
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) async fn close(mut self) -> Result<(), WorkflowError> {
         self.staged.close().await;
         if let Some(attempt) = self.durable.take() {
@@ -1804,11 +1820,11 @@ impl Loop {
         }
         self.admitted.close_sources().await
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn completion(&self) -> &crate::workflow::Completion {
         &self.original.completion
     }
-    #[cfg(test)]
+    #[cfg(all(test, feature = "solver-ipopt", feature = "solver-diffsol"))]
     pub(super) fn retained_sample_count(&self) -> usize {
         self.steps.len()
     }

@@ -1058,7 +1058,7 @@ async fn canonical_selection_late_owner_ack_cannot_unpoison_cancelled_handle() {
 
 /// One real FlatBuffers connection whose first two read replies have a peer-side
 /// barrier. A serialized canonical read path cannot complete either read.
-async fn canonical_read_barrier_peer() -> (
+pub(crate) async fn canonical_read_barrier_peer() -> (
     crate::canonical::CanonicalStore,
     mpsc::UnboundedReceiver<String>,
     tokio::task::JoinHandle<()>,

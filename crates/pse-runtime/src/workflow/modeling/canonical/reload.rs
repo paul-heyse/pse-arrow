@@ -555,6 +555,8 @@ impl ModelingPackage {
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let deadline = super::super::preparation_deadline(cancel)?;
         let scoped = cancel.with_deadline(Some(deadline));
         let cancel = &scoped;
@@ -585,6 +587,8 @@ impl ModelingPackage {
             parsed.retained_bytes(),
         );
         Ok(package)
+    
+        }).await
     }
     async fn reload_protected(
         &self,

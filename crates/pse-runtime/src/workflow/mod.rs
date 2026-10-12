@@ -155,6 +155,8 @@ pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
 mod data_documents_tests;
 #[cfg(all(test, feature = "canonical-tests"))]
 mod durable_tests;
+#[cfg(all(test, feature = "canonical-tests"))]
+mod caller_lifetime_tests;
 mod local_analysis;
 mod modeling_results;
 mod results;
@@ -293,6 +295,10 @@ impl DurabilitySelection {
     }
 }
 impl Runtime {
+    /// Release this logical caller and all of its aliases. Already admitted work
+    /// retains its continuation authority; physical drivers belong to the deployment.
+    pub fn close(&self) { self.canonical_store().close(); }
+
     /// Actual immutable native admission owner retained by this runtime's bound model.
     pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
         self.model.validation_context()
@@ -313,6 +319,7 @@ impl Runtime {
         canonical: CanonicalDeployment,
     ) -> Result<Self, WorkflowError> {
         Self::check_deployment(&shared, model.factory())?;
+        let canonical = canonical.independent_caller()?;
         let durability = Durability::Durable(Box::new(Operations::from_store(
             canonical.store().clone(),
             Operations::process_worker("runtime"),

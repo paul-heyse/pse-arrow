@@ -1658,7 +1658,7 @@ async fn owned_loop(
     let mut attempt = if durable {
         Some(crate::workflow::durable::DurableAttempt::new(
             runtime.operations().unwrap(),
-        ))
+        ).unwrap())
     } else {
         None
     };

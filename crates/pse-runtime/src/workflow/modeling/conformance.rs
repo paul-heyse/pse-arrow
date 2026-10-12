@@ -1110,6 +1110,8 @@ impl ModelingPackage {
         policy: ModelingConformancePolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingConformanceReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if policy.maximum_fixtures == 0
             || policy.maximum_fixtures > 4096
             || policy.maximum_checks == 0
@@ -1290,6 +1292,8 @@ impl ModelingPackage {
             report.complete = false;
         }
         Ok(report)
+    
+        }).await
     }
     /// One independent fixture owns its preparations, native jobs and retained report.
     async fn conform_fixture(

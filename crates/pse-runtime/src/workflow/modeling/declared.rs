@@ -317,6 +317,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         self.declared_execution_with_demand(
             root,
             compiler,
@@ -327,6 +329,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Carry operation-owned path demand into the one declared specialization.
     #[expect(
@@ -343,6 +347,8 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let row = self.declaration(root).await?;
         let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
             .map_err(super::super::modeling_error)?;
@@ -444,6 +450,8 @@ impl ModelingPackage {
             requested_start,
             prepared,
         })
+    
+        }).await
     }
     /// Prepare only an admitted algebraic solve procedure; inspection never executes it.
     pub async fn prepare_declared(
@@ -451,6 +459,8 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if !matches!(execution.procedure, DeclaredProcedure::Solve) {
             return Err(contract(
                 "prepared algebraic solve requires the authored solve procedure",
@@ -472,6 +482,8 @@ impl ModelingPackage {
             )
             .await?;
         self.finish_case(resolution, cancel).await
+    
+        }).await
     }
     /// Execute the admitted algebraic procedure, including its authored initialization.
     pub async fn execute_declared(
@@ -479,6 +491,8 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         match &execution.procedure {
             DeclaredProcedure::Solve => {
                 self.solve_case(
@@ -514,6 +528,8 @@ impl ModelingPackage {
                 "algebraic execution requires the authored solve or initialization procedure",
             )),
         }
+    
+        }).await
     }
     /// Execute an explicitly admitted compatible initialization policy.
     pub async fn initialize_declared(
@@ -522,6 +538,8 @@ impl ModelingPackage {
         overrides: InitializationOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let policy = execution.initialization(overrides)?;
         self.initialize_model_with_prepared(
             &execution.analysis,
@@ -530,6 +548,8 @@ impl ModelingPackage {
             cancel,
         )
         .await
+    
+        }).await
     }
     /// Fitting may retain an explicit route only when it agrees with the authored case.
     pub(in crate::workflow) async fn declared_case(
@@ -539,6 +559,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, ModelingCaseBindings), WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let execution = self
             .declared_execution(
                 root,
@@ -555,6 +577,8 @@ impl ModelingPackage {
             ));
         }
         Ok((execution.analysis.bindings, execution.analysis.case))
+    
+        }).await
     }
 }
 

@@ -374,6 +374,8 @@ impl Runtime {
         plan: StudyPlan,
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let operations = self.operations()?;
         let physical =
             creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
@@ -390,6 +392,8 @@ impl Runtime {
         .await?;
         self.start_defined_study(plan.sources.physical, definition, cancel)
             .await
+    
+        }).await
     }
 
     /// Persist the exact admitted immutable definition in bounded occurrence batches.
@@ -399,6 +403,8 @@ impl Runtime {
         definition: StudyDefinition,
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         creation_checkpoint(cancel)?;
         let operations = self.operations()?;
         let physical = creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
@@ -525,6 +531,8 @@ impl Runtime {
             self.canonical_store().cancel_study(&key).await?;
         }
         Ok(self.study(study_id))
+    
+        }).await
     }
 
     /// Exact handle; equal bindings never merge study identities or occurrences.
@@ -542,6 +550,8 @@ impl Runtime {
         lane: &mut StudyCandidateLane,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedStudyCandidate, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
         let point = self
             .canonical_store()
@@ -752,6 +762,8 @@ impl Runtime {
             seed,
             prediction,
         })
+    
+        }).await
     }
 
     /// Numerical proposal selection and original screening run only after native claim.
@@ -760,6 +772,8 @@ impl Runtime {
         prepared: &mut PreparedStudyCandidate,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let Some(input) = prepared.prediction.take() else {
             return Ok(());
         };
@@ -883,6 +897,8 @@ impl Runtime {
             Err(error) => return Err(error),
         }
         Ok(())
+    
+        }).await
     }
     async fn prediction_sample(
         &self,
@@ -970,6 +986,8 @@ impl Runtime {
         action: &pse_model::study::PointAction,
         error: Option<WorkflowError>,
     ) -> Result<CanonicalPoint, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let diagnostic =
             error
                 .map(|error| error.boundary_diagnostic())
@@ -987,6 +1005,8 @@ impl Runtime {
             .canonical_store()
             .refuse_study_point(scope, action, diagnostic)
             .await?)
+    
+        }).await
     }
 
     /// Explicitly recover an assigned occurrence without invoking a numerical kernel.
@@ -996,6 +1016,8 @@ impl Runtime {
         reason = "owning recovery projects only admitted completion or truthful worker-loss facts"
     )]
     pub(crate) async fn recover_study_point(&self, key: &str) -> Result<bool, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let (point, actual, study, _run) = self.canonical_store().recovery_snapshot(key).await?;
         let point = &point;
         // Assigned-page discovery is only a hint. The original owner may have
@@ -1078,6 +1100,8 @@ impl Runtime {
                 .await
         }?;
         Ok(true)
+    
+        }).await
     }
 
     /// Publish bounded occurrence summary blocks after every scientific occurrence
@@ -1087,6 +1111,8 @@ impl Runtime {
         reason = "owning study policy projects complete admitted occurrence observations"
     )]
     pub(crate) async fn finalize_canonical_study(&self, key: &str) -> Result<bool, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         use pse_model::study::{Availability, StudyLifecycle};
         use pse_operations::canonical_execution::{
             TerminalClass, result_batch_key, result_set_key,
@@ -1319,6 +1345,8 @@ impl Runtime {
         }
         store.conclude_study(key).await?;
         Ok(true)
+    
+        }).await
     }
 
     /// Record completion only after the actual scientific result has drained and its
@@ -1333,6 +1361,8 @@ impl Runtime {
         start: &pse_model::study::StartProvenance,
         record: &super::DurableRecord,
     ) -> Result<CanonicalPoint, WorkflowError> {
+        let activity = self.canonical_store().admit_activity()?;
+        activity.scope(async {
         let terminal = record.attempt.as_ref().map_err(|error| {
             super::diagnostics::operation_context(
                 WorkflowError::Shared(error.clone()),
@@ -1396,6 +1426,8 @@ impl Runtime {
                 .observe_study_point(point, &facts, &outcome, settled)
                 .await
         }?)
+    
+        }).await
     }
 }
 
@@ -1483,6 +1515,8 @@ impl StudyHandle {
     }
     /// Metadata and compact occurrence outcomes, fetched only on explicit request.
     pub async fn status(&self) -> Result<StudyStatus, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical_store();
         let study = store
             .canonical_study(&self.study_id.to_string())
@@ -1525,10 +1559,14 @@ impl StudyHandle {
             cancelled: study.cancelled,
             points,
         })
+    
+        }).await
     }
     /// Revoke study claims and every assigned writer through one guarded header;
     /// native renewal and ingestion observe this cancellation immediately.
     pub async fn cancel(&self) -> Result<StudyCancel, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical_store();
         let key = self.study_id.to_string();
         let old = store
@@ -1548,11 +1586,15 @@ impl StudyHandle {
             generation: study.generation,
             already_concluded: false,
         })
+    
+        }).await
     }
     /// Hydrate terminal occurrences once. Open polling reads only the compact header.
     pub(in crate::workflow) async fn terminal_inventory(
         &self,
     ) -> Result<Option<TerminalStudyInventory>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let store = self.runtime.canonical_store();
         let study = store
             .canonical_study_summary(&self.study_id.to_string())
@@ -1688,9 +1730,13 @@ impl StudyHandle {
             facts,
             owner: Arc::new(owners),
         }))
+    
+        }).await
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
     pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let Some(inventory) = self.terminal_inventory().await? else {
             return Ok(None);
         };
@@ -1720,9 +1766,13 @@ impl StudyHandle {
                 .collect(),
             _owner: Some(Arc::new(owners)),
         }))
+    
+        }).await
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.
     pub async fn wait(&self, poll: Duration) -> Result<StudyResults, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         if poll.is_zero() {
             return Err(contract("study poll interval must be positive"));
         }
@@ -1732,6 +1782,8 @@ impl StudyHandle {
             }
             tokio::time::sleep(poll).await;
         }
+    
+        }).await
     }
 }
 
@@ -1883,6 +1935,8 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let operations = Operations::from_store(
             self.runtime.canonical_store().clone(),
             Operations::process_worker("study-admission"),
@@ -1892,6 +1946,8 @@ impl super::ModelingPackage {
         let physical = creation_effect(cancel, operations.put_sources(sources)).await?;
         self.admit_study_points(physical, points, output, cancel)
             .await
+    
+        }).await
     }
     /// Admit operations and physical bindings before either executor schedules an occurrence.
     pub async fn admit_study_points(
@@ -1901,6 +1957,8 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         output.validate(&self.runtime)?;
         if points.is_empty() {
             return Err(WorkflowError::Typed(
@@ -1974,6 +2032,8 @@ impl super::ModelingPackage {
         })?;
         definition.validate_roles()?;
         Ok(definition)
+    
+        }).await
     }
 }
 

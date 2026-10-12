@@ -94,6 +94,8 @@ impl CanonicalStore {
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -130,11 +132,14 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
 
     /// Explicitly forget only this revision's default history root. Durable run,
     /// product, analysis, attempt and protected-reader roots remain independent.
     pub async fn forget_history(&self, revision: &Revision) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -143,6 +148,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
 
     /// Drop exactly a history or product owner's expected selection. Lifecycle roots
@@ -153,6 +159,8 @@ impl CanonicalStore {
         revision: &Revision,
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(
             original_deadline(crate::canonical::REQUEST_TIMEOUT),
             async {
@@ -193,6 +201,7 @@ impl CanonicalStore {
             },
         )
         .await
+            }).await
     }
 
     /// Examine at most 64 closed intervals for one problem. Every deletion reruns
@@ -203,6 +212,8 @@ impl CanonicalStore {
         problem: &str,
         after: &str,
     ) -> Result<ReclamationPage, CanonicalError> {
+        let activity = self.admit_activity()?;
+        activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             self.ensure_writes()?;
             let mut response = bounded_query(self.db.query("SELECT key FROM canonical_memberships WHERE problem = $problem AND key > $after AND to_sequence != NONE ORDER BY key LIMIT 64;")
@@ -268,6 +279,7 @@ impl CanonicalStore {
             }
             Ok(page)
         }).await
+            }).await
     }
 }
 

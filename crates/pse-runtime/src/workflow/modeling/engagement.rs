@@ -276,7 +276,7 @@ mod tests {
             let Durability::Durable(operations) = runtime.durability() else {
                 panic!("durable fixture");
             };
-            let mut attempt = DurableAttempt::new(operations);
+            let mut attempt = DurableAttempt::new(operations).unwrap();
             attempt
                 .register_horizon(
                     pse_operations::mint_id(),
@@ -350,7 +350,7 @@ mod tests {
         let Durability::Durable(operations) = runtime.durability() else {
             panic!("durable fixture");
         };
-        let mut attempt = DurableAttempt::new(operations);
+        let mut attempt = DurableAttempt::new(operations).unwrap();
         attempt
             .register_horizon(
                 pse_operations::mint_id(),
@@ -429,6 +429,8 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
+        let activity = self.runtime.canonical_store().admit_activity()?;
+        activity.scope(async {
         let state = AtomicU8::new(ESTABLISHING);
         let deadline = preparation_deadline(cancel)?;
         let mut selected = self
@@ -489,6 +491,8 @@ impl ModelingPackage {
             active: AtomicUsize::new(0),
             drained: tokio::sync::Notify::new(),
         }))
+    
+        }).await
     }
 }
 
