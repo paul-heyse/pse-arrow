@@ -20,6 +20,7 @@ import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from pathlib import Path
@@ -38,6 +39,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKER = "PSE_TEST_INVOCATION"
 IDENTIFIER = re.compile(r"[a-f0-9]{32}")
 DATABASE = re.compile(r"canonical_test_(?:[a-z0-9_]{1,48}_)?[a-f0-9]{32}")
+NAMESPACE = re.compile(r"canonical_test_ns_[a-f0-9]{32}")
 CLEANUP_TIMEOUT_SECONDS = 90
 
 
@@ -75,6 +77,14 @@ class ResourceRecord(TypedDict, total=False):
     test: str | None
     state: str
     service_generation: str
+    service_namespace: str
+    namespace_creation: str
+    credentials_sha256: str
+    tool_inputs: dict[str, dict[str, object]]
+    tool_rollouts: dict[str, dict[str, str]]
+    rollout_probe: dict[str, object]
+    maintenance_selection: dict[str, object]
+    maintenance_revocation_probe: dict[str, object]
     namespace: str
     database: str
     kind: str
@@ -143,7 +153,7 @@ def validate_resource(record: object) -> ResourceRecord:
         )
         or type(record.get("pin")) is not bool
         or type(record.get("drained")) is not bool
-        or record["kind"] not in {"database", "controls", "evidence"}
+        or record["kind"] not in {"database", "namespace", "controls", "evidence"}
         or record["cleanup"] not in {"retained", "removing", "removed", "compacted"}
         or record["disposition"] not in {"incomplete", "pass", "failure"}
         or not isinstance(record.get("references"), dict)
@@ -151,6 +161,12 @@ def validate_resource(record: object) -> ResourceRecord:
         or not isinstance(record.get("units"), list)
     ):
         raise ResourceError("Unknown resource ownership or disposition information")
+    if record["kind"] == "namespace" and (
+        not NAMESPACE.fullmatch(str(record.get("namespace", "")))
+        or record["database"] != ""
+        or not isinstance(record.get("service_namespace"), str)
+    ):
+        raise ResourceError("Invalid enclosing namespace ownership")
     for key in ("references", "borrows", "artifacts"):
         if key in record and not isinstance(record[key], dict):
             raise ResourceError("Unknown resource reference or artifact information")
@@ -161,9 +177,14 @@ def validate_resource(record: object) -> ResourceRecord:
 
 def entry_facts(entry: resource_store.Entry) -> ResourceRecord:
     record = validate_resource(entry.facts)
-    if [record["state"], record["database"], record["kind"]] != entry.identity:
+    if resource_identity(record) != entry.identity:
         raise ResourceError("Resource facts contradict logical identity")
     return record
+
+
+def resource_identity(record: Mapping[str, object]) -> list[str]:
+    scope = record["namespace"] if record["kind"] == "namespace" else record["database"]
+    return [str(record["state"]), str(scope), str(record["kind"])]
 
 
 @contextlib.contextmanager
@@ -175,19 +196,11 @@ def resource_update(
             if entry.phase == "disposed":
                 raise ResourceError("Unknown resource identity")
             record = entry_facts(entry)
-            identity = [
-                record["state"],
-                record["database"],
-                record["kind"],
-            ]
+            identity = resource_identity(record)
             if identity != entry.identity:
                 raise ResourceError("Resource facts contradict logical identity")
             yield record
-            if [
-                record["state"],
-                record["database"],
-                record["kind"],
-            ] != identity:
+            if resource_identity(record) != identity:
                 raise ResourceError("Resource update cannot replace logical identity")
             entry.phase = resource_phase(record)
     except FileNotFoundError as error:
@@ -390,13 +403,17 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     config = surreal_server.config_for(state)
-    database = str(payload["database"])
-    if not DATABASE.fullmatch(database):
+    kind = str(payload.get("kind", "database"))
+    database = str(payload.get("database", ""))
+    namespace_selection = str(payload.get("namespace", ""))
+    if kind == "namespace":
+        if database or not NAMESPACE.fullmatch(namespace_selection):
+            raise ResourceError("Namespace fixture requires a fresh enclosing identity")
+    elif not DATABASE.fullmatch(database):
         raise ResourceError(
             "Disposable database must be a freshly generated opaque fixture identity"
         )
-    kind = str(payload.get("kind", "database"))
-    if kind not in {"database", "controls", "evidence"}:
+    if kind not in {"database", "namespace", "controls", "evidence"}:
         raise ResourceError("Unknown retention class")
     control = payload.get("directory")
     if control is not None:
@@ -459,13 +476,16 @@ def register(payload: Mapping[str, object], *, deadline: float | None = None) ->
             "borrows": {},
             "cleanup": "retained",
         }
+        if kind == "namespace":
+            facts["service_namespace"] = namespace
+            facts["namespace"] = namespace_selection
         facts["creation_borrower"] = {
             "pid": facts["pid"],
             "start": facts["start"],
             "boot": facts["boot"],
         }
         resource = storage().register(
-            [str(state), database, kind],
+            resource_identity(facts),
             facts,
             invocation=nonce,
             declaration=declaration,
@@ -675,7 +695,6 @@ def pin(resource: str, retain: bool, *, deadline: float | None = None) -> None:
 def borrow(
     resource: str, *, deadline: float | None = None
 ) -> Generator[str, None, None]:
-    deadline = resource_store.clock(deadline)
     token = uuid.uuid4().hex
     with resource_update(resource, deadline=deadline) as record:
         if not isinstance(record, dict) or record["cleanup"] in {"removing", "removed"}:
@@ -689,6 +708,8 @@ def borrow(
     try:
         yield token
     finally:
+        # With no caller-wide deadline, releasing a long borrow is a new bounded
+        # metadata operation, not reuse of admission's expired metadata clock.
         with resource_update(resource, deadline=deadline) as record:
             record["borrows"].pop(token, None)
 
@@ -1214,7 +1235,7 @@ def eligible(
         return "missing reconciled pass or explicit release"
     if not record["drained"]:
         return "fixture borrowers not drained"
-    if record["kind"] not in {"database", "controls", "evidence"}:
+    if record["kind"] not in {"database", "namespace", "controls", "evidence"}:
         return "unknown retention owner"
     if not isinstance(record.get("references"), dict) or not isinstance(
         record.get("borrows"), dict
@@ -1258,6 +1279,22 @@ def remove_owned(record: ResourceRecord, *, deadline: float | None = None) -> No
     config = surreal_server.config_for(
         state, **({"deadline": deadline} if deadline is not None else {})
     )
+    if record["kind"] == "namespace":
+        if (
+            config["instance_id"] != record["service_generation"]
+            or config["namespace"] != record.get("service_namespace")
+            or not NAMESPACE.fullmatch(record["namespace"])
+        ):
+            raise ResourceError("Service or enclosing namespace ownership changed")
+        remove_namespace(record, config, deadline=deadline)
+        directory = record.get("directory")
+        if directory:
+            path = Path(directory)
+            if path.is_symlink() or state not in path.parents:
+                raise ResourceError("Unsafe namespace control-directory ownership")
+            if path.exists():
+                shutil.rmtree(path)
+        return
     if (
         config["instance_id"] != record["service_generation"]
         or config["namespace"] != record["namespace"]
@@ -1283,6 +1320,69 @@ def remove_owned(record: ResourceRecord, *, deadline: float | None = None) -> No
     if context.is_symlink():
         raise ResourceError("Unsafe context descriptor")
     context.unlink(missing_ok=True)
+
+
+def namespace_sql(
+    config: Mapping[str, object], sql: str, *, namespace: str | None = None, database: str | None = None, deadline: float | None = None
+) -> list[object]:
+    """Checked root administration for registered enclosing fixture namespaces."""
+    from scripts import surreal_server  # noqa: PLC0415 -- service cycle
+
+    credentials = surreal_server.read_json(Path(str(config["credentials_file"])))
+    environment = {
+        key: value for key, value in os.environ.items()
+        if not key.startswith(("SURREAL", "DATABASE_"))
+    }
+    environment.update(SURREAL_USER=str(credentials["username"]), SURREAL_PASS=str(credentials["password"]))
+    server = config["server"]
+    if not isinstance(server, dict):
+        raise ResourceError("Invalid namespace administration binary")
+    # The pinned CLI unconditionally saves SQL to history.txt. Keep credential
+    # provisioning inputs private and ephemeral, away from the checkout/history.
+    with tempfile.TemporaryDirectory(dir=Path(str(config["credentials_file"])).parent) as working:
+        result = subprocess.run(
+            [str(server["binary"]), "sql", "--endpoint", str(config["endpoint"]), "--json", "--hide-welcome", *(["--namespace", namespace] if namespace else []), *(["--database", database] if database else [])],
+            input=sql, env=environment, cwd=working, capture_output=True, text=True, check=False,
+            timeout=CLEANUP_TIMEOUT_SECONDS if deadline is None else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS),
+        )
+    try:
+        values = cli_json(result.stdout, namespace=namespace, database=database)
+    except ValueError as error:
+        raise ResourceError("Namespace operation acknowledgment unavailable") from error
+    if result.returncode or result.stderr.strip() or not isinstance(values, list):
+        raise ResourceError("Namespace operation failed; ownership remains protective")
+    return values
+
+
+def remove_namespace(
+    record: ResourceRecord, config: Mapping[str, object], *, deadline: float | None = None
+) -> None:
+    """Reconcile exact children, then remove only the registered enclosing scope."""
+    from scripts import surreal_server  # noqa: PLC0415 -- service cycle
+
+    namespace = surreal_server.sql_identifier(record["namespace"])
+    root_catalog = namespace_sql(config, "INFO FOR ROOT;", deadline=deadline)
+    if len(root_catalog) != 1 or not isinstance(root_catalog[0], dict) or not isinstance(root_catalog[0].get("namespaces"), dict):
+        raise ResourceError("Owned namespace existence inventory unavailable")
+    if record["namespace"] not in root_catalog[0]["namespaces"]:
+        return  # Exact root inventory proves an interrupted removal already completed.
+    catalog = namespace_sql(config, "INFO FOR NS;", namespace=record["namespace"], deadline=deadline)
+    if len(catalog) != 1 or not isinstance(catalog[0], dict):
+        raise ResourceError("Owned namespace child inventory unavailable")
+    children = catalog[0].get("databases")
+    if not isinstance(children, dict) or not all(isinstance(name, str) for name in children):
+        raise ResourceError("Owned namespace child inventory malformed")
+    statements = [f"REMOVE DATABASE IF EXISTS {surreal_server.sql_identifier(name)};" for name in sorted(children)]
+    if statements and namespace_sql(config, " ".join(statements), namespace=record["namespace"], deadline=deadline) != [None] * len(statements):
+        raise ResourceError("Owned namespace child cleanup unproved; resource remains charged")
+    # The pinned SQL shell reselects its session namespace after every query.
+    # Remove the enclosing namespace from an unselected root session, otherwise
+    # that reselect silently recreates the just-removed namespace.
+    if namespace_sql(config, f"REMOVE NAMESPACE IF EXISTS {namespace};", deadline=deadline) != [None]:
+        raise ResourceError("Owned namespace cleanup unproved; resource remains charged")
+    after = namespace_sql(config, "INFO FOR ROOT;", deadline=deadline)
+    if len(after) != 1 or not isinstance(after[0], dict) or not isinstance(after[0].get("namespaces"), dict) or record["namespace"] in after[0]["namespaces"]:
+        raise ResourceError("Owned namespace absence unproved; resource remains charged")
 
 
 def remove_database(
@@ -1416,7 +1516,7 @@ def reclaim(resource: str, *, deadline: float | None = None) -> str:
             if (
                 current != config
                 or current["instance_id"] != snapshot["service_generation"]
-                or current["namespace"] != snapshot["namespace"]
+                or current["namespace"] != snapshot.get("service_namespace", snapshot["namespace"])
             ):
                 raise ResourceError(
                     "Service configuration or cleanup ownership changed during admission"
@@ -1439,6 +1539,7 @@ def reclaim(resource: str, *, deadline: float | None = None) -> str:
                 "database",
                 "service_generation",
                 "namespace",
+                "service_namespace",
                 "units",
                 "directory_identity",
                 "owner_root",

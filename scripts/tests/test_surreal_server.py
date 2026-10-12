@@ -156,6 +156,7 @@ class SurrealSupervisorTests(unittest.TestCase):
         for changes in (
             {"resources": {}},
             {"interpretation": "different"},
+            {"tooling_fixture": not config["tooling_fixture"]},
             {"unclassified": True},
         ):
             with (

@@ -1,0 +1,62 @@
+name = "production_generated_contract"
+tags = ["canonical"]
+
+[[fixtures]]
+sql = "CREATE canonical_guards:exact SET key='exact', generation=18446744073709551615dec, incarnation='fixture'; CREATE canonical_payload_blocks:exact SET key='exact', version='fixture', ordinal=18446744073709551615dec, payload=encoding::base64::decode('AAEA/w=='), digest='fixture';"
+
+[[cases]]
+name = "deadline_function_live"
+kind = "sql_expect"
+sql = "RETURN fn::pse_execution_v1::deadline(time::micros()+60000000);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = true
+
+[[cases]]
+name = "deadline_function_expired"
+kind = "sql_expect"
+sql = "RETURN fn::pse_execution_v1::deadline(0);"
+allow = false
+error_contains = "original canonical RPC deadline expired"
+
+[[cases]]
+name = "decimal_u64_exact"
+kind = "sql_expect"
+sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:exact);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = "18446744073709551615"
+
+[[cases]]
+name = "immutable_bytes_exact"
+kind = "sql_expect"
+sql = "RETURN encoding::base64::encode((SELECT VALUE payload FROM ONLY canonical_payload_blocks:exact));"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = "AAEA/w"
+
+[[cases]]
+name = "decimal_integral_assertion"
+kind = "sql_expect"
+sql = "CREATE canonical_guards:invalid SET key='invalid', generation=1.5dec, incarnation='fixture';"
+allow = false
+error_contains = "but field must conform to:"
+
+[[cases]]
+name = "enforced_endpoint_refusal"
+kind = "sql_expect"
+sql = "RELATE canonical_analysis_nodes:absent->canonical_analysis_edges:absent->canonical_analysis_nodes:missing SET key='absent',analysis='fixture',source='absent',target='missing',kind='fixture';"
+allow = false
+error_contains = "The record 'canonical_analysis_nodes:absent' does not exist"
+
+[[cases]]
+name = "definitions_do_not_activate"
+kind = "sql_expect"
+sql = "RETURN (SELECT * FROM canonical_interpretations);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = []

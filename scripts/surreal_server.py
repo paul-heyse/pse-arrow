@@ -478,8 +478,8 @@ def open_context_admission(state: Path) -> None:
     for context in managed_contexts(state):
         with state_lock(context):
             config = config_for(context)
-            if config.get("derived_rebuild_pending"):
-                raise SupervisorError("Incomplete derived cutover remains closed")
+            if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+                raise SupervisorError("Incomplete owned maintenance remains closed")
             deadline = getattr(_STARTUP, "deadline", None)
             if deadline is not None:
                 remaining(deadline)
@@ -503,6 +503,10 @@ def require_borrowers_drained(state: Path) -> None:
         if record.get("creation_borrower"):
             raise SupervisorError(
                 "An accepted fixture creation still borrows this storage service; actual settlement and drain are unobserved"
+            )
+        if record.get("kind") == "namespace" and record.get("borrows"):
+            raise SupervisorError(
+                "An enclosing tooling namespace still has protected borrowers"
             )
         cleaner = record.get("cleaner")
         if (
@@ -1353,6 +1357,8 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
         if config["interpretation"] != args.interpretation:
             raise SupervisorError("Existing state has a different interpretation")
         allocation = config["resources"]
+        if args.tooling_fixture and config.get("tooling_fixture") is not True:
+            raise SupervisorError("Existing state is not a beta tooling fixture; select a fresh explicit tooling state")
         if args.execution_profile:
             if not isinstance(allocation, dict):
                 raise SupervisorError("Missing recorded execution allocation")
@@ -1438,6 +1444,7 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             "admission": "open",
             "max_message_bytes": MESSAGE_BYTES,
             "websocket_max_message_bytes": MESSAGE_BYTES,
+            "tooling_fixture": args.tooling_fixture,
             "resources": allocation,
             "log_max_bytes": 8 * MIB,
             "log_backups": 2,
@@ -3844,6 +3851,7 @@ def public_status(state: Path, config: dict[str, object]) -> dict[str, object]:
         "service_generation": config["instance_id"],
         "supervisor_generation": config.get("service_supervisor"),
         "parked": bool(config.get("parked")),
+        "tooling_fixture": config.get("tooling_fixture") is True,
         "unit": unit_name(state),
         "endpoint": f"127.0.0.1:{port}",
         "websocket_endpoint": config["endpoint"],
@@ -4638,6 +4646,7 @@ def start(
         if (
             config["admission"] == "validation_required"
             or config.get("derived_rebuild_pending")
+            or config.get("surrealkit_rollout_pending")
         ) and not validation:
             raise SupervisorError(
                 "Restored database requires validate before normal server start"
@@ -4713,6 +4722,7 @@ def _start(
     if (
         config["admission"] == "validation_required"
         or config.get("derived_rebuild_pending")
+        or config.get("surrealkit_rollout_pending")
     ) and not validation:
         raise SupervisorError(
             "Restored database requires validate before normal server start"
@@ -5042,7 +5052,9 @@ def server_environment(
             "SURREAL_WEBSOCKET_MAX_WRITE_BUFFER_SIZE": str(8 * MIB),
             # SurrealDB counts its implicit connection session against this cap.
             # Two permits exactly one SDK application session on each socket.
-            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "2",
+            # Beta parity retains one independently authenticated SDK clone.
+            # Only an explicitly declared disposable tooling service needs it.
+            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "3" if config.get("tooling_fixture") is True else "2",
             "SURREAL_MEMORY_THRESHOLD": str(allocation["memory_threshold_bytes"]),
             "SURREAL_ROCKSDB_BLOCK_CACHE_SIZE": str(
                 allocation["rocksdb_block_cache_bytes"]
@@ -5278,7 +5290,7 @@ def backup(
 def _backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
-    if config.get("derived_rebuild_pending"):
+    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
         raise SupervisorError(
             "Incomplete derived rebuild cannot be backed up as current state"
         )
@@ -6148,7 +6160,7 @@ def rebuild(
     with lifecycle_reservation(state):
         old = config_for(state)
         private_offline_state(state, old)
-        if old.get("derived_rebuild_pending"):
+        if old.get("derived_rebuild_pending") or old.get("surrealkit_rollout_pending"):
             raise SupervisorError(
                 "Incomplete rebuild remains closed; explicit owner recovery is required"
             )
@@ -6329,6 +6341,8 @@ def verified_preserved_inputs(
 def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object]:
     with lifecycle_reservation(state):
         config = config_for(state)
+        if config.get("surrealkit_rollout_pending"):
+            raise SupervisorError("Interrupted beta rollout requires its exact rollout owner and settlement; rebuild recovery refuses it")
         pending = object_mapping(config.get("derived_rebuild_pending"))
         if (
             pending.get("kind") == "current-restore"
@@ -6484,7 +6498,7 @@ def validated_restore_backup(
         ):
             raise SupervisorError("Backup path or content failed validation")
     config = config_for(source)
-    if config.get("derived_rebuild_pending"):
+    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
         raise SupervisorError(
             "Interrupted maintenance must be recovered by its original owner"
         )
@@ -6690,6 +6704,7 @@ def validate(
     if (
         config["admission"] != "validation_required"
         or config.get("derived_rebuild_pending")
+        or config.get("surrealkit_rollout_pending")
         or config["interpretation"] != interpretation
         or not command
     ):
@@ -6919,6 +6934,8 @@ def qualify_recovery(state: Path) -> dict[str, object]:
     try:
         remaining(deadline)
         with lifecycle_reservation(state):
+            if config_for(state).get("surrealkit_rollout_pending"):
+                raise SupervisorError("Pending beta rollout requires exact child drain and operation settlement before recovery qualification")
             close_context_admission(state)
             all_contexts_drained(state)
             config = config_for(state)
@@ -7301,6 +7318,7 @@ def parser() -> argparse.ArgumentParser:
         "--version", help="Official release vX.Y.Z; omitted selects current stable"
     )
     result.add_argument("--port", type=int)
+    result.add_argument("--tooling-fixture", action="store_true", help="Disposable beta tooling profile: permit one additional cloned SDK session per socket")
     result.add_argument(
         "--resident",
         action=argparse.BooleanOptionalAction,

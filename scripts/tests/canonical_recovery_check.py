@@ -260,6 +260,7 @@ def recovery_equivalence(
         "interpretation",
         "max_message_bytes",
         "websocket_max_message_bytes",
+        "tooling_fixture",
         "log_max_bytes",
         "log_backups",
         "service_class",

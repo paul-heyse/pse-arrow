@@ -412,6 +412,50 @@ and [WebSocket connection contract](https://surrealdb.com/docs/reference/rust/me
 Source and actual released-binary startup take precedence over unsupported documentation
 values: 3.3.0 rejected RocksDB storage log level `none`; this profile uses `error`.
 
+## Standalone beta tooling fixtures
+
+`just surrealkit` acquires the standalone version declared in
+`.config/surrealkit.toml` under the owned tools directory. Its release receipt records
+archive/executable checksums, exact source commit, committed lockfile and official
+locked-build workflow. This is provenance, not a reproducible-build attestation.
+The production SDK/server and its transport patch remain separately selected.
+
+Use a fresh disposable service created with `just surreal setup --state PATH
+--tooling-fixture ...` for the beta parity journey. This explicit profile permits the
+beta's retained SDK clone; ordinary simulator service settings stay unchanged.
+Provision a registered namespace with `just surrealkit provision --state PATH`, then
+stage production generated definitions with `just surrealkit stage --resource ID`.
+`plan`, `sync`, `replay`, `test-sync` and `test-both` require that resource and its
+owned `--folder PATH`. Initial support admits the exact generated schema, built-in
+beta metadata setup and the repository's qualified SQL expectations. It refuses
+ambient targets, explicit actors, external/file inputs, seeds, changed schema files,
+coverage overrides and unowned rollout changes. Expansion requires qualification.
+
+The complete disposable generated-contract control is:
+
+```bash
+scripts/pse-env --native= --resource-class light -- python -m scripts.tests.surrealkit_fixture_check \
+  --state /absolute/private/tooling-state --tool-root /absolute/private/tools \
+  --evidence /absolute/new/private/evidence
+```
+
+This compares direct generated installation with fresh sync/frozen replay/parity,
+checks namespace credentials and indexed readiness selection, and removes only
+terminally passed/drained namespaces. Beta keeps child databases for the external
+resource owner. Checked namespace removal uses an unselected root administration
+session and verifies absence: the pinned SQL shell otherwise reselects and recreates
+a just-removed namespace. Failed/unknown activities remain protected for exact
+reconciliation; a child exit does not prove server work settled. Permission evidence
+from this control covers root/namespace-owner execution, not record-user policy.
+
+Exclusive rollout execution lives in `scripts/surrealkit_maintenance.py`. It requires
+an already closed, drained, privately owned service; it does not stop another caller's
+work or activate an interpretation. Its durable pending selection keeps ordinary
+start/open/backup/restore/rebuild paths closed until the actual operation owner
+settles the exact submitted phases and the native child/listener drain. Beta TTL,
+CLI success and catalog parity cannot supply that settlement. This is a maintenance
+foundation; persistent deployment rollout and final target cutover remain Plan37 work.
+
 ## Disposable tests and retained evidence
 
 Runners register opaque invocation/test resources before side effects. Rust fixture

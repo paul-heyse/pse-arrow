@@ -28,8 +28,13 @@ The checkpoint replaces storage rather than growing a hidden history; all
 remaining setup and prospective requests remain subject to the 64-entry limit.
 
 Connection version verification uses a finite five-second reserved control
-lifecycle. Admission is released explicitly at acknowledged completion or after
-physical invalidation, independent of concurrent-map epoch reclamation. Dropping
+lifecycle. Bounded acknowledged session restoration has one absolute five-second
+deadline spanning initial sends, every ACK and refresh. Explicit sent/ready/failed
+outcomes prevent partial setup dispatch; timeout/send failure closes new admission
+and physically drains instead of repeatedly restarting restoration. Admission is released explicitly at acknowledged completion, malformed nonpayload
+terminal completion or physical invalidation, independent of concurrent-map epoch
+reclamation. Terminal completion remains cancellation-safe and idempotent. Malformed
+payload responses retain correlation/byte ownership until physical socket drain. Dropping
 a request future cancels admission; dropping the final application session closes
 the physical driver. The bounded root-authentication profile returns expired
 refresh-token setup errors to its owner instead of starting an unbounded automatic
@@ -43,3 +48,10 @@ Native WebSocket response-channel and setup/transport failure logs use fixed
 labels instead of response or frame Debug output. A dropped signin receiver may
 still receive a late token acknowledgment internally; no token, binding or queued
 frame is formatted into those logs. Typed failures remain available to callers.
+
+RequestContext also carries a separate clearable lifetime owner, composed across
+builder/context replacement and inherited by query/select/live paths. It does not
+classify a request as payload or alter replay eligibility. Actual terminal/drain
+paths release this nonbyte activity independently of held context/map aliases;
+unpolled builders retain lexical ownership. The canonical adapter uses this seam
+to account for physical connection activity through real request completion.

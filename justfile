@@ -112,6 +112,13 @@ surreal command *args:
     "{{ py }}" scripts/surreal_server.py "$1" "${@:2}"
 
 [group('env')]
+[doc('Run pinned beta tooling in an explicitly registered namespace fixture')]
+[script("bash", "scripts/pse-env", "--native=", "--resource-class", "light", "--", "bash", "-euo", "pipefail")]
+[positional-arguments]
+surrealkit *args:
+    "{{ py }}" -m scripts.surrealkit "$@"
+
+[group('env')]
 [doc('Initialize a clean canonical database; ordinary runtime opening never installs schema')]
 canonical-init state:
     scripts/pse-env --native= -- cargo run -p xtask --no-default-features --features canonical-tools --locked -- canonical-init {{ quote(state) }}
