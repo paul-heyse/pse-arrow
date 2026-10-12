@@ -1631,6 +1631,41 @@ class NativeOperationTests(unittest.TestCase):
                     process.wait(timeout=10)
                     log.close()
 
+    def test_selected_workload_preserves_observer_cap_without_environment_authority(self) -> None:
+        allocation = MagicMock(spec=host_admission.Allocation)
+        allocation.nonce = "c" * 32
+        allocation.profile = host_admission.select("reference")
+        selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
+
+        def completed(_command: list[str], _environment: dict[str, str], *, on_reaped: Callable[[], None], **_options: object) -> int:
+            on_reaped()
+            return 0
+
+        with (
+            patch.object(host_admission, "inherit", return_value=allocation),
+            patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+            patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
+            patch.object(operation, "prepare_handoff", return_value=Path("/owned/handoff")),
+            patch.object(operation, "run", side_effect=completed) as run,
+            patch.object(operation, "_record", return_value={"scope": selected}),
+            patch.object(operation, "drained", return_value=operation.DrainObservation(selected, operation.DrainPhase.COMPLETE, "controlled role drain")),
+        ):
+            self.assertEqual(operation.run_child_scope(["observer-workload"], {"PSE_MEMORY_MAX": "140G"}), 0)
+        self.assertIn(f"--property=MemoryMax={4 << 30}", run.call_args.args[0])
+        self.assertNotIn(f"--property=MemoryMax={140 << 30}", run.call_args.args[0])
+        allocation.release.assert_not_called()
+        for missing in (None, 0):
+            with (
+                self.subTest(cap=missing),
+                patch.object(host_admission, "inherit", return_value=allocation),
+                patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
+                patch.object(pse_env, "current_memory_ceiling", return_value=missing),
+                patch.object(operation, "prepare_handoff") as handoff,
+                self.assertRaisesRegex(ValueError, "finite originating role cap"),
+            ):
+                operation.run_child_scope(["observer-workload"], {})
+            handoff.assert_not_called()
+
     def test_selected_workload_wrapper_exit_does_not_prove_child_scope_drain(
         self,
     ) -> None:

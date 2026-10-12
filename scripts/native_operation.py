@@ -1731,12 +1731,19 @@ def run_child_scope(
     No allocation is acquired or released here.
     """
     from scripts import host_admission  # noqa: PLC0415 -- reciprocal ownership
+    from scripts.pse_env import current_memory_ceiling  # noqa: PLC0415 -- actual enclosing role owns its cap
 
     process_observation = observation if observation is not None else {}
 
     allocation = host_admission.inherit(env)
     if allocation is None or scope_owner() is None:
         raise ValueError("selected native workload requires its admitted parent")
+    role_memory = current_memory_ceiling()
+    if role_memory is None or role_memory <= 0:
+        raise ValueError("selected native workload requires a finite originating role cap")
+    # A sibling scope must preserve the narrower observer/control role; the
+    # allocation's primary ceiling does not grant that role additional memory.
+    role_memory = min(role_memory, allocation.profile.memory)
     unit = f"pse-native-{uuid.uuid4().hex}.scope"
     allocation.register(unit)
     handoff = prepare_handoff(unit, foreground=True)
@@ -1755,7 +1762,7 @@ def run_child_scope(
         "--expand-environment=no",
         f"--unit={unit}",
         f"--slice={host_admission.allocation_slice(allocation)}",
-        f"--property=MemoryMax={allocation.profile.memory}",
+        f"--property=MemoryMax={role_memory}",
         "--property=MemorySwapMax=0",
         "--",
         sys.executable,
