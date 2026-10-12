@@ -1257,234 +1257,249 @@ impl ModelingPackage {
         &self,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> = async {
-            let mut rows = Vec::new();
-            let mut leases = Vec::new();
-            let mut after = String::new();
-            loop {
-                let page = store
-                    .membership_page(read.selection(), None, &after)
+        activity
+            .scope(async {
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
                     .await?;
-                let Some(last) = page.last() else {
-                    break;
-                };
-                after = last.key.clone();
-                let versions = page
-                    .into_iter()
-                    .filter(|member| {
-                        member.logical.starts_with("modeling:")
-                            && member.logical != CONTEXT_LOGICAL
-                            && member.logical != PHYSICAL_SCOPE_LOGICAL
-                    })
-                    .map(|member| member.version)
-                    .collect::<Vec<_>>();
-                for chunk in
-                    versions.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                {
-                    for value in
-                        selected_objects(&self.runtime, &read, chunk, &crate::CancelSource::new())
+                let read = SelectedRead::new(protection);
+                let result: Result<_, WorkflowError> = async {
+                    let mut rows = Vec::new();
+                    let mut leases = Vec::new();
+                    let mut after = String::new();
+                    loop {
+                        let page = store
+                            .membership_page(read.selection(), None, &after)
+                            .await?;
+                        let Some(last) = page.last() else {
+                            break;
+                        };
+                        after = last.key.clone();
+                        let versions = page
+                            .into_iter()
+                            .filter(|member| {
+                                member.logical.starts_with("modeling:")
+                                    && member.logical != CONTEXT_LOGICAL
+                                    && member.logical != PHYSICAL_SCOPE_LOGICAL
+                            })
+                            .map(|member| member.version)
+                            .collect::<Vec<_>>();
+                        for chunk in versions
+                            .chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                        {
+                            for value in selected_objects(
+                                &self.runtime,
+                                &read,
+                                chunk,
+                                &crate::CancelSource::new(),
+                            )
                             .await?
-                    {
-                        let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                        leases.push(value.lease.clone());
-                        rows.push(row);
+                            {
+                                let (row, _): SourcePayload = decode(value.payload.as_slice())?;
+                                leases.push(value.lease.clone());
+                                rows.push(row);
+                            }
+                        }
                     }
+                    Ok(super::OwnedDeclarations {
+                        rows,
+                        _leases: leases,
+                    })
                 }
-            }
-            Ok(super::OwnedDeclarations {
-                rows,
-                _leases: leases,
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
             })
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+            .await
     }
     /// Explicit full fitting inventory, retaining each generated row decode lease.
     pub async fn fit_declarations(
         &self,
     ) -> Result<super::super::fitting::FitDeclarations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> = async {
-            let mut fits = Vec::new();
-            let mut leases = Vec::new();
-            let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
-            for chunk in members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-                let versions = chunk
-                    .iter()
-                    .map(|member| member.version.clone())
-                    .collect::<Vec<_>>();
-                for value in
-                    selected_objects(&self.runtime, &read, &versions, &crate::CancelSource::new())
+        activity
+            .scope(async {
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await?;
+                let mut read = SelectedRead::new(protection);
+                let result: Result<_, WorkflowError> = async {
+                    let mut fits = Vec::new();
+                    let mut leases = Vec::new();
+                    let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
+                    for chunk in
+                        members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                    {
+                        let versions = chunk
+                            .iter()
+                            .map(|member| member.version.clone())
+                            .collect::<Vec<_>>();
+                        for value in selected_objects(
+                            &self.runtime,
+                            &read,
+                            &versions,
+                            &crate::CancelSource::new(),
+                        )
                         .await?
-                {
-                    fits.push(decode(value.payload.as_slice())?);
-                    leases.push(value.lease.clone());
+                        {
+                            fits.push(decode(value.payload.as_slice())?);
+                            leases.push(value.lease.clone());
+                        }
+                    }
+                    Ok(super::super::fitting::FitDeclarations::from_owned_rows(
+                        fits, leases,
+                    ))
                 }
-            }
-            Ok(super::super::fitting::FitDeclarations::from_owned_rows(
-                fits, leases,
-            ))
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     pub(in crate::workflow) async fn fit_declaration(
         &self,
         id: pse_model::generated::identities::FitId,
     ) -> Result<pse_model::generated::authored::fit_cases::Row, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> = async {
-            let value = object(&self.runtime, &mut read, &format!("fit:{id}"))
-                .await?
-                .ok_or_else(|| contract("unknown fitting declaration"))?;
-            decode(value.payload.as_slice())
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+        activity
+            .scope(async {
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await?;
+                let mut read = SelectedRead::new(protection);
+                let result: Result<_, WorkflowError> = async {
+                    let value = object(&self.runtime, &mut read, &format!("fit:{id}"))
+                        .await?
+                        .ok_or_else(|| contract("unknown fitting declaration"))?;
+                    decode(value.payload.as_slice())
+                }
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     pub(in crate::workflow) async fn replace_fits(
         &self,
         fits: &[pse_model::generated::authored::fit_cases::Row],
     ) -> Result<SourceRevision, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let extent = fits
-            .iter()
-            .try_fold(size_of::<Vec<Declaration>>(), |n, row| {
-                n.checked_add(row.owned_bytes())
-            })
-            .and_then(|n| n.checked_mul(8))
-            .ok_or_else(|| contract("canonical fitting edit extent"))?;
-        let _scratch = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:canonical-fit-edit", extent)?;
-        let validation = self.runtime.validation_context();
-        let mut builder = pse_relations::generated::authored::fit_cases::Builder::with_registry(
-            self.runtime.registry(),
-            fits.len(),
-            &validation,
-        )
-        .map_err(super::super::relation)?;
-        for row in fits {
-            builder.push(row.clone()).map_err(super::super::relation)?;
-        }
-        drop(builder.finish().map_err(super::super::relation)?);
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let old = store.resolve_kind_scope(&mut read, None, "fit").await;
-        let frame = object(&self.runtime, &mut read, INGRESS_FRAME).await;
-        let release = read.finish().await;
-        let old = old?;
-        let frame = frame?;
-        release?;
-        let mut edits = fits
-            .iter()
-            .map(|row| {
-                Ok(edit(
-                    format!("fit:{}", row.fit_id),
-                    "fits".into(),
-                    row.fit_id.to_string(),
-                    "fit".into(),
-                    payload(row)?,
-                    Vec::new(),
-                ))
-            })
-            .collect::<Result<Vec<_>, WorkflowError>>()?;
-        edits.extend(
-            old.into_iter()
-                .filter(|member| {
-                    !fits
-                        .iter()
-                        .any(|row| format!("fit:{}", row.fit_id) == member.logical)
+        activity
+            .scope(async {
+                let extent = fits
+                    .iter()
+                    .try_fold(size_of::<Vec<Declaration>>(), |n, row| {
+                        n.checked_add(row.owned_bytes())
+                    })
+                    .and_then(|n| n.checked_mul(8))
+                    .ok_or_else(|| contract("canonical fitting edit extent"))?;
+                let _scratch = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:canonical-fit-edit", extent)?;
+                let validation = self.runtime.validation_context();
+                let mut builder =
+                    pse_relations::generated::authored::fit_cases::Builder::with_registry(
+                        self.runtime.registry(),
+                        fits.len(),
+                        &validation,
+                    )
+                    .map_err(super::super::relation)?;
+                for row in fits {
+                    builder.push(row.clone()).map_err(super::super::relation)?;
+                }
+                drop(builder.finish().map_err(super::super::relation)?);
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await?;
+                let mut read = SelectedRead::new(protection);
+                let old = store.resolve_kind_scope(&mut read, None, "fit").await;
+                let frame = object(&self.runtime, &mut read, INGRESS_FRAME).await;
+                let release = read.finish().await;
+                let old = old?;
+                let frame = frame?;
+                release?;
+                let mut edits = fits
+                    .iter()
+                    .map(|row| {
+                        Ok(edit(
+                            format!("fit:{}", row.fit_id),
+                            "fits".into(),
+                            row.fit_id.to_string(),
+                            "fit".into(),
+                            payload(row)?,
+                            Vec::new(),
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, WorkflowError>>()?;
+                edits.extend(
+                    old.into_iter()
+                        .filter(|member| {
+                            !fits
+                                .iter()
+                                .any(|row| format!("fit:{}", row.fit_id) == member.logical)
+                        })
+                        .map(|member| ObjectEdit {
+                            logical: member.logical,
+                            scope: member.scope,
+                            name: member.name,
+                            version: None,
+                            references: Vec::new(),
+                        }),
+                );
+                if let Some(frame) = frame {
+                    let mut frame: IngressFrame = decode(frame.payload.as_slice())?;
+                    if let Some(origins) = &mut frame.origins {
+                        let changed = edits.iter().map(|edit| edit.logical.clone()).collect();
+                        origins.invalidate_fits(&changed);
+                        edits.push(edit(
+                            INGRESS_FRAME.into(),
+                            "context".into(),
+                            "ingress_frame".into(),
+                            "ingress_frame".into(),
+                            payload(&frame)?,
+                            Vec::new(),
+                        ));
+                    }
+                }
+                let operation = pse_operations::mint_id::<SemanticId>().to_string();
+                let canonical = store
+                    .edit(
+                        &self.revision.canonical.problem,
+                        Some(&self.revision.canonical.key),
+                        &operation,
+                        &edits,
+                    )
+                    .await?;
+                Ok(SourceRevision {
+                    canonical,
+                    identity: self.revision.identity,
                 })
-                .map(|member| ObjectEdit {
-                    logical: member.logical,
-                    scope: member.scope,
-                    name: member.name,
-                    version: None,
-                    references: Vec::new(),
-                }),
-        );
-        if let Some(frame) = frame {
-            let mut frame: IngressFrame = decode(frame.payload.as_slice())?;
-            if let Some(origins) = &mut frame.origins {
-                let changed = edits.iter().map(|edit| edit.logical.clone()).collect();
-                origins.invalidate_fits(&changed);
-                edits.push(edit(
-                    INGRESS_FRAME.into(),
-                    "context".into(),
-                    "ingress_frame".into(),
-                    "ingress_frame".into(),
-                    payload(&frame)?,
-                    Vec::new(),
-                ));
-            }
-        }
-        let operation = pse_operations::mint_id::<SemanticId>().to_string();
-        let canonical = store
-            .edit(
-                &self.revision.canonical.problem,
-                Some(&self.revision.canonical.key),
-                &operation,
-                &edits,
-            )
-            .await?;
-        Ok(SourceRevision {
-            canonical,
-            identity: self.revision.identity,
-        })
-    
-        }).await
+            })
+            .await
     }
     /// Explicit full inventory/export request. This path is never a prerequisite
     /// of a selected preparation and keeps no source rows on the package handle.
@@ -1501,109 +1516,117 @@ impl ModelingPackage {
         WorkflowError,
     > {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_operations::canonical_staging::SELECTED_OBJECT_BATCH;
-        use pse_relations::generated::authored::{documents, fit_cases, packages};
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> = async {
-            let (mut physical, physical_lease, _physical_version) =
-                physical_context(&self.runtime, &mut read).await?;
-            let mut index = SourceIndex::default();
-            let mut leases = vec![physical_lease];
-            let cancel = crate::CancelSource::new();
-            if let Some(visible) = &mut physical.documents {
-                let members = store
-                    .resolve_kind_scope(&mut read, None, "physical_scope_document")
+        activity
+            .scope(async {
+                use pse_operations::canonical_staging::SELECTED_OBJECT_BATCH;
+                use pse_relations::generated::authored::{documents, fit_cases, packages};
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
                     .await?;
-                for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                    let versions = chunk
-                        .iter()
-                        .map(|member| member.version.clone())
-                        .collect::<Vec<_>>();
-                    for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
-                        let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                        if entry.package != physical.package {
-                            return Err(contract("canonical document physical package differs"));
+                let mut read = SelectedRead::new(protection);
+                let result: Result<_, WorkflowError> = async {
+                    let (mut physical, physical_lease, _physical_version) =
+                        physical_context(&self.runtime, &mut read).await?;
+                    let mut index = SourceIndex::default();
+                    let mut leases = vec![physical_lease];
+                    let cancel = crate::CancelSource::new();
+                    if let Some(visible) = &mut physical.documents {
+                        let members = store
+                            .resolve_kind_scope(&mut read, None, "physical_scope_document")
+                            .await?;
+                        for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                            let versions = chunk
+                                .iter()
+                                .map(|member| member.version.clone())
+                                .collect::<Vec<_>>();
+                            for value in
+                                selected_objects(&self.runtime, &read, &versions, &cancel).await?
+                            {
+                                let entry: PhysicalScope = decode(value.payload.as_slice())?;
+                                if entry.package != physical.package {
+                                    return Err(contract(
+                                        "canonical document physical package differs",
+                                    ));
+                                }
+                                visible.extend(entry.documents.ok_or_else(|| {
+                                    contract("canonical scoped physical entry is global")
+                                })?);
+                                leases.push(value.lease.clone());
+                            }
                         }
-                        visible.extend(entry.documents.ok_or_else(|| {
-                            contract("canonical scoped physical entry is global")
-                        })?);
-                        leases.push(value.lease.clone());
                     }
-                }
-            }
-            let mut after = String::new();
-            loop {
-                let page = store
-                    .membership_page(read.selection(), None, &after)
-                    .await?;
-                let Some(last) = page.last() else {
-                    break;
-                };
-                after = last.key.clone();
-                let modeling = page
-                    .into_iter()
-                    .filter(|member| {
-                        member.logical.starts_with("modeling:")
-                            && member.logical != CONTEXT_LOGICAL
-                            && member.logical != PHYSICAL_SCOPE_LOGICAL
-                    })
-                    .collect();
-                self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
-                    .await?;
-            }
-            let mut frames =
-                objects(&self.runtime, &mut read, &[INGRESS_FRAME.into()], &cancel).await?;
-            let declaration_order = if let Some(value) = frames.remove(INGRESS_FRAME) {
-                let frame: IngressFrame = decode(value.payload.as_slice())?;
-                leases.push(value.lease.clone());
-                Some(frame.order)
-            } else {
-                None
-            };
-            let validation = self.runtime.validation_context();
-            let mut document_builder =
-                documents::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                    .map_err(super::super::relation)?;
-            let mut inventory = pse_modeling::document::DocumentInventory {
-                field_spans: index.fields,
-                ..Default::default()
-            };
-            let members = store
-                .resolve_kind_scope(&mut read, None, "document")
-                .await?;
-            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                let versions = chunk
-                    .iter()
-                    .map(|member| member.version.clone())
-                    .collect::<Vec<_>>();
-                let mut rows = Vec::with_capacity(chunk.len());
-                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
-                    rows.push(decode::<pse_model::generated::authored::documents::Row>(
-                        value.payload.as_slice(),
-                    )?);
-                    leases.push(value.lease.clone());
-                }
-                let logicals = rows
-                    .iter()
-                    .map(|row| format!("data:{}", row.document_id))
-                    .collect::<Vec<_>>();
-                let mut data = objects(&self.runtime, &mut read, &logicals, &cancel).await?;
-                for (mut row, logical) in rows.into_iter().zip(logicals) {
-                    inventory
-                        .packages
-                        .insert(row.document_id, row.package_id.as_id());
-                    if let Some(data) = data.remove(&logical) {
-                        leases.push(data.lease.clone());
-                        let bytes = data.row.payload.into_vec();
-                        let (document, lease) =
+                    let mut after = String::new();
+                    loop {
+                        let page = store
+                            .membership_page(read.selection(), None, &after)
+                            .await?;
+                        let Some(last) = page.last() else {
+                            break;
+                        };
+                        after = last.key.clone();
+                        let modeling = page
+                            .into_iter()
+                            .filter(|member| {
+                                member.logical.starts_with("modeling:")
+                                    && member.logical != CONTEXT_LOGICAL
+                                    && member.logical != PHYSICAL_SCOPE_LOGICAL
+                            })
+                            .collect();
+                        self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
+                            .await?;
+                    }
+                    let mut frames =
+                        objects(&self.runtime, &mut read, &[INGRESS_FRAME.into()], &cancel).await?;
+                    let declaration_order = if let Some(value) = frames.remove(INGRESS_FRAME) {
+                        let frame: IngressFrame = decode(value.payload.as_slice())?;
+                        leases.push(value.lease.clone());
+                        Some(frame.order)
+                    } else {
+                        None
+                    };
+                    let validation = self.runtime.validation_context();
+                    let mut document_builder =
+                        documents::Builder::with_registry(self.runtime.registry(), 0, &validation)
+                            .map_err(super::super::relation)?;
+                    let mut inventory = pse_modeling::document::DocumentInventory {
+                        field_spans: index.fields,
+                        ..Default::default()
+                    };
+                    let members = store
+                        .resolve_kind_scope(&mut read, None, "document")
+                        .await?;
+                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                        let versions = chunk
+                            .iter()
+                            .map(|member| member.version.clone())
+                            .collect::<Vec<_>>();
+                        let mut rows = Vec::with_capacity(chunk.len());
+                        for value in
+                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
+                        {
+                            rows.push(decode::<pse_model::generated::authored::documents::Row>(
+                                value.payload.as_slice(),
+                            )?);
+                            leases.push(value.lease.clone());
+                        }
+                        let logicals = rows
+                            .iter()
+                            .map(|row| format!("data:{}", row.document_id))
+                            .collect::<Vec<_>>();
+                        let mut data =
+                            objects(&self.runtime, &mut read, &logicals, &cancel).await?;
+                        for (mut row, logical) in rows.into_iter().zip(logicals) {
+                            inventory
+                                .packages
+                                .insert(row.document_id, row.package_id.as_id());
+                            if let Some(data) = data.remove(&logical) {
+                                leases.push(data.lease.clone());
+                                let bytes = data.row.payload.into_vec();
+                                let (document, lease) =
                             pse_admission::authoring_driver::document::decode_selected_data(
                                 row.document_id,
                                 row.path.clone(),
@@ -1613,92 +1636,96 @@ impl ModelingPackage {
                                 &cancel.token(),
                             )
                             .map_err(WorkflowError::Authoring)?;
-                        inventory.documents.insert(row.document_id, document);
-                        leases.push(lease);
-                        row.content = Some(bytes.into());
+                                inventory.documents.insert(row.document_id, document);
+                                leases.push(lease);
+                                row.content = Some(bytes.into());
+                            }
+                            document_builder.push(row).map_err(super::super::relation)?;
+                        }
                     }
-                    document_builder.push(row).map_err(super::super::relation)?;
+                    let mut package_builder =
+                        packages::Builder::with_registry(self.runtime.registry(), 0, &validation)
+                            .map_err(super::super::relation)?;
+                    let members = store.resolve_kind_scope(&mut read, None, "package").await?;
+                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                        let versions = chunk
+                            .iter()
+                            .map(|member| member.version.clone())
+                            .collect::<Vec<_>>();
+                        for value in
+                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
+                        {
+                            leases.push(value.lease.clone());
+                            package_builder
+                                .push(decode(value.payload.as_slice())?)
+                                .map_err(super::super::relation)?;
+                        }
+                    }
+                    let mut fit_builder =
+                        fit_cases::Builder::with_registry(self.runtime.registry(), 0, &validation)
+                            .map_err(super::super::relation)?;
+                    let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
+                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
+                        let versions = chunk
+                            .iter()
+                            .map(|member| member.version.clone())
+                            .collect::<Vec<_>>();
+                        for value in
+                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
+                        {
+                            fit_builder
+                                .push(decode(value.payload.as_slice())?)
+                                .map_err(super::super::relation)?;
+                            leases.push(value.lease.clone());
+                        }
+                    }
+                    let sources = BTreeMap::from([
+                        (
+                            fit_cases::RELATION_ID,
+                            fit_builder.finish().map_err(super::super::relation)?,
+                        ),
+                        (
+                            documents::RELATION_ID,
+                            document_builder.finish().map_err(super::super::relation)?,
+                        ),
+                        (
+                            packages::RELATION_ID,
+                            package_builder.finish().map_err(super::super::relation)?,
+                        ),
+                    ]);
+                    let rows = if let Some(order) = declaration_order {
+                        let mut rows = Vec::with_capacity(order.len());
+                        for id in order {
+                            rows.push(index.rows.remove(&id).ok_or_else(|| {
+                                contract("source frame repeats or names an absent declaration")
+                            })?);
+                        }
+                        if !index.rows.is_empty() {
+                            return Err(contract("source frame omits declarations"));
+                        }
+                        rows
+                    } else {
+                        index.rows.into_values().collect()
+                    };
+                    for row in &rows {
+                        inventory.parsed_fields.insert(
+                            row.declaration_id,
+                            parsed_fields(
+                                &self.runtime,
+                                row,
+                                inventory.field_spans.get(&row.declaration_id),
+                            )?,
+                        );
+                    }
+                    Ok((rows, physical, Arc::new(inventory), sources, leases))
                 }
-            }
-            let mut package_builder =
-                packages::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                    .map_err(super::super::relation)?;
-            let members = store.resolve_kind_scope(&mut read, None, "package").await?;
-            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                let versions = chunk
-                    .iter()
-                    .map(|member| member.version.clone())
-                    .collect::<Vec<_>>();
-                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
-                    leases.push(value.lease.clone());
-                    package_builder
-                        .push(decode(value.payload.as_slice())?)
-                        .map_err(super::super::relation)?;
-                }
-            }
-            let mut fit_builder =
-                fit_cases::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                    .map_err(super::super::relation)?;
-            let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
-            for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                let versions = chunk
-                    .iter()
-                    .map(|member| member.version.clone())
-                    .collect::<Vec<_>>();
-                for value in selected_objects(&self.runtime, &read, &versions, &cancel).await? {
-                    fit_builder
-                        .push(decode(value.payload.as_slice())?)
-                        .map_err(super::super::relation)?;
-                    leases.push(value.lease.clone());
-                }
-            }
-            let sources = BTreeMap::from([
-                (
-                    fit_cases::RELATION_ID,
-                    fit_builder.finish().map_err(super::super::relation)?,
-                ),
-                (
-                    documents::RELATION_ID,
-                    document_builder.finish().map_err(super::super::relation)?,
-                ),
-                (
-                    packages::RELATION_ID,
-                    package_builder.finish().map_err(super::super::relation)?,
-                ),
-            ]);
-            let rows = if let Some(order) = declaration_order {
-                let mut rows = Vec::with_capacity(order.len());
-                for id in order {
-                    rows.push(index.rows.remove(&id).ok_or_else(|| {
-                        contract("source frame repeats or names an absent declaration")
-                    })?);
-                }
-                if !index.rows.is_empty() {
-                    return Err(contract("source frame omits declarations"));
-                }
-                rows
-            } else {
-                index.rows.into_values().collect()
-            };
-            for row in &rows {
-                inventory.parsed_fields.insert(
-                    row.declaration_id,
-                    parsed_fields(
-                        &self.runtime,
-                        row,
-                        inventory.field_spans.get(&row.declaration_id),
-                    )?,
-                );
-            }
-            Ok((rows, physical, Arc::new(inventory), sources, leases))
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     /// Read the exact fixture selection in canonical membership order.
     pub(super) async fn selected_declarations(
@@ -1707,61 +1734,66 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<super::OwnedDeclarations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if selected.is_empty() {
-            return Err(contract("a fixture selection names at least one test"));
-        }
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result = async {
-            let logicals = selected.iter().map(|id| logical(*id)).collect::<Vec<_>>();
-            let mut members = Vec::new();
-            for chunk in logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-                checkpoint(cancel)?;
-                let _scratch = self.runtime.shared.math().reserve(
-                    "modeling:selected-fixture-membership",
-                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-                )?;
-                members.extend(store.resolve_logicals(&mut read, chunk).await?);
-            }
-            members.sort_by(|a, b| a.key.cmp(&b.key));
-            let mut rows = Vec::new();
-            let mut leases = Vec::new();
-            for chunk in members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-                let versions = chunk
-                    .iter()
-                    .map(|member| member.version.clone())
-                    .collect::<Vec<_>>();
-                for (member, value) in chunk
-                    .iter()
-                    .zip(selected_objects(&self.runtime, &read, &versions, cancel).await?)
-                {
-                    if value.logical != member.logical || value.key != member.version {
-                        return Err(contract("selected fixture association differs"));
-                    }
-                    let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                    rows.push(row);
-                    leases.push(value.lease);
+        activity
+            .scope(async {
+                if selected.is_empty() {
+                    return Err(contract("a fixture selection names at least one test"));
                 }
-            }
-            Ok::<_, WorkflowError>(super::OwnedDeclarations {
-                rows,
-                _leases: leases,
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await?;
+                let mut read = SelectedRead::new(protection);
+                let result = async {
+                    let logicals = selected.iter().map(|id| logical(*id)).collect::<Vec<_>>();
+                    let mut members = Vec::new();
+                    for chunk in
+                        logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                    {
+                        checkpoint(cancel)?;
+                        let _scratch = self.runtime.shared.math().reserve(
+                            "modeling:selected-fixture-membership",
+                            pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
+                        )?;
+                        members.extend(store.resolve_logicals(&mut read, chunk).await?);
+                    }
+                    members.sort_by(|a, b| a.key.cmp(&b.key));
+                    let mut rows = Vec::new();
+                    let mut leases = Vec::new();
+                    for chunk in
+                        members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                    {
+                        let versions = chunk
+                            .iter()
+                            .map(|member| member.version.clone())
+                            .collect::<Vec<_>>();
+                        for (member, value) in chunk
+                            .iter()
+                            .zip(selected_objects(&self.runtime, &read, &versions, cancel).await?)
+                        {
+                            if value.logical != member.logical || value.key != member.version {
+                                return Err(contract("selected fixture association differs"));
+                            }
+                            let (row, _): SourcePayload = decode(value.payload.as_slice())?;
+                            rows.push(row);
+                            leases.push(value.lease);
+                        }
+                    }
+                    Ok::<_, WorkflowError>(super::OwnedDeclarations {
+                        rows,
+                        _leases: leases,
+                    })
+                }
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
             })
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+            .await
     }
     /// Read exactly one authored declaration for an operation's entry policy.
     pub(super) async fn declaration(
@@ -1769,29 +1801,30 @@ impl ModelingPackage {
         id: DeclarationId,
     ) -> Result<Declaration, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical.store();
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result: Result<_, WorkflowError> = async {
-            let value = object(&self.runtime, &mut read, &logical(id))
-                .await?
-                .ok_or_else(|| contract("canonical selected declaration absent"))?;
-            let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-            Ok(row)
-        }
-        .await;
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+        activity
+            .scope(async {
+                let store = self.runtime.canonical.store();
+                let protection = store
+                    .protect(
+                        self.revision.canonical.clone(),
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await?;
+                let mut read = SelectedRead::new(protection);
+                let result: Result<_, WorkflowError> = async {
+                    let value = object(&self.runtime, &mut read, &logical(id))
+                        .await?
+                        .ok_or_else(|| contract("canonical selected declaration absent"))?;
+                    let (row, _): SourcePayload = decode(value.payload.as_slice())?;
+                    Ok(row)
+                }
+                .await;
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     async fn qualified_selected_candidate(
         &self,
@@ -2037,7 +2070,7 @@ impl ModelingPackage {
                 Err(error)
             }
         }
-    
+
         }).await
     }
     fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
@@ -2062,15 +2095,16 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let selected = self.checked_selection(&[root], cancel).await?;
-        let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-        let release = selected.read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+        activity
+            .scope(async {
+                let selected = self.checked_selection(&[root], cancel).await?;
+                let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
+                let release = selected.read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     pub(in crate::workflow) async fn selected_revision_roots(
         &self,
@@ -2078,31 +2112,33 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let selected = self.checked_selection(roots, cancel).await?;
-        let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-        let release = selected.read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+        activity
+            .scope(async {
+                let selected = self.checked_selection(roots, cancel).await?;
+                let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
+                let release = selected.read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
     pub(in crate::workflow) async fn all_revision(
         &self,
     ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let (rows, physical, documents, _, _source_owners) = self.full_source().await?;
-        Ok(self.runtime.shared.math().modeling_revision(
-            &self.numerical_workspace()?,
-            rows,
-            physical,
-            documents,
-            &self.physical.key,
-        )?)
-    
-        }).await
+        activity
+            .scope(async {
+                let (rows, physical, documents, _, _source_owners) = self.full_source().await?;
+                Ok(self.runtime.shared.math().modeling_revision(
+                    &self.numerical_workspace()?,
+                    rows,
+                    physical,
+                    documents,
+                    &self.physical.key,
+                )?)
+            })
+            .await
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     pub(super) async fn selected_source(
@@ -2111,10 +2147,9 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<SelectedSource, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.selected_sources(&[root], cancel).await
-    
-        }).await
+        activity
+            .scope(async { self.selected_sources(&[root], cancel).await })
+            .await
     }
     #[cfg(all(test, feature = "canonical-tests"))]
     async fn selected_sources(

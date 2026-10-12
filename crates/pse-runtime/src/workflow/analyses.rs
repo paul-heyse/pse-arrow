@@ -136,25 +136,27 @@ impl AnalysisHandle {
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_analyses as rows;
-        let owner =
-            MemoryConsumer::new("canonical:analysis-header").register(&self.runtime.shared.pool());
-        owner
-            .try_grow(12 * 1024 * 1024)
-            .map_err(pse_engine::EngineError::from)?;
-        let row = self.runtime.canonical_store().analysis(&self.key).await?;
-        let validation = self.runtime.validation_context();
-        let mut builder = rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
-            .map_err(relation)?;
-        builder.push(row).map_err(relation)?;
-        builder
-            .finish()
-            .map_err(relation)?
-            .retained(&self.runtime.shared.pool(), &CancellationToken::new())
-            .map_err(relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_analyses as rows;
+                let owner = MemoryConsumer::new("canonical:analysis-header")
+                    .register(&self.runtime.shared.pool());
+                owner
+                    .try_grow(12 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                let row = self.runtime.canonical_store().analysis(&self.key).await?;
+                let validation = self.runtime.validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
+                        .map_err(relation)?;
+                builder.push(row).map_err(relation)?;
+                builder
+                    .finish()
+                    .map_err(relation)?
+                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .map_err(relation)
+            })
+            .await
     }
     /// Native ordered node page, at most 64 rows, retaining actual Arrow buffers.
     pub async fn nodes(
@@ -162,32 +164,33 @@ impl AnalysisHandle {
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
-        let owner =
-            MemoryConsumer::new("canonical:analysis-page").register(&self.runtime.shared.pool());
-        owner
-            .try_grow(12 * 1024 * 1024)
-            .map_err(pse_engine::EngineError::from)?;
-        let page = self
-            .runtime
-            .canonical_store()
-            .analysis_node_page(&self.key, after)
-            .await?;
-        let validation = self.runtime.validation_context();
-        let mut builder =
-            rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
-                .map_err(relation)?;
-        for row in page {
-            builder.push(row).map_err(relation)?;
-        }
-        builder
-            .finish()
-            .map_err(relation)?
-            .retained(&self.runtime.shared.pool(), &CancellationToken::new())
-            .map_err(relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
+                let owner = MemoryConsumer::new("canonical:analysis-page")
+                    .register(&self.runtime.shared.pool());
+                owner
+                    .try_grow(12 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                let page = self
+                    .runtime
+                    .canonical_store()
+                    .analysis_node_page(&self.key, after)
+                    .await?;
+                let validation = self.runtime.validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
+                        .map_err(relation)?;
+                for row in page {
+                    builder.push(row).map_err(relation)?;
+                }
+                builder
+                    .finish()
+                    .map_err(relation)?
+                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .map_err(relation)
+            })
+            .await
     }
     /// Native directed graph edge page with original result evidence references.
     pub async fn edges(
@@ -195,32 +198,33 @@ impl AnalysisHandle {
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_analysis_edges as rows;
-        let owner =
-            MemoryConsumer::new("canonical:analysis-page").register(&self.runtime.shared.pool());
-        owner
-            .try_grow(12 * 1024 * 1024)
-            .map_err(pse_engine::EngineError::from)?;
-        let page = self
-            .runtime
-            .canonical_store()
-            .analysis_edge_page(&self.key, after)
-            .await?;
-        let validation = self.runtime.validation_context();
-        let mut builder =
-            rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
-                .map_err(relation)?;
-        for row in page {
-            builder.push(row).map_err(relation)?;
-        }
-        builder
-            .finish()
-            .map_err(relation)?
-            .retained(&self.runtime.shared.pool(), &CancellationToken::new())
-            .map_err(relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_analysis_edges as rows;
+                let owner = MemoryConsumer::new("canonical:analysis-page")
+                    .register(&self.runtime.shared.pool());
+                owner
+                    .try_grow(12 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                let page = self
+                    .runtime
+                    .canonical_store()
+                    .analysis_edge_page(&self.key, after)
+                    .await?;
+                let validation = self.runtime.validation_context();
+                let mut builder =
+                    rows::Builder::with_registry(self.runtime.registry(), page.len(), &validation)
+                        .map_err(relation)?;
+                for row in page {
+                    builder.push(row).map_err(relation)?;
+                }
+                builder
+                    .finish()
+                    .map_err(relation)?
+                    .retained(&self.runtime.shared.pool(), &CancellationToken::new())
+                    .map_err(relation)
+            })
+            .await
     }
 }
 impl Runtime {
@@ -232,22 +236,22 @@ impl Runtime {
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.operations()?.completion(run, attempt).await
-    
-        }).await
+        activity
+            .scope(async { self.operations()?.completion(run, attempt).await })
+            .await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.canonical_store().analysis(key).await?;
-        Ok(AnalysisHandle {
-            runtime: self.clone(),
-            key: key.into(),
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                self.canonical_store().analysis(key).await?;
+                Ok(AnalysisHandle {
+                    runtime: self.clone(),
+                    key: key.into(),
+                })
+            })
+            .await
     }
 
     #[allow(
@@ -563,7 +567,7 @@ impl Runtime {
             controls,
         )
         .await
-    
+
         }).await
     }
 }
@@ -576,124 +580,127 @@ impl ModelingSolvePreparation {
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
         let activity = self.source.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        controls.validate()?;
-        let runtime = &self.source.runtime;
-        let owner =
-            MemoryConsumer::new("canonical:dependency-analysis").register(&runtime.shared.pool());
-        owner
-            .try_grow(128 * 1024 * 1024)
-            .map_err(pse_engine::EngineError::from)?;
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let plan = &self.model.case.compiled().plan;
-        let structure = plan.structure();
-        if structure.variables().len()
-            + structure.parameters().len()
-            + structure.rows().len()
-            + structure.objectives().len()
-            > ANALYSIS_NODES
-        {
-            return Err(contract("analysis original structure exceeds bound"));
-        }
-        let mut graph = Graph::new();
-        let mut nodes = BTreeMap::new();
-        for variable in structure.variables() {
-            vertex(
-                &mut graph,
-                &mut nodes,
-                variable.port.id.to_string(),
-                "variable",
-            )?;
-        }
-        for parameter in structure.parameters() {
-            vertex(
-                &mut graph,
-                &mut nodes,
-                parameter.id.to_string(),
-                "parameter",
-            )?;
-        }
-        for row in structure.rows() {
-            vertex(&mut graph, &mut nodes, row.id.to_string(), "row")?;
-        }
-        for level in 0..structure.objectives().len() {
-            vertex(
-                &mut graph,
-                &mut nodes,
-                format!("objective:{level}"),
-                "objective",
-            )?;
-        }
-        let flow = plan
-            .visit_dependencies(&Arc::new(AtomicBool::new(false)), |dependency| {
-                let projected = (|| {
-                    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                    let target_name = match dependency.target {
-                        pse_math::binding::Target::Row(id) => id.to_string(),
-                        pse_math::binding::Target::Objective(level) => format!("objective:{level}"),
-                    };
-                    let target = *nodes.get(&target_name).ok_or_else(|| {
-                        contract("analysis target absent from original structure")
-                    })?;
-                    for (kind, symbols) in [
-                        ("numerical_incidence", dependency.numerical),
-                        ("execution_dependency", dependency.execution),
-                    ] {
-                        for symbol in symbols {
-                            let source = *nodes.get(&symbol.to_string()).ok_or_else(|| {
+        activity
+            .scope(async {
+                controls.validate()?;
+                let runtime = &self.source.runtime;
+                let owner = MemoryConsumer::new("canonical:dependency-analysis")
+                    .register(&runtime.shared.pool());
+                owner
+                    .try_grow(128 * 1024 * 1024)
+                    .map_err(pse_engine::EngineError::from)?;
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let plan = &self.model.case.compiled().plan;
+                let structure = plan.structure();
+                if structure.variables().len()
+                    + structure.parameters().len()
+                    + structure.rows().len()
+                    + structure.objectives().len()
+                    > ANALYSIS_NODES
+                {
+                    return Err(contract("analysis original structure exceeds bound"));
+                }
+                let mut graph = Graph::new();
+                let mut nodes = BTreeMap::new();
+                for variable in structure.variables() {
+                    vertex(
+                        &mut graph,
+                        &mut nodes,
+                        variable.port.id.to_string(),
+                        "variable",
+                    )?;
+                }
+                for parameter in structure.parameters() {
+                    vertex(
+                        &mut graph,
+                        &mut nodes,
+                        parameter.id.to_string(),
+                        "parameter",
+                    )?;
+                }
+                for row in structure.rows() {
+                    vertex(&mut graph, &mut nodes, row.id.to_string(), "row")?;
+                }
+                for level in 0..structure.objectives().len() {
+                    vertex(
+                        &mut graph,
+                        &mut nodes,
+                        format!("objective:{level}"),
+                        "objective",
+                    )?;
+                }
+                let flow = plan
+                    .visit_dependencies(&Arc::new(AtomicBool::new(false)), |dependency| {
+                        let projected = (|| {
+                            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                            let target_name = match dependency.target {
+                                pse_math::binding::Target::Row(id) => id.to_string(),
+                                pse_math::binding::Target::Objective(level) => {
+                                    format!("objective:{level}")
+                                }
+                            };
+                            let target = *nodes.get(&target_name).ok_or_else(|| {
+                                contract("analysis target absent from original structure")
+                            })?;
+                            for (kind, symbols) in [
+                                ("numerical_incidence", dependency.numerical),
+                                ("execution_dependency", dependency.execution),
+                            ] {
+                                for symbol in symbols {
+                                    let source = *nodes.get(&symbol.to_string()).ok_or_else(|| {
                                 contract("analysis dependency absent from original selected values")
                             })?;
-                            edge(&mut graph, source, target, kind, None)?;
+                                    edge(&mut graph, source, target, kind, None)?;
+                                }
+                            }
+                            Ok::<(), WorkflowError>(())
+                        })();
+                        match projected {
+                            Ok(()) => std::ops::ControlFlow::Continue(()),
+                            Err(error) => std::ops::ControlFlow::Break(error),
                         }
-                    }
-                    Ok::<(), WorkflowError>(())
-                })();
-                match projected {
-                    Ok(()) => std::ops::ControlFlow::Continue(()),
-                    Err(error) => std::ops::ControlFlow::Break(error),
+                    })
+                    .map_err(super::math)?;
+                if let std::ops::ControlFlow::Break(error) = flow {
+                    return Err(error);
                 }
+                let revision = self.source.canonical_revision().clone();
+                let mut sources = vec![revision.clone()];
+                let operations = match runtime.durability() {
+                    Durability::Durable(operations) => operations.as_ref().clone(),
+                    Durability::Ephemeral => super::Operations::from_store(
+                        runtime.canonical_store().clone(),
+                        "analysis",
+                        super::LeasePolicy::default(),
+                        runtime.shared.pool(),
+                    ),
+                };
+                let physical_rows = operations
+                    .put_physical_rows(runtime, &self.source.physical)
+                    .await?;
+                sources.extend(physical_rows.revisions.iter().cloned());
+                sources.sort_by(|a, b| a.key.cmp(&b.key));
+                sources.dedup_by(|a, b| a.key == b.key);
+                let configuration =
+                    serde_json::to_vec(&(1_u8, controls, self.admission_identity()?.to_hex()))
+                        .map_err(|error| contract(error.to_string()))?;
+                let analysis = runtime
+                    .store_analysis_graph(
+                        &revision,
+                        &sources,
+                        &[],
+                        "original-incidence-execution-reachability:v1",
+                        configuration,
+                        graph,
+                        nodes,
+                        controls,
+                    )
+                    .await?;
+                // Keep the admitted physical source protection until analysis roots acknowledge.
+                drop(physical_rows);
+                Ok(analysis)
             })
-            .map_err(super::math)?;
-        if let std::ops::ControlFlow::Break(error) = flow {
-            return Err(error);
-        }
-        let revision = self.source.canonical_revision().clone();
-        let mut sources = vec![revision.clone()];
-        let operations = match runtime.durability() {
-            Durability::Durable(operations) => operations.as_ref().clone(),
-            Durability::Ephemeral => super::Operations::from_store(
-                runtime.canonical_store().clone(),
-                "analysis",
-                super::LeasePolicy::default(),
-                runtime.shared.pool(),
-            ),
-        };
-        let physical_rows = operations
-            .put_physical_rows(runtime, &self.source.physical)
-            .await?;
-        sources.extend(physical_rows.revisions.iter().cloned());
-        sources.sort_by(|a, b| a.key.cmp(&b.key));
-        sources.dedup_by(|a, b| a.key == b.key);
-        let configuration =
-            serde_json::to_vec(&(1_u8, controls, self.admission_identity()?.to_hex()))
-                .map_err(|error| contract(error.to_string()))?;
-        let analysis = runtime
-            .store_analysis_graph(
-                &revision,
-                &sources,
-                &[],
-                "original-incidence-execution-reachability:v1",
-                configuration,
-                graph,
-                nodes,
-                controls,
-            )
-            .await?;
-        // Keep the admitted physical source protection until analysis roots acknowledge.
-        drop(physical_rows);
-        Ok(analysis)
-    
-        }).await
+            .await
     }
 }
 

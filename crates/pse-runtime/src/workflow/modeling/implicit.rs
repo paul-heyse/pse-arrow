@@ -278,205 +278,213 @@ impl ModelingPackage {
         demand: ProviderDemand<'_>,
     ) -> Result<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let product = model.compiled();
-        if product.admitted.implicit_systems().next().is_none() {
-            return Ok(self.registrations());
-        }
-        controls
-            .validate()
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let rows = match demand {
-            ProviderDemand::Observations(rows) => rows,
-            ProviderDemand::Case(_) => None,
-        };
-        let mut provider_demands = match demand {
-            ProviderDemand::Observations(rows) => product
-                .admitted
-                .provider_demands_for(rows, requested_output),
-            ProviderDemand::Case(plan) => product
-                .admitted
-                .provider_demands_for_plan(plan, requested_output),
-        }
-        .map_err(crate::math::MathRuntimeError::from)?;
-        if let ProviderDemand::Case(plan) = demand {
-            for supplier in product
-                .automatic_reduced_suppliers(plan)
-                .map_err(crate::math::MathRuntimeError::from)?
-            {
-                if let pse_compiler::workspace::Alternative::Available(supplier) = supplier {
-                    provider_demands
-                        .entry(supplier.descriptor.spec().key())
-                        .and_modify(|order| {
-                            *order = (*order).max(pse_kernels::DerivativeOrder::First)
-                        })
-                        .or_insert(pse_kernels::DerivativeOrder::First);
+        activity
+            .scope(async {
+                let product = model.compiled();
+                if product.admitted.implicit_systems().next().is_none() {
+                    return Ok(self.registrations());
                 }
-            }
-        }
-        let mut inputs = Vec::new();
-        for inner in product
-            .implicit_order_for(rows)
-            .map_err(crate::math::MathRuntimeError::from)?
-        {
-            let mut configurations = BTreeMap::new();
-            for residual in &inner.residuals {
-                let belongs =
-                    |id: &SemanticId| inner.unknowns.contains(id) || residual.rows.contains(id);
-                let mut targets = inner
-                    .descriptor
-                    .spec()
-                    .outputs
-                    .iter()
-                    .map(|p| pse_math::numerics::TargetSpec {
-                        id: p.id,
-                        kind: NumericalTarget::Variable,
-                        quantity: p.quantity,
-                        unit: p.unit,
-                        integer: false,
-                        declared_tolerance: None,
-                    })
-                    .collect::<Vec<_>>();
-                for (id, quantity) in residual.rows.iter().zip(residual.body.quantities()) {
-                    targets.push(pse_math::numerics::TargetSpec {
-                        id: *id,
-                        kind: NumericalTarget::Row,
-                        quantity: *quantity,
-                        unit: self
-                            .quantities
-                            .quantity_type(*quantity)
-                            .map_err(|e| contract(e.to_string()))?
-                            .canonical_unit,
-                        integer: false,
-                        declared_tolerance: None,
-                    });
+                controls
+                    .validate()
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let rows = match demand {
+                    ProviderDemand::Observations(rows) => rows,
+                    ProviderDemand::Case(_) => None,
+                };
+                let mut provider_demands = match demand {
+                    ProviderDemand::Observations(rows) => product
+                        .admitted
+                        .provider_demands_for(rows, requested_output),
+                    ProviderDemand::Case(plan) => product
+                        .admitted
+                        .provider_demands_for_plan(plan, requested_output),
                 }
-                let mut policy = policy.clone();
-                policy.requirements.retain(|r| belongs(&r.target_id));
-                let declarations = numerical
-                    .declarations
-                    .iter()
-                    .filter(|r| belongs(&r.declaration.target_id))
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let mut values = case
-                    .values
-                    .iter()
-                    .filter_map(|(p, v)| {
-                        product
-                            .model
-                            .paths
-                            .get(p)
-                            .filter(|id| inner.unknowns.contains(id))
-                            .map(|id| (*id, *v))
-                    })
-                    .collect::<BTreeMap<_, _>>();
-                // Affine elimination evaluates at a deterministic zero reference; this is
-                // an algorithm coordinate, not a scientific initial condition or a warm start.
-                if inner.algorithm == pse_compiler::workspace::ImplicitAlgorithm::AffineRates {
-                    for id in &inner.unknowns {
-                        values.entry(*id).or_insert(0.);
-                    }
-                }
-                let states = case
-                    .variables
-                    .iter()
-                    .filter_map(|(p, v)| {
-                        product
-                            .model
-                            .paths
-                            .get(p)
-                            .filter(|id| inner.unknowns.contains(id))
-                            .map(|id| (*id, v.clone()))
-                    })
-                    .collect::<BTreeMap<_, _>>();
-                if states.values().any(|state| state.fixed == Some(true)) {
-                    return Err(contract(
-                        "fixing a nested unknown requires inline realization",
-                    ));
-                }
-                if inner.selection.anchors.is_none()
-                    && inner.unknowns.iter().any(|id| {
-                        !values.contains_key(id)
-                            && !residual.hint_targets.iter().any(|(target, _, kind)| {
-                                target == id && *kind == ModelingHint::Start
-                            })
-                    })
-                {
-                    return Err(contract("missing deterministic start for implicit unknown"));
-                }
-                let mut hash =
-                    pse_ids::FramedHasher::new(pse_ids::Frame::ModelingImplicitTrialHintsV1);
-                hash.hash(&inner.descriptor.spec().identity())
-                    .hash(&residual.body.spec().physical)
-                    .id(&residual.id)
-                    .hash(&policy.key());
-                for r in &declarations {
-                    r.source.frame(&mut hash);
-                    r.declaration.frame(&mut hash);
-                }
-                for (id, value) in &values {
-                    hash.id(id).u64(value.to_bits());
-                }
-                for (id, state) in &states {
-                    hash.id(id).u64(match state.fixed {
-                        None => 0,
-                        Some(false) => 1,
-                        Some(true) => 2,
-                    });
-                    for bound in [state.lower, state.upper] {
-                        hash.bool(bound.is_some());
-                        if let Some(value) = bound {
-                            hash.bool(value.is_some());
-                            if let Some(value) = value {
-                                hash.u64(value.to_bits());
-                            }
+                .map_err(crate::math::MathRuntimeError::from)?;
+                if let ProviderDemand::Case(plan) = demand {
+                    for supplier in product
+                        .automatic_reduced_suppliers(plan)
+                        .map_err(crate::math::MathRuntimeError::from)?
+                    {
+                        if let pse_compiler::workspace::Alternative::Available(supplier) = supplier
+                        {
+                            provider_demands
+                                .entry(supplier.descriptor.spec().key())
+                                .and_modify(|order| {
+                                    *order = (*order).max(pse_kernels::DerivativeOrder::First)
+                                })
+                                .or_insert(pse_kernels::DerivativeOrder::First);
                         }
                     }
                 }
-                hash.u64(controls.iterations as u64)
-                    .u64(controls.time_limit.as_secs())
-                    .u64(controls.time_limit.subsec_nanos() as u64);
-                configurations.insert(
-                    residual.id,
-                    Configuration::Hints(Arc::new(TrialHints {
-                        identity: hash.finish_hash(),
-                        quantities: self.quantities.clone(),
-                        preconditions: self.physical.preconditions.clone(),
-                        lineage: model.solved().stage(stage_instance(&inner)),
-                        unknowns: inner.unknowns.clone(),
-                        rows: residual.rows.clone(),
-                        hints: residual.hint_targets.clone(),
-                        scales: residual.scales.clone(),
-                        values,
-                        states,
-                        targets,
-                        declarations,
-                        policy,
-                        controls: controls.clone(),
-                    })),
-                );
-            }
-            inputs.push(ModelingInner {
-                admitted: inner,
-                configurations,
-            });
-        }
-        Ok(self
-            .runtime
-            .shared
-            .math()
-            .modeling_inner_providers(
-                inputs,
-                self.accelerators.clone(),
-                self.registrations(),
-                provider_demands,
-                compiler,
-                cancel,
-            )
-            .await?)
-    
-        }).await
+                let mut inputs = Vec::new();
+                for inner in product
+                    .implicit_order_for(rows)
+                    .map_err(crate::math::MathRuntimeError::from)?
+                {
+                    let mut configurations = BTreeMap::new();
+                    for residual in &inner.residuals {
+                        let belongs = |id: &SemanticId| {
+                            inner.unknowns.contains(id) || residual.rows.contains(id)
+                        };
+                        let mut targets = inner
+                            .descriptor
+                            .spec()
+                            .outputs
+                            .iter()
+                            .map(|p| pse_math::numerics::TargetSpec {
+                                id: p.id,
+                                kind: NumericalTarget::Variable,
+                                quantity: p.quantity,
+                                unit: p.unit,
+                                integer: false,
+                                declared_tolerance: None,
+                            })
+                            .collect::<Vec<_>>();
+                        for (id, quantity) in residual.rows.iter().zip(residual.body.quantities()) {
+                            targets.push(pse_math::numerics::TargetSpec {
+                                id: *id,
+                                kind: NumericalTarget::Row,
+                                quantity: *quantity,
+                                unit: self
+                                    .quantities
+                                    .quantity_type(*quantity)
+                                    .map_err(|e| contract(e.to_string()))?
+                                    .canonical_unit,
+                                integer: false,
+                                declared_tolerance: None,
+                            });
+                        }
+                        let mut policy = policy.clone();
+                        policy.requirements.retain(|r| belongs(&r.target_id));
+                        let declarations = numerical
+                            .declarations
+                            .iter()
+                            .filter(|r| belongs(&r.declaration.target_id))
+                            .cloned()
+                            .collect::<Vec<_>>();
+                        let mut values = case
+                            .values
+                            .iter()
+                            .filter_map(|(p, v)| {
+                                product
+                                    .model
+                                    .paths
+                                    .get(p)
+                                    .filter(|id| inner.unknowns.contains(id))
+                                    .map(|id| (*id, *v))
+                            })
+                            .collect::<BTreeMap<_, _>>();
+                        // Affine elimination evaluates at a deterministic zero reference; this is
+                        // an algorithm coordinate, not a scientific initial condition or a warm start.
+                        if inner.algorithm
+                            == pse_compiler::workspace::ImplicitAlgorithm::AffineRates
+                        {
+                            for id in &inner.unknowns {
+                                values.entry(*id).or_insert(0.);
+                            }
+                        }
+                        let states = case
+                            .variables
+                            .iter()
+                            .filter_map(|(p, v)| {
+                                product
+                                    .model
+                                    .paths
+                                    .get(p)
+                                    .filter(|id| inner.unknowns.contains(id))
+                                    .map(|id| (*id, v.clone()))
+                            })
+                            .collect::<BTreeMap<_, _>>();
+                        if states.values().any(|state| state.fixed == Some(true)) {
+                            return Err(contract(
+                                "fixing a nested unknown requires inline realization",
+                            ));
+                        }
+                        if inner.selection.anchors.is_none()
+                            && inner.unknowns.iter().any(|id| {
+                                !values.contains_key(id)
+                                    && !residual.hint_targets.iter().any(|(target, _, kind)| {
+                                        target == id && *kind == ModelingHint::Start
+                                    })
+                            })
+                        {
+                            return Err(contract(
+                                "missing deterministic start for implicit unknown",
+                            ));
+                        }
+                        let mut hash = pse_ids::FramedHasher::new(
+                            pse_ids::Frame::ModelingImplicitTrialHintsV1,
+                        );
+                        hash.hash(&inner.descriptor.spec().identity())
+                            .hash(&residual.body.spec().physical)
+                            .id(&residual.id)
+                            .hash(&policy.key());
+                        for r in &declarations {
+                            r.source.frame(&mut hash);
+                            r.declaration.frame(&mut hash);
+                        }
+                        for (id, value) in &values {
+                            hash.id(id).u64(value.to_bits());
+                        }
+                        for (id, state) in &states {
+                            hash.id(id).u64(match state.fixed {
+                                None => 0,
+                                Some(false) => 1,
+                                Some(true) => 2,
+                            });
+                            for bound in [state.lower, state.upper] {
+                                hash.bool(bound.is_some());
+                                if let Some(value) = bound {
+                                    hash.bool(value.is_some());
+                                    if let Some(value) = value {
+                                        hash.u64(value.to_bits());
+                                    }
+                                }
+                            }
+                        }
+                        hash.u64(controls.iterations as u64)
+                            .u64(controls.time_limit.as_secs())
+                            .u64(controls.time_limit.subsec_nanos() as u64);
+                        configurations.insert(
+                            residual.id,
+                            Configuration::Hints(Arc::new(TrialHints {
+                                identity: hash.finish_hash(),
+                                quantities: self.quantities.clone(),
+                                preconditions: self.physical.preconditions.clone(),
+                                lineage: model.solved().stage(stage_instance(&inner)),
+                                unknowns: inner.unknowns.clone(),
+                                rows: residual.rows.clone(),
+                                hints: residual.hint_targets.clone(),
+                                scales: residual.scales.clone(),
+                                values,
+                                states,
+                                targets,
+                                declarations,
+                                policy,
+                                controls: controls.clone(),
+                            })),
+                        );
+                    }
+                    inputs.push(ModelingInner {
+                        admitted: inner,
+                        configurations,
+                    });
+                }
+                Ok(self
+                    .runtime
+                    .shared
+                    .math()
+                    .modeling_inner_providers(
+                        inputs,
+                        self.accelerators.clone(),
+                        self.registrations(),
+                        provider_demands,
+                        compiler,
+                        cancel,
+                    )
+                    .await?)
+            })
+            .await
     }
 }
 

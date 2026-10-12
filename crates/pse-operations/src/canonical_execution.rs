@@ -3175,15 +3175,17 @@ impl CanonicalStore {
         Q: IntoFuture<Output = Result<surrealdb::IndexedResults, surrealdb::Error>>,
     {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        self.protected_query(
-            &format!("execution-run:{run}"),
-            crate::canonical::QueryEffect::Mutation,
-            operation,
-            build,
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                self.protected_query(
+                    &format!("execution-run:{run}"),
+                    crate::canonical::QueryEffect::Mutation,
+                    operation,
+                    build,
+                )
+                .await
+            })
+            .await
     }
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
@@ -3226,20 +3228,22 @@ impl CanonicalStore {
         request: &RunRequest,
     ) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let (expected, _) = run_request_receipt(request)?;
-            let saved = self
-                .canonical_run(&expected.key)
-                .await?
-                .ok_or(CanonicalError::OperationReused)?;
-            if !same_run_receipt(&expected, &saved) {
-                return Err(CanonicalError::OperationReused);
-            }
-            Ok(())
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let (expected, _) = run_request_receipt(request)?;
+                    let saved = self
+                        .canonical_run(&expected.key)
+                        .await?
+                        .ok_or(CanonicalError::OperationReused)?;
+                    if !same_run_receipt(&expected, &saved) {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    Ok(())
+                })
+                .await
+            })
+            .await
     }
     /// Bounded semantic ordering over one problem's recorded execution sequence.
     pub async fn execution_run_page(
@@ -3275,23 +3279,27 @@ impl CanonicalStore {
     ) -> Result<Option<pse_model::generated::runtime::canonical_result_seeds::Row>, CanonicalError>
     {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            identity(key)?;
-            let mut result = bounded_query(
-                self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_result_seeds',$key);")
-                    .bind(("key", key.to_owned())),
-            )
-            .await?;
-            result
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_result_seeds)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    identity(key)?;
+                    let mut result = bounded_query(
+                        self.db
+                            .query(
+                                "SELECT * FROM ONLY type::record('canonical_result_seeds',$key);",
+                            )
+                            .bind(("key", key.to_owned())),
+                    )
+                    .await?;
+                    result
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_result_seeds)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     /// Filter sealed complete-original inventory before cutoff; admission remains independent.
     pub async fn result_seed_candidates(
@@ -3501,22 +3509,24 @@ impl CanonicalStore {
     /// Read a retained semantic execution independently of its current generation.
     pub async fn canonical_run(&self, key: &str) -> Result<Option<CanonicalRun>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(
-                self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
-                    .bind(("key", key.to_owned())),
-            )
-            .await?;
-            response
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_runs)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut response = bounded_query(
+                        self.db
+                            .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
+                            .bind(("key", key.to_owned())),
+                    )
+                    .await?;
+                    response
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_runs)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     /// Read an explicit attempt; terminal history is independent of the latest pointer.
     pub async fn canonical_attempt(
@@ -3524,22 +3534,24 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<CanonicalAttempt>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(
-                self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
-                    .bind(("key", key.to_owned())),
-            )
-            .await?;
-            response
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_attempts)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut response = bounded_query(
+                        self.db
+                            .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
+                            .bind(("key", key.to_owned())),
+                    )
+                    .await?;
+                    response
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_attempts)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     /// Read a closed manifest; admission additionally requires a terminal attempt.
     pub async fn canonical_result_manifest(
@@ -3547,25 +3559,27 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<ResultManifest>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut response = bounded_query(
                 self.db
                     .query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);")
                     .bind(("key", key.to_owned())),
             )
             .await?;
-            let row = response
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_result_manifests)
-                .transpose()?;
-            if let Some(row) = &row {
-                decode_result_descriptors(row)?;
-            }
-            Ok(row)
-        })
-        .await
-            }).await
+                    let row = response
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_result_manifests)
+                        .transpose()?;
+                    if let Some(row) = &row {
+                        decode_result_descriptors(row)?;
+                    }
+                    Ok(row)
+                })
+                .await
+            })
+            .await
     }
     async fn ensure_execution_retained(&self, run: &str) -> Result<(), CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3593,9 +3607,10 @@ impl CanonicalStore {
         request: &[u8],
     ) -> Result<Option<String>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut response = bounded_query(
                 self.db
                     .control_query(
                         "SELECT * FROM ONLY type::record('canonical_execution_operations', $key);",
@@ -3603,18 +3618,19 @@ impl CanonicalStore {
                     .bind(("key", operation.to_owned())),
             )
             .await?;
-            let Some(object) = response.take::<Option<Object>>(0)? else {
-                return Ok(None);
-            };
-            let row = wire::decode_canonical_execution_operations(object)?;
-            self.ensure_execution_retained(&row.run).await?;
-            if row.kind != kind || row.request.as_slice() != request {
-                return Err(CanonicalError::OperationReused);
-            }
-            Ok(row.attempt)
-        })
-        .await
-            }).await
+                    let Some(object) = response.take::<Option<Object>>(0)? else {
+                        return Ok(None);
+                    };
+                    let row = wire::decode_canonical_execution_operations(object)?;
+                    self.ensure_execution_retained(&row.run).await?;
+                    if row.kind != kind || row.request.as_slice() != request {
+                        return Err(CanonicalError::OperationReused);
+                    }
+                    Ok(row.attempt)
+                })
+                .await
+            })
+            .await
     }
     /// Claim a fresh actual attempt, or settle the same claim after lost acknowledgment.
     pub async fn claim_run(
@@ -3671,23 +3687,25 @@ impl CanonicalStore {
         row_count: u64,
     ) -> Result<AppendAck, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.append_execution_batch(
-                fence,
-                operation,
-                name,
-                ordinal,
-                payload,
-                row_count,
-                None,
-                &[],
-                &[],
-            )
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.append_execution_batch(
+                        fence,
+                        operation,
+                        name,
+                        ordinal,
+                        payload,
+                        row_count,
+                        None,
+                        &[],
+                        &[],
+                    )
+                    .await
+                })
+                .await
+            })
             .await
-        })
-        .await
-            }).await
     }
     /// Append an independently decodable scientific block and its indexed metadata atomically.
     #[allow(
@@ -3705,23 +3723,25 @@ impl CanonicalStore {
         block: &ResultBlock,
     ) -> Result<AppendAck, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.append_execution_batch(
-                fence,
-                operation,
-                name,
-                ordinal,
-                payload,
-                row_count,
-                Some(block),
-                &[],
-                &[],
-            )
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.append_execution_batch(
+                        fence,
+                        operation,
+                        name,
+                        ordinal,
+                        payload,
+                        row_count,
+                        Some(block),
+                        &[],
+                        &[],
+                    )
+                    .await
+                })
+                .await
+            })
             .await
-        })
-        .await
-            }).await
     }
     /// Retain complete scalar row locators and their batch receipt under one ingestion gate.
     #[allow(
@@ -3740,31 +3760,33 @@ impl CanonicalStore {
         row_indexes: &[ResultRow],
     ) -> Result<AppendAck, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            if row_indexes
-                .windows(2)
-                .any(|pair| pair[0].key >= pair[1].key)
-            {
-                return Err(CanonicalError::Configuration(
-                    "scalar metadata must have strictly ordered identities".into(),
-                ));
-            }
-            self.append_execution_batch(
-                fence,
-                operation,
-                name,
-                ordinal,
-                payload,
-                row_count,
-                Some(block),
-                row_indexes,
-                &[],
-            )
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    if row_indexes
+                        .windows(2)
+                        .any(|pair| pair[0].key >= pair[1].key)
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "scalar metadata must have strictly ordered identities".into(),
+                        ));
+                    }
+                    self.append_execution_batch(
+                        fence,
+                        operation,
+                        name,
+                        ordinal,
+                        payload,
+                        row_count,
+                        Some(block),
+                        row_indexes,
+                        &[],
+                    )
+                    .await
+                })
+                .await
+            })
             .await
-        })
-        .await
-            }).await
     }
     /// Atomically index original IPC rows and scientific output groups with their one immutable payload.
     #[allow(
@@ -3784,32 +3806,34 @@ impl CanonicalStore {
         outputs: &[ResultOutput],
     ) -> Result<AppendAck, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            if row_indexes
-                .windows(2)
-                .any(|pair| pair[0].key >= pair[1].key)
-                || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
-            {
-                return Err(CanonicalError::Configuration(
-                    "result index metadata must have strictly ordered identities".into(),
-                ));
-            }
-            self.append_execution_batch(
-                fence,
-                operation,
-                name,
-                ordinal,
-                payload,
-                row_count,
-                Some(block),
-                row_indexes,
-                outputs,
-            )
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    if row_indexes
+                        .windows(2)
+                        .any(|pair| pair[0].key >= pair[1].key)
+                        || outputs.windows(2).any(|pair| pair[0].key >= pair[1].key)
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "result index metadata must have strictly ordered identities".into(),
+                        ));
+                    }
+                    self.append_execution_batch(
+                        fence,
+                        operation,
+                        name,
+                        ordinal,
+                        payload,
+                        row_count,
+                        Some(block),
+                        row_indexes,
+                        outputs,
+                    )
+                    .await
+                })
+                .await
+            })
             .await
-        })
-        .await
-            }).await
     }
     #[allow(
         clippy::too_many_arguments,
@@ -4388,14 +4412,16 @@ impl CanonicalStore {
         seeds: SeedEligibility,
     ) -> Result<CanonicalAttempt, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.seal_execution(manifest, operation, outcome, completion, None, seeds, None)
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.seal_execution(manifest, operation, outcome, completion, None, seeds, None)
+                        .await
+                        .map(|ack| ack.attempt)
+                })
                 .await
-                .map(|ack| ack.attempt)
-        })
-        .await
-            }).await
+            })
+            .await
     }
     /// Atomically admit the owning study summary and conclude its exact study header.
     ///
@@ -4416,23 +4442,25 @@ impl CanonicalStore {
         completion: &[u8],
     ) -> Result<CanonicalAttempt, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            identity(study)?;
-            self.seal_execution(
-                manifest,
-                operation,
-                outcome,
-                completion,
-                Some(study),
-                SeedEligibility::Unavailable,
-                None,
-            )
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    identity(study)?;
+                    self.seal_execution(
+                        manifest,
+                        operation,
+                        outcome,
+                        completion,
+                        Some(study),
+                        SeedEligibility::Unavailable,
+                        None,
+                    )
+                    .await
+                    .map(|ack| ack.attempt)
+                })
+                .await
+            })
             .await
-            .map(|ack| ack.attempt)
-        })
-        .await
-            }).await
     }
     /// Seal joined scientific observations and return both actual terminal headers.
     /// # Safety
@@ -4451,53 +4479,55 @@ impl CanonicalStore {
         seeds: SeedEligibility,
     ) -> Result<SealAck, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        let header: serde_json::Value = serde_json::from_slice(completion)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if header.get("version").and_then(serde_json::Value::as_u64) != Some(1)
-            || !header.get("inline").is_some_and(serde_json::Value::is_null)
-        {
-            return Err(CanonicalError::IncompleteResponse);
-        }
-        let count = header
-            .get("batch_count")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        let bytes = header
-            .get("payload_bytes")
-            .and_then(serde_json::Value::as_u64)
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        let descriptors = decode_result_descriptors(&manifest.row)?;
-        let chunk = descriptors
-            .iter()
-            .find(|set| set.name == "__completion")
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        if chunk.batch_count != count || chunk.row_count != bytes {
-            return Err(CanonicalError::OperationReused);
-        }
-        let mut coverage = Object::new();
-        coverage.insert("count", canonical_codec::encode_uint(count)?);
-        coverage.insert("bytes", canonical_codec::encode_uint(bytes)?);
-        coverage.insert(
-            "progress",
-            canonical_codec::encode_uint(
-                descriptors
+        activity
+            .scope(async {
+                let header: serde_json::Value = serde_json::from_slice(completion)
+                    .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+                if header.get("version").and_then(serde_json::Value::as_u64) != Some(1)
+                    || !header.get("inline").is_some_and(serde_json::Value::is_null)
+                {
+                    return Err(CanonicalError::IncompleteResponse);
+                }
+                let count = header
+                    .get("batch_count")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                let bytes = header
+                    .get("payload_bytes")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                let descriptors = decode_result_descriptors(&manifest.row)?;
+                let chunk = descriptors
                     .iter()
-                    .find(|set| set.name == "__progress")
-                    .map_or(0, |set| set.row_count),
-            )?,
-        );
-        self.seal_execution(
-            manifest,
-            operation,
-            outcome,
-            completion,
-            None,
-            seeds,
-            Some(coverage),
-        )
-        .await
-            }).await
+                    .find(|set| set.name == "__completion")
+                    .ok_or(CanonicalError::IncompleteResponse)?;
+                if chunk.batch_count != count || chunk.row_count != bytes {
+                    return Err(CanonicalError::OperationReused);
+                }
+                let mut coverage = Object::new();
+                coverage.insert("count", canonical_codec::encode_uint(count)?);
+                coverage.insert("bytes", canonical_codec::encode_uint(bytes)?);
+                coverage.insert(
+                    "progress",
+                    canonical_codec::encode_uint(
+                        descriptors
+                            .iter()
+                            .find(|set| set.name == "__progress")
+                            .map_or(0, |set| set.row_count),
+                    )?,
+                );
+                self.seal_execution(
+                    manifest,
+                    operation,
+                    outcome,
+                    completion,
+                    None,
+                    seeds,
+                    Some(coverage),
+                )
+                .await
+            })
+            .await
     }
     #[allow(
         clippy::too_many_arguments,

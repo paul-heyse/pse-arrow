@@ -29,22 +29,23 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.prepare_simulation_for(
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            compiler,
-            profile,
-            derivatives,
-            &BTreeSet::new(),
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                self.prepare_simulation_for(
+                    root,
+                    instance,
+                    bindings,
+                    limits,
+                    case,
+                    compiler,
+                    profile,
+                    derivatives,
+                    &BTreeSet::new(),
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Prepare the mandatory exact transient consumer before choosing a dynamic method.
     #[expect(
@@ -65,24 +66,25 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.prepare_simulation_with_controls(
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            compiler,
-            profile,
-            derivatives,
-            exact_parameters,
-            &BTreeSet::new(),
-            None,
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                self.prepare_simulation_with_controls(
+                    root,
+                    instance,
+                    bindings,
+                    limits,
+                    case,
+                    compiler,
+                    profile,
+                    derivatives,
+                    exact_parameters,
+                    &BTreeSet::new(),
+                    None,
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Only the authored profile factory supplies provisional quadrature slots.
     #[expect(
@@ -105,78 +107,80 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if bindings
-            .facts
-            .keys()
-            .any(|k| k.namespace() == pse_modeling::analysis::FactNamespace::Analysis)
-            && bindings
-                .analysis_route()
-                .map_err(|e| contract(e.to_string()))?
-                != pse_modeling::analysis::Route::Integrated
-        {
-            return Err(contract(
-                "simulation requires the integrated analysis route",
-            ));
-        }
-        let mut bindings = bindings.with_analysis(pse_modeling::analysis::Route::Integrated);
-        bindings
-            .demand
-            .extend(case.values.keys().chain(case.variables.keys()).cloned());
-        bindings.demand.sort();
-        bindings.demand.dedup();
-        let base = match prepared {
-            Some(model)
+        activity
+            .scope(async {
                 if bindings
+                    .facts
+                    .keys()
+                    .any(|k| k.namespace() == pse_modeling::analysis::FactNamespace::Analysis)
+                    && bindings
+                        .analysis_route()
+                        .map_err(|e| contract(e.to_string()))?
+                        != pse_modeling::analysis::Route::Integrated
+                {
+                    return Err(contract(
+                        "simulation requires the integrated analysis route",
+                    ));
+                }
+                let mut bindings =
+                    bindings.with_analysis(pse_modeling::analysis::Route::Integrated);
+                bindings
                     .demand
-                    .iter()
-                    .all(|path| model.compiled().model.paths.contains_key(path)) =>
-            {
-                model
-            }
-            _ => {
-                self.prepare(root, instance, bindings.clone(), limits, cancel)
-                    .await?
-            }
-        };
-        let authored = base
-            .compiled()
-            .model
-            .fixtures
-            .get(&instance)
-            .map(|f| f.modes.clone())
-            .unwrap_or_default();
-        let modes = if authored.is_empty() {
-            vec![FixtureMode {
-                name: "initial".into(),
-                facts: BTreeMap::new(),
-                events: vec![],
-            }]
-        } else {
-            authored
-        };
-        let snapshot = pse_backend_native::execution::Snapshot::observe(
-            &pse_backend_native::execution::LINKED,
-        );
-        self.prepare_simulation_modes(
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            compiler,
-            profile,
-            derivatives,
-            &modes,
-            exact_parameters,
-            provisional_quadratures,
-            &snapshot,
-            base,
-            cancel,
-        )
-        .await
-    
-        }).await
+                    .extend(case.values.keys().chain(case.variables.keys()).cloned());
+                bindings.demand.sort();
+                bindings.demand.dedup();
+                let base = match prepared {
+                    Some(model)
+                        if bindings
+                            .demand
+                            .iter()
+                            .all(|path| model.compiled().model.paths.contains_key(path)) =>
+                    {
+                        model
+                    }
+                    _ => {
+                        self.prepare(root, instance, bindings.clone(), limits, cancel)
+                            .await?
+                    }
+                };
+                let authored = base
+                    .compiled()
+                    .model
+                    .fixtures
+                    .get(&instance)
+                    .map(|f| f.modes.clone())
+                    .unwrap_or_default();
+                let modes = if authored.is_empty() {
+                    vec![FixtureMode {
+                        name: "initial".into(),
+                        facts: BTreeMap::new(),
+                        events: vec![],
+                    }]
+                } else {
+                    authored
+                };
+                let snapshot = pse_backend_native::execution::Snapshot::observe(
+                    &pse_backend_native::execution::LINKED,
+                );
+                self.prepare_simulation_modes(
+                    root,
+                    instance,
+                    bindings,
+                    limits,
+                    case,
+                    compiler,
+                    profile,
+                    derivatives,
+                    &modes,
+                    exact_parameters,
+                    provisional_quadratures,
+                    &snapshot,
+                    base,
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Compile all modes before native admission. Layout, units and state scaling stay fixed.
     #[expect(

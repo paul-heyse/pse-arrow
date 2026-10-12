@@ -151,12 +151,12 @@ pub use modeling::{
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
+#[cfg(all(test, feature = "canonical-tests"))]
+mod caller_lifetime_tests;
 #[cfg(test)]
 mod data_documents_tests;
 #[cfg(all(test, feature = "canonical-tests"))]
 mod durable_tests;
-#[cfg(all(test, feature = "canonical-tests"))]
-mod caller_lifetime_tests;
 mod local_analysis;
 mod modeling_results;
 mod results;
@@ -297,7 +297,9 @@ impl DurabilitySelection {
 impl Runtime {
     /// Release this logical caller and all of its aliases. Already admitted work
     /// retains its continuation authority; physical drivers belong to the deployment.
-    pub fn close(&self) { self.canonical_store().close(); }
+    pub fn close(&self) {
+        self.canonical_store().close();
+    }
 
     /// Actual immutable native admission owner retained by this runtime's bound model.
     pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {

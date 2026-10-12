@@ -90,7 +90,10 @@ class Runtime:
         )
 
     def close(self) -> None:
-        """Release this caller and its aliases; admitted work continues through drain."""
+        """Release this caller and its aliases.
+
+        Admitted work continues through drain.
+        """
         self._handle.close()
 
     @property

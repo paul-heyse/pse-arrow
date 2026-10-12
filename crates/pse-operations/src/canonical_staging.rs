@@ -653,32 +653,34 @@ impl CanonicalStore {
         edits: &[ObjectEdit],
     ) -> Result<StageOutcome, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        if edits.iter().any(|edit| {
-            edit.version.as_ref().is_some_and(|version| {
-                matches!(
-                    version.kind.as_str(),
-                    PRODUCT_BLOB_KIND | BODY_CONTENT_KIND | SELECTION_RECEIPT_KIND
-                )
+        activity
+            .scope(async {
+                if edits.iter().any(|edit| {
+                    edit.version.as_ref().is_some_and(|version| {
+                        matches!(
+                            version.kind.as_str(),
+                            PRODUCT_BLOB_KIND | BODY_CONTENT_KIND | SELECTION_RECEIPT_KIND
+                        )
+                    })
+                }) {
+                    return Err(CanonicalError::Configuration(
+                        "reserved product blobs cannot author source revisions".into(),
+                    ));
+                }
+                let plan = plan(problem, expected, edits)?;
+                let token = match self
+                    .acquire_source_stage(problem, expected, operation, &plan)
+                    .await?
+                {
+                    StageOutcome::Acknowledged(revision) => {
+                        return Ok(StageOutcome::Acknowledged(revision));
+                    }
+                    StageOutcome::Closed(token) => token,
+                };
+                self.stage_plan(&token, &plan, edits).await?;
+                Ok(StageOutcome::Closed(token))
             })
-        }) {
-            return Err(CanonicalError::Configuration(
-                "reserved product blobs cannot author source revisions".into(),
-            ));
-        }
-        let plan = plan(problem, expected, edits)?;
-        let token = match self
-            .acquire_source_stage(problem, expected, operation, &plan)
-            .await?
-        {
-            StageOutcome::Acknowledged(revision) => {
-                return Ok(StageOutcome::Acknowledged(revision));
-            }
-            StageOutcome::Closed(token) => token,
-        };
-        self.stage_plan(&token, &plan, edits).await?;
-        Ok(StageOutcome::Closed(token))
-            }).await
+            .await
     }
 
     async fn source_edit_receipt(
@@ -765,122 +767,126 @@ impl CanonicalStore {
         dependencies: &[u8],
     ) -> Result<Option<ClosedStage>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        let receipt = descriptor
-            .receipt
-            .as_ref()
-            .ok_or_else(|| CanonicalError::Configuration("split receipt missing".into()))?;
-        if descriptor.payload_bytes != payload.len()
-            || descriptor.dependency_bytes != dependencies.len()
-            || receipt.bytes != dependencies.len()
-            || descriptor.frame != SPLIT_PRODUCT_KIND
-        {
-            return Err(CanonicalError::Configuration(
-                "borrowed immutable product staging extent differs".into(),
-            ));
-        }
-        let parts = [
-            (BODY_CONTENT_KIND, descriptor.version.as_str(), payload),
-            (
-                SELECTION_RECEIPT_KIND,
-                receipt.version.as_str(),
-                dependencies,
-            ),
-        ];
-        let changes = parts
-            .iter()
-            .enumerate()
-            .map(|(ordinal, (kind, key, bytes))| {
-                let len = bytes.len() as u64;
-                let digest = if ordinal == 0 {
-                    descriptor.digest.clone()
-                } else {
-                    receipt.digest.clone()
+        activity
+            .scope(async {
+                let receipt = descriptor
+                    .receipt
+                    .as_ref()
+                    .ok_or_else(|| CanonicalError::Configuration("split receipt missing".into()))?;
+                if descriptor.payload_bytes != payload.len()
+                    || descriptor.dependency_bytes != dependencies.len()
+                    || receipt.bytes != dependencies.len()
+                    || descriptor.frame != SPLIT_PRODUCT_KIND
+                {
+                    return Err(CanonicalError::Configuration(
+                        "borrowed immutable product staging extent differs".into(),
+                    ));
+                }
+                let parts = [
+                    (BODY_CONTENT_KIND, descriptor.version.as_str(), payload),
+                    (
+                        SELECTION_RECEIPT_KIND,
+                        receipt.version.as_str(),
+                        dependencies,
+                    ),
+                ];
+                let changes = parts
+                    .iter()
+                    .enumerate()
+                    .map(|(ordinal, (kind, key, bytes))| {
+                        let len = bytes.len() as u64;
+                        let digest = if ordinal == 0 {
+                            descriptor.digest.clone()
+                        } else {
+                            receipt.digest.clone()
+                        };
+                        let content_digest = derive_hash(
+                            Frame::CanonicalVersionV1,
+                            &[
+                                kind.as_bytes(),
+                                kind.as_bytes(),
+                                wire::INTERPRETATION.as_bytes(),
+                                &len.to_le_bytes(),
+                                digest.as_bytes(),
+                                b"[]",
+                            ],
+                        )
+                        .to_hex();
+                        ChangeDescription {
+                            logical: (*kind).into(),
+                            scope: (*kind).into(),
+                            name: (*kind).into(),
+                            version: Some(VersionDescription {
+                                key: (*key).into(),
+                                logical: (*kind).into(),
+                                kind: (*kind).into(),
+                                interpretation: wire::INTERPRETATION.into(),
+                                payload_digest: digest,
+                                payload_len: len,
+                                block_count: bytes.len().div_ceil(SOURCE_BLOCK_BYTES) as u64,
+                                reference_count: 0,
+                                content_digest,
+                            }),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let encoded = serde_json::to_vec(&(problem, Option::<&str>::None, &changes))
+                    .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
+                let hash = derive_hash(
+                    Frame::CanonicalEditV1,
+                    &[wire::INTERPRETATION.as_bytes(), &encoded],
+                );
+                let plan = EditPlan {
+                    changes,
+                    request: hash.as_bytes().to_vec(),
+                    request_digest: hash.to_hex(),
                 };
-                let content_digest = derive_hash(
-                    Frame::CanonicalVersionV1,
-                    &[
-                        kind.as_bytes(),
-                        kind.as_bytes(),
-                        wire::INTERPRETATION.as_bytes(),
-                        &len.to_le_bytes(),
-                        digest.as_bytes(),
-                        b"[]",
-                    ],
-                )
-                .to_hex();
-                ChangeDescription {
-                    logical: (*kind).into(),
-                    scope: (*kind).into(),
-                    name: (*kind).into(),
-                    version: Some(VersionDescription {
-                        key: (*key).into(),
-                        logical: (*kind).into(),
-                        kind: (*kind).into(),
-                        interpretation: wire::INTERPRETATION.into(),
-                        payload_digest: digest,
-                        payload_len: len,
-                        block_count: bytes.len().div_ceil(SOURCE_BLOCK_BYTES) as u64,
-                        reference_count: 0,
-                        content_digest,
-                    }),
-                }
-            })
-            .collect::<Vec<_>>();
-        let encoded = serde_json::to_vec(&(problem, Option::<&str>::None, &changes))
-            .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
-        let hash = derive_hash(
-            Frame::CanonicalEditV1,
-            &[wire::INTERPRETATION.as_bytes(), &encoded],
-        );
-        let plan = EditPlan {
-            changes,
-            request: hash.as_bytes().to_vec(),
-            request_digest: hash.to_hex(),
-        };
-        let Some(token) = self
-            .begin_stage_inner(
-                problem,
-                None,
-                operation,
-                &plan,
-                STAGE_LIFETIME,
-                StagePurpose::Product,
-            )
-            .await?
-        else {
-            return Ok(None);
-        };
-        for (ordinal, (change, (_, key, bytes))) in plan.changes.iter().zip(parts).enumerate() {
-            self.stage_metadata(&token, ordinal, change).await?;
-            let header: Option<Object> =
-                request(self.db.select(("canonical_version_manifests", key))).await?;
-            let closed = header
-                .map(wire::decode_canonical_version_manifests)
-                .transpose()?
-                .is_some_and(|header| header.closed);
-            if !closed {
-                for (ordinal, bytes) in bytes.chunks(SOURCE_BLOCK_BYTES).enumerate() {
-                    self.stage_query(
-                        "canonical_staging::stage_product_parts",
-                        &token,
-                        STAGE_BLOCK,
-                        vec![("block", source_block(key, ordinal as u64, bytes)?)],
+                let Some(token) = self
+                    .begin_stage_inner(
+                        problem,
+                        None,
+                        operation,
+                        &plan,
+                        STAGE_LIFETIME,
+                        StagePurpose::Product,
                     )
-                    .await?;
+                    .await?
+                else {
+                    return Ok(None);
+                };
+                for (ordinal, (change, (_, key, bytes))) in
+                    plan.changes.iter().zip(parts).enumerate()
+                {
+                    self.stage_metadata(&token, ordinal, change).await?;
+                    let header: Option<Object> =
+                        request(self.db.select(("canonical_version_manifests", key))).await?;
+                    let closed = header
+                        .map(wire::decode_canonical_version_manifests)
+                        .transpose()?
+                        .is_some_and(|header| header.closed);
+                    if !closed {
+                        for (ordinal, bytes) in bytes.chunks(SOURCE_BLOCK_BYTES).enumerate() {
+                            self.stage_query(
+                                "canonical_staging::stage_product_parts",
+                                &token,
+                                STAGE_BLOCK,
+                                vec![("block", source_block(key, ordinal as u64, bytes)?)],
+                            )
+                            .await?;
+                        }
+                        self.stage_query(
+                            "canonical_staging::stage_product_parts",
+                            &token,
+                            CLOSE_VERSION,
+                            vec![("version", Value::String(key.into()))],
+                        )
+                        .await?;
+                    }
                 }
-                self.stage_query(
-                    "canonical_staging::stage_product_parts",
-                    &token,
-                    CLOSE_VERSION,
-                    vec![("version", Value::String(key.into()))],
-                )
-                .await?;
-            }
-        }
-        self.close_stage(&token).await?;
-        Ok(Some(token))
-            }).await
+                self.close_stage(&token).await?;
+                Ok(Some(token))
+            })
+            .await
     }
 
     async fn stage_plan(
@@ -1211,9 +1217,9 @@ impl CanonicalStore {
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        self.assemble_source(None, version, None).await
-            }).await
+        activity
+            .scope(async { self.assemble_source(None, version, None).await })
+            .await
     }
 
     /// Every header/block read validates the same exact selected revision and live
@@ -1225,9 +1231,9 @@ impl CanonicalStore {
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        self.assemble_source(Some(selection), version, None).await
-            }).await
+        activity
+            .scope(async { self.assemble_source(Some(selection), version, None).await })
+            .await
     }
 
     /// Read the exact selected payload extent before allocating scientific bytes.
@@ -1239,38 +1245,40 @@ impl CanonicalStore {
         version: &str,
     ) -> Result<Option<usize>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        let Some(header) = self
-            .source_record(
-                "canonical_version_manifests",
-                version,
-                Some(selection),
-                version,
-            )
-            .await?
-        else {
-            return Ok(None);
-        };
-        let header = wire::decode_canonical_version_manifests(header)?;
-        if !header.closed {
-            return Ok(None);
-        }
-        if header.key != version || header.interpretation != wire::INTERPRETATION {
-            return Err(CanonicalError::Configuration(
-                "immutable source manifest identity/interpretation mismatch".into(),
-            ));
-        }
-        let length =
-            usize::try_from(header.payload_len).map_err(|_| CanonicalError::PayloadLimit)?;
-        let expected_blocks = u64::try_from(length.div_ceil(SOURCE_BLOCK_BYTES))
-            .map_err(|_| CanonicalError::PayloadLimit)?;
-        if expected_blocks != header.block_count {
-            return Err(CanonicalError::Configuration(
-                "immutable source block coverage mismatch".into(),
-            ));
-        }
-        Ok(Some(length))
-            }).await
+        activity
+            .scope(async {
+                let Some(header) = self
+                    .source_record(
+                        "canonical_version_manifests",
+                        version,
+                        Some(selection),
+                        version,
+                    )
+                    .await?
+                else {
+                    return Ok(None);
+                };
+                let header = wire::decode_canonical_version_manifests(header)?;
+                if !header.closed {
+                    return Ok(None);
+                }
+                if header.key != version || header.interpretation != wire::INTERPRETATION {
+                    return Err(CanonicalError::Configuration(
+                        "immutable source manifest identity/interpretation mismatch".into(),
+                    ));
+                }
+                let length = usize::try_from(header.payload_len)
+                    .map_err(|_| CanonicalError::PayloadLimit)?;
+                let expected_blocks = u64::try_from(length.div_ceil(SOURCE_BLOCK_BYTES))
+                    .map_err(|_| CanonicalError::PayloadLimit)?;
+                if expected_blocks != header.block_count {
+                    return Err(CanonicalError::Configuration(
+                        "immutable source block coverage mismatch".into(),
+                    ));
+                }
+                Ok(Some(length))
+            })
+            .await
     }
 
     /// Acquire bounded selected headers together, without assembling payloads.
@@ -1281,49 +1289,58 @@ impl CanonicalStore {
         versions: &[String],
     ) -> Result<SelectedObjectBatch, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        if versions.is_empty()
-            || versions.len() > SELECTED_OBJECT_BATCH
-            || versions
-                .iter()
-                .any(|version| version.len() > IDENTITY_BYTES)
-            || versions
-                .iter()
-                .collect::<std::collections::BTreeSet<_>>()
-                .len()
-                != versions.len()
-        {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        let rows = self
-            .selected_source_records(selection, versions, "canonical_version_manifests", versions)
-            .await?;
-        let mut headers = rows
-            .into_iter()
-            .map(wire::decode_canonical_version_manifests)
-            .collect::<Result<Vec<_>, _>>()?;
-        if headers.len() != versions.len() {
-            return Err(CanonicalError::Configuration(
-                "selected source manifest unavailable".into(),
-            ));
-        }
-        let mut ordered = Vec::with_capacity(headers.len());
-        for version in versions {
-            let position = headers
-                .iter()
-                .position(|header| &header.key == version)
-                .ok_or_else(|| {
-                    CanonicalError::Configuration("selected manifest identity mismatch".into())
-                })?;
-            let header = headers.swap_remove(position);
-            source_extent(&header)?;
-            ordered.push(header);
-        }
-        Ok(SelectedObjectBatch {
-            selection: selection.clone(),
-            headers: ordered,
-        })
-            }).await
+        activity
+            .scope(async {
+                if versions.is_empty()
+                    || versions.len() > SELECTED_OBJECT_BATCH
+                    || versions
+                        .iter()
+                        .any(|version| version.len() > IDENTITY_BYTES)
+                    || versions
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                        != versions.len()
+                {
+                    return Err(CanonicalError::PayloadLimit);
+                }
+                let rows = self
+                    .selected_source_records(
+                        selection,
+                        versions,
+                        "canonical_version_manifests",
+                        versions,
+                    )
+                    .await?;
+                let mut headers = rows
+                    .into_iter()
+                    .map(wire::decode_canonical_version_manifests)
+                    .collect::<Result<Vec<_>, _>>()?;
+                if headers.len() != versions.len() {
+                    return Err(CanonicalError::Configuration(
+                        "selected source manifest unavailable".into(),
+                    ));
+                }
+                let mut ordered = Vec::with_capacity(headers.len());
+                for version in versions {
+                    let position = headers
+                        .iter()
+                        .position(|header| &header.key == version)
+                        .ok_or_else(|| {
+                            CanonicalError::Configuration(
+                                "selected manifest identity mismatch".into(),
+                            )
+                        })?;
+                    let header = headers.swap_remove(position);
+                    source_extent(&header)?;
+                    ordered.push(header);
+                }
+                Ok(SelectedObjectBatch {
+                    selection: selection.clone(),
+                    headers: ordered,
+                })
+            })
+            .await
     }
 
     /// Read at most 512 KiB of source blocks, leaving cancellation and resource
@@ -1342,81 +1359,87 @@ impl CanonicalStore {
         CanonicalError,
     > {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        let mut requests = Vec::new();
-        let mut bytes = 0usize;
-        'objects: for (index, header) in batch.headers.iter().enumerate().skip(object) {
-            let start = if index == object { ordinal } else { 0 };
-            if start > header.block_count {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            for ordinal in start..header.block_count {
-                let length = (header.payload_len as usize - ordinal as usize * SOURCE_BLOCK_BYTES)
-                    .min(SOURCE_BLOCK_BYTES);
-                if requests.len() == SELECTED_OBJECT_BATCH || bytes + length > SOURCE_BLOCK_BYTES {
-                    break 'objects;
+        activity
+            .scope(async {
+                let mut requests = Vec::new();
+                let mut bytes = 0usize;
+                'objects: for (index, header) in batch.headers.iter().enumerate().skip(object) {
+                    let start = if index == object { ordinal } else { 0 };
+                    if start > header.block_count {
+                        return Err(CanonicalError::PayloadLimit);
+                    }
+                    for ordinal in start..header.block_count {
+                        let length = (header.payload_len as usize
+                            - ordinal as usize * SOURCE_BLOCK_BYTES)
+                            .min(SOURCE_BLOCK_BYTES);
+                        if requests.len() == SELECTED_OBJECT_BATCH
+                            || bytes + length > SOURCE_BLOCK_BYTES
+                        {
+                            break 'objects;
+                        }
+                        bytes += length;
+                        requests.push((index, ordinal, block_key(&header.key, ordinal)));
+                    }
                 }
-                bytes += length;
-                requests.push((index, ordinal, block_key(&header.key, ordinal)));
-            }
-        }
-        if requests.is_empty() {
-            return Err(CanonicalError::Configuration(
-                "selected block cursor has no unread block".into(),
-            ));
-        }
-        let versions = requests
-            .iter()
-            .map(|(index, _, _)| batch.headers[*index].key.clone())
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>();
-        let keys = requests
-            .iter()
-            .map(|(_, _, key)| key.clone())
-            .collect::<Vec<_>>();
-        let rows = self
-            .selected_source_records(
-                &batch.selection,
-                &versions,
-                "canonical_payload_blocks",
-                &keys,
-            )
-            .await?;
-        let mut blocks = rows
-            .into_iter()
-            .map(wire::decode_canonical_payload_blocks)
-            .collect::<Result<Vec<_>, _>>()?;
-        if blocks.len() != requests.len() {
-            return Err(CanonicalError::Configuration(
-                "selected source block missing".into(),
-            ));
-        }
-        let mut ordered = Vec::with_capacity(blocks.len());
-        for (index, ordinal, key) in requests {
-            let position = blocks
-                .iter()
-                .position(|block| block.key == key)
-                .ok_or_else(|| {
-                    CanonicalError::Configuration("selected block identity mismatch".into())
-                })?;
-            let block = blocks.swap_remove(position);
-            let header = &batch.headers[index];
-            let length = (header.payload_len as usize - ordinal as usize * SOURCE_BLOCK_BYTES)
-                .min(SOURCE_BLOCK_BYTES);
-            if block.version != header.key
-                || block.ordinal != ordinal
-                || block.payload.len() != length
-                || payload_digest(block.payload.as_slice()) != block.digest
-            {
-                return Err(CanonicalError::Configuration(
-                    "selected block identity/length/digest mismatch".into(),
-                ));
-            }
-            ordered.push((index, block));
-        }
-        Ok(ordered)
-            }).await
+                if requests.is_empty() {
+                    return Err(CanonicalError::Configuration(
+                        "selected block cursor has no unread block".into(),
+                    ));
+                }
+                let versions = requests
+                    .iter()
+                    .map(|(index, _, _)| batch.headers[*index].key.clone())
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                let keys = requests
+                    .iter()
+                    .map(|(_, _, key)| key.clone())
+                    .collect::<Vec<_>>();
+                let rows = self
+                    .selected_source_records(
+                        &batch.selection,
+                        &versions,
+                        "canonical_payload_blocks",
+                        &keys,
+                    )
+                    .await?;
+                let mut blocks = rows
+                    .into_iter()
+                    .map(wire::decode_canonical_payload_blocks)
+                    .collect::<Result<Vec<_>, _>>()?;
+                if blocks.len() != requests.len() {
+                    return Err(CanonicalError::Configuration(
+                        "selected source block missing".into(),
+                    ));
+                }
+                let mut ordered = Vec::with_capacity(blocks.len());
+                for (index, ordinal, key) in requests {
+                    let position = blocks
+                        .iter()
+                        .position(|block| block.key == key)
+                        .ok_or_else(|| {
+                            CanonicalError::Configuration("selected block identity mismatch".into())
+                        })?;
+                    let block = blocks.swap_remove(position);
+                    let header = &batch.headers[index];
+                    let length = (header.payload_len as usize
+                        - ordinal as usize * SOURCE_BLOCK_BYTES)
+                        .min(SOURCE_BLOCK_BYTES);
+                    if block.version != header.key
+                        || block.ordinal != ordinal
+                        || block.payload.len() != length
+                        || payload_digest(block.payload.as_slice()) != block.digest
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "selected block identity/length/digest mismatch".into(),
+                        ));
+                    }
+                    ordered.push((index, block));
+                }
+                Ok(ordered)
+            })
+            .await
     }
 
     /// Close the whole acquisition after its last block. No object escapes on
@@ -1427,45 +1450,47 @@ impl CanonicalStore {
         payloads: Vec<Vec<u8>>,
     ) -> Result<Vec<ObjectVersion>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        if payloads.len() != batch.headers.len() {
-            return Err(CanonicalError::PayloadLimit);
-        }
-        for (header, payload) in batch.headers.iter().zip(&payloads) {
-            if payload.len() != header.payload_len as usize
-                || payload_digest(payload) != header.payload_digest
-            {
-                return Err(CanonicalError::Configuration(
-                    "selected source payload length/digest mismatch".into(),
-                ));
-            }
-        }
-        let versions = batch
-            .headers
-            .iter()
-            .map(|header| header.key.clone())
-            .collect::<Vec<_>>();
-        let closing = self
-            .selected_object_batch(&batch.selection, &versions)
-            .await?;
-        if closing.headers != batch.headers {
-            return Err(CanonicalError::Configuration(
-                "selected manifest changed during acquisition".into(),
-            ));
-        }
-        Ok(batch
-            .headers
-            .into_iter()
-            .zip(payloads)
-            .map(|(header, payload)| ObjectVersion {
-                key: header.key,
-                logical: header.logical,
-                kind: header.kind,
-                interpretation: header.interpretation,
-                payload: payload.into(),
+        activity
+            .scope(async {
+                if payloads.len() != batch.headers.len() {
+                    return Err(CanonicalError::PayloadLimit);
+                }
+                for (header, payload) in batch.headers.iter().zip(&payloads) {
+                    if payload.len() != header.payload_len as usize
+                        || payload_digest(payload) != header.payload_digest
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "selected source payload length/digest mismatch".into(),
+                        ));
+                    }
+                }
+                let versions = batch
+                    .headers
+                    .iter()
+                    .map(|header| header.key.clone())
+                    .collect::<Vec<_>>();
+                let closing = self
+                    .selected_object_batch(&batch.selection, &versions)
+                    .await?;
+                if closing.headers != batch.headers {
+                    return Err(CanonicalError::Configuration(
+                        "selected manifest changed during acquisition".into(),
+                    ));
+                }
+                Ok(batch
+                    .headers
+                    .into_iter()
+                    .zip(payloads)
+                    .map(|(header, payload)| ObjectVersion {
+                        key: header.key,
+                        logical: header.logical,
+                        kind: header.kind,
+                        interpretation: header.interpretation,
+                        payload: payload.into(),
+                    })
+                    .collect())
             })
-            .collect())
-            }).await
+            .await
     }
 
     async fn selected_source_records(
@@ -1512,96 +1537,104 @@ impl CanonicalStore {
         descriptor: &ProductBlob,
     ) -> Result<(), CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        let receipt = descriptor.receipt.as_ref().ok_or_else(|| {
-            CanonicalError::Configuration("historical product needs explicit activation".into())
-        })?;
-        let content = self
-            .authorized_record(
-                "canonical_body_contents",
-                &descriptor.version,
-                Some(selection),
-                &descriptor.version,
-                Some(product),
-            )
-            .await?
-            .ok_or_else(|| {
-                CanonicalError::Configuration("immutable body content record absent".into())
-            })?;
-        let content = wire::decode_canonical_body_contents(content)?;
-        let selected = self
-            .authorized_record(
-                "canonical_selection_receipts",
-                &receipt.version,
-                Some(selection),
-                &receipt.version,
-                Some(product),
-            )
-            .await?
-            .ok_or_else(|| {
-                CanonicalError::Configuration("immutable selection receipt record absent".into())
-            })?;
-        let selected = wire::decode_canonical_selection_receipts(selected)?;
-        if content.key != descriptor.version
-            || content.version != descriptor.version
-            || content.digest != descriptor.digest
-            || content.bytes != descriptor.payload_bytes as u64
-            || content.producer != product.producer
-            || content.interpretation != wire::INTERPRETATION
-            || content.format != BODY_CONTENT_KIND
-            || selected.key != receipt.version
-            || selected.version != receipt.version
-            || selected.digest != receipt.digest
-            || selected.bytes != receipt.bytes as u64
-            || selected.interpretation != wire::INTERPRETATION
-            || selected.format != SELECTION_RECEIPT_KIND
-        {
-            return Err(CanonicalError::Configuration(
-                "immutable body/receipt reconstruction metadata differs".into(),
-            ));
-        }
-        for (kind, key, digest, bytes) in [
-            (
-                BODY_CONTENT_KIND,
-                descriptor.version.as_str(),
-                descriptor.digest.as_str(),
-                descriptor.payload_bytes,
-            ),
-            (
-                SELECTION_RECEIPT_KIND,
-                receipt.version.as_str(),
-                receipt.digest.as_str(),
-                receipt.bytes,
-            ),
-        ] {
-            let row = self
-                .authorized_record(
-                    "canonical_version_manifests",
-                    key,
-                    Some(selection),
-                    key,
-                    Some(product),
-                )
-                .await?
-                .ok_or_else(|| CanonicalError::Configuration("product manifest absent".into()))?;
-            let header = wire::decode_canonical_version_manifests(row)?;
-            if !header.closed
-                || header.key != key
-                || header.logical != kind
-                || header.kind != kind
-                || header.interpretation != wire::INTERPRETATION
-                || header.reference_count != 0
-                || header.payload_len != bytes as u64
-                || header.payload_digest != digest
-                || header.block_count != bytes.div_ceil(SOURCE_BLOCK_BYTES) as u64
-            {
-                return Err(CanonicalError::Configuration(
-                    "product descriptor/header mismatch".into(),
-                ));
-            }
-        }
-        Ok(())
-            }).await
+        activity
+            .scope(async {
+                let receipt = descriptor.receipt.as_ref().ok_or_else(|| {
+                    CanonicalError::Configuration(
+                        "historical product needs explicit activation".into(),
+                    )
+                })?;
+                let content = self
+                    .authorized_record(
+                        "canonical_body_contents",
+                        &descriptor.version,
+                        Some(selection),
+                        &descriptor.version,
+                        Some(product),
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        CanonicalError::Configuration("immutable body content record absent".into())
+                    })?;
+                let content = wire::decode_canonical_body_contents(content)?;
+                let selected = self
+                    .authorized_record(
+                        "canonical_selection_receipts",
+                        &receipt.version,
+                        Some(selection),
+                        &receipt.version,
+                        Some(product),
+                    )
+                    .await?
+                    .ok_or_else(|| {
+                        CanonicalError::Configuration(
+                            "immutable selection receipt record absent".into(),
+                        )
+                    })?;
+                let selected = wire::decode_canonical_selection_receipts(selected)?;
+                if content.key != descriptor.version
+                    || content.version != descriptor.version
+                    || content.digest != descriptor.digest
+                    || content.bytes != descriptor.payload_bytes as u64
+                    || content.producer != product.producer
+                    || content.interpretation != wire::INTERPRETATION
+                    || content.format != BODY_CONTENT_KIND
+                    || selected.key != receipt.version
+                    || selected.version != receipt.version
+                    || selected.digest != receipt.digest
+                    || selected.bytes != receipt.bytes as u64
+                    || selected.interpretation != wire::INTERPRETATION
+                    || selected.format != SELECTION_RECEIPT_KIND
+                {
+                    return Err(CanonicalError::Configuration(
+                        "immutable body/receipt reconstruction metadata differs".into(),
+                    ));
+                }
+                for (kind, key, digest, bytes) in [
+                    (
+                        BODY_CONTENT_KIND,
+                        descriptor.version.as_str(),
+                        descriptor.digest.as_str(),
+                        descriptor.payload_bytes,
+                    ),
+                    (
+                        SELECTION_RECEIPT_KIND,
+                        receipt.version.as_str(),
+                        receipt.digest.as_str(),
+                        receipt.bytes,
+                    ),
+                ] {
+                    let row = self
+                        .authorized_record(
+                            "canonical_version_manifests",
+                            key,
+                            Some(selection),
+                            key,
+                            Some(product),
+                        )
+                        .await?
+                        .ok_or_else(|| {
+                            CanonicalError::Configuration("product manifest absent".into())
+                        })?;
+                    let header = wire::decode_canonical_version_manifests(row)?;
+                    if !header.closed
+                        || header.key != key
+                        || header.logical != kind
+                        || header.kind != kind
+                        || header.interpretation != wire::INTERPRETATION
+                        || header.reference_count != 0
+                        || header.payload_len != bytes as u64
+                        || header.payload_digest != digest
+                        || header.block_count != bytes.div_ceil(SOURCE_BLOCK_BYTES) as u64
+                    {
+                        return Err(CanonicalError::Configuration(
+                            "product descriptor/header mismatch".into(),
+                        ));
+                    }
+                }
+                Ok(())
+            })
+            .await
     }
     pub(crate) async fn assemble_product_blob(
         &self,
@@ -1610,42 +1643,44 @@ impl CanonicalStore {
         descriptor: &ProductBlob,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        self.validate_product_candidate(selection, product, descriptor)
-            .await?;
-        let receipt = descriptor
-            .receipt
-            .as_ref()
-            .ok_or(CanonicalError::PayloadLimit)?;
-        let Some(mut body) = self
-            .assemble_source(
-                Some(selection),
-                &descriptor.version,
-                Some((product, descriptor)),
-            )
-            .await?
-        else {
-            return Ok(None);
-        };
-        let Some(receipt) = self
-            .assemble_source(
-                Some(selection),
-                &receipt.version,
-                Some((product, descriptor)),
-            )
-            .await?
-        else {
-            return Ok(None);
-        };
-        let mut bytes = std::mem::take(&mut body.payload).into_vec();
-        bytes
-            .try_reserve_exact(receipt.payload.len())
-            .map_err(|e| CanonicalError::Configuration(format!("product assembly: {e}")))?;
-        bytes.extend_from_slice(receipt.payload.as_slice());
-        descriptor.split(&bytes)?;
-        body.payload = bytes.into();
-        Ok(Some(body))
-            }).await
+        activity
+            .scope(async {
+                self.validate_product_candidate(selection, product, descriptor)
+                    .await?;
+                let receipt = descriptor
+                    .receipt
+                    .as_ref()
+                    .ok_or(CanonicalError::PayloadLimit)?;
+                let Some(mut body) = self
+                    .assemble_source(
+                        Some(selection),
+                        &descriptor.version,
+                        Some((product, descriptor)),
+                    )
+                    .await?
+                else {
+                    return Ok(None);
+                };
+                let Some(receipt) = self
+                    .assemble_source(
+                        Some(selection),
+                        &receipt.version,
+                        Some((product, descriptor)),
+                    )
+                    .await?
+                else {
+                    return Ok(None);
+                };
+                let mut bytes = std::mem::take(&mut body.payload).into_vec();
+                bytes
+                    .try_reserve_exact(receipt.payload.len())
+                    .map_err(|e| CanonicalError::Configuration(format!("product assembly: {e}")))?;
+                bytes.extend_from_slice(receipt.payload.as_slice());
+                descriptor.split(&bytes)?;
+                body.payload = bytes.into();
+                Ok(Some(body))
+            })
+            .await
     }
 
     async fn source_record(

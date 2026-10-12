@@ -546,26 +546,27 @@ impl Runtime {
         run: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_runs as rows;
-        let extent = response_owner(self, "canonical:result-header")?;
-        let row = pse_operations::canonical::response_ownership_scope(
-            extent.clone(),
-            self.canonical_store().canonical_run(run),
-        )
-        .await?
-        .ok_or_else(|| contract("canonical run absent"))?;
-        let validation = self.validation_context();
-        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-            .map_err(super::relation)?;
-        builder.push(row).map_err(super::relation)?;
-        builder
-            .finish()
-            .map_err(super::relation)?
-            .retained(&self.shared.pool(), &CancellationToken::new())
-            .map_err(super::relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_runs as rows;
+                let extent = response_owner(self, "canonical:result-header")?;
+                let row = pse_operations::canonical::response_ownership_scope(
+                    extent.clone(),
+                    self.canonical_store().canonical_run(run),
+                )
+                .await?
+                .ok_or_else(|| contract("canonical run absent"))?;
+                let validation = self.validation_context();
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
+                builder.push(row).map_err(super::relation)?;
+                builder
+                    .finish()
+                    .map_err(super::relation)?
+                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .map_err(super::relation)
+            })
+            .await
     }
     /// Read the actual attempt's recorded lifecycle and completion without substitution.
     pub async fn attempt_record(
@@ -573,26 +574,27 @@ impl Runtime {
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_attempts as rows;
-        let extent = response_owner(self, "canonical:result-header")?;
-        let row = pse_operations::canonical::response_ownership_scope(
-            extent.clone(),
-            self.canonical_store().canonical_attempt(attempt),
-        )
-        .await?
-        .ok_or_else(|| contract("canonical attempt absent"))?;
-        let validation = self.validation_context();
-        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-            .map_err(super::relation)?;
-        builder.push(row).map_err(super::relation)?;
-        builder
-            .finish()
-            .map_err(super::relation)?
-            .retained(&self.shared.pool(), &CancellationToken::new())
-            .map_err(super::relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_attempts as rows;
+                let extent = response_owner(self, "canonical:result-header")?;
+                let row = pse_operations::canonical::response_ownership_scope(
+                    extent.clone(),
+                    self.canonical_store().canonical_attempt(attempt),
+                )
+                .await?
+                .ok_or_else(|| contract("canonical attempt absent"))?;
+                let validation = self.validation_context();
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
+                builder.push(row).map_err(super::relation)?;
+                builder
+                    .finish()
+                    .map_err(super::relation)?
+                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .map_err(super::relation)
+            })
+            .await
     }
     /// Read one admitted terminal attempt's exact closed manifest as a typed row.
     pub async fn result_manifest(
@@ -600,34 +602,36 @@ impl Runtime {
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_relations::generated::runtime::canonical_result_manifests as rows;
-        let extent = response_owner(self, "canonical:result-header")?;
-        let store = self.canonical_store();
-        let read = pse_operations::canonical::response_ownership_scope(extent.clone(), async {
-            let selected = store
-                .canonical_attempt(attempt)
-                .await?
-                .ok_or_else(|| contract("canonical attempt absent"))?;
-            store
-                .read_results(&selected.run, attempt, READ_LIFETIME)
-                .await
-                .map_err(WorkflowError::from)
-        })
-        .await?;
-        let validation = self.validation_context();
-        let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
-            .map_err(super::relation)?;
-        builder
-            .push(read.manifest().clone())
-            .map_err(super::relation)?;
-        builder
-            .finish()
-            .map_err(super::relation)?
-            .retained(&self.shared.pool(), &CancellationToken::new())
-            .map_err(super::relation)
-    
-        }).await
+        activity
+            .scope(async {
+                use pse_relations::generated::runtime::canonical_result_manifests as rows;
+                let extent = response_owner(self, "canonical:result-header")?;
+                let store = self.canonical_store();
+                let read =
+                    pse_operations::canonical::response_ownership_scope(extent.clone(), async {
+                        let selected = store
+                            .canonical_attempt(attempt)
+                            .await?
+                            .ok_or_else(|| contract("canonical attempt absent"))?;
+                        store
+                            .read_results(&selected.run, attempt, READ_LIFETIME)
+                            .await
+                            .map_err(WorkflowError::from)
+                    })
+                    .await?;
+                let validation = self.validation_context();
+                let mut builder = rows::Builder::with_registry(self.registry(), 1, &validation)
+                    .map_err(super::relation)?;
+                builder
+                    .push(read.manifest().clone())
+                    .map_err(super::relation)?;
+                builder
+                    .finish()
+                    .map_err(super::relation)?
+                    .retained(&self.shared.pool(), &CancellationToken::new())
+                    .map_err(super::relation)
+            })
+            .await
     }
     /// Select a problem's newest admitted terminal run under explicit outcome classes.
     pub async fn latest_results(
@@ -640,18 +644,19 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let extent = response_owner(self, "canonical:result-selection")?;
-        let read = pse_operations::canonical::response_ownership_scope(
-            extent.clone(),
-            self.canonical_store()
-                .latest_results(problem, classes, READ_LIFETIME),
-        )
-        .await?;
-        self.result_selection(read, relation, start, end, cancel, &extent)
-    
-        }).await
+        activity
+            .scope(async {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let extent = response_owner(self, "canonical:result-selection")?;
+                let read = pse_operations::canonical::response_ownership_scope(
+                    extent.clone(),
+                    self.canonical_store()
+                        .latest_results(problem, classes, READ_LIFETIME),
+                )
+                .await?;
+                self.result_selection(read, relation, start, end, cancel, &extent)
+            })
+            .await
     }
     /// Reopen one exact terminal run/attempt and registry relation after restart.
     /// `start..end` are half-open recorded row coordinates; partial/failure
@@ -666,21 +671,22 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        if start > end {
-            return Err(contract("result row range is reversed"));
-        }
-        let extent = response_owner(self, "canonical:result-selection")?;
-        let read = pse_operations::canonical::response_ownership_scope(
-            extent.clone(),
-            self.canonical_store()
-                .read_results(run, attempt, READ_LIFETIME),
-        )
-        .await?;
-        self.result_selection(read, relation, start, end, cancel, &extent)
-    
-        }).await
+        activity
+            .scope(async {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                if start > end {
+                    return Err(contract("result row range is reversed"));
+                }
+                let extent = response_owner(self, "canonical:result-selection")?;
+                let read = pse_operations::canonical::response_ownership_scope(
+                    extent.clone(),
+                    self.canonical_store()
+                        .read_results(run, attempt, READ_LIFETIME),
+                )
+                .await?;
+                self.result_selection(read, relation, start, end, cancel, &extent)
+            })
+            .await
     }
     fn result_selection(
         &self,
@@ -763,78 +769,79 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if minimum.is_some_and(|value| !value.is_finite())
-            || maximum.is_some_and(|value| !value.is_finite())
-            || minimum.zip(maximum).is_some_and(|(min, max)| min > max)
-            || missing == Some(true) && (minimum.is_some() || maximum.is_some())
-        {
-            return Err(contract("invalid finite output predicate"));
-        }
-        let mut reader = self
-            .results(run, attempt, relation, start, end, cancel)
-            .await?;
-        super::result_projection::check_output_field(reader.relation, field)?;
-        let dense =
-            reader.relation == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
-        if dense && missing.is_some() {
-            return Err(contract(
-                "finite dense outputs have no missing-value predicate",
-            ));
-        }
-        // Two exact 128-bit hexadecimal identities plus separators; reserve
-        // owned strings and temporary formatting before materializing them.
-        let output_length = 65usize
-            .checked_add(if dense {
-                1usize
+        activity
+            .scope(async {
+                if minimum.is_some_and(|value| !value.is_finite())
+                    || maximum.is_some_and(|value| !value.is_finite())
+                    || minimum.zip(maximum).is_some_and(|(min, max)| min > max)
+                    || missing == Some(true) && (minimum.is_some() || maximum.is_some())
+                {
+                    return Err(contract("invalid finite output predicate"));
+                }
+                let mut reader = self
+                    .results(run, attempt, relation, start, end, cancel)
+                    .await?;
+                super::result_projection::check_output_field(reader.relation, field)?;
+                let dense = reader.relation
+                    == pse_relations::generated::runtime::simulation_samples::RELATION_ID;
+                if dense && missing.is_some() {
+                    return Err(contract(
+                        "finite dense outputs have no missing-value predicate",
+                    ));
+                }
+                // Two exact 128-bit hexadecimal identities plus separators; reserve
+                // owned strings and temporary formatting before materializing them.
+                let output_length = 65usize
+                    .checked_add(if dense {
+                        1usize
+                            .checked_add(field.len())
+                            .ok_or_else(|| contract("output identity extent"))?
+                    } else {
+                        0
+                    })
+                    .ok_or_else(|| contract("output identity extent"))?;
+                let admitted = output_length
                     .checked_add(field.len())
-                    .ok_or_else(|| contract("output identity extent"))?
-            } else {
-                0
+                    .and_then(|bytes| bytes.checked_add(partition.len()))
+                    .and_then(|bytes| bytes.checked_add(128))
+                    .ok_or_else(|| contract("output selection allocation extent"))?;
+                reader
+                    ._selection_owner
+                    .try_grow(admitted)
+                    .map_err(pse_engine::EngineError::from)?;
+                let mut output = String::with_capacity(output_length);
+                use std::fmt::Write as _;
+                write!(output, "{}:{owner}", reader.relation)
+                    .map_err(|_| contract("output identity formatting"))?;
+                if dense {
+                    output.push(':');
+                    output.push_str(field);
+                }
+                let filter = OutputFilter {
+                    output,
+                    field: field.into(),
+                    partition: partition.into(),
+                    dense,
+                    minimum,
+                    maximum,
+                    missing,
+                };
+                let retained = filter
+                    .output
+                    .capacity()
+                    .checked_add(filter.field.capacity())
+                    .and_then(|bytes| bytes.checked_add(filter.partition.capacity()))
+                    .ok_or_else(|| contract("output selection allocation extent"))?;
+                if retained > admitted {
+                    return Err(contract(
+                        "output selection exceeds admitted string capacity",
+                    ));
+                }
+                reader._selection_owner.shrink(admitted - retained);
+                reader.output = Some(filter);
+                Ok(reader)
             })
-            .ok_or_else(|| contract("output identity extent"))?;
-        let admitted = output_length
-            .checked_add(field.len())
-            .and_then(|bytes| bytes.checked_add(partition.len()))
-            .and_then(|bytes| bytes.checked_add(128))
-            .ok_or_else(|| contract("output selection allocation extent"))?;
-        reader
-            ._selection_owner
-            .try_grow(admitted)
-            .map_err(pse_engine::EngineError::from)?;
-        let mut output = String::with_capacity(output_length);
-        use std::fmt::Write as _;
-        write!(output, "{}:{owner}", reader.relation)
-            .map_err(|_| contract("output identity formatting"))?;
-        if dense {
-            output.push(':');
-            output.push_str(field);
-        }
-        let filter = OutputFilter {
-            output,
-            field: field.into(),
-            partition: partition.into(),
-            dense,
-            minimum,
-            maximum,
-            missing,
-        };
-        let retained = filter
-            .output
-            .capacity()
-            .checked_add(filter.field.capacity())
-            .and_then(|bytes| bytes.checked_add(filter.partition.capacity()))
-            .ok_or_else(|| contract("output selection allocation extent"))?;
-        if retained > admitted {
-            return Err(contract(
-                "output selection exceeds admitted string capacity",
-            ));
-        }
-        reader._selection_owner.shrink(admitted - retained);
-        reader.output = Some(filter);
-        Ok(reader)
-    
-        }).await
+            .await
     }
 }
 

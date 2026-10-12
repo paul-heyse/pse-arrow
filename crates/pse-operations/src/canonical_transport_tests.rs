@@ -249,49 +249,91 @@ async fn native_sdk_stalled_replay_terminally_drains_and_refuses_later_admission
     // Keep the peer alive and consuming pings. A missing setup ACK itself must
     // close this client, independent of the short callers' original clocks.
     let waiting = RequestContext::new(Instant::now() + Duration::from_secs(20));
-    assert!(tokio::time::timeout(Duration::from_secs(6),
-        client.query("NEVER_READY").request_context(waiting.clone()))
-        .await.expect("one five-second restoration budget").is_err());
+    assert!(
+        tokio::time::timeout(
+            Duration::from_secs(6),
+            client.query("NEVER_READY").request_context(waiting.clone())
+        )
+        .await
+        .expect("one five-second restoration budget")
+        .is_err()
+    );
     assert_eq!(waiting.dispatch_state(), DispatchState::NotDispatched);
     tokio::time::timeout(Duration::from_secs(2), server)
-        .await.unwrap().unwrap();
+        .await
+        .unwrap()
+        .unwrap();
     let later = RequestContext::new(Instant::now() + Duration::from_secs(20));
-    assert!(tokio::time::timeout(Duration::from_secs(1),
-        client.query("AFTER_TERMINAL").request_context(later.clone()))
-        .await.expect("terminal admission refuses without owner reopen").is_err());
+    assert!(
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            client
+                .query("AFTER_TERMINAL")
+                .request_context(later.clone())
+        )
+        .await
+        .expect("terminal admission refuses without owner reopen")
+        .is_err()
+    );
     assert_eq!(later.dispatch_state(), DispatchState::NotDispatched);
     tokio::time::timeout(Duration::from_secs(1), client.disconnect())
-        .await.unwrap().unwrap();
+        .await
+        .unwrap()
+        .unwrap();
     let mut ping_seen = false;
     while let Ok(message) = received.try_recv() {
         ping_seen |= message == "ping";
         assert!(matches!(message.as_str(), "attach" | "ping" | "version"));
     }
-    assert!(ping_seen, "the peer stayed open and consumed keepalive traffic");
+    assert!(
+        ping_seen,
+        "the peer stayed open and consumed keepalive traffic"
+    );
 }
 
 #[tokio::test]
 async fn native_sdk_replay_ack_before_bound_readies_after_another_caller_expires() {
     use std::future::{Future, IntoFuture};
     let (release, released) = tokio::sync::oneshot::channel();
-    let (client, mut received, server) = peer_with_replay_release(
-        false, 4 * 1024 * 1024, Some(released)).await;
+    let (client, mut received, server) =
+        peer_with_replay_release(false, 4 * 1024 * 1024, Some(released)).await;
     let expired = RequestContext::new(Instant::now() + Duration::from_millis(40));
-    assert!(client.query("EXPIRED").request_context(expired.clone()).await.is_err());
+    assert!(
+        client
+            .query("EXPIRED")
+            .request_context(expired.clone())
+            .await
+            .is_err()
+    );
     assert_eq!(expired.dispatch_state(), DispatchState::NotDispatched);
     let context = RequestContext::control(Instant::now() + Duration::from_secs(3));
-    let mut query = Box::pin(client.query("CONTROL").request_context(context.clone()).into_future());
+    let mut query = Box::pin(
+        client
+            .query("CONTROL")
+            .request_context(context.clone())
+            .into_future(),
+    );
     std::future::poll_fn(|cx| {
         assert!(query.as_mut().poll(cx).is_pending());
         std::task::Poll::Ready(())
-    }).await;
+    })
+    .await;
     release.send(()).unwrap();
-    assert!(tokio::time::timeout(Duration::from_secs(2), query)
-        .await.unwrap().unwrap().check().is_ok());
+    assert!(
+        tokio::time::timeout(Duration::from_secs(2), query)
+            .await
+            .unwrap()
+            .unwrap()
+            .check()
+            .is_ok()
+    );
     assert_eq!(context.dispatch_state(), DispatchState::Completed);
     assert_eq!(next_query(&mut received).await, "CONTROL");
     client.disconnect().await.unwrap();
-    tokio::time::timeout(Duration::from_secs(2), server).await.unwrap().unwrap();
+    tokio::time::timeout(Duration::from_secs(2), server)
+        .await
+        .unwrap()
+        .unwrap();
 }
 
 #[tokio::test]

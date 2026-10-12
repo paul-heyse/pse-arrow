@@ -529,9 +529,13 @@ async fn run_bounded_router(
 /// A handler must not hide the restoration deadline while it awaits IO.
 fn bounded_handler_deadline(sessions: &Sessions) -> time::Instant {
     let ordinary = std::time::Instant::now() + time::Duration::from_secs(5);
-    sessions.values().into_iter().flatten()
+    sessions
+        .values()
+        .into_iter()
+        .flatten()
         .filter_map(|state| super::replay_cursor(&state).map(|cursor| cursor.deadline))
-        .fold(ordinary, std::cmp::min).into()
+        .fold(ordinary, std::cmp::min)
+        .into()
 }
 
 fn bounded_handler_result(
@@ -539,10 +543,16 @@ fn bounded_handler_result(
     sessions: &Sessions,
     routes: &Receiver<Route>,
 ) -> bool {
-    if matches!(result, Ok(HandleResult::Ok)) { return true; }
+    if matches!(result, Ok(HandleResult::Ok)) {
+        return true;
+    }
     if matches!(result, Ok(HandleResult::Failed))
-        || (result.is_err() && sessions.values().into_iter().flatten()
-            .any(|state| super::replay_cursor(&state).is_some()))
+        || (result.is_err()
+            && sessions
+                .values()
+                .into_iter()
+                .flatten()
+                .any(|state| super::replay_cursor(&state).is_some()))
     {
         routes.close();
     }
@@ -569,9 +579,9 @@ async fn bounded_session_event(
     // Initial setup owns its absolute deadline before its first send; do not
     // start a separate allowance around only this lifecycle event.
     let result = match event {
-        SessionId::Initial(id) => super::handle_session_initial::<Message, _, _>(
-            id, sessions, sink, true,
-        ).await,
+        SessionId::Initial(id) => {
+            super::handle_session_initial::<Message, _, _>(id, sessions, sink, true).await
+        }
         _ => handle_session::<Message, _, _>(event, sessions, sink).await,
     };
     if result != HandleResult::Ok {

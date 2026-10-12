@@ -1052,26 +1052,27 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let mut prepared = prepared;
-        prepared.compiler = compiler;
-        let handle = prepared.start()?;
-        let wait = handle.wait();
-        tokio::pin!(wait);
-        let joined = tokio::select! {
-            result = &mut wait => result?,
-            () = cancel.cancelled() => {handle.cancel();wait.await?}
-        };
-        match &joined.report {
-            Ok(super::super::RunReport::Modeling(results)) => results
-                .first()
-                .cloned()
-                .ok_or_else(|| contract("authored solve completed without a result")),
-            Err(error) => Err(WorkflowError::Shared(error.clone())),
-            _ => Err(contract("authored solve report mismatch")),
-        }
-    
-        }).await
+        activity
+            .scope(async {
+                let mut prepared = prepared;
+                prepared.compiler = compiler;
+                let handle = prepared.start()?;
+                let wait = handle.wait();
+                tokio::pin!(wait);
+                let joined = tokio::select! {
+                    result = &mut wait => result?,
+                    () = cancel.cancelled() => {handle.cancel();wait.await?}
+                };
+                match &joined.report {
+                    Ok(super::super::RunReport::Modeling(results)) => results
+                        .first()
+                        .cloned()
+                        .ok_or_else(|| contract("authored solve completed without a result")),
+                    Err(error) => Err(WorkflowError::Shared(error.clone())),
+                    _ => Err(contract("authored solve report mismatch")),
+                }
+            })
+            .await
     }
 }
 /// A step's certified dual bound on its authored objective (ADR-0119 Outcome 5): a bound

@@ -361,66 +361,71 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let resolved = self
-            .resolve_case(
-                analysis.root,
-                analysis.instance,
-                analysis.bindings.clone(),
-                analysis.limits,
-                analysis.case.clone(),
-                pse_kernels::DerivativeOrder::First,
-                analysis.compiler,
-                analysis.solver.clone(),
-                analysis.numerical.clone(),
-                Default::default(),
-                true,
-                cancel,
-            )
-            .await?;
-        let mut route_decision = resolved.route_decision()?;
-        if route_decision.structure.is_none() {
-            // Diagnostics retain the requested candidate's original witness even
-            // when it cannot admit a solve. Other candidates may interpret that
-            // same witness differently, so no unnamed alternative is substituted.
-            let backend = match route_decision.selection {
-                pse_backend_native::solve::SolverSelection::Explicit(backend) => Some(backend),
-                pse_backend_native::solve::SolverSelection::Auto => route_decision.pending_backend,
-            };
-            route_decision.structure = backend.and_then(|backend| {
-                route_decision
-                    .eligibility
-                    .iter()
-                    .find(|candidate| candidate.backend == backend)
-                    .and_then(|candidate| candidate.structure.clone())
-            });
-        }
-        let admission_identity = resolved.admission_identity(&route_decision)?;
-        let physical = &resolved.model.case.compiled().quantities;
-        let mut targets = resolved
-            .model
-            .case
-            .compiled()
-            .plan
-            .numerical_targets(physical)
-            .map_err(crate::math::MathRuntimeError::from)?;
-        targets.extend(resolved.numerical.targets);
-        let numerics = self.runtime.native().policy_resolution_owner().resolve(
-            physical.clone(),
-            resolved.model.case.compiled().preconditions.clone(),
-            &targets,
-            &resolved.numerical.declarations,
-            &resolved.solver.numerics,
-        )?;
-        Ok(ModelingDiagnosticPreparation {
-            model: resolved.model,
-            numerics,
-            route_decision,
-            admission_identity,
-            providers: resolved.providers,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let resolved = self
+                    .resolve_case(
+                        analysis.root,
+                        analysis.instance,
+                        analysis.bindings.clone(),
+                        analysis.limits,
+                        analysis.case.clone(),
+                        pse_kernels::DerivativeOrder::First,
+                        analysis.compiler,
+                        analysis.solver.clone(),
+                        analysis.numerical.clone(),
+                        Default::default(),
+                        true,
+                        cancel,
+                    )
+                    .await?;
+                let mut route_decision = resolved.route_decision()?;
+                if route_decision.structure.is_none() {
+                    // Diagnostics retain the requested candidate's original witness even
+                    // when it cannot admit a solve. Other candidates may interpret that
+                    // same witness differently, so no unnamed alternative is substituted.
+                    let backend = match route_decision.selection {
+                        pse_backend_native::solve::SolverSelection::Explicit(backend) => {
+                            Some(backend)
+                        }
+                        pse_backend_native::solve::SolverSelection::Auto => {
+                            route_decision.pending_backend
+                        }
+                    };
+                    route_decision.structure = backend.and_then(|backend| {
+                        route_decision
+                            .eligibility
+                            .iter()
+                            .find(|candidate| candidate.backend == backend)
+                            .and_then(|candidate| candidate.structure.clone())
+                    });
+                }
+                let admission_identity = resolved.admission_identity(&route_decision)?;
+                let physical = &resolved.model.case.compiled().quantities;
+                let mut targets = resolved
+                    .model
+                    .case
+                    .compiled()
+                    .plan
+                    .numerical_targets(physical)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                targets.extend(resolved.numerical.targets);
+                let numerics = self.runtime.native().policy_resolution_owner().resolve(
+                    physical.clone(),
+                    resolved.model.case.compiled().preconditions.clone(),
+                    &targets,
+                    &resolved.numerical.declarations,
+                    &resolved.solver.numerics,
+                )?;
+                Ok(ModelingDiagnosticPreparation {
+                    model: resolved.model,
+                    numerics,
+                    route_decision,
+                    admission_identity,
+                    providers: resolved.providers,
+                })
+            })
+            .await
     }
     /// Diagnostic-only model analysis. It neither changes a candidate nor upgrades solver status.
     pub async fn diagnose_case(
@@ -1077,7 +1082,7 @@ impl ModelingPackage {
             }
         }
         Ok(report)
-    
+
         }).await
     }
 }
@@ -1565,107 +1570,115 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        controls
-            .validate()
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let control = pse_columnar::flight::FlightCancellation::default();
-        let deadline = std::time::Instant::now()
-            .checked_add(controls.time_limit)
-            .ok_or(crate::math::MathRuntimeError::Limit(
-                "Jacobian diagnostic deadline extent",
-            ))?;
-        let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
-        prepared.validate_point(&values)?;
-        let ModelingDiagnosticPreparation {
-            model: prepared,
-            numerics,
-            providers,
-            route_decision: _,
-            admission_identity: _,
-        } = prepared;
-        let plan = &prepared.case.compiled().plan;
-        let rows = plan
-            .structure()
-            .rows()
-            .iter()
-            .map(|r| r.id)
-            .collect::<Vec<_>>();
-        let normalization =
-            pse_math::normalization::Normalization::from_policy(&numerics, plan.columns(), &rows)
+        activity
+            .scope(async {
+                controls
+                    .validate()
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let control = pse_columnar::flight::FlightCancellation::default();
+                let deadline = std::time::Instant::now()
+                    .checked_add(controls.time_limit)
+                    .ok_or(crate::math::MathRuntimeError::Limit(
+                        "Jacobian diagnostic deadline extent",
+                    ))?;
+                let scope = pse_kernels::ExecutionScope::new(control.flag(), Some(deadline));
+                prepared.validate_point(&values)?;
+                let ModelingDiagnosticPreparation {
+                    model: prepared,
+                    numerics,
+                    providers,
+                    route_decision: _,
+                    admission_identity: _,
+                } = prepared;
+                let plan = &prepared.case.compiled().plan;
+                let rows = plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|r| r.id)
+                    .collect::<Vec<_>>();
+                let normalization = pse_math::normalization::Normalization::from_policy(
+                    &numerics,
+                    plan.columns(),
+                    &rows,
+                )
                 .map_err(crate::math::MathRuntimeError::from)?;
-        let source_identity = plan.structure().key();
-        let numerical_identity = numerics.key;
-        let allowance = controls
-            .report_allowance()
-            .map_err(crate::math::MathRuntimeError::from)?
-            .checked_mul(policy.maximum_attempts)
-            .and_then(|n| n.checked_add(policy.maximum_entries.checked_mul(128)?))
-            .and_then(|n| n.checked_add(values.scalars.len().checked_mul(128)?))
-            .ok_or_else(|| contract("native diagnostic extent"))?;
-        let service = self.runtime.shared.math();
-        let owner = service.reserve("modeling:native-diagnostics", allowance)?;
-        let point = values.clone();
-        let row_nominals = rows
-            .iter()
-            .copied()
-            .zip(normalization.rows.iter().copied())
-            .collect();
-        let variable_nominals = plan
-            .columns()
-            .iter()
-            .copied()
-            .zip(normalization.variables.iter().copied())
-            .collect();
-        let retained = owner.clone();
-        let assembly =
-            crate::math::MathService::within_task(&scope, cancel, service.assemble(prepared.case))
+                let source_identity = plan.structure().key();
+                let numerical_identity = numerics.key;
+                let allowance = controls
+                    .report_allowance()
+                    .map_err(crate::math::MathRuntimeError::from)?
+                    .checked_mul(policy.maximum_attempts)
+                    .and_then(|n| n.checked_add(policy.maximum_entries.checked_mul(128)?))
+                    .and_then(|n| n.checked_add(values.scalars.len().checked_mul(128)?))
+                    .ok_or_else(|| contract("native diagnostic extent"))?;
+                let service = self.runtime.shared.math();
+                let owner = service.reserve("modeling:native-diagnostics", allowance)?;
+                let point = values.clone();
+                let row_nominals = rows
+                    .iter()
+                    .copied()
+                    .zip(normalization.rows.iter().copied())
+                    .collect();
+                let variable_nominals = plan
+                    .columns()
+                    .iter()
+                    .copied()
+                    .zip(normalization.variables.iter().copied())
+                    .collect();
+                let retained = owner.clone();
+                let assembly = crate::math::MathService::within_task(
+                    &scope,
+                    cancel,
+                    service.assemble(prepared.case),
+                )
                 .await?;
-        let (evidence, owner) = service
-            .with_owned_worker(
-                assembly,
-                providers,
-                cancel,
-                Some((scope.clone(), control)),
-                move |mut worker| {
-                    let execution = pse_backend_native::solve::Execution::within(
-                        worker.cancellation().clone(),
-                        &controls,
-                        scope,
-                    )?;
-                    let original = worker.jacobian(&values)?;
-                    execution.check()?;
-                    let mut normalized = original.clone();
-                    for j in 0..normalized.ncols() {
-                        let indices = normalized.row_idx_of_col(j).collect::<Vec<_>>();
-                        for (i, v) in indices.into_iter().zip(normalized.val_of_col_mut(j)) {
-                            *v = *v * normalization.variables[j] / normalization.rows[i];
-                        }
-                    }
-                    let evidence = pse_backend_native::jacobian_diagnostics::analyze(
-                        normalized.as_ref(),
-                        &rows,
-                        policy,
-                        &controls,
-                        execution,
-                    )?;
-                    Ok((evidence, retained))
-                },
-            )
-            .await?;
-        Ok(ModelingJacobianOptimization {
-            run_id: pse_operations::mint_id(),
-            runtime: self.runtime.clone(),
-            source_identity,
-            numerical_identity,
-            point,
-            row_nominals,
-            variable_nominals,
-            policy,
-            evidence,
-            _owner: owner,
-        })
-    
-        }).await
+                let (evidence, owner) = service
+                    .with_owned_worker(
+                        assembly,
+                        providers,
+                        cancel,
+                        Some((scope.clone(), control)),
+                        move |mut worker| {
+                            let execution = pse_backend_native::solve::Execution::within(
+                                worker.cancellation().clone(),
+                                &controls,
+                                scope,
+                            )?;
+                            let original = worker.jacobian(&values)?;
+                            execution.check()?;
+                            let mut normalized = original.clone();
+                            for j in 0..normalized.ncols() {
+                                let indices = normalized.row_idx_of_col(j).collect::<Vec<_>>();
+                                for (i, v) in indices.into_iter().zip(normalized.val_of_col_mut(j))
+                                {
+                                    *v = *v * normalization.variables[j] / normalization.rows[i];
+                                }
+                            }
+                            let evidence = pse_backend_native::jacobian_diagnostics::analyze(
+                                normalized.as_ref(),
+                                &rows,
+                                policy,
+                                &controls,
+                                execution,
+                            )?;
+                            Ok((evidence, retained))
+                        },
+                    )
+                    .await?;
+                Ok(ModelingJacobianOptimization {
+                    run_id: pse_operations::mint_id(),
+                    runtime: self.runtime.clone(),
+                    source_identity,
+                    numerical_identity,
+                    point,
+                    row_nominals,
+                    variable_nominals,
+                    policy,
+                    evidence,
+                    _owner: owner,
+                })
+            })
+            .await
     }
 }

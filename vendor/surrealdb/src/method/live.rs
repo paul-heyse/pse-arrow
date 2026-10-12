@@ -28,7 +28,13 @@ fn into_future<C, O>(this: Select<C, O, Live>) -> BoxFuture<Result<Stream<O>>>
 where
     C: Connection,
 {
-    let Select { client, resource, request_context, request_drain, .. } = this;
+    let Select {
+        client,
+        resource,
+        request_context,
+        request_drain,
+        ..
+    } = this;
     let owned = (client, resource, request_context, request_drain);
     Box::pin(async move {
         let (client, resource, request_context, request_drain) = owned;

@@ -43,13 +43,12 @@ impl PreparedInitializationStrategy {
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
         activity.sync_scope(|| {
-        Ok(self.runtime.native().initialize(
-            self.prepared.clone(),
-            self.values.clone(),
-            self.providers.clone(),
-            self.profile.clone(),
-        )?)
-    
+            Ok(self.runtime.native().initialize(
+                self.prepared.clone(),
+                self.values.clone(),
+                self.providers.clone(),
+                self.profile.clone(),
+            )?)
         })
     }
 }
@@ -478,26 +477,25 @@ impl PreparedRecycle {
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
         activity.sync_scope(|| {
-        let factory_bytes = self.factory_allocation_bound()?;
-        let prepared = self.clone();
-        let candidate = Arc::new(std::sync::Mutex::new(None));
-        let observed = candidate.clone();
-        Ok(self.runtime.native().solve_declared_root(
-            self.contract.clone(),
-            self.initial.clone(),
-            self.settings.clone(),
-            self.controls.clone(),
-            self.accuracy.clone(),
-            self.tolerances.clone(),
-            self.numerics.policy.clone(),
-            self.profile_key,
-            Some(candidate),
-            factory_bytes,
-            self.native_backends.clone(),
-            self.resident_foreign_bytes,
-            move |execution, budget| prepared.function(execution, budget, observed),
-        )?)
-    
+            let factory_bytes = self.factory_allocation_bound()?;
+            let prepared = self.clone();
+            let candidate = Arc::new(std::sync::Mutex::new(None));
+            let observed = candidate.clone();
+            Ok(self.runtime.native().solve_declared_root(
+                self.contract.clone(),
+                self.initial.clone(),
+                self.settings.clone(),
+                self.controls.clone(),
+                self.accuracy.clone(),
+                self.tolerances.clone(),
+                self.numerics.policy.clone(),
+                self.profile_key,
+                Some(candidate),
+                factory_bytes,
+                self.native_backends.clone(),
+                self.resident_foreign_bytes,
+                move |execution, budget| prepared.function(execution, budget, observed),
+            )?)
         })
     }
     fn function(
@@ -837,7 +835,7 @@ impl ModelingPackage {
             cancel,
         )
         .await
-    
+
         }).await
     }
     async fn finish_recycle(

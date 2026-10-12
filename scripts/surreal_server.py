@@ -478,7 +478,9 @@ def open_context_admission(state: Path) -> None:
     for context in managed_contexts(state):
         with state_lock(context):
             config = config_for(context)
-            if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+            if config.get("derived_rebuild_pending") or config.get(
+                "surrealkit_rollout_pending"
+            ):
                 raise SupervisorError("Incomplete owned maintenance remains closed")
             deadline = getattr(_STARTUP, "deadline", None)
             if deadline is not None:
@@ -1358,7 +1360,9 @@ def setup(args: argparse.Namespace) -> dict[str, object]:
             raise SupervisorError("Existing state has a different interpretation")
         allocation = config["resources"]
         if args.tooling_fixture and config.get("tooling_fixture") is not True:
-            raise SupervisorError("Existing state is not a beta tooling fixture; select a fresh explicit tooling state")
+            raise SupervisorError(
+                "Existing state is not a beta tooling fixture; select a fresh explicit tooling state"
+            )
         if args.execution_profile:
             if not isinstance(allocation, dict):
                 raise SupervisorError("Missing recorded execution allocation")
@@ -5054,7 +5058,9 @@ def server_environment(
             # Two permits exactly one SDK application session on each socket.
             # Beta parity retains one independently authenticated SDK clone.
             # Only an explicitly declared disposable tooling service needs it.
-            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "3" if config.get("tooling_fixture") is True else "2",
+            "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS": "3"
+            if config.get("tooling_fixture") is True
+            else "2",
             "SURREAL_MEMORY_THRESHOLD": str(allocation["memory_threshold_bytes"]),
             "SURREAL_ROCKSDB_BLOCK_CACHE_SIZE": str(
                 allocation["rocksdb_block_cache_bytes"]
@@ -5290,7 +5296,9 @@ def backup(
 def _backup(
     state: Path, config: dict[str, object], destination: Path
 ) -> dict[str, object]:
-    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+    if config.get("derived_rebuild_pending") or config.get(
+        "surrealkit_rollout_pending"
+    ):
         raise SupervisorError(
             "Incomplete derived rebuild cannot be backed up as current state"
         )
@@ -6342,7 +6350,9 @@ def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object
     with lifecycle_reservation(state):
         config = config_for(state)
         if config.get("surrealkit_rollout_pending"):
-            raise SupervisorError("Interrupted beta rollout requires its exact rollout owner and settlement; rebuild recovery refuses it")
+            raise SupervisorError(
+                "Interrupted beta rollout requires its exact rollout owner and settlement; rebuild recovery refuses it"
+            )
         pending = object_mapping(config.get("derived_rebuild_pending"))
         if (
             pending.get("kind") == "current-restore"
@@ -6498,7 +6508,9 @@ def validated_restore_backup(
         ):
             raise SupervisorError("Backup path or content failed validation")
     config = config_for(source)
-    if config.get("derived_rebuild_pending") or config.get("surrealkit_rollout_pending"):
+    if config.get("derived_rebuild_pending") or config.get(
+        "surrealkit_rollout_pending"
+    ):
         raise SupervisorError(
             "Interrupted maintenance must be recovered by its original owner"
         )
@@ -6935,7 +6947,9 @@ def qualify_recovery(state: Path) -> dict[str, object]:
         remaining(deadline)
         with lifecycle_reservation(state):
             if config_for(state).get("surrealkit_rollout_pending"):
-                raise SupervisorError("Pending beta rollout requires exact child drain and operation settlement before recovery qualification")
+                raise SupervisorError(
+                    "Pending beta rollout requires exact child drain and operation settlement before recovery qualification"
+                )
             close_context_admission(state)
             all_contexts_drained(state)
             config = config_for(state)
@@ -7318,7 +7332,11 @@ def parser() -> argparse.ArgumentParser:
         "--version", help="Official release vX.Y.Z; omitted selects current stable"
     )
     result.add_argument("--port", type=int)
-    result.add_argument("--tooling-fixture", action="store_true", help="Disposable beta tooling profile: permit one additional cloned SDK session per socket")
+    result.add_argument(
+        "--tooling-fixture",
+        action="store_true",
+        help="Disposable beta tooling profile: permit one additional cloned SDK session per socket",
+    )
     result.add_argument(
         "--resident",
         action=argparse.BooleanOptionalAction,

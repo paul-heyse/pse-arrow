@@ -283,24 +283,25 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let providers = self
-            .inner_registrations(
-                model.clone(),
-                &ModelingCaseBindings::default(),
-                &NumericalInputs::default(),
-                &pse_model::numerics::NumericalPolicy::default(),
-                &pse_backend_native::solve::Controls::default(),
-                DerivativeOrder::Value,
-                profile,
-                cancel,
-                implicit::ProviderDemand::Observations(Some(&rows)),
-            )
-            .await?;
-        self.observe_registered(model, rows, values, profile, providers, cancel)
+        activity
+            .scope(async {
+                let providers = self
+                    .inner_registrations(
+                        model.clone(),
+                        &ModelingCaseBindings::default(),
+                        &NumericalInputs::default(),
+                        &pse_model::numerics::NumericalPolicy::default(),
+                        &pse_backend_native::solve::Controls::default(),
+                        DerivativeOrder::Value,
+                        profile,
+                        cancel,
+                        implicit::ProviderDemand::Observations(Some(&rows)),
+                    )
+                    .await?;
+                self.observe_registered(model, rows, values, profile, providers, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
     pub(in crate::workflow) async fn observe_registered(
         &self,
@@ -312,59 +313,60 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let service = self.runtime.shared.math();
-        let bytes = rows
-            .len()
-            .checked_mul(128)
-            .ok_or_else(|| contract("observation result extent"))?;
-        let owner = service.reserve("modeling:observations", bytes)?;
-        if rows.is_empty() {
-            return Ok(ModelingObservations {
-                values: BTreeMap::new(),
-                applicability: Vec::new(),
-                _owner: owner,
-            });
-        }
-        // One value-independent program per observed structure; values bind per call (A6).
-        let assembly = self
-            .observation_program(&model, &rows, profile, cancel)
-            .await?;
-        let ids = assembly
-            .assembly
-            .structure()
-            .rows()
-            .iter()
-            .map(|r| r.id)
-            .collect::<Vec<_>>();
-        let retained = owner.clone();
-        let (values, applicability, _previous_owner) = service
-            .with_worker(assembly, providers, cancel, move |worker| {
-                let observed = worker.constraints(&values)?;
-                Ok((
-                    ids.into_iter().zip(observed).collect(),
-                    worker.applicability_observations(),
-                    retained,
-                ))
+        activity
+            .scope(async {
+                let service = self.runtime.shared.math();
+                let bytes = rows
+                    .len()
+                    .checked_mul(128)
+                    .ok_or_else(|| contract("observation result extent"))?;
+                let owner = service.reserve("modeling:observations", bytes)?;
+                if rows.is_empty() {
+                    return Ok(ModelingObservations {
+                        values: BTreeMap::new(),
+                        applicability: Vec::new(),
+                        _owner: owner,
+                    });
+                }
+                // One value-independent program per observed structure; values bind per call (A6).
+                let assembly = self
+                    .observation_program(&model, &rows, profile, cancel)
+                    .await?;
+                let ids = assembly
+                    .assembly
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|r| r.id)
+                    .collect::<Vec<_>>();
+                let retained = owner.clone();
+                let (values, applicability, _previous_owner) = service
+                    .with_worker(assembly, providers, cancel, move |worker| {
+                        let observed = worker.constraints(&values)?;
+                        Ok((
+                            ids.into_iter().zip(observed).collect(),
+                            worker.applicability_observations(),
+                            retained,
+                        ))
+                    })
+                    .await?;
+                let evidence_bytes = applicability.capacity()
+                    * size_of::<pse_model::applicability::Observation>()
+                    + applicability
+                        .iter()
+                        .map(pse_model::applicability::Observation::retained_bytes)
+                        .sum::<usize>();
+                let owner = service.reserve(
+                    "modeling:observations",
+                    bytes.saturating_add(evidence_bytes),
+                )?;
+                Ok(ModelingObservations {
+                    values,
+                    applicability,
+                    _owner: owner,
+                })
             })
-            .await?;
-        let evidence_bytes = applicability.capacity()
-            * size_of::<pse_model::applicability::Observation>()
-            + applicability
-                .iter()
-                .map(pse_model::applicability::Observation::retained_bytes)
-                .sum::<usize>();
-        let owner = service.reserve(
-            "modeling:observations",
-            bytes.saturating_add(evidence_bytes),
-        )?;
-        Ok(ModelingObservations {
-            values,
-            applicability,
-            _owner: owner,
-        })
-    
-        }).await
+            .await
     }
     pub(in crate::workflow) fn registrations(
         &self,
@@ -384,184 +386,185 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let product = model.compiled();
-        let inner_unknowns = product
-            .admitted
-            .implicit_systems()
-            .flat_map(|i| i.unknowns.iter().copied())
-            .filter(|id| !product.admitted.inputs.contains(id))
-            .collect::<BTreeSet<_>>();
-        let mut values = CaseValues {
-            scalars: BTreeMap::new(),
-        };
-        let mut starts = BTreeMap::new();
-        for id in &product.admitted.inputs {
-            if let Some(pse_modeling::specialize::Value::Number { bits, .. }) =
-                product.model.symbols[id].initial
-            {
-                values.scalars.insert(*id, f64::from_bits(bits));
-                starts.insert(*id, StartSource::ModelDefault);
-            }
-        }
-        let is_variable = |id: &SemanticId| {
-            product
-                .admitted
-                .case()
-                .variables()
-                .iter()
-                .any(|v| v.port.id == *id)
-        };
-        for (&id, &value) in &overrides.seed {
-            let fixed = overrides.fixes.contains_key(&id)
-                || case.variables.iter().any(|(path, state)| {
-                    state.fixed == Some(true) && product.model.paths.get(path) == Some(&id)
-                });
-            if !fixed && is_variable(&id) {
-                if !value.is_finite() {
-                    return Err(contract("nonfinite accepted predecessor seed"));
-                }
-                values.scalars.insert(id, value);
-                starts.insert(id, StartSource::Predecessor);
-            }
-        }
-        for (path, value) in &case.values {
-            let id = *product
-                .model
-                .paths
-                .get(path)
-                .ok_or_else(|| contract(format!("unknown scalar case path {path}")))?;
-            if inner_unknowns.contains(&id) {
-                continue;
-            }
-            if !product.admitted.inputs.contains(&id) || !value.is_finite() {
-                return Err(contract(format!(
-                    "case value {path} requires a finite independent coordinate"
-                )));
-            }
-            values.scalars.insert(id, *value);
-            starts.insert(id, StartSource::Case { path: path.clone() });
-        }
-        for (&id, &value) in &overrides.parameters {
-            if !value.is_finite()
-                || !product
+        activity
+            .scope(async {
+                let product = model.compiled();
+                let inner_unknowns = product
                     .admitted
-                    .case()
-                    .parameters()
-                    .iter()
-                    .any(|p| p.id == id)
-            {
-                return Err(contract(
-                    "continuation override must name a finite independent parameter",
-                ));
-            }
-            values.scalars.insert(id, value);
-            starts.insert(id, StartSource::Continuation);
-        }
-        for (&id, &value) in &case.members {
-            if !product.admitted.inputs.contains(&id) || !value.is_finite() {
-                return Err(contract(
-                    "admitted binding requires a finite independent coordinate",
-                ));
-            }
-            values.scalars.insert(id, value);
-            starts.insert(id, StartSource::Binding { member: id });
-        }
-        for (&id, &value) in &overrides.fixes {
-            if !value.is_finite() || !is_variable(&id) {
-                return Err(contract(
-                    "a temporary fix must name a variable at a finite value",
-                ));
-            }
-            values.scalars.insert(id, value);
-            starts.insert(id, StartSource::Fixed);
-        }
-        let hints = product
-            .admitted
-            .outputs
-            .iter()
-            .filter_map(|o| {
-                if let ModelingOutput::Hint {
-                    target,
-                    declaration,
-                    kind,
-                } = o
-                {
-                    Some((*target, *declaration, *kind, o.row_id()))
-                } else {
-                    None
+                    .implicit_systems()
+                    .flat_map(|i| i.unknowns.iter().copied())
+                    .filter(|id| !product.admitted.inputs.contains(id))
+                    .collect::<BTreeSet<_>>();
+                let mut values = CaseValues {
+                    scalars: BTreeMap::new(),
+                };
+                let mut starts = BTreeMap::new();
+                for id in &product.admitted.inputs {
+                    if let Some(pse_modeling::specialize::Value::Number { bits, .. }) =
+                        product.model.symbols[id].initial
+                    {
+                        values.scalars.insert(*id, f64::from_bits(bits));
+                        starts.insert(*id, StartSource::ModelDefault);
+                    }
                 }
-            })
-            .collect::<Vec<_>>();
-        let mut pending = hints
-            .iter()
-            .filter(|(id, _, k, _)| {
-                *k == ModelingHint::Start
-                    && !values.scalars.contains_key(id)
-                    && product.admitted.inputs.contains(id)
-            })
-            .copied()
-            .collect::<Vec<_>>();
-        let mut targets = BTreeSet::new();
-        if pending.iter().any(|(id, _, _, _)| !targets.insert(*id)) {
-            return Err(contract(
-                "ambiguous start annotations for the same coordinate",
-            ));
-        }
-        while !pending.is_empty() {
-            let ready = pending
-                .iter()
-                .filter(|(_, _, _, row)| {
+                let is_variable = |id: &SemanticId| {
                     product
                         .admitted
                         .case()
-                        .instances()
+                        .variables()
                         .iter()
-                        .filter(|i| i.instance == *row)
-                        .all(|i| {
-                            i.slots
+                        .any(|v| v.port.id == *id)
+                };
+                for (&id, &value) in &overrides.seed {
+                    let fixed = overrides.fixes.contains_key(&id)
+                        || case.variables.iter().any(|(path, state)| {
+                            state.fixed == Some(true) && product.model.paths.get(path) == Some(&id)
+                        });
+                    if !fixed && is_variable(&id) {
+                        if !value.is_finite() {
+                            return Err(contract("nonfinite accepted predecessor seed"));
+                        }
+                        values.scalars.insert(id, value);
+                        starts.insert(id, StartSource::Predecessor);
+                    }
+                }
+                for (path, value) in &case.values {
+                    let id = *product
+                        .model
+                        .paths
+                        .get(path)
+                        .ok_or_else(|| contract(format!("unknown scalar case path {path}")))?;
+                    if inner_unknowns.contains(&id) {
+                        continue;
+                    }
+                    if !product.admitted.inputs.contains(&id) || !value.is_finite() {
+                        return Err(contract(format!(
+                            "case value {path} requires a finite independent coordinate"
+                        )));
+                    }
+                    values.scalars.insert(id, *value);
+                    starts.insert(id, StartSource::Case { path: path.clone() });
+                }
+                for (&id, &value) in &overrides.parameters {
+                    if !value.is_finite()
+                        || !product
+                            .admitted
+                            .case()
+                            .parameters()
+                            .iter()
+                            .any(|p| p.id == id)
+                    {
+                        return Err(contract(
+                            "continuation override must name a finite independent parameter",
+                        ));
+                    }
+                    values.scalars.insert(id, value);
+                    starts.insert(id, StartSource::Continuation);
+                }
+                for (&id, &value) in &case.members {
+                    if !product.admitted.inputs.contains(&id) || !value.is_finite() {
+                        return Err(contract(
+                            "admitted binding requires a finite independent coordinate",
+                        ));
+                    }
+                    values.scalars.insert(id, value);
+                    starts.insert(id, StartSource::Binding { member: id });
+                }
+                for (&id, &value) in &overrides.fixes {
+                    if !value.is_finite() || !is_variable(&id) {
+                        return Err(contract(
+                            "a temporary fix must name a variable at a finite value",
+                        ));
+                    }
+                    values.scalars.insert(id, value);
+                    starts.insert(id, StartSource::Fixed);
+                }
+                let hints = product
+                    .admitted
+                    .outputs
+                    .iter()
+                    .filter_map(|o| {
+                        if let ModelingOutput::Hint {
+                            target,
+                            declaration,
+                            kind,
+                        } = o
+                        {
+                            Some((*target, *declaration, *kind, o.row_id()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let mut pending = hints
+                    .iter()
+                    .filter(|(id, _, k, _)| {
+                        *k == ModelingHint::Start
+                            && !values.scalars.contains_key(id)
+                            && product.admitted.inputs.contains(id)
+                    })
+                    .copied()
+                    .collect::<Vec<_>>();
+                let mut targets = BTreeSet::new();
+                if pending.iter().any(|(id, _, _, _)| !targets.insert(*id)) {
+                    return Err(contract(
+                        "ambiguous start annotations for the same coordinate",
+                    ));
+                }
+                while !pending.is_empty() {
+                    let ready = pending
+                        .iter()
+                        .filter(|(_, _, _, row)| {
+                            product
+                                .admitted
+                                .case()
+                                .instances()
                                 .iter()
-                                .all(|s| values.scalars.contains_key(&s.source()))
+                                .filter(|i| i.instance == *row)
+                                .all(|i| {
+                                    i.slots
+                                        .iter()
+                                        .all(|s| values.scalars.contains_key(&s.source()))
+                                })
                         })
-                })
-                .copied()
-                .collect::<Vec<_>>();
-            if ready.is_empty() {
-                if allow_missing_free {
-                    break;
+                        .copied()
+                        .collect::<Vec<_>>();
+                    if ready.is_empty() {
+                        if allow_missing_free {
+                            break;
+                        }
+                        return Err(contract(format!(
+                            "unresolved or cyclic start dependencies: {:?}",
+                            pending.iter().map(|(id, _, _, _)| id).collect::<Vec<_>>()
+                        )));
+                    }
+                    let observed = self
+                        .observe(
+                            model.clone(),
+                            ready.iter().map(|(_, _, _, r)| *r).collect(),
+                            values.clone(),
+                            compiler,
+                            cancel,
+                        )
+                        .await?;
+                    for (target, declaration, _, row) in &ready {
+                        let value = observed[row];
+                        if !value.is_finite() {
+                            return Err(contract("nonfinite start result"));
+                        }
+                        values.scalars.insert(*target, value);
+                        starts.insert(
+                            *target,
+                            StartSource::Annotation {
+                                declaration: *declaration,
+                            },
+                        );
+                    }
+                    pending.retain(|v| !ready.contains(v));
                 }
-                return Err(contract(format!(
-                    "unresolved or cyclic start dependencies: {:?}",
-                    pending.iter().map(|(id, _, _, _)| id).collect::<Vec<_>>()
-                )));
-            }
-            let observed = self
-                .observe(
-                    model.clone(),
-                    ready.iter().map(|(_, _, _, r)| *r).collect(),
-                    values.clone(),
-                    compiler,
-                    cancel,
-                )
-                .await?;
-            for (target, declaration, _, row) in &ready {
-                let value = observed[row];
-                if !value.is_finite() {
-                    return Err(contract("nonfinite start result"));
-                }
-                values.scalars.insert(*target, value);
-                starts.insert(
-                    *target,
-                    StartSource::Annotation {
-                        declaration: *declaration,
-                    },
-                );
-            }
-            pending.retain(|v| !ready.contains(v));
-        }
-        Ok((values, starts))
-    
-        }).await
+                Ok((values, starts))
+            })
+            .await
     }
     /// The assignment an initialization's stage and homotopy steps fix (ADR-0103 item 6):
     /// every discrete variable the case leaves free, at its specification start value or
@@ -684,7 +687,7 @@ impl ModelingPackage {
                 Ok((variable.port.id, value))
             })
             .collect()
-    
+
         }).await
     }
     /// Resolve starts in dependency order; explicit case values override every hint.
@@ -707,23 +710,24 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.prepare_solve_seed(
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            order,
-            compiler,
-            solver,
-            numerical,
-            CaseOverrides::default(),
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                self.prepare_solve_seed(
+                    root,
+                    instance,
+                    bindings,
+                    limits,
+                    case,
+                    order,
+                    compiler,
+                    solver,
+                    numerical,
+                    CaseOverrides::default(),
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -744,16 +748,17 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let resolution = self
-            .resolve_case(
-                root, instance, bindings, limits, case, order, compiler, solver, numerical,
-                overrides, false, cancel,
-            )
-            .await?;
-        self.finish_case(resolution, cancel).await
-    
-        }).await
+        activity
+            .scope(async {
+                let resolution = self
+                    .resolve_case(
+                        root, instance, bindings, limits, case, order, compiler, solver, numerical,
+                        overrides, false, cancel,
+                    )
+                    .await?;
+                self.finish_case(resolution, cancel).await
+            })
+            .await
     }
     pub(in crate::workflow) async fn finish_case(
         &self,
@@ -922,7 +927,7 @@ impl ModelingPackage {
             starts,
             providers,
         })
-    
+
         }).await
     }
     /// Resolve an authored case into its bound solver view and numerical policy. The
@@ -949,29 +954,30 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        bindings
-            .demand
-            .extend(case.values.keys().chain(case.variables.keys()).cloned());
-        bindings.demand.sort();
-        bindings.demand.dedup();
-        let model = self
-            .prepare(root, instance, bindings, limits, cancel)
-            .await?;
-        self.resolve_prepared_case(
-            model,
-            case,
-            order,
-            compiler,
-            solver,
-            numerical,
-            overrides,
-            allow_missing_free,
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                bindings
+                    .demand
+                    .extend(case.values.keys().chain(case.variables.keys()).cloned());
+                bindings.demand.sort();
+                bindings.demand.dedup();
+                let model = self
+                    .prepare(root, instance, bindings, limits, cancel)
+                    .await?;
+                self.resolve_prepared_case(
+                    model,
+                    case,
+                    order,
+                    compiler,
+                    solver,
+                    numerical,
+                    overrides,
+                    allow_missing_free,
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Bind fresh numerical inputs to an already admitted parent specialization.
     #[expect(
@@ -1229,7 +1235,7 @@ impl ModelingPackage {
             solver,
             parametric,
         })
-    
+
         }).await
     }
     /// Variable states of the solver view: evaluated bound hints, nominal declarations for

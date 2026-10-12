@@ -60,15 +60,26 @@ struct TerminalCompletion {
 }
 impl TerminalCompletion {
     fn non_payload(pending: &PendingRequest) -> Self {
-        debug_assert!(pending.request_context.as_ref()
-            .is_none_or(|context| context.payload_owner().is_none()));
-        Self { admission: pending._admission.clone(), context: pending.request_context.clone() }
+        debug_assert!(
+            pending
+                .request_context
+                .as_ref()
+                .is_none_or(|context| context.payload_owner().is_none())
+        );
+        Self {
+            admission: pending._admission.clone(),
+            context: pending.request_context.clone(),
+        }
     }
 }
 impl Drop for TerminalCompletion {
     fn drop(&mut self) {
-        if let Some(admission) = &self.admission { admission.release(); }
-        if let Some(context) = &self.context { context.release_lifetime_after_drain(); }
+        if let Some(admission) = &self.admission {
+            admission.release();
+        }
+        if let Some(context) = &self.context {
+            context.release_lifetime_after_drain();
+        }
     }
 }
 
@@ -708,7 +719,9 @@ where
         // sink. If a flush future is cancelled by the physical IO budget, epoch
         // storage keeps this ownership until both socket halves have been dropped.
         let staged_pending = session_state.bounded.load(Ordering::Acquire)
-            || request_context.as_ref().is_some_and(crate::opt::RequestContext::has_request_ownership);
+            || request_context
+                .as_ref()
+                .is_some_and(crate::opt::RequestContext::has_request_ownership);
         if staged_pending {
             session_state.pending_requests.insert(
                 id,
@@ -803,10 +816,18 @@ where
         })
         .map(|owner| owner.retain_driver())
         .collect();
-    let lifetime_retained: Vec<_> = sessions.values().into_iter().filter_map(Result::ok)
+    let lifetime_retained: Vec<_> = sessions
+        .values()
+        .into_iter()
+        .filter_map(Result::ok)
         .flat_map(|session| session.pending_requests.values())
-        .filter_map(|pending| pending.request_context.and_then(|context| context.lifetime_owner()))
-        .map(|owner| owner.retain()).collect();
+        .filter_map(|pending| {
+            pending
+                .request_context
+                .and_then(|context| context.lifetime_owner())
+        })
+        .map(|owner| owner.retain())
+        .collect();
     // Struct/tuple fields drop in declaration order even if never polled.
     let owned = (message, retained, lifetime_retained);
     async move {
@@ -987,7 +1008,8 @@ where
 
                 if !send_restoration_message(sink, message, session_state, cursor.deadline).await {
                     trace!("Refresh setup transmission failed");
-                    return fail_replay(session_state, sessions, session_id, restoration_error()).await;
+                    return fail_replay(session_state, sessions, session_id, restoration_error())
+                        .await;
                 } else {
                     // Same command, same id: stay parked on it until the
                     // refreshed attempt is answered.
@@ -1010,8 +1032,14 @@ where
         // followed by an `unset` of the same key — from being applied in the
         // wrong order by a server that dispatches concurrently.
         return match send_replay_command::<M, S, E>(
-            session_id, session_state, cursor.index + 1, cursor.deadline, sink,
-        ).await {
+            session_id,
+            session_state,
+            cursor.index + 1,
+            cursor.deadline,
+            sink,
+        )
+        .await
+        {
             ReplaySend::Sent => HandleResult::Ok,
             ReplaySend::Ready => {
                 flush_deferred_routes::<M, S, E>(session_state, max_message_size, sink).await
@@ -1184,7 +1212,9 @@ where
         let _drain = owned.drain;
         let route = owned.route;
         let result = dispatch_route::<M, S, E>(route, max_message_size, session_state, sink).await;
-        if result != HandleResult::Ok { outcome = result; }
+        if result != HandleResult::Ok {
+            outcome = result;
+        }
     }
     outcome
 }
@@ -1218,7 +1248,11 @@ async fn fail_replay(
     };
     sessions.insert(session_id, Err(session_error));
     fail_deferred_routes(session_state, error).await;
-    if bounded { HandleResult::Failed } else { HandleResult::Ok }
+    if bounded {
+        HandleResult::Failed
+    } else {
+        HandleResult::Ok
+    }
 }
 
 /// Handle a live query notification.
@@ -1427,7 +1461,10 @@ fn restoration_error() -> TypesError {
 
 /// Every setup send, including token refresh, spends the same operation budget.
 async fn send_restoration_message<M, S, E>(
-    sink: &RwLock<S>, message: M, state: &SessionState, deadline: std::time::Instant,
+    sink: &RwLock<S>,
+    message: M,
+    state: &SessionState,
+    deadline: std::time::Instant,
 ) -> bool
 where
     M: WsMessage,
@@ -1435,9 +1472,12 @@ where
 {
     #[cfg(not(target_family = "wasm"))]
     if state.bounded.load(Ordering::Acquire) {
-        if std::time::Instant::now() >= deadline { return false; }
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
         return tokio::time::timeout_at(deadline.into(), send_message(sink, message))
-            .await.is_ok_and(|result| result.is_ok());
+            .await
+            .is_ok_and(|result| result.is_ok());
     }
     #[cfg(target_family = "wasm")]
     let _ = (state, deadline); // Bounded requests are a native profile.
@@ -1465,10 +1505,17 @@ where
         return ReplaySend::Ready;
     };
     let id = session_state.last_id.fetch_add(1, Ordering::SeqCst);
-    set_replay_cursor(session_state, Some(ReplayCursor {
-        awaiting: id, index, refreshed: false, deadline,
-    }));
-    let request = command.into_router_request(Some(id), Some(session_id))
+    set_replay_cursor(
+        session_state,
+        Some(ReplayCursor {
+            awaiting: id,
+            index,
+            refreshed: false,
+            deadline,
+        }),
+    );
+    let request = command
+        .into_router_request(Some(id), Some(session_id))
         .expect("replay commands should always convert to route requests");
     let message: M = serialize_request(request);
     if !send_restoration_message(sink, message, session_state, deadline).await {
@@ -1501,7 +1548,8 @@ async fn handle_session_initial<M, S, E>(
     sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
     sink: &RwLock<S>,
     bounded: bool,
-) -> HandleResult where
+) -> HandleResult
+where
     M: WsMessage,
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
@@ -1523,7 +1571,8 @@ async fn handle_session_clone<M, S, E>(
     new: Uuid,
     sessions: &HashMap<Uuid, Result<Arc<SessionState>, SessionError>>,
     sink: &RwLock<S>,
-) -> HandleResult where
+) -> HandleResult
+where
     M: WsMessage,
     S: Sink<M, Error = E> + Unpin,
     E: std::fmt::Debug,
@@ -1994,73 +2043,151 @@ mod tests {
 
     #[tokio::test]
     async fn bounded_replay_keeps_one_deadline_across_acks_refresh_and_late_incarnation() {
-        let (id, state, sessions) = session_with_replay(vec![refreshable_auth_cmd(), set_cmd("x", 1)]);
-        state.bounded.store(true, std::sync::atomic::Ordering::Release);
+        let (id, state, sessions) =
+            session_with_replay(vec![refreshable_auth_cmd(), set_cmd("x", 1)]);
+        state
+            .bounded
+            .store(true, std::sync::atomic::Ordering::Release);
         let sink = RwLock::new(Vec::<MockMessage>::new());
-        replay_session::<MockMessage, _, _>(id, &state, &sink).await.unwrap();
+        replay_session::<MockMessage, _, _>(id, &state, &sink)
+            .await
+            .unwrap();
         let old = replay_cursor(&state).unwrap();
         // A replacement socket begins its own incarnation; old ACKs cannot finish it.
-        replay_session::<MockMessage, _, _>(id, &state, &sink).await.unwrap();
+        replay_session::<MockMessage, _, _>(id, &state, &sink)
+            .await
+            .unwrap();
         let first = replay_cursor(&state).unwrap();
         assert_ne!(old.awaiting, first.awaiting);
-        assert_eq!(handle_response_with_id::<MockMessage, _, _>(old.awaiting,
-            Ok(DbResult::Other(Value::None)), id, &state, None, &sessions, &sink).await,
-            HandleResult::Ok);
+        assert_eq!(
+            handle_response_with_id::<MockMessage, _, _>(
+                old.awaiting,
+                Ok(DbResult::Other(Value::None)),
+                id,
+                &state,
+                None,
+                &sessions,
+                &sink
+            )
+            .await,
+            HandleResult::Ok
+        );
         assert_eq!(replay_cursor(&state).unwrap().awaiting, first.awaiting);
         ack_replay(id, &state, &sessions, &sink, Err(token_expired())).await;
         let refreshed = replay_cursor(&state).unwrap();
         assert!(refreshed.refreshed);
         assert_eq!(refreshed.deadline, first.deadline);
-        ack_replay(id, &state, &sessions, &sink, Ok(DbResult::Other(Value::None))).await;
+        ack_replay(
+            id,
+            &state,
+            &sessions,
+            &sink,
+            Ok(DbResult::Other(Value::None)),
+        )
+        .await;
         let second = replay_cursor(&state).unwrap();
         assert_eq!(second.deadline, first.deadline);
         assert_eq!(second.index, 1);
         // Duplicate previous ACK does not advance a later command.
-        handle_response_with_id::<MockMessage, _, _>(first.awaiting,
-            Ok(DbResult::Other(Value::None)), id, &state, None, &sessions, &sink).await;
+        handle_response_with_id::<MockMessage, _, _>(
+            first.awaiting,
+            Ok(DbResult::Other(Value::None)),
+            id,
+            &state,
+            None,
+            &sessions,
+            &sink,
+        )
+        .await;
         assert_eq!(replay_cursor(&state).unwrap().awaiting, second.awaiting);
         let (route, response) = route_for(id);
         handle_route::<MockMessage, _, _>(route, None, &sessions, &sink).await;
-        super::set_replay_cursor(&state, Some(super::ReplayCursor {
-            deadline: std::time::Instant::now() - Duration::from_millis(1), ..second
-        }));
+        super::set_replay_cursor(
+            &state,
+            Some(super::ReplayCursor {
+                deadline: std::time::Instant::now() - Duration::from_millis(1),
+                ..second
+            }),
+        );
         let sent = sink.read().await.len();
-        assert_eq!(super::maintain_request_lifetimes(&sessions).await, HandleResult::Failed);
+        assert_eq!(
+            super::maintain_request_lifetimes(&sessions).await,
+            HandleResult::Failed
+        );
         assert!(response.recv().await.unwrap().is_err());
-        assert_eq!(sink.read().await.len(), sent, "no deferred application dispatch");
+        assert_eq!(
+            sink.read().await.len(),
+            sent,
+            "no deferred application dispatch"
+        );
         assert!(matches!(sessions.get(&id), Some(Err(_))));
     }
 
     /// This sink fails exactly the second setup send, then would accept callers.
     /// A second transport error cannot accidentally enforce the ready invariant.
     #[derive(Default)]
-    struct SingleSetupFailureSink { attempts: usize }
+    struct SingleSetupFailureSink {
+        attempts: usize,
+    }
     impl futures::Sink<MockMessage> for SingleSetupFailureSink {
         type Error = &'static str;
-        fn poll_ready(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>)
-            -> std::task::Poll<Result<(), Self::Error>> { std::task::Poll::Ready(Ok(())) }
-        fn start_send(mut self: std::pin::Pin<&mut Self>, _: MockMessage) -> Result<(), Self::Error> {
-            self.attempts += 1;
-            if self.attempts == 2 { Err("single setup failure") } else { Ok(()) }
+        fn poll_ready(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
         }
-        fn poll_flush(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>)
-            -> std::task::Poll<Result<(), Self::Error>> { std::task::Poll::Ready(Ok(())) }
-        fn poll_close(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>)
-            -> std::task::Poll<Result<(), Self::Error>> { std::task::Poll::Ready(Ok(())) }
+        fn start_send(
+            mut self: std::pin::Pin<&mut Self>,
+            _: MockMessage,
+        ) -> Result<(), Self::Error> {
+            self.attempts += 1;
+            if self.attempts == 2 {
+                Err("single setup failure")
+            } else {
+                Ok(())
+            }
+        }
+        fn poll_flush(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+        fn poll_close(
+            self: std::pin::Pin<&mut Self>,
+            _: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Result<(), Self::Error>> {
+            std::task::Poll::Ready(Ok(()))
+        }
     }
 
     #[tokio::test]
     async fn bounded_replay_single_send_failure_never_dispatches_deferred_routes() {
         let (id, state, sessions) = session_with_replay(vec![set_cmd("x", 1), set_cmd("x", 2)]);
-        state.bounded.store(true, std::sync::atomic::Ordering::Release);
+        state
+            .bounded
+            .store(true, std::sync::atomic::Ordering::Release);
         let sink = RwLock::new(SingleSetupFailureSink::default());
-        replay_session::<MockMessage, _, _>(id, &state, &sink).await.unwrap();
+        replay_session::<MockMessage, _, _>(id, &state, &sink)
+            .await
+            .unwrap();
         let (route, response) = route_for(id);
         handle_route::<MockMessage, _, _>(route, None, &sessions, &sink).await;
         let first = replay_cursor(&state).unwrap();
-        assert_eq!(handle_response_with_id::<MockMessage, _, _>(first.awaiting,
-            Ok(DbResult::Other(Value::None)), id, &state, None, &sessions, &sink).await,
-            HandleResult::Failed);
+        assert_eq!(
+            handle_response_with_id::<MockMessage, _, _>(
+                first.awaiting,
+                Ok(DbResult::Other(Value::None)),
+                id,
+                &state,
+                None,
+                &sessions,
+                &sink
+            )
+            .await,
+            HandleResult::Failed
+        );
         assert_eq!(sink.read().await.attempts, 2, "no third, application send");
         assert!(response.recv().await.unwrap().is_err());
         assert!(state.pending_requests.is_empty());
@@ -2070,9 +2197,13 @@ mod tests {
     #[tokio::test]
     async fn bounded_refresh_send_stall_spends_remaining_restoration_deadline() {
         let (id, state, sessions) = session_with_replay(vec![refreshable_auth_cmd()]);
-        state.bounded.store(true, std::sync::atomic::Ordering::Release);
+        state
+            .bounded
+            .store(true, std::sync::atomic::Ordering::Release);
         let initial = RwLock::new(Vec::<MockMessage>::new());
-        replay_session::<MockMessage, _, _>(id, &state, &initial).await.unwrap();
+        replay_session::<MockMessage, _, _>(id, &state, &initial)
+            .await
+            .unwrap();
         let mut cursor = replay_cursor(&state).unwrap();
         cursor.deadline = std::time::Instant::now() + Duration::from_millis(20);
         super::set_replay_cursor(&state, Some(cursor));
@@ -2081,9 +2212,23 @@ mod tests {
         let sink = RwLock::new(ReadyStallSink {
             polled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         });
-        assert_eq!(tokio::time::timeout(Duration::from_secs(1),
-            handle_response_with_id::<MockMessage, _, _>(cursor.awaiting, Err(token_expired()),
-                id, &state, None, &sessions, &sink)).await.unwrap(), HandleResult::Failed);
+        assert_eq!(
+            tokio::time::timeout(
+                Duration::from_secs(1),
+                handle_response_with_id::<MockMessage, _, _>(
+                    cursor.awaiting,
+                    Err(token_expired()),
+                    id,
+                    &state,
+                    None,
+                    &sessions,
+                    &sink
+                )
+            )
+            .await
+            .unwrap(),
+            HandleResult::Failed
+        );
         assert!(response.recv().await.unwrap().is_err());
         assert!(matches!(sessions.get(&id), Some(Err(_))));
     }
@@ -2102,48 +2247,78 @@ mod tests {
             let iterations = if control { 6 } else { 40 };
             for _ in 0..iterations {
                 let deadline = std::time::Instant::now() + Duration::from_secs(5);
-                let context = if control { crate::opt::RequestContext::control(deadline) }
-                    else { crate::opt::RequestContext::new(deadline) };
+                let context = if control {
+                    crate::opt::RequestContext::control(deadline)
+                } else {
+                    crate::opt::RequestContext::new(deadline)
+                };
                 let activity = Arc::new(());
                 let activity_weak = Arc::downgrade(&activity);
                 let context = context.with_lifetime_owner(activity);
-                assert!(context.payload_owner().is_none(), "activity is never a payload classification");
-                let mut request = engine.health(EngineContext::new(id)
-                    .with_request_context(Some(context.clone())));
+                assert!(
+                    context.payload_owner().is_none(),
+                    "activity is never a payload classification"
+                );
+                let mut request = engine
+                    .health(EngineContext::new(id).with_request_context(Some(context.clone())));
                 let route = tokio::time::timeout(Duration::from_secs(1), async {
                     tokio::select! {
                         route = routes.recv() => route.unwrap(),
                         result = &mut request => panic!("admission ended before enqueue: {result:?}"),
                     }
                 }).await.expect("exact application/control capacity must be reusable");
-                assert_eq!(super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
-                    HandleResult::Ok);
+                assert_eq!(
+                    super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
+                    HandleResult::Ok
+                );
                 let (request_id, snapshot) = state.pending_requests.to_vec().pop().unwrap();
                 retired.push(snapshot.clone());
                 let mut envelope = crate::types::Object::new();
                 envelope.insert("id", Value::Number(Number::Int(request_id)));
                 envelope.insert("session", Value::Uuid(id.into()));
-                let binary = if undecodable { vec![0xff] }
-                    else { surrealdb_types::encode(&Value::Object(envelope)).unwrap() };
+                let binary = if undecodable {
+                    vec![0xff]
+                } else {
+                    surrealdb_types::encode(&Value::Object(envelope)).unwrap()
+                };
                 if cancel_handler {
-                    snapshot.response_channel.try_send(Err(TypesError::internal("full response queue".into()))).unwrap();
+                    snapshot
+                        .response_channel
+                        .try_send(Err(TypesError::internal("full response queue".into())))
+                        .unwrap();
                 }
                 let mut handler = Box::pin(handle_parse_error(
-                    TypesError::internal("malformed".into()), &binary, &sessions));
+                    TypesError::internal("malformed".into()),
+                    &binary,
+                    &sessions,
+                ));
                 if cancel_handler {
                     std::future::poll_fn(|cx| {
-                        assert!(handler.as_mut().poll(cx).is_pending(), "error delivery is blocked");
+                        assert!(
+                            handler.as_mut().poll(cx).is_pending(),
+                            "error delivery is blocked"
+                        );
                         std::task::Poll::Ready(())
-                    }).await;
-                    assert!(state.pending_requests.is_empty(), "take happened before cancellation");
+                    })
+                    .await;
+                    assert!(
+                        state.pending_requests.is_empty(),
+                        "take happened before cancellation"
+                    );
                     drop(handler);
                 } else {
                     assert_eq!(handler.await, HandleResult::Ok);
                 }
                 assert!(request.await.is_err());
-                assert!(activity_weak.upgrade().is_none(), "terminal take clears activity with all retired metadata held");
-                assert_ne!(context.dispatch_state(), crate::opt::DispatchState::Completed,
-                    "malformed response never establishes DB completion");
+                assert!(
+                    activity_weak.upgrade().is_none(),
+                    "terminal take clears activity with all retired metadata held"
+                );
+                assert_ne!(
+                    context.dispatch_state(),
+                    crate::opt::DispatchState::Completed,
+                    "malformed response never establishes DB completion"
+                );
                 // Explicit completion/reset are idempotent with all snapshots held.
                 super::reset_sessions(&sessions).await;
                 super::reset_sessions(&sessions).await;
@@ -2908,18 +3083,25 @@ mod tests {
             use std::future::Future;
             assert!(handler.as_mut().poll(cx).is_pending());
             std::task::Poll::Ready(())
-        }).await;
-        assert!(state.pending_requests.is_empty(), "terminal response has taken correlation");
-        assert!(weak.upgrade().is_some(), "actual blocked decoded send still owns activity");
+        })
+        .await;
         assert!(
-            tokio::time::timeout(
-                Duration::from_millis(20),
-                handler
-            )
-            .await
-            .is_err()
+            state.pending_requests.is_empty(),
+            "terminal response has taken correlation"
         );
-        assert!(weak.upgrade().is_none(), "cancelled decoded send clears non-byte activity despite retired metadata");
+        assert!(
+            weak.upgrade().is_some(),
+            "actual blocked decoded send still owns activity"
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), handler)
+                .await
+                .is_err()
+        );
+        assert!(
+            weak.upgrade().is_none(),
+            "cancelled decoded send clears non-byte activity despite retired metadata"
+        );
         assert_eq!(dropped.load(std::sync::atomic::Ordering::Acquire), 1);
         assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 0);
         let restored = PayloadBudget::reserve(&reserved, 4096, 4096).unwrap();
@@ -3039,27 +3221,51 @@ mod tests {
             let reserved = Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let activity = Arc::new(());
             let weak = Arc::downgrade(&activity);
-            let context = crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
-                .with_lifetime_owner(activity)
-                .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + Duration::from_secs(30),
+            )
+            .with_lifetime_owner(activity)
+            .with_payload_owner(PayloadBudget::reserve(&reserved, 4096, 4096).unwrap());
             let (mut route, response) = route_for(session);
             route.request.request_context = Some(context.clone());
-            route.request.command = Command::Query { txn: None,
-                query: std::borrow::Cow::Borrowed("RETURN 1"), variables: Default::default() };
-            assert_eq!(super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await, HandleResult::Ok);
+            route.request.command = Command::Query {
+                txn: None,
+                query: std::borrow::Cow::Borrowed("RETURN 1"),
+                variables: Default::default(),
+            };
+            assert_eq!(
+                super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
+                HandleResult::Ok
+            );
             let retired = state.pending_requests.values().into_iter().next().unwrap();
             let mut envelope = crate::types::Object::new();
             envelope.insert("id", Value::Number(Number::Int(0)));
             envelope.insert("session", Value::Uuid(session.into()));
-            let binary = if undecodable { vec![0xff] }
-                else { surrealdb_types::encode(&Value::Object(envelope)).unwrap() };
-            assert_eq!(handle_parse_error(TypesError::internal("malformed".into()), &binary, &sessions).await,
-                HandleResult::Disconnected);
+            let binary = if undecodable {
+                vec![0xff]
+            } else {
+                surrealdb_types::encode(&Value::Object(envelope)).unwrap()
+            };
+            assert_eq!(
+                handle_parse_error(TypesError::internal("malformed".into()), &binary, &sessions)
+                    .await,
+                HandleResult::Disconnected
+            );
             assert!(response.recv().await.unwrap().is_err());
-            assert_eq!(state.pending_requests.len(), 1, "owned malformed correlation remains reachable");
+            assert_eq!(
+                state.pending_requests.len(),
+                1,
+                "owned malformed correlation remains reachable"
+            );
             assert_eq!(reserved.load(std::sync::atomic::Ordering::Acquire), 4096);
-            assert!(weak.upgrade().is_some(), "malformed payload cannot terminally release local activity");
-            assert_eq!(context.dispatch_state(), crate::opt::DispatchState::Dispatched);
+            assert!(
+                weak.upgrade().is_some(),
+                "malformed payload cannot terminally release local activity"
+            );
+            assert_eq!(
+                context.dispatch_state(),
+                crate::opt::DispatchState::Dispatched
+            );
             drop(sink); // Native reset is ordered after both physical socket halves.
             super::reset_sessions(&sessions).await;
             assert!(weak.upgrade().is_none());
@@ -3073,31 +3279,52 @@ mod tests {
     async fn nonpayload_activity_survives_cancelled_dispatch_until_physical_drain() {
         for bounded in [false, true] {
             let attempted = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let sink = RwLock::new(FaultSink { attempted: attempted.clone(), refuse_start: false });
+            let sink = RwLock::new(FaultSink {
+                attempted: attempted.clone(),
+                refuse_start: false,
+            });
             let (session, state, sessions) = session_with_replay(Vec::new());
-            state.bounded.store(bounded, std::sync::atomic::Ordering::Release);
+            state
+                .bounded
+                .store(bounded, std::sync::atomic::Ordering::Release);
             let activity = Arc::new(());
             let weak = Arc::downgrade(&activity);
-            let context = crate::opt::RequestContext::new(std::time::Instant::now() + Duration::from_secs(30))
-                .with_lifetime_owner(activity);
+            let context = crate::opt::RequestContext::new(
+                std::time::Instant::now() + Duration::from_secs(30),
+            )
+            .with_lifetime_owner(activity);
             let (mut route, _response) = route_for(session);
             route.request.request_context = Some(context.clone());
             let send = super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink);
             let cancel = async {
-                while !attempted.load(std::sync::atomic::Ordering::Acquire) { tokio::task::yield_now().await; }
+                while !attempted.load(std::sync::atomic::Ordering::Acquire) {
+                    tokio::task::yield_now().await;
+                }
                 context.cancel();
             };
             let (result, ()) = tokio::join!(send, cancel);
             assert_eq!(result, HandleResult::Disconnected);
             let retired = state.pending_requests.values().into_iter().next().unwrap();
             assert!(context.payload_owner().is_none());
-            assert!(weak.upgrade().is_some(), "caller cancellation cannot drain a dispatched activity");
-            assert_eq!(context.dispatch_state(), crate::opt::DispatchState::Dispatched);
+            assert!(
+                weak.upgrade().is_some(),
+                "caller cancellation cannot drain a dispatched activity"
+            );
+            assert_eq!(
+                context.dispatch_state(),
+                crate::opt::DispatchState::Dispatched
+            );
             drop(sink); // Both native socket halves precede reset in the actual router.
             super::reset_sessions(&sessions).await;
-            assert!(weak.upgrade().is_none(), "physical drain explicitly clears held metadata");
+            assert!(
+                weak.upgrade().is_none(),
+                "physical drain explicitly clears held metadata"
+            );
             assert!(retired.request_context.is_some());
-            assert_eq!(context.dispatch_state(), crate::opt::DispatchState::Dispatched);
+            assert_eq!(
+                context.dispatch_state(),
+                crate::opt::DispatchState::Dispatched
+            );
             super::reset_sessions(&sessions).await;
         }
     }
@@ -3108,19 +3335,39 @@ mod tests {
         let sink = RwLock::new(Vec::<MockMessage>::new());
         let activity = Arc::new(());
         let weak = Arc::downgrade(&activity);
-        let context = crate::opt::RequestContext::control(std::time::Instant::now() + Duration::from_secs(30))
-            .with_lifetime_owner(activity);
+        let context = crate::opt::RequestContext::control(
+            std::time::Instant::now() + Duration::from_secs(30),
+        )
+        .with_lifetime_owner(activity);
         let (mut route, response) = route_for(session);
         route.request.request_context = Some(context.clone());
         route.request.command = set_cmd("activity", 1);
-        assert_eq!(super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await, HandleResult::Ok);
+        assert_eq!(
+            super::dispatch_route::<MockMessage, _, _>(route, None, &state, &sink).await,
+            HandleResult::Ok
+        );
         let retired = state.pending_requests.values().into_iter().next().unwrap();
         assert!(weak.upgrade().is_some());
-        assert_eq!(handle_response_with_id::<MockMessage, _, _>(0, Ok(DbResult::Other(Value::None)),
-            session, &state, None, &sessions, &sink).await, HandleResult::Ok);
+        assert_eq!(
+            handle_response_with_id::<MockMessage, _, _>(
+                0,
+                Ok(DbResult::Other(Value::None)),
+                session,
+                &state,
+                None,
+                &sessions,
+                &sink
+            )
+            .await,
+            HandleResult::Ok
+        );
         assert!(response.recv().await.unwrap().is_ok());
         assert!(weak.upgrade().is_none());
-        assert_eq!(state.replay.count(), 1, "activity does not refuse or erase retained setup");
+        assert_eq!(
+            state.replay.count(),
+            1,
+            "activity does not refuse or erase retained setup"
+        );
         assert!(retired.command.is_some());
         assert!(context.payload_owner().is_none());
     }
@@ -3323,7 +3570,10 @@ mod tests {
             if parked {
                 super::park_route(&state, route);
                 context.cancel();
-                assert_eq!(super::maintain_request_lifetimes(&sessions).await, HandleResult::Ok);
+                assert_eq!(
+                    super::maintain_request_lifetimes(&sessions).await,
+                    HandleResult::Ok
+                );
                 assert!(response.recv().await.unwrap().is_err());
                 assert!(super::take_deferred_routes(&state).is_empty());
             } else {
@@ -3403,7 +3653,10 @@ mod tests {
             response_channel: sender,
         };
         session.pending_requests.insert(1, pending.clone());
-        assert_eq!(super::maintain_request_lifetimes(&sessions).await, HandleResult::Ok);
+        assert_eq!(
+            super::maintain_request_lifetimes(&sessions).await,
+            HandleResult::Ok
+        );
         assert_eq!(session.pending_requests.len(), 1);
         assert!(
             receiver
@@ -3417,7 +3670,10 @@ mod tests {
         pending.interrupted_at =
             Some(std::time::Instant::now() - std::time::Duration::from_secs(91));
         session.pending_requests.insert(1, pending);
-        assert_eq!(super::maintain_request_lifetimes(&sessions).await, HandleResult::Disconnected);
+        assert_eq!(
+            super::maintain_request_lifetimes(&sessions).await,
+            HandleResult::Disconnected
+        );
         assert_eq!(
             session.pending_requests.len(),
             1,

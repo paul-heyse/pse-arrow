@@ -99,129 +99,133 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Parent, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical.store();
-        let mut frame_objects =
-            objects(&self.runtime, read, &[INGRESS_FRAME.into()], cancel).await?;
-        let frame_object = frame_objects.remove(INGRESS_FRAME).ok_or_else(|| contract(
+        activity
+            .scope(async {
+                let store = self.runtime.canonical.store();
+                let mut frame_objects =
+                    objects(&self.runtime, read, &[INGRESS_FRAME.into()], cancel).await?;
+                let frame_object = frame_objects.remove(INGRESS_FRAME).ok_or_else(|| contract(
             "this source has no recoverable ordered ingress frame; restage it before delta editing",
         ))?;
-        let frame: IngressFrame = decode(frame_object.payload.as_slice())?;
-        let (mut physical, physical_lease, _) = physical_context(&self.runtime, read).await?;
-        let mut leases = vec![frame_object.lease.clone(), physical_lease];
-        let mut members = BTreeMap::new();
-        let mut index = SourceIndex::default();
-        let mut documents = BTreeMap::new();
-        let mut after = String::new();
-        loop {
-            checkpoint(cancel)?;
-            let scratch = self
-                .runtime
-                .shared
-                .math()
-                .reserve("modeling:delta-membership-page", 16 * 1024 * 1024)?;
-            let page = store
-                .membership_page(read.selection(), None, &after)
-                .await?;
-            let Some(last) = page.last() else { break };
-            after = last.key.clone();
-            let extent = page
-                .owned_bytes()
-                .checked_mul(2)
-                .ok_or_else(|| contract("delta membership extent"))?;
-            leases.extend(
-                scratch
-                    .partition(&[extent])
-                    .map_err(|_| contract("delta membership page exceeds admission"))?,
-            );
-            let declarations = page
-                .iter()
-                .filter(|member| {
-                    member.logical.starts_with("modeling:")
-                        && member.logical != CONTEXT_LOGICAL
-                        && member.logical != PHYSICAL_SCOPE_LOGICAL
-                })
-                .cloned()
-                .collect();
-            self.insert_members(&mut index, read, declarations, &mut leases, cancel)
-                .await?;
-            let metadata = page
-                .iter()
-                .filter(|member| {
-                    member.logical.starts_with("document:")
-                        || member.logical.starts_with("physical_scope_document:")
-                })
-                .map(|member| member.version.clone())
-                .collect::<Vec<_>>();
-            for chunk in metadata.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-                for value in selected_objects(&self.runtime, read, chunk, cancel).await? {
-                    if value.kind == "document" {
-                        let row: document_wire::Row = decode(value.payload.as_slice())?;
-                        if row.content.is_some() {
-                            return Err(contract(
-                                "document metadata unexpectedly contains data bytes",
-                            ));
+                let frame: IngressFrame = decode(frame_object.payload.as_slice())?;
+                let (mut physical, physical_lease, _) =
+                    physical_context(&self.runtime, read).await?;
+                let mut leases = vec![frame_object.lease.clone(), physical_lease];
+                let mut members = BTreeMap::new();
+                let mut index = SourceIndex::default();
+                let mut documents = BTreeMap::new();
+                let mut after = String::new();
+                loop {
+                    checkpoint(cancel)?;
+                    let scratch = self
+                        .runtime
+                        .shared
+                        .math()
+                        .reserve("modeling:delta-membership-page", 16 * 1024 * 1024)?;
+                    let page = store
+                        .membership_page(read.selection(), None, &after)
+                        .await?;
+                    let Some(last) = page.last() else { break };
+                    after = last.key.clone();
+                    let extent = page
+                        .owned_bytes()
+                        .checked_mul(2)
+                        .ok_or_else(|| contract("delta membership extent"))?;
+                    leases.extend(
+                        scratch
+                            .partition(&[extent])
+                            .map_err(|_| contract("delta membership page exceeds admission"))?,
+                    );
+                    let declarations = page
+                        .iter()
+                        .filter(|member| {
+                            member.logical.starts_with("modeling:")
+                                && member.logical != CONTEXT_LOGICAL
+                                && member.logical != PHYSICAL_SCOPE_LOGICAL
+                        })
+                        .cloned()
+                        .collect();
+                    self.insert_members(&mut index, read, declarations, &mut leases, cancel)
+                        .await?;
+                    let metadata = page
+                        .iter()
+                        .filter(|member| {
+                            member.logical.starts_with("document:")
+                                || member.logical.starts_with("physical_scope_document:")
+                        })
+                        .map(|member| member.version.clone())
+                        .collect::<Vec<_>>();
+                    for chunk in
+                        metadata.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
+                    {
+                        for value in selected_objects(&self.runtime, read, chunk, cancel).await? {
+                            if value.kind == "document" {
+                                let row: document_wire::Row = decode(value.payload.as_slice())?;
+                                if row.content.is_some() {
+                                    return Err(contract(
+                                        "document metadata unexpectedly contains data bytes",
+                                    ));
+                                }
+                                documents.insert(row.document_id, row);
+                            } else {
+                                let entry: PhysicalScope = decode(value.payload.as_slice())?;
+                                if entry.package != physical.package {
+                                    return Err(contract("delta physical package differs"));
+                                }
+                                physical
+                                    .documents
+                                    .as_mut()
+                                    .ok_or_else(|| {
+                                        contract("scoped entry in global physical context")
+                                    })?
+                                    .extend(entry.documents.ok_or_else(|| {
+                                        contract("global entry in scoped physical context")
+                                    })?);
+                            }
+                            leases.push(value.lease.clone());
                         }
-                        documents.insert(row.document_id, row);
-                    } else {
-                        let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                        if entry.package != physical.package {
-                            return Err(contract("delta physical package differs"));
-                        }
-                        physical
-                            .documents
-                            .as_mut()
-                            .ok_or_else(|| contract("scoped entry in global physical context"))?
-                            .extend(entry.documents.ok_or_else(|| {
-                                contract("global entry in scoped physical context")
-                            })?);
                     }
-                    leases.push(value.lease.clone());
+                    for member in page {
+                        members.insert(member.logical.clone(), member);
+                    }
                 }
-            }
-            for member in page {
-                members.insert(member.logical.clone(), member);
-            }
-        }
-        let mut rows = Vec::with_capacity(frame.order.len());
-        let mut unique = BTreeSet::new();
-        for id in &frame.order {
-            if !unique.insert(*id) {
-                return Err(contract("ordered parent frame repeats a declaration"));
-            }
-            rows.push(
-                index
-                    .rows
-                    .remove(id)
-                    .ok_or_else(|| contract("ordered parent frame names an absent declaration"))?,
-            );
-        }
-        if !index.rows.is_empty() {
-            return Err(contract("ordered parent frame omits declarations"));
-        }
-        let names = selected_source::physical_bindings(&rows, &physical, &self.physical.quantities);
-        let identity = crate::math::modeling::source_revision_frame(
-            &rows,
-            frame.data.iter().map(|(id, hash)| (*id, *hash)),
-            &self.physical.key,
-            &names,
-        );
-        if identity != self.revision.identity {
-            return Err(contract(
-                "ordered parent metadata does not reproduce its V4 identity",
-            ));
-        }
-        Ok(Parent {
-            rows,
-            frame,
-            physical,
-            documents,
-            members,
-            fields: index.fields,
-            _leases: leases,
-        })
-    
-        }).await
+                let mut rows = Vec::with_capacity(frame.order.len());
+                let mut unique = BTreeSet::new();
+                for id in &frame.order {
+                    if !unique.insert(*id) {
+                        return Err(contract("ordered parent frame repeats a declaration"));
+                    }
+                    rows.push(index.rows.remove(id).ok_or_else(|| {
+                        contract("ordered parent frame names an absent declaration")
+                    })?);
+                }
+                if !index.rows.is_empty() {
+                    return Err(contract("ordered parent frame omits declarations"));
+                }
+                let names =
+                    selected_source::physical_bindings(&rows, &physical, &self.physical.quantities);
+                let identity = crate::math::modeling::source_revision_frame(
+                    &rows,
+                    frame.data.iter().map(|(id, hash)| (*id, *hash)),
+                    &self.physical.key,
+                    &names,
+                );
+                if identity != self.revision.identity {
+                    return Err(contract(
+                        "ordered parent metadata does not reproduce its V4 identity",
+                    ));
+                }
+                Ok(Parent {
+                    rows,
+                    frame,
+                    physical,
+                    documents,
+                    members,
+                    fields: index.fields,
+                    _leases: leases,
+                })
+            })
+            .await
     }
 
     /// Publish an atomic, explicit edit of this exact parent. Missing objects are
@@ -232,37 +236,38 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if delta.parent != self.revision.canonical.key {
-            return Err(contract("source delta names a different canonical parent"));
-        }
-        let deadline = super::super::preparation_deadline(cancel)?;
-        let scoped = cancel.with_deadline(Some(deadline));
-        let cancel = &scoped;
-        checkpoint(cancel)?;
-        let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
-            let protection = self
-                .runtime
-                .canonical
-                .store()
-                .protect(
-                    self.revision.canonical.clone(),
-                    deadline.saturating_duration_since(std::time::Instant::now()),
-                )
+        activity
+            .scope(async {
+                if delta.parent != self.revision.canonical.key {
+                    return Err(contract("source delta names a different canonical parent"));
+                }
+                let deadline = super::super::preparation_deadline(cancel)?;
+                let scoped = cancel.with_deadline(Some(deadline));
+                let cancel = &scoped;
+                checkpoint(cancel)?;
+                let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
+                    let protection = self
+                        .runtime
+                        .canonical
+                        .store()
+                        .protect(
+                            self.revision.canonical.clone(),
+                            deadline.saturating_duration_since(std::time::Instant::now()),
+                        )
+                        .await?;
+                    let mut read = SelectedRead::new(protection);
+                    let result = self.apply_delta(delta, &mut read, cancel).await;
+                    Ok::<_, WorkflowError>((result, read))
+                })
                 .await?;
-            let mut read = SelectedRead::new(protection);
-            let result = self.apply_delta(delta, &mut read, cancel).await;
-            Ok::<_, WorkflowError>((result, read))
-        })
-        .await?;
-        // Release is cleanup of an issued protection, with its own bounded drain;
-        // an expired caller clock must not prevent attempting that cleanup.
-        let release = read.finish().await;
-        let result = result?;
-        release?;
-        Ok(result)
-    
-        }).await
+                // Release is cleanup of an issued protection, with its own bounded drain;
+                // an expired caller clock must not prevent attempting that cleanup.
+                let release = read.finish().await;
+                let result = result?;
+                release?;
+                Ok(result)
+            })
+            .await
     }
 
     async fn apply_delta(
@@ -911,7 +916,7 @@ impl ModelingPackage {
             },
             ..self.clone()
         })
-    
+
         }).await
     }
 }

@@ -139,39 +139,45 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Assessment, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let product = prepared.model.model.compiled();
-        let mut units = assessment_units(product);
-        if obligations == Obligations::Intermediate {
-            for expectation in product.model.expectations.values() {
-                units.remove(&(expectation.id, expectation.lineage.declaration));
-            }
-        }
-        let scope = units.keys().copied().collect();
-        let rows = units
-            .into_values()
-            .flatten()
-            .collect::<std::collections::BTreeSet<_>>();
-        let program = if rows.is_empty() {
-            None
-        } else {
-            Some(
-                self.observation_program(&prepared.model.model, &rows, prepared.compiler, cancel)
-                    .await?,
-            )
-        };
-        let rows = program
-            .as_ref()
-            .map(|p| p.assembly.structure().rows().iter().map(|r| r.id).collect())
-            .unwrap_or_default();
-        Ok(Assessment {
-            program,
-            rows,
-            scope,
-            required_closure: product.model.required_closure_checks(),
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let product = prepared.model.model.compiled();
+                let mut units = assessment_units(product);
+                if obligations == Obligations::Intermediate {
+                    for expectation in product.model.expectations.values() {
+                        units.remove(&(expectation.id, expectation.lineage.declaration));
+                    }
+                }
+                let scope = units.keys().copied().collect();
+                let rows = units
+                    .into_values()
+                    .flatten()
+                    .collect::<std::collections::BTreeSet<_>>();
+                let program = if rows.is_empty() {
+                    None
+                } else {
+                    Some(
+                        self.observation_program(
+                            &prepared.model.model,
+                            &rows,
+                            prepared.compiler,
+                            cancel,
+                        )
+                        .await?,
+                    )
+                };
+                let rows = program
+                    .as_ref()
+                    .map(|p| p.assembly.structure().rows().iter().map(|r| r.id).collect())
+                    .unwrap_or_default();
+                Ok(Assessment {
+                    program,
+                    rows,
+                    scope,
+                    required_closure: product.model.required_closure_checks(),
+                })
+            })
+            .await
     }
 }
 impl Assessment {

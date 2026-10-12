@@ -93,10 +93,9 @@ impl Runtime {
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<PhysicalContext, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        PhysicalContext::from_documents(documents, &self.model, cancel).await
-    
-        }).await
+        activity
+            .scope(async { PhysicalContext::from_documents(documents, &self.model, cancel).await })
+            .await
     }
 }
 impl PhysicalContext {

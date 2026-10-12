@@ -33,36 +33,37 @@ impl Runtime {
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let read = self
-            .canonical_store()
-            .read_results(run, attempt, LIFETIME)
-            .await?;
-        let operations = super::Operations::from_store(
-            self.canonical_store().clone(),
-            "progress-reader",
-            super::LeasePolicy::default(),
-            self.shared.pool(),
-        );
-        let coverage = operations.progress_coverage(&read).await?;
-        let descriptor = read.sets().iter().find(|set| set.name == "__progress");
-        let (set, batches) =
-            descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
-        Ok(ProgressStream {
-            runtime: self.clone(),
-            read: Some(read),
-            run: run.into(),
-            attempt: attempt.into(),
-            coverage,
-            set,
-            batches,
-            ordinal: 0,
-            owner: None,
-            cancel,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let read = self
+                    .canonical_store()
+                    .read_results(run, attempt, LIFETIME)
+                    .await?;
+                let operations = super::Operations::from_store(
+                    self.canonical_store().clone(),
+                    "progress-reader",
+                    super::LeasePolicy::default(),
+                    self.shared.pool(),
+                );
+                let coverage = operations.progress_coverage(&read).await?;
+                let descriptor = read.sets().iter().find(|set| set.name == "__progress");
+                let (set, batches) =
+                    descriptor.map_or((None, 0), |set| (Some(set.key.clone()), set.batch_count));
+                Ok(ProgressStream {
+                    runtime: self.clone(),
+                    read: Some(read),
+                    run: run.into(),
+                    attempt: attempt.into(),
+                    coverage,
+                    set,
+                    batches,
+                    ordinal: 0,
+                    owner: None,
+                    cancel,
+                })
+            })
+            .await
     }
 }
 impl ProgressStream {

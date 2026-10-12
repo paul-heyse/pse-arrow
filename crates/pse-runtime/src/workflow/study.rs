@@ -375,25 +375,27 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let operations = self.operations()?;
-        let physical =
-            creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
-        let context = creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
-        let package = creation_effect(
-            cancel,
-            self.package_from_sources(&plan.sources.modeling, context, cancel),
-        )
-        .await?;
-        let definition = creation_effect(
-            cancel,
-            package.admit_study_points(physical, &plan.points, &plan.output, cancel),
-        )
-        .await?;
-        self.start_defined_study(plan.sources.physical, definition, cancel)
+        activity
+            .scope(async {
+                let operations = self.operations()?;
+                let physical =
+                    creation_effect(cancel, operations.put_sources(&plan.sources.physical)).await?;
+                let context =
+                    creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
+                let package = creation_effect(
+                    cancel,
+                    self.package_from_sources(&plan.sources.modeling, context, cancel),
+                )
+                .await?;
+                let definition = creation_effect(
+                    cancel,
+                    package.admit_study_points(physical, &plan.points, &plan.output, cancel),
+                )
+                .await?;
+                self.start_defined_study(plan.sources.physical, definition, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
 
     /// Persist the exact admitted immutable definition in bounded occurrence batches.
@@ -404,135 +406,139 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        creation_checkpoint(cancel)?;
-        let operations = self.operations()?;
-        let physical = creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
-        if physical != definition.physical {
-            return Err(contract("study physical source identity differs"));
-        }
-        definition.validate_roles()?;
-        if definition.points.is_empty() || definition.points.len() > MAXIMUM_STUDY_POINTS {
-            return Err(contract("bounded admitted study extent"));
-        }
-        let revision = creation_input(
-            cancel,
-            self.canonical_store()
-                .revision(&definition.modeling_revision),
-        )
-        .await?
-        .ok_or_else(|| contract("canonical study revision absent"))?;
-        let context = creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
-        let package = creation_effect(
-            cancel,
-            self.modeling_revision(revision.clone(), context, BTreeMap::new()),
-        )
-        .await?;
-        // Immutable scientific entry admission is complete before any claim. This
-        // checks bindings and seed roles without constructing native solve views.
-        let mut admission = None;
-        for point in &definition.points {
-            creation_checkpoint(cancel)?;
-            if point.binding.identity() != point.binding_hash {
-                return Err(contract("study binding content differs"));
-            }
-            if creation_effect(
-                cancel,
-                point.operation.admit_binding_seed_need(
-                    &package,
-                    &point.binding,
-                    &mut admission,
-                    cancel,
-                ),
-            )
-            .await?
-                != point.policy.seed_need
-            {
-                return Err(contract(
-                    "study seed consumption differs from its scientific owner",
-                ));
-            }
-        }
-        drop(admission);
-        creation_checkpoint(cancel)?;
-        let study_id: StudyId = pse_operations::mint_id();
-        let run_id: RunId = pse_operations::mint_id();
-        let key = study_id.to_string();
-        let run = format!("run:{run_id}");
-        let physical_revision =
-            creation_input(cancel, self.canonical_store().revision(&physical.revision))
-                .await?
-                .ok_or_else(|| contract("canonical physical source absent"))?;
-        let attestation = self.canonical.attestation();
-        let attestation = document(&(attestation.source, attestation.build))?;
-        let source_selection = document(&(1_u8, &definition.modeling_revision, &physical))?;
-        let request = StoredRequest {
-            key: run,
-            revision: revision.clone(),
-            sources: vec![physical_revision.clone()],
-            request: document(&(
-                1_u8,
-                study_id,
-                run_id,
-                pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
-                    .map_err(|error| contract(error.to_string()))?,
-            ))?,
-            source_selection: source_selection.clone(),
-            attestation: attestation.clone(),
-        };
-        let metadata = document(&StudyMetadata {
-            version: Version::<1>,
-            physical: physical.clone(),
-        })?;
-        let points = definition
-            .points
-            .iter()
-            .map(|point| {
+        activity
+            .scope(async {
                 creation_checkpoint(cancel)?;
-                let point_run: RunId = pse_operations::mint_id();
-                let descriptor = document(&(&point.operation, point.binding_hash, &point.binding))?;
-                Ok(NewOccurrence {
-                    policy: point.policy.clone(),
-                    descriptor: descriptor.clone(),
-                    run: StoredRequest {
-                        key: format!("run:{point_run}"),
-                        revision: revision.clone(),
-                        sources: vec![physical_revision.clone()],
-                        request: document(&(
-                            1_u8,
-                            point_run,
-                            study_id,
-                            point.policy.key,
-                            pse_ids::document::of(
-                                pse_ids::Frame::DurableStudyRequestV5,
-                                &(&point.operation, point.binding_hash, &point.policy),
-                            )
+                let operations = self.operations()?;
+                let physical =
+                    creation_effect(cancel, operations.put_sources(&physical_sources)).await?;
+                if physical != definition.physical {
+                    return Err(contract("study physical source identity differs"));
+                }
+                definition.validate_roles()?;
+                if definition.points.is_empty() || definition.points.len() > MAXIMUM_STUDY_POINTS {
+                    return Err(contract("bounded admitted study extent"));
+                }
+                let revision = creation_input(
+                    cancel,
+                    self.canonical_store()
+                        .revision(&definition.modeling_revision),
+                )
+                .await?
+                .ok_or_else(|| contract("canonical study revision absent"))?;
+                let context =
+                    creation_effect(cancel, self.physical_source(&physical, cancel)).await?;
+                let package = creation_effect(
+                    cancel,
+                    self.modeling_revision(revision.clone(), context, BTreeMap::new()),
+                )
+                .await?;
+                // Immutable scientific entry admission is complete before any claim. This
+                // checks bindings and seed roles without constructing native solve views.
+                let mut admission = None;
+                for point in &definition.points {
+                    creation_checkpoint(cancel)?;
+                    if point.binding.identity() != point.binding_hash {
+                        return Err(contract("study binding content differs"));
+                    }
+                    if creation_effect(
+                        cancel,
+                        point.operation.admit_binding_seed_need(
+                            &package,
+                            &point.binding,
+                            &mut admission,
+                            cancel,
+                        ),
+                    )
+                    .await?
+                        != point.policy.seed_need
+                    {
+                        return Err(contract(
+                            "study seed consumption differs from its scientific owner",
+                        ));
+                    }
+                }
+                drop(admission);
+                creation_checkpoint(cancel)?;
+                let study_id: StudyId = pse_operations::mint_id();
+                let run_id: RunId = pse_operations::mint_id();
+                let key = study_id.to_string();
+                let run = format!("run:{run_id}");
+                let physical_revision =
+                    creation_input(cancel, self.canonical_store().revision(&physical.revision))
+                        .await?
+                        .ok_or_else(|| contract("canonical physical source absent"))?;
+                let attestation = self.canonical.attestation();
+                let attestation = document(&(attestation.source, attestation.build))?;
+                let source_selection = document(&(1_u8, &definition.modeling_revision, &physical))?;
+                let request = StoredRequest {
+                    key: run,
+                    revision: revision.clone(),
+                    sources: vec![physical_revision.clone()],
+                    request: document(&(
+                        1_u8,
+                        study_id,
+                        run_id,
+                        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
                             .map_err(|error| contract(error.to_string()))?,
-                        ))?,
-                        source_selection: source_selection.clone(),
-                        attestation: attestation.clone(),
-                    },
-                })
+                    ))?,
+                    source_selection: source_selection.clone(),
+                    attestation: attestation.clone(),
+                };
+                let metadata = document(&StudyMetadata {
+                    version: Version::<1>,
+                    physical: physical.clone(),
+                })?;
+                let points = definition
+                    .points
+                    .iter()
+                    .map(|point| {
+                        creation_checkpoint(cancel)?;
+                        let point_run: RunId = pse_operations::mint_id();
+                        let descriptor =
+                            document(&(&point.operation, point.binding_hash, &point.binding))?;
+                        Ok(NewOccurrence {
+                            policy: point.policy.clone(),
+                            descriptor: descriptor.clone(),
+                            run: StoredRequest {
+                                key: format!("run:{point_run}"),
+                                revision: revision.clone(),
+                                sources: vec![physical_revision.clone()],
+                                request: document(&(
+                                    1_u8,
+                                    point_run,
+                                    study_id,
+                                    point.policy.key,
+                                    pse_ids::document::of(
+                                        pse_ids::Frame::DurableStudyRequestV5,
+                                        &(&point.operation, point.binding_hash, &point.policy),
+                                    )
+                                    .map_err(|error| contract(error.to_string()))?,
+                                ))?,
+                                source_selection: source_selection.clone(),
+                                attestation: attestation.clone(),
+                            },
+                        })
+                    })
+                    .collect::<Result<Vec<_>, WorkflowError>>()?;
+                let activated = self
+                    .canonical_store()
+                    .create_study(&key, &request, &metadata, &points, &|| {
+                        cancel.token().is_cancelled()
+                    })
+                    .await?;
+                if activated.is_none() {
+                    creation_checkpoint(cancel)?;
+                    return Err(contract("inactive study creation was interrupted"));
+                }
+                // Catch cancellation after the owner's final observation and before handing
+                // an active handle to the caller. Never interrupt the durable cancel write.
+                if cancel.token().is_cancelled() {
+                    self.canonical_store().cancel_study(&key).await?;
+                }
+                Ok(self.study(study_id))
             })
-            .collect::<Result<Vec<_>, WorkflowError>>()?;
-        let activated = self
-            .canonical_store()
-            .create_study(&key, &request, &metadata, &points, &|| {
-                cancel.token().is_cancelled()
-            })
-            .await?;
-        if activated.is_none() {
-            creation_checkpoint(cancel)?;
-            return Err(contract("inactive study creation was interrupted"));
-        }
-        // Catch cancellation after the owner's final observation and before handing
-        // an active handle to the caller. Never interrupt the durable cancel write.
-        if cancel.token().is_cancelled() {
-            self.canonical_store().cancel_study(&key).await?;
-        }
-        Ok(self.study(study_id))
-    
-        }).await
+            .await
     }
 
     /// Exact handle; equal bindings never merge study identities or occurrences.
@@ -551,134 +557,136 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<PreparedStudyCandidate, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
-        let point = self
-            .canonical_store()
-            .canonical_study_point(&scope.point().key)
-            .await?
-            .ok_or_else(|| contract("study occurrence absent"))?;
-        let definition = definition_of(&point)?;
-        let unresolved = match &definition.policy.start {
-            StartPolicy::Fresh => None,
-            StartPolicy::Explicit { role, .. } => Some(SeedFact {
-                role: *role,
-                availability: SeedAvailability::Unresolved,
-            }),
-            StartPolicy::Continuation(edge) => Some(SeedFact {
-                role: edge.role,
-                availability: SeedAvailability::Unresolved,
-            }),
-        };
-        let preliminary = scope.action(unresolved)?;
-        if !matches!(
-            preliminary.kind,
-            ActionKind::Start(_)
-                | ActionKind::Wait(pse_model::study::WaitReason::SeedResolution { .. })
-        ) {
-            return Err(contract("candidate is not structurally ready"));
-        }
-        let study = self
-            .canonical_store()
-            .canonical_study(&point.study)
-            .await?
-            .ok_or_else(|| contract("study header absent"))?;
-        let StudyMetadata { physical, .. } = serde_json::from_slice(study.metadata.as_slice())
-            .map_err(|error| contract(format!("study interpretation: {error}")))?;
-        let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, _)| {
-            revision == &study.revision && receipt == &physical
-        });
-        if !same_source {
-            lane.close().await?;
-            let context = self.physical_source(&physical, cancel).await?;
-            let revision = self
-                .canonical_store()
-                .revision(&study.revision)
-                .await?
-                .ok_or_else(|| contract("study revision absent"))?;
-            let package = self
-                .modeling_revision(revision, context, BTreeMap::new())
-                .await?;
-            lane.source = Some((study.revision.clone(), physical, package));
-        }
-        let package = lane
-            .source
-            .as_ref()
-            .ok_or_else(|| contract("study lane source absent"))?
-            .2
-            .clone();
-        let mut operation = lane
-            .preparation
-            .prepare(&package, &definition.operation, &definition.binding, cancel)
-            .await?;
-        if operation.seed_need() != definition.policy.seed_need {
-            return Err(contract(
-                "ready native seed consumption differs from admission",
-            ));
-        }
-        let original_prediction_eligible = matches!(&operation,
-            super::PreparedStudyOperation::DeclaredCase(case)
-                if case
-                    .solve
-                    .composition_request()
-                    .recovery
-                    .contains(&pse_model::strategy::StartOrigin::Predicted)
-                    && case.solve.numerical_strategy().start.policy
-                        != pse_backend_native::solve::StartPolicy::Explicit
-        );
-        let operation_descriptor = super::study_operations::DeclaredStudyAdmission::key(
-            &definition.operation,
-            &PointOverlay::default(),
-        )?
-        .0;
-        let mut prediction = None;
-        let seed = match &definition.policy.start {
-            StartPolicy::Fresh => None,
-            start => {
-                let (role, selected) = match start {
-                    StartPolicy::Explicit { role, seed } => {
-                        let selected = match self.operations()?.seed(*seed).await {
-                            Ok(admitted) => Some(admitted),
-                            Err(WorkflowError::SeedRead(
-                                super::durable::SeedReadError::Missing { .. },
-                            )) => None,
-                            Err(error) => return Err(error),
-                        };
-                        (*role, selected)
-                    }
-                    StartPolicy::Continuation(edge) => {
-                        let predecessor = scope
-                            .predecessors()
-                            .iter()
-                            .find(|point| point.occurrence == u64::from(edge.predecessor.0))
-                            .ok_or_else(|| contract("immediate seed predecessor absent"))?;
-                        let selected = if let (
-                            super::PreparedStudyOperation::DeclaredCase(case),
-                            Some(attempt),
-                        ) = (&operation, predecessor.attempt.as_deref())
-                        {
-                            if let (Some(target), Some(preparation)) = (
-                                case.solve.compatibility(),
-                                case.solve.seed_preparation_identity(),
-                            ) {
-                                self.operations()?
-                                    .latest_seed(target, &preparation, Some(attempt))
-                                    .await?
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        };
-                        (edge.role, selected)
-                    }
-                    StartPolicy::Fresh => {
-                        return Err(contract("fresh policy cannot request a seed"));
-                    }
+        activity
+            .scope(async {
+                use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
+                let point = self
+                    .canonical_store()
+                    .canonical_study_point(&scope.point().key)
+                    .await?
+                    .ok_or_else(|| contract("study occurrence absent"))?;
+                let definition = definition_of(&point)?;
+                let unresolved = match &definition.policy.start {
+                    StartPolicy::Fresh => None,
+                    StartPolicy::Explicit { role, .. } => Some(SeedFact {
+                        role: *role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
+                    StartPolicy::Continuation(edge) => Some(SeedFact {
+                        role: edge.role,
+                        availability: SeedAvailability::Unresolved,
+                    }),
                 };
-                let availability = if let Some(selected) = selected {
-                    if let super::PreparedStudyOperation::DeclaredCase(case) = &operation {
-                        match case.as_ref().clone().with_admitted_start(&selected) {
+                let preliminary = scope.action(unresolved)?;
+                if !matches!(
+                    preliminary.kind,
+                    ActionKind::Start(_)
+                        | ActionKind::Wait(pse_model::study::WaitReason::SeedResolution { .. })
+                ) {
+                    return Err(contract("candidate is not structurally ready"));
+                }
+                let study = self
+                    .canonical_store()
+                    .canonical_study(&point.study)
+                    .await?
+                    .ok_or_else(|| contract("study header absent"))?;
+                let StudyMetadata { physical, .. } =
+                    serde_json::from_slice(study.metadata.as_slice())
+                        .map_err(|error| contract(format!("study interpretation: {error}")))?;
+                let same_source = lane.source.as_ref().is_some_and(|(revision, receipt, _)| {
+                    revision == &study.revision && receipt == &physical
+                });
+                if !same_source {
+                    lane.close().await?;
+                    let context = self.physical_source(&physical, cancel).await?;
+                    let revision = self
+                        .canonical_store()
+                        .revision(&study.revision)
+                        .await?
+                        .ok_or_else(|| contract("study revision absent"))?;
+                    let package = self
+                        .modeling_revision(revision, context, BTreeMap::new())
+                        .await?;
+                    lane.source = Some((study.revision.clone(), physical, package));
+                }
+                let package = lane
+                    .source
+                    .as_ref()
+                    .ok_or_else(|| contract("study lane source absent"))?
+                    .2
+                    .clone();
+                let mut operation = lane
+                    .preparation
+                    .prepare(&package, &definition.operation, &definition.binding, cancel)
+                    .await?;
+                if operation.seed_need() != definition.policy.seed_need {
+                    return Err(contract(
+                        "ready native seed consumption differs from admission",
+                    ));
+                }
+                let original_prediction_eligible = matches!(&operation,
+                    super::PreparedStudyOperation::DeclaredCase(case)
+                        if case
+                            .solve
+                            .composition_request()
+                            .recovery
+                            .contains(&pse_model::strategy::StartOrigin::Predicted)
+                            && case.solve.numerical_strategy().start.policy
+                                != pse_backend_native::solve::StartPolicy::Explicit
+                );
+                let operation_descriptor = super::study_operations::DeclaredStudyAdmission::key(
+                    &definition.operation,
+                    &PointOverlay::default(),
+                )?
+                .0;
+                let mut prediction = None;
+                let seed = match &definition.policy.start {
+                    StartPolicy::Fresh => None,
+                    start => {
+                        let (role, selected) = match start {
+                            StartPolicy::Explicit { role, seed } => {
+                                let selected = match self.operations()?.seed(*seed).await {
+                                    Ok(admitted) => Some(admitted),
+                                    Err(WorkflowError::SeedRead(
+                                        super::durable::SeedReadError::Missing { .. },
+                                    )) => None,
+                                    Err(error) => return Err(error),
+                                };
+                                (*role, selected)
+                            }
+                            StartPolicy::Continuation(edge) => {
+                                let predecessor = scope
+                                    .predecessors()
+                                    .iter()
+                                    .find(|point| point.occurrence == u64::from(edge.predecessor.0))
+                                    .ok_or_else(|| contract("immediate seed predecessor absent"))?;
+                                let selected = if let (
+                                    super::PreparedStudyOperation::DeclaredCase(case),
+                                    Some(attempt),
+                                ) = (&operation, predecessor.attempt.as_deref())
+                                {
+                                    if let (Some(target), Some(preparation)) = (
+                                        case.solve.compatibility(),
+                                        case.solve.seed_preparation_identity(),
+                                    ) {
+                                        self.operations()?
+                                            .latest_seed(target, &preparation, Some(attempt))
+                                            .await?
+                                    } else {
+                                        None
+                                    }
+                                } else {
+                                    None
+                                };
+                                (edge.role, selected)
+                            }
+                            StartPolicy::Fresh => {
+                                return Err(contract("fresh policy cannot request a seed"));
+                            }
+                        };
+                        let availability = if let Some(selected) = selected {
+                            if let super::PreparedStudyOperation::DeclaredCase(case) = &operation {
+                                match case.as_ref().clone().with_admitted_start(&selected) {
                             Ok(seeded) => {
                                 let unseeded = match std::mem::replace(
                                     &mut operation,
@@ -747,23 +755,23 @@ impl Runtime {
                             }
                             Err(error) => return Err(error),
                         }
-                    } else {
-                        SeedAvailability::Incompatible
+                            } else {
+                                SeedAvailability::Incompatible
+                            }
+                        } else {
+                            SeedAvailability::Absent
+                        };
+                        Some(SeedFact { role, availability })
                     }
-                } else {
-                    SeedAvailability::Absent
                 };
-                Some(SeedFact { role, availability })
-            }
-        };
-        Ok(PreparedStudyCandidate {
-            operation,
-            output: definition.operation.output,
-            seed,
-            prediction,
-        })
-    
-        }).await
+                Ok(PreparedStudyCandidate {
+                    operation,
+                    output: definition.operation.output,
+                    seed,
+                    prediction,
+                })
+            })
+            .await
     }
 
     /// Numerical proposal selection and original screening run only after native claim.
@@ -773,132 +781,146 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let Some(input) = prepared.prediction.take() else {
-            return Ok(());
-        };
-        let super::PreparedStudyOperation::DeclaredCase(target) = &mut prepared.operation else {
-            return Err(contract("prediction target ceased to be an original case"));
-        };
-        let source = self
-            .prediction_sample(
-                &input.package,
-                &input.predecessor,
-                &input.seed,
-                &input,
-                cancel,
-            )
-            .await?;
-        let Some(mut source) = source else {
-            return Ok(());
-        };
-        let deadline = std::time::Instant::now()
-            .checked_add(input.original.solve.time_limit())
-            .ok_or_else(|| contract("prediction deadline extent"))?;
-        let scope =
-            input.original.solve.task_scope().unwrap_or_else(|| {
-                pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline))
-            });
-        let original = self
-            .native()
-            .admit_proposal_task(input.original.solve.clone(), scope.clone())
-            .map_err(crate::math::MathRuntimeError::from)?;
-        if let Some(root) = &source.point.root {
-            let primal = source
-                .point
-                .primal
-                .iter()
-                .copied()
-                .map(f64::from_bits)
-                .collect();
-            let values = root.values.iter().copied().map(f64::from_bits).collect();
-            source.root = self
-                .native()
-                .restore_root_predictor(
-                    source.prepared.solve.clone(),
-                    primal,
-                    values,
-                    root.key,
-                    scope.clone(),
-                    original.task_admission(),
-                    cancel,
-                )
-                .await
-                .map_err(|error| {
-                    pse_backend_native::square_response::Withheld::Cause(Arc::new(
-                        error.into_problem(),
-                    ))
-                });
-        }
-        let older = match input
-            .predecessor
-            .start
-            .as_ref()
-            .map(|bytes| {
-                serde_json::from_slice::<pse_model::study::StartProvenance>(bytes.as_slice())
-                    .map_err(|error| contract(error.to_string()))
-            })
-            .transpose()?
-        {
-            Some(pse_model::study::StartProvenance::Continuation {
-                predecessor, seed, ..
-            }) => {
-                let key = pse_operations::canonical_studies::point_key(
-                    &input.predecessor.study,
-                    predecessor,
-                );
-                let point = self
-                    .canonical_store()
-                    .canonical_study_point(&key)
-                    .await?
-                    .ok_or_else(|| contract("selected older prediction occurrence absent"))?;
-                let admitted = self.operations()?.seed(seed).await?;
-                self.prediction_sample(
-                    &input.package,
-                    &ScopedStudyPoint::from(&point),
-                    &admitted,
-                    &input,
-                    cancel,
-                )
-                .await?
-            }
-            _ => None,
-        };
-        let mut execution = pse_backend_native::solve::Execution::within(
-            scope.cancellation().clone(),
-            &pse_backend_native::solve::Controls::default(),
-            scope.clone(),
-        )
-        .map_err(crate::math::MathRuntimeError::from)?;
-        execution.work_admission = original
-            .task_admission()
-            .map(|owner| -> Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
-        let mut destination = input.original.clone();
-        destination.solve = original;
-        let branch = destination.solve.composition_request().branch;
-        match source.available_prediction(older.as_ref(), &destination, branch, &execution) {
-            Ok(proposal) => {
-                let screened = self
-                    .native()
-                    .screen_start(destination.solve.clone(), proposal, branch, scope, cancel)
+        activity
+            .scope(async {
+                let Some(input) = prepared.prediction.take() else {
+                    return Ok(());
+                };
+                let super::PreparedStudyOperation::DeclaredCase(target) = &mut prepared.operation
+                else {
+                    return Err(contract("prediction target ceased to be an original case"));
+                };
+                let source = self
+                    .prediction_sample(
+                        &input.package,
+                        &input.predecessor,
+                        &input.seed,
+                        &input,
+                        cancel,
+                    )
                     .await?;
-                target.solve = destination
-                    .solve
-                    .with_screened_start(&screened)
+                let Some(mut source) = source else {
+                    return Ok(());
+                };
+                let deadline = std::time::Instant::now()
+                    .checked_add(input.original.solve.time_limit())
+                    .ok_or_else(|| contract("prediction deadline extent"))?;
+                let scope = input.original.solve.task_scope().unwrap_or_else(|| {
+                    pse_kernels::ExecutionScope::new(Arc::default(), Some(deadline))
+                });
+                let original = self
+                    .native()
+                    .admit_proposal_task(input.original.solve.clone(), scope.clone())
                     .map_err(crate::math::MathRuntimeError::from)?;
-            }
-            Err(error)
-                if matches!(
-                    error.boundary_diagnostic().class,
-                    pse_model::diagnostic::BoundaryClass::Unsupported
-                        | pse_model::diagnostic::BoundaryClass::Incompatible
-                        | pse_model::diagnostic::BoundaryClass::Numerical
-                ) => {}
-            Err(error) => return Err(error),
-        }
-        Ok(())
-    
-        }).await
+                if let Some(root) = &source.point.root {
+                    let primal = source
+                        .point
+                        .primal
+                        .iter()
+                        .copied()
+                        .map(f64::from_bits)
+                        .collect();
+                    let values = root.values.iter().copied().map(f64::from_bits).collect();
+                    source.root = self
+                        .native()
+                        .restore_root_predictor(
+                            source.prepared.solve.clone(),
+                            primal,
+                            values,
+                            root.key,
+                            scope.clone(),
+                            original.task_admission(),
+                            cancel,
+                        )
+                        .await
+                        .map_err(|error| {
+                            pse_backend_native::square_response::Withheld::Cause(Arc::new(
+                                error.into_problem(),
+                            ))
+                        });
+                }
+                let older = match input
+                    .predecessor
+                    .start
+                    .as_ref()
+                    .map(|bytes| {
+                        serde_json::from_slice::<pse_model::study::StartProvenance>(
+                            bytes.as_slice(),
+                        )
+                        .map_err(|error| contract(error.to_string()))
+                    })
+                    .transpose()?
+                {
+                    Some(pse_model::study::StartProvenance::Continuation {
+                        predecessor,
+                        seed,
+                        ..
+                    }) => {
+                        let key = pse_operations::canonical_studies::point_key(
+                            &input.predecessor.study,
+                            predecessor,
+                        );
+                        let point = self
+                            .canonical_store()
+                            .canonical_study_point(&key)
+                            .await?
+                            .ok_or_else(|| {
+                                contract("selected older prediction occurrence absent")
+                            })?;
+                        let admitted = self.operations()?.seed(seed).await?;
+                        self.prediction_sample(
+                            &input.package,
+                            &ScopedStudyPoint::from(&point),
+                            &admitted,
+                            &input,
+                            cancel,
+                        )
+                        .await?
+                    }
+                    _ => None,
+                };
+                let mut execution = pse_backend_native::solve::Execution::within(
+                    scope.cancellation().clone(),
+                    &pse_backend_native::solve::Controls::default(),
+                    scope.clone(),
+                )
+                .map_err(crate::math::MathRuntimeError::from)?;
+                execution.work_admission = original
+                    .task_admission()
+                    .map(|owner| -> Arc<dyn pse_backend_native::solve::WorkAdmission> { owner });
+                let mut destination = input.original.clone();
+                destination.solve = original;
+                let branch = destination.solve.composition_request().branch;
+                match source.available_prediction(older.as_ref(), &destination, branch, &execution)
+                {
+                    Ok(proposal) => {
+                        let screened = self
+                            .native()
+                            .screen_start(
+                                destination.solve.clone(),
+                                proposal,
+                                branch,
+                                scope,
+                                cancel,
+                            )
+                            .await?;
+                        target.solve = destination
+                            .solve
+                            .with_screened_start(&screened)
+                            .map_err(crate::math::MathRuntimeError::from)?;
+                    }
+                    Err(error)
+                        if matches!(
+                            error.boundary_diagnostic().class,
+                            pse_model::diagnostic::BoundaryClass::Unsupported
+                                | pse_model::diagnostic::BoundaryClass::Incompatible
+                                | pse_model::diagnostic::BoundaryClass::Numerical
+                        ) => {}
+                    Err(error) => return Err(error),
+                }
+                Ok(())
+            })
+            .await
     }
     async fn prediction_sample(
         &self,
@@ -987,26 +1009,27 @@ impl Runtime {
         error: Option<WorkflowError>,
     ) -> Result<CanonicalPoint, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let diagnostic =
-            error
-                .map(|error| error.boundary_diagnostic())
-                .or_else(|| match &action.kind {
-                    pse_model::study::ActionKind::Refuse(refusal) => {
-                        Some(super::study_execution::policy_refusal(refusal))
-                    }
-                    pse_model::study::ActionKind::Cancel => Some(
-                        WorkflowError::Math(crate::math::MathRuntimeError::Cancelled)
-                            .boundary_diagnostic(),
-                    ),
-                    _ => None,
-                });
-        Ok(self
-            .canonical_store()
-            .refuse_study_point(scope, action, diagnostic)
-            .await?)
-    
-        }).await
+        activity
+            .scope(async {
+                let diagnostic =
+                    error
+                        .map(|error| error.boundary_diagnostic())
+                        .or_else(|| match &action.kind {
+                            pse_model::study::ActionKind::Refuse(refusal) => {
+                                Some(super::study_execution::policy_refusal(refusal))
+                            }
+                            pse_model::study::ActionKind::Cancel => Some(
+                                WorkflowError::Math(crate::math::MathRuntimeError::Cancelled)
+                                    .boundary_diagnostic(),
+                            ),
+                            _ => None,
+                        });
+                Ok(self
+                    .canonical_store()
+                    .refuse_study_point(scope, action, diagnostic)
+                    .await?)
+            })
+            .await
     }
 
     /// Explicitly recover an assigned occurrence without invoking a numerical kernel.
@@ -1017,91 +1040,93 @@ impl Runtime {
     )]
     pub(crate) async fn recover_study_point(&self, key: &str) -> Result<bool, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let (point, actual, study, _run) = self.canonical_store().recovery_snapshot(key).await?;
-        let point = &point;
-        // Assigned-page discovery is only a hint. The original owner may have
-        // recorded this terminal attempt before this fresh snapshot, including
-        // a retryable observation that normal claim policy must handle next.
-        if !point.assigned || point.settled {
-            return Ok(false);
-        }
-        let attempt_key = point
-            .attempt
-            .as_deref()
-            .ok_or_else(|| contract("assigned study occurrence has no attempt"))?;
-        // A live owner receives typed cancellation, drains, and settles its own
-        // original completion. An independent recovery worker cannot infer that
-        // physical handoff from the cancellation bit alone.
-        if !actual.terminal && actual.expires_at > chrono::Utc::now().timestamp_micros() {
-            return Ok(false);
-        }
-        self.operations()?
-            .recover(
-                &point.run,
-                &format!("study-recover:{}:{}", point.key, actual.generation),
-            )
-            .await?;
-        let record = self.operations()?.record(&point.run, attempt_key).await?;
-        let stored = record
-            .completion
-            .as_ref()
-            .ok_or_else(|| contract("recovered completion absent"))?;
-        let mut facts = point_facts(point)?;
-        facts.lifecycle = match stored.state {
-            AttemptState::Cancelled => StudyPointState::Cancelled,
-            AttemptState::Failed => StudyPointState::Failed,
-            _ => StudyPointState::Completed,
-        };
-        facts.retry_failure = stored.termination.retry_failure;
-        facts.effect = stored.termination.effect;
-        facts.scientific = stored_scientific_facts(stored);
-        let start = point
-            .start
-            .as_ref()
-            .map(|bytes| {
-                serde_json::from_slice(bytes.as_slice())
-                    .map_err(|error| contract(error.to_string()))
+        activity
+            .scope(async {
+                let (point, actual, study, _run) =
+                    self.canonical_store().recovery_snapshot(key).await?;
+                let point = &point;
+                // Assigned-page discovery is only a hint. The original owner may have
+                // recorded this terminal attempt before this fresh snapshot, including
+                // a retryable observation that normal claim policy must handle next.
+                if !point.assigned || point.settled {
+                    return Ok(false);
+                }
+                let attempt_key = point
+                    .attempt
+                    .as_deref()
+                    .ok_or_else(|| contract("assigned study occurrence has no attempt"))?;
+                // A live owner receives typed cancellation, drains, and settles its own
+                // original completion. An independent recovery worker cannot infer that
+                // physical handoff from the cancellation bit alone.
+                if !actual.terminal && actual.expires_at > chrono::Utc::now().timestamp_micros() {
+                    return Ok(false);
+                }
+                self.operations()?
+                    .recover(
+                        &point.run,
+                        &format!("study-recover:{}:{}", point.key, actual.generation),
+                    )
+                    .await?;
+                let record = self.operations()?.record(&point.run, attempt_key).await?;
+                let stored = record
+                    .completion
+                    .as_ref()
+                    .ok_or_else(|| contract("recovered completion absent"))?;
+                let mut facts = point_facts(point)?;
+                facts.lifecycle = match stored.state {
+                    AttemptState::Cancelled => StudyPointState::Cancelled,
+                    AttemptState::Failed => StudyPointState::Failed,
+                    _ => StudyPointState::Completed,
+                };
+                facts.retry_failure = stored.termination.retry_failure;
+                facts.effect = stored.termination.effect;
+                facts.scientific = stored_scientific_facts(stored);
+                let start = point
+                    .start
+                    .as_ref()
+                    .map(|bytes| {
+                        serde_json::from_slice(bytes.as_slice())
+                            .map_err(|error| contract(error.to_string()))
+                    })
+                    .transpose()?;
+                let diagnostic = stored_diagnostic(stored);
+                let mut outcome = point_outcome(point)?.unwrap_or(PointOutcome {
+                    key: facts.key,
+                    lifecycle: facts.lifecycle,
+                    scientific: facts.scientific.clone(),
+                    diagnostic: None,
+                    start: start.clone(),
+                    effect: facts.effect,
+                    attempts: vec![],
+                });
+                outcome.lifecycle = facts.lifecycle;
+                outcome.scientific = facts.scientific.clone();
+                outcome.effect = facts.effect;
+                outcome.diagnostic = diagnostic.clone();
+                outcome.start = start.clone();
+                outcome.attempts.push(PointAttemptOutcome {
+                    attempt_id: Some(record.attempt_id),
+                    lifecycle: Some(stored.state),
+                    diagnostic,
+                    scientific: facts.scientific.clone(),
+                    start,
+                    effect: facts.effect,
+                });
+                let settled = !pse_model::study_policy::may_retry(
+                    &point_policy(point)?,
+                    &facts,
+                    study.cancelled,
+                );
+                // SAFETY: facts and outcome derive from this exact attempt's admitted durable
+                // completion or truthful worker-loss receipt; shared policy alone decides retry.
+                unsafe {
+                    self.canonical_store()
+                        .observe_study_point(point, &facts, &outcome, settled)
+                        .await
+                }?;
+                Ok(true)
             })
-            .transpose()?;
-        let diagnostic = stored_diagnostic(stored);
-        let mut outcome = point_outcome(point)?.unwrap_or(PointOutcome {
-            key: facts.key,
-            lifecycle: facts.lifecycle,
-            scientific: facts.scientific.clone(),
-            diagnostic: None,
-            start: start.clone(),
-            effect: facts.effect,
-            attempts: vec![],
-        });
-        outcome.lifecycle = facts.lifecycle;
-        outcome.scientific = facts.scientific.clone();
-        outcome.effect = facts.effect;
-        outcome.diagnostic = diagnostic.clone();
-        outcome.start = start.clone();
-        outcome.attempts.push(PointAttemptOutcome {
-            attempt_id: Some(record.attempt_id),
-            lifecycle: Some(stored.state),
-            diagnostic,
-            scientific: facts.scientific.clone(),
-            start,
-            effect: facts.effect,
-        });
-        let settled = !pse_model::study_policy::may_retry(
-            &point_policy(point)?,
-            &facts,
-            study.cancelled,
-        );
-        // SAFETY: facts and outcome derive from this exact attempt's admitted durable
-        // completion or truthful worker-loss receipt; shared policy alone decides retry.
-        unsafe {
-            self.canonical_store()
-                .observe_study_point(point, &facts, &outcome, settled)
-                .await
-        }?;
-        Ok(true)
-    
-        }).await
+            .await
     }
 
     /// Publish bounded occurrence summary blocks after every scientific occurrence
@@ -1112,241 +1137,250 @@ impl Runtime {
     )]
     pub(crate) async fn finalize_canonical_study(&self, key: &str) -> Result<bool, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_model::study::{Availability, StudyLifecycle};
-        use pse_operations::canonical_execution::{
-            TerminalClass, result_batch_key, result_set_key,
-        };
-        let store = self.canonical_store();
-        let study = store
-            .canonical_study(key)
-            .await?
-            .ok_or_else(|| contract("study absent"))?;
-        if study.terminal {
-            return Ok(false);
-        }
-        if store.study_has_pending(key).await? {
-            return Ok(false);
-        }
-        let mut parent = store
-            .canonical_run(&study.run)
-            .await?
-            .ok_or_else(|| contract("study parent run absent"))?;
-        if let Some(attempt) = &parent.current_attempt {
-            let actual = store
-                .canonical_attempt(attempt)
-                .await?
-                .ok_or_else(|| contract("parent attempt absent"))?;
-            if !actual.terminal {
-                if actual.expires_at > chrono::Utc::now().timestamp_micros() {
+        activity
+            .scope(async {
+                use pse_model::study::{Availability, StudyLifecycle};
+                use pse_operations::canonical_execution::{
+                    TerminalClass, result_batch_key, result_set_key,
+                };
+                let store = self.canonical_store();
+                let study = store
+                    .canonical_study(key)
+                    .await?
+                    .ok_or_else(|| contract("study absent"))?;
+                if study.terminal {
                     return Ok(false);
                 }
-                // A summary has no scientific effects. Freeze the lost writer and retain
-                // its truthful worker-loss receipt before rebuilding from settled points.
-                self.operations()?
-                    .recover(
-                        &study.run,
-                        &format!("study-summary-recover:{}", actual.generation),
-                    )
-                    .await?;
-                parent = store
+                if store.study_has_pending(key).await? {
+                    return Ok(false);
+                }
+                let mut parent = store
                     .canonical_run(&study.run)
                     .await?
-                    .ok_or_else(|| contract("recovered parent run absent"))?;
-            }
-        }
-        if let Some(attempt) = &parent.terminal_attempt {
-            let actual = store
-                .canonical_attempt(attempt)
-                .await?
-                .ok_or_else(|| contract("parent terminal attempt absent"))?;
-            if actual.completion.as_ref().is_some_and(|bytes| {
-                serde_json::from_slice::<(u8, pse_model::study::Conclusion)>(bytes.as_slice())
-                    .is_ok()
-            }) {
-                store.conclude_study(key).await?;
-                return Ok(true);
-            }
-            // Only the typed lost-writer completion permits rebuilding this effect-free
-            // summary. An unknown payload must never become a successful conclusion.
-            let recovered = self.operations()?.record(&study.run, attempt).await?;
-            let lost = recovered.completion.as_ref().is_some_and(|stored| {
-                stored.completion.is_none()
-                    && stored.termination.retry_failure
-                        == Some(pse_model::study::RetryFailure::Transient)
-                    && stored.termination.effect == pse_model::study::EffectState::Absent
-            });
-            if !lost {
-                return Err(contract(
-                    "parent terminal observation does not authorize summary recovery",
-                ));
-            }
-        }
-        let operations = self.operations()?;
-        let Some(fence) = store
-            .begin_study_finalization(
-                &StudySummary::from(&study),
-                operations.worker(),
-                operations.policy().lease,
-            )
-            .await?
-        else {
-            return Ok(false);
-        };
-        let study_id = StudyId::from_id(
-            SemanticId::parse_hex(key).map_err(|error| contract(error.to_string()))?,
-        );
-        let relation = pse_relations::generated::runtime::study_outcomes::RELATION_ID;
-        let set = result_set_key(fence.attempt(), &relation.to_string());
-        let mut after = None;
-        let mut ordinal = 0_u64;
-        let mut offset = 0_u64;
-        let mut usable = 0_u64;
-        loop {
-            let page = store.study_outcome_page(key, after).await?;
-            if page.is_empty() {
-                break;
-            }
-            let mut rows = Vec::with_capacity(page.len());
-            for point in page {
-                after = Some(point.ordinal);
-                let outcome = point.outcome()?;
-                usable += u64::from(outcome.scientific.usable);
-                rows.push(super::study_tables::outcome_row(
-                    study_id,
-                    &definition_from_parts(point.descriptor.as_slice(), point.policy()?)?,
-                    &outcome,
-                ));
-            }
-            let batch = super::study_tables::export::<
-                pse_model::generated::runtime::study_outcomes::Row,
-            >(self, rows)?;
-            let columns = batch.batch().num_columns() as u64;
-            let base = offset;
-            offset += batch.batch().num_rows() as u64;
-            super::result_blocks::visit_result_blocks_async(
-                batch.batch(),
-                |start, rows, payload| {
-                    let current = ordinal;
-                    ordinal += 1;
-                    let start = base + start as u64;
-                    let payload = pse_operations::canonical_execution::ResultPayload::new(payload);
-                    let set = set.clone();
-                    let fence = &fence;
-                    async move {
-                        let payload = payload?;
-                        let block = pse_model::generated::runtime::canonical_result_blocks::Row {
-                            key: result_batch_key(fence.attempt(), &set, current),
-                            result_set: set.clone(),
-                            batch: result_batch_key(fence.attempt(), &set, current),
-                            output: relation.to_string(),
-                            partition: "0".into(),
-                            ordinal: current,
-                            start,
-                            end: start + rows as u64,
-                            rows: rows as u64,
-                            columns,
-                            coordinate_min: None,
-                            coordinate_max: None,
-                            payload_bytes: payload.as_slice().len() as u64,
-                            payload_digest: payload.digest().to_owned(),
-                            interpretation: pse_operations::generated::surreal::INTERPRETATION
-                                .into(),
-                        };
-                        store
-                            .append_result_block(
-                                fence,
-                                &format!("study-summary:{}:{current}", fence.attempt()),
-                                &relation.to_string(),
-                                current,
-                                payload,
-                                rows as u64,
-                                &block,
+                    .ok_or_else(|| contract("study parent run absent"))?;
+                if let Some(attempt) = &parent.current_attempt {
+                    let actual = store
+                        .canonical_attempt(attempt)
+                        .await?
+                        .ok_or_else(|| contract("parent attempt absent"))?;
+                    if !actual.terminal {
+                        if actual.expires_at > chrono::Utc::now().timestamp_micros() {
+                            return Ok(false);
+                        }
+                        // A summary has no scientific effects. Freeze the lost writer and retain
+                        // its truthful worker-loss receipt before rebuilding from settled points.
+                        self.operations()?
+                            .recover(
+                                &study.run,
+                                &format!("study-summary-recover:{}", actual.generation),
                             )
                             .await?;
-                        Ok::<_, WorkflowError>(())
+                        parent = store
+                            .canonical_run(&study.run)
+                            .await?
+                            .ok_or_else(|| contract("recovered parent run absent"))?;
                     }
-                },
-            )
-            .await?;
-            store
-                .renew_attempt(&fence, operations.policy().lease)
-                .await?;
-        }
-        if offset != study.point_count {
-            return Err(contract("study summary coverage differs"));
-        }
-        let availability = if usable == study.point_count {
-            Availability::Complete
-        } else if usable > 0 {
-            Availability::Partial
-        } else {
-            Availability::None
-        };
-        let conclusion = pse_model::study::Conclusion {
-            availability,
-            lifecycle: if study.cancelled {
-                StudyLifecycle::Cancelled
-            } else {
-                StudyLifecycle::Terminal
-            },
-        };
-        let class = if study.cancelled {
-            TerminalClass::Cancelled
-        } else {
-            match availability {
-                Availability::Complete => TerminalClass::Succeeded,
-                Availability::Partial => TerminalClass::Partial,
-                Availability::None => TerminalClass::Failed,
-            }
-        };
-        let closed = store
-            .close_result_ingestion(&fence, &format!("study-summary-close:{}", fence.attempt()))
-            .await?;
-        let manifest = store.reconcile_closed_attempt(&closed).await?;
-        let operation = format!("study-summary-terminal:{}", fence.attempt());
-        // SAFETY: the study owner assembled every settled occurrence with exact
-        // coverage above; the manifest and conclusion describe those admitted observations.
-        if let Err(error) = unsafe {
-            store
-                .seal_study_summary(
-                    key,
-                    &manifest,
-                    &operation,
-                    class,
-                    &document(&(1_u8, conclusion))?,
-                )
-                .await
-        } {
-            let current = store
-                .canonical_study(key)
-                .await?
-                .ok_or_else(|| contract("study summary header disappeared"))?;
-            if !current.cancelled || study.cancelled {
-                return Err(error.into());
-            }
-            let cancelled = pse_model::study::Conclusion {
-                availability,
-                lifecycle: StudyLifecycle::Cancelled,
-            };
-            // SAFETY: the same frozen complete observations remain authoritative;
-            // only the conclusion changes to reflect the freshly observed cancellation.
-            unsafe {
-                store
-                    .seal_study_summary(
-                        key,
-                        &manifest,
-                        &operation,
-                        TerminalClass::Cancelled,
-                        &document(&(1_u8, cancelled))?,
+                }
+                if let Some(attempt) = &parent.terminal_attempt {
+                    let actual = store
+                        .canonical_attempt(attempt)
+                        .await?
+                        .ok_or_else(|| contract("parent terminal attempt absent"))?;
+                    if actual.completion.as_ref().is_some_and(|bytes| {
+                        serde_json::from_slice::<(u8, pse_model::study::Conclusion)>(
+                            bytes.as_slice(),
+                        )
+                        .is_ok()
+                    }) {
+                        store.conclude_study(key).await?;
+                        return Ok(true);
+                    }
+                    // Only the typed lost-writer completion permits rebuilding this effect-free
+                    // summary. An unknown payload must never become a successful conclusion.
+                    let recovered = self.operations()?.record(&study.run, attempt).await?;
+                    let lost = recovered.completion.as_ref().is_some_and(|stored| {
+                        stored.completion.is_none()
+                            && stored.termination.retry_failure
+                                == Some(pse_model::study::RetryFailure::Transient)
+                            && stored.termination.effect == pse_model::study::EffectState::Absent
+                    });
+                    if !lost {
+                        return Err(contract(
+                            "parent terminal observation does not authorize summary recovery",
+                        ));
+                    }
+                }
+                let operations = self.operations()?;
+                let Some(fence) = store
+                    .begin_study_finalization(
+                        &StudySummary::from(&study),
+                        operations.worker(),
+                        operations.policy().lease,
                     )
-                    .await
-            }?;
-        }
-        store.conclude_study(key).await?;
-        Ok(true)
-    
-        }).await
+                    .await?
+                else {
+                    return Ok(false);
+                };
+                let study_id = StudyId::from_id(
+                    SemanticId::parse_hex(key).map_err(|error| contract(error.to_string()))?,
+                );
+                let relation = pse_relations::generated::runtime::study_outcomes::RELATION_ID;
+                let set = result_set_key(fence.attempt(), &relation.to_string());
+                let mut after = None;
+                let mut ordinal = 0_u64;
+                let mut offset = 0_u64;
+                let mut usable = 0_u64;
+                loop {
+                    let page = store.study_outcome_page(key, after).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    let mut rows = Vec::with_capacity(page.len());
+                    for point in page {
+                        after = Some(point.ordinal);
+                        let outcome = point.outcome()?;
+                        usable += u64::from(outcome.scientific.usable);
+                        rows.push(super::study_tables::outcome_row(
+                            study_id,
+                            &definition_from_parts(point.descriptor.as_slice(), point.policy()?)?,
+                            &outcome,
+                        ));
+                    }
+                    let batch = super::study_tables::export::<
+                        pse_model::generated::runtime::study_outcomes::Row,
+                    >(self, rows)?;
+                    let columns = batch.batch().num_columns() as u64;
+                    let base = offset;
+                    offset += batch.batch().num_rows() as u64;
+                    super::result_blocks::visit_result_blocks_async(
+                        batch.batch(),
+                        |start, rows, payload| {
+                            let current = ordinal;
+                            ordinal += 1;
+                            let start = base + start as u64;
+                            let payload =
+                                pse_operations::canonical_execution::ResultPayload::new(payload);
+                            let set = set.clone();
+                            let fence = &fence;
+                            async move {
+                                let payload = payload?;
+                                let block =
+                                    pse_model::generated::runtime::canonical_result_blocks::Row {
+                                        key: result_batch_key(fence.attempt(), &set, current),
+                                        result_set: set.clone(),
+                                        batch: result_batch_key(fence.attempt(), &set, current),
+                                        output: relation.to_string(),
+                                        partition: "0".into(),
+                                        ordinal: current,
+                                        start,
+                                        end: start + rows as u64,
+                                        rows: rows as u64,
+                                        columns,
+                                        coordinate_min: None,
+                                        coordinate_max: None,
+                                        payload_bytes: payload.as_slice().len() as u64,
+                                        payload_digest: payload.digest().to_owned(),
+                                        interpretation:
+                                            pse_operations::generated::surreal::INTERPRETATION
+                                                .into(),
+                                    };
+                                store
+                                    .append_result_block(
+                                        fence,
+                                        &format!("study-summary:{}:{current}", fence.attempt()),
+                                        &relation.to_string(),
+                                        current,
+                                        payload,
+                                        rows as u64,
+                                        &block,
+                                    )
+                                    .await?;
+                                Ok::<_, WorkflowError>(())
+                            }
+                        },
+                    )
+                    .await?;
+                    store
+                        .renew_attempt(&fence, operations.policy().lease)
+                        .await?;
+                }
+                if offset != study.point_count {
+                    return Err(contract("study summary coverage differs"));
+                }
+                let availability = if usable == study.point_count {
+                    Availability::Complete
+                } else if usable > 0 {
+                    Availability::Partial
+                } else {
+                    Availability::None
+                };
+                let conclusion = pse_model::study::Conclusion {
+                    availability,
+                    lifecycle: if study.cancelled {
+                        StudyLifecycle::Cancelled
+                    } else {
+                        StudyLifecycle::Terminal
+                    },
+                };
+                let class = if study.cancelled {
+                    TerminalClass::Cancelled
+                } else {
+                    match availability {
+                        Availability::Complete => TerminalClass::Succeeded,
+                        Availability::Partial => TerminalClass::Partial,
+                        Availability::None => TerminalClass::Failed,
+                    }
+                };
+                let closed = store
+                    .close_result_ingestion(
+                        &fence,
+                        &format!("study-summary-close:{}", fence.attempt()),
+                    )
+                    .await?;
+                let manifest = store.reconcile_closed_attempt(&closed).await?;
+                let operation = format!("study-summary-terminal:{}", fence.attempt());
+                // SAFETY: the study owner assembled every settled occurrence with exact
+                // coverage above; the manifest and conclusion describe those admitted observations.
+                if let Err(error) = unsafe {
+                    store
+                        .seal_study_summary(
+                            key,
+                            &manifest,
+                            &operation,
+                            class,
+                            &document(&(1_u8, conclusion))?,
+                        )
+                        .await
+                } {
+                    let current = store
+                        .canonical_study(key)
+                        .await?
+                        .ok_or_else(|| contract("study summary header disappeared"))?;
+                    if !current.cancelled || study.cancelled {
+                        return Err(error.into());
+                    }
+                    let cancelled = pse_model::study::Conclusion {
+                        availability,
+                        lifecycle: StudyLifecycle::Cancelled,
+                    };
+                    // SAFETY: the same frozen complete observations remain authoritative;
+                    // only the conclusion changes to reflect the freshly observed cancellation.
+                    unsafe {
+                        store
+                            .seal_study_summary(
+                                key,
+                                &manifest,
+                                &operation,
+                                TerminalClass::Cancelled,
+                                &document(&(1_u8, cancelled))?,
+                            )
+                            .await
+                    }?;
+                }
+                store.conclude_study(key).await?;
+                Ok(true)
+            })
+            .await
     }
 
     /// Record completion only after the actual scientific result has drained and its
@@ -1362,72 +1396,73 @@ impl Runtime {
         record: &super::DurableRecord,
     ) -> Result<CanonicalPoint, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let terminal = record.attempt.as_ref().map_err(|error| {
-            super::diagnostics::operation_context(
-                WorkflowError::Shared(error.clone()),
-                "study.record_study_attempt.retained_result",
-            )
-        })?;
-        if point.attempt.as_deref() != Some(terminal.key.as_str()) {
-            return Err(contract(
-                "study observation does not name its actual canonical attempt",
-            ));
-        }
-        let stored = record
-            .completion
-            .as_ref()
-            .ok_or_else(|| contract("scientific completion absent"))?;
-        let mut facts = point_facts(point)?;
-        facts.native_started = true;
-        facts.lifecycle = match stored.state {
-            AttemptState::Cancelled => StudyPointState::Cancelled,
-            AttemptState::Failed => StudyPointState::Failed,
-            _ => StudyPointState::Completed,
-        };
-        facts.scientific = stored_scientific_facts(stored);
-        facts.retry_failure = stored.termination.retry_failure;
-        facts.effect = stored.termination.effect;
-        let diagnostic = stored_diagnostic(stored);
-        let attempt = PointAttemptOutcome {
-            attempt_id: Some(record.attempt_id),
-            lifecycle: Some(stored.state),
-            diagnostic: diagnostic.clone(),
-            scientific: facts.scientific.clone(),
-            start: Some(start.clone()),
-            effect: facts.effect,
-        };
-        let mut outcome = point_outcome(point)?.unwrap_or_else(|| PointOutcome {
-            key: facts.key,
-            lifecycle: facts.lifecycle,
-            scientific: facts.scientific.clone(),
-            diagnostic: diagnostic.clone(),
-            start: Some(start.clone()),
-            effect: facts.effect,
-            attempts: vec![],
-        });
-        outcome.lifecycle = facts.lifecycle;
-        outcome.scientific = facts.scientific.clone();
-        outcome.diagnostic = diagnostic;
-        outcome.start = Some(start.clone());
-        outcome.effect = facts.effect;
-        outcome.attempts.push(attempt);
-        let policy = point_policy(point)?;
-        let study = self
-            .canonical_store()
-            .canonical_study(&point.study)
-            .await?
-            .ok_or_else(|| contract("study absent"))?;
-        let settled = !pse_model::study_policy::may_retry(&policy, &facts, study.cancelled);
-        // SAFETY: this owner projects the drained scientific result and its admitted
-        // durable completion after checking that the point names this exact attempt.
-        Ok(unsafe {
-            self.canonical_store()
-                .observe_study_point(point, &facts, &outcome, settled)
-                .await
-        }?)
-    
-        }).await
+        activity
+            .scope(async {
+                let terminal = record.attempt.as_ref().map_err(|error| {
+                    super::diagnostics::operation_context(
+                        WorkflowError::Shared(error.clone()),
+                        "study.record_study_attempt.retained_result",
+                    )
+                })?;
+                if point.attempt.as_deref() != Some(terminal.key.as_str()) {
+                    return Err(contract(
+                        "study observation does not name its actual canonical attempt",
+                    ));
+                }
+                let stored = record
+                    .completion
+                    .as_ref()
+                    .ok_or_else(|| contract("scientific completion absent"))?;
+                let mut facts = point_facts(point)?;
+                facts.native_started = true;
+                facts.lifecycle = match stored.state {
+                    AttemptState::Cancelled => StudyPointState::Cancelled,
+                    AttemptState::Failed => StudyPointState::Failed,
+                    _ => StudyPointState::Completed,
+                };
+                facts.scientific = stored_scientific_facts(stored);
+                facts.retry_failure = stored.termination.retry_failure;
+                facts.effect = stored.termination.effect;
+                let diagnostic = stored_diagnostic(stored);
+                let attempt = PointAttemptOutcome {
+                    attempt_id: Some(record.attempt_id),
+                    lifecycle: Some(stored.state),
+                    diagnostic: diagnostic.clone(),
+                    scientific: facts.scientific.clone(),
+                    start: Some(start.clone()),
+                    effect: facts.effect,
+                };
+                let mut outcome = point_outcome(point)?.unwrap_or_else(|| PointOutcome {
+                    key: facts.key,
+                    lifecycle: facts.lifecycle,
+                    scientific: facts.scientific.clone(),
+                    diagnostic: diagnostic.clone(),
+                    start: Some(start.clone()),
+                    effect: facts.effect,
+                    attempts: vec![],
+                });
+                outcome.lifecycle = facts.lifecycle;
+                outcome.scientific = facts.scientific.clone();
+                outcome.diagnostic = diagnostic;
+                outcome.start = Some(start.clone());
+                outcome.effect = facts.effect;
+                outcome.attempts.push(attempt);
+                let policy = point_policy(point)?;
+                let study = self
+                    .canonical_store()
+                    .canonical_study(&point.study)
+                    .await?
+                    .ok_or_else(|| contract("study absent"))?;
+                let settled = !pse_model::study_policy::may_retry(&policy, &facts, study.cancelled);
+                // SAFETY: this owner projects the drained scientific result and its admitted
+                // durable completion after checking that the point names this exact attempt.
+                Ok(unsafe {
+                    self.canonical_store()
+                        .observe_study_point(point, &facts, &outcome, settled)
+                        .await
+                }?)
+            })
+            .await
     }
 }
 
@@ -1516,274 +1551,283 @@ impl StudyHandle {
     /// Metadata and compact occurrence outcomes, fetched only on explicit request.
     pub async fn status(&self) -> Result<StudyStatus, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical_store();
-        let study = store
-            .canonical_study(&self.study_id.to_string())
-            .await?
-            .ok_or_else(|| contract("canonical study absent"))?;
-        let run = store
-            .canonical_run(&study.run)
-            .await?
-            .ok_or_else(|| contract("canonical study run absent"))?;
-        let mut points = Vec::new();
-        let mut after = None;
-        loop {
-            let page = store.study_point_page(&study.key, after).await?;
-            if page.is_empty() {
-                break;
-            }
-            for point in page {
-                after = Some(point.ordinal);
-                let facts = point.facts()?;
-                points.push(PointStatus {
-                    point_index: u32::try_from(point.occurrence)
-                        .map_err(|_| contract("occurrence overflow"))?,
-                    state: facts.lifecycle,
-                    outcome: point.outcome()?,
-                    run: point.run,
-                    attempt: point.attempt,
-                    settled: point.settled,
-                });
-            }
-        }
-        Ok(StudyStatus {
-            study_id: self.study_id,
-            state: if study.terminal {
-                StudyState::Concluded
-            } else {
-                StudyState::Open
-            },
-            run: study.run,
-            result_attempt: run.terminal_attempt,
-            cancelled: study.cancelled,
-            points,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let store = self.runtime.canonical_store();
+                let study = store
+                    .canonical_study(&self.study_id.to_string())
+                    .await?
+                    .ok_or_else(|| contract("canonical study absent"))?;
+                let run = store
+                    .canonical_run(&study.run)
+                    .await?
+                    .ok_or_else(|| contract("canonical study run absent"))?;
+                let mut points = Vec::new();
+                let mut after = None;
+                loop {
+                    let page = store.study_point_page(&study.key, after).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    for point in page {
+                        after = Some(point.ordinal);
+                        let facts = point.facts()?;
+                        points.push(PointStatus {
+                            point_index: u32::try_from(point.occurrence)
+                                .map_err(|_| contract("occurrence overflow"))?,
+                            state: facts.lifecycle,
+                            outcome: point.outcome()?,
+                            run: point.run,
+                            attempt: point.attempt,
+                            settled: point.settled,
+                        });
+                    }
+                }
+                Ok(StudyStatus {
+                    study_id: self.study_id,
+                    state: if study.terminal {
+                        StudyState::Concluded
+                    } else {
+                        StudyState::Open
+                    },
+                    run: study.run,
+                    result_attempt: run.terminal_attempt,
+                    cancelled: study.cancelled,
+                    points,
+                })
+            })
+            .await
     }
     /// Revoke study claims and every assigned writer through one guarded header;
     /// native renewal and ingestion observe this cancellation immediately.
     pub async fn cancel(&self) -> Result<StudyCancel, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical_store();
-        let key = self.study_id.to_string();
-        let old = store
-            .canonical_study(&key)
-            .await?
-            .ok_or_else(|| contract("canonical study absent"))?;
-        if old.terminal {
-            return Ok(StudyCancel {
-                study_id: self.study_id,
-                generation: old.generation,
-                already_concluded: true,
-            });
-        }
-        let study = store.cancel_study(&key).await?;
-        Ok(StudyCancel {
-            study_id: self.study_id,
-            generation: study.generation,
-            already_concluded: false,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let store = self.runtime.canonical_store();
+                let key = self.study_id.to_string();
+                let old = store
+                    .canonical_study(&key)
+                    .await?
+                    .ok_or_else(|| contract("canonical study absent"))?;
+                if old.terminal {
+                    return Ok(StudyCancel {
+                        study_id: self.study_id,
+                        generation: old.generation,
+                        already_concluded: true,
+                    });
+                }
+                let study = store.cancel_study(&key).await?;
+                Ok(StudyCancel {
+                    study_id: self.study_id,
+                    generation: study.generation,
+                    already_concluded: false,
+                })
+            })
+            .await
     }
     /// Hydrate terminal occurrences once. Open polling reads only the compact header.
     pub(in crate::workflow) async fn terminal_inventory(
         &self,
     ) -> Result<Option<TerminalStudyInventory>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let store = self.runtime.canonical_store();
-        let study = store
-            .canonical_study_summary(&self.study_id.to_string())
-            .await?
-            .ok_or_else(|| contract("canonical study absent"))?;
-        if !study.terminal {
-            return Ok(None);
-        }
-        let run = store
-            .canonical_run(&study.run)
-            .await?
-            .ok_or_else(|| contract("canonical study run absent"))?;
-        let Some(attempt) = run.terminal_attempt else {
-            return Ok(None);
-        };
-        if study.key != self.study_id.to_string()
-            || !study.active
-            || study.next_ordinal != study.point_count
-        {
-            return Err(contract("terminal study inventory header disagrees"));
-        }
-        let count =
-            usize::try_from(study.point_count).map_err(|_| contract("study point extent"))?;
-        if count > MAXIMUM_STUDY_POINTS {
-            return Err(contract("study point extent"));
-        }
-        let owner_count = count.div_ceil(64) + 2;
-        let bytes = count
-            .checked_mul(size_of::<PointStatus>() + size_of::<pse_model::study::PointFacts>())
-            .and_then(|bytes| {
-                bytes.checked_add(owner_count * size_of::<Arc<pse_columnar::AllocationLease>>())
-            })
-            .ok_or_else(|| contract("study point extent"))?;
-        let base_owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("study:retained-occurrence-summaries", bytes)?;
-        let mut owners = Vec::with_capacity(owner_count);
-        owners.push(base_owner);
-        // A response and its decoded page coexist only during this realization.
-        let _page_owner = self.runtime.shared.math().reserve(
-            "study:occurrence-page",
-            pse_operations::canonical::MESSAGE_BYTES * 4,
-        )?;
-        let mut points = Vec::with_capacity(count);
-        let mut facts = Vec::with_capacity(count);
-        let mut after = None;
-        loop {
-            #[cfg(test)]
-            let _ = TERMINAL_PAGE_OBSERVER.try_with(|observer| observer());
-            let page = store.study_point_page(&study.key, after).await?;
-            if page.is_empty() {
-                break;
-            }
-            let extent = page.iter().try_fold(0usize, |sum, point| {
-                let variable = point.key.len()
-                    + point.study.len()
-                    + point.run.len()
-                    + point.attempt.as_ref().map_or(0, String::len)
-                    + point.facts.as_slice().len()
-                    + point
-                        .outcome
-                        .as_ref()
-                        .map_or(0, |value| value.as_slice().len());
-                sum.checked_add(
-                    variable
-                        .checked_mul(4)
-                        .ok_or_else(|| contract("study point extent"))?,
-                )
-                .ok_or_else(|| contract("study point extent"))
-            })?;
-            owners.push(
-                self.runtime
+        activity
+            .scope(async {
+                let store = self.runtime.canonical_store();
+                let study = store
+                    .canonical_study_summary(&self.study_id.to_string())
+                    .await?
+                    .ok_or_else(|| contract("canonical study absent"))?;
+                if !study.terminal {
+                    return Ok(None);
+                }
+                let run = store
+                    .canonical_run(&study.run)
+                    .await?
+                    .ok_or_else(|| contract("canonical study run absent"))?;
+                let Some(attempt) = run.terminal_attempt else {
+                    return Ok(None);
+                };
+                if study.key != self.study_id.to_string()
+                    || !study.active
+                    || study.next_ordinal != study.point_count
+                {
+                    return Err(contract("terminal study inventory header disagrees"));
+                }
+                let count = usize::try_from(study.point_count)
+                    .map_err(|_| contract("study point extent"))?;
+                if count > MAXIMUM_STUDY_POINTS {
+                    return Err(contract("study point extent"));
+                }
+                let owner_count = count.div_ceil(64) + 2;
+                let bytes = count
+                    .checked_mul(
+                        size_of::<PointStatus>() + size_of::<pse_model::study::PointFacts>(),
+                    )
+                    .and_then(|bytes| {
+                        bytes.checked_add(
+                            owner_count * size_of::<Arc<pse_columnar::AllocationLease>>(),
+                        )
+                    })
+                    .ok_or_else(|| contract("study point extent"))?;
+                let base_owner = self
+                    .runtime
                     .shared
                     .math()
-                    .reserve("study:retained-occurrence-page", extent)?,
-            );
-            for point in page {
-                if points.len() >= count
-                    || point.study != study.key
-                    || point.ordinal != points.len() as u64
-                    || point.key
-                        != pse_operations::canonical_studies::point_key(
-                            &study.key,
-                            pse_model::study::OccurrenceKey(
-                                u32::try_from(point.occurrence)
-                                    .map_err(|_| contract("occurrence overflow"))?,
-                            ),
+                    .reserve("study:retained-occurrence-summaries", bytes)?;
+                let mut owners = Vec::with_capacity(owner_count);
+                owners.push(base_owner);
+                // A response and its decoded page coexist only during this realization.
+                let _page_owner = self.runtime.shared.math().reserve(
+                    "study:occurrence-page",
+                    pse_operations::canonical::MESSAGE_BYTES * 4,
+                )?;
+                let mut points = Vec::with_capacity(count);
+                let mut facts = Vec::with_capacity(count);
+                let mut after = None;
+                loop {
+                    #[cfg(test)]
+                    let _ = TERMINAL_PAGE_OBSERVER.try_with(|observer| observer());
+                    let page = store.study_point_page(&study.key, after).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    let extent = page.iter().try_fold(0usize, |sum, point| {
+                        let variable = point.key.len()
+                            + point.study.len()
+                            + point.run.len()
+                            + point.attempt.as_ref().map_or(0, String::len)
+                            + point.facts.as_slice().len()
+                            + point
+                                .outcome
+                                .as_ref()
+                                .map_or(0, |value| value.as_slice().len());
+                        sum.checked_add(
+                            variable
+                                .checked_mul(4)
+                                .ok_or_else(|| contract("study point extent"))?,
                         )
-                    || !point.settled
-                {
-                    return Err(contract("terminal occurrence membership disagrees"));
+                        .ok_or_else(|| contract("study point extent"))
+                    })?;
+                    owners.push(
+                        self.runtime
+                            .shared
+                            .math()
+                            .reserve("study:retained-occurrence-page", extent)?,
+                    );
+                    for point in page {
+                        if points.len() >= count
+                            || point.study != study.key
+                            || point.ordinal != points.len() as u64
+                            || point.key
+                                != pse_operations::canonical_studies::point_key(
+                                    &study.key,
+                                    pse_model::study::OccurrenceKey(
+                                        u32::try_from(point.occurrence)
+                                            .map_err(|_| contract("occurrence overflow"))?,
+                                    ),
+                                )
+                            || !point.settled
+                        {
+                            return Err(contract("terminal occurrence membership disagrees"));
+                        }
+                        let fact = point.facts()?;
+                        let outcome = point
+                            .outcome()?
+                            .ok_or_else(|| contract("terminal occurrence outcome absent"))?;
+                        if outcome.key != fact.key || outcome.lifecycle != fact.lifecycle {
+                            return Err(contract("terminal occurrence outcome disagrees"));
+                        }
+                        after = Some(point.ordinal);
+                        points.push(PointStatus {
+                            point_index: fact.key.0,
+                            state: fact.lifecycle,
+                            outcome: Some(outcome),
+                            run: point.run,
+                            attempt: point.attempt,
+                            settled: point.settled,
+                        });
+                        facts.push(fact);
+                    }
                 }
-                let fact = point.facts()?;
-                let outcome = point
-                    .outcome()?
-                    .ok_or_else(|| contract("terminal occurrence outcome absent"))?;
-                if outcome.key != fact.key || outcome.lifecycle != fact.lifecycle {
-                    return Err(contract("terminal occurrence outcome disagrees"));
+                if points.len() != count {
+                    return Err(contract("terminal occurrence inventory incomplete"));
                 }
-                after = Some(point.ordinal);
-                points.push(PointStatus {
-                    point_index: fact.key.0,
-                    state: fact.lifecycle,
-                    outcome: Some(outcome),
-                    run: point.run,
-                    attempt: point.attempt,
-                    settled: point.settled,
-                });
-                facts.push(fact);
-            }
-        }
-        if points.len() != count {
-            return Err(contract("terminal occurrence inventory incomplete"));
-        }
-        // Recheck the immutable terminal header before publishing the realization.
-        if store.canonical_study_summary(&study.key).await?.as_ref() != Some(&study) {
-            return Err(contract("terminal study changed during occurrence read"));
-        }
-        store
-            .read_results(&study.run, &attempt, Duration::from_secs(60))
-            .await?;
-        Ok(Some(TerminalStudyInventory {
-            status: StudyStatus {
-                study_id: self.study_id,
-                state: StudyState::Concluded,
-                run: study.run,
-                result_attempt: Some(attempt),
-                cancelled: study.cancelled,
-                points,
-            },
-            facts,
-            owner: Arc::new(owners),
-        }))
-    
-        }).await
+                // Recheck the immutable terminal header before publishing the realization.
+                if store.canonical_study_summary(&study.key).await?.as_ref() != Some(&study) {
+                    return Err(contract("terminal study changed during occurrence read"));
+                }
+                store
+                    .read_results(&study.run, &attempt, Duration::from_secs(60))
+                    .await?;
+                Ok(Some(TerminalStudyInventory {
+                    status: StudyStatus {
+                        study_id: self.study_id,
+                        state: StudyState::Concluded,
+                        run: study.run,
+                        result_attempt: Some(attempt),
+                        cancelled: study.cancelled,
+                        points,
+                    },
+                    facts,
+                    owner: Arc::new(owners),
+                }))
+            })
+            .await
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
     pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let Some(inventory) = self.terminal_inventory().await? else {
-            return Ok(None);
-        };
-        let status = inventory.status;
-        let Some(attempt) = status.result_attempt else {
-            return Ok(None);
-        };
-        let projection_bytes = status
-            .points
-            .len()
-            .checked_mul(size_of::<(u32, String, Option<String>)>())
-            .ok_or_else(|| contract("study result extent"))?;
-        let projection_owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("study:terminal-results", projection_bytes)?;
-        let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> =
-            vec![inventory.owner, projection_owner];
-        Ok(Some(StudyResults {
-            run: status.run,
-            attempt,
-            points: status
-                .points
-                .into_iter()
-                .map(|point| (point.point_index, point.run, point.attempt))
-                .collect(),
-            _owner: Some(Arc::new(owners)),
-        }))
-    
-        }).await
+        activity
+            .scope(async {
+                let Some(inventory) = self.terminal_inventory().await? else {
+                    return Ok(None);
+                };
+                let status = inventory.status;
+                let Some(attempt) = status.result_attempt else {
+                    return Ok(None);
+                };
+                let projection_bytes = status
+                    .points
+                    .len()
+                    .checked_mul(size_of::<(u32, String, Option<String>)>())
+                    .ok_or_else(|| contract("study result extent"))?;
+                let projection_owner = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("study:terminal-results", projection_bytes)?;
+                let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> =
+                    vec![inventory.owner, projection_owner];
+                Ok(Some(StudyResults {
+                    run: status.run,
+                    attempt,
+                    points: status
+                        .points
+                        .into_iter()
+                        .map(|point| (point.point_index, point.run, point.attempt))
+                        .collect(),
+                    _owner: Some(Arc::new(owners)),
+                }))
+            })
+            .await
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.
     pub async fn wait(&self, poll: Duration) -> Result<StudyResults, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if poll.is_zero() {
-            return Err(contract("study poll interval must be positive"));
-        }
-        loop {
-            if let Some(result) = self.result().await? {
-                return Ok(result);
-            }
-            tokio::time::sleep(poll).await;
-        }
-    
-        }).await
+        activity
+            .scope(async {
+                if poll.is_zero() {
+                    return Err(contract("study poll interval must be positive"));
+                }
+                loop {
+                    if let Some(result) = self.result().await? {
+                        return Ok(result);
+                    }
+                    tokio::time::sleep(poll).await;
+                }
+            })
+            .await
     }
 }
 
@@ -1936,18 +1980,19 @@ impl super::ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let operations = Operations::from_store(
-            self.runtime.canonical_store().clone(),
-            Operations::process_worker("study-admission"),
-            super::LeasePolicy::default(),
-            self.runtime.shared.pool(),
-        );
-        let physical = creation_effect(cancel, operations.put_sources(sources)).await?;
-        self.admit_study_points(physical, points, output, cancel)
+        activity
+            .scope(async {
+                let operations = Operations::from_store(
+                    self.runtime.canonical_store().clone(),
+                    Operations::process_worker("study-admission"),
+                    super::LeasePolicy::default(),
+                    self.runtime.shared.pool(),
+                );
+                let physical = creation_effect(cancel, operations.put_sources(sources)).await?;
+                self.admit_study_points(physical, points, output, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
     /// Admit operations and physical bindings before either executor schedules an occurrence.
     pub async fn admit_study_points(
@@ -1958,82 +2003,83 @@ impl super::ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        output.validate(&self.runtime)?;
-        if points.is_empty() {
-            return Err(WorkflowError::Typed(
-                pse_model::diagnostic::DiagnosticCause::new(
-                    pse_model::study_policy::PolicyError::Empty,
-                ),
-            ));
-        }
-        if points.len() > MAXIMUM_STUDY_POINTS {
-            let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
-                pse_model::diagnostic::BoundaryClass::InvalidModel,
-                pse_diagnostics::DiagnosticStage::StudyAdmission,
-                [],
-                pse_diagnostics::DiagnosticRule::StudyPolicyAdmission,
-            );
-            diagnostic.observations.insert(
-                "occurrences".into(),
-                pse_model::diagnostic::Observation::Integer(
-                    i64::try_from(points.len()).unwrap_or(i64::MAX),
-                ),
-            );
-            diagnostic.observations.insert(
-                "maximum_occurrences".into(),
-                pse_model::diagnostic::Observation::Integer(MAXIMUM_STUDY_POINTS as i64),
-            );
-            return Err(diagnostic.into());
-        }
-        let mut admitted = Vec::with_capacity(points.len());
-        let mut admission = None;
-        for point in points {
-            let mut operation = StudyOperation {
-                output: output.clone(),
-                version: Version,
-                source: OperationSource::of(self),
-                preparation: point.preparation.clone(),
-                operation: point.operation.clone(),
-                admitted_horizon: None,
-            };
-            // Release the previous declared product before another operation
-            // admits its plant, controller, estimator or other owned preparations.
-            if !matches!(&operation.operation, OperationRequest::DeclaredCase(_)) {
-                admission = None;
-            }
-            operation.admit_horizon_values(self, cancel).await?;
-            let (binding, seed_need) = self
-                .admit_operation_overlay(&operation, &point.overlay, &mut admission, cancel)
-                .await?;
-            let policy = PointPolicy {
-                key: point.policy.key,
-                dependencies: point.policy.dependencies.clone(),
-                start: point.policy.start.clone(),
-                attempt_limit: point.policy.attempt_limit,
-                seed_need,
-            };
-            admitted.push(StudyPointDefinition {
-                binding_hash: binding.identity(),
-                binding,
-                operation,
-                policy,
-            });
-        }
-        drop(admission);
-        let definition = StudyDefinition {
-            version: Version,
-            physical,
-            modeling_revision: self.canonical_revision().key.clone(),
-            points: admitted,
-        };
-        pse_model::study_policy::admit(&definition.graph()).map_err(|error| {
-            WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
-        })?;
-        definition.validate_roles()?;
-        Ok(definition)
-    
-        }).await
+        activity
+            .scope(async {
+                output.validate(&self.runtime)?;
+                if points.is_empty() {
+                    return Err(WorkflowError::Typed(
+                        pse_model::diagnostic::DiagnosticCause::new(
+                            pse_model::study_policy::PolicyError::Empty,
+                        ),
+                    ));
+                }
+                if points.len() > MAXIMUM_STUDY_POINTS {
+                    let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
+                        pse_model::diagnostic::BoundaryClass::InvalidModel,
+                        pse_diagnostics::DiagnosticStage::StudyAdmission,
+                        [],
+                        pse_diagnostics::DiagnosticRule::StudyPolicyAdmission,
+                    );
+                    diagnostic.observations.insert(
+                        "occurrences".into(),
+                        pse_model::diagnostic::Observation::Integer(
+                            i64::try_from(points.len()).unwrap_or(i64::MAX),
+                        ),
+                    );
+                    diagnostic.observations.insert(
+                        "maximum_occurrences".into(),
+                        pse_model::diagnostic::Observation::Integer(MAXIMUM_STUDY_POINTS as i64),
+                    );
+                    return Err(diagnostic.into());
+                }
+                let mut admitted = Vec::with_capacity(points.len());
+                let mut admission = None;
+                for point in points {
+                    let mut operation = StudyOperation {
+                        output: output.clone(),
+                        version: Version,
+                        source: OperationSource::of(self),
+                        preparation: point.preparation.clone(),
+                        operation: point.operation.clone(),
+                        admitted_horizon: None,
+                    };
+                    // Release the previous declared product before another operation
+                    // admits its plant, controller, estimator or other owned preparations.
+                    if !matches!(&operation.operation, OperationRequest::DeclaredCase(_)) {
+                        admission = None;
+                    }
+                    operation.admit_horizon_values(self, cancel).await?;
+                    let (binding, seed_need) = self
+                        .admit_operation_overlay(&operation, &point.overlay, &mut admission, cancel)
+                        .await?;
+                    let policy = PointPolicy {
+                        key: point.policy.key,
+                        dependencies: point.policy.dependencies.clone(),
+                        start: point.policy.start.clone(),
+                        attempt_limit: point.policy.attempt_limit,
+                        seed_need,
+                    };
+                    admitted.push(StudyPointDefinition {
+                        binding_hash: binding.identity(),
+                        binding,
+                        operation,
+                        policy,
+                    });
+                }
+                drop(admission);
+                let definition = StudyDefinition {
+                    version: Version,
+                    physical,
+                    modeling_revision: self.canonical_revision().key.clone(),
+                    points: admitted,
+                };
+                pse_model::study_policy::admit(&definition.graph()).map_err(|error| {
+                    WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+                })?;
+                definition.validate_roles()?;
+                Ok(definition)
+            })
+            .await
     }
 }
 

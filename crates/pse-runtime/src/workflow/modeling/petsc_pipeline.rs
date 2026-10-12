@@ -46,7 +46,7 @@ impl ModelingPackage {
             ));
         }
         Ok(source)
-    
+
         }).await
     }
     /// Prepare complete BTF First block products through the actual source workspace.
@@ -64,25 +64,26 @@ impl ModelingPackage {
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let source = self.prepare_petsc_source(original, scope, driver).await?;
-        Ok(self
-            .runtime
-            .native()
-            .prepare_petsc_blocks(
-                source,
-                crate::math::solves::petsc::PetscCompiler {
-                    workspace: self.numerical_workspace()?,
-                    profile: original.compiler,
-                },
-                profile,
-                None,
-                declaration,
-                driver,
-            )
-            .await?)
-    
-        }).await
+        activity
+            .scope(async {
+                let source = self.prepare_petsc_source(original, scope, driver).await?;
+                Ok(self
+                    .runtime
+                    .native()
+                    .prepare_petsc_blocks(
+                        source,
+                        crate::math::solves::petsc::PetscCompiler {
+                            workspace: self.numerical_workspace()?,
+                            profile: original.compiler,
+                        },
+                        profile,
+                        None,
+                        declaration,
+                        driver,
+                    )
+                    .await?)
+            })
+            .await
     }
 }
 

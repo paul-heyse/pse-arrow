@@ -206,7 +206,7 @@ impl ModelingPackage {
             source_revision: revision.identity(),
             table,
         })
-    
+
         }).await
     }
 }

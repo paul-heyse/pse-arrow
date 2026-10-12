@@ -58,7 +58,7 @@ impl ModelingPackage {
             .native()
             .prepare_path_curvature(original.solve.clone(), program, scope, driver)
             .await?)
-    
+
         }).await
     }
 }

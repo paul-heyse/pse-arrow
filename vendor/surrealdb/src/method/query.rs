@@ -1021,18 +1021,30 @@ mod tests {
             let second = std::sync::Arc::new(());
             let first_weak = std::sync::Arc::downgrade(&first);
             let second_weak = std::sync::Arc::downgrade(&second);
-            let old = crate::opt::RequestContext::new(std::time::Instant::now() + std::time::Duration::from_secs(30))
-                .with_lifetime_owner(first);
-            let current = crate::opt::RequestContext::new(old.deadline()).with_lifetime_owner(second);
-            let builder = db.query("RETURN 1").request_context(old.clone()).into_owned().request_context(current);
+            let old = crate::opt::RequestContext::new(
+                std::time::Instant::now() + std::time::Duration::from_secs(30),
+            )
+            .with_lifetime_owner(first);
+            let current =
+                crate::opt::RequestContext::new(old.deadline()).with_lifetime_owner(second);
+            let builder = db
+                .query("RETURN 1")
+                .request_context(old.clone())
+                .into_owned()
+                .request_context(current);
             assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
-            if future { drop(builder.into_future()); } else { drop(builder); }
-            assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none(),
-                "metadata clones cannot strand an undispatched activity");
+            if future {
+                drop(builder.into_future());
+            } else {
+                drop(builder);
+            }
+            assert!(
+                first_weak.upgrade().is_none() && second_weak.upgrade().is_none(),
+                "metadata clones cannot strand an undispatched activity"
+            );
             assert!(old.payload_owner().is_none());
         }
     }
-
 
     #[test]
     fn request_context_override_preserves_prepaid_payload_owner() {

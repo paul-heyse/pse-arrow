@@ -556,39 +556,40 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let deadline = super::super::preparation_deadline(cancel)?;
-        let scoped = cancel.with_deadline(Some(deadline));
-        let cancel = &scoped;
-        checkpoint(cancel)?;
-        let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
-            let protection = self
-                .runtime
-                .canonical
-                .store()
-                .protect(
-                    self.revision.canonical.clone(),
-                    deadline.saturating_duration_since(std::time::Instant::now()),
-                )
+        activity
+            .scope(async {
+                let deadline = super::super::preparation_deadline(cancel)?;
+                let scoped = cancel.with_deadline(Some(deadline));
+                let cancel = &scoped;
+                checkpoint(cancel)?;
+                let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
+                    let protection = self
+                        .runtime
+                        .canonical
+                        .store()
+                        .protect(
+                            self.revision.canonical.clone(),
+                            deadline.saturating_duration_since(std::time::Instant::now()),
+                        )
+                        .await?;
+                    let mut read = SelectedRead::new(protection);
+                    let result = self.reload_protected(sources, &mut read, cancel).await;
+                    Ok::<_, WorkflowError>((result, read))
+                })
                 .await?;
-            let mut read = SelectedRead::new(protection);
-            let result = self.reload_protected(sources, &mut read, cancel).await;
-            Ok::<_, WorkflowError>((result, read))
-        })
-        .await?;
-        let release = read.finish().await;
-        let (package, parsed) = result?;
-        release?;
-        // Retention is optional after the issued source effect. Admission pressure
-        // may evict or refuse an accelerator without changing publication success.
-        let _ = retain(
-            &package,
-            ParsedOwner::Reload(parsed.clone()),
-            parsed.retained_bytes(),
-        );
-        Ok(package)
-    
-        }).await
+                let release = read.finish().await;
+                let (package, parsed) = result?;
+                release?;
+                // Retention is optional after the issued source effect. Admission pressure
+                // may evict or refuse an accelerator without changing publication success.
+                let _ = retain(
+                    &package,
+                    ParsedOwner::Reload(parsed.clone()),
+                    parsed.retained_bytes(),
+                );
+                Ok(package)
+            })
+            .await
     }
     async fn reload_protected(
         &self,

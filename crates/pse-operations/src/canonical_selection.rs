@@ -1225,18 +1225,20 @@ impl CanonicalStore {
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let mut cursor = self.kind_pages(read, scope, source_kind)?;
-        let mut members = Vec::new();
-        loop {
-            let page = self.next_membership_page(read, &mut cursor).await?;
-            if page.is_empty() {
-                break;
-            }
-            members.extend(page);
-        }
-        Ok(members)
-            }).await
+        activity
+            .scope(async {
+                let mut cursor = self.kind_pages(read, scope, source_kind)?;
+                let mut members = Vec::new();
+                loop {
+                    let page = self.next_membership_page(read, &mut cursor).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    members.extend(page);
+                }
+                Ok(members)
+            })
+            .await
     }
     /// Follow authored inverse references at this revision; scientific resolution stays
     /// with the compiler, while the complete filtered membership is a reuse premise.
@@ -1248,18 +1250,21 @@ impl CanonicalStore {
         source_kind: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let mut cursor = self.reference_pages(read, target_scope, target_name, source_kind)?;
-        let mut members = Vec::new();
-        loop {
-            let page = self.next_membership_page(read, &mut cursor).await?;
-            if page.is_empty() {
-                break;
-            }
-            members.extend(page);
-        }
-        Ok(members)
-            }).await
+        activity
+            .scope(async {
+                let mut cursor =
+                    self.reference_pages(read, target_scope, target_name, source_kind)?;
+                let mut members = Vec::new();
+                loop {
+                    let page = self.next_membership_page(read, &mut cursor).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    members.extend(page);
+                }
+                Ok(members)
+            })
+            .await
     }
 
     /// Begin an exact full namespace inventory; only its protected terminal page
@@ -1329,12 +1334,14 @@ impl CanonicalStore {
         cursor: &mut SelectedMemberships,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let mut pages = self
-            .next_membership_pages(read, std::slice::from_mut(cursor))
-            .await?;
-        Ok(pages.remove(0))
-            }).await
+        activity
+            .scope(async {
+                let mut pages = self
+                    .next_membership_pages(read, std::slice::from_mut(cursor))
+                    .await?;
+                Ok(pages.remove(0))
+            })
+            .await
     }
     /// Group exact inventory cursors in one protected transaction. The combined
     /// response contains at most 64 memberships, regardless of cursor count.
@@ -1649,26 +1656,28 @@ impl CanonicalStore {
         names: &[String],
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let members = self.select_names(&read.selection, scope, names).await?;
-        read.invalidate_material();
-        for name in names {
-            let matches = members
-                .iter()
-                .filter(|member| &member.name == name)
-                .collect::<Vec<_>>();
-            if matches.len() > 1 {
-                return Err(CanonicalError::Configuration(
-                    "immutable name is not unique".into(),
-                ));
-            }
-            read.names.insert(
-                (scope.into(), name.clone()),
-                matches.first().map(|member| member.version.clone()),
-            );
-        }
-        Ok(members)
-            }).await
+        activity
+            .scope(async {
+                let members = self.select_names(&read.selection, scope, names).await?;
+                read.invalidate_material();
+                for name in names {
+                    let matches = members
+                        .iter()
+                        .filter(|member| &member.name == name)
+                        .collect::<Vec<_>>();
+                    if matches.len() > 1 {
+                        return Err(CanonicalError::Configuration(
+                            "immutable name is not unique".into(),
+                        ));
+                    }
+                    read.names.insert(
+                        (scope.into(), name.clone()),
+                        matches.first().map(|member| member.version.clone()),
+                    );
+                }
+                Ok(members)
+            })
+            .await
     }
     /// Resolve an exact sparse set of lexical pairs, preserving absent pairs
     /// without admitting the cross product of independently grouped scopes/names.
@@ -1758,34 +1767,39 @@ impl CanonicalStore {
         after: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        let mut response = self
-            .protected_query(
-                &selection.revision().problem,
-                crate::canonical::QueryEffect::Read,
-                "canonical_selection::membership_page",
-                || {
-                    Ok(self
-                        .db
-                        .query(membership_page_sql(scope.is_some()))
-                        .bind(("problem", selection.revision().problem.clone()))
-                        .bind(("revision", selection.revision().key.clone()))
-                        .bind(("protection", selection.key().to_owned()))
-                        .bind(("scope", scope.map(str::to_owned)))
-                        .bind(("after", after.to_owned()))
-                        .bind((
-                            "sequence",
-                            crate::canonical_codec::encode_uint(selection.revision().sequence)?,
-                        )))
-                },
-            )
-            .await?;
-        let rows: Vec<Object> = response.take(response.num_statements().saturating_sub(2))?;
-        rows.into_iter()
-            .map(wire::decode_canonical_memberships)
-            .collect::<Result<_, _>>()
-            .map_err(Into::into)
-            }).await
+        activity
+            .scope(async {
+                let mut response = self
+                    .protected_query(
+                        &selection.revision().problem,
+                        crate::canonical::QueryEffect::Read,
+                        "canonical_selection::membership_page",
+                        || {
+                            Ok(self
+                                .db
+                                .query(membership_page_sql(scope.is_some()))
+                                .bind(("problem", selection.revision().problem.clone()))
+                                .bind(("revision", selection.revision().key.clone()))
+                                .bind(("protection", selection.key().to_owned()))
+                                .bind(("scope", scope.map(str::to_owned)))
+                                .bind(("after", after.to_owned()))
+                                .bind((
+                                    "sequence",
+                                    crate::canonical_codec::encode_uint(
+                                        selection.revision().sequence,
+                                    )?,
+                                )))
+                        },
+                    )
+                    .await?;
+                let rows: Vec<Object> =
+                    response.take(response.num_statements().saturating_sub(2))?;
+                rows.into_iter()
+                    .map(wire::decode_canonical_memberships)
+                    .collect::<Result<_, _>>()
+                    .map_err(Into::into)
+            })
+            .await
     }
     /// Enumerate an explicitly required scope, preserving its complete membership premise.
     pub async fn resolve_scope(
@@ -1794,18 +1808,20 @@ impl CanonicalStore {
         scope: &str,
     ) -> Result<Vec<Membership>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let mut cursor = self.scope_pages(read, scope)?;
-        let mut members = Vec::new();
-        loop {
-            let page = self.next_membership_page(read, &mut cursor).await?;
-            if page.is_empty() {
-                break;
-            }
-            members.extend(page);
-        }
-        Ok(members)
-            }).await
+        activity
+            .scope(async {
+                let mut cursor = self.scope_pages(read, scope)?;
+                let mut members = Vec::new();
+                loop {
+                    let page = self.next_membership_page(read, &mut cursor).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    members.extend(page);
+                }
+                Ok(members)
+            })
+            .await
     }
     /// Fetch an exact immutable object within a live selection. Independent pages
     /// and payloads remain below the transport's individual-message bound.
@@ -1815,9 +1831,9 @@ impl CanonicalStore {
         version: &str,
     ) -> Result<Option<ObjectVersion>, CanonicalError> {
         let activity = self.selection_activity(selection)?;
-        activity.scope(async {
-        self.assemble_selected_object(selection, version).await
-            }).await
+        activity
+            .scope(async { self.assemble_selected_object(selection, version).await })
+            .await
     }
     /// Encode the selected description without a store effect or publication permission.
     pub fn prepare_description(
@@ -1834,13 +1850,17 @@ impl CanonicalStore {
         description: &ProductDescription,
     ) -> Result<Option<String>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        self.acknowledge_description_until(
-            description,
-            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                self.acknowledge_description_until(
+                    description,
+                    crate::canonical::transport::original_deadline(
+                        crate::canonical::REQUEST_TIMEOUT,
+                    ),
+                )
+                .await
+            })
+            .await
     }
     /// Exact settlement on the caller's original operation clock. Dropping the future
     /// stops retries; it cannot undo a transaction already committed by the server.
@@ -1850,16 +1870,18 @@ impl CanonicalStore {
         deadline: tokio::time::Instant,
     ) -> Result<Option<String>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        if tokio::time::Instant::now() >= deadline {
-            return Err(CanonicalError::Timeout);
-        }
-        crate::canonical::transport::within_clock(
-            deadline,
-            self.product_acknowledged(&description.material.product),
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                if tokio::time::Instant::now() >= deadline {
+                    return Err(CanonicalError::Timeout);
+                }
+                crate::canonical::transport::within_clock(
+                    deadline,
+                    self.product_acknowledged(&description.material.product),
+                )
+                .await
+            })
+            .await
     }
     /// Settle or publish reusable material against the exact current consumer read.
     pub async fn publish_description(
@@ -1868,14 +1890,18 @@ impl CanonicalStore {
         description: &ProductDescription,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        self.publish_description_until(
-            read,
-            description,
-            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                self.publish_description_until(
+                    read,
+                    description,
+                    crate::canonical::transport::original_deadline(
+                        crate::canonical::REQUEST_TIMEOUT,
+                    ),
+                )
+                .await
+            })
+            .await
     }
     /// Generic publication on the caller's original clock, including staging and waiters.
     pub async fn publish_description_until(
@@ -1885,15 +1911,18 @@ impl CanonicalStore {
         deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        if is_replay_producer(&description.material.product.producer) {
-            return Err(CanonicalError::Configuration(
-                "generic product publication cannot impersonate scientific admission".into(),
-            ));
-        }
-        self.publish_description_inner(read, description, deadline)
+        activity
+            .scope(async {
+                if is_replay_producer(&description.material.product.producer) {
+                    return Err(CanonicalError::Configuration(
+                        "generic product publication cannot impersonate scientific admission"
+                            .into(),
+                    ));
+                }
+                self.publish_description_inner(read, description, deadline)
+                    .await
+            })
             .await
-            }).await
     }
     /// Publish compiler-issued immutable material through the controlled writer.
     ///
@@ -1911,14 +1940,18 @@ impl CanonicalStore {
         description: &ProductDescription,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        self.publish_scientific_description_inner(
-            read,
-            description,
-            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT),
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                self.publish_scientific_description_inner(
+                    read,
+                    description,
+                    crate::canonical::transport::original_deadline(
+                        crate::canonical::REQUEST_TIMEOUT,
+                    ),
+                )
+                .await
+            })
+            .await
     }
     /// Controlled publication with the original enclosing operation deadline.
     ///
@@ -1935,10 +1968,12 @@ impl CanonicalStore {
         deadline: tokio::time::Instant,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        self.publish_scientific_description_inner(read, description, deadline)
+        activity
+            .scope(async {
+                self.publish_scientific_description_inner(read, description, deadline)
+                    .await
+            })
             .await
-            }).await
     }
     async fn publish_scientific_description_inner(
         &self,
@@ -1961,18 +1996,22 @@ impl CanonicalStore {
         product: Product,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let deadline =
-            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
-        if is_replay_producer(&product.producer) {
-            return Err(CanonicalError::Configuration(
-                "generic product publication cannot impersonate scientific admission".into(),
-            ));
-        }
-        let description = self.prepare_description(read, product)?;
-        self.publish_description_inner(read, &description, deadline)
+        activity
+            .scope(async {
+                let deadline = crate::canonical::transport::original_deadline(
+                    crate::canonical::REQUEST_TIMEOUT,
+                );
+                if is_replay_producer(&product.producer) {
+                    return Err(CanonicalError::Configuration(
+                        "generic product publication cannot impersonate scientific admission"
+                            .into(),
+                    ));
+                }
+                let description = self.prepare_description(read, product)?;
+                self.publish_description_inner(read, &description, deadline)
+                    .await
+            })
             .await
-            }).await
     }
     /// Publish a description issued by the scientific admission owner.
     ///
@@ -1989,18 +2028,22 @@ impl CanonicalStore {
         product: Product,
     ) -> Result<String, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        let deadline =
-            crate::canonical::transport::original_deadline(crate::canonical::REQUEST_TIMEOUT);
-        if !scientific_producer(&product.producer) {
-            return Err(CanonicalError::Configuration(
-                "scientific publication requires its current reserved qualified producer".into(),
-            ));
-        }
-        let description = self.prepare_description(read, product)?;
-        self.publish_description_inner(read, &description, deadline)
+        activity
+            .scope(async {
+                let deadline = crate::canonical::transport::original_deadline(
+                    crate::canonical::REQUEST_TIMEOUT,
+                );
+                if !scientific_producer(&product.producer) {
+                    return Err(CanonicalError::Configuration(
+                        "scientific publication requires its current reserved qualified producer"
+                            .into(),
+                    ));
+                }
+                let description = self.prepare_description(read, product)?;
+                self.publish_description_inner(read, &description, deadline)
+                    .await
+            })
             .await
-            }).await
     }
     async fn publish_description_inner(
         &self,
@@ -2061,19 +2104,22 @@ impl CanonicalStore {
     #[cfg(feature = "canonical-tests")]
     pub async fn corrupt_product_block(&self, key: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        if !self.database().starts_with("canonical_test_") {
-            return Err(CanonicalError::Configuration(
-                "corruption requires isolated canonical fixture".into(),
-            ));
-        }
-        let row =
-            crate::canonical::request(self.db.select(("canonical_product_associations", key)))
+        activity
+            .scope(async {
+                if !self.database().starts_with("canonical_test_") {
+                    return Err(CanonicalError::Configuration(
+                        "corruption requires isolated canonical fixture".into(),
+                    ));
+                }
+                let row = crate::canonical::request(
+                    self.db.select(("canonical_product_associations", key)),
+                )
                 .await?
                 .ok_or_else(|| CanonicalError::Configuration("fixture product missing".into()))?;
-        let product = crate::canonical::decode_product_association(row)?;
-        let descriptor = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
-        crate::canonical::bounded_query(
+                let product = crate::canonical::decode_product_association(row)?;
+                let descriptor =
+                    crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
+                crate::canonical::bounded_query(
             self.db
                 .query(
                     "UPDATE type::record('canonical_payload_blocks', $block) SET payload = $bytes;",
@@ -2082,8 +2128,9 @@ impl CanonicalStore {
                 .bind(("bytes", surrealdb::types::Bytes::from(vec![0]))),
         )
         .await?;
-        Ok(())
-            }).await
+                Ok(())
+            })
+            .await
     }
     /// Corrupt an isolated fixture's product descriptor without touching protected roots.
     #[cfg(feature = "canonical-tests")]
@@ -2198,35 +2245,42 @@ impl CanonicalStore {
         candidate: &ProductCandidate,
     ) -> Result<Option<ReusableProduct>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        read.complete()?;
-        if candidate.product.problem != read.selection().revision().problem {
-            return Err(CanonicalError::Configuration(
-                "product candidate belongs to a different problem".into(),
-            ));
-        }
-        let Some(blob) = self
-            .assemble_product_blob(read.selection(), &candidate.product, &candidate.descriptor)
-            .await?
-        else {
-            return Ok(None);
-        };
-        let (payload, dependencies_bytes) = candidate.descriptor.split(blob.payload.as_slice())?;
-        let dependencies: Dependencies = serde_json::from_slice(dependencies_bytes)
-            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        if dependencies.interpretation != wire::INTERPRETATION {
-            return Ok(None);
-        }
-        if !self.recheck_dependencies(read, &dependencies).await? {
-            return Ok(None);
-        }
-        // Rejected candidates retain only the assembled immutable blob and parsed
-        // premises. Copy scientific bytes only after complete eligibility succeeds.
-        let mut product = candidate.product.clone();
-        product.payload = payload.to_vec().into();
-        product.dependencies = dependencies_bytes.to_vec().into();
-        Ok(Some(ReusableProduct { product }))
-            }).await
+        activity
+            .scope(async {
+                read.complete()?;
+                if candidate.product.problem != read.selection().revision().problem {
+                    return Err(CanonicalError::Configuration(
+                        "product candidate belongs to a different problem".into(),
+                    ));
+                }
+                let Some(blob) = self
+                    .assemble_product_blob(
+                        read.selection(),
+                        &candidate.product,
+                        &candidate.descriptor,
+                    )
+                    .await?
+                else {
+                    return Ok(None);
+                };
+                let (payload, dependencies_bytes) =
+                    candidate.descriptor.split(blob.payload.as_slice())?;
+                let dependencies: Dependencies = serde_json::from_slice(dependencies_bytes)
+                    .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+                if dependencies.interpretation != wire::INTERPRETATION {
+                    return Ok(None);
+                }
+                if !self.recheck_dependencies(read, &dependencies).await? {
+                    return Ok(None);
+                }
+                // Rejected candidates retain only the assembled immutable blob and parsed
+                // premises. Copy scientific bytes only after complete eligibility succeeds.
+                let mut product = candidate.product.clone();
+                product.payload = payload.to_vec().into();
+                product.dependencies = dependencies_bytes.to_vec().into();
+                Ok(Some(ReusableProduct { product }))
+            })
+            .await
     }
     /// Resolve common keys in bounded rounds, rejecting candidates after each
     /// response. Cached observations are private to this exact protected epoch;
@@ -2237,193 +2291,197 @@ impl CanonicalStore {
         window: &mut SelectedRecheckWindow,
     ) -> Result<Option<usize>, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        window.check_epoch(read)?;
-        window.qualified = None;
-        let mut live = [false; SELECTED_RECHECK_WINDOW];
-        for (index, candidate) in window.candidates.iter().enumerate() {
-            live[index] = candidate.dependencies.interpretation == wire::INTERPRETATION
-                && !candidate.dependencies.premises.iter().any(|premise| {
-                    matches!(premise, Premise::Interpretation { role, identity }
+        activity
+            .scope(async {
+                window.check_epoch(read)?;
+                window.qualified = None;
+                let mut live = [false; SELECTED_RECHECK_WINDOW];
+                for (index, candidate) in window.candidates.iter().enumerate() {
+                    live[index] = candidate.dependencies.interpretation == wire::INTERPRETATION
+                        && !candidate.dependencies.premises.iter().any(|premise| {
+                            matches!(premise, Premise::Interpretation { role, identity }
                         if read.interpretations.get(role) != Some(identity))
-                });
-        }
-        if !live.iter().any(|live| *live) {
-            return Ok(None);
-        }
-        // Empty logical resolution deliberately executes PROTECTED_BEGIN, even
-        // when every observed key is cached or the candidate contains no keys.
-        let mut guard = SelectedRead::new(read.selection.clone());
-        #[cfg(test)]
-        {
-            window.counts.guards += 1;
-        }
-        self.resolve_logicals(&mut guard, &[]).await?;
-        drop(guard);
-        for names in [false, true] {
-            let bound = if names { 64 } else { 256 };
-            loop {
-                // Compare all observations from previous rounds before acquiring
-                // more source. A rejected candidate contributes no later keys.
-                for (index, candidate) in window.candidates.iter().enumerate() {
-                    if live[index]
-                        && candidate.dependencies.premises.iter().any(|premise| {
-                            premise.recheck_key(names).is_some_and(|(key, expected)| {
-                                window
-                                    .actual
-                                    .get(&key)
-                                    .is_some_and(|actual| actual != expected)
-                            })
-                        })
-                    {
-                        live[index] = false;
-                    }
+                        });
                 }
-                let mut keys = std::collections::BTreeSet::new();
-                for (index, candidate) in window.candidates.iter().enumerate() {
-                    if !live[index] {
-                        continue;
-                    }
-                    for premise in &candidate.dependencies.premises {
-                        if let Some((key, _)) = premise.recheck_key(names)
-                            && !window.actual.contains_key(&key)
-                        {
-                            keys.insert(key);
+                if !live.iter().any(|live| *live) {
+                    return Ok(None);
+                }
+                // Empty logical resolution deliberately executes PROTECTED_BEGIN, even
+                // when every observed key is cached or the candidate contains no keys.
+                let mut guard = SelectedRead::new(read.selection.clone());
+                #[cfg(test)]
+                {
+                    window.counts.guards += 1;
+                }
+                self.resolve_logicals(&mut guard, &[]).await?;
+                drop(guard);
+                for names in [false, true] {
+                    let bound = if names { 64 } else { 256 };
+                    loop {
+                        // Compare all observations from previous rounds before acquiring
+                        // more source. A rejected candidate contributes no later keys.
+                        for (index, candidate) in window.candidates.iter().enumerate() {
+                            if live[index]
+                                && candidate.dependencies.premises.iter().any(|premise| {
+                                    premise.recheck_key(names).is_some_and(|(key, expected)| {
+                                        window
+                                            .actual
+                                            .get(&key)
+                                            .is_some_and(|actual| actual != expected)
+                                    })
+                                })
+                            {
+                                live[index] = false;
+                            }
+                        }
+                        let mut keys = std::collections::BTreeSet::new();
+                        for (index, candidate) in window.candidates.iter().enumerate() {
+                            if !live[index] {
+                                continue;
+                            }
+                            for premise in &candidate.dependencies.premises {
+                                if let Some((key, _)) = premise.recheck_key(names)
+                                    && !window.actual.contains_key(&key)
+                                {
+                                    keys.insert(key);
+                                    if keys.len() == bound {
+                                        break;
+                                    }
+                                }
+                            }
                             if keys.len() == bound {
                                 break;
                             }
                         }
-                    }
-                    if keys.len() == bound {
-                        break;
-                    }
-                }
-                if keys.is_empty() {
-                    break;
-                }
-                let mut observations = SelectedRead::new(read.selection.clone());
-                if names {
-                    let pairs = keys
-                        .into_iter()
-                        .filter_map(|key| match key {
-                            RecheckKey::Name(scope, name) => Some((scope, name)),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>();
-                    #[cfg(test)]
-                    {
-                        window.counts.names += 1;
-                    }
-                    self.resolve_name_pairs(&mut observations, &pairs).await?;
-                    for ((scope, name), actual) in observations.names {
-                        window.actual.insert(RecheckKey::Name(scope, name), actual);
-                    }
-                } else {
-                    let logicals = keys
-                        .into_iter()
-                        .filter_map(|key| match key {
-                            RecheckKey::Logical(logical) => Some(logical),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>();
-                    #[cfg(test)]
-                    {
-                        window.counts.logicals += 1;
-                    }
-                    self.resolve_logicals(&mut observations, &logicals).await?;
-                    for (logical, actual) in observations.logicals {
-                        window.actual.insert(RecheckKey::Logical(logical), actual);
-                    }
-                }
-            }
-        }
-        for (index, candidate) in window.candidates.iter().enumerate() {
-            if !live[index] {
-                continue;
-            }
-            let mut eligible = true;
-            for premise in &candidate.dependencies.premises {
-                if !matches!(
-                    premise,
-                    Premise::Scope { .. } | Premise::KindScope { .. } | Premise::References { .. }
-                ) {
-                    continue;
-                }
-                let same = if let Some(same) = window.inventories.get(premise) {
-                    *same
-                } else {
-                    let mut pages = 0;
-                    let same = match premise {
-                        Premise::Scope { scope, members } => {
-                            self.same_membership_counted(
-                                read.selection(),
-                                Some(scope),
-                                None,
-                                None,
-                                members,
-                                false,
-                                &mut pages,
-                            )
-                            .await?
+                        if keys.is_empty() {
+                            break;
                         }
-                        Premise::KindScope {
-                            scope,
-                            source_kind,
-                            members,
-                        } => {
-                            self.same_membership_counted(
-                                read.selection(),
-                                scope.as_deref(),
-                                Some(source_kind),
-                                None,
-                                members,
-                                true,
-                                &mut pages,
-                            )
-                            .await?
+                        let mut observations = SelectedRead::new(read.selection.clone());
+                        if names {
+                            let pairs = keys
+                                .into_iter()
+                                .filter_map(|key| match key {
+                                    RecheckKey::Name(scope, name) => Some((scope, name)),
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>();
+                            #[cfg(test)]
+                            {
+                                window.counts.names += 1;
+                            }
+                            self.resolve_name_pairs(&mut observations, &pairs).await?;
+                            for ((scope, name), actual) in observations.names {
+                                window.actual.insert(RecheckKey::Name(scope, name), actual);
+                            }
+                        } else {
+                            let logicals = keys
+                                .into_iter()
+                                .filter_map(|key| match key {
+                                    RecheckKey::Logical(logical) => Some(logical),
+                                    _ => None,
+                                })
+                                .collect::<Vec<_>>();
+                            #[cfg(test)]
+                            {
+                                window.counts.logicals += 1;
+                            }
+                            self.resolve_logicals(&mut observations, &logicals).await?;
+                            for (logical, actual) in observations.logicals {
+                                window.actual.insert(RecheckKey::Logical(logical), actual);
+                            }
                         }
-                        Premise::References {
-                            scope,
-                            name,
-                            source_kind,
-                            members,
-                        } => {
-                            self.same_membership_counted(
-                                read.selection(),
-                                None,
-                                Some(source_kind),
-                                Some((scope, name)),
-                                members,
-                                true,
-                                &mut pages,
-                            )
-                            .await?
-                        }
-                        _ => {
-                            return Err(CanonicalError::Configuration(
-                                "candidate inventory premise".into(),
-                            ));
-                        }
-                    };
-                    #[cfg(test)]
-                    {
-                        window.counts.inventory_pages += pages;
                     }
-                    window.inventories.insert(premise.clone(), same);
-                    same
-                };
-                if !same {
-                    eligible = false;
-                    break;
                 }
-            }
-            if eligible {
-                window.qualified = Some(index);
-                return Ok(Some(index));
-            }
-        }
-        Ok(None)
-            }).await
+                for (index, candidate) in window.candidates.iter().enumerate() {
+                    if !live[index] {
+                        continue;
+                    }
+                    let mut eligible = true;
+                    for premise in &candidate.dependencies.premises {
+                        if !matches!(
+                            premise,
+                            Premise::Scope { .. }
+                                | Premise::KindScope { .. }
+                                | Premise::References { .. }
+                        ) {
+                            continue;
+                        }
+                        let same = if let Some(same) = window.inventories.get(premise) {
+                            *same
+                        } else {
+                            let mut pages = 0;
+                            let same = match premise {
+                                Premise::Scope { scope, members } => {
+                                    self.same_membership_counted(
+                                        read.selection(),
+                                        Some(scope),
+                                        None,
+                                        None,
+                                        members,
+                                        false,
+                                        &mut pages,
+                                    )
+                                    .await?
+                                }
+                                Premise::KindScope {
+                                    scope,
+                                    source_kind,
+                                    members,
+                                } => {
+                                    self.same_membership_counted(
+                                        read.selection(),
+                                        scope.as_deref(),
+                                        Some(source_kind),
+                                        None,
+                                        members,
+                                        true,
+                                        &mut pages,
+                                    )
+                                    .await?
+                                }
+                                Premise::References {
+                                    scope,
+                                    name,
+                                    source_kind,
+                                    members,
+                                } => {
+                                    self.same_membership_counted(
+                                        read.selection(),
+                                        None,
+                                        Some(source_kind),
+                                        Some((scope, name)),
+                                        members,
+                                        true,
+                                        &mut pages,
+                                    )
+                                    .await?
+                                }
+                                _ => {
+                                    return Err(CanonicalError::Configuration(
+                                        "candidate inventory premise".into(),
+                                    ));
+                                }
+                            };
+                            #[cfg(test)]
+                            {
+                                window.counts.inventory_pages += pages;
+                            }
+                            window.inventories.insert(premise.clone(), same);
+                            same
+                        };
+                        if !same {
+                            eligible = false;
+                            break;
+                        }
+                    }
+                    if eligible {
+                        window.qualified = Some(index);
+                        return Ok(Some(index));
+                    }
+                }
+                Ok(None)
+            })
+            .await
     }
     /// Recheck immutable in-memory premises through the same eligibility mechanism
     /// as durable scientific products. Rejected candidates do not contaminate the read.
@@ -2433,10 +2491,12 @@ impl CanonicalStore {
         dependencies: &SelectedDependencies,
     ) -> Result<bool, CanonicalError> {
         let activity = self.selection_activity(read.selection())?;
-        activity.scope(async {
-        self.recheck_dependencies(read, &dependencies.dependencies)
+        activity
+            .scope(async {
+                self.recheck_dependencies(read, &dependencies.dependencies)
+                    .await
+            })
             .await
-            }).await
     }
     async fn recheck_dependencies(
         &self,

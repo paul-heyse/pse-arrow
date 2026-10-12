@@ -28,10 +28,12 @@ fn watch(cancel: &crate::CancelSource) -> (Arc<AtomicBool>, StopWatch) {
     let token = cancel.token();
     (
         flag,
-        StopWatch(tokio::spawn(pse_operations::canonical::inherit_activity(async move {
-            token.cancelled().await;
-            watched.store(true, Ordering::Release);
-        }))),
+        StopWatch(tokio::spawn(pse_operations::canonical::inherit_activity(
+            async move {
+                token.cancelled().await;
+                watched.store(true, Ordering::Release);
+            },
+        ))),
     )
 }
 
@@ -115,37 +117,38 @@ impl ModelingPackage {
         deadline: Instant,
     ) -> Result<canonical::CheckedSelection, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let phase = cancel.child_with_deadline(Some(deadline));
-        let deadline = phase.deadline().unwrap_or(deadline);
-        if cancel.token().is_cancelled() {
-            return Err(crate::math::MathRuntimeError::Cancelled.into());
-        }
-        if Instant::now() >= deadline {
-            return Err(preparation_time_limit());
-        }
-        let operation = self.checked_selection(roots, &phase);
-        tokio::pin!(operation);
-        tokio::select! {
-            biased;
-            () = cancel.cancelled() => {
-                phase.cancel();
-                if let Ok(selected) = operation.await {
-                    selected.read.finish().await?;
+        activity
+            .scope(async {
+                let phase = cancel.child_with_deadline(Some(deadline));
+                let deadline = phase.deadline().unwrap_or(deadline);
+                if cancel.token().is_cancelled() {
+                    return Err(crate::math::MathRuntimeError::Cancelled.into());
                 }
-                Err(crate::math::MathRuntimeError::Cancelled.into())
-            },
-            () = tokio::time::sleep_until(deadline.into()) => {
-                phase.cancel();
-                if let Ok(selected) = operation.await {
-                    selected.read.finish().await?;
+                if Instant::now() >= deadline {
+                    return Err(preparation_time_limit());
                 }
-                Err(preparation_time_limit())
-            },
-            result = &mut operation => result,
-        }
-    
-        }).await
+                let operation = self.checked_selection(roots, &phase);
+                tokio::pin!(operation);
+                tokio::select! {
+                    biased;
+                    () = cancel.cancelled() => {
+                        phase.cancel();
+                        if let Ok(selected) = operation.await {
+                            selected.read.finish().await?;
+                        }
+                        Err(crate::math::MathRuntimeError::Cancelled.into())
+                    },
+                    () = tokio::time::sleep_until(deadline.into()) => {
+                        phase.cancel();
+                        if let Ok(selected) = operation.await {
+                            selected.read.finish().await?;
+                        }
+                        Err(preparation_time_limit())
+                    },
+                    result = &mut operation => result,
+                }
+            })
+            .await
     }
     #[cfg(test)]
     #[expect(
@@ -163,12 +166,15 @@ impl ModelingPackage {
         deadline: Instant,
     ) -> Result<ModelingPreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.prepare_selected_basis(selected, root, instance, bindings, limits, cancel, deadline)
+        activity
+            .scope(async {
+                self.prepare_selected_basis(
+                    selected, root, instance, bindings, limits, cancel, deadline,
+                )
+                .await
+                .map(|(model, _)| model)
+            })
             .await
-            .map(|(model, _)| model)
-    
-        }).await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -185,172 +191,187 @@ impl ModelingPackage {
         deadline: Instant,
     ) -> Result<(ModelingPreparation, Arc<PreparedBasis>), WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let math = self.runtime.shared.math();
-        let store = self.runtime.canonical.store();
-        let context = compiler_context(&self.physical, &self.providers);
-        let generation = math.modeling_cache.generation();
-        let key = math.basis_key(&selected.admission, root, instance, bindings, limits)?;
-        let (flag, _watch) = watch(cancel);
-        let mut receiving_checked = false;
-        let mut namespace = None;
-        let cached = math.modeling_cache.basis(&key);
-        // checked_selection already proves and merges the admission's full
-        // inventory into this protected read. Only additional acquisition
-        // premises require another store qualification here.
-        let basis = if let Some(basis) = cached
-            && (basis.acquisition_dependencies == selected.admission.dependencies
-                || scoped(cancel, deadline, async {
-                    let dependencies = [basis.acquisition_dependencies.clone()];
-                    let _scratch = math.reserve(
-                        "modeling:basis-premise-window",
-                        SelectedRecheckWindow::scratch_bytes(&selected.read, &dependencies)?,
-                    )?;
-                    let mut window = SelectedRecheckWindow::new(&selected.read, &dependencies)?;
-                    if let Some(index) = store
-                        .qualify_selection_window(&selected.read, &mut window)
-                        .await?
-                    {
-                        let bytes = selected
-                            .read
-                            .publication_scratch_bytes()?
-                            .checked_add(basis.acquisition_dependencies.retained_bytes())
-                            .ok_or_else(|| contract("basis premise metadata extent"))?;
-                        let metadata = math.reserve("modeling:basis-premise-merge", bytes)?;
-                        window.merge_qualified(&mut selected.read, index)?;
-                        selected._premises_metadata = Some(metadata);
-                        Ok(true)
-                    } else {
-                        Ok(false)
-                    }
-                })
-                .await?)
-        {
-            basis
-        } else {
-            let workspace = self.pure_workspace()?;
-            let frontier = scoped(cancel, deadline, async {
-                Ok(math
-                    .plan_frontier_keyed(
-                        key.clone(),
-                        workspace.clone(),
-                        selected.admission.revision.clone(),
-                        cancel,
-                        deadline,
-                    )
-                    .await?)
-            })
-            .await?;
-            for identity in frontier.body_requests() {
-                if math.modeling_cache.body(identity).is_some() {
-                    continue;
-                }
-                let Some(producer) = self.runtime.canonical.producer() else {
-                    continue;
-                };
-                let present = scoped(cancel, deadline, async {
-                    portable::product_candidate_presence(
-                        store,
-                        &selected.read,
-                        producer,
-                        identity,
-                        &context,
-                        "",
-                    )
-                    .await
-                    .map_err(portable)
-                })
-                .await?;
-                if !present {
-                    continue;
-                }
-                if !receiving_checked {
-                    // Native capture owns its cancellation/join; do not put it inside an
-                    // async timeout that could abandon its explicit settlement wait.
-                    namespace =
-                        portable::qualify_replay(math, Some(producer.clone()), deadline, cancel)
+        activity
+            .scope(async {
+                let math = self.runtime.shared.math();
+                let store = self.runtime.canonical.store();
+                let context = compiler_context(&self.physical, &self.providers);
+                let generation = math.modeling_cache.generation();
+                let key = math.basis_key(&selected.admission, root, instance, bindings, limits)?;
+                let (flag, _watch) = watch(cancel);
+                let mut receiving_checked = false;
+                let mut namespace = None;
+                let cached = math.modeling_cache.basis(&key);
+                // checked_selection already proves and merges the admission's full
+                // inventory into this protected read. Only additional acquisition
+                // premises require another store qualification here.
+                let basis = if let Some(basis) = cached
+                    && (basis.acquisition_dependencies == selected.admission.dependencies
+                        || scoped(cancel, deadline, async {
+                            let dependencies = [basis.acquisition_dependencies.clone()];
+                            let _scratch = math.reserve(
+                                "modeling:basis-premise-window",
+                                SelectedRecheckWindow::scratch_bytes(
+                                    &selected.read,
+                                    &dependencies,
+                                )?,
+                            )?;
+                            let mut window =
+                                SelectedRecheckWindow::new(&selected.read, &dependencies)?;
+                            if let Some(index) = store
+                                .qualify_selection_window(&selected.read, &mut window)
+                                .await?
+                            {
+                                let bytes = selected
+                                    .read
+                                    .publication_scratch_bytes()?
+                                    .checked_add(basis.acquisition_dependencies.retained_bytes())
+                                    .ok_or_else(|| contract("basis premise metadata extent"))?;
+                                let metadata =
+                                    math.reserve("modeling:basis-premise-merge", bytes)?;
+                                window.merge_qualified(&mut selected.read, index)?;
+                                selected._premises_metadata = Some(metadata);
+                                Ok(true)
+                            } else {
+                                Ok(false)
+                            }
+                        })
+                        .await?)
+                {
+                    basis
+                } else {
+                    let workspace = self.pure_workspace()?;
+                    let frontier = scoped(cancel, deadline, async {
+                        Ok(math
+                            .plan_frontier_keyed(
+                                key.clone(),
+                                workspace.clone(),
+                                selected.admission.revision.clone(),
+                                cancel,
+                                deadline,
+                            )
+                            .await?)
+                    })
+                    .await?;
+                    for identity in frontier.body_requests() {
+                        if math.modeling_cache.body(identity).is_some() {
+                            continue;
+                        }
+                        let Some(producer) = self.runtime.canonical.producer() else {
+                            continue;
+                        };
+                        let present = scoped(cancel, deadline, async {
+                            portable::product_candidate_presence(
+                                store,
+                                &selected.read,
+                                producer,
+                                identity,
+                                &context,
+                                "",
+                            )
+                            .await
+                            .map_err(portable)
+                        })
+                        .await?;
+                        if !present {
+                            continue;
+                        }
+                        if !receiving_checked {
+                            // Native capture owns its cancellation/join; do not put it inside an
+                            // async timeout that could abandon its explicit settlement wait.
+                            namespace = portable::qualify_replay(
+                                math,
+                                Some(producer.clone()),
+                                deadline,
+                                cancel,
+                            )
                             .await?;
-                    receiving_checked = true;
-                }
-                let Some(current) = &namespace else {
-                    continue;
+                            receiving_checked = true;
+                        }
+                        let Some(current) = &namespace else {
+                            continue;
+                        };
+                        let received = receiving(cancel, &flag, deadline, async {
+                            portable::reuse_body_current(
+                                math,
+                                store,
+                                &mut selected.read,
+                                current,
+                                identity,
+                                &context,
+                                &flag,
+                            )
+                            .await
+                            .map_err(portable)
+                        })
+                        .await?;
+                        if let Some(body) = received {
+                            math.retain_received_body(generation, identity, Arc::new(body))?;
+                        }
+                    }
+                    let dependencies = Arc::new(selected.read.snapshot_dependencies()?);
+                    scoped(cancel, deadline, async {
+                        Ok(math
+                            .complete_frontier_keyed(
+                                key.clone(),
+                                dependencies,
+                                workspace,
+                                frontier,
+                                cancel,
+                                deadline,
+                            )
+                            .await?)
+                    })
+                    .await?
                 };
-                let received = receiving(cancel, &flag, deadline, async {
-                    portable::reuse_body_current(
-                        math,
-                        store,
-                        &mut selected.read,
-                        current,
-                        identity,
+
+                let established = self
+                    .establish_preparation(
+                        &basis,
+                        &selected.read,
                         &context,
-                        &flag,
-                    )
-                    .await
-                    .map_err(portable)
-                })
-                .await?;
-                if let Some(body) = received {
-                    math.retain_received_body(generation, identity, Arc::new(body))?;
-                }
-            }
-            let dependencies = Arc::new(selected.read.snapshot_dependencies()?);
-            scoped(cancel, deadline, async {
-                Ok(math
-                    .complete_frontier_keyed(
-                        key.clone(),
-                        dependencies,
-                        workspace,
-                        frontier,
+                        &mut namespace,
+                        &mut receiving_checked,
                         cancel,
                         deadline,
                     )
-                    .await?)
+                    .await?;
+                let retained = Arc::new(basis.with_descriptions(
+                    math,
+                    established.selection,
+                    established.descriptions,
+                )?);
+                math.modeling_cache
+                    .retain_basis(generation, key, retained.clone());
+                // Exact immutable descriptions and their single selected allocation are
+                // retained before any new publication can return an uncertain outcome.
+                for identity in established.unsettled {
+                    let description = retained
+                        .description(identity)
+                        .ok_or_else(|| contract("established body description missing"))?;
+                    receiving(cancel, &flag, deadline, async {
+                        #[cfg(test)]
+                        math.record_preparation_publication();
+                        portable::publish_description(
+                            store,
+                            &selected.read,
+                            description,
+                            deadline.into(),
+                        )
+                        .await
+                        .map_err(portable)
+                    })
+                    .await?;
+                }
+                let model = retained
+                    .bind(&selected.admission.revision, root, instance)?
+                    .with_consumed_source_versions(
+                        selected.admission.versions.clone(),
+                        selected.admission.metadata.clone(),
+                    );
+                Ok((model, retained))
             })
-            .await?
-        };
-
-        let established = self
-            .establish_preparation(
-                &basis,
-                &selected.read,
-                &context,
-                &mut namespace,
-                &mut receiving_checked,
-                cancel,
-                deadline,
-            )
-            .await?;
-        let retained = Arc::new(basis.with_descriptions(
-            math,
-            established.selection,
-            established.descriptions,
-        )?);
-        math.modeling_cache
-            .retain_basis(generation, key, retained.clone());
-        // Exact immutable descriptions and their single selected allocation are
-        // retained before any new publication can return an uncertain outcome.
-        for identity in established.unsettled {
-            let description = retained
-                .description(identity)
-                .ok_or_else(|| contract("established body description missing"))?;
-            receiving(cancel, &flag, deadline, async {
-                #[cfg(test)]
-                math.record_preparation_publication();
-                portable::publish_description(store, &selected.read, description, deadline.into())
-                    .await
-                    .map_err(portable)
-            })
-            .await?;
-        }
-        let model = retained
-            .bind(&selected.admission.revision, root, instance)?
-            .with_consumed_source_versions(
-                selected.admission.versions.clone(),
-                selected.admission.metadata.clone(),
-            );
-        Ok((model, retained))
-    
-        }).await
+            .await
     }
 
     #[expect(

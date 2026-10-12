@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Shared, effect-free study admission and transition. Adapters own all I/O and fencing.
-use petgraph::algo::is_cyclic_directed;
-use petgraph::graphmap::DiGraphMap;
 use crate::generated::enums::StudyPointState;
 use crate::study::{
     ActionKind, Availability, Conclusion, ContinuationPermission, Dependency, EffectState,
@@ -11,6 +9,8 @@ use crate::study::{
     SeedAvailability, SeedNeed, SeedRole, SeedUnavailable, StartPolicy, StartProvenance,
     StudyDecision, StudyLifecycle, UnavailableSeedPolicy, WaitReason,
 };
+use petgraph::algo::is_cyclic_directed;
+use petgraph::graphmap::DiGraphMap;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Malformed policy/fact inputs; semantic dependent refusals remain returned actions.

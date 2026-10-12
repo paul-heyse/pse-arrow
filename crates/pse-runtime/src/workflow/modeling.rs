@@ -427,39 +427,45 @@ impl Runtime {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let token = cancel.token();
-        token.checkpoint().map_err(pse_engine::EngineError::from)?;
-        let validation = self.validation_context();
-        documents.validate_context(self.registry(), &validation, &self.shared.pool(), &token)?;
-        let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
-            documents,
-            self.registry(),
-            &physical,
-            self.shared.budget().math.workspace_bytes,
-            &self.shared.pool(),
-            &token,
-        )?;
-        token.checkpoint().map_err(pse_engine::EngineError::from)?;
-        // Publication is an issued canonical effect; finish its owner before
-        // observing cancellation again. Pure validation uses the caller token.
-        let package = self
-            .persist_modeling(
-                rows,
-                physical,
-                scope,
-                inventory,
-                sources,
-                fits,
-                BTreeMap::new(),
-                Some(documents),
-            )
-            .await?;
-        let _ = canonical::reload::retain_initial(&package, documents);
-        token.checkpoint().map_err(pse_engine::EngineError::from)?;
-        Ok(package)
-    
-        }).await
+        activity
+            .scope(async {
+                let token = cancel.token();
+                token.checkpoint().map_err(pse_engine::EngineError::from)?;
+                let validation = self.validation_context();
+                documents.validate_context(
+                    self.registry(),
+                    &validation,
+                    &self.shared.pool(),
+                    &token,
+                )?;
+                let (rows, scope, fits, sources, inventory, _input_lease) = document_inputs(
+                    documents,
+                    self.registry(),
+                    &physical,
+                    self.shared.budget().math.workspace_bytes,
+                    &self.shared.pool(),
+                    &token,
+                )?;
+                token.checkpoint().map_err(pse_engine::EngineError::from)?;
+                // Publication is an issued canonical effect; finish its owner before
+                // observing cancellation again. Pure validation uses the caller token.
+                let package = self
+                    .persist_modeling(
+                        rows,
+                        physical,
+                        scope,
+                        inventory,
+                        sources,
+                        fits,
+                        BTreeMap::new(),
+                        Some(documents),
+                    )
+                    .await?;
+                let _ = canonical::reload::retain_initial(&package, documents);
+                token.checkpoint().map_err(pse_engine::EngineError::from)?;
+                Ok(package)
+            })
+            .await
     }
     /// Persist registry-generated rows without serializing through a text document.
     pub async fn modeling_package(
@@ -468,11 +474,12 @@ impl Runtime {
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.modeling_package_registered(rows, physical, BTreeMap::new())
+        activity
+            .scope(async {
+                self.modeling_package_registered(rows, physical, BTreeMap::new())
+                    .await
+            })
             .await
-    
-        }).await
     }
     /// Native capabilities remain explicitly supplied services; source names load no code.
     pub async fn modeling_package_registered(
@@ -482,24 +489,25 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let scope = PhysicalScope {
-            package: physical.package.as_ref().map(|p| p.name.clone()),
-            documents: None,
-        };
-        self.persist_modeling(
-            rows,
-            physical,
-            scope,
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            providers,
-            None,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                let scope = PhysicalScope {
+                    package: physical.package.as_ref().map(|p| p.name.clone()),
+                    documents: None,
+                };
+                self.persist_modeling(
+                    rows,
+                    physical,
+                    scope,
+                    Default::default(),
+                    Default::default(),
+                    Default::default(),
+                    providers,
+                    None,
+                )
+                .await
+            })
+            .await
     }
     #[expect(
         clippy::too_many_arguments,
@@ -546,11 +554,12 @@ impl Runtime {
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
         let activity = self.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let source = canonical::SourceRevision::open(self, revision).await?;
-        self.package_from_canonical(source, physical, providers)
-    
-        }).await
+        activity
+            .scope(async {
+                let source = canonical::SourceRevision::open(self, revision).await?;
+                self.package_from_canonical(source, physical, providers)
+            })
+            .await
     }
 }
 /// Which documents see the physical names (ADR-0123 Outcome 6): those of packages whose
@@ -662,10 +671,9 @@ impl ModelingPackage {
     /// Explicit full source inventory; ordinary preparation reads only its dependency closure.
     pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.declaration_inventory().await
-    
-        }).await
+        activity
+            .scope(async { self.declaration_inventory().await })
+            .await
     }
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
     pub fn canonical_revision(&self) -> &pse_model::generated::runtime::canonical_revisions::Row {
@@ -677,10 +685,9 @@ impl ModelingPackage {
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.encode_source_tables().await
-    
-        }).await
+        activity
+            .scope(async { self.encode_source_tables().await })
+            .await
     }
     async fn encode_source_tables(
         &self,
@@ -803,48 +810,49 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let profile = crate::math::initialization::InitializationProfile {
-            solver: a.solver.clone(),
-            stages,
-        };
-        let resolved = self
-            .resolve_case(
-                a.root,
-                a.instance,
-                a.bindings.clone(),
-                a.limits,
-                a.case.clone(),
-                a.order,
-                a.compiler,
-                a.solver.clone(),
-                a.numerical.clone(),
-                Default::default(),
-                false,
-                cancel,
-            )
-            .await?;
-        let prepared = self
-            .runtime
-            .native()
-            .prepare_modeling_initialization(
-                self.numerical_workspace()?,
-                resolved.model.case,
-                a.compiler,
-                resolved.numerical,
-                cancel,
-            )
-            .await?;
-        prepared.validate_profile(&resolved.model.values, &profile)?;
-        Ok(super::PreparedInitializationStrategy {
-            runtime: self.runtime.clone(),
-            values: resolved.model.values,
-            providers: resolved.providers,
-            prepared,
-            profile,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let profile = crate::math::initialization::InitializationProfile {
+                    solver: a.solver.clone(),
+                    stages,
+                };
+                let resolved = self
+                    .resolve_case(
+                        a.root,
+                        a.instance,
+                        a.bindings.clone(),
+                        a.limits,
+                        a.case.clone(),
+                        a.order,
+                        a.compiler,
+                        a.solver.clone(),
+                        a.numerical.clone(),
+                        Default::default(),
+                        false,
+                        cancel,
+                    )
+                    .await?;
+                let prepared = self
+                    .runtime
+                    .native()
+                    .prepare_modeling_initialization(
+                        self.numerical_workspace()?,
+                        resolved.model.case,
+                        a.compiler,
+                        resolved.numerical,
+                        cancel,
+                    )
+                    .await?;
+                prepared.validate_profile(&resolved.model.values, &profile)?;
+                Ok(super::PreparedInitializationStrategy {
+                    runtime: self.runtime.clone(),
+                    values: resolved.model.values,
+                    providers: resolved.providers,
+                    prepared,
+                    profile,
+                })
+            })
+            .await
     }
     /// Prepare declared topology independently of the selected case's numerical incidence.
     pub async fn prepare_flow(
@@ -854,102 +862,108 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let deadline = preparation_deadline(cancel)?;
-        let scoped_driver = cancel.with_deadline(Some(deadline));
-        let cancel = &scoped_driver;
-        let selected = self
-            .checked_selection_scoped(&[analysis.root], cancel, deadline)
-            .await?;
-        let prepared = (|| {
-            let workspace = self.pure_workspace()?;
-            let revision = selected.admission.revision.clone();
-            Ok::<_, WorkflowError>((workspace, revision))
-        })();
-        let (workspace, revision) = match prepared {
-            Ok(value) => value,
-            Err(error) => {
-                let _ = self
+        activity
+            .scope(async {
+                let deadline = preparation_deadline(cancel)?;
+                let scoped_driver = cancel.with_deadline(Some(deadline));
+                let cancel = &scoped_driver;
+                let selected = self
+                    .checked_selection_scoped(&[analysis.root], cancel, deadline)
+                    .await?;
+                let prepared = (|| {
+                    let workspace = self.pure_workspace()?;
+                    let revision = selected.admission.revision.clone();
+                    Ok::<_, WorkflowError>((workspace, revision))
+                })();
+                let (workspace, revision) = match prepared {
+                    Ok(value) => value,
+                    Err(error) => {
+                        let _ = self
+                            .runtime
+                            .canonical
+                            .store()
+                            .release(selected.read.selection())
+                            .await;
+                        return Err(error);
+                    }
+                };
+                let result = self
+                    .runtime
+                    .shared
+                    .math()
+                    .prepare_semantic_modeling_revision(
+                        workspace,
+                        revision,
+                        analysis.root,
+                        analysis.instance,
+                        analysis.bindings.clone(),
+                        analysis.limits,
+                        cancel,
+                    )
+                    .await;
+                let release = self
                     .runtime
                     .canonical
                     .store()
                     .release(selected.read.selection())
                     .await;
-                return Err(error);
-            }
-        };
-        let result = self
-            .runtime
-            .shared
-            .math()
-            .prepare_semantic_modeling_revision(
-                workspace,
-                revision,
-                analysis.root,
-                analysis.instance,
-                analysis.bindings.clone(),
-                analysis.limits,
-                cancel,
-            )
-            .await;
-        let release = self
-            .runtime
-            .canonical
-            .store()
-            .release(selected.read.selection())
-            .await;
-        let model = result?;
-        release?;
-        Ok(self
-            .runtime
-            .native()
-            .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
-            .await?)
-    
-        }).await
+                let model = result?;
+                release?;
+                Ok(self
+                    .runtime
+                    .native()
+                    .prepare_modeling_flow(model, self.quantities.clone(), selection, cancel)
+                    .await?)
+            })
+            .await
     }
     /// Replace source declarations while preserving which documents see the physical
     /// names and the package data documents. No old document text is retained as the source
     /// of the edited IR.
     pub async fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let (_, scope, mut documents, mut sources, _source_owners) = self.full_source().await?;
-        Arc::make_mut(&mut documents).field_spans.clear();
-        if let Some(batch) =
-            sources.get_mut(&pse_relations::generated::authored::documents::RELATION_ID)
-        {
-            use pse_relations::generated::authored::documents as wire;
-            let rows = wire::Row::rows(batch).map_err(relation)?;
-            let validation = self.runtime.validation_context();
-            let mut builder =
-                wire::Builder::with_registry(self.runtime.registry(), rows.len(), &validation)
+        activity
+            .scope(async {
+                let (_, scope, mut documents, mut sources, _source_owners) =
+                    self.full_source().await?;
+                Arc::make_mut(&mut documents).field_spans.clear();
+                if let Some(batch) =
+                    sources.get_mut(&pse_relations::generated::authored::documents::RELATION_ID)
+                {
+                    use pse_relations::generated::authored::documents as wire;
+                    let rows = wire::Row::rows(batch).map_err(relation)?;
+                    let validation = self.runtime.validation_context();
+                    let mut builder = wire::Builder::with_registry(
+                        self.runtime.registry(),
+                        rows.len(),
+                        &validation,
+                    )
                     .map_err(relation)?;
-            for mut row in rows {
-                row.source_text = None;
-                builder.push(row).map_err(relation)?;
-            }
-            *batch = builder.finish().map_err(relation)?;
-        }
-        let revision = canonical::persist(
-            &self.runtime,
-            rows,
-            &self.physical,
-            scope,
-            &documents,
-            &sources,
-            &Default::default(),
-            Some(&self.revision),
-            None,
-        )
-        .await?;
-        Ok(Self {
-            revision,
-            held_preparation: None,
-            ..self.clone()
-        })
-    
-        }).await
+                    for mut row in rows {
+                        row.source_text = None;
+                        builder.push(row).map_err(relation)?;
+                    }
+                    *batch = builder.finish().map_err(relation)?;
+                }
+                let revision = canonical::persist(
+                    &self.runtime,
+                    rows,
+                    &self.physical,
+                    scope,
+                    &documents,
+                    &sources,
+                    &Default::default(),
+                    Some(&self.revision),
+                    None,
+                )
+                .await?;
+                Ok(Self {
+                    revision,
+                    held_preparation: None,
+                    ..self.clone()
+                })
+            })
+            .await
     }
     /// Finite K3 admission and inspection; solver orchestration belongs to the subsequent lowering packets.
     pub async fn prepare(
@@ -961,20 +975,21 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if let Some(scope) = &self.held_preparation {
-            return scope
-                .prepare(self, root, instance, bindings, limits, cancel)
-                .await;
-        }
-        let engagement = self
-            .engage(root, instance, bindings, limits, cancel)
-            .await?;
-        let model = engagement.model().clone();
-        engagement.close().await?;
-        Ok(model)
-    
-        }).await
+        activity
+            .scope(async {
+                if let Some(scope) = &self.held_preparation {
+                    return scope
+                        .prepare(self, root, instance, bindings, limits, cancel)
+                        .await;
+                }
+                let engagement = self
+                    .engage(root, instance, bindings, limits, cancel)
+                    .await?;
+                let model = engagement.model().clone();
+                engagement.close().await?;
+                Ok(model)
+            })
+            .await
     }
 }
 

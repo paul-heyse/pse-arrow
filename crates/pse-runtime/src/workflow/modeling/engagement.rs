@@ -430,69 +430,70 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let state = AtomicU8::new(ESTABLISHING);
-        let deadline = preparation_deadline(cancel)?;
-        let mut selected = self
-            .checked_selection_scoped(&[root], cancel, deadline)
-            .await?;
-        let phase = cancel.child_with_deadline(Some(deadline));
-        let result = async {
-            let bytes = size_of::<PreparationEngagement>()
-                + crate::math::modeling::bindings_bytes(&bindings)
-                + 1024;
-            let owner = self
-                .runtime
-                .shared
-                .math()
-                .reserve("modeling:live-engagement", bytes)?;
-            let (model, basis) = self
-                .prepare_selected_basis(
-                    &mut selected,
+        activity
+            .scope(async {
+                let state = AtomicU8::new(ESTABLISHING);
+                let deadline = preparation_deadline(cancel)?;
+                let mut selected = self
+                    .checked_selection_scoped(&[root], cancel, deadline)
+                    .await?;
+                let phase = cancel.child_with_deadline(Some(deadline));
+                let result = async {
+                    let bytes = size_of::<PreparationEngagement>()
+                        + crate::math::modeling::bindings_bytes(&bindings)
+                        + 1024;
+                    let owner = self
+                        .runtime
+                        .shared
+                        .math()
+                        .reserve("modeling:live-engagement", bytes)?;
+                    let (model, basis) = self
+                        .prepare_selected_basis(
+                            &mut selected,
+                            root,
+                            instance,
+                            bindings.clone(),
+                            limits,
+                            &phase,
+                            deadline,
+                        )
+                        .await?;
+                    Ok::<_, WorkflowError>((model, basis, owner))
+                }
+                .await;
+                let (model, basis, owner) = match result {
+                    Ok(value) => value,
+                    Err(error) => {
+                        state.store(CLOSING, Ordering::Release);
+                        let release = self
+                            .runtime
+                            .canonical
+                            .store()
+                            .release(selected.read.selection())
+                            .await;
+                        release?;
+                        return Err(error);
+                    }
+                };
+                state.store(ACTIVE, Ordering::Release);
+                let mut source = self.clone();
+                source.held_preparation = None;
+                Ok(Arc::new(PreparationEngagement {
+                    source,
                     root,
                     instance,
-                    bindings.clone(),
+                    bindings,
                     limits,
-                    &phase,
-                    deadline,
-                )
-                .await?;
-            Ok::<_, WorkflowError>((model, basis, owner))
-        }
-        .await;
-        let (model, basis, owner) = match result {
-            Ok(value) => value,
-            Err(error) => {
-                state.store(CLOSING, Ordering::Release);
-                let release = self
-                    .runtime
-                    .canonical
-                    .store()
-                    .release(selected.read.selection())
-                    .await;
-                release?;
-                return Err(error);
-            }
-        };
-        state.store(ACTIVE, Ordering::Release);
-        let mut source = self.clone();
-        source.held_preparation = None;
-        Ok(Arc::new(PreparationEngagement {
-            source,
-            root,
-            instance,
-            bindings,
-            limits,
-            selected,
-            model,
-            _basis: basis,
-            _owner: owner,
-            state,
-            active: AtomicUsize::new(0),
-            drained: tokio::sync::Notify::new(),
-        }))
-    
-        }).await
+                    selected,
+                    model,
+                    _basis: basis,
+                    _owner: owner,
+                    state,
+                    active: AtomicUsize::new(0),
+                    drained: tokio::sync::Notify::new(),
+                }))
+            })
+            .await
     }
 }
 

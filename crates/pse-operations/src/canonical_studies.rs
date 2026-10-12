@@ -470,153 +470,158 @@ impl CanonicalStore {
         cancelled: &(impl Fn() -> bool + Sync),
     ) -> Result<Option<Study>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
-            async {
-                let row = Study {
-                    key: key.into(),
-                    run: run.key.clone(),
-                    problem: run.revision.problem.clone(),
-                    revision: run.revision.key.clone(),
-                    metadata: metadata.to_vec().into(),
-                    interpretation: wire::INTERPRETATION.into(),
-                    point_count: points.len() as u64,
-                    next_ordinal: 0,
-                    active: false,
-                    cancelled: false,
-                    generation: 0,
-                    terminal: false,
-                };
-                if cancelled() {
-                    return self.stop_study_creation(&row, run, points).await;
-                }
-                if key.is_empty() || points.is_empty() || points.len() > 100_000 {
-                    return Err(CanonicalError::PayloadLimit);
-                }
-                bounded(metadata, 128 * 1024)?;
-                let graph = OccurrenceGraph {
-                    points: points.iter().map(|point| point.policy.clone()).collect(),
-                };
-                pse_model::study_policy::admit(&graph)
-                    .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-                for point in points {
-                    if cancelled() {
-                        return self.stop_study_creation(&row, run, points).await;
-                    }
-                    bounded(&point.descriptor, 512 * 1024)?;
-                    bounded(&encode(&point.policy)?, 16 * 1024)?;
-                    let mut predecessors: BTreeSet<_> = point
-                        .policy
-                        .dependencies
-                        .iter()
-                        .map(|edge| edge.predecessor())
-                        .collect();
-                    if let StartPolicy::Continuation(edge) = &point.policy.start {
-                        predecessors.insert(edge.predecessor);
-                    }
-                    if predecessors.len() > 64 {
-                        return Err(CanonicalError::PayloadLimit);
-                    }
-                    if point.run.revision != run.revision {
-                        return Err(CanonicalError::Configuration(
-                            "study occurrence revision differs".into(),
-                        ));
-                    }
-                }
-                if cancelled() {
-                    return self.stop_study_creation(&row, run, points).await;
-                }
-                self.begin_run(run).await?;
-                if cancelled() {
-                    return self.stop_study_creation(&row, run, points).await;
-                }
-                let object = wire::encode_canonical_studies(&row)?;
-                self.ensure_writes()?;
-                self.protected_query(
-                    &row.problem,
-                    crate::canonical::QueryEffect::Mutation,
-                    "canonical_studies::create_study",
-                    || {
-                        Ok(self
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::ACTIVATION_REQUEST_TIMEOUT),
+                    async {
+                        let row = Study {
+                            key: key.into(),
+                            run: run.key.clone(),
+                            problem: run.revision.problem.clone(),
+                            revision: run.revision.key.clone(),
+                            metadata: metadata.to_vec().into(),
+                            interpretation: wire::INTERPRETATION.into(),
+                            point_count: points.len() as u64,
+                            next_ordinal: 0,
+                            active: false,
+                            cancelled: false,
+                            generation: 0,
+                            terminal: false,
+                        };
+                        if cancelled() {
+                            return self.stop_study_creation(&row, run, points).await;
+                        }
+                        if key.is_empty() || points.is_empty() || points.len() > 100_000 {
+                            return Err(CanonicalError::PayloadLimit);
+                        }
+                        bounded(metadata, 128 * 1024)?;
+                        let graph = OccurrenceGraph {
+                            points: points.iter().map(|point| point.policy.clone()).collect(),
+                        };
+                        pse_model::study_policy::admit(&graph)
+                            .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
+                        for point in points {
+                            if cancelled() {
+                                return self.stop_study_creation(&row, run, points).await;
+                            }
+                            bounded(&point.descriptor, 512 * 1024)?;
+                            bounded(&encode(&point.policy)?, 16 * 1024)?;
+                            let mut predecessors: BTreeSet<_> = point
+                                .policy
+                                .dependencies
+                                .iter()
+                                .map(|edge| edge.predecessor())
+                                .collect();
+                            if let StartPolicy::Continuation(edge) = &point.policy.start {
+                                predecessors.insert(edge.predecessor);
+                            }
+                            if predecessors.len() > 64 {
+                                return Err(CanonicalError::PayloadLimit);
+                            }
+                            if point.run.revision != run.revision {
+                                return Err(CanonicalError::Configuration(
+                                    "study occurrence revision differs".into(),
+                                ));
+                            }
+                        }
+                        if cancelled() {
+                            return self.stop_study_creation(&row, run, points).await;
+                        }
+                        self.begin_run(run).await?;
+                        if cancelled() {
+                            return self.stop_study_creation(&row, run, points).await;
+                        }
+                        let object = wire::encode_canonical_studies(&row)?;
+                        self.ensure_writes()?;
+                        self.protected_query(
+                            &row.problem,
+                            crate::canonical::QueryEffect::Mutation,
+                            "canonical_studies::create_study",
+                            || {
+                                Ok(self
                             .db
                             .query("RETURN fn::pse_study_v1::create($pse_rpc_expires_at, $row);")
                             .bind(("row", object.clone())))
-                    },
-                )
-                .await?;
-                if cancelled() {
-                    return self.stop_study_creation(&row, run, points).await;
-                }
-                // Bulk native insertion amortizes round trips while each transaction remains
-                // bounded by both occurrence count and encoded descriptor/edge extent.
-                let mut batch = Vec::new();
-                let mut batch_edges = Vec::new();
-                let mut extent = 0_usize;
-                for (ordinal, point) in points.iter().enumerate() {
-                    if cancelled() {
-                        return self.stop_study_creation(&row, run, points).await;
-                    }
-                    let key = point_key(&row.key, point.policy.key);
-                    let facts = PointFacts {
-                        key: point.policy.key,
-                        revision: 0,
-                        native_started: false,
-                        lifecycle: StudyPointState::Pending,
-                        scientific: ScientificFacts::default(),
-                        attempt_count: 0,
-                        retry_failure: None,
-                        effect: EffectState::Absent,
-                        seed: None,
-                    };
-                    let native = StudyPoint {
-                        key: key.clone(),
-                        study: row.key.clone(),
-                        ordinal: ordinal as u64,
-                        occurrence: u64::from(point.policy.key.0),
-                        policy: encode(&point.policy)?.into(),
-                        descriptor: point.descriptor.clone().into(),
-                        facts: encode(&facts)?.into(),
-                        outcome: None,
-                        run: point.run.key.clone(),
-                        revision: 0,
-                        assigned: false,
-                        settled: false,
-                        attempt: None,
-                        start: None,
-                    };
-                    self.begin_run(&point.run).await?;
-                    if cancelled() {
-                        return self.stop_study_creation(&row, run, points).await;
-                    }
-                    let mut edges = BTreeMap::new();
-                    for edge in &point.policy.dependencies {
-                        edges.insert(
-                            (
-                                edge.predecessor(),
-                                if matches!(edge, pse_model::study::Dependency::UsableResult(_)) {
-                                    "usable"
-                                } else {
-                                    "ordering"
-                                },
-                            ),
-                            (),
-                        );
-                    }
-                    if let StartPolicy::Continuation(edge) = &point.policy.start {
-                        edges.insert((edge.predecessor, "seed"), ());
-                    }
-                    let edges = edges
-                        .into_keys()
-                        .map(|(predecessor, kind)| {
-                            let target = point_key(&row.key, predecessor);
-                            let mut hash =
-                                pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
-                            hash.str("pse.study.edge.v1")
-                                .str(&key)
-                                .str(&target)
-                                .str(kind);
-                            wire::encode_canonical_study_dependencies(
+                            },
+                        )
+                        .await?;
+                        if cancelled() {
+                            return self.stop_study_creation(&row, run, points).await;
+                        }
+                        // Bulk native insertion amortizes round trips while each transaction remains
+                        // bounded by both occurrence count and encoded descriptor/edge extent.
+                        let mut batch = Vec::new();
+                        let mut batch_edges = Vec::new();
+                        let mut extent = 0_usize;
+                        for (ordinal, point) in points.iter().enumerate() {
+                            if cancelled() {
+                                return self.stop_study_creation(&row, run, points).await;
+                            }
+                            let key = point_key(&row.key, point.policy.key);
+                            let facts = PointFacts {
+                                key: point.policy.key,
+                                revision: 0,
+                                native_started: false,
+                                lifecycle: StudyPointState::Pending,
+                                scientific: ScientificFacts::default(),
+                                attempt_count: 0,
+                                retry_failure: None,
+                                effect: EffectState::Absent,
+                                seed: None,
+                            };
+                            let native = StudyPoint {
+                                key: key.clone(),
+                                study: row.key.clone(),
+                                ordinal: ordinal as u64,
+                                occurrence: u64::from(point.policy.key.0),
+                                policy: encode(&point.policy)?.into(),
+                                descriptor: point.descriptor.clone().into(),
+                                facts: encode(&facts)?.into(),
+                                outcome: None,
+                                run: point.run.key.clone(),
+                                revision: 0,
+                                assigned: false,
+                                settled: false,
+                                attempt: None,
+                                start: None,
+                            };
+                            self.begin_run(&point.run).await?;
+                            if cancelled() {
+                                return self.stop_study_creation(&row, run, points).await;
+                            }
+                            let mut edges = BTreeMap::new();
+                            for edge in &point.policy.dependencies {
+                                edges.insert(
+                                    (
+                                        edge.predecessor(),
+                                        if matches!(
+                                            edge,
+                                            pse_model::study::Dependency::UsableResult(_)
+                                        ) {
+                                            "usable"
+                                        } else {
+                                            "ordering"
+                                        },
+                                    ),
+                                    (),
+                                );
+                            }
+                            if let StartPolicy::Continuation(edge) = &point.policy.start {
+                                edges.insert((edge.predecessor, "seed"), ());
+                            }
+                            let edges = edges
+                                .into_keys()
+                                .map(|(predecessor, kind)| {
+                                    let target = point_key(&row.key, predecessor);
+                                    let mut hash = pse_ids::FramedHasher::new(
+                                        pse_ids::Frame::CanonicalPayloadV1,
+                                    );
+                                    hash.str("pse.study.edge.v1")
+                                        .str(&key)
+                                        .str(&target)
+                                        .str(kind);
+                                    wire::encode_canonical_study_dependencies(
                                 &pse_model::generated::runtime::canonical_study_dependencies::Row {
                                     key: hash.finish_hash().to_hex(),
                                     study: row.key.clone(),
@@ -625,57 +630,58 @@ impl CanonicalStore {
                                     kind: kind.into(),
                                 },
                             )
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let point_extent = native.descriptor.len()
-                        + native.policy.len()
-                        + native.facts.len()
-                        + 4096
-                        + edges.len() * 1024;
-                    if !batch.is_empty()
-                        && (batch.len() == 64 || extent + point_extent > 2 * 1024 * 1024)
-                    {
-                        if cancelled() {
-                            return self.stop_study_creation(&row, run, points).await;
+                                })
+                                .collect::<Result<Vec<_>, _>>()?;
+                            let point_extent = native.descriptor.len()
+                                + native.policy.len()
+                                + native.facts.len()
+                                + 4096
+                                + edges.len() * 1024;
+                            if !batch.is_empty()
+                                && (batch.len() == 64 || extent + point_extent > 2 * 1024 * 1024)
+                            {
+                                if cancelled() {
+                                    return self.stop_study_creation(&row, run, points).await;
+                                }
+                                self.append_study_batch(&row.key, &batch, &batch_edges)
+                                    .await?;
+                                #[cfg(test)]
+                                creation_observed(CreationBoundary::BatchAppended);
+                                if cancelled() {
+                                    return self.stop_study_creation(&row, run, points).await;
+                                }
+                                batch.clear();
+                                batch_edges.clear();
+                                extent = 0;
+                            }
+                            extent += point_extent;
+                            batch.push(wire::encode_canonical_study_points(&native)?);
+                            batch_edges.extend(edges);
                         }
-                        self.append_study_batch(&row.key, &batch, &batch_edges)
-                            .await?;
+                        if !batch.is_empty() {
+                            if cancelled() {
+                                return self.stop_study_creation(&row, run, points).await;
+                            }
+                            self.append_study_batch(&row.key, &batch, &batch_edges)
+                                .await?;
+                            #[cfg(test)]
+                            creation_observed(CreationBoundary::BatchAppended);
+                        }
                         #[cfg(test)]
-                        creation_observed(CreationBoundary::BatchAppended);
+                        creation_observed(CreationBoundary::BeforeActivation);
                         if cancelled() {
                             return self.stop_study_creation(&row, run, points).await;
                         }
-                        batch.clear();
-                        batch_edges.clear();
-                        extent = 0;
-                    }
-                    extent += point_extent;
-                    batch.push(wire::encode_canonical_study_points(&native)?);
-                    batch_edges.extend(edges);
-                }
-                if !batch.is_empty() {
-                    if cancelled() {
-                        return self.stop_study_creation(&row, run, points).await;
-                    }
-                    self.append_study_batch(&row.key, &batch, &batch_edges)
-                        .await?;
-                    #[cfg(test)]
-                    creation_observed(CreationBoundary::BatchAppended);
-                }
-                #[cfg(test)]
-                creation_observed(CreationBoundary::BeforeActivation);
-                if cancelled() {
-                    return self.stop_study_creation(&row, run, points).await;
-                }
-                // Do not race this future against cancellation. Once issued, activation
-                // must be settled by exact immutable identity before the caller can leave.
-                let response = self.send_study_activation(&row.key).await;
-                self.finish_study_activation(&row, response, cancelled)
-                    .await
-            },
-        )
-        .await
-            }).await
+                        // Do not race this future against cancellation. Once issued, activation
+                        // must be settled by exact immutable identity before the caller can leave.
+                        let response = self.send_study_activation(&row.key).await;
+                        self.finish_study_activation(&row, response, cancelled)
+                            .await
+                    },
+                )
+                .await
+            })
+            .await
     }
 
     async fn stop_study_creation(
@@ -829,22 +835,24 @@ impl CanonicalStore {
     /// Read the complete stored study header when its definition is needed.
     pub async fn canonical_study(&self, key: &str) -> Result<Option<Study>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(
-                self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_studies',$key);")
-                    .bind(("key", key.to_owned())),
-            )
-            .await?;
-            result
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_studies)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut result = bounded_query(
+                        self.db
+                            .query("SELECT * FROM ONLY type::record('canonical_studies',$key);")
+                            .bind(("key", key.to_owned())),
+                    )
+                    .await?;
+                    result
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_studies)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     /// Read one requested occurrence's immutable operation and current observation.
     pub async fn canonical_study_point(
@@ -852,22 +860,26 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<Option<StudyPoint>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(
-                self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_study_points',$key);")
-                    .bind(("key", key.to_owned())),
-            )
-            .await?;
-            result
-                .take::<Option<Object>>(0)?
-                .map(wire::decode_canonical_study_points)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut result = bounded_query(
+                        self.db
+                            .query(
+                                "SELECT * FROM ONLY type::record('canonical_study_points',$key);",
+                            )
+                            .bind(("key", key.to_owned())),
+                    )
+                    .await?;
+                    result
+                        .take::<Option<Object>>(0)?
+                        .map(wire::decode_canonical_study_points)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     async fn readiness_cursor(&self, study: &str) -> Result<ReadinessCursor, CanonicalError> {
         self.ensure_writes()?;
@@ -1103,21 +1115,23 @@ impl CanonicalStore {
         study: &str,
     ) -> Result<ReadinessAdvance, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.ensure_writes()?;
-            let Some(owner) = self.canonical_study(study).await? else {
-                return Err(CanonicalError::IncompleteResponse);
-            };
-            if !owner.active || owner.cancelled || owner.terminal {
-                return Ok(ReadinessAdvance::default());
-            }
-            let cursor = self.readiness_cursor(study).await?;
-            self.readiness_scan_page(study, &cursor, cursor.rebuild_pending)
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.ensure_writes()?;
+                    let Some(owner) = self.canonical_study(study).await? else {
+                        return Err(CanonicalError::IncompleteResponse);
+                    };
+                    if !owner.active || owner.cancelled || owner.terminal {
+                        return Ok(ReadinessAdvance::default());
+                    }
+                    let cursor = self.readiness_cursor(study).await?;
+                    self.readiness_scan_page(study, &cursor, cursor.rebuild_pending)
+                        .await
+                })
                 .await
-        })
-        .await
-            }).await
+            })
+            .await
     }
     /// Narrow ordered discovery from derived hints. Cancellation bypasses hints.
     /// This read has no mutation/admission effect and never grants a claim.
@@ -1188,52 +1202,56 @@ impl CanonicalStore {
     /// One snapshot supplies only the candidate and immediate decision premises.
     pub async fn study_scope(&self, point: &str) -> Result<StudyScope, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(
-                self.db
-                    .query("RETURN fn::pse_study_v1::scope($pse_rpc_expires_at, $point);")
-                    .bind(("point", point.to_owned())),
-            )
-            .await?;
-            let mut object = result
-                .take::<Option<Object>>(0)?
-                .ok_or(CanonicalError::IncompleteResponse)?;
-            let Value::Object(mut study) = codec::required(&mut object, "study")? else {
-                return Err(CanonicalError::IncompleteResponse);
-            };
-            let key = codec::decode_string(codec::required(&mut study, "key")?)?;
-            let generation = codec::decode_uint(codec::required(&mut study, "generation")?)?;
-            let cancelled = codec::decode_boolean(codec::required(&mut study, "cancelled")?)?;
-            let Value::Object(point) = codec::required(&mut object, "point")? else {
-                return Err(CanonicalError::IncompleteResponse);
-            };
-            let point = decode_scope_point(point)?;
-            let Value::Array(rows) = codec::required(&mut object, "predecessors")? else {
-                return Err(CanonicalError::IncompleteResponse);
-            };
-            let predecessors = rows
-                .into_iter()
-                .map(|row| {
-                    let Value::Object(row) = row else {
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut result = bounded_query(
+                        self.db
+                            .query("RETURN fn::pse_study_v1::scope($pse_rpc_expires_at, $point);")
+                            .bind(("point", point.to_owned())),
+                    )
+                    .await?;
+                    let mut object = result
+                        .take::<Option<Object>>(0)?
+                        .ok_or(CanonicalError::IncompleteResponse)?;
+                    let Value::Object(mut study) = codec::required(&mut object, "study")? else {
                         return Err(CanonicalError::IncompleteResponse);
                     };
-                    decode_scope_point(row)
+                    let key = codec::decode_string(codec::required(&mut study, "key")?)?;
+                    let generation =
+                        codec::decode_uint(codec::required(&mut study, "generation")?)?;
+                    let cancelled =
+                        codec::decode_boolean(codec::required(&mut study, "cancelled")?)?;
+                    let Value::Object(point) = codec::required(&mut object, "point")? else {
+                        return Err(CanonicalError::IncompleteResponse);
+                    };
+                    let point = decode_scope_point(point)?;
+                    let Value::Array(rows) = codec::required(&mut object, "predecessors")? else {
+                        return Err(CanonicalError::IncompleteResponse);
+                    };
+                    let predecessors = rows
+                        .into_iter()
+                        .map(|row| {
+                            let Value::Object(row) = row else {
+                                return Err(CanonicalError::IncompleteResponse);
+                            };
+                            decode_scope_point(row)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    if predecessors.len() > 64 {
+                        return Err(CanonicalError::PayloadLimit);
+                    }
+                    Ok(StudyScope {
+                        study: key,
+                        generation,
+                        cancelled,
+                        point,
+                        predecessors,
+                    })
                 })
-                .collect::<Result<Vec<_>, _>>()?;
-            if predecessors.len() > 64 {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            Ok(StudyScope {
-                study: key,
-                generation,
-                cancelled,
-                point,
-                predecessors,
+                .await
             })
-        })
-        .await
-            }).await
+            .await
     }
 
     /// Recompute shared policy then atomically fence every consumed premise and claim.
@@ -1447,15 +1465,17 @@ impl CanonicalStore {
         claim: &StudyClaim,
     ) -> Result<StudyPoint, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.ensure_writes()?;
-            let admission = claim.begin_dispatch()?;
-            let result = self.send_study_started(&admission).await;
-            self.finish_study_started(admission, result).await
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.ensure_writes()?;
+                    let admission = claim.begin_dispatch()?;
+                    let result = self.send_study_started(&admission).await;
+                    self.finish_study_started(admission, result).await
+                })
+                .await
+            })
+            .await
     }
 
     async fn send_study_started(
@@ -1544,22 +1564,24 @@ impl CanonicalStore {
         run: &str,
     ) -> Result<Option<Study>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(
-                self.db
-                    .query("SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;")
-                    .bind(("run", run.to_owned())),
-            )
-            .await?;
-            let mut rows = result.take::<Vec<Object>>(0)?;
-            rows.pop()
-                .map(wire::decode_canonical_studies)
-                .transpose()
-                .map_err(Into::into)
-        })
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    let mut result = bounded_query(
+                        self.db
+                            .query("SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;")
+                            .bind(("run", run.to_owned())),
+                    )
+                    .await?;
+                    let mut rows = result.take::<Vec<Object>>(0)?;
+                    rows.pop()
+                        .map(wire::decode_canonical_studies)
+                        .transpose()
+                        .map_err(Into::into)
+                })
+                .await
+            })
+            .await
     }
     /// Assign the effect-free parent summary only after all occurrences are settled.
     pub async fn begin_study_finalization(
@@ -1703,28 +1725,32 @@ impl CanonicalStore {
     /// Revoke future claims; supervisor still cancels/drains each assigned native attempt.
     pub async fn cancel_study(&self, key: &str) -> Result<Study, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.ensure_writes()?;
-            let result = self
-                .protected_study_query(key, "canonical_studies::cancel_study", || {
-                    Ok(self
-                        .db
-                        .query("RETURN fn::pse_study_v1::cancel($pse_rpc_expires_at, $study);")
-                        .bind(("study", key.to_owned())))
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.ensure_writes()?;
+                    let result = self
+                        .protected_study_query(key, "canonical_studies::cancel_study", || {
+                            Ok(self
+                                .db
+                                .query(
+                                    "RETURN fn::pse_study_v1::cancel($pse_rpc_expires_at, $study);",
+                                )
+                                .bind(("study", key.to_owned())))
+                        })
+                        .await;
+                    let response = result.and_then(|mut result| {
+                        Ok(wire::decode_canonical_studies(
+                            result
+                                .take::<Option<Object>>(0)?
+                                .ok_or(CanonicalError::IncompleteResponse)?,
+                        )?)
+                    });
+                    self.finish_study_cancel(key, response).await
                 })
-                .await;
-            let response = result.and_then(|mut result| {
-                Ok(wire::decode_canonical_studies(
-                    result
-                        .take::<Option<Object>>(0)?
-                        .ok_or(CanonicalError::IncompleteResponse)?,
-                )?)
-            });
-            self.finish_study_cancel(key, response).await
-        })
-        .await
-            }).await
+                .await
+            })
+            .await
     }
     async fn finish_study_cancel(
         &self,
@@ -1754,25 +1780,27 @@ impl CanonicalStore {
     /// Conclude only after native scoped observations settle every admitted occurrence.
     pub async fn conclude_study(&self, key: &str) -> Result<Study, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            self.ensure_writes()?;
-            let mut result = self
-                .protected_study_query(key, "canonical_studies::conclude_study", || {
-                    Ok(self
+        activity
+            .scope(async {
+                within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                    self.ensure_writes()?;
+                    let mut result = self
+                        .protected_study_query(key, "canonical_studies::conclude_study", || {
+                            Ok(self
                         .db
                         .query("RETURN fn::pse_study_v1::conclude($pse_rpc_expires_at, $study);")
                         .bind(("study", key.to_owned())))
+                        })
+                        .await?;
+                    Ok(wire::decode_canonical_studies(
+                        result
+                            .take::<Option<Object>>(0)?
+                            .ok_or(CanonicalError::IncompleteResponse)?,
+                    )?)
                 })
-                .await?;
-            Ok(wire::decode_canonical_studies(
-                result
-                    .take::<Option<Object>>(0)?
-                    .ok_or(CanonicalError::IncompleteResponse)?,
-            )?)
-        })
-        .await
-            }).await
+                .await
+            })
+            .await
     }
 
     /// Active metadata pages for managed workers; no definition/result hydration.

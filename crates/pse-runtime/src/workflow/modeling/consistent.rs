@@ -265,24 +265,26 @@ impl ModelingSimulation {
         cancellation: FlightCancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let submission = Submission {
-            cancel: cancellation,
-            progress: Arc::new(Progress::new(controls.history)),
-            admitted: None,
-            deadline: scope.deadline(),
-        };
-        let handle = self.submit_consistent(run_id, request, controls, scope, submission)?;
-        let (mut observed, owner) = handle.finish().await?;
-        observed.check_after_join();
-        Ok(ConsistentInitializationResult {
-            inner: Arc::new(OwnedConsistent {
-                observed,
-                _owner: owner,
-            }),
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let submission = Submission {
+                    cancel: cancellation,
+                    progress: Arc::new(Progress::new(controls.history)),
+                    admitted: None,
+                    deadline: scope.deadline(),
+                };
+                let handle =
+                    self.submit_consistent(run_id, request, controls, scope, submission)?;
+                let (mut observed, owner) = handle.finish().await?;
+                observed.check_after_join();
+                Ok(ConsistentInitializationResult {
+                    inner: Arc::new(OwnedConsistent {
+                        observed,
+                        _owner: owner,
+                    }),
+                })
+            })
+            .await
     }
     pub(crate) fn submit_consistent(
         &self,

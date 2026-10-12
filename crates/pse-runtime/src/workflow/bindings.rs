@@ -110,58 +110,60 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        cancel
-            .token()
-            .checkpoint()
-            .map_err(pse_engine::EngineError::from)?;
-        operation.source.check(self)?;
-        if matches!(
-            &operation.operation,
-            super::OperationRequest::DeclaredCase(_)
-        ) {
-            let key = super::study_operations::DeclaredStudyAdmission::key(operation, overlay)?;
-            if !admission
-                .as_ref()
-                .is_some_and(|admission| admission.matches(&key))
-            {
-                // Release the previous structural owner before preparing its replacement.
+        activity
+            .scope(async {
+                cancel
+                    .token()
+                    .checkpoint()
+                    .map_err(pse_engine::EngineError::from)?;
+                operation.source.check(self)?;
+                if matches!(
+                    &operation.operation,
+                    super::OperationRequest::DeclaredCase(_)
+                ) {
+                    let key =
+                        super::study_operations::DeclaredStudyAdmission::key(operation, overlay)?;
+                    if !admission
+                        .as_ref()
+                        .is_some_and(|admission| admission.matches(&key))
+                    {
+                        // Release the previous structural owner before preparing its replacement.
+                        *admission = None;
+                        *admission = Some(
+                            super::study_operations::DeclaredStudyAdmission::prepare(
+                                self, operation, key, cancel,
+                            )
+                            .await?,
+                        );
+                    }
+                    let admission = admission
+                        .as_mut()
+                        .ok_or_else(|| super::contract("missing declared study admission"))?;
+                    let binding = self.admit_overlay(admission.overlay_model(), overlay)?;
+                    let seed_need = admission.admit_binding_seed_need(self, &binding)?;
+                    return Ok((binding, seed_need));
+                }
                 *admission = None;
-                *admission = Some(
-                    super::study_operations::DeclaredStudyAdmission::prepare(
-                        self, operation, key, cancel,
+                if !overlay.assignments.is_empty() {
+                    return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
+                        pse_model::diagnostic::BoundaryClass::Unsupported,
+                        pse_diagnostics::DiagnosticStage::StudyBinding,
+                        [],
+                        pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
                     )
-                    .await?,
-                );
-            }
-            let admission = admission
-                .as_mut()
-                .ok_or_else(|| super::contract("missing declared study admission"))?;
-            let binding = self.admit_overlay(admission.overlay_model(), overlay)?;
-            let seed_need = admission.admit_binding_seed_need(self, &binding)?;
-            return Ok((binding, seed_need));
-        }
-        *admission = None;
-        if !overlay.assignments.is_empty() {
-            return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
-                pse_model::diagnostic::BoundaryClass::Unsupported,
-                pse_diagnostics::DiagnosticStage::StudyBinding,
-                [],
-                pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
-            )
-            .into());
-        }
-        let binding = AdmittedBinding {
-            revision: self.revision.identity(),
-            context: self.physical.identity(),
-            entries: BTreeMap::new(),
-        };
-        let seed_need = operation
-            .admit_binding_seed_need(self, &binding, admission, cancel)
-            .await?;
-        Ok((binding, seed_need))
-    
-        }).await
+                    .into());
+                }
+                let binding = AdmittedBinding {
+                    revision: self.revision.identity(),
+                    context: self.physical.identity(),
+                    entries: BTreeMap::new(),
+                };
+                let seed_need = operation
+                    .admit_binding_seed_need(self, &binding, admission, cancel)
+                    .await?;
+                Ok((binding, seed_need))
+            })
+            .await
     }
     /// Reconstruct the existing operation and apply its admitted coordinates once.
     pub(in crate::workflow) async fn prepare_bound_operation(
@@ -171,11 +173,12 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
+        activity
+            .scope(async {
+                self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
     /// The lane retains the existing membership authority; point values remain fresh.
     pub(in crate::workflow) async fn prepare_bound_operation_with_admission(
@@ -186,67 +189,68 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        operation.source.check(self)?;
-        if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
-            operation
-                .admit_binding_seed_need(self, binding, admission, cancel)
-                .await?;
-            let mut execution = admission
-                .as_ref()
-                .ok_or_else(|| super::contract("declared lane admission absent"))?
-                .execution
-                .clone();
-            execution.prepared_model(self)?;
-            if execution.route != case.route
-                || !matches!(execution.procedure, super::DeclaredProcedure::Solve)
-            {
-                return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
-                    pse_model::diagnostic::BoundaryClass::Unsupported,
-                    pse_diagnostics::DiagnosticStage::StudyAdmission,
-                    [case.case.as_id()],
-                    pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
-                )
-                .into());
-            }
-            self.validate_binding(execution.model.compiled(), binding)?;
-            let bound_source = self.retain_bound_source(binding)?;
-            execution.analysis.case.members = binding.values();
-            let analysis = execution.analysis;
-            let resolution = self
-                .resolve_prepared_case(
-                    execution.model,
-                    analysis.case,
-                    analysis.order,
-                    analysis.compiler,
-                    analysis.solver,
-                    analysis.numerical,
-                    super::modeling::cases::CaseOverrides::default(),
-                    false,
-                    cancel,
-                )
-                .await?;
-            let mut prepared = self.finish_case(resolution, cancel).await?;
-            prepared.bound_source = Some(bound_source);
-            return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
-                prepared,
-            )));
-        }
-        if !binding.entries.is_empty()
-            || binding.revision != self.revision.identity()
-            || binding.context != self.physical.identity()
-        {
-            return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
-                pse_model::diagnostic::BoundaryClass::Unsupported,
-                pse_diagnostics::DiagnosticStage::StudyBinding,
-                binding.entries.keys().copied(),
-                pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
-            )
-            .into());
-        }
-        operation.prepare(self, cancel).await
-    
-        }).await
+        activity
+            .scope(async {
+                operation.source.check(self)?;
+                if let super::OperationRequest::DeclaredCase(case) = &operation.operation {
+                    operation
+                        .admit_binding_seed_need(self, binding, admission, cancel)
+                        .await?;
+                    let mut execution = admission
+                        .as_ref()
+                        .ok_or_else(|| super::contract("declared lane admission absent"))?
+                        .execution
+                        .clone();
+                    execution.prepared_model(self)?;
+                    if execution.route != case.route
+                        || !matches!(execution.procedure, super::DeclaredProcedure::Solve)
+                    {
+                        return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
+                            pse_model::diagnostic::BoundaryClass::Unsupported,
+                            pse_diagnostics::DiagnosticStage::StudyAdmission,
+                            [case.case.as_id()],
+                            pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
+                        )
+                        .into());
+                    }
+                    self.validate_binding(execution.model.compiled(), binding)?;
+                    let bound_source = self.retain_bound_source(binding)?;
+                    execution.analysis.case.members = binding.values();
+                    let analysis = execution.analysis;
+                    let resolution = self
+                        .resolve_prepared_case(
+                            execution.model,
+                            analysis.case,
+                            analysis.order,
+                            analysis.compiler,
+                            analysis.solver,
+                            analysis.numerical,
+                            super::modeling::cases::CaseOverrides::default(),
+                            false,
+                            cancel,
+                        )
+                        .await?;
+                    let mut prepared = self.finish_case(resolution, cancel).await?;
+                    prepared.bound_source = Some(bound_source);
+                    return Ok(super::PreparedStudyOperation::DeclaredCase(Box::new(
+                        prepared,
+                    )));
+                }
+                if !binding.entries.is_empty()
+                    || binding.revision != self.revision.identity()
+                    || binding.context != self.physical.identity()
+                {
+                    return Err(pse_model::diagnostic::BoundaryDiagnostic::new(
+                        pse_model::diagnostic::BoundaryClass::Unsupported,
+                        pse_diagnostics::DiagnosticStage::StudyBinding,
+                        binding.entries.keys().copied(),
+                        pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
+                    )
+                    .into());
+                }
+                operation.prepare(self, cancel).await
+            })
+            .await
     }
     /// Admit one operation-owned parameter or prior coordinate through the same physical contract.
     pub(in crate::workflow) fn admit_target_quantity(

@@ -1323,27 +1323,54 @@ def remove_owned(record: ResourceRecord, *, deadline: float | None = None) -> No
 
 
 def namespace_sql(
-    config: Mapping[str, object], sql: str, *, namespace: str | None = None, database: str | None = None, deadline: float | None = None
+    config: Mapping[str, object],
+    sql: str,
+    *,
+    namespace: str | None = None,
+    database: str | None = None,
+    deadline: float | None = None,
 ) -> list[object]:
     """Checked root administration for registered enclosing fixture namespaces."""
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     credentials = surreal_server.read_json(Path(str(config["credentials_file"])))
     environment = {
-        key: value for key, value in os.environ.items()
+        key: value
+        for key, value in os.environ.items()
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
-    environment.update(SURREAL_USER=str(credentials["username"]), SURREAL_PASS=str(credentials["password"]))
+    environment.update(
+        SURREAL_USER=str(credentials["username"]),
+        SURREAL_PASS=str(credentials["password"]),
+    )
     server = config["server"]
     if not isinstance(server, dict):
         raise ResourceError("Invalid namespace administration binary")
     # The pinned CLI unconditionally saves SQL to history.txt. Keep credential
     # provisioning inputs private and ephemeral, away from the checkout/history.
-    with tempfile.TemporaryDirectory(dir=Path(str(config["credentials_file"])).parent) as working:
+    with tempfile.TemporaryDirectory(
+        dir=Path(str(config["credentials_file"])).parent
+    ) as working:
         result = subprocess.run(
-            [str(server["binary"]), "sql", "--endpoint", str(config["endpoint"]), "--json", "--hide-welcome", *(["--namespace", namespace] if namespace else []), *(["--database", database] if database else [])],
-            input=sql, env=environment, cwd=working, capture_output=True, text=True, check=False,
-            timeout=CLEANUP_TIMEOUT_SECONDS if deadline is None else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS),
+            [
+                str(server["binary"]),
+                "sql",
+                "--endpoint",
+                str(config["endpoint"]),
+                "--json",
+                "--hide-welcome",
+                *(["--namespace", namespace] if namespace else []),
+                *(["--database", database] if database else []),
+            ],
+            input=sql,
+            env=environment,
+            cwd=working,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=CLEANUP_TIMEOUT_SECONDS
+            if deadline is None
+            else host.remaining(deadline, CLEANUP_TIMEOUT_SECONDS),
         )
     try:
         values = cli_json(result.stdout, namespace=namespace, database=database)
@@ -1355,34 +1382,63 @@ def namespace_sql(
 
 
 def remove_namespace(
-    record: ResourceRecord, config: Mapping[str, object], *, deadline: float | None = None
+    record: ResourceRecord,
+    config: Mapping[str, object],
+    *,
+    deadline: float | None = None,
 ) -> None:
     """Reconcile exact children, then remove only the registered enclosing scope."""
     from scripts import surreal_server  # noqa: PLC0415 -- service cycle
 
     namespace = surreal_server.sql_identifier(record["namespace"])
     root_catalog = namespace_sql(config, "INFO FOR ROOT;", deadline=deadline)
-    if len(root_catalog) != 1 or not isinstance(root_catalog[0], dict) or not isinstance(root_catalog[0].get("namespaces"), dict):
+    if (
+        len(root_catalog) != 1
+        or not isinstance(root_catalog[0], dict)
+        or not isinstance(root_catalog[0].get("namespaces"), dict)
+    ):
         raise ResourceError("Owned namespace existence inventory unavailable")
     if record["namespace"] not in root_catalog[0]["namespaces"]:
         return  # Exact root inventory proves an interrupted removal already completed.
-    catalog = namespace_sql(config, "INFO FOR NS;", namespace=record["namespace"], deadline=deadline)
+    catalog = namespace_sql(
+        config, "INFO FOR NS;", namespace=record["namespace"], deadline=deadline
+    )
     if len(catalog) != 1 or not isinstance(catalog[0], dict):
         raise ResourceError("Owned namespace child inventory unavailable")
     children = catalog[0].get("databases")
-    if not isinstance(children, dict) or not all(isinstance(name, str) for name in children):
+    if not isinstance(children, dict) or not all(
+        isinstance(name, str) for name in children
+    ):
         raise ResourceError("Owned namespace child inventory malformed")
-    statements = [f"REMOVE DATABASE IF EXISTS {surreal_server.sql_identifier(name)};" for name in sorted(children)]
-    if statements and namespace_sql(config, " ".join(statements), namespace=record["namespace"], deadline=deadline) != [None] * len(statements):
-        raise ResourceError("Owned namespace child cleanup unproved; resource remains charged")
+    statements = [
+        f"REMOVE DATABASE IF EXISTS {surreal_server.sql_identifier(name)};"
+        for name in sorted(children)
+    ]
+    if statements and namespace_sql(
+        config, " ".join(statements), namespace=record["namespace"], deadline=deadline
+    ) != [None] * len(statements):
+        raise ResourceError(
+            "Owned namespace child cleanup unproved; resource remains charged"
+        )
     # The pinned SQL shell reselects its session namespace after every query.
     # Remove the enclosing namespace from an unselected root session, otherwise
     # that reselect silently recreates the just-removed namespace.
-    if namespace_sql(config, f"REMOVE NAMESPACE IF EXISTS {namespace};", deadline=deadline) != [None]:
-        raise ResourceError("Owned namespace cleanup unproved; resource remains charged")
+    if namespace_sql(
+        config, f"REMOVE NAMESPACE IF EXISTS {namespace};", deadline=deadline
+    ) != [None]:
+        raise ResourceError(
+            "Owned namespace cleanup unproved; resource remains charged"
+        )
     after = namespace_sql(config, "INFO FOR ROOT;", deadline=deadline)
-    if len(after) != 1 or not isinstance(after[0], dict) or not isinstance(after[0].get("namespaces"), dict) or record["namespace"] in after[0]["namespaces"]:
-        raise ResourceError("Owned namespace absence unproved; resource remains charged")
+    if (
+        len(after) != 1
+        or not isinstance(after[0], dict)
+        or not isinstance(after[0].get("namespaces"), dict)
+        or record["namespace"] in after[0]["namespaces"]
+    ):
+        raise ResourceError(
+            "Owned namespace absence unproved; resource remains charged"
+        )
 
 
 def remove_database(
@@ -1516,7 +1572,8 @@ def reclaim(resource: str, *, deadline: float | None = None) -> str:
             if (
                 current != config
                 or current["instance_id"] != snapshot["service_generation"]
-                or current["namespace"] != snapshot.get("service_namespace", snapshot["namespace"])
+                or current["namespace"]
+                != snapshot.get("service_namespace", snapshot["namespace"])
             ):
                 raise ResourceError(
                     "Service configuration or cleanup ownership changed during admission"

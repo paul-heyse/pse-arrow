@@ -780,7 +780,7 @@ impl ModelingSimulation {
             Err(error) => Err(WorkflowError::Shared(error.clone())),
             _ => Err(contract("simulation report mismatch")),
         }
-    
+
         }).await
     }
 }
@@ -1045,26 +1045,27 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let execution = self
-            .declared_execution(
-                root,
-                compiler,
-                Default::default(),
-                Default::default(),
-                limits,
-                cancel,
-            )
-            .await?;
-        if !matches!(execution.procedure, DeclaredProcedure::Integrate(_)) {
-            return Err(contract(
-                "declared simulation requires the authored integration procedure",
-            ));
-        }
-        self.simulation_for_declared(&execution, profile, cancel)
+        activity
+            .scope(async {
+                let execution = self
+                    .declared_execution(
+                        root,
+                        compiler,
+                        Default::default(),
+                        Default::default(),
+                        limits,
+                        cancel,
+                    )
+                    .await?;
+                if !matches!(execution.procedure, DeclaredProcedure::Integrate(_)) {
+                    return Err(contract(
+                        "declared simulation requires the authored integration procedure",
+                    ));
+                }
+                self.simulation_for_declared(&execution, profile, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
     /// Internal integration projection; the declared operation owner retains its procedure.
     pub(in crate::workflow) async fn simulation_for_declared(
@@ -1074,47 +1075,51 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if !matches!(
-            execution.procedure,
-            DeclaredProcedure::Integrate(_) | DeclaredProcedure::Shooting { .. }
-        ) {
-            return Err(contract(
-                "integration projection requires an admitted integrated procedure",
-            ));
-        }
-        let analysis = &execution.analysis;
-        let (profile, provisional_quadratures) = if let Some(profile) = profile {
-            (profile, BTreeSet::new())
-        } else {
-            let fixture = execution
-                .model
-                .compiled()
-                .model
-                .fixtures
-                .get(&analysis.instance)
-                .ok_or_else(|| contract("authored integration controls absent"))?;
-            let controls =
-                self.integration_profile(&execution.model, fixture, &analysis.solver.numerics)?;
-            (controls.profile, controls.provisional_quadratures)
-        };
-        self.prepare_simulation_with_controls(
-            analysis.root,
-            analysis.instance,
-            analysis.bindings.clone(),
-            analysis.limits,
-            analysis.case.clone(),
-            analysis.compiler,
-            profile,
-            DerivativeOrder::First,
-            &BTreeSet::new(),
-            &provisional_quadratures,
-            Some(execution.prepared_model(self)?),
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                if !matches!(
+                    execution.procedure,
+                    DeclaredProcedure::Integrate(_) | DeclaredProcedure::Shooting { .. }
+                ) {
+                    return Err(contract(
+                        "integration projection requires an admitted integrated procedure",
+                    ));
+                }
+                let analysis = &execution.analysis;
+                let (profile, provisional_quadratures) = if let Some(profile) = profile {
+                    (profile, BTreeSet::new())
+                } else {
+                    let fixture = execution
+                        .model
+                        .compiled()
+                        .model
+                        .fixtures
+                        .get(&analysis.instance)
+                        .ok_or_else(|| contract("authored integration controls absent"))?;
+                    let controls = self.integration_profile(
+                        &execution.model,
+                        fixture,
+                        &analysis.solver.numerics,
+                    )?;
+                    (controls.profile, controls.provisional_quadratures)
+                };
+                self.prepare_simulation_with_controls(
+                    analysis.root,
+                    analysis.instance,
+                    analysis.bindings.clone(),
+                    analysis.limits,
+                    analysis.case.clone(),
+                    analysis.compiler,
+                    profile,
+                    DerivativeOrder::First,
+                    &BTreeSet::new(),
+                    &provisional_quadratures,
+                    Some(execution.prepared_model(self)?),
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Prepare integrated dynamics from one specialized definition. Rates are compiler
     /// projections; all original equations, hints and source identities remain inspectable.

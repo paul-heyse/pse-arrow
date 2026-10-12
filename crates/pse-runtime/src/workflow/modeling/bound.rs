@@ -27,13 +27,14 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let prepared = self
-            .prepare_bound_solve(case, overlay, compiler, solver, numerical, limits, cancel)
-            .await?;
-        self.solve_case(prepared, compiler, cancel).await
-    
-        }).await
+        activity
+            .scope(async {
+                let prepared = self
+                    .prepare_bound_solve(case, overlay, compiler, solver, numerical, limits, cancel)
+                    .await?;
+                self.solve_case(prepared, compiler, cancel).await
+            })
+            .await
     }
 
     /// Retain a stored, already admitted binding under its own allocation owner.
@@ -87,85 +88,86 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        cancel
-            .token()
-            .checkpoint()
-            .map_err(pse_engine::EngineError::from)?;
-        // Reserve the attribution, ordered input projection, admitted nodes and shared
-        // wrappers before constructing them. The prepared specialization has its own owner.
-        let extent = overlay
-            .assignments
-            .iter()
-            .try_fold(
-                size_of::<AdmittedBinding>()
-                    + size_of::<pse_columnar::Leased<AdmittedBinding>>()
-                    + size_of::<[usize; 8]>(),
-                |total, assignment| {
-                    let path = match &assignment.target {
-                        BindingTarget::Path(path) => path.len(),
-                        BindingTarget::Member(_) => 0,
-                    };
-                    total
-                        .checked_add(
-                            size_of::<(SemanticId, super::super::AdmittedBindingEntry)>()
-                                + size_of::<String>()
-                                + 256,
-                        )
-                        .and_then(|bytes| {
-                            path.checked_mul(3).and_then(|path| bytes.checked_add(path))
-                        })
-                },
-            )
-            .ok_or_else(|| contract("bound solve attribution extent"))?;
-        let owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:bound-source", extent)?;
-        let demand = overlay
-            .assignments
-            .iter()
-            .filter_map(|assignment| match &assignment.target {
-                BindingTarget::Path(path) => Some(path.clone()),
-                BindingTarget::Member(_) => None,
+        activity
+            .scope(async {
+                cancel
+                    .token()
+                    .checkpoint()
+                    .map_err(pse_engine::EngineError::from)?;
+                // Reserve the attribution, ordered input projection, admitted nodes and shared
+                // wrappers before constructing them. The prepared specialization has its own owner.
+                let extent = overlay
+                    .assignments
+                    .iter()
+                    .try_fold(
+                        size_of::<AdmittedBinding>()
+                            + size_of::<pse_columnar::Leased<AdmittedBinding>>()
+                            + size_of::<[usize; 8]>(),
+                        |total, assignment| {
+                            let path = match &assignment.target {
+                                BindingTarget::Path(path) => path.len(),
+                                BindingTarget::Member(_) => 0,
+                            };
+                            total
+                                .checked_add(
+                                    size_of::<(SemanticId, super::super::AdmittedBindingEntry)>()
+                                        + size_of::<String>()
+                                        + 256,
+                                )
+                                .and_then(|bytes| {
+                                    path.checked_mul(3).and_then(|path| bytes.checked_add(path))
+                                })
+                        },
+                    )
+                    .ok_or_else(|| contract("bound solve attribution extent"))?;
+                let owner = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:bound-source", extent)?;
+                let demand = overlay
+                    .assignments
+                    .iter()
+                    .filter_map(|assignment| match &assignment.target {
+                        BindingTarget::Path(path) => Some(path.clone()),
+                        BindingTarget::Member(_) => None,
+                    })
+                    .collect();
+                let mut execution = self
+                    .declared_execution_with_demand(
+                        case, compiler, solver, numerical, limits, demand, cancel,
+                    )
+                    .await?;
+                if !matches!(execution.procedure, DeclaredProcedure::Solve) {
+                    return Err(contract(
+                        "bound solve requires the authored solve procedure",
+                    ));
+                }
+                let binding = self.admit_overlay(execution.model.compiled(), overlay)?;
+                self.validate_binding(execution.model.compiled(), &binding)?;
+                execution.analysis.case.members = binding.values();
+                let analysis = execution.analysis;
+                let resolution = self
+                    .resolve_prepared_case(
+                        execution.model,
+                        analysis.case,
+                        analysis.order,
+                        analysis.compiler,
+                        analysis.solver,
+                        analysis.numerical,
+                        cases::CaseOverrides::default(),
+                        false,
+                        cancel,
+                    )
+                    .await?;
+                let mut prepared = self.finish_case(resolution, cancel).await?;
+                prepared.bound_source = Some(Arc::new(pse_columnar::Leased::new(
+                    Arc::new(binding),
+                    owner,
+                )));
+                Ok(prepared)
             })
-            .collect();
-        let mut execution = self
-            .declared_execution_with_demand(
-                case, compiler, solver, numerical, limits, demand, cancel,
-            )
-            .await?;
-        if !matches!(execution.procedure, DeclaredProcedure::Solve) {
-            return Err(contract(
-                "bound solve requires the authored solve procedure",
-            ));
-        }
-        let binding = self.admit_overlay(execution.model.compiled(), overlay)?;
-        self.validate_binding(execution.model.compiled(), &binding)?;
-        execution.analysis.case.members = binding.values();
-        let analysis = execution.analysis;
-        let resolution = self
-            .resolve_prepared_case(
-                execution.model,
-                analysis.case,
-                analysis.order,
-                analysis.compiler,
-                analysis.solver,
-                analysis.numerical,
-                cases::CaseOverrides::default(),
-                false,
-                cancel,
-            )
-            .await?;
-        let mut prepared = self.finish_case(resolution, cancel).await?;
-        prepared.bound_source = Some(Arc::new(pse_columnar::Leased::new(
-            Arc::new(binding),
-            owner,
-        )));
-        Ok(prepared)
-    
-        }).await
+            .await
     }
 }
 

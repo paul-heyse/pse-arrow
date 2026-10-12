@@ -121,23 +121,24 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let (report, preparations) = crate::math::counted(async {
-            match self.runtime.durability() {
-                super::Durability::Durable(_) => {
-                    self.study_durable(definition, maximum_points, cancel).await
-                }
-                super::Durability::Ephemeral => {
-                    self.study_inner(definition, maximum_points, cancel).await
-                }
-            }
-        })
-        .await;
-        let mut report = report?;
-        report.preparations = preparations;
-        Ok(report)
-    
-        }).await
+        activity
+            .scope(async {
+                let (report, preparations) = crate::math::counted(async {
+                    match self.runtime.durability() {
+                        super::Durability::Durable(_) => {
+                            self.study_durable(definition, maximum_points, cancel).await
+                        }
+                        super::Durability::Ephemeral => {
+                            self.study_inner(definition, maximum_points, cancel).await
+                        }
+                    }
+                })
+                .await;
+                let mut report = report?;
+                report.preparations = preparations;
+                Ok(report)
+            })
+            .await
     }
     async fn study_durable(
         &self,
@@ -259,8 +260,7 @@ impl ModelingPackage {
             return Err(super::contract("bounded study extent"));
         }
         let graph = definition.graph();
-        let admitted =
-            pse_model::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
+        let admitted = pse_model::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
         let positions: BTreeMap<_, _> = graph
             .points
             .iter()

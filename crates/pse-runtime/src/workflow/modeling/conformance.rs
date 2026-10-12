@@ -1111,189 +1111,203 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingConformanceReport, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if policy.maximum_fixtures == 0
-            || policy.maximum_fixtures > 4096
-            || policy.maximum_checks == 0
-            || policy.maximum_checks > 100_000
-        {
-            return Err(contract("bounded conformance policy"));
-        }
-        policy
-            .derivatives
-            .allowance()
-            .map_err(MathRuntimeError::from)?;
-        let source_rows = match &policy.fixtures {
-            ModelingFixtureSelection::Package => self.declarations().await?,
-            ModelingFixtureSelection::Selected(selected) => {
-                self.selected_declarations(selected, cancel).await?
-            }
-        };
-        let fixtures = policy.fixtures.tests(&source_rows)?;
-        // Every fixture's declared execution policy is resolved, and refused, before any
-        // fixture runs.
-        let policies = fixtures
-            .iter()
-            .map(|row| fixture_policy(row, &policy))
-            .collect::<Result<Vec<_>, _>>()?;
-        let mut report = ModelingConformanceReport::new(
-            self.runtime.registry().clone(),
-            self.runtime.shared.pool(),
-            self.runtime.validation_context(),
-            &fixtures
-                .iter()
-                .map(|r| r.declaration_id)
-                .collect::<Vec<_>>(),
-            policy.maximum_checks,
-        )?;
-        report.selection = policy.fixtures.clone();
-        let mut covered = BTreeSet::new();
-        let cap = policy.maximum_checks;
-        if fixtures.is_empty() {
-            report.record_fixture(
-                NO_FIXTURE,
-                Kind::Coverage,
-                Status::Failed,
-                "package contains no authored tests",
-                None,
-                cap,
-            );
-        }
-        // Active fixtures continuously reuse available slots. Completed fixtures keep
-        // compact, pool-owned reports until their discovery prefix can be merged.
-        let width = self
-            .runtime
-            .shared
-            .math()
-            .cores()
-            .min(self.runtime.shared.budget().math.jobs)
-            .max(1);
-        let limit = fixtures.len().min(policy.maximum_fixtures);
-        let work_cancel = crate::CancelSource::new();
-        let run_id = report.run_id;
-        let mut pending = futures_util::stream::FuturesUnordered::new();
-        let mut completed = BTreeMap::new();
-        let mut known_checks = 0usize;
-        let mut issued = 0;
-        let mut settled = 0;
-        let mut fatal = None;
-        loop {
-            if cancel.token().is_cancelled() {
-                work_cancel.cancel();
-            }
-            while fatal.is_none()
-                && !work_cancel.token().is_cancelled()
-                && issued < limit
-                && pending.len() < width
-                && known_checks < cap
-            {
-                let index = issued;
-                let row = fixtures[index];
-                let fixture_policy = &policies[issued];
-                let child_cancel = &work_cancel;
-                #[cfg(test)]
-                let probe = CONFORMANCE_TEST_PROBE.try_with(Arc::clone).ok();
-                pending.push(async move {
-                    #[cfg(not(test))]
-                    let outcome = self
-                        .conform_fixture(row, fixture_policy, child_cancel, run_id)
-                        .await;
-                    #[cfg(test)]
-                    let outcome = if let Some(probe) = probe {
-                        CONFORMANCE_TEST_PROBE
-                            .scope(
-                                probe,
-                                CONFORMANCE_TEST_FIXTURE.scope(
-                                    row.declaration_id,
-                                    self.conform_fixture(row, fixture_policy, child_cancel, run_id),
-                                ),
-                            )
-                            .await
-                    } else {
-                        self.conform_fixture(row, fixture_policy, child_cancel, run_id)
-                            .await
-                    };
-                    (index, row.declaration_id, outcome)
-                });
-                issued += 1;
-            }
-            if pending.is_empty() {
-                break;
-            }
-            let next = tokio::select! {
-                completed = pending.next() => completed,
-                _ = cancel.cancelled(), if !work_cancel.token().is_cancelled() => {
-                    work_cancel.cancel();
-                    continue;
+        activity
+            .scope(async {
+                if policy.maximum_fixtures == 0
+                    || policy.maximum_fixtures > 4096
+                    || policy.maximum_checks == 0
+                    || policy.maximum_checks > 100_000
+                {
+                    return Err(contract("bounded conformance policy"));
                 }
-            };
-            if let Some((index, fixture, mut outcome)) = next {
-                use pse_model::diagnostic::BoundaryClass as C;
-                match &mut outcome {
-                    Ok(local) => {
-                        local.compact();
-                        known_checks = known_checks.saturating_add(local.report.checks.len());
+                policy
+                    .derivatives
+                    .allowance()
+                    .map_err(MathRuntimeError::from)?;
+                let source_rows = match &policy.fixtures {
+                    ModelingFixtureSelection::Package => self.declarations().await?,
+                    ModelingFixtureSelection::Selected(selected) => {
+                        self.selected_declarations(selected, cancel).await?
                     }
-                    Err(error) => {
-                        known_checks = known_checks.saturating_add(1);
-                        if !matches!(
-                            error.boundary_diagnostic().class,
-                            C::Cancelled | C::ResourceLimit
-                        ) {
-                            // Stop issuing immediately, even if an earlier fixture has
-                            // not settled. Retain and poll all already issued futures.
+                };
+                let fixtures = policy.fixtures.tests(&source_rows)?;
+                // Every fixture's declared execution policy is resolved, and refused, before any
+                // fixture runs.
+                let policies = fixtures
+                    .iter()
+                    .map(|row| fixture_policy(row, &policy))
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut report = ModelingConformanceReport::new(
+                    self.runtime.registry().clone(),
+                    self.runtime.shared.pool(),
+                    self.runtime.validation_context(),
+                    &fixtures
+                        .iter()
+                        .map(|r| r.declaration_id)
+                        .collect::<Vec<_>>(),
+                    policy.maximum_checks,
+                )?;
+                report.selection = policy.fixtures.clone();
+                let mut covered = BTreeSet::new();
+                let cap = policy.maximum_checks;
+                if fixtures.is_empty() {
+                    report.record_fixture(
+                        NO_FIXTURE,
+                        Kind::Coverage,
+                        Status::Failed,
+                        "package contains no authored tests",
+                        None,
+                        cap,
+                    );
+                }
+                // Active fixtures continuously reuse available slots. Completed fixtures keep
+                // compact, pool-owned reports until their discovery prefix can be merged.
+                let width = self
+                    .runtime
+                    .shared
+                    .math()
+                    .cores()
+                    .min(self.runtime.shared.budget().math.jobs)
+                    .max(1);
+                let limit = fixtures.len().min(policy.maximum_fixtures);
+                let work_cancel = crate::CancelSource::new();
+                let run_id = report.run_id;
+                let mut pending = futures_util::stream::FuturesUnordered::new();
+                let mut completed = BTreeMap::new();
+                let mut known_checks = 0usize;
+                let mut issued = 0;
+                let mut settled = 0;
+                let mut fatal = None;
+                loop {
+                    if cancel.token().is_cancelled() {
+                        work_cancel.cancel();
+                    }
+                    while fatal.is_none()
+                        && !work_cancel.token().is_cancelled()
+                        && issued < limit
+                        && pending.len() < width
+                        && known_checks < cap
+                    {
+                        let index = issued;
+                        let row = fixtures[index];
+                        let fixture_policy = &policies[issued];
+                        let child_cancel = &work_cancel;
+                        #[cfg(test)]
+                        let probe = CONFORMANCE_TEST_PROBE.try_with(Arc::clone).ok();
+                        pending.push(async move {
+                            #[cfg(not(test))]
+                            let outcome = self
+                                .conform_fixture(row, fixture_policy, child_cancel, run_id)
+                                .await;
+                            #[cfg(test)]
+                            let outcome = if let Some(probe) = probe {
+                                CONFORMANCE_TEST_PROBE
+                                    .scope(
+                                        probe,
+                                        CONFORMANCE_TEST_FIXTURE.scope(
+                                            row.declaration_id,
+                                            self.conform_fixture(
+                                                row,
+                                                fixture_policy,
+                                                child_cancel,
+                                                run_id,
+                                            ),
+                                        ),
+                                    )
+                                    .await
+                            } else {
+                                self.conform_fixture(row, fixture_policy, child_cancel, run_id)
+                                    .await
+                            };
+                            (index, row.declaration_id, outcome)
+                        });
+                        issued += 1;
+                    }
+                    if pending.is_empty() {
+                        break;
+                    }
+                    let next = tokio::select! {
+                        completed = pending.next() => completed,
+                        _ = cancel.cancelled(), if !work_cancel.token().is_cancelled() => {
                             work_cancel.cancel();
+                            continue;
                         }
-                    }
-                }
-                completed.insert(index, (fixture, outcome));
-                while let Some((fixture, outcome)) = completed.remove(&settled) {
-                    settled += 1;
-                    match outcome {
-                        Ok(local) => {
-                            covered.extend(local.covered);
-                            report.merge_fixture(local.report, local.base_bytes, cap);
+                    };
+                    if let Some((index, fixture, mut outcome)) = next {
+                        use pse_model::diagnostic::BoundaryClass as C;
+                        match &mut outcome {
+                            Ok(local) => {
+                                local.compact();
+                                known_checks =
+                                    known_checks.saturating_add(local.report.checks.len());
+                            }
+                            Err(error) => {
+                                known_checks = known_checks.saturating_add(1);
+                                if !matches!(
+                                    error.boundary_diagnostic().class,
+                                    C::Cancelled | C::ResourceLimit
+                                ) {
+                                    // Stop issuing immediately, even if an earlier fixture has
+                                    // not settled. Retain and poll all already issued futures.
+                                    work_cancel.cancel();
+                                }
+                            }
                         }
-                        Err(error) => {
-                            if matches!(
-                                error.boundary_diagnostic().class,
-                                C::Cancelled | C::ResourceLimit
-                            ) {
-                                report.failed(fixture, Kind::Preparation, &error, None, None, cap);
-                            } else if fatal.is_none() {
-                                // The first fatal cause in discovery order is stable
-                                // even when several futures fail out of order.
-                                fatal = Some(error);
+                        completed.insert(index, (fixture, outcome));
+                        while let Some((fixture, outcome)) = completed.remove(&settled) {
+                            settled += 1;
+                            match outcome {
+                                Ok(local) => {
+                                    covered.extend(local.covered);
+                                    report.merge_fixture(local.report, local.base_bytes, cap);
+                                }
+                                Err(error) => {
+                                    if matches!(
+                                        error.boundary_diagnostic().class,
+                                        C::Cancelled | C::ResourceLimit
+                                    ) {
+                                        report.failed(
+                                            fixture,
+                                            Kind::Preparation,
+                                            &error,
+                                            None,
+                                            None,
+                                            cap,
+                                        );
+                                    } else if fatal.is_none() {
+                                        // The first fatal cause in discovery order is stable
+                                        // even when several futures fail out of order.
+                                        fatal = Some(error);
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
-        }
-        // Never abandon an issued fixture: the queue is empty before either return.
-        if let Some(error) = fatal {
-            return Err(error);
-        }
-        if issued < fixtures.len() {
-            report.complete = false;
-            for row in &fixtures[issued..] {
-                report.record_fixture(
-                    row.declaration_id,
-                    Kind::Preparation,
-                    Status::Unattempted,
-                    "fixture was not attempted",
-                    None,
-                    cap,
-                );
-            }
-        }
-        report.coverage(&source_rows, &covered, cap);
-        if cancel.token().is_cancelled() {
-            report.complete = false;
-        }
-        Ok(report)
-    
-        }).await
+                // Never abandon an issued fixture: the queue is empty before either return.
+                if let Some(error) = fatal {
+                    return Err(error);
+                }
+                if issued < fixtures.len() {
+                    report.complete = false;
+                    for row in &fixtures[issued..] {
+                        report.record_fixture(
+                            row.declaration_id,
+                            Kind::Preparation,
+                            Status::Unattempted,
+                            "fixture was not attempted",
+                            None,
+                            cap,
+                        );
+                    }
+                }
+                report.coverage(&source_rows, &covered, cap);
+                if cancel.token().is_cancelled() {
+                    report.complete = false;
+                }
+                Ok(report)
+            })
+            .await
     }
     /// One independent fixture owns its preparations, native jobs and retained report.
     async fn conform_fixture(

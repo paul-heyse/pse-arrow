@@ -318,19 +318,20 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        self.declared_execution_with_demand(
-            root,
-            compiler,
-            solver,
-            numerical,
-            limits,
-            Vec::new(),
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                self.declared_execution_with_demand(
+                    root,
+                    compiler,
+                    solver,
+                    numerical,
+                    limits,
+                    Vec::new(),
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Carry operation-owned path demand into the one declared specialization.
     #[expect(
@@ -348,110 +349,113 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let row = self.declaration(root).await?;
-        let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
-            .map_err(super::super::modeling_error)?;
-        let limits = declared_limits(&row, limits)?;
-        let solver = declared_solver(&row, &solver)?;
-        let requested_start = solver.controls.start;
-        let mut bindings = Bindings::default().with_analysis(choice.route);
-        bindings.demand = demand;
-        bindings.demand.sort();
-        bindings.demand.dedup();
-        let instance = pse_modeling::specialize::root_instance(root);
-        let model = self
-            .prepare(root, instance, bindings.clone(), limits, cancel)
-            .await?;
-        let fixture = model.compiled().model.fixtures.get(&instance);
-        let case = fixture.map(ModelingCaseBindings::from).unwrap_or_default();
-        let procedure = match choice.procedure {
-            Procedure::Check => DeclaredProcedure::Check,
-            Procedure::Solve => DeclaredProcedure::Solve,
-            Procedure::Initialize => DeclaredProcedure::Initialize(initialization(fixture)?),
-            Procedure::Integrate => DeclaredProcedure::Integrate(
-                fixture.and_then(|f| f.integration.clone()).ok_or_else(|| {
-                    contract("integration procedure requires its authored inputs")
-                })?,
-            ),
-            Procedure::Shooting => DeclaredProcedure::Shooting {
-                integration: fixture.and_then(|f| f.integration.clone()).ok_or_else(|| {
-                    contract("shooting procedure requires its authored integration")
-                })?,
-                shooting: fixture
-                    .and_then(|f| f.shooting.clone())
-                    .ok_or_else(|| contract("shooting procedure requires its authored mesh"))?,
-            },
-        };
-        let analysis = ModelingAnalysis {
-            root,
-            instance,
-            bindings,
-            limits,
-            case,
-            order: pse_kernels::DerivativeOrder::Value,
-            compiler,
-            solver,
-            numerical,
-        };
-        let bindings_bytes = analysis
-            .bindings
-            .arguments
-            .iter()
-            .chain(&analysis.bindings.scope)
-            .map(|(name, value)| name.len() + value.retained_bytes() + 128)
-            .sum::<usize>()
-            + analysis
-                .bindings
-                .facts
-                .values()
-                .map(|value| value.retained_bytes() + 128)
-                .sum::<usize>()
-            + analysis
-                .bindings
-                .demand
-                .iter()
-                .map(|path| path.len() + size_of::<String>())
-                .sum::<usize>()
-            + analysis.bindings.formulation.omitted.len() * 128
-            + analysis
-                .bindings
-                .formulation
-                .elastic
-                .values()
-                .map(|value| value.retained_bytes() + 128)
-                .sum::<usize>();
-        let bytes = size_of::<DeclaredPreparation>()
-            + bindings_bytes
-            + self.revision.canonical.heap_bytes()
-            + self.physical.sources.len() * 256
-            + 512;
-        let owner = self
-            .runtime
-            .shared
-            .math()
-            .reserve("modeling:declared-preparation", bytes)?;
-        let prepared = Arc::new(pse_columnar::Leased::new(
-            Arc::new(DeclaredPreparation {
-                source: self.clone(),
-                root,
-                instance,
-                bindings: analysis.bindings.clone(),
-                limits,
-                model: model.clone(),
-            }),
-            owner,
-        ));
-        Ok(DeclaredExecution {
-            route: choice.route,
-            procedure,
-            analysis,
-            model,
-            requested_start,
-            prepared,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let row = self.declaration(root).await?;
+                let choice = pse_modeling::analysis::declared_policy(root, authored_fixture(&row))
+                    .map_err(super::super::modeling_error)?;
+                let limits = declared_limits(&row, limits)?;
+                let solver = declared_solver(&row, &solver)?;
+                let requested_start = solver.controls.start;
+                let mut bindings = Bindings::default().with_analysis(choice.route);
+                bindings.demand = demand;
+                bindings.demand.sort();
+                bindings.demand.dedup();
+                let instance = pse_modeling::specialize::root_instance(root);
+                let model = self
+                    .prepare(root, instance, bindings.clone(), limits, cancel)
+                    .await?;
+                let fixture = model.compiled().model.fixtures.get(&instance);
+                let case = fixture.map(ModelingCaseBindings::from).unwrap_or_default();
+                let procedure = match choice.procedure {
+                    Procedure::Check => DeclaredProcedure::Check,
+                    Procedure::Solve => DeclaredProcedure::Solve,
+                    Procedure::Initialize => {
+                        DeclaredProcedure::Initialize(initialization(fixture)?)
+                    }
+                    Procedure::Integrate => DeclaredProcedure::Integrate(
+                        fixture.and_then(|f| f.integration.clone()).ok_or_else(|| {
+                            contract("integration procedure requires its authored inputs")
+                        })?,
+                    ),
+                    Procedure::Shooting => DeclaredProcedure::Shooting {
+                        integration: fixture.and_then(|f| f.integration.clone()).ok_or_else(
+                            || contract("shooting procedure requires its authored integration"),
+                        )?,
+                        shooting: fixture.and_then(|f| f.shooting.clone()).ok_or_else(|| {
+                            contract("shooting procedure requires its authored mesh")
+                        })?,
+                    },
+                };
+                let analysis = ModelingAnalysis {
+                    root,
+                    instance,
+                    bindings,
+                    limits,
+                    case,
+                    order: pse_kernels::DerivativeOrder::Value,
+                    compiler,
+                    solver,
+                    numerical,
+                };
+                let bindings_bytes = analysis
+                    .bindings
+                    .arguments
+                    .iter()
+                    .chain(&analysis.bindings.scope)
+                    .map(|(name, value)| name.len() + value.retained_bytes() + 128)
+                    .sum::<usize>()
+                    + analysis
+                        .bindings
+                        .facts
+                        .values()
+                        .map(|value| value.retained_bytes() + 128)
+                        .sum::<usize>()
+                    + analysis
+                        .bindings
+                        .demand
+                        .iter()
+                        .map(|path| path.len() + size_of::<String>())
+                        .sum::<usize>()
+                    + analysis.bindings.formulation.omitted.len() * 128
+                    + analysis
+                        .bindings
+                        .formulation
+                        .elastic
+                        .values()
+                        .map(|value| value.retained_bytes() + 128)
+                        .sum::<usize>();
+                let bytes = size_of::<DeclaredPreparation>()
+                    + bindings_bytes
+                    + self.revision.canonical.heap_bytes()
+                    + self.physical.sources.len() * 256
+                    + 512;
+                let owner = self
+                    .runtime
+                    .shared
+                    .math()
+                    .reserve("modeling:declared-preparation", bytes)?;
+                let prepared = Arc::new(pse_columnar::Leased::new(
+                    Arc::new(DeclaredPreparation {
+                        source: self.clone(),
+                        root,
+                        instance,
+                        bindings: analysis.bindings.clone(),
+                        limits,
+                        model: model.clone(),
+                    }),
+                    owner,
+                ));
+                Ok(DeclaredExecution {
+                    route: choice.route,
+                    procedure,
+                    analysis,
+                    model,
+                    requested_start,
+                    prepared,
+                })
+            })
+            .await
     }
     /// Prepare only an admitted algebraic solve procedure; inspection never executes it.
     pub async fn prepare_declared(
@@ -460,30 +464,31 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if !matches!(execution.procedure, DeclaredProcedure::Solve) {
-            return Err(contract(
-                "prepared algebraic solve requires the authored solve procedure",
-            ));
-        }
-        let model = execution.prepared_model(self)?;
-        let analysis = &execution.analysis;
-        let resolution = self
-            .resolve_prepared_case(
-                model,
-                analysis.case.clone(),
-                analysis.order,
-                analysis.compiler,
-                analysis.solver.clone(),
-                analysis.numerical.clone(),
-                cases::CaseOverrides::default(),
-                false,
-                cancel,
-            )
-            .await?;
-        self.finish_case(resolution, cancel).await
-    
-        }).await
+        activity
+            .scope(async {
+                if !matches!(execution.procedure, DeclaredProcedure::Solve) {
+                    return Err(contract(
+                        "prepared algebraic solve requires the authored solve procedure",
+                    ));
+                }
+                let model = execution.prepared_model(self)?;
+                let analysis = &execution.analysis;
+                let resolution = self
+                    .resolve_prepared_case(
+                        model,
+                        analysis.case.clone(),
+                        analysis.order,
+                        analysis.compiler,
+                        analysis.solver.clone(),
+                        analysis.numerical.clone(),
+                        cases::CaseOverrides::default(),
+                        false,
+                        cancel,
+                    )
+                    .await?;
+                self.finish_case(resolution, cancel).await
+            })
+            .await
     }
     /// Execute the admitted algebraic procedure, including its authored initialization.
     pub async fn execute_declared(
@@ -528,7 +533,7 @@ impl ModelingPackage {
                 "algebraic execution requires the authored solve or initialization procedure",
             )),
         }
-    
+
         }).await
     }
     /// Execute an explicitly admitted compatible initialization policy.
@@ -539,17 +544,18 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let policy = execution.initialization(overrides)?;
-        self.initialize_model_with_prepared(
-            &execution.analysis,
-            policy,
-            Some(execution.prepared_model(self)?),
-            cancel,
-        )
-        .await
-    
-        }).await
+        activity
+            .scope(async {
+                let policy = execution.initialization(overrides)?;
+                self.initialize_model_with_prepared(
+                    &execution.analysis,
+                    policy,
+                    Some(execution.prepared_model(self)?),
+                    cancel,
+                )
+                .await
+            })
+            .await
     }
     /// Fitting may retain an explicit route only when it agrees with the authored case.
     pub(in crate::workflow) async fn declared_case(
@@ -560,25 +566,26 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, ModelingCaseBindings), WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let execution = self
-            .declared_execution(
-                root,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                limits,
-                cancel,
-            )
-            .await?;
-        if route != execution.route {
-            return Err(contract(
-                "explicit route override contradicts authored temporal route",
-            ));
-        }
-        Ok((execution.analysis.bindings, execution.analysis.case))
-    
-        }).await
+        activity
+            .scope(async {
+                let execution = self
+                    .declared_execution(
+                        root,
+                        Default::default(),
+                        Default::default(),
+                        Default::default(),
+                        limits,
+                        cancel,
+                    )
+                    .await?;
+                if route != execution.route {
+                    return Err(contract(
+                        "explicit route override contradicts authored temporal route",
+                    ));
+                }
+                Ok((execution.analysis.bindings, execution.analysis.case))
+            })
+            .await
     }
 }
 

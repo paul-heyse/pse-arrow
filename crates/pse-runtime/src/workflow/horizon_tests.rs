@@ -1656,9 +1656,7 @@ async fn owned_loop(
     );
     let run_id = pse_operations::mint_id();
     let mut attempt = if durable {
-        Some(crate::workflow::durable::DurableAttempt::new(
-            runtime.operations().unwrap(),
-        ).unwrap())
+        Some(crate::workflow::durable::DurableAttempt::new(runtime.operations().unwrap()).unwrap())
     } else {
         None
     };

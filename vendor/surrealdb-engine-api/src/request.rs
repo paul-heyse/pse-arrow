@@ -132,16 +132,24 @@ mod lifecycle_tests {
         let second_weak = Arc::downgrade(&second);
         let bytes_weak = Arc::downgrade(&bytes);
         let old = RequestContext::new(Instant::now() + std::time::Duration::from_secs(30))
-            .with_lifetime_owner(first).with_payload_owner(bytes);
-        let current = RequestContext::new(old.deadline()).with_lifetime_owner(second)
+            .with_lifetime_owner(first)
+            .with_payload_owner(bytes);
+        let current = RequestContext::new(old.deadline())
+            .with_lifetime_owner(second)
             .inherit_request_ownership(&old);
         let retired = current.clone();
         let handling = current.lifetime_owner().unwrap().retain();
         current.mark_completed();
-        assert!(first_weak.upgrade().is_some(), "dispatch fact is not local work drain");
+        assert!(
+            first_weak.upgrade().is_some(),
+            "dispatch fact is not local work drain"
+        );
         current.release_lifetime_after_drain();
         assert!(first_weak.upgrade().is_some() && second_weak.upgrade().is_some());
-        assert!(bytes_weak.upgrade().is_some(), "non-byte completion cannot release payload bytes");
+        assert!(
+            bytes_weak.upgrade().is_some(),
+            "non-byte completion cannot release payload bytes"
+        );
         assert!(retired.lifetime_owner().unwrap().retain().0.is_empty());
         drop(handling);
         assert!(first_weak.upgrade().is_none() && second_weak.upgrade().is_none());
@@ -178,7 +186,11 @@ struct Lifecycle {
 
 /// Shared original deadline and cancellation for one logical operation.
 #[derive(Debug, Clone)]
-pub struct RequestContext(Arc<Lifecycle>, Option<PayloadOwnership>, Option<RequestLifetimeOwnership>);
+pub struct RequestContext(
+    Arc<Lifecycle>,
+    Option<PayloadOwnership>,
+    Option<RequestLifetimeOwnership>,
+);
 
 /// Non-byte local activity ownership. Metadata clones share clearable cells;
 /// actual response handling retains separate holds until its local work drains.
@@ -197,10 +209,14 @@ pub struct RequestLifetimeRetention(Vec<Arc<dyn std::fmt::Debug + Send + Sync>>)
 
 impl RequestLifetimeOwnership {
     fn new(owner: Arc<dyn std::fmt::Debug + Send + Sync>) -> Self {
-        Self(Arc::new(RequestLifetimeContents::Owner(std::sync::Mutex::new(Some(owner)))))
+        Self(Arc::new(RequestLifetimeContents::Owner(
+            std::sync::Mutex::new(Some(owner)),
+        )))
     }
     fn join(self, other: Self) -> Self {
-        if Arc::ptr_eq(&self.0, &other.0) { return self; }
+        if Arc::ptr_eq(&self.0, &other.0) {
+            return self;
+        }
         Self(Arc::new(RequestLifetimeContents::Joined(self, other)))
     }
     /// Snapshot only actual live work; released metadata grants no new hold.
@@ -212,8 +228,12 @@ impl RequestLifetimeOwnership {
     fn retain_into(&self, retained: &mut RequestLifetimeRetention) {
         match self.0.as_ref() {
             RequestLifetimeContents::Owner(owner) => {
-                let owner = owner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-                if let Some(owner) = owner.as_ref() { retained.0.push(owner.clone()); }
+                let owner = owner
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if let Some(owner) = owner.as_ref() {
+                    retained.0.push(owner.clone());
+                }
             }
             RequestLifetimeContents::Joined(first, second) => {
                 first.retain_into(retained);
@@ -225,7 +245,10 @@ impl RequestLifetimeOwnership {
         match self.0.as_ref() {
             RequestLifetimeContents::Owner(owner) => {
                 // Drop outside the slot lock: owner destructors may notify waiters.
-                let owner = owner.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+                let owner = owner
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .take();
                 drop(owner);
             }
             RequestLifetimeContents::Joined(first, second) => {
@@ -477,13 +500,19 @@ impl RequestContext {
         self
     }
     /// Shared clearable activity metadata; taking a hold is driver-only.
-    pub fn lifetime_owner(&self) -> Option<RequestLifetimeOwnership> { self.2.clone() }
+    pub fn lifetime_owner(&self) -> Option<RequestLifetimeOwnership> {
+        self.2.clone()
+    }
     /// Driver-only local terminal cleanup, independent of remote outcome.
     pub fn release_lifetime_after_drain(&self) {
-        if let Some(owner) = &self.2 { owner.release_after_drain(); }
+        if let Some(owner) = &self.2 {
+            owner.release_after_drain();
+        }
     }
     /// Whether a builder needs lexical undispatched cleanup for either owner.
-    pub fn has_request_ownership(&self) -> bool { self.1.is_some() || self.2.is_some() }
+    pub fn has_request_ownership(&self) -> bool {
+        self.1.is_some() || self.2.is_some()
+    }
 
     /// Keep the actual prepaid request allocation through local transport drain.
     /// This owner never becomes a binding, session value or replay permission.

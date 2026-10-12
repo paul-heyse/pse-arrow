@@ -419,19 +419,23 @@ impl CanonicalStore {
         after: Option<&str>,
     ) -> Result<Vec<AnalysisNode>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
-            async {
-                self.analysis_page(key, after, "nodes")
-                    .await?
-                    .into_iter()
-                    .map(|row| wire::decode_canonical_analysis_nodes(row).map_err(Into::into))
-                    .collect()
-            },
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                    async {
+                        self.analysis_page(key, after, "nodes")
+                            .await?
+                            .into_iter()
+                            .map(|row| {
+                                wire::decode_canonical_analysis_nodes(row).map_err(Into::into)
+                            })
+                            .collect()
+                    },
+                )
+                .await
+            })
+            .await
     }
     /// Ordered bounded native graph edges from one exact active analysis.
     pub async fn analysis_edge_page(
@@ -440,19 +444,23 @@ impl CanonicalStore {
         after: Option<&str>,
     ) -> Result<Vec<AnalysisEdge>, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
-            async {
-                self.analysis_page(key, after, "edges")
-                    .await?
-                    .into_iter()
-                    .map(|row| wire::decode_canonical_analysis_edges(row).map_err(Into::into))
-                    .collect()
-            },
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                    async {
+                        self.analysis_page(key, after, "edges")
+                            .await?
+                            .into_iter()
+                            .map(|row| {
+                                wire::decode_canonical_analysis_edges(row).map_err(Into::into)
+                            })
+                            .collect()
+                    },
+                )
+                .await
+            })
+            .await
     }
     async fn analysis_page(
         &self,

@@ -290,7 +290,7 @@ impl ModelingPackage {
             }
         }
         Ok(report)
-    
+
         }).await
     }
 }
@@ -362,48 +362,49 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        use pse_backend_native::{
-            execution::{BackendSettings, ScipSettings},
-            solve::{Backend, SolverSelection},
-        };
-        if analysis.bindings.formulation != Formulation::default() {
-            return Err(contract(
-                "global infeasibility certification requires an original formulation",
-            ));
-        }
-        let mut trial = analysis.clone();
-        trial.solver.intent = SolveIntent::Certify;
-        trial.solver.selection = SolverSelection::Explicit(Backend::Scip);
-        trial.solver.backend = BackendSettings::Scip(ScipSettings {
-            iis: true,
-            ..ScipSettings::default()
-        });
-        let prepared = self.prepare_analysis(&trial, cancel).await?;
-        let result = self.solve_case(prepared, trial.compiler, cancel).await?;
-        let Outcome::Native(native) = &result.outcome else {
-            return Err(contract(
-                "global infeasibility certification needs a native certifying solve",
-            ));
-        };
-        let iis = native.global.as_ref().and_then(|g| g.iis.clone());
-        let members = iis.as_ref().map(|i| i.members.clone()).unwrap_or_default();
-        Ok(ModelingInfeasibilityCertificate {
-            assurance: native.termination.assurance,
-            fidelity: native.evidence.global.map(|g| g.fidelity),
-            rows: members
-                .iter()
-                .filter_map(|m| match m {
-                    pse_backend_native::solve::IisMember::Row(id) => Some(*id),
-                    _ => None,
+        activity
+            .scope(async {
+                use pse_backend_native::{
+                    execution::{BackendSettings, ScipSettings},
+                    solve::{Backend, SolverSelection},
+                };
+                if analysis.bindings.formulation != Formulation::default() {
+                    return Err(contract(
+                        "global infeasibility certification requires an original formulation",
+                    ));
+                }
+                let mut trial = analysis.clone();
+                trial.solver.intent = SolveIntent::Certify;
+                trial.solver.selection = SolverSelection::Explicit(Backend::Scip);
+                trial.solver.backend = BackendSettings::Scip(ScipSettings {
+                    iis: true,
+                    ..ScipSettings::default()
+                });
+                let prepared = self.prepare_analysis(&trial, cancel).await?;
+                let result = self.solve_case(prepared, trial.compiler, cancel).await?;
+                let Outcome::Native(native) = &result.outcome else {
+                    return Err(contract(
+                        "global infeasibility certification needs a native certifying solve",
+                    ));
+                };
+                let iis = native.global.as_ref().and_then(|g| g.iis.clone());
+                let members = iis.as_ref().map(|i| i.members.clone()).unwrap_or_default();
+                Ok(ModelingInfeasibilityCertificate {
+                    assurance: native.termination.assurance,
+                    fidelity: native.evidence.global.map(|g| g.fidelity),
+                    rows: members
+                        .iter()
+                        .filter_map(|m| match m {
+                            pse_backend_native::solve::IisMember::Row(id) => Some(*id),
+                            _ => None,
+                        })
+                        .collect(),
+                    members,
+                    irreducible: iis.is_some_and(|i| i.irreducible),
+                    result: result.clone(),
                 })
-                .collect(),
-            members,
-            irreducible: iis.is_some_and(|i| i.irreducible),
-            result: result.clone(),
-        })
-    
-        }).await
+            })
+            .await
     }
 }
 fn classify(

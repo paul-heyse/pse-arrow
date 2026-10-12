@@ -72,26 +72,43 @@ impl ResultReadDrain {
             _token: token,
         }
     }
-    pub(crate) fn release_protection(self: &Arc<Self>, store: CanonicalStore,
-        revision: crate::canonical::Revision, key: String) -> ResultReleaseTask {
+    pub(crate) fn release_protection(
+        self: &Arc<Self>,
+        store: CanonicalStore,
+        revision: crate::canonical::Revision,
+        key: String,
+    ) -> ResultReleaseTask {
         let mut release = self.release();
         release.recovery = Some((store, revision, key));
         release
     }
     pub(crate) async fn recover(self: &Arc<Self>) -> Result<(), CanonicalError> {
-        let failed = self.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+        let failed = self
+            .failed_protections
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
         for entry in failed {
             let drain = self.clone();
             let task = tokio::spawn(async move {
                 let _retry = entry.retry.lock().await;
-                if entry.done.load(std::sync::atomic::Ordering::Acquire) { return Ok(()); }
-                entry.store.release_protection(&entry.revision, &entry.key).await?;
+                if entry.done.load(std::sync::atomic::Ordering::Acquire) {
+                    return Ok(());
+                }
+                entry
+                    .store
+                    .release_protection(&entry.revision, &entry.key)
+                    .await?;
                 entry.done.store(true, std::sync::atomic::Ordering::Release);
-                drain.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+                drain
+                    .failed_protections
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .retain(|entry| !entry.done.load(std::sync::atomic::Ordering::Acquire));
                 Ok::<(), CanonicalError>(())
             });
-            task.await.map_err(|error| invalid(&format!("protection recovery task failed: {error}")))??;
+            task.await
+                .map_err(|error| invalid(&format!("protection recovery task failed: {error}")))??;
         }
         Ok(())
     }
@@ -132,8 +149,15 @@ impl ResultReadDrain {
         tokio::time::timeout(crate::canonical::REQUEST_TIMEOUT, self.releases.wait())
             .await
             .map_err(|_| CanonicalError::Timeout)?;
-        if let Some(entry) = self.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner).first() {
-            return Err(CanonicalError::ProtectionRelease { source: entry.error.clone() });
+        if let Some(entry) = self
+            .failed_protections
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .first()
+        {
+            return Err(CanonicalError::ProtectionRelease {
+                source: entry.error.clone(),
+            });
         }
         if let Some(error) = self
             .error
@@ -157,10 +181,21 @@ pub(crate) struct ResultReleaseTask {
 impl ResultReleaseTask {
     fn failure(&mut self, error: CanonicalError) {
         if let Some((store, revision, key)) = self.recovery.take() {
-            self.drain.failed_protections.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
-                .push(Arc::new(FailedProtection { store, revision, key, error: Arc::new(error),
-                    retry: tokio::sync::Mutex::new(()), done: std::sync::atomic::AtomicBool::new(false) }));
-        } else { self.drain.failure(error); }
+            self.drain
+                .failed_protections
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .push(Arc::new(FailedProtection {
+                    store,
+                    revision,
+                    key,
+                    error: Arc::new(error),
+                    retry: tokio::sync::Mutex::new(()),
+                    done: std::sync::atomic::AtomicBool::new(false),
+                }));
+        } else {
+            self.drain.failure(error);
+        }
     }
     pub(crate) fn complete(mut self, result: Result<(), CanonicalError>) {
         if let Err(error) = result {
@@ -304,36 +339,38 @@ impl ResultRead {
 impl ReadOwner {
     async fn renew(&self, lifetime: Duration) -> Result<(), CanonicalError> {
         let activity = self.store.selection_activity(&self.selection)?;
-        activity.scope(async {
-        let micros =
-            i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
-        if micros <= 0 {
-            return Err(invalid("positive read protection lifetime required"));
-        }
-        let selection = &self.selection;
-        self.store
-            .protected_query(
-                &format!("pin:{}", selection.key()),
-                crate::canonical::QueryEffect::Mutation,
-                "canonical_results::renew",
-                || {
-                    Ok(self
-                        .store
-                        .db
-                        .query(format!("{PROTECTED_BEGIN}\n{RENEW_PROTECTION}\nCOMMIT;"))
-                        .bind(("problem", selection.revision().problem.clone()))
-                        .bind(("revision", selection.revision().key.clone()))
-                        .bind((
-                            "sequence",
-                            canonical_codec::encode_uint(selection.revision().sequence)?,
-                        ))
-                        .bind(("protection", selection.key().to_owned()))
-                        .bind(("lifetime", micros)))
-                },
-            )
-            .await?;
-        Ok(())
-        }).await
+        activity
+            .scope(async {
+                let micros = i64::try_from(lifetime.as_micros())
+                    .map_err(|_| CanonicalError::PayloadLimit)?;
+                if micros <= 0 {
+                    return Err(invalid("positive read protection lifetime required"));
+                }
+                let selection = &self.selection;
+                self.store
+                    .protected_query(
+                        &format!("pin:{}", selection.key()),
+                        crate::canonical::QueryEffect::Mutation,
+                        "canonical_results::renew",
+                        || {
+                            Ok(self
+                                .store
+                                .db
+                                .query(format!("{PROTECTED_BEGIN}\n{RENEW_PROTECTION}\nCOMMIT;"))
+                                .bind(("problem", selection.revision().problem.clone()))
+                                .bind(("revision", selection.revision().key.clone()))
+                                .bind((
+                                    "sequence",
+                                    canonical_codec::encode_uint(selection.revision().sequence)?,
+                                ))
+                                .bind(("protection", selection.key().to_owned()))
+                                .bind(("lifetime", micros)))
+                        },
+                    )
+                    .await?;
+                Ok(())
+            })
+            .await
     }
 }
 
@@ -1006,21 +1043,23 @@ impl CanonicalStore {
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
-        activity.scope(async {
-        let set = read
-            .chunks
-            .as_ref()
-            .ok_or_else(|| invalid("completion chunks absent"))?;
-        self.read_payload(
-            &read.owner,
-            &read.run,
-            &read.attempt,
-            &set.key,
-            set.next_ordinal,
-            ordinal,
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                let set = read
+                    .chunks
+                    .as_ref()
+                    .ok_or_else(|| invalid("completion chunks absent"))?;
+                self.read_payload(
+                    &read.owner,
+                    &read.run,
+                    &read.attempt,
+                    &set.key,
+                    set.next_ordinal,
+                    ordinal,
+                )
+                .await
+            })
+            .await
     }
 
     /// Discover at most one narrow metadata page for an admitted output range.
@@ -1103,18 +1142,20 @@ impl CanonicalStore {
         ordinal: u64,
     ) -> Result<ResultPayload, CanonicalError> {
         let activity = read.owner.store.selection_activity(&read.owner.selection)?;
-        activity.scope(async {
-        let set = read.set(result_set)?;
-        self.read_payload(
-            &read.owner,
-            &read.run,
-            &read.attempt,
-            &set.key,
-            set.batch_count,
-            ordinal,
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                let set = read.set(result_set)?;
+                self.read_payload(
+                    &read.owner,
+                    &read.run,
+                    &read.attempt,
+                    &set.key,
+                    set.batch_count,
+                    ordinal,
+                )
+                .await
+            })
+            .await
     }
 
     async fn read_payload(

@@ -105,7 +105,10 @@ impl Operations {
         }
     }
     fn admitted(&self) -> Result<Self, WorkflowError> {
-        Ok(Self { store: self.store.activity_store()?, ..self.clone() })
+        Ok(Self {
+            store: self.store.activity_store()?,
+            ..self.clone()
+        })
     }
     /// Exact canonical deployment used by executions and connected readers.
     pub fn store(&self) -> &CanonicalStore {
@@ -136,10 +139,9 @@ impl Operations {
     /// Persist cancellation under an explicit immutable effect identity.
     pub async fn cancel(&self, run: &str, operation: &str) -> Result<CanonicalRun, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        Ok(self.store.cancel_run(run, operation).await?)
-    
-        }).await
+        activity
+            .scope(async { Ok(self.store.cancel_run(run, operation).await?) })
+            .await
     }
     /// Bounded per-problem recorded execution summaries, excluding scientific payloads.
     pub async fn runs(
@@ -149,64 +151,65 @@ impl Operations {
         limit: usize,
     ) -> Result<Vec<pse_operations::canonical_execution::RunSummary>, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        Ok(self.store.execution_run_page(problem, after, limit).await?)
-    
-        }).await
+        activity
+            .scope(async { Ok(self.store.execution_run_page(problem, after, limit).await?) })
+            .await
     }
     /// Reopen the exact historical admitted completion and eligible seed inventory.
     pub async fn record(&self, run: &str, attempt: &str) -> Result<DurableRecord, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let read = self
-            .store
-            .read_results(run, attempt, Duration::from_secs(60))
-            .await?;
-        let completion = self
-            .decode_completion(CompletionSelection::Full(&read))
-            .await?;
-        let mut solutions = Vec::new();
-        let mut after = None;
-        loop {
-            read.renew(Duration::from_secs(60)).await?;
-            let page = self.store.result_seed_page(attempt, after).await?;
-            if page.is_empty() {
-                break;
-            }
-            for seed in page {
-                after = Some(seed.step);
-                if seed.run != run || seed.attempt != attempt {
-                    return Err(contract("seed inventory escaped its retained attempt"));
+        activity
+            .scope(async {
+                let read = self
+                    .store
+                    .read_results(run, attempt, Duration::from_secs(60))
+                    .await?;
+                let completion = self
+                    .decode_completion(CompletionSelection::Full(&read))
+                    .await?;
+                let mut solutions = Vec::new();
+                let mut after = None;
+                loop {
+                    read.renew(Duration::from_secs(60)).await?;
+                    let page = self.store.result_seed_page(attempt, after).await?;
+                    if page.is_empty() {
+                        break;
+                    }
+                    for seed in page {
+                        after = Some(seed.step);
+                        if seed.run != run || seed.attempt != attempt {
+                            return Err(contract("seed inventory escaped its retained attempt"));
+                        }
+                        if completion
+                            .completion
+                            .as_ref()
+                            .and_then(|c| c.assessments.get(seed.step as usize))
+                            .is_some_and(|a| a.permits_seed)
+                        {
+                            let solution = SolutionId::from_id(
+                                SemanticId::parse_hex(&seed.key)
+                                    .map_err(|error| contract(error.to_string()))?,
+                            );
+                            solutions.push((
+                                usize::try_from(seed.step)
+                                    .map_err(|_| contract("stored step extent"))?,
+                                solution,
+                            ));
+                        }
+                    }
                 }
-                if completion
-                    .completion
-                    .as_ref()
-                    .and_then(|c| c.assessments.get(seed.step as usize))
-                    .is_some_and(|a| a.permits_seed)
-                {
-                    let solution = SolutionId::from_id(
-                        SemanticId::parse_hex(&seed.key)
-                            .map_err(|error| contract(error.to_string()))?,
-                    );
-                    solutions.push((
-                        usize::try_from(seed.step).map_err(|_| contract("stored step extent"))?,
-                        solution,
-                    ));
-                }
-            }
-        }
-        Ok(DurableRecord {
-            attempt_id: completion.attempt_id,
-            attempt_key: Some(read.attempt().key.clone()),
-            run: Some(read.run().clone()),
-            attempt: Ok(read.attempt().clone()),
-            manifest: Some(read.manifest().clone()),
-            completion: Some(completion),
-            solutions,
-            _solutions_owner: None,
-        })
-    
-        }).await
+                Ok(DurableRecord {
+                    attempt_id: completion.attempt_id,
+                    attempt_key: Some(read.attempt().key.clone()),
+                    run: Some(read.run().clone()),
+                    attempt: Ok(read.attempt().clone()),
+                    manifest: Some(read.manifest().clone()),
+                    completion: Some(completion),
+                    solutions,
+                    _solutions_owner: None,
+                })
+            })
+            .await
     }
     /// Reopen only the original completion under fresh exact terminal permission.
     pub async fn completion(
@@ -215,15 +218,16 @@ impl Operations {
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<StoredCompletion>>, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let read = self
-            .store
-            .read_completion(run, attempt, Duration::from_secs(60))
-            .await?;
-        self.decode_completion(CompletionSelection::Slim(&read))
+        activity
+            .scope(async {
+                let read = self
+                    .store
+                    .read_completion(run, attempt, Duration::from_secs(60))
+                    .await?;
+                self.decode_completion(CompletionSelection::Slim(&read))
+                    .await
+            })
             .await
-    
-        }).await
     }
 
     pub(super) async fn progress_coverage(
@@ -360,83 +364,85 @@ impl Operations {
     )]
     pub async fn recover(&self, run: &str, operation: &str) -> Result<Recovery, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let current = self
-            .store
-            .canonical_run(run)
-            .await?
-            .ok_or_else(|| contract("recovery run absent"))?;
-        let attempt = current
-            .current_attempt
-            .as_ref()
-            .ok_or_else(|| contract("recovery attempt absent"))?;
-        let actual = self
-            .store
-            .canonical_attempt(attempt)
-            .await?
-            .ok_or_else(|| contract("recovery attempt header absent"))?;
-        if actual.terminal {
-            return Ok(Recovery {
-                recovered: vec![actual.key],
-            });
-        }
-        let closed = self.store.recover_closed_attempt(run, operation).await?;
-        let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-        hash.str("scientific.attempt.lineage.v1")
-            .str(closed.fence().attempt());
-        let attempt_id = AttemptId::from_id(hash.finish_id());
-        let error =
-            WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Configuration(
-                "worker authority expired before durable scientific completion".into(),
-            ));
-        let current = self
-            .store
-            .canonical_run(run)
-            .await?
-            .ok_or_else(|| contract("recovered run absent"))?;
-        let cancelled = current.cancelled
-            || self
-                .store
-                .canonical_study_for_run(run)
-                .await?
-                .is_some_and(|study| study.cancelled);
-        let mut outcome = failure(&error, cancelled);
-        outcome.retryable = true;
-        outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
-        let stored = StoredCompletion {
-            version: 2,
-            attempt_id,
-            completion: None,
-            termination: outcome.detail,
-            state: outcome.state,
-            progress: super::ProgressCoverage::Unknown {},
-        };
-        let receipt = CompletionReceipt {
-            version: 1,
-            batch_count: 0,
-            payload_bytes: 0,
-            digest: String::new(),
-            inline: Some(Box::new(stored)),
-        };
-        let class = if cancelled {
-            TerminalClass::Cancelled
-        } else {
-            TerminalClass::Failed
-        };
-        self.settle(
-            &closed,
-            &format!("{operation}:terminal"),
-            class,
-            &receipt,
-            SeedEligibility::Unavailable,
-            None,
-        )
-        .await?;
-        Ok(Recovery {
-            recovered: vec![closed.fence().attempt().into()],
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let current = self
+                    .store
+                    .canonical_run(run)
+                    .await?
+                    .ok_or_else(|| contract("recovery run absent"))?;
+                let attempt = current
+                    .current_attempt
+                    .as_ref()
+                    .ok_or_else(|| contract("recovery attempt absent"))?;
+                let actual = self
+                    .store
+                    .canonical_attempt(attempt)
+                    .await?
+                    .ok_or_else(|| contract("recovery attempt header absent"))?;
+                if actual.terminal {
+                    return Ok(Recovery {
+                        recovered: vec![actual.key],
+                    });
+                }
+                let closed = self.store.recover_closed_attempt(run, operation).await?;
+                let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+                hash.str("scientific.attempt.lineage.v1")
+                    .str(closed.fence().attempt());
+                let attempt_id = AttemptId::from_id(hash.finish_id());
+                let error = WorkflowError::Canonical(
+                    pse_operations::canonical::CanonicalError::Configuration(
+                        "worker authority expired before durable scientific completion".into(),
+                    ),
+                );
+                let current = self
+                    .store
+                    .canonical_run(run)
+                    .await?
+                    .ok_or_else(|| contract("recovered run absent"))?;
+                let cancelled = current.cancelled
+                    || self
+                        .store
+                        .canonical_study_for_run(run)
+                        .await?
+                        .is_some_and(|study| study.cancelled);
+                let mut outcome = failure(&error, cancelled);
+                outcome.retryable = true;
+                outcome.detail.retry_failure = Some(pse_model::study::RetryFailure::Transient);
+                let stored = StoredCompletion {
+                    version: 2,
+                    attempt_id,
+                    completion: None,
+                    termination: outcome.detail,
+                    state: outcome.state,
+                    progress: super::ProgressCoverage::Unknown {},
+                };
+                let receipt = CompletionReceipt {
+                    version: 1,
+                    batch_count: 0,
+                    payload_bytes: 0,
+                    digest: String::new(),
+                    inline: Some(Box::new(stored)),
+                };
+                let class = if cancelled {
+                    TerminalClass::Cancelled
+                } else {
+                    TerminalClass::Failed
+                };
+                self.settle(
+                    &closed,
+                    &format!("{operation}:terminal"),
+                    class,
+                    &receipt,
+                    SeedEligibility::Unavailable,
+                    None,
+                )
+                .await?;
+                Ok(Recovery {
+                    recovered: vec![closed.fence().attempt().into()],
+                })
+            })
+            .await
     }
 }
 /// Whether application execution persists its complete scientific result.
@@ -679,7 +685,10 @@ pub(crate) struct DurableAttempt {
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+    #[cfg(any(
+        feature = "solver-diffsol",
+        all(test, feature = "canonical-tests", feature = "solver-kinsol")
+    ))]
     horizon_seed_next: u64,
     horizon_prefix_failure: Option<Arc<WorkflowError>>,
     output: super::StudyOutputDemand,
@@ -704,7 +713,10 @@ impl DurableAttempt {
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
             horizon_prefix: None,
-            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+            #[cfg(any(
+                feature = "solver-diffsol",
+                all(test, feature = "canonical-tests", feature = "solver-kinsol")
+            ))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -734,7 +746,10 @@ impl DurableAttempt {
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
             horizon_prefix: None,
-            #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+            #[cfg(any(
+                feature = "solver-diffsol",
+                all(test, feature = "canonical-tests", feature = "solver-kinsol")
+            ))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -912,7 +927,10 @@ impl DurableAttempt {
     pub(crate) fn set_output(&mut self, output: super::StudyOutputDemand) {
         self.output = output;
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+    #[cfg(any(
+        feature = "solver-diffsol",
+        all(test, feature = "canonical-tests", feature = "solver-kinsol")
+    ))]
     pub(super) fn begin_horizon_prefix(
         &mut self,
         output: super::StudyOutputDemand,
@@ -932,13 +950,19 @@ impl DurableAttempt {
         self.horizon_prefix = Some(Default::default());
         Ok(())
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+    #[cfg(any(
+        feature = "solver-diffsol",
+        all(test, feature = "canonical-tests", feature = "solver-kinsol")
+    ))]
     pub(super) fn refuse_horizon_prefix(&mut self, error: Arc<WorkflowError>) {
         if self.horizon_prefix_failure.is_none() {
             self.horizon_prefix_failure = Some(error);
         }
     }
-    #[cfg(any(feature = "solver-diffsol", all(test, feature = "canonical-tests", feature = "solver-kinsol")))]
+    #[cfg(any(
+        feature = "solver-diffsol",
+        all(test, feature = "canonical-tests", feature = "solver-kinsol")
+    ))]
     pub(super) async fn publish_horizon_step(
         &mut self,
         result: &RunResult,
@@ -2875,15 +2899,16 @@ impl Operations {
     /// Acquire one explicitly selected original seed and its optional prediction once.
     pub async fn seed(&self, solution: SolutionId) -> Result<AdmittedSeed, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let row = self
-            .store
-            .result_seed(&solution.to_string())
-            .await?
-            .ok_or(SeedReadError::Missing { solution })?;
-        self.admit_seed(solution, row).await
-    
-        }).await
+        activity
+            .scope(async {
+                let row = self
+                    .store
+                    .result_seed(&solution.to_string())
+                    .await?
+                    .ok_or(SeedReadError::Missing { solution })?;
+                self.admit_seed(solution, row).await
+            })
+            .await
     }
     /// Bounded eligible index pages use recorded order and then exact scientific admission.
     pub async fn latest_seed(
@@ -2893,25 +2918,26 @@ impl Operations {
         attempt: Option<&str>,
     ) -> Result<Option<AdmittedSeed>, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let rows = self
-            .store
-            .result_seed_candidates(
-                &target.layout.to_string(),
-                &preparation.to_string(),
-                target.backend.as_str(),
-                attempt,
-            )
-            .await?;
-        let Some(row) = rows.into_iter().next() else {
-            return Ok(None);
-        };
-        let solution: SolutionId = SemanticId::parse_hex(&row.key)
-            .map(SolutionId::from_id)
-            .map_err(|e| contract(format!("seed identity: {e}")))?;
-        self.admit_seed(solution, row).await.map(Some)
-    
-        }).await
+        activity
+            .scope(async {
+                let rows = self
+                    .store
+                    .result_seed_candidates(
+                        &target.layout.to_string(),
+                        &preparation.to_string(),
+                        target.backend.as_str(),
+                        attempt,
+                    )
+                    .await?;
+                let Some(row) = rows.into_iter().next() else {
+                    return Ok(None);
+                };
+                let solution: SolutionId = SemanticId::parse_hex(&row.key)
+                    .map(SolutionId::from_id)
+                    .map_err(|e| contract(format!("seed identity: {e}")))?;
+                self.admit_seed(solution, row).await.map(Some)
+            })
+            .await
     }
 }
 
@@ -2953,111 +2979,113 @@ impl Operations {
         physical: &super::PhysicalContext,
     ) -> Result<super::physical_cache::PhysicalRows, WorkflowError> {
         let activity = self.store().admit_activity()?;
-        activity.scope(async {
-        let generation = runtime.physical_cache.rows_generation();
-        if let Some(revisions) = runtime.physical_cache.rows(runtime, self, physical) {
-            return runtime
-                .physical_cache
-                .protected_rows(generation, runtime, self, physical, &revisions)
-                .await;
-        }
-        let generation = runtime.physical_cache.begin_rows();
-        let encoding =
-            MemoryConsumer::new("canonical:physical-source-encoding").register(&self.pool);
-        if !physical.sources.is_empty() {
-            encoding
-                .try_grow(16 * pse_operations::canonical::PAYLOAD_BYTES)
-                .map_err(pse_engine::EngineError::from)?;
-        }
-        let mut revisions = Vec::new();
-        for (relation, table) in &physical.sources {
-            let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
-            hash.str("physical.rows.v1").str(&relation.to_string());
-            super::result_blocks::visit_source_blocks(table.batch(), |_, _, payload| {
-                hash.part(&payload);
-                Ok(())
-            })?;
-            let identity = hash.finish_hash();
-            let problem = format!("physical:rows:{identity}");
-            let saved = Arc::new(Mutex::new(None::<Revision>));
-            let mut ordinal = 0_u64;
-            super::result_blocks::visit_source_blocks_async(
-                table.batch(),
-                |start, rows, payload| {
-                    let ordinal_here = ordinal;
-                    ordinal += 1;
-                    let store = self.store.clone();
-                    let problem = problem.clone();
-                    let saved = saved.clone();
-                    let edit = source_edit(
-                        format!("rows:{ordinal_here:020}"),
-                        relation.to_string(),
-                        format!("{ordinal_here:020}"),
-                        "physical:rows:v1",
-                        payload,
-                    );
-                    async move {
-                        let _ = (start, rows);
-                        let parent = saved
-                            .lock()
-                            .map_err(|_| contract("physical source receipt lock"))?
-                            .as_ref()
-                            .map(|r| r.key.clone());
-                        let row = store
-                            .edit(
-                                &problem,
-                                parent.as_deref(),
-                                &format!("physical:{identity}:{ordinal_here}"),
-                                &[edit],
-                            )
-                            .await?;
-                        *saved
-                            .lock()
-                            .map_err(|_| contract("physical source receipt lock"))? = Some(row);
-                        Ok::<(), WorkflowError>(())
+        activity
+            .scope(async {
+                let generation = runtime.physical_cache.rows_generation();
+                if let Some(revisions) = runtime.physical_cache.rows(runtime, self, physical) {
+                    return runtime
+                        .physical_cache
+                        .protected_rows(generation, runtime, self, physical, &revisions)
+                        .await;
+                }
+                let generation = runtime.physical_cache.begin_rows();
+                let encoding =
+                    MemoryConsumer::new("canonical:physical-source-encoding").register(&self.pool);
+                if !physical.sources.is_empty() {
+                    encoding
+                        .try_grow(16 * pse_operations::canonical::PAYLOAD_BYTES)
+                        .map_err(pse_engine::EngineError::from)?;
+                }
+                let mut revisions = Vec::new();
+                for (relation, table) in &physical.sources {
+                    let mut hash = FramedHasher::new(Frame::CanonicalPayloadV1);
+                    hash.str("physical.rows.v1").str(&relation.to_string());
+                    super::result_blocks::visit_source_blocks(table.batch(), |_, _, payload| {
+                        hash.part(&payload);
+                        Ok(())
+                    })?;
+                    let identity = hash.finish_hash();
+                    let problem = format!("physical:rows:{identity}");
+                    let saved = Arc::new(Mutex::new(None::<Revision>));
+                    let mut ordinal = 0_u64;
+                    super::result_blocks::visit_source_blocks_async(
+                        table.batch(),
+                        |start, rows, payload| {
+                            let ordinal_here = ordinal;
+                            ordinal += 1;
+                            let store = self.store.clone();
+                            let problem = problem.clone();
+                            let saved = saved.clone();
+                            let edit = source_edit(
+                                format!("rows:{ordinal_here:020}"),
+                                relation.to_string(),
+                                format!("{ordinal_here:020}"),
+                                "physical:rows:v1",
+                                payload,
+                            );
+                            async move {
+                                let _ = (start, rows);
+                                let parent = saved
+                                    .lock()
+                                    .map_err(|_| contract("physical source receipt lock"))?
+                                    .as_ref()
+                                    .map(|r| r.key.clone());
+                                let row = store
+                                    .edit(
+                                        &problem,
+                                        parent.as_deref(),
+                                        &format!("physical:{identity}:{ordinal_here}"),
+                                        &[edit],
+                                    )
+                                    .await?;
+                                *saved
+                                    .lock()
+                                    .map_err(|_| contract("physical source receipt lock"))? =
+                                    Some(row);
+                                Ok::<(), WorkflowError>(())
+                            }
+                        },
+                    )
+                    .await?;
+                    if let Some(revision) = saved
+                        .lock()
+                        .map_err(|_| contract("physical source receipt lock"))?
+                        .take()
+                    {
+                        revisions.push(revision);
                     }
-                },
-            )
-            .await?;
-            if let Some(revision) = saved
-                .lock()
-                .map_err(|_| contract("physical source receipt lock"))?
-                .take()
-            {
-                revisions.push(revision);
-            }
-        }
-        // Even built-in contexts carry their exact compiler interpretation receipt.
-        let bytes = serde_json::to_vec(&(1_u8, physical.identity()))
-            .map_err(|e| contract(e.to_string()))?;
-        let edit = source_edit(
-            "physical:context".into(),
-            "physical".into(),
-            "context".into(),
-            "physical:context:v1",
-            bytes,
-        );
-        let problem = format!("physical:context:{}", physical.identity());
-        revisions.push(
-            self.store
-                .edit(
-                    &problem,
-                    None,
-                    &format!("physical:context:{}", physical.identity()),
-                    &[edit],
-                )
-                .await?,
-        );
-        let result = runtime
-            .physical_cache
-            .protect_rows(self, &revisions)
-            .await?;
-        runtime
-            .physical_cache
-            .retain_rows(generation, runtime, self, physical, &result);
-        Ok(result)
-    
-        }).await
+                }
+                // Even built-in contexts carry their exact compiler interpretation receipt.
+                let bytes = serde_json::to_vec(&(1_u8, physical.identity()))
+                    .map_err(|e| contract(e.to_string()))?;
+                let edit = source_edit(
+                    "physical:context".into(),
+                    "physical".into(),
+                    "context".into(),
+                    "physical:context:v1",
+                    bytes,
+                );
+                let problem = format!("physical:context:{}", physical.identity());
+                revisions.push(
+                    self.store
+                        .edit(
+                            &problem,
+                            None,
+                            &format!("physical:context:{}", physical.identity()),
+                            &[edit],
+                        )
+                        .await?,
+                );
+                let result = runtime
+                    .physical_cache
+                    .protect_rows(self, &revisions)
+                    .await?;
+                runtime
+                    .physical_cache
+                    .retain_rows(generation, runtime, self, physical, &result);
+                Ok(result)
+            })
+            .await
     }
 }
 
@@ -3189,7 +3217,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        ).unwrap();
+        )
+        .unwrap();
         attempt.stream.finish().await;
         let detail = failure(&Arc::new(contract("synthetic partial original")), false).detail;
         let stored = StoredCompletion {
@@ -3266,7 +3295,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        ).unwrap();
+        )
+        .unwrap();
         attempt.stream.finish().await;
         let event = Event {
             phase: "uncertain".into(),
@@ -3485,7 +3515,8 @@ mod canonical_durable_codec {
                 .unwrap();
             let attempt_id = pse_operations::mint_id();
             let mut attempt =
-                DurableAttempt::claimed(&operations, fence.clone(), result.run_id, attempt_id).unwrap();
+                DurableAttempt::claimed(&operations, fence.clone(), result.run_id, attempt_id)
+                    .unwrap();
             let (reached, reached_rx) = tokio::sync::oneshot::channel();
             let (release, release_rx) = tokio::sync::oneshot::channel();
             let unrelated = Arc::new(WorkflowError::Canonical(
@@ -3868,7 +3899,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        ).unwrap();
+        )
+        .unwrap();
         // The earlier heartbeat observation is healthy. Its final joined result
         // observes the cancellation acknowledged after export has already begun.
         let (noticed, notice) = tokio::sync::oneshot::channel();
@@ -4072,7 +4104,8 @@ mod canonical_durable_codec {
             .unwrap_err();
         assert!(acknowledged_cancellation(&refusal, &fence));
         let mut attempt =
-            DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id).unwrap();
+            DurableAttempt::claimed(&operations, fence, pse_operations::mint_id(), attempt_id)
+                .unwrap();
         attempt.stream.finish().await;
         let record = attempt.terminate(original.clone()).await.unwrap();
         assert_eq!(
@@ -4098,7 +4131,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             pse_operations::mint_id(),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(attempt.cancelled_refusal(&refused));
         // No heartbeat or scientific owner has entered: the direct response alone
         // must retain the exact cancellation and unavailable scientific facts.
@@ -4123,7 +4157,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             pse_operations::mint_id(),
-        ).unwrap();
+        )
+        .unwrap();
         let unrelated = Arc::new(WorkflowError::Shared(Arc::new(WorkflowError::Canonical(
             pse_operations::canonical::CanonicalError::Timeout,
         ))));
@@ -4154,7 +4189,8 @@ mod canonical_durable_codec {
                 fence.clone(),
                 pse_operations::mint_id(),
                 attempt_id,
-            ).unwrap();
+            )
+            .unwrap();
             let original = StoredCompletion {
                 version: 1,
                 attempt_id,
@@ -4318,7 +4354,8 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        ).unwrap();
+        )
+        .unwrap();
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt
             .begin_horizon_prefix(super::super::StudyOutputDemand::Full {}, 1)
@@ -4389,7 +4426,8 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        ).unwrap();
+        )
+        .unwrap();
         let detail = super::super::StudyDetailDemand {
             relations: vec!["runtime.solve_variables".into()],
             members: Vec::new(),
@@ -4515,7 +4553,8 @@ mod canonical_durable_codec {
             fence.clone(),
             pse_operations::mint_id(),
             attempt_id,
-        ).unwrap();
+        )
+        .unwrap();
         attempt.stream.finish().await;
         let record = attempt.reject_export(Arc::new(failure)).await;
         assert!(record.attempt.is_err());
@@ -4679,7 +4718,8 @@ mod canonical_durable_codec {
             fence.clone(),
             result.run_id,
             pse_operations::mint_id(),
-        ).unwrap();
+        )
+        .unwrap();
         attempt.start(Arc::new(|| {})).await.unwrap();
         attempt.stream.tap.observe(&Event {
             phase: "counter".into(),

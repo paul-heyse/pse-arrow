@@ -25,44 +25,45 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let product = model.compiled();
-        let bound = product
-            .bound_structure(states)
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let key = product.view_key(&bound.structure, order, compiler, &self.physical.key);
-        let service = self.runtime.shared.math();
-        let generation = service.modeling_cache.generation();
-        let cached = service.modeling_cache.solver(key);
-        let case = match cached {
-            Some(view) => service.rebind(&view, values.clone(), cancel).await?,
-            None => {
-                let view = service
-                    .prepare_modeling_view(
-                        self.numerical_workspace()?,
-                        model.clone(),
-                        bound.structure,
-                        values.clone(),
-                        order,
-                        compiler,
-                        cancel,
-                    )
-                    .await?;
-                service
-                    .modeling_cache
-                    .retain_solver(generation, key, view.clone());
-                view
-            }
-        };
-        let case = service.attribute_modeling_view(&case, model)?;
-        Ok(ModelingCasePreparation {
-            model: model.clone(),
-            values: case.compiled().complete(&values),
-            case,
-            tightenings: bound.tightenings,
-        })
-    
-        }).await
+        activity
+            .scope(async {
+                let product = model.compiled();
+                let bound = product
+                    .bound_structure(states)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let key = product.view_key(&bound.structure, order, compiler, &self.physical.key);
+                let service = self.runtime.shared.math();
+                let generation = service.modeling_cache.generation();
+                let cached = service.modeling_cache.solver(key);
+                let case = match cached {
+                    Some(view) => service.rebind(&view, values.clone(), cancel).await?,
+                    None => {
+                        let view = service
+                            .prepare_modeling_view(
+                                self.numerical_workspace()?,
+                                model.clone(),
+                                bound.structure,
+                                values.clone(),
+                                order,
+                                compiler,
+                                cancel,
+                            )
+                            .await?;
+                        service
+                            .modeling_cache
+                            .retain_solver(generation, key, view.clone());
+                        view
+                    }
+                };
+                let case = service.attribute_modeling_view(&case, model)?;
+                Ok(ModelingCasePreparation {
+                    model: model.clone(),
+                    values: case.compiled().complete(&values),
+                    case,
+                    tightenings: bound.tightenings,
+                })
+            })
+            .await
     }
     /// The parametric program of the solver view `prepared` over `parameters`, in request
     /// order (Plan 22 S1), compiled once per view and parameter selection and cached with
@@ -112,7 +113,7 @@ impl ModelingPackage {
             true,
         );
         Ok(program)
-    
+
         }).await
     }
     /// The value-independent program observing `rows` of `model`, compiled once per
@@ -125,47 +126,48 @@ impl ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let generation = self.runtime.shared.math().modeling_cache.generation();
-        let product = model.compiled();
-        let structure = product
-            .observation_structure(rows)
-            .map_err(crate::math::MathRuntimeError::from)?;
-        let key = product.view_key(
-            &structure,
-            DerivativeOrder::Value,
-            compiler,
-            &self.physical.key,
-        );
-        if let Some(program) = self
-            .runtime
-            .shared
-            .math()
-            .modeling_cache
-            .program(key, false)
-        {
-            return Ok(program);
-        }
-        let program = self
-            .runtime
-            .shared
-            .math()
-            .prepare_modeling_observations(
-                self.numerical_workspace()?,
-                model.clone(),
-                rows.clone(),
-                compiler,
-                cancel,
-            )
-            .await?;
-        self.runtime.shared.math().modeling_cache.retain_program(
-            generation,
-            key,
-            program.clone(),
-            false,
-        );
-        Ok(program)
-    
-        }).await
+        activity
+            .scope(async {
+                let generation = self.runtime.shared.math().modeling_cache.generation();
+                let product = model.compiled();
+                let structure = product
+                    .observation_structure(rows)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+                let key = product.view_key(
+                    &structure,
+                    DerivativeOrder::Value,
+                    compiler,
+                    &self.physical.key,
+                );
+                if let Some(program) = self
+                    .runtime
+                    .shared
+                    .math()
+                    .modeling_cache
+                    .program(key, false)
+                {
+                    return Ok(program);
+                }
+                let program = self
+                    .runtime
+                    .shared
+                    .math()
+                    .prepare_modeling_observations(
+                        self.numerical_workspace()?,
+                        model.clone(),
+                        rows.clone(),
+                        compiler,
+                        cancel,
+                    )
+                    .await?;
+                self.runtime.shared.math().modeling_cache.retain_program(
+                    generation,
+                    key,
+                    program.clone(),
+                    false,
+                );
+                Ok(program)
+            })
+            .await
     }
 }

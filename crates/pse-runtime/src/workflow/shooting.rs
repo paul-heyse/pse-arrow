@@ -212,14 +212,15 @@ impl super::ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let execution = self
-            .declared_execution(root, compiler, solver, Default::default(), limits, cancel)
-            .await?;
-        self.shooting_for_declared(&execution, profile, cancel)
+        activity
+            .scope(async {
+                let execution = self
+                    .declared_execution(root, compiler, solver, Default::default(), limits, cancel)
+                    .await?;
+                self.shooting_for_declared(&execution, profile, cancel)
+                    .await
+            })
             .await
-    
-        }).await
     }
     /// Prepare shooting from the operation's already admitted authored execution.
     pub(in crate::workflow) async fn shooting_for_declared(
@@ -229,41 +230,42 @@ impl super::ModelingPackage {
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
         let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        if !matches!(
-            execution.procedure,
-            super::modeling::DeclaredProcedure::Shooting { .. }
-        ) {
-            return Err(contract(
-                "declared shooting requires the authored shooting procedure",
-            ));
-        }
-        let simulation = self
-            .simulation_for_declared(execution, profile, cancel)
-            .await?;
-        let request = simulation.authored_shooting(
-            execution.analysis.instance,
-            execution.analysis.solver.clone(),
-        )?;
-        let control = pse_columnar::flight::FlightCancellation::default();
-        let operation = self
-            .runtime
-            .shared
-            .math()
-            .job(1, 0, control.clone(), move |flag| {
-                Ok(ShootingProblem::new(&simulation, request, &flag))
-            });
-        tokio::pin!(operation);
-        tokio::select! {
-            result = &mut operation => result.map_err(WorkflowError::from)?,
-            () = cancel.cancelled() => {
-                control.cancel();
-                let _ = operation.await;
-                Err(crate::math::MathRuntimeError::Cancelled.into())
-            }
-        }
-    
-        }).await
+        activity
+            .scope(async {
+                if !matches!(
+                    execution.procedure,
+                    super::modeling::DeclaredProcedure::Shooting { .. }
+                ) {
+                    return Err(contract(
+                        "declared shooting requires the authored shooting procedure",
+                    ));
+                }
+                let simulation = self
+                    .simulation_for_declared(execution, profile, cancel)
+                    .await?;
+                let request = simulation.authored_shooting(
+                    execution.analysis.instance,
+                    execution.analysis.solver.clone(),
+                )?;
+                let control = pse_columnar::flight::FlightCancellation::default();
+                let operation =
+                    self.runtime
+                        .shared
+                        .math()
+                        .job(1, 0, control.clone(), move |flag| {
+                            Ok(ShootingProblem::new(&simulation, request, &flag))
+                        });
+                tokio::pin!(operation);
+                tokio::select! {
+                    result = &mut operation => result.map_err(WorkflowError::from)?,
+                    () = cancel.cancelled() => {
+                        control.cancel();
+                        let _ = operation.await;
+                        Err(crate::math::MathRuntimeError::Cancelled.into())
+                    }
+                }
+            })
+            .await
     }
 }
 

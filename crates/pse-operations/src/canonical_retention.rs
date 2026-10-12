@@ -95,60 +95,68 @@ impl CanonicalStore {
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
-            async {
-                owner.validate()?;
-                if !matches!(owner, RetentionOwner::History(_)) {
-                    return Err(CanonicalError::Configuration(
-                        "only deliberate history roots can be minted or moved explicitly".into(),
-                    ));
-                }
-                for attempt in 0..RETRIES {
-                    self.ensure_writes()?;
-                    let result = bounded_query(
-                        self.db
-                            .query(RETAIN)
-                            .bind(("problem", revision.problem.clone()))
-                            .bind(("revision", revision.key.clone()))
-                            .bind(("root", owner.key()))
-                            .bind(("owner_kind", owner.parts().0))
-                            .bind(("owner", owner.parts().1.to_owned()))
-                            .bind(("interpretation", wire::INTERPRETATION)),
-                    )
-                    .await
-                    .map(|_| ());
-                    match result {
-                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                            tokio::task::yield_now().await;
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                    async {
+                        owner.validate()?;
+                        if !matches!(owner, RetentionOwner::History(_)) {
+                            return Err(CanonicalError::Configuration(
+                                "only deliberate history roots can be minted or moved explicitly"
+                                    .into(),
+                            ));
                         }
-                        other => return other,
-                    }
-                }
-                Err(CanonicalError::Configuration(
-                    "retention retries exhausted".into(),
-                ))
-            },
-        )
-        .await
-            }).await
+                        for attempt in 0..RETRIES {
+                            self.ensure_writes()?;
+                            let result = bounded_query(
+                                self.db
+                                    .query(RETAIN)
+                                    .bind(("problem", revision.problem.clone()))
+                                    .bind(("revision", revision.key.clone()))
+                                    .bind(("root", owner.key()))
+                                    .bind(("owner_kind", owner.parts().0))
+                                    .bind(("owner", owner.parts().1.to_owned()))
+                                    .bind(("interpretation", wire::INTERPRETATION)),
+                            )
+                            .await
+                            .map(|_| ());
+                            match result {
+                                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                                    tokio::task::yield_now().await;
+                                }
+                                other => return other,
+                            }
+                        }
+                        Err(CanonicalError::Configuration(
+                            "retention retries exhausted".into(),
+                        ))
+                    },
+                )
+                .await
+            })
+            .await
     }
 
     /// Explicitly forget only this revision's default history root. Durable run,
     /// product, analysis, attempt and protected-reader roots remain independent.
     pub async fn forget_history(&self, revision: &Revision) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
-            async {
-                self.drop_retained_root(revision, &RetentionOwner::History(revision.key.clone()))
-                    .await
-            },
-        )
-        .await
-            }).await
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                    async {
+                        self.drop_retained_root(
+                            revision,
+                            &RetentionOwner::History(revision.key.clone()),
+                        )
+                        .await
+                    },
+                )
+                .await
+            })
+            .await
     }
 
     /// Drop exactly a history or product owner's expected selection. Lifecycle roots
@@ -160,48 +168,51 @@ impl CanonicalStore {
         owner: &RetentionOwner,
     ) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(
-            original_deadline(crate::canonical::REQUEST_TIMEOUT),
-            async {
-                owner.validate()?;
-                if matches!(
-                    owner,
-                    RetentionOwner::Run(_)
-                        | RetentionOwner::Analysis(_)
-                        | RetentionOwner::ActiveAttempt(_)
-                ) {
-                    return Err(CanonicalError::Configuration(
-                        "lifecycle roots are released only by their owning retirement".into(),
-                    ));
-                }
-                for attempt in 0..RETRIES {
-                    self.ensure_writes()?;
-                    let result = bounded_query(
-                        self.db
-                            .query(DROP_ROOT)
-                            .bind(("problem", revision.problem.clone()))
-                            .bind(("revision", revision.key.clone()))
-                            .bind(("root", owner.key()))
-                            .bind(("owner_kind", owner.parts().0))
-                            .bind(("owner", owner.parts().1.to_owned())),
-                    )
-                    .await
-                    .map(|_| ());
-                    match result {
-                        Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
-                            tokio::task::yield_now().await;
+        activity
+            .scope(async {
+                within_clock(
+                    original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                    async {
+                        owner.validate()?;
+                        if matches!(
+                            owner,
+                            RetentionOwner::Run(_)
+                                | RetentionOwner::Analysis(_)
+                                | RetentionOwner::ActiveAttempt(_)
+                        ) {
+                            return Err(CanonicalError::Configuration(
+                                "lifecycle roots are released only by their owning retirement"
+                                    .into(),
+                            ));
                         }
-                        other => return other,
-                    }
-                }
-                Err(CanonicalError::Configuration(
-                    "retention retries exhausted".into(),
-                ))
-            },
-        )
-        .await
-            }).await
+                        for attempt in 0..RETRIES {
+                            self.ensure_writes()?;
+                            let result = bounded_query(
+                                self.db
+                                    .query(DROP_ROOT)
+                                    .bind(("problem", revision.problem.clone()))
+                                    .bind(("revision", revision.key.clone()))
+                                    .bind(("root", owner.key()))
+                                    .bind(("owner_kind", owner.parts().0))
+                                    .bind(("owner", owner.parts().1.to_owned())),
+                            )
+                            .await
+                            .map(|_| ());
+                            match result {
+                                Err(error) if conflict(&error) && attempt + 1 < RETRIES => {
+                                    tokio::task::yield_now().await;
+                                }
+                                other => return other,
+                            }
+                        }
+                        Err(CanonicalError::Configuration(
+                            "retention retries exhausted".into(),
+                        ))
+                    },
+                )
+                .await
+            })
+            .await
     }
 
     /// Examine at most 64 closed intervals for one problem. Every deletion reruns

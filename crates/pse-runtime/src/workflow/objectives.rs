@@ -271,7 +271,7 @@ impl ModelingPackage {
             };
         staged.close().await;
         report
-    
+
         }).await
     }
     /// Query declared native priority semantics, otherwise admit one backend for staging.
