@@ -2,7 +2,7 @@
 title: SurrealDB lifecycle and integration target
 status: in-progress
 date: 2026-10-12
-adrs: [ADR-0181]
+adrs: [ADR-0181, ADR-0182]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#representative-changes-and-failure-journeys]
 doc_owner: docs/plans/37-surrealdb-lifecycle-and-integration.md
@@ -77,11 +77,11 @@ D0 classifies ADR needs under the repository's decision rules: amend proposed re
 
 ## Work packages
 
-The table owns current package status. Linked companions own the implementation visions and revealing tests. The approved tranche completes investigations and settled foundations; A1–A3, production deployment rollout/C3, Q1 and H1 remain outside this execution tranche.
+The table owns current package status. Linked companions own the implementation visions and revealing tests. The prior approved tranche completed investigations and settled foundations. The maintainer has now authorized execution of all remaining D0/A1–A3, persistent C2/C3, Q1 and H1 scope.
 
 | Packet | Required input | Delivery and owner | Acceptance and replacement | Status |
 |---|---|---|---|---|
-| D0 | Confirmed decisions/current owners | Coordinator: decision route, shared contracts, clean-cutover target | Required ADR/review/design changes before dependent implementation | In progress — B1 ADR and bounded target review routed; remaining scientific decisions retain their dependent route |
+| D0 | Confirmed decisions/current owners | Coordinator: decision route, shared contracts, clean-cutover target | Required ADR/review/design changes before dependent implementation | Complete for the selected target — proposed ADR-0182/revision158 and independent bounded target acceptance precede dependent implementation; Q1 remains separate |
 | A0 | Exact scientific and replay owners | [37a](37a-scientific-artifacts-history-and-policy.md#a0-scientific-closure-and-collection-decisions): settle artifact sufficiency/reduced replay | Valid/invalid selections and complete reachable mutation paths; gates A2/A3 | Complete — scientific closure/replay decisions; A1–A3 implementation remains scheduled |
 | A1 | D0 input contract | [37a](37a-scientific-artifacts-history-and-policy.md#a1-retained-exact-study-inputs): exact external start admission | Both retirement orders, pending restart/retry and release; replace late-acquisition-only retained path | Scheduled |
 | A2 | D0/A0, A1 input operation | [37a](37a-scientific-artifacts-history-and-policy.md#a2-independent-artifact-promotion-and-retirement): promotion/read/release | Producer retires, selected content survives, unrelated outputs drain; replace coarse-only consumer obligations | Scheduled |
@@ -137,6 +137,15 @@ I packages must record a settled adoption/non-adoption outcome, consumer/trigger
 Completion requires adopted packages implemented and replacements deleted, I outcomes recorded, seven findings resolved with evidence, fresh Q1 accepted, and enduring meaning transferred through the design route. H1 then reconciles only affected existing plans, preserving their remaining work and original evidence limits. Do not promote Plan 36's interrupted managed run or resume it automatically.
 
 ## Current checkpoint and bounded execution
+
+**Remaining-scope execution, 2026-10-12:** maintainer approved and requested the full remaining
+D0/A1–A3/persistent C2/C3/Q1/H1 route. Proposed ADR-0182 and architecture revision158 record
+the shared target before dependent code. The [independent bounded target review](../design_review/reviews/design_review_plan37-remaining-target_2026-10-12.md)
+accepted it at Proposed design level with no new material findings or rule impacts.
+Scientific and operational executor preparation is complete; dependent implementation is starting. Existing plans remain unchanged
+until H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original
+scope and evidence. The current execution is not yet implemented or accepted.
+
 
 **2026-10-12:** completed the maintainer-approved investigation/foundation tranche begun on baseline `a6aedd31`. The approved choice includes settled A4/B1–B3 foundations and disposable C1/C2 controls. Production scientific artifact/history implementation A1–A3, persistent deployment rollout/C3, assembled Q1 and existing-plan reconciliation H1 remain scheduled for later execution. Existing plans/status have not been revised.
 

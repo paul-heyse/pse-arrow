@@ -1061,6 +1061,14 @@ scientific reference comparisons; it does not establish
 full numerical equivalence
 ([relationship to IDAES](../../relationship-to-idaes.md)).
 
+**Artifact and history boundary (ADR-0182, proposed; Plan37 target).** Rust and Python
+retain current run/study/analysis handle identity. Scientific artifact promotion/read and
+independent owner release expose typed outcomes through the same boundary; history release
+is distinct from payload release. Original scientific IDs and opaque operation ID/hash
+meaning stay unchanged. A collected owner reports retired/history-unavailable rather than
+an invented completion, missing-as-never-issued inference or native redispatch. Original
+assessment, units and partiality remain scientific-owner authority.
+
 ### 21.1 Extension module, canonical operations and Arrow streams
 
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A1/P-A2).

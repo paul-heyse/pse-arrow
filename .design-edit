@@ -2,3 +2,8 @@ SPDX-FileCopyrightText: 2026 Paul Heyse
 SPDX-License-Identifier: MIT OR Apache-2.0
 
 Maintainer authorized implementation of accepted Plan 36; root owns concrete P-G0 architecture amendments and revision rows. No older plan reconciliation or production deletion.
+
+2026-10-12: Maintainer authorized remaining Plan37 execution. Root owns ADR-0182,
+scientific artifact/reduced-history and maintenance activation contracts and revision.
+OP01 authorizes fresh selected owned-store reset/regeneration without preservation.
+Older-plan reconciliation follows Q1; unrelated owners and unknown effects stay protected.

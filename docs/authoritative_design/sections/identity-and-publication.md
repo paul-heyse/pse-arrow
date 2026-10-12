@@ -549,6 +549,14 @@ native API received it ([§17.6](numerical-execution.md#section-17-6)). Selected
 identity and exact original bits remain attributable. A missing or incompatible explicitly
 requested seed is a typed refusal, not an invented empty start.
 
+**Retained exact inputs (ADR-0182, proposed; Plan37 target).** Durable studies resolve
+and admit explicit external starts before activation, including scientific compatibility.
+Their independent artifact obligation survives producer retirement and supplies dispatch,
+restart and retry. Within-study exact-input deduplication preserves occurrence role and
+provenance. Admission-first survives retirement; retirement-first refuses without fresh
+fallback. Preparation remains outside the visibility transaction and value-only edits
+retain the existing structural reuse contract.
+
 An immutable analysis records method, configuration, interpretation and all selected source
 revisions. Result-input edges name the exact run, attempt and manifest. Dependency analysis
 separates original numerical incidence from conservative execution support; retained-result
@@ -621,14 +629,41 @@ expiry bounding shutdown bookkeeping. Decoded copied Arrow arrays retain their a
 owner and can remain usable after reader drop and database reclamation; their final drop
 releases the memory charge. Buffer ownership is not a database lease.
 
-**Explicit retirement.** Source collection rechecks reachability and removes unreachable
-intervals, versions, reference edges and blocks in bounded pages. Retired ranges retain
-receipts and fence reopening. Result retirement requires settled attempts, no live result
-reads and no retained study/analysis obligation. Its tombstone fences claims, reads,
-operation-replay fallback and new admissions before payload removal. Bounded resumable
-cleanup removes scientific blobs and derived indexes while preserving lifecycle and lineage
-receipts. Study result retention is withdrawn through its owning operation; there is no
-implicit elapsed-age deletion of deliberate scientific history.
+**Independent scientific artifacts (ADR-0182, proposed; Plan37 target).** Scientific
+owners admit small copied seed capsules and selected artifact-owned bounded IPC copies.
+Occurrence identity, original scientific identity and encoding digest have distinct roles.
+Original units/basis, coordinates, case/model/source interpretation, assessments and
+partiality travel with sufficient content. Actual final endpoints carry mode/integral/input
+interpretation; trajectories carry event/transition/coverage context; local analyses carry
+validity, conventions and required upstream context. Missing sufficiency refuses promotion.
+Persisted graph analyses retain their existing occurrence owner and reference typed
+artifact block/row/field evidence; producer IPC strings alone cannot grant active access.
+
+A sealed creation intent preserves original source authority, nonce, finite expiry and
+exact request. Staging maintains original producer protection; short atomic activation
+registers retirement/source authority and installs verified content, independent roots and
+initial obligations. Existing source-retention creation floors settle delayed creators at
+final collection. Study, explicit-user/project, analysis, protected-read and audit obligations
+release independently. One release cannot invalidate another retained owner's future reads.
+Collection is bounded/resumable and unknown creation remains protective. Neither copying
+nor a digest invents numerical permission or numerical continuation checkpoints.
+
+**Explicit retirement and detailed history (ADR-0182, proposed; Plan37 target).** Source
+collection rechecks reachability and removes unreachable intervals/versions/edges/blocks
+in bounded pages. Retired authority fences reopening. Producer payload retirement closes
+producer reads, while independently retained artifacts remain usable. Payload release and
+run/study history release are separate explicit owner operations; terminality/age does not
+authorize deletion. Audit and unsettled effect/grant/creation obligations retain their detail.
+
+Permanent run/study fences dominate all mutation, early receipt return, absence fallback,
+readiness and recovery. A retired study ID refuses even with a different run. Existing opaque
+operation IDs retain compact server-issued authority/run/attempt/study/point/kind/disposition
+locators, installed atomically with the original effect. Transactional owner/fence checks
+precede receipt readback. Released settled history returns retired/history-unavailable;
+compact locators cannot reconstruct a successful closure or authorize native redispatch.
+Live/unsettled requests retain exact comparisons. Bounded collection releases occurrence,
+request/result and header detail after actual obligations settle. Compact identity state can
+still grow with issued IDs; logical collection does not establish returned disk space.
 
 **Full analysis retirement (ADR-0172, proposed).** An analysis header owns staging, active
 and retiring phases. Creation atomically validates exact source revisions and result-read
@@ -680,18 +715,31 @@ requires explicit operator action. The retired PostgreSQL/Delta descriptor, COPY
 and publication APIs have no production compatibility path. There is no automatic importer,
 reset or inferred migration from unsupported historical storage.
 
-**Explicit design-phase cutover (ADR-0172, proposed).** The lifecycle owner may rebuild
-disposable internal state from explicitly preserved authored/external inputs using a current
-initializer. It first verifies and preserves those inputs, closes admission and drains the
-owned server and every registered holder. A shared or uncertain owner refuses. The new
-database and authority are fresh; old revisions and interpretation markers are never
-relabelled. Disposal targets only the identified replaced database after preservation and
-current initialization are acknowledged. An interrupted cutover stays closed until its
-owner resolves the phase. Canonical write admission stays closed throughout initialization.
-Only an explicitly selected initializer carrying the live lifecycle owner identity may write
-to that exact fresh namespace/database; owner death invalidates this authority without cleanup.
-Ordinary handles refuse pending maintenance even if a stale write-admission flag is true.
-This is an explicit maintenance action, never ordinary opening.
+**Explicit design-phase cutover (ADR-0182, proposed; Plan37 OP01 target).** The existing
+lifecycle owner regenerates selected disposable state from current authoritative definitions
+and fixtures without a preserved-input export or old-data survival gate. It closes admission,
+drains authentic activities/workers/transports/holders, refuses unrelated or unknown borrowers,
+and stops the owned server before selected physical replacement. New database identity,
+issuing authority and credentials are fresh; source documents and unrelated workspaces are
+outside reset authority. Initialization and validation run under closed admission; only the
+exact live initializer may write. Failed/interrupted phases stay closed for explicit recovery.
+Dispose only exact replaced owned state and explicitly activate/readmit the validated target.
+Ordinary opening never resets, repairs or activates an unsupported store.
+
+**Frozen forward rollout (ADR-0182, proposed; Plan37 C2 target).** Generated definitions and
+codecs remain registry authority. Producer-owned frozen steps are immutable; changes append
+forward steps with exact hashes/predecessors. Beta SHA is distinct from the repository schema
+digest. The exclusive maintenance owner fences participating application/tool writers. Its
+fixed schema settler binds original pending nonce/inputs/step identities and actual generated
+postconditions, after authentic prior SQL/service drain. Unknown data needs its domain owner's
+exact atomic witness/postconditions; unsupported/ambiguous steps remain unknown. CLI exit,
+repair, lock expiry and local drain alone do not establish effect settlement.
+
+Canonical maintenance validation is separate from activation. Activation verifies installed
+definitions, codec/scientific obligations and exact settled operation before publishing the
+marker. Compatible forward activation preserves issuing identity and checks its predecessor;
+fresh activation mints it. Atomic direct fresh creation remains supported. Ordinary open is
+validation-only. Neither the beta tool nor a supplied settlement file grants activation authority.
 
 Maintenance keeps ordinary canonical admission closed and drains registered holders and the
 ordinary server. Its live lifecycle owner may run a temporary authenticated loopback server
@@ -706,9 +754,9 @@ are probed through fresh connections without selecting a missing catalog context
 credentials. Loopback binding alone does not fence holders of privileged credentials.
 
 
-`recover-maintenance` resumes only the durable phase recorded by that owner. It verifies
-preserved input/backup inventories and observes account/database effects before retrying
-uncertain operations. Restore publishes its fresh closed identity before copying any backup
+`recover-maintenance` resumes only the durable phase recorded by that owner. Current-version
+restore verifies its backup inventory; clean rebuild verifies current initializer authority.
+Both observe account/database effects before retrying uncertain operations. Restore publishes its fresh closed identity before copying any backup
 bytes; the old startable profile is never copied. Unknown files, changed inputs, unknown
 catalog owners or an unvalidated initializer leave admission closed. Disposal follows
 acknowledged current initialization and targets the exact replaced database.
@@ -776,23 +824,12 @@ Immutable body content, complete interpretation/dependency receipts and store-is
 product associations are distinct from eligible roots. Shared material retains one charged
 owner, full equality and collision checks; exact acknowledgment verifies the original
 association/root. A live preparation engagement owns synchronous once-per-engagement
-settlement, exact protection and already-issued uncertainty through drain. Controlled
-schema/history activation fences writers, settles old uncertainty, materializes reachable
-derived records without changing bytes/predicates/provenance, and verifies them before
-switching all consumers together. Interrupted backfill retains old authority; undecodable
-history refuses activation. This target authorizes neither production activation nor
-history deletion, and does not select optional publication.
-
-Recognized historical result activation preserves original run/attempt/result, study,
-analysis and source/root records. Typed row locators are rebuilt from original IPC using
-the registry-bound decoder and projection. Exact `canonical_historical_results`
-admissions bind supported sealed terminal attempts to their original manifest and frozen
-store/migration snapshot. Historical readers still acquire current protection and obey
-retirement; these admissions grant no execution, write or new seed permission. Known
-terminal incomplete prefixes remain incomplete. Unknown or mutable histories refuse
-activation, and server writes independently require the current interpretation. Original
-snapshot and derived coverage verification precede the final marker switch; interrupted
-work resumes its existing migration identity.
+settlement, exact protection and already-issued uncertainty through drain. The fresh Plan37
+target (ADR-0182) replaces historical substrate activation/backfill and
+compatibility readers. Install all current consumers together against the generated v5
+contract, regenerate scientific evidence, and retain current scientific source-version
+semantics. This is not permission to reinterpret old substrate payloads or automatically
+resume other plans' qualification campaigns.
 
 > Decision: [ADR-0173](../../adr/0173-seal-seed-eligibility-before-discovery.md) (proposed). Seed discovery separates terminal lifecycle from complete-original scientific inventory permission.
 
