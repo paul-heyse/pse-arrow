@@ -466,6 +466,29 @@ impl ModelingSimulation {
     pub fn identity(&self) -> ContentHash {
         self.key
     }
+    pub(in crate::workflow) fn scientific_context(&self,run_id:RunId,profile_identity:ContentHash)->Result<pse_model::generated::runtime::scientific_contexts::Row,WorkflowError> {
+        let product=self.model().compiled();
+        let quantity=|id:SemanticId| {
+            if let Some(port)=product.admitted.case().parameters().iter().chain(product.admitted.case().variables().iter().map(|value|&value.port)).find(|port|port.id==id) {return Ok(port.quantity);}
+            if let Some(row)=product.admitted.case().rows().iter().find(|row|row.id==id) {return Ok(row.quantity);}
+            let symbol=product.model.symbols.get(&id).ok_or_else(||contract("artifact coordinate symbol absent"))?;
+            symbol.ty.quantity_scheme().ok_or_else(||contract("artifact coordinate quantity absent"))?.resolve_with_evidence(&self.quantities,&pse_quantity::scheme::Substitution::new(),self.source.physical.preconditions()).map_err(|error|contract(error.to_string()))
+        };
+        let coordinate=|id,scale,offset|crate::workflow::artifacts::coordinate(id,quantity(id)?,&self.quantities,scale,offset);
+        let state=self.coordinates.state.iter().map(|c|coordinate(c.id,c.scale,c.offset)).collect::<Result<Vec<_>,WorkflowError>>()?;
+        let inputs=self.coordinates.parameters.iter().map(|c|coordinate(c.id,c.scale,c.offset)).collect::<Result<Vec<_>,WorkflowError>>()?;
+        let outputs=self.contract.outputs.iter().map(|id|coordinate(*id,1.,0.)).collect::<Result<Vec<_>,WorkflowError>>()?;
+        let integrals=self.contract.quadratures.iter().map(|id|coordinate(*id,1.,0.)).collect::<Result<Vec<_>,WorkflowError>>()?;
+        let time=Some(coordinate(self.coordinates.time,self.coordinates.time_scale,self.coordinates.time_origin)?);
+        let configuration=serde_json::to_vec(&(1u8,&self.profile,&self.parameters)).map_err(|error|contract(error.to_string()))?;
+        Ok(pse_model::generated::runtime::scientific_contexts::Row {
+            run_id,step:0,model_id:Some(self.solved.model()),fit_id:None,case_id:self.solved.case(),instance_id:Some(self.solved.instance()),
+            source_identity:self.source.revision.identity().as_id(),physical_identity:self.source.physical.identity(),preparation_identity:self.identity(),profile_identity,
+            configuration:configuration.into(),binding:None,state,inputs,outputs,integrals,time,
+            mode_names:self.modes.iter().map(|mode|mode.name.clone()).collect(),
+            mode_identities:self.modes.iter().map(|mode|mode.model.compiled().admitted.case().key()).collect(),
+        })
+    }
     /// Exact per-mode preparation requests captured by the actual constructor.
     #[cfg(feature = "solver-diffsol")]
     pub(in crate::workflow) fn original_preparations(

@@ -432,24 +432,9 @@ impl Runtime {
             edge(&mut graph, node, attempt_node, "input_provenance", None)?;
         }
         let staging_owner=format!("analysis-staging:{}",pse_operations::mint_id::<pse_model::generated::identities::RunId>());
-        let mut copied=Vec::new();
-        for name in ["runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.local_validity","runtime.candidate_assessments","runtime.run_lineage"] {
-            let spec=self.registry().relation(name).ok_or_else(||contract("analysis relation unavailable"))?;
-            let Some(set)=input.sets().iter().find(|set|set.name==spec.id.to_string()) else {continue;};
-            if copied.len().saturating_add(set.batch_count as usize)>64 {return Err(contract("analysis artifact block bound"));}
-            for ordinal in 0..set.batch_count {
-                input.renew(Duration::from_secs(600)).await?;
-                let block=self.canonical_store().result_payload(&input,&set.key,ordinal).await?;
-                copied.push((name,block.batch.payload.to_vec(),block.batch.row_count,block.batch.digest));
-            }
-        }
-        let provenance=serde_json::to_vec(&(1u8,run,attempt,input.manifest())).map_err(|error|contract(error.to_string()))?;
-        let mut artifact=self.canonical_store().new_artifact(&revision,"graph-evidence",provenance,copied.len() as u64,copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum()).await?;
-        let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))|pse_operations::canonical_artifacts::artifact_block(&artifact.key,ordinal as u64,name,payload,&digest,rows)).collect::<Vec<_>>();
-        pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&input),&blocks);
-        self.canonical_store().persist_artifact(&artifact,&sources,std::slice::from_ref(&input),&blocks,"audit",&staging_owner).await?;
-        let artifact_read=self.canonical_store().read_artifact(&artifact.key,Duration::from_secs(600)).await?;
-        for ordinal in 0..artifact.block_count {
+        let artifact=self.promote_scientific_artifact(run,attempt,super::artifacts::ScientificArtifactKind::LocalAnalysis,"audit",&staging_owner,cancel.clone()).await?;
+        let artifact_read=self.canonical_store().read_artifact(&artifact.header().key,Duration::from_secs(600)).await?;
+        for ordinal in 0..artifact.header().block_count {
             let block=artifact_read.block(ordinal).await?;
             let relation_name=block.relation.as_str();
             if !["runtime.parametric_sensitivities","runtime.response_sensitivities"].contains(&relation_name) {continue;}
@@ -457,7 +442,7 @@ impl Runtime {
             let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
             let decoded=super::result_blocks::decode_result_block(block.payload.as_slice(),schema,usize::try_from(block.rows).map_err(|_|contract("analysis row extent"))?)?;
             let batch=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
-            let locator=|row,field:Option<&str>|Some(ArtifactLocator {artifact:artifact.key.clone(),block:ordinal,row:Some(row),field:field.map(str::to_owned)});
+            let locator=|row,field:Option<&str>|Some(ArtifactLocator {artifact:artifact.header().key.clone(),block:ordinal,row:Some(row),field:field.map(str::to_owned)});
             if relation_name=="runtime.parametric_sensitivities" {
                 let view=pse_relations::generated::runtime::parametric_sensitivities::View::from_checked(&batch).map_err(relation)?;
                 for index in 0..view.len() {
@@ -494,7 +479,7 @@ impl Runtime {
             controls,
         )
         .await?;
-        self.canonical_store().release_artifact(&artifact.key,"audit",&staging_owner).await?;
+        self.canonical_store().release_artifact(&artifact.header().key,"audit",&staging_owner).await?;
         artifact_read.release().await?;
         Ok(handle)
 
@@ -719,6 +704,7 @@ mod canonical_analyses_server_unit {
         assert!(quantified[0].dual.is_none());
         let run = result.canonical_run_key().unwrap();
         let attempt = result.canonical_attempt_key().unwrap();
+        let final_state=runtime.promote_scientific_artifact(run,attempt,super::super::artifacts::ScientificArtifactKind::FinalState,"user","retained-final-state",CancellationToken::new()).await.unwrap();
         let post = runtime
             .result_analysis(
                 run,
@@ -773,13 +759,24 @@ mod canonical_analyses_server_unit {
                 .await
                 .is_err()
         );
-        assert!(
-            runtime
-                .canonical_store()
-                .forget_run_results(run)
-                .await
-                .is_err()
-        );
+        let mut retired=false;
+        for _ in 0..32 {
+            if runtime.canonical_store().forget_run_results(run).await.is_ok() {retired=true;break;}
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(retired,"independent graph evidence does not retain the producer run");
+        let final_read=runtime.canonical_store().read_artifact(&final_state.header().key,Duration::from_secs(10)).await.unwrap();
+        let mut preserved_variables=false;
+        for ordinal in 0..final_state.header().block_count {
+            let block=final_read.block(ordinal).await.unwrap();
+            if block.relation=="runtime.solve_variables" {preserved_variables|=block.rows>0;assert!(final_state.block(ordinal,CancellationToken::new()).await.is_ok());}
+        }
+        final_read.release().await.unwrap();
+        assert!(preserved_variables);
+        let evidence_artifact=runtime.scientific_artifact(evidence.evidence_artifact.as_deref().unwrap()).await.unwrap();
+        let retained=evidence_artifact.evidence(&ArtifactLocator {artifact:evidence.evidence_artifact.clone().unwrap(),block:evidence.evidence_block.unwrap(),row:evidence.evidence_row,field:evidence.evidence_field.clone()},CancellationToken::new()).await.unwrap();
+        let retained=parametric_sensitivities::Row::rows(&retained).unwrap();
+        assert_eq!(retained,quantified,"actual quantitative evidence remains identical after producer retirement");
         let mut declarations = pse_authoring::language::parse(
             super::super::durable_tests::LINEAR,
             pse_ids::SemanticId::NIL,

@@ -9,6 +9,7 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
+from pse._artifacts import ArtifactOwnerKind, ScientificArtifact, ScientificArtifactKind
 from pse._build import (
     EngineSettings,
     _NativePhysicalContext,
@@ -39,6 +40,7 @@ from pse.contracts.documents import (
 )
 from pse.contracts.identities import (
     StudyId,
+    SolutionId,
 )
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -130,6 +132,27 @@ class Runtime:
     def result_manifest(self, attempt: str) -> TableStream:
         """Read the exact admitted closed descriptor through its Arrow schema."""
         return TableStream(self._handle.result_manifest(attempt))
+
+    def scientific_artifact(self, key: str) -> ScientificArtifact:
+        """Reopen one active independent artifact after producer retirement."""
+        return ScientificArtifact(self._handle.scientific_artifact(key))
+
+    def promote_seed_artifact(
+        self, solution: SolutionId, *, owner_kind: ArtifactOwnerKind, owner: str
+    ) -> ScientificArtifact:
+        """Copy one freshly qualified original start and its reuse assessment."""
+        return ScientificArtifact(
+            self._handle.promote_seed_artifact(solution.to_hex(), owner_kind, owner)
+        )
+
+    def promote_scientific_artifact(
+        self, run: str, attempt: str, kind: ScientificArtifactKind,
+        *, owner_kind: ArtifactOwnerKind, owner: str
+    ) -> ScientificArtifact:
+        """Preserve an interpreted scientific product; insufficient context refuses."""
+        return ScientificArtifact(
+            self._handle.promote_scientific_artifact(run, attempt, kind, owner_kind, owner)
+        )
 
     def analysis(self, key: str) -> Analysis:
         """Reopen one exact active scientific graph without hydrating results."""

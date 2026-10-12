@@ -52,6 +52,31 @@ fn local_python_configuration(
     ))
 }
 
+/// Independent retained scientific content; producer availability is not consulted.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeScientificArtifact {
+    inner: native::artifacts::ScientificArtifact,
+    owner: Arc<runtime::Runtime>,
+}
+#[pymethods]
+impl NativeScientificArtifact {
+    #[getter]
+    fn key(&self)->String {self.inner.header().key.clone()}
+    #[getter]
+    fn kind(&self)->String {self.inner.header().kind.clone()}
+    fn metadata(&self,py:Python<'_>)->PyResult<inspection::TableStream> {
+        inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.metadata(),||{})?).map_err(|error|errors::diagnostic(py,&error))
+    }
+    fn block(&self,py:Python<'_>,ordinal:u64)->PyResult<inspection::TableStream> {
+        let cancel=pse_columnar::CancellationToken::new();
+        inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.block(ordinal,cancel.clone()),||cancel.cancel())?).map_err(|error|errors::diagnostic(py,&error))
+    }
+    fn retain(&self,py:Python<'_>,kind:&str,owner:&str)->PyResult<()> {blocking(py,&self.owner,self.inner.retain(kind,owner),||{})}
+    fn release(&self,py:Python<'_>,kind:&str,owner:&str)->PyResult<()> {blocking(py,&self.owner,self.inner.release(kind,owner),||{})}
+    fn collect(&self,py:Python<'_>)->PyResult<bool> {blocking(py,&self.owner,self.inner.collect(),||{})}
+}
+
 /// Compact exact persisted graph; every page uses the runtime's retained pool.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -346,7 +371,7 @@ fn blocking_analysis<
     cancel: impl Fn(),
 ) -> PyResult<native::AnalysisHandle> {
     blocking_on_with_recovery(py, runtime.executor, future, cancel, |value| {
-        Some(value.key().to_owned())
+        Some(("analysis_key",value.key().to_owned()))
     })
 }
 fn blocking_on_with_recovery<
@@ -357,7 +382,7 @@ fn blocking_on_with_recovery<
     executor: &tokio::runtime::Runtime,
     future: F,
     cancel: impl Fn(),
-    recovery_key: impl Fn(&T) -> Option<String>,
+    recovery_key: impl Fn(&T) -> Option<(&'static str,String)>,
 ) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
@@ -377,12 +402,11 @@ fn blocking_on_with_recovery<
             return match signal {
                 Some(e) => {
                     use errors::ReportSource;
-                    let key = match &value {
-                        Ok(value) => recovery_key(value),
-                        Err(error) => error.report_analysis_key(),
-                    };
-                    if let Some(key) = key {
-                        e.value(py).setattr("analysis_key", key)?;
+                    match &value {
+                        Ok(value)=>if let Some((field,key))=recovery_key(value) {e.value(py).setattr(field,key)?;},
+                        Err(error)=>for (field,key) in [("analysis_key",error.report_analysis_key()),("artifact_key",error.report_artifact_key()),("study_key",error.report_study_key())] {
+                            if let Some(key)=key {e.value(py).setattr(field,key)?;}
+                        },
                     }
                     if let Err(error) = &value {
                         e.set_cause(py, Some(errors::diagnostic(py, error)));
@@ -723,6 +747,20 @@ impl NativeRuntime {
     fn result_manifest(&self, py: Python<'_>, attempt: &str) -> PyResult<inspection::TableStream> {
         let batch = blocking(py, &self.owner, self.inner.result_manifest(attempt), || {})?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
+    }
+    fn scientific_artifact(&self,py:Python<'_>,key:&str)->PyResult<NativeScientificArtifact> {
+        Ok(NativeScientificArtifact {inner:blocking(py,&self.owner,self.inner.scientific_artifact(key),||{})?,owner:self.owner.clone()})
+    }
+    fn promote_seed_artifact(&self,py:Python<'_>,solution:&str,owner_kind:&str,owner:&str)->PyResult<NativeScientificArtifact> {
+        let solution=pse_ids::SemanticId::parse_hex(solution).map(pse_model::generated::identities::SolutionId::from_id).map_err(|error|invalid(py,error.to_string()))?;
+        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_seed_artifact(solution,owner_kind,owner),||{},|value|Some(("artifact_key",value.header().key.clone())))?;
+        Ok(NativeScientificArtifact {inner,owner:self.owner.clone()})
+    }
+    fn promote_scientific_artifact(&self,py:Python<'_>,run:&str,attempt:&str,kind:&str,owner_kind:&str,owner:&str)->PyResult<NativeScientificArtifact> {
+        let kind=match kind {"final-state"=>native::artifacts::ScientificArtifactKind::FinalState,"trajectory"=>native::artifacts::ScientificArtifactKind::Trajectory,"local-analysis"=>native::artifacts::ScientificArtifactKind::LocalAnalysis,_=>return Err(invalid(py,"unknown scientific artifact kind"))};
+        let cancel=pse_columnar::CancellationToken::new();
+        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_scientific_artifact(run,attempt,kind,owner_kind,owner,cancel.clone()),||cancel.cancel(),|value|Some(("artifact_key",value.header().key.clone())))?;
+        Ok(NativeScientificArtifact {inner,owner:self.owner.clone()})
     }
     fn analysis(&self, py: Python<'_>, key: &str) -> PyResult<NativeAnalysis> {
         Ok(NativeAnalysis {
@@ -1673,6 +1711,11 @@ impl NativePreparedOperation {
             owner: self.owner.clone(),
             inner: PreparedOperation::Modeling(Box::new(prepared)),
         })
+    }
+    fn with_artifact_start(&self,py:Python<'_>,artifact:&NativeScientificArtifact)->PyResult<Self> {
+        let PreparedOperation::Modeling(prepared)=&self.inner else {return Err(invalid(py,"retained artifact starts require an algebraic solve"));};
+        let inner=blocking(py,&artifact.owner,artifact.inner.apply_start(prepared.as_ref()),||{})?;
+        Ok(Self {owner:self.owner.clone(),inner:PreparedOperation::Modeling(Box::new(inner))})
     }
     fn with_start(&self, py: Python<'_>, seed: &NativeStart) -> PyResult<Self> {
         let PreparedOperation::Modeling(p) = &self.inner else {

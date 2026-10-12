@@ -34,6 +34,7 @@ impl RunResult {
                 }
             }
             super::RunRequest::Modeling(_) => ids.extend([
+                scientific_contexts::RELATION_ID,
                 solve_runs::RELATION_ID,
                 solve_variables::RELATION_ID,
                 solve_constraints::RELATION_ID,
@@ -60,6 +61,7 @@ impl RunResult {
                 }
             }
             super::RunRequest::Fit(_) => ids.extend([
+                scientific_contexts::RELATION_ID,
                 computation_runs::RELATION_ID,
                 fit_variables::RELATION_ID,
                 fit_constraints::RELATION_ID,

@@ -540,6 +540,7 @@ impl Runtime {
                         })
                     })
                     .collect::<Result<Vec<_>, WorkflowError>>()?;
+                let creation = async {
                 for solution in admitted_seeds.keys() {
                     creation_checkpoint(cancel)?;
                     let artifact=creation_effect(cancel,operations.promote_seed(*solution,"study",&key)).await?;
@@ -554,6 +555,20 @@ impl Runtime {
                 if activated.is_none() {
                     creation_checkpoint(cancel)?;
                     return Err(contract("inactive study creation was interrupted"));
+                }
+                Ok::<(),WorkflowError>(())
+                }.await;
+                if let Err(source)=creation {
+                    // Issued effects are awaited. Absence is proved under the same
+                    // study guard before permanent abandonment; a header is never
+                    // inferred inactive or fabricated terminal by this route.
+                    loop {
+                        match self.canonical_store().abandon_study_inputs(&key).await {
+                            Ok(true)=>return Err(source),
+                            Ok(false)=>continue,
+                            Err(cleanup)=>return Err(WorkflowError::StudyCreationUnsettled {study:study_id,source:Box::new(source),cleanup:Box::new(cleanup)}),
+                        }
+                    }
                 }
                 // Catch cancellation after the owner's final observation and before handing
                 // an active handle to the caller. Never interrupt the durable cancel write.

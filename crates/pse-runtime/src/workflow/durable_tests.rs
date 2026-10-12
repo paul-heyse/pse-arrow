@@ -114,6 +114,10 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
         _ => panic!("original root seed"),
     };
     let solution = admitted.solution();
+    let original_assessment=admitted.assessment().cloned();
+    let artifact=runtime.promote_seed_artifact(solution,"user","seed-consumer").await.unwrap();
+    artifact.retain("audit","independent-audit").await.unwrap();
+    let target_preparation=prepared.clone();
     let run = admitted.header().run.clone();
     let attempt = admitted.header().attempt.clone();
     drop(result);
@@ -154,6 +158,16 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
             .is_some(),
         "retirement preserves the original attempt on the still-connected store"
     );
+    assert!(operations.promote_seed(solution,"user","retirement-first").await.is_err(),"retirement first refuses fresh promotion");
+    let reopened=runtime.scientific_artifact(&artifact.header().key).await.unwrap();
+    let copied=reopened.seed().await.unwrap();
+    assert_eq!(copied.assessment(),original_assessment.as_ref());
+    let pse_backend_native::solve::WarmPayload::Root(copied_primal)=&copied.start().payload else {panic!("copied root seed");};
+    assert_eq!(copied_primal.iter().map(|value|value.to_bits()).collect::<Vec<_>>(),bits);
+    let reused=target_preparation.with_admitted_start(&copied).unwrap().start().unwrap().wait().await.unwrap();
+    assert!(reused.usable(),"{:?}",reused.report());
+    artifact.release("user","seed-consumer").await.unwrap();
+    assert!(reopened.seed().await.is_ok(),"independent audit ownership survives user release");
     let retained = bare.explicit_seed().unwrap();
     let pse_backend_native::solve::WarmPayload::Root(primal) = &retained.payload else {
         panic!("retained root seed")

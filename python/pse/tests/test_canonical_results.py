@@ -300,7 +300,7 @@ def test_canonical_result_selection_and_progress_reopen(
     dependency_rows = pa.table(dependencies.edges()).to_pylist()
     assert any(row["kind"] == "numerical_incidence" for row in dependency_rows)
     assert any(row["kind"] == "execution_dependency" for row in dependency_rows)
-    assert all(row["evidence"] is None for row in dependency_rows)
+    assert all(row["evidence_artifact"] is None for row in dependency_rows)
     dependency_header = pa.table(dependencies.header())
     (dependency_occurrence,) = dependency_header.to_pylist()
     content_fields = [
@@ -372,6 +372,18 @@ def test_canonical_result_selection_and_progress_reopen(
         row["kind"] == "input_provenance"
         for row in pa.table(provenance.edges()).to_pylist()
     )
+    artifact = reopened.promote_scientific_artifact(
+        run, attempt, "final-state", owner_kind="user", owner="python-final-state"
+    )
+    artifact.retain("audit", "python-independent-audit")
+    (artifact_header,) = pa.table(artifact.metadata()).to_pylist()
+    assert artifact_header["kind"] == "final-state"
+    copied = [pa.table(artifact.block(i)) for i in range(artifact_header["block_count"])]
+    assert any(table.num_rows and "value" in table.column_names for table in copied)
+    artifact.release("user", "python-final-state")
+    with pytest.raises(pse.InspectionError):
+        artifact.retain("user", "python-final-state")
+    assert pa.table(reopened.scientific_artifact(artifact.key).metadata()).num_rows == 1
     relation = "runtime.solve_runs"
     exact = pa.table(reopened.results(run, attempt, relation))
     latest = pa.table(

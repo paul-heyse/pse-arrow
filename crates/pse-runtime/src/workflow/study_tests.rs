@@ -933,7 +933,7 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
 
 #[cfg(feature = "canonical-tests")]
 #[tokio::test]
-async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt() {
+async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
     let runtime = durable_runtime();
     let (package, mut definition) = related_definition(&runtime).await;
     definition.points.truncate(1);
@@ -942,45 +942,11 @@ async fn canonical_study_explicit_missing_seed_refuses_without_native_attempt() 
         seed: pse_operations::mint_id(),
     };
     let (physical, _) = sources(CASES);
-    let handle = runtime
-        .start_defined_study(physical, definition, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert!(
-        matches!(
-            runtime.work_once().await.unwrap(),
-            Processed::Settled { .. }
-        ),
-        "pending readiness repair cannot preempt an eligible effect-free refusal"
-    );
-    assert!(matches!(
-        runtime.work_once().await.unwrap(),
-        Processed::Finalized { .. }
-    ));
-    assert!(matches!(
-        runtime.work_once().await.unwrap(),
-        Processed::Idle
-    ));
-    let status = handle.status().await.unwrap();
-    let point = &status.points[0];
-    assert!(point.settled);
-    assert!(point.attempt.is_none());
-    let outcome = point.outcome.as_ref().unwrap();
-    assert!(!outcome.scientific.usable);
-    assert_eq!(
-        outcome.diagnostic.as_ref().unwrap().rule,
-        pse_diagnostics::DiagnosticRule::StudySeedUnavailable
-    );
-    assert!(
-        runtime
-            .canonical_store()
-            .canonical_run(&point.run)
-            .await
-            .unwrap()
-            .unwrap()
-            .current_attempt
-            .is_none()
-    );
+    let before=runtime.canonical_store().study_page(None).await.unwrap();
+    let failure=runtime.start_defined_study(physical,definition,&crate::CancelSource::new()).await.unwrap_err();
+    assert!(matches!(failure,WorkflowError::SeedRead(_)),"{failure:?}");
+    assert_eq!(runtime.canonical_store().study_page(None).await.unwrap(),before);
+    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Idle));
     drop(package);
 }
 

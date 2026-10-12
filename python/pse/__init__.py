@@ -18,6 +18,7 @@ native entry points receive their JSON encoding (ADR-0116).
 import importlib.metadata
 
 from pse._analyses import Analysis
+from pse._artifacts import ScientificArtifact, ScientificArtifactKind, ArtifactOwnerKind
 from pse._build import (
     CacheSettings,
     DiagnosticReport,
@@ -133,6 +134,9 @@ from pse.contracts.documents import (
 __all__ = [
     "AdjointSettings",
     "Analysis",
+    "ScientificArtifact",
+    "ScientificArtifactKind",
+    "ArtifactOwnerKind",
     "AnalysisControls",
     "BackendSettings",
     "BuildInfo",

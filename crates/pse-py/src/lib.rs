@@ -73,7 +73,7 @@ mod _native {
         },
         registry_fingerprint,
         workflow::{
-            ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeAttempt,
+            ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeScientificArtifact, NativeAttempt,
             NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
             NativeModelingElasticAttempt, NativeModelingInitialization,
             NativeModelingInitializationAttempt, NativeModelingKnowledge,

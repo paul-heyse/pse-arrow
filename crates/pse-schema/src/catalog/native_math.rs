@@ -49,6 +49,28 @@ fn fit_id(doc: &'static str) -> T {
         .optional()
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
+    let coordinate=record(vec![
+        ("id",T::id()),("quantity_id",T::id()),("unit_id",T::id()),
+        ("scale",real()),("offset",real()),
+    ]).named("ScientificArtifactCoordinate");
+    relation(b,N::Runtime,"scientific_contexts",S::Derived,&["run_id","step"],vec![
+        run_id(),column("step",ordinal()),
+        model_id("Original specialized model interpreted by the producer; absent for a fit spanning different definitions.").optional(),
+        fit_id("Original fit when this context interprets a statistical product."),
+        case_id("Original authored case, when present."),
+        instance_id("Original specialized instance."),
+        column("source_identity",T::hash()),column("physical_identity",T::hash()),
+        column("preparation_identity",T::hash()),
+        column("profile_identity",T::hash()),column("configuration",T::native(D::Binary)),
+        column("binding",T::native(D::Binary)).optional(),
+        column("state",T::list(coordinate.clone())),
+        column("inputs",T::list(coordinate.clone())),
+        column("outputs",T::list(coordinate.clone())),
+        column("integrals",T::list(coordinate.clone())),
+        column("time",coordinate).optional(),
+        column("mode_names",T::list(text())),
+        column("mode_identities",T::list(T::hash())),
+    ],"Original prepared scientific interpretation for independent result artifacts. Ordered coordinate inventories carry canonical physical unit/basis via the retained physical source, and explicit normalized-to-physical scales/offsets. Profile and binding are exact owner-encoded documents, never inferred from an artifact selector. Empty mode/time inventories identify nontransient producers. This metadata confers no reuse/restart permission.");
     relation_version(
         b,
         N::Runtime,
@@ -1471,10 +1493,11 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         ],
         "Successfully completed physical samples only; no missing trajectory tail is fabricated.",
     );
-    relation(
+    relation_version(
         b,
         N::Runtime,
         "trajectory_endpoints",
+        2,
         S::Derived,
         &["run_id"],
         vec![
@@ -1484,6 +1507,8 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("event_id", T::id()).optional(),
             column("time", real()),
             column("mode", ordinal()),
+            column("mode_name",text()),
+            column("mode_identity",T::hash()),
             column("state_ids", T::list(T::id())),
             column("input_ids", T::list(T::id())),
             column("output_ids", T::list(T::id())),

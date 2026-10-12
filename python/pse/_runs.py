@@ -10,6 +10,7 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
+from pse._artifacts import ScientificArtifact
 from pse._build import (
     DiagnosticReport,
     _NativePreparedOperation,
@@ -156,6 +157,12 @@ class PreparedOperation:
                 codec.encode_json(declaration),
                 [rung._handle for rung in rungs],  # noqa: SLF001 - same native boundary
             )
+        )
+
+    def with_artifact_start(self, artifact: ScientificArtifact) -> "PreparedOperation":
+        """Acquire a retained qualified seed and check this target's compatibility."""
+        return PreparedOperation(
+            self._handle.with_artifact_start(artifact._handle)  # noqa: SLF001 - same native boundary
         )
 
     def with_start(self, seed: _NativeStart) -> "PreparedOperation":
