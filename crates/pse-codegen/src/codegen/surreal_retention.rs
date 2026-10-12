@@ -99,7 +99,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     IF $header=NONE { THROW 'retired run unavailable'; };
     fn::pse_execution_v1::register($rpc_expiry, 'retention:'+$header.problem);
     LET $live=SELECT key FROM canonical_attempts WHERE run=$run AND terminal=false LIMIT 1;
-    IF array::len($live)!=0 OR $header.terminal_attempt=NONE { THROW 'run recovery must finish before retirement'; };
+    IF array::len($live)!=0 OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$run))=NONE) { THROW 'run recovery must finish before retirement'; };
     LET $reader_page=SELECT key FROM canonical_result_protections WHERE run=$run AND type::record('canonical_protections',key).released=false ORDER BY key LIMIT 64;
     LET $readers=$reader_page.filter(|$reader|type::record('canonical_protections',$reader.key).expires_at>time::micros());
     FOR $reader IN $reader_page {
@@ -167,10 +167,8 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     LET $seeds=SELECT key FROM canonical_result_seeds WHERE attempt=$attempt.key ORDER BY step LIMIT 64;
     DELETE $seeds.map(|$row|type::record('canonical_result_seeds',$row.key));
     IF array::len($seeds)=64 { RETURN {complete:false,batches:0dec,indexes:<decimal>array::len($seeds),sets:0dec}; };
-    LET $append_receipts=SELECT key FROM canonical_execution_operations WHERE run=$run AND attempt=$attempt.key AND kind='append' ORDER BY key LIMIT 64;
-    FOR $receipt IN $append_receipts { DELETE ONLY type::record('canonical_guards','execution-operation:'+$receipt.key); };
-    DELETE $append_receipts.map(|$receipt|type::record('canonical_execution_operations',$receipt.key));
-    IF array::len($append_receipts)!=0 { RETURN {complete:false,batches:0dec,indexes:0dec,sets:0dec}; };
+    // Operation identities and full detail belong to explicit history release.
+    // Payload collection never deletes a receipt that a delayed caller can replay.
     LET $manifest=SELECT closed_manifest FROM ONLY type::record('canonical_attempts',$attempt.key);
     IF $manifest.closed_manifest!=NONE { DELETE ONLY type::record('canonical_result_manifests',$manifest.closed_manifest); };
     // Inline observations and operation response bytes are scientific payloads,

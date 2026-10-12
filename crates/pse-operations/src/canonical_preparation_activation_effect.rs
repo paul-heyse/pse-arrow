@@ -1256,6 +1256,7 @@ pub async fn seed_private_fixture(
     }
     if nonpreparation {
         let operation = pse_model::generated::runtime::canonical_execution_operations::Row {
+            issuing_store: "00000000-0000-4000-8000-000000000000".into(), study: None, point: None, minimal:false, disposition:"settled".into(),
             key: "unsupported-execution-history".into(),
             run: "original-run".into(),
             attempt: None,

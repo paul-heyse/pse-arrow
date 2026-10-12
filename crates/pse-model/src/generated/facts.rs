@@ -163,6 +163,26 @@ pub enum FactBatch {
     r#RuntimeCanonicalHistoricalResults(
         Vec<super::r#runtime::r#canonical_historical_results::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalHistoryIdentities)]
+    r#RuntimeCanonicalHistoryIdentities(
+        Vec<super::r#runtime::r#canonical_history_identities::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalHistoryLocators)]
+    r#RuntimeCanonicalHistoryLocators(
+        Vec<super::r#runtime::r#canonical_history_locators::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalHistoryObligationCounts)]
+    r#RuntimeCanonicalHistoryObligationCounts(
+        Vec<super::r#runtime::r#canonical_history_obligation_counts::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalHistoryObligations)]
+    r#RuntimeCanonicalHistoryObligations(
+        Vec<super::r#runtime::r#canonical_history_obligations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalHistoryRetirements)]
+    r#RuntimeCanonicalHistoryRetirements(
+        Vec<super::r#runtime::r#canonical_history_retirements::Row>,
+    ),
     #[doc = stringify!(r#RuntimeCanonicalInterpretations)]
     r#RuntimeCanonicalInterpretations(
         Vec<super::r#runtime::r#canonical_interpretations::Row>,
@@ -778,6 +798,36 @@ impl FactBatch {
                     36u8, 182u8, 14u8, 38u8, 158u8, 103u8,
                 ])
             }
+            Self::r#RuntimeCanonicalHistoryIdentities(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    176u8, 107u8, 205u8, 34u8, 166u8, 75u8, 133u8, 228u8, 235u8, 139u8,
+                    164u8, 190u8, 143u8, 153u8, 74u8, 253u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    185u8, 123u8, 187u8, 1u8, 20u8, 59u8, 196u8, 76u8, 232u8, 169u8,
+                    207u8, 1u8, 236u8, 241u8, 164u8, 251u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    69u8, 111u8, 193u8, 47u8, 9u8, 23u8, 172u8, 224u8, 50u8, 136u8, 80u8,
+                    54u8, 120u8, 254u8, 148u8, 202u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    26u8, 114u8, 235u8, 166u8, 239u8, 240u8, 84u8, 62u8, 29u8, 187u8,
+                    216u8, 102u8, 117u8, 175u8, 54u8, 189u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    78u8, 118u8, 95u8, 227u8, 214u8, 246u8, 109u8, 205u8, 191u8, 96u8,
+                    169u8, 217u8, 95u8, 150u8, 79u8, 58u8,
+                ])
+            }
             Self::r#RuntimeCanonicalInterpretations(_) => {
                 pse_ids::SemanticId::from_bytes([
                     174u8, 21u8, 161u8, 39u8, 0u8, 16u8, 234u8, 79u8, 2u8, 202u8, 26u8,
@@ -1379,6 +1429,11 @@ impl FactBatch {
             Self::r#RuntimeCanonicalExecutionOperations(rows) => rows.len(),
             Self::r#RuntimeCanonicalGuards(rows) => rows.len(),
             Self::r#RuntimeCanonicalHistoricalResults(rows) => rows.len(),
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => rows.len(),
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => rows.len(),
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => rows.len(),
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => rows.len(),
             Self::r#RuntimeCanonicalInterpretations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMaintenanceActivations(rows) => rows.len(),
             Self::r#RuntimeCanonicalMemberships(rows) => rows.len(),
@@ -1786,6 +1841,31 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalHistoricalResults(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2490,6 +2570,36 @@ impl FactBatch {
             Self::r#RuntimeCanonicalHistoricalResults(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeCanonicalHistoricalResults(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalHistoryIdentities(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalHistoryLocators(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalHistoryObligationCounts(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalHistoryObligations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalHistoryRetirements(
                         vec![row.clone()],
                     ))
             }
@@ -3523,6 +3633,61 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalHistoricalResults(left),
                 Self::r#RuntimeCanonicalHistoricalResults(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryIdentities(left),
+                Self::r#RuntimeCanonicalHistoryIdentities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryLocators(left),
+                Self::r#RuntimeCanonicalHistoryLocators(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligationCounts(left),
+                Self::r#RuntimeCanonicalHistoryObligationCounts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligations(left),
+                Self::r#RuntimeCanonicalHistoryObligations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryRetirements(left),
+                Self::r#RuntimeCanonicalHistoryRetirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -4911,6 +5076,41 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeCanonicalHistoricalResults(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -6312,6 +6512,61 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalHistoricalResults(left),
                 Self::r#RuntimeCanonicalHistoricalResults(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryIdentities(left),
+                Self::r#RuntimeCanonicalHistoryIdentities(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryLocators(left),
+                Self::r#RuntimeCanonicalHistoryLocators(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligationCounts(left),
+                Self::r#RuntimeCanonicalHistoryObligationCounts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligations(left),
+                Self::r#RuntimeCanonicalHistoryObligations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryRetirements(left),
+                Self::r#RuntimeCanonicalHistoryRetirements(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -7871,6 +8126,26 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalInterpretations(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -8729,6 +9004,41 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeCanonicalHistoryIdentities(left),
+                Self::r#RuntimeCanonicalHistoryIdentities(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryLocators(left),
+                Self::r#RuntimeCanonicalHistoryLocators(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligationCounts(left),
+                Self::r#RuntimeCanonicalHistoryObligationCounts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryObligations(left),
+                Self::r#RuntimeCanonicalHistoryObligations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalHistoryRetirements(left),
+                Self::r#RuntimeCanonicalHistoryRetirements(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeCanonicalInterpretations(left),
                 Self::r#RuntimeCanonicalInterpretations(mut right),
             ) => {
@@ -9455,6 +9765,21 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeCanonicalGuards(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeCanonicalHistoricalResults(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalHistoryIdentities(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalHistoryLocators(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalHistoryObligationCounts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalHistoryObligations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalHistoryRetirements(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeCanonicalInterpretations(rows) => {

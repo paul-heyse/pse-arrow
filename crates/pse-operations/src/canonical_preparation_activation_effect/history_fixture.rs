@@ -286,6 +286,7 @@ pub(super) async fn seed(
     save!(
         "canonical_execution_operations",
         pse_model::generated::runtime::canonical_execution_operations::Row {
+            issuing_store: "00000000-0000-4000-8000-000000000000".into(), study: None, point: None, minimal:false, disposition:"settled".into(),
             key: "original-closed-receipt".into(),
             run: run.into(),
             attempt: Some(attempt.clone()),

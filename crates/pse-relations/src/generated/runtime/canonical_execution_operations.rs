@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    36u8, 216u8, 68u8, 69u8, 200u8, 210u8, 154u8, 161u8, 132u8, 222u8, 35u8, 185u8, 99u8,
-    51u8, 89u8, 75u8, 18u8, 184u8, 60u8, 152u8, 160u8, 240u8, 75u8, 241u8, 202u8, 226u8,
-    122u8, 115u8, 49u8, 63u8, 111u8, 123u8,
+    249u8, 103u8, 186u8, 91u8, 104u8, 158u8, 151u8, 42u8, 16u8, 100u8, 127u8, 183u8,
+    82u8, 130u8, 179u8, 150u8, 82u8, 232u8, 239u8, 234u8, 30u8, 232u8, 136u8, 177u8,
+    154u8, 209u8, 20u8, 83u8, 247u8, 70u8, 39u8, 52u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeCanonicalExecutionOperationsRow {
     fn append(
@@ -38,6 +38,17 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalExecutionOperationsRow {
         crate::columnar::ArrowValue::append(&self.r#kind, children[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#request, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#result, children[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#issuing_store,
+            children[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#study, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#point, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#minimal, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#disposition,
+            children[10usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -59,6 +70,17 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalExecutionOperationsRow {
         )?;
         <pse_model::Bytes as crate::columnar::ArrowValue>::append_null(
             children[5usize].as_mut(),
+        )?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <Option<
+            String,
+        > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(
+            children[10usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -94,6 +116,30 @@ impl crate::columnar::ArrowValue for RuntimeCanonicalExecutionOperationsRow {
             )?,
             r#result: <pse_model::Bytes as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
+                index,
+            )?,
+            r#issuing_store: <String as crate::columnar::ArrowValue>::read(
+                input.column(6usize).as_ref(),
+                index,
+            )?,
+            r#study: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#point: <Option<
+                String,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#minimal: <bool as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
+                index,
+            )?,
+            r#disposition: <String as crate::columnar::ArrowValue>::read(
+                input.column(10usize).as_ref(),
                 index,
             )?,
         })
@@ -158,6 +204,17 @@ impl crate::columnar::RelationRow for RuntimeCanonicalExecutionOperationsRow {
         crate::columnar::ArrowValue::append(&self.r#kind, columns[3usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#request, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#result, columns[5usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#issuing_store,
+            columns[6usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#study, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#point, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#minimal, columns[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#disposition,
+            columns[10usize].as_mut(),
+        )?;
         Ok(())
     }
     fn relation(
@@ -197,10 +254,10 @@ impl crate::columnar::RelationRow for RuntimeCanonicalExecutionOperationsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        12_288_usize + size_of::<Self::Builder>()
+        22_528_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        96usize
+        176usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -235,6 +292,40 @@ impl crate::columnar::RelationRow for RuntimeCanonicalExecutionOperationsRow {
             bytes,
             crate::columnar::allocation_add(8, (self.r#result).len())?,
         )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#issuing_store).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#study).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            if let Some(value) = (self.r#point).as_ref() {
+                crate::columnar::allocation_add(
+                    1,
+                    crate::columnar::allocation_add(8, (value).len())?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#disposition).len())?,
+        )?;
         Ok(bytes)
     }
 }
@@ -245,7 +336,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 11usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -276,6 +367,31 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 6usize] = [
         name: "result",
         position: 5usize,
     },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "issuing_store",
+        position: 6usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "study",
+        position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "point",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "minimal",
+        position: 9usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "disposition",
+        position: 10usize,
+    },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
@@ -291,6 +407,16 @@ pub mod columns {
     pub const REQUEST: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///result
     pub const RESULT: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///issuing_store
+    pub const ISSUING_STORE: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///study
+    pub const STUDY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    ///point
+    pub const POINT: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    ///minimal
+    pub const MINIMAL: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    ///disposition
+    pub const DISPOSITION: crate::columnar::ColumnReference = super::COLUMNS[10usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -304,6 +430,11 @@ pub struct RuntimeCanonicalExecutionOperationsView<'a> {
     kind_column: &'a arrow_array::StringArray,
     request_column: &'a arrow_array::BinaryArray,
     result_column: &'a arrow_array::BinaryArray,
+    issuing_store_column: &'a arrow_array::StringArray,
+    study_column: &'a arrow_array::StringArray,
+    point_column: &'a arrow_array::StringArray,
+    minimal_column: &'a arrow_array::BooleanArray,
+    disposition_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeCanonicalExecutionOperationsView<'a> {
     /// Admits a raw candidate's actual schema and visible local values.
@@ -366,6 +497,21 @@ impl<'a> RuntimeCanonicalExecutionOperationsView<'a> {
             result_column: crate::columnar::array::<
                 arrow_array::BinaryArray,
             >(batch.column(5usize).as_ref())?,
+            issuing_store_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            study_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(7usize).as_ref())?,
+            point_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(8usize).as_ref())?,
+            minimal_column: crate::columnar::array::<
+                arrow_array::BooleanArray,
+            >(batch.column(9usize).as_ref())?,
+            disposition_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(10usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -452,6 +598,66 @@ impl<'a> RuntimeCanonicalExecutionOperationsView<'a> {
     pub fn result_field(&self) -> &'a crate::FieldRef {
         &self.batch.schema_ref().fields()[5usize]
     }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "issuing_store",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn issuing_store_column(&self) -> &'a arrow_array::StringArray {
+        self.issuing_store_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "issuing_store", "`.")]
+    pub fn issuing_store_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "study",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn study_column(&self) -> &'a arrow_array::StringArray {
+        self.study_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "study", "`.")]
+    pub fn study_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "point",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn point_column(&self) -> &'a arrow_array::StringArray {
+        self.point_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "point", "`.")]
+    pub fn point_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[8usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "minimal",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn minimal_column(&self) -> &'a arrow_array::BooleanArray {
+        self.minimal_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "minimal", "`.")]
+    pub fn minimal_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[9usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "disposition",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn disposition_column(&self) -> &'a arrow_array::StringArray {
+        self.disposition_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "disposition", "`.")]
+    pub fn disposition_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[10usize]
+    }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
     /// # Errors
@@ -470,6 +676,17 @@ impl<'a> RuntimeCanonicalExecutionOperationsView<'a> {
             r#kind: crate::columnar::ArrowValue::read(self.kind_column, index)?,
             r#request: crate::columnar::ArrowValue::read(self.request_column, index)?,
             r#result: crate::columnar::ArrowValue::read(self.result_column, index)?,
+            r#issuing_store: crate::columnar::ArrowValue::read(
+                self.issuing_store_column,
+                index,
+            )?,
+            r#study: crate::columnar::ArrowValue::read(self.study_column, index)?,
+            r#point: crate::columnar::ArrowValue::read(self.point_column, index)?,
+            r#minimal: crate::columnar::ArrowValue::read(self.minimal_column, index)?,
+            r#disposition: crate::columnar::ArrowValue::read(
+                self.disposition_column,
+                index,
+            )?,
         })
     }
     /// Decodes rows directly from Arrow for an explicit scalar algorithm boundary.

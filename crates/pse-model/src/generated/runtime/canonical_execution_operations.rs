@@ -21,6 +21,16 @@ pub struct RuntimeCanonicalExecutionOperationsRow {
     pub r#request: crate::Bytes,
     ///result
     pub r#result: crate::Bytes,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///study
+    pub r#study: Option<String>,
+    ///point
+    pub r#point: Option<String>,
+    ///minimal
+    pub r#minimal: bool,
+    ///disposition
+    pub r#disposition: String,
 }
 impl crate::SemanticEq for RuntimeCanonicalExecutionOperationsRow {
     fn semantic_eq(&self, other: &Self) -> bool {
@@ -30,6 +40,13 @@ impl crate::SemanticEq for RuntimeCanonicalExecutionOperationsRow {
             && crate::SemanticEq::semantic_eq(&self.r#kind, &other.r#kind)
             && crate::SemanticEq::semantic_eq(&self.r#request, &other.r#request)
             && crate::SemanticEq::semantic_eq(&self.r#result, &other.r#result)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#issuing_store,
+                &other.r#issuing_store,
+            ) && crate::SemanticEq::semantic_eq(&self.r#study, &other.r#study)
+            && crate::SemanticEq::semantic_eq(&self.r#point, &other.r#point)
+            && crate::SemanticEq::semantic_eq(&self.r#minimal, &other.r#minimal)
+            && crate::SemanticEq::semantic_eq(&self.r#disposition, &other.r#disposition)
     }
 }
 impl PartialEq for RuntimeCanonicalExecutionOperationsRow {
@@ -53,6 +70,16 @@ impl crate::SemanticFrame for RuntimeCanonicalExecutionOperationsRow {
         crate::SemanticFrame::frame(&self.r#request, hash);
         hash.str(stringify!(r#result));
         crate::SemanticFrame::frame(&self.r#result, hash);
+        hash.str(stringify!(r#issuing_store));
+        crate::SemanticFrame::frame(&self.r#issuing_store, hash);
+        hash.str(stringify!(r#study));
+        crate::SemanticFrame::frame(&self.r#study, hash);
+        hash.str(stringify!(r#point));
+        crate::SemanticFrame::frame(&self.r#point, hash);
+        hash.str(stringify!(r#minimal));
+        crate::SemanticFrame::frame(&self.r#minimal, hash);
+        hash.str(stringify!(r#disposition));
+        crate::SemanticFrame::frame(&self.r#disposition, hash);
     }
 }
 impl crate::HeapUsage for RuntimeCanonicalExecutionOperationsRow {
@@ -64,5 +91,10 @@ impl crate::HeapUsage for RuntimeCanonicalExecutionOperationsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#kind))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#request))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#result))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#issuing_store))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#study))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#point))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#minimal))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#disposition))
     }
 }

@@ -200,6 +200,7 @@ DEFINE FUNCTION fn::pse_execution_v1::deadline($rpc_expiry: int) -> bool {
     super::surreal_retention::append(&mut ddl);
     super::surreal_analyses::append(&mut ddl);
     super::surreal_artifacts::append(&mut ddl);
+    super::surreal_history::append(&mut ddl);
     let interpretation = pse_schema::catalog::substrate::INTERPRETATION;
     let mut digest = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalSchemaV1);
     digest.str(interpretation).part(ddl.as_bytes());

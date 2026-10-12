@@ -442,7 +442,7 @@ impl CanonicalStore {
             let row=pse_model::generated::runtime::canonical_study_inputs::Row { key:format!("{study}:{solution}"),study:study.into(),solution:solution.into(),artifact:artifact.into() };
             let row=wire::encode_canonical_study_inputs(&row)?;
             let owner=wire::encode_canonical_artifact_obligations(&crate::canonical_artifacts::artifact_obligation(artifact,"study",study))?;
-            protected_query("canonical_studies::retain_study_input",||Ok(self.db.query("BEGIN; fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'study inputs closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'study input is not a seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'study exact seed changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; }; COMMIT;")
+            protected_query("canonical_studies::retain_study_input",||Ok(self.db.query("BEGIN; fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::touch($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study retired'; }; LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study); IF $s!=NONE AND ($s.active OR $s.cancelled) { THROW 'study inputs closed'; }; LET $artifact=fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); IF $artifact.kind!='seed' { THROW 'study input is not a seed'; }; fn::pse_artifact_v1::attach($pse_rpc_expires_at,$row.artifact,$owner,true); LET $old=SELECT * FROM ONLY type::record('canonical_study_inputs',$row.key) FOR UPDATE; IF $old!=NONE AND object::remove($old,['id'])!=$row { THROW 'study exact seed changed'; }; IF $old=NONE { CREATE ONLY type::record('canonical_study_inputs',$row.key) CONTENT $row; }; COMMIT;")
                 .bind(("study",study.to_owned())).bind(("row",row.clone())).bind(("owner",owner.clone())))).await?;
             Ok(())
         }).await
@@ -451,7 +451,7 @@ impl CanonicalStore {
     pub async fn study_input(&self,study:&str,solution:&str)->Result<String,CanonicalError> {
         let activity=self.admit_activity()?;
         activity.scope(async {
-            let mut response=protected_query("canonical_studies::study_input",||Ok(self.db.query("BEGIN; fn::pse_execution_v1::register($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study inputs retired'; }; LET $row=SELECT * FROM ONLY type::record('canonical_study_inputs',$key); IF $row=NONE OR $row.study!=$study OR $row.solution!=$solution { THROW 'retained study input unavailable'; }; fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); RETURN $row.artifact; COMMIT;")
+            let mut response=protected_query("canonical_studies::study_input",||Ok(self.db.query("BEGIN; fn::pse_history_v1::check_owner($pse_rpc_expires_at,'study',$study); fn::pse_execution_v1::register($pse_rpc_expires_at,'study:'+$study); IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))!=NONE { THROW 'study inputs retired'; }; LET $row=SELECT * FROM ONLY type::record('canonical_study_inputs',$key); IF $row=NONE OR $row.study!=$study OR $row.solution!=$solution { THROW 'retained study input unavailable'; }; fn::pse_artifact_v1::available($pse_rpc_expires_at,$row.artifact); RETURN $row.artifact; COMMIT;")
                 .bind(("study",study.to_owned())).bind(("solution",solution.to_owned())).bind(("key",format!("{study}:{solution}"))))).await?;
             let index=response.num_statements().saturating_sub(2);
             response.take::<Option<String>>(index)?.ok_or(CanonicalError::IncompleteResponse)
@@ -850,7 +850,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result = bounded_query(self.db.query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);")
+            let mut result = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,run,problem,revision,interpretation,point_count,next_ordinal,active,cancelled,generation,terminal FROM ONLY type::record('canonical_studies',$key);","key"))
                 .bind(("key",key.to_owned()))).await?;
             result.take::<Option<Object>>(0)?.map(decode_study_summary).transpose()
         }).await
@@ -864,7 +864,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut result = bounded_query(
                         self.db
-                            .query("SELECT * FROM ONLY type::record('canonical_studies',$key);")
+                            .query(crate::canonical_history::study_query("SELECT * FROM ONLY type::record('canonical_studies',$key);","key"))
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -889,9 +889,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut result = bounded_query(
                         self.db
-                            .query(
-                                "SELECT * FROM ONLY type::record('canonical_study_points',$key);",
-                            )
+                            .query(crate::canonical_history::point_query("SELECT * FROM ONLY type::record('canonical_study_points',$key);","key"))
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -923,7 +921,7 @@ impl CanonicalStore {
     async fn readiness_hint(&self, point: &str) -> Result<Option<ReadinessHint>, CanonicalError> {
         let mut response = bounded_query(
             self.db
-                .query("SELECT * FROM ONLY type::record('canonical_study_readiness',$point);")
+                .query(crate::canonical_history::point_query("SELECT * FROM ONLY type::record('canonical_study_readiness',$point);","point"))
                 .bind(("point", point.to_owned())),
         )
         .await?;
@@ -1020,11 +1018,9 @@ impl CanonicalStore {
             .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_pending(&self, study: &str) -> Result<bool, CanonicalError> {
-        let mut response=bounded_query(self.db.query(
-            "LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0);"
-        ).bind(("study",study.to_owned()))).await?;
+        let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT active,cancelled,terminal FROM ONLY type::record('canonical_studies',$study); LET $c=SELECT rebuild_pending FROM ONLY type::record('canonical_study_readiness_cursors',$study); LET $q=SELECT key FROM canonical_study_readiness WHERE study=$study AND notify=true LIMIT 1; RETURN $s!=NONE AND $s.active AND $s.cancelled=false AND $s.terminal=false AND ($c=NONE OR $c.rebuild_pending OR array::len($q)>0);","study")).bind(("study",study.to_owned()))).await?;
         response
-            .take::<Option<bool>>(3)?
+            .take::<Option<bool>>(0)?
             .ok_or(CanonicalError::IncompleteResponse)
     }
     async fn readiness_scan_page(
@@ -1039,7 +1035,7 @@ impl CanonicalStore {
             cursor.verify_after
         };
         // Immutable membership positions supply bounded durable scan progress.
-        let mut response=bounded_query(self.db.query("SELECT key,ordinal FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 64;")
+        let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,ordinal FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 64;","study"))
             .bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
         let rows = response.take::<Vec<Object>>(0)?;
         let done = rows.len() < 64;
@@ -1088,11 +1084,11 @@ impl CanonicalStore {
             if !owner.active || owner.cancelled || owner.terminal {return Ok(ReadinessAdvance::default());}
             let cursor=self.readiness_cursor(study).await?;
             if cursor.rebuild_pending {return self.readiness_scan_page(study,&cursor,true).await;}
-            let mut response=bounded_query(self.db.query("SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true AND ordinal>$after ORDER BY ordinal LIMIT 1;")
+            let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true AND ordinal>$after ORDER BY ordinal LIMIT 1;","study"))
                 .bind(("study",study.to_owned())).bind(("after",cursor.notify_after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             let mut rows=response.take::<Vec<Object>>(0)?;
             if rows.is_empty() {
-                let mut response=bounded_query(self.db.query("SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true ORDER BY ordinal LIMIT 1;").bind(("study",study.to_owned()))).await?;
+                let mut response=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT * FROM canonical_study_readiness WHERE study=$study AND notify=true ORDER BY ordinal LIMIT 1;","study")).bind(("study",study.to_owned()))).await?;
                 rows=response.take::<Vec<Object>>(0)?;
             }
             let Some(row)=rows.pop() else {return Ok(ReadinessAdvance::default());};
@@ -1103,7 +1099,7 @@ impl CanonicalStore {
                 if !self.repair_readiness_scope(&scope).await? {return Ok(ReadinessAdvance {examined,pending:self.readiness_pending(study).await?});}
                 examined+=1;
             }
-            let mut response=bounded_query(self.db.query("SELECT key,dependent FROM canonical_study_dependencies WHERE predecessor=$point AND key>$after ORDER BY key LIMIT 64;")
+            let mut response=bounded_query(self.db.query(crate::canonical_history::point_query("SELECT key,dependent FROM canonical_study_dependencies WHERE predecessor=$point AND key>$after ORDER BY key LIMIT 64;","point"))
                 .bind(("point",source.point.clone())).bind(("after",source.notify_after.clone()))).await?;
             let edges=response.take::<Vec<Object>>(0)?;
             let done=edges.len()<64;
@@ -1167,9 +1163,9 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled { SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 } ELSE { SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64 }; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("LET $s=SELECT cancelled FROM ONLY type::record('canonical_studies',$study); LET $h=IF $s.cancelled { SELECT key FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=false AND ordinal>$after ORDER BY ordinal LIMIT 64 } ELSE { SELECT point AS key FROM canonical_study_readiness WHERE study=$study AND eligible=true AND ordinal>$after ORDER BY ordinal LIMIT 64 }; RETURN $h.map(|$hint| SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM ONLY type::record('canonical_study_points',$hint.key)).filter(|$point| $point!=NONE AND $point.assigned=false AND $point.settled=false);","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
-                .take::<Vec<Object>>(2)?
+                .take::<Vec<Object>>(0)?
                 .into_iter()
                 .map(decode_scope_point)
                 .collect()
@@ -1185,7 +1181,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND ordinal > $after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()
@@ -1199,7 +1195,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(self.db.query("SELECT key FROM canonical_study_points WHERE study=$study AND settled=false LIMIT 1;")
+            let mut response = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key FROM canonical_study_points WHERE study=$study AND settled=false LIMIT 1;","study"))
                 .bind(("study", study.to_owned()))).await?;
             Ok(!response.take::<Vec<Object>>(0)?.is_empty())
         }).await
@@ -1216,7 +1212,7 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             // Four maximum-size definitions/outcomes fit below the existing message
             // bound. Do not use the 64-row metadata-page limit for these byte payloads.
-            let mut response = bounded_query(self.db.query("SELECT ordinal,occurrence,descriptor,policy,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;")
+            let mut response = bounded_query(self.db.query(crate::canonical_history::study_query("SELECT ordinal,occurrence,descriptor,policy,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;","study"))
                 .bind(("study", study.to_owned()))
                 .bind(("after", after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             response.take::<Vec<Object>>(0)?.into_iter().map(decode_outcome_point).collect()
@@ -1372,7 +1368,7 @@ impl CanonicalStore {
             let row = match response {
                 Ok(row) => row,
                 Err(error) => match self
-                    .settle_operation(operation, "study-claim", request)
+                    .settle_operation_for_run(operation, "study-claim", request,Some(&scope.point.run))
                     .await?
                 {
                     Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
@@ -1539,7 +1535,7 @@ impl CanonicalStore {
                         return Err(error);
                     }
                     match self
-                        .settle_operation(&admission.operation, "study-start", &admission.request)
+                        .settle_operation_for_run(&admission.operation, "study-start", &admission.request,Some(claim.fence.run()))
                         .await?
                     {
                         Some(attempt) if attempt == claim.fence.attempt() => (),
@@ -1593,7 +1589,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut result = bounded_query(
                         self.db
-                            .query("SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;")
+                            .query(crate::canonical_history::run_query("SELECT * FROM canonical_studies WHERE run=$run LIMIT 1;","run"))
                             .bind(("run", run.to_owned())),
                     )
                     .await?;
@@ -1668,7 +1664,7 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let row = match response {
                 Ok(row) => row,
-                Err(error) => match self.settle_operation(operation, "claim", request).await? {
+                Err(error) => match self.settle_operation_for_run(operation, "claim", request,Some(run)).await? {
                     Some(key) => Some(self.canonical_attempt(&key).await?.ok_or(error)?),
                     None => return Err(error),
                 },
@@ -1697,7 +1693,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut result=bounded_query(self.db.query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;").bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
+            let mut result=bounded_query(self.db.query(crate::canonical_history::study_query("SELECT key,study,ordinal,occurrence,policy,facts,outcome,run,revision,assigned,settled,attempt,start FROM canonical_study_points WHERE study=$study AND settled=false AND assigned=true AND ordinal>$after ORDER BY ordinal LIMIT 64;","study")).bind(("study",study.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?)))).await?;
             result
                 .take::<Vec<Object>>(0)?
                 .into_iter()

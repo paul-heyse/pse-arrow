@@ -41,6 +41,16 @@ pub mod r#canonical_guards;
 ///Generated relation contract.
 pub mod r#canonical_historical_results;
 ///Generated relation contract.
+pub mod r#canonical_history_identities;
+///Generated relation contract.
+pub mod r#canonical_history_locators;
+///Generated relation contract.
+pub mod r#canonical_history_obligation_counts;
+///Generated relation contract.
+pub mod r#canonical_history_obligations;
+///Generated relation contract.
+pub mod r#canonical_history_retirements;
+///Generated relation contract.
 pub mod r#canonical_interpretations;
 ///Generated relation contract.
 pub mod r#canonical_maintenance_activations;

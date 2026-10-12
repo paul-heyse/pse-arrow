@@ -29,6 +29,7 @@ pub mod rust;
 mod surreal;
 mod surreal_analyses;
 mod surreal_artifacts;
+mod surreal_history;
 mod surreal_execution;
 mod surreal_retention;
 mod surreal_studies;

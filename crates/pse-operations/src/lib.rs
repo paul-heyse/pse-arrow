@@ -11,6 +11,7 @@ pub mod canonical_artifacts;
 mod canonical_capability_tests;
 pub mod canonical_codec;
 pub mod canonical_execution;
+pub mod canonical_history;
 pub mod canonical_preparation_activation;
 pub mod canonical_preparation_activation_effect;
 pub mod canonical_result_retention;

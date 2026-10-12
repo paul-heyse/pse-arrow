@@ -3446,7 +3446,7 @@ impl CanonicalStore {
                     }
                     Ok(acknowledged())
                 }
-                Err(error) => match self.settle_operation(operation, "seed", &request).await? {
+                Err(error) => match self.settle_operation_for_run(operation, "seed", &request,Some(&fence.run)).await? {
                     Some(_) => Ok(acknowledged()),
                     None => Err(error),
                 },
@@ -3472,7 +3472,7 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             identity(key)?;
-            let mut response = bounded_query(self.db.query("BEGIN; LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
+            let mut response = bounded_query(self.db.query("BEGIN; fn::pse_history_v1::point($pse_rpc_expires_at,$key); LET $point = SELECT * FROM ONLY type::record('canonical_study_points',$key); RETURN {point:$point,attempt:(SELECT * FROM ONLY type::record('canonical_attempts',$point.attempt)),study:(SELECT * FROM ONLY type::record('canonical_studies',$point.study)),run:(SELECT * FROM ONLY type::record('canonical_runs',$point.run))}; COMMIT;").bind(("key",key.to_owned()))).await?;
             let index = response.num_statements().saturating_sub(2);
             let mut row = response
                 .take::<Option<Object>>(index)?
@@ -3514,7 +3514,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                         self.db
-                            .query("SELECT * FROM ONLY type::record('canonical_runs', $key);")
+                            .query("RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -3539,7 +3539,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                         self.db
-                            .query("SELECT * FROM ONLY type::record('canonical_attempts', $key);")
+                            .query("RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned())),
                     )
                     .await?;
@@ -3564,7 +3564,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = bounded_query(
                 self.db
-                    .query("SELECT * FROM ONLY type::record('canonical_result_manifests', $key);")
+                    .query("RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
                     .bind(("key", key.to_owned())),
             )
             .await?;
@@ -3600,11 +3600,12 @@ impl CanonicalStore {
         })
         .await
     }
-    pub(crate) async fn settle_operation(
+    pub(crate) async fn settle_operation_for_run(
         &self,
         operation: &str,
         kind: &str,
         request: &[u8],
+        expected_run: Option<&str>,
     ) -> Result<Option<String>, CanonicalError> {
         let activity = self.admit_activity()?;
         activity
@@ -3613,16 +3614,15 @@ impl CanonicalStore {
                     let mut response = bounded_query(
                 self.db
                     .control_query(
-                        "SELECT * FROM ONLY type::record('canonical_execution_operations', $key);",
+                        "RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$key,$expected_run);",
                     )
-                    .bind(("key", operation.to_owned())),
+                    .bind(("key", operation.to_owned())).bind(("expected_run",expected_run.map(|run|Value::String(run.to_owned().into())).unwrap_or(Value::None))),
             )
             .await?;
                     let Some(object) = response.take::<Option<Object>>(0)? else {
                         return Ok(None);
                     };
                     let row = wire::decode_canonical_execution_operations(object)?;
-                    self.ensure_execution_retained(&row.run).await?;
                     if row.kind != kind || row.request.as_slice() != request {
                         return Err(CanonicalError::OperationReused);
                     }
@@ -3663,7 +3663,7 @@ impl CanonicalStore {
                         .take::<Option<Object>>(0)?
                         .ok_or(CanonicalError::IncompleteResponse)?,
                 )?,
-                Err(error) => match self.settle_operation(operation, "claim", &request).await? {
+                Err(error) => match self.settle_operation_for_run(operation, "claim", &request,Some(run)).await? {
                     Some(key) => self.canonical_attempt(&key).await?.ok_or(error)?,
                     None => return Err(error),
                 },
@@ -3877,7 +3877,7 @@ impl CanonicalStore {
                 }
                 Err(error) => {
                     let ack = &prepared.acknowledgment;
-                    if self.settle_operation(&ack.operation, "append", &ack.request).await?.is_none() { return Err(error); }
+                    if self.settle_operation_for_run(&ack.operation, "append", &ack.request,Some(ack.fence.run())).await?.is_none() { return Err(error); }
                 }
             }
             Ok(prepared.acknowledgment)
@@ -3923,7 +3923,7 @@ impl CanonicalStore {
                 Err(error) => {
                     for item in &items {
                         let ack = &item.acknowledgment;
-                        if self.settle_operation(&ack.operation, "append", &ack.request).await?.is_none() { return Err(error); }
+                        if self.settle_operation_for_run(&ack.operation, "append", &ack.request,Some(ack.fence.run())).await?.is_none() { return Err(error); }
                     }
                 }
             }
@@ -3957,7 +3957,7 @@ impl CanonicalStore {
                     let saved = wire::decode_canonical_result_sets(writer_response(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?)?;
                     if saved != set { return Err(CanonicalError::OperationReused); }
                 }
-                Err(error) => if self.settle_operation(operation,"empty",&request).await?.is_none() { return Err(error); },
+                Err(error) => if self.settle_operation_for_run(operation,"empty",&request,Some(&fence.run)).await?.is_none() { return Err(error); },
             }
             Ok(EmptySetAck { fence: fence.clone(), name: name.into(), key, operation: operation.into(), request })
         }).await
@@ -4025,7 +4025,7 @@ impl CanonicalStore {
             let mut response = bounded_query(
                 self.db
                     .control_query(
-                        "SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);",
+                        "RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$operation,NONE);",
                     )
                     .bind(("operation", operation.to_owned())),
             )
@@ -4124,7 +4124,7 @@ impl CanonicalStore {
                 )?),
                 Err(error) => {
                     // Cancellation operations have no attempt; absence must be distinguished.
-                    let mut response = bounded_query(self.db.control_query("SELECT * FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
+                    let mut response = bounded_query(self.db.control_query("RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$operation,NONE);").bind(("operation",operation.to_owned()))).await?;
                     let Some(row) = response.take::<Option<Object>>(0)? else {
                         return Err(error);
                     };
@@ -4175,7 +4175,7 @@ impl CanonicalStore {
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response=bounded_query(self.db.query("SELECT kind FROM ONLY type::record('canonical_execution_operations',$operation);").bind(("operation",operation.to_owned()))).await?;
+            let mut response=bounded_query(self.db.query("RETURN fn::pse_history_v1::operation($pse_rpc_expires_at,$operation,NONE);").bind(("operation",operation.to_owned()))).await?;
             let mut row = response
                 .take::<Option<Object>>(0)?
                 .ok_or_else(|| CanonicalError::Configuration("closure operation unavailable".into()))?;
@@ -4593,7 +4593,7 @@ impl CanonicalStore {
                     if !row.is_empty() || attempt.run != run.key || run.terminal_attempt.as_deref() != Some(attempt.key.as_str()) || !attempt.terminal || attempt.closed_manifest.as_deref() != Some(manifest.row.key.as_str()) || attempt.completion.as_ref().map(|bytes| bytes.as_slice()) != Some(completion) { return Err(CanonicalError::OperationReused); }
                     Ok(SealAck { attempt, run })
                 },
-                Err(error) => match self.settle_operation(operation, "seal", &request).await? {
+                Err(error) => match self.settle_operation_for_run(operation, "seal", &request,Some(&fence.run)).await? {
                     Some(key) => {
                         let attempt = self.canonical_attempt(&key).await?.ok_or(error)?;
                         let run = self.canonical_run(&fence.run).await?.ok_or(CanonicalError::IncompleteResponse)?;
