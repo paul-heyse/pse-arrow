@@ -232,6 +232,12 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_operations::canonical_result_retention::ResultReclamationPage>(
             "result-reclamation-page",
         ),
+        document::<pse_operations::canonical_history::HistoryOwner>("history-owner"),
+        document::<pse_operations::canonical_history::HistoryPurpose>("history-purpose"),
+        document::<pse_operations::canonical_history::HistoryObligation>("history-obligation"),
+        document::<pse_operations::canonical_history::HistoryReclamationPage>(
+            "history-reclamation-page",
+        ),
         document::<pse_runtime::workflow::StudyCancel>("study-cancel"),
         document::<pse_runtime::workflow::PointOutcome>("study-point-outcome"),
         document::<pse_runtime::workflow::StudyConclusion>("study-conclusion"),

@@ -24,6 +24,8 @@ FiniteBound = float
 
 Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
+HistoryPurpose = Literal["audit", "unsettled"]
+
 OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
 OptionValue = bool | int | float | str
@@ -3429,6 +3431,54 @@ class HighsSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.diagnostics), v.scalar_key(self.method), v.optional_key(v.scalar_key)(self.nodes), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_start),))
+
+
+class HistoryObligation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Independent exact ownership, not a timeout or a reference inferred from age."""
+
+    #: Explicit caller attribution, preserved and checked on release.
+    attribution: str
+    #: Immutable obligation identity; equality includes all fields.
+    key: str
+    #: Original owner whose detail must remain available.
+    owner: HistoryOwner
+    #: Scientific audit or unresolved effect.
+    purpose: HistoryPurpose
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attribution), v.scalar_key(self.key), v.record_key(self.owner), v.scalar_key(self.purpose),))
+
+
+class HistoryOwnerRun(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="run"):
+    """A semantic execution and its attempt/operation detail."""
+
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class HistoryOwnerStudy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="study"):
+    """A study's occurrence, policy, observation and coordination detail."""
+
+    key: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.key),))
+
+
+class HistoryReclamationPage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One restartable bounded page. Permanent identity/owner locators survive completion."""
+
+    #: Operation receipts reduced to truthful settled attribution in this page.
+    compacted: Annotated[int, msgspec.Meta(ge=0)]
+    #: No releasable detail remains for this exact owner.
+    complete: bool
+    #: Detail records removed in this page.
+    removed: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.compacted), v.scalar_key(self.complete), v.scalar_key(self.removed),))
 
 
 class HorizonBinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6920,6 +6970,8 @@ DiscreteInitialization = DiscreteInitializationRefuse | DiscreteInitializationFi
 
 FitProfileDocument = FitProfileDocumentNotRequested | FitProfileDocumentAvailable | FitProfileDocumentWithheld
 
+HistoryOwner = HistoryOwnerRun | HistoryOwnerStudy
+
 HorizonSignalDocument = HorizonSignalDocumentMeasured | HorizonSignalDocumentEstimated | HorizonSignalDocumentApplied | HorizonSignalDocumentTrajectory
 
 IdasLinear = IdasLinearKlu | IdasLinearSpgmr | IdasLinearSpfgmr
@@ -7180,6 +7232,12 @@ __all__ = [
     "HighsDiagnostics",
     "HighsPenalties",
     "HighsSettings",
+    "HistoryObligation",
+    "HistoryOwner",
+    "HistoryOwnerRun",
+    "HistoryOwnerStudy",
+    "HistoryPurpose",
+    "HistoryReclamationPage",
     "HorizonBinding",
     "HorizonInputDocument",
     "HorizonOperation",
