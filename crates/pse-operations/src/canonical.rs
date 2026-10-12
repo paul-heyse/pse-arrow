@@ -538,13 +538,23 @@ impl ProtectedSelection {
                 CanonicalError::Configuration("protection cleanup executor unavailable".into())
             })?;
             let activity = owner.activity()?;
-            let task = executor.spawn(activity.scope(async move {
-                let result = store.release_protection(&revision, &key).await;
-                if result.is_ok() {
-                    owner.acknowledge_release();
-                }
+            #[cfg(any(test, feature = "test-support"))]
+            let fixture = store.fixture_lifetime.clone();
+            let task = executor.spawn(async move {
+                let result = activity.scope(async move {
+                    let result = store.release_protection(&revision, &key).await;
+                    if result.is_ok() {
+                        owner.acknowledge_release();
+                    }
+                    result
+                }).await;
+                drop(activity);
+                // The last fixture borrower may physically disconnect here.
+                // Its own cleanup continuation must already have ended.
+                #[cfg(any(test, feature = "test-support"))]
+                drop(fixture);
                 result
-            }));
+            });
             return task.await.map_err(|error| {
                 CanonicalError::Configuration(format!("protection cleanup task failed: {error}"))
             })?;
@@ -700,8 +710,6 @@ impl ProblemTurns {
 pub struct CanonicalStore {
     pub(crate) db: Arc<CanonicalClient>,
     problem_turns: Arc<ProblemTurns>,
-    #[cfg(any(test, feature = "test-support"))]
-    pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
     pub(crate) result_read_drain: Arc<crate::canonical_results::ResultReadDrain>,
     activation_db: Arc<CanonicalClient>,
     connection_options: CanonicalOptions,
@@ -709,6 +717,10 @@ pub struct CanonicalStore {
     database: String,
     namespace: String,
     issuing_store: Arc<std::sync::OnceLock<String>>,
+    // Fields drop in declaration order. The fixture's final drain must run
+    // after both client aliases have relinquished this handle's continuation.
+    #[cfg(any(test, feature = "test-support"))]
+    pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
 }
 impl std::fmt::Debug for CanonicalStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -3194,6 +3206,20 @@ mod canonical_server_unit {
         .unwrap();
         assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
         observer.disconnect().await.unwrap();
+    }
+    #[tokio::test]
+    async fn source_protection_final_finish_drains_before_last_fixture_teardown() {
+        let (store, _) = initialization_fixture().await;
+        store.create().await.unwrap();
+        let revision = store.edit("last-finish", None, "source", &[]).await.unwrap();
+        let selection = store.protect(revision, std::time::Duration::from_secs(30)).await.unwrap();
+        let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
+        store.close();
+        drop(store);
+        selection.finish().await.unwrap();
+        let status = crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource})).unwrap();
+        assert_eq!(status["drained"], serde_json::json!(true));
+        assert!(status.get("creation_borrower").is_none());
     }
     #[test]
     fn source_protection_cleanup_outlives_its_callers_executor() {
