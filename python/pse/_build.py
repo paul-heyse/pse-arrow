@@ -35,6 +35,7 @@ _NativeTableStream = _native.TableStream
 _registry_table = _native.registry_table
 _NativeAnalysis = _native.NativeAnalysis
 _NativeScientificArtifact = _native.NativeScientificArtifact
+_NativeArtifactSettlement = _native.NativeArtifactSettlement
 _NativePhysicalContext = _native.NativePhysicalContext
 _NativeRuntime = _native.NativeRuntime
 _NativeModelingNativeAnalysis = _native.NativeModelingNativeAnalysis

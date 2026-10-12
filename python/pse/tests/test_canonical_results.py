@@ -375,6 +375,19 @@ def test_canonical_result_selection_and_progress_reopen(
     artifact = reopened.promote_scientific_artifact(
         run, attempt, "final-state", owner_kind="user", owner="python-final-state"
     )
+    assert isinstance(artifact.original_intent, bytes)
+    settlement = reopened.recover_artifact_intent(artifact.original_intent)
+    assert settlement.key == artifact.key
+    assert not hasattr(settlement, "block")
+    altered_intent = json.loads(artifact.original_intent)
+    altered_intent["creation_request_digest"] = "f" * 64
+    altered_settlement = reopened.recover_artifact_intent(json.dumps(altered_intent).encode())
+    with pytest.raises(pse.InspectionError):
+        altered_settlement.release("user", "python-final-state")
+    with pytest.raises(pse.InspectionError):
+        reopened.recover_artifact_intent(b"{}")
+    with pytest.raises(pse.InspectionError):
+        reopened.recover_artifact_intent(b" " * (1024 * 1024 + 1))
     artifact.retain("audit", "python-independent-audit")
     (artifact_header,) = pa.table(artifact.metadata()).to_pylist()
     assert artifact_header["kind"] == "final-state"

@@ -81,6 +81,8 @@ pub struct ArtifactRead { store:CanonicalStore, header:Artifact, selection:Prote
 impl ArtifactRead {
     pub(crate) fn belongs_to(&self,store:&CanonicalStore)->bool { self.store.db.same_driver(&store.db) }
     pub(crate) fn protected_selection(&self)->&ProtectedSelection { &self.selection }
+    /// Original protected acquisition identity for explicit uncertainty attribution.
+    pub fn read_key(&self)->&str {self.selection.key()}
     /// Exact immutable occurrence metadata.
     pub fn header(&self)->&Artifact { &self.header }
     /// Renew this existing finite acquisition, never mint a new owner from copied metadata.
@@ -208,6 +210,17 @@ impl CanonicalStore {
             protected_query("canonical_artifacts::release",||Ok(self.db.query("BEGIN; RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("obligation",row.clone())))).await?; Ok(())
         }).await
     }
+    /// Release only the named owner after proving the unchanged original intent.
+    pub async fn release_artifact_intent(&self,intent:&Artifact,owner_kind:&str,owner:&str)->Result<(),CanonicalError> {
+        let activity=self.admit_activity()?;
+        activity.scope(async {
+            self.ensure_writes()?;
+            let obligation=wire::encode_canonical_artifact_obligations(&artifact_obligation(&intent.key,owner_kind,owner))?;
+            let intent=wire::encode_canonical_artifacts(intent)?;
+            protected_query("canonical_artifacts::release_intent",||Ok(self.db.query("BEGIN; fn::pse_artifact_v1::original($pse_rpc_expires_at,$intent); RETURN fn::pse_artifact_v1::release($pse_rpc_expires_at,$obligation); COMMIT;").bind(("intent",intent.clone())).bind(("obligation",obligation.clone())))).await?;
+            Ok(())
+        }).await
+    }
     /// Retire or settle the exact original intent, reclaiming one bounded page per call.
     pub async fn collect_artifact(&self,intent:&Artifact)->Result<bool,CanonicalError> {
         let activity=self.admit_activity()?;
@@ -315,6 +328,29 @@ mod canonical_artifact_tests {
         blocks[0].payload=vec![9].into();
         assert!(matches!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","alice").await,Err(CanonicalError::OperationReused)));
         assert!(store.artifact(&intent.key).await.is_err());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_artifact_original_intent_settles_inactive_staging_and_refuses_alteration() {
+        let (store,revision)=fixture().await;
+        let (intent,_blocks)=content(&store,&revision,"audit","staging-owner").await;
+        let mut root=Object::new();
+        root.insert("key",format!("test-staged-root:{}",intent.key)); root.insert("problem",revision.problem.clone()); root.insert("revision",revision.key.clone()); root.insert("sequence",codec::encode_uint(revision.sequence).unwrap());
+        let row=wire::encode_canonical_artifacts(&intent).unwrap();
+        protected_query("test:artifact-staging-only",||Ok(store.db.query("BEGIN; RETURN fn::pse_artifact_v1::begin($pse_rpc_expires_at,$row,$sources,[]); COMMIT;").bind(("row",row.clone())).bind(("sources",vec![root.clone()])))).await.unwrap();
+        assert!(store.artifact(&intent.key).await.is_err(),"staged original intent grants no active discovery");
+        assert!(store.read_artifact(&intent.key,Duration::from_secs(1)).await.is_err(),"staged original intent grants no reader");
+        let mut changed=intent.clone(); changed.creation_request_digest="f".repeat(64);
+        assert!(store.release_artifact_intent(&changed,"audit","staging-owner").await.is_err(),"release proves complete immutable original equality");
+        assert!(store.collect_artifact(&changed).await.is_err(),"collection cannot substitute changed original metadata");
+        store.release_artifact_intent(&intent,"audit","staging-owner").await.unwrap();
+        store.release_artifact_intent(&intent,"audit","staging-owner").await.unwrap();
+        assert!(!store.collect_artifact(&intent).await.unwrap(),"original creation window remains pending");
+        tokio::time::sleep(Duration::from_millis(550)).await;
+        let mut complete=false;
+        for _ in 0..8 {if store.collect_artifact(&intent).await.unwrap() {complete=true;break;}}
+        assert!(complete);
+        assert!(store.collect_artifact(&intent).await.unwrap(),"same original intent settles lost ACK after deletion");
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]

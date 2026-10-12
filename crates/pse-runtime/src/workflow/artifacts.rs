@@ -8,6 +8,27 @@ use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
 use pse_relations::columnar::RelationRow;
 use std::time::Duration;
 
+/// A bounded original recovery document is a settlement capability, never a reader.
+#[derive(Clone,Debug)]
+pub struct ArtifactSettlement { runtime:Runtime,intent:Artifact }
+impl ArtifactSettlement {
+    /// Exact original occurrence; active discovery remains a separate operation.
+    pub fn key(&self)->&str {&self.intent.key}
+    /// Release one explicit owner only after original-intent equality is proved.
+    pub async fn release(&self,kind:&str,owner:&str)->Result<(),WorkflowError> {Ok(self.runtime.canonical_store().release_artifact_intent(&self.intent,kind,owner).await?)}
+    /// Settle one page; an unexpired original creation window remains pending.
+    pub async fn collect(&self)->Result<bool,WorkflowError> {Ok(self.runtime.canonical_store().collect_artifact(&self.intent).await?)}
+}
+const ARTIFACT_INTENT_BYTES:usize=1024*1024;
+fn decode_intent(bytes:&[u8])->Result<Artifact,WorkflowError> {
+    if bytes.len()>ARTIFACT_INTENT_BYTES {return Err(contract("artifact original intent document extent"));}
+    let intent:Artifact=serde_json::from_slice(bytes).map_err(|error|contract(format!("artifact original intent: {error}")))?;
+    if intent.provenance.len()>128*1024 || intent.creation_nonce.len()!=36 || intent.creation_request_digest.len()!=64 || intent.primary_authority.is_empty() || intent.primary_authority.len()>128 || intent.creation_request_digest.bytes().any(|value|!value.is_ascii_hexdigit()) || intent.key!=format!("pse.artifact.v1:{}:{}:{}",intent.primary_authority,intent.creation_nonce,intent.creation_expires_at) {
+        return Err(contract("artifact original intent identity differs"));
+    }
+    Ok(intent)
+}
+
 /// A promised scientific product, distinct from arbitrary result row selection.
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all="snake_case")]
@@ -98,6 +119,11 @@ pub(super) fn solve_context(prepared:&super::ModelingSolvePreparation,run_id:pse
 }
 
 impl Runtime {
+    /// Recover settlement from exact owner-emitted bytes, without issuing authority
+    /// or opening inactive/absent content. Server effects recheck the original intent.
+    pub fn recover_artifact_intent(&self,bytes:&[u8])->Result<ArtifactSettlement,WorkflowError> {
+        Ok(ArtifactSettlement {runtime:self.clone(),intent:decode_intent(bytes)?})
+    }
     /// Preserve a qualified start as a copied capsule with an independent owner.
     pub async fn promote_seed_artifact(&self,solution:pse_model::generated::identities::SolutionId,owner_kind:&str,owner:&str)->Result<ScientificArtifact,WorkflowError> {
         let header=self.operations()?.promote_seed(solution,owner_kind,owner).await?;
@@ -225,5 +251,26 @@ mod tests {
             read.release().await.unwrap();
             assert!(seen);
         }
+    }
+}
+
+#[cfg(test)]
+mod intent_unit {
+    #![allow(clippy::unwrap_used,reason="strict original document boundary controls")]
+    use super::*;
+    #[test]
+    fn artifact_recovery_refuses_malformed_and_oversized_documents() {
+        assert!(decode_intent(b"{}").is_err());
+        assert!(decode_intent(&vec![b' ';ARTIFACT_INTENT_BYTES+1]).is_err());
+        let authority="original-authority";
+        let nonce="00000000-0000-0000-0000-000000000001";
+        let mut intent=Artifact {key:format!("pse.artifact.v1:{authority}:{nonce}:123"),kind:"seed".into(),revision:"original-revision".into(),primary_problem:"problem".into(),primary_authority:authority.into(),creation_nonce:nonce.into(),creation_expires_at:123,creation_request_digest:"0".repeat(64),interpretation:String::new(),provenance:Vec::new().into(),block_count:1,payload_bytes:1,active:false,retiring:false};
+        let bytes=serde_json::to_vec(&intent).unwrap();
+        assert_eq!(decode_intent(&bytes).unwrap(),intent);
+        intent.creation_expires_at+=1;
+        assert!(decode_intent(&serde_json::to_vec(&intent).unwrap()).is_err(),"altered window does not match original identity");
+        let mut unknown:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+        unknown.as_object_mut().unwrap().insert("fresh_intent".into(),true.into());
+        assert!(decode_intent(&serde_json::to_vec(&unknown).unwrap()).is_err(),"generated original document remains strict");
     }
 }

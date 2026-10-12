@@ -432,8 +432,19 @@ impl Runtime {
             edge(&mut graph, node, attempt_node, "input_provenance", None)?;
         }
         let staging_owner=format!("analysis-staging:{}",pse_operations::mint_id::<pse_model::generated::identities::RunId>());
-        let artifact=self.promote_scientific_artifact(run,attempt,super::artifacts::ScientificArtifactKind::LocalAnalysis,"audit",&staging_owner,cancel.clone()).await?;
-        let artifact_read=self.canonical_store().read_artifact(&artifact.header().key,Duration::from_secs(600)).await?;
+        let artifact=match self.promote_scientific_artifact(run,attempt,super::artifacts::ScientificArtifactKind::LocalAnalysis,"audit",&staging_owner,cancel.clone()).await {
+            Ok(artifact)=>artifact,
+            Err(source)=>{
+                if let WorkflowError::Canonical(pse_operations::canonical::CanonicalError::ArtifactUnsettled{intent,..})=&source {
+                    return Err(WorkflowError::ArtifactTransferUnsettled {analysis:None,artifact:intent.clone(),owner_kind:"audit".into(),owner:staging_owner,read:None,source:Box::new(source)});
+                }
+                return Err(source);
+            }
+        };
+        let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
+        let artifact_read=self.canonical_store().read_artifact(&artifact.header().key,Duration::from_secs(600)).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let read_key=artifact_read.read_key().to_owned();
+        let graph_result:Result<AnalysisHandle,WorkflowError>=async {
         for ordinal in 0..artifact.header().block_count {
             let block=artifact_read.block(ordinal).await?;
             let relation_name=block.relation.as_str();
@@ -479,8 +490,14 @@ impl Runtime {
             controls,
         )
         .await?;
-        self.canonical_store().release_artifact(&artifact.header().key,"audit",&staging_owner).await?;
-        artifact_read.release().await?;
+        Ok(handle)
+        }.await;
+        let handle=graph_result.map_err(|source|{
+            let analysis=match &source {WorkflowError::Canonical(pse_operations::canonical::CanonicalError::AnalysisUnsettled{intent,..})=>Some(intent.key.clone()),_=>None};
+            transfer_error(source,analysis,Some(read_key.clone()))
+        })?;
+        self.canonical_store().release_artifact_intent(artifact.header(),"audit",&staging_owner).await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key.clone())))?;
+        artifact_read.release().await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key)))?;
         Ok(handle)
 
         }).await

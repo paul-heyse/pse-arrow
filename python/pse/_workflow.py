@@ -9,7 +9,7 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
-from pse._artifacts import ArtifactOwnerKind, ScientificArtifact, ScientificArtifactKind
+from pse._artifacts import ArtifactSettlement, ArtifactOwnerKind, ScientificArtifact, ScientificArtifactKind
 from pse._build import (
     EngineSettings,
     _NativePhysicalContext,
@@ -132,6 +132,10 @@ class Runtime:
     def result_manifest(self, attempt: str) -> TableStream:
         """Read the exact admitted closed descriptor through its Arrow schema."""
         return TableStream(self._handle.result_manifest(attempt))
+
+    def recover_artifact_intent(self, intent: bytes) -> ArtifactSettlement:
+        """Recover exact error/interrupt bytes for release/collection; never replay creation."""
+        return ArtifactSettlement(self._handle.recover_artifact_intent(intent))
 
     def scientific_artifact(self, key: str) -> ScientificArtifact:
         """Reopen one active independent artifact after producer retirement."""

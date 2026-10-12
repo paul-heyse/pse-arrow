@@ -52,6 +52,18 @@ fn local_python_configuration(
     ))
 }
 
+/// Original-intent settlement only; never grants active content access.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone,Debug)]
+pub(crate) struct NativeArtifactSettlement {inner:native::artifacts::ArtifactSettlement,owner:Arc<runtime::Runtime>}
+#[pymethods]
+impl NativeArtifactSettlement {
+    #[getter]
+    fn key(&self)->String {self.inner.key().into()}
+    fn release(&self,py:Python<'_>,kind:&str,owner:&str)->PyResult<()> {blocking(py,&self.owner,self.inner.release(kind,owner),||{})}
+    fn collect(&self,py:Python<'_>)->PyResult<bool> {blocking(py,&self.owner,self.inner.collect(),||{})}
+}
+
 /// Independent retained scientific content; producer availability is not consulted.
 #[pyclass(frozen, skip_from_py_object, module = "pse._native")]
 #[derive(Clone, Debug)]
@@ -65,6 +77,9 @@ impl NativeScientificArtifact {
     fn key(&self)->String {self.inner.header().key.clone()}
     #[getter]
     fn kind(&self)->String {self.inner.header().kind.clone()}
+    /// Original immutable recovery document, never a content-acquisition capability.
+    #[getter]
+    fn original_intent(&self,py:Python<'_>)->PyResult<Vec<u8>> {crate::documents::encode(py,self.inner.header())}
     fn metadata(&self,py:Python<'_>)->PyResult<inspection::TableStream> {
         inspection::TableStream::from_batch(blocking(py,&self.owner,self.inner.metadata(),||{})?).map_err(|error|errors::diagnostic(py,&error))
     }
@@ -371,7 +386,7 @@ fn blocking_analysis<
     cancel: impl Fn(),
 ) -> PyResult<native::AnalysisHandle> {
     blocking_on_with_recovery(py, runtime.executor, future, cancel, |value| {
-        Some(("analysis_key",value.key().to_owned()))
+        Some(("analysis_key",value.key().to_owned(),None))
     })
 }
 fn blocking_on_with_recovery<
@@ -382,7 +397,7 @@ fn blocking_on_with_recovery<
     executor: &tokio::runtime::Runtime,
     future: F,
     cancel: impl Fn(),
-    recovery_key: impl Fn(&T) -> Option<(&'static str,String)>,
+    recovery_key: impl Fn(&T) -> Option<(&'static str,String,Option<pse_operations::canonical_artifacts::Artifact>)>,
 ) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
@@ -403,9 +418,20 @@ fn blocking_on_with_recovery<
                 Some(e) => {
                     use errors::ReportSource;
                     match &value {
-                        Ok(value)=>if let Some((field,key))=recovery_key(value) {e.value(py).setattr(field,key)?;},
-                        Err(error)=>for (field,key) in [("analysis_key",error.report_analysis_key()),("artifact_key",error.report_artifact_key()),("study_key",error.report_study_key())] {
-                            if let Some(key)=key {e.value(py).setattr(field,key)?;}
+                        Ok(value)=>if let Some((field,key,intent))=recovery_key(value) {
+                            e.value(py).setattr(field,key)?;
+                            if let Some(intent)=intent {e.value(py).setattr("artifact_intent",crate::documents::encode(py,&intent)?)?;}
+                        },
+                        Err(error)=>{
+                            for (field,key) in [("analysis_key",error.report_analysis_key()),("artifact_key",error.report_artifact_key()),("study_key",error.report_study_key())] {
+                                if let Some(key)=key {e.value(py).setattr(field,key)?;}
+                            }
+                            if let Some(intent)=error.report_artifact_intent() {e.value(py).setattr("artifact_intent",crate::documents::encode(py,&intent)?)?;}
+                            if let Some((kind,owner,read))=error.report_artifact_cleanup() {
+                                e.value(py).setattr("artifact_owner_kind",kind)?;
+                                e.value(py).setattr("artifact_owner",owner)?;
+                                e.value(py).setattr("artifact_read_key",read)?;
+                            }
                         },
                     }
                     if let Err(error) = &value {
@@ -748,18 +774,21 @@ impl NativeRuntime {
         let batch = blocking(py, &self.owner, self.inner.result_manifest(attempt), || {})?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
     }
+    fn recover_artifact_intent(&self,py:Python<'_>,intent:&[u8])->PyResult<NativeArtifactSettlement> {
+        Ok(NativeArtifactSettlement {inner:self.inner.recover_artifact_intent(intent).map_err(|error|errors::diagnostic(py,&error))?,owner:self.owner.clone()})
+    }
     fn scientific_artifact(&self,py:Python<'_>,key:&str)->PyResult<NativeScientificArtifact> {
         Ok(NativeScientificArtifact {inner:blocking(py,&self.owner,self.inner.scientific_artifact(key),||{})?,owner:self.owner.clone()})
     }
     fn promote_seed_artifact(&self,py:Python<'_>,solution:&str,owner_kind:&str,owner:&str)->PyResult<NativeScientificArtifact> {
         let solution=pse_ids::SemanticId::parse_hex(solution).map(pse_model::generated::identities::SolutionId::from_id).map_err(|error|invalid(py,error.to_string()))?;
-        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_seed_artifact(solution,owner_kind,owner),||{},|value|Some(("artifact_key",value.header().key.clone())))?;
+        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_seed_artifact(solution,owner_kind,owner),||{},|value|Some(("artifact_key",value.header().key.clone(),Some(value.header().clone()))))?;
         Ok(NativeScientificArtifact {inner,owner:self.owner.clone()})
     }
     fn promote_scientific_artifact(&self,py:Python<'_>,run:&str,attempt:&str,kind:&str,owner_kind:&str,owner:&str)->PyResult<NativeScientificArtifact> {
         let kind=match kind {"final-state"=>native::artifacts::ScientificArtifactKind::FinalState,"trajectory"=>native::artifacts::ScientificArtifactKind::Trajectory,"local-analysis"=>native::artifacts::ScientificArtifactKind::LocalAnalysis,_=>return Err(invalid(py,"unknown scientific artifact kind"))};
         let cancel=pse_columnar::CancellationToken::new();
-        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_scientific_artifact(run,attempt,kind,owner_kind,owner,cancel.clone()),||cancel.cancel(),|value|Some(("artifact_key",value.header().key.clone())))?;
+        let inner=blocking_on_with_recovery(py,self.owner.executor,self.inner.promote_scientific_artifact(run,attempt,kind,owner_kind,owner,cancel.clone()),||cancel.cancel(),|value|Some(("artifact_key",value.header().key.clone(),Some(value.header().clone()))))?;
         Ok(NativeScientificArtifact {inner,owner:self.owner.clone()})
     }
     fn analysis(&self, py: Python<'_>, key: &str) -> PyResult<NativeAnalysis> {

@@ -189,12 +189,29 @@ pub enum WorkflowError {
     #[error("study {study} creation requires explicit recovery: {source}")]
     StudyCreationUnsettled {
         /// Exact locally issued study occurrence; never reused for a fresh request.
-        study: pse_model::generated::identities::StudyId,
+        study: StudyId,
         /// Original staging/creation failure, without inferred terminal science.
         #[source]
         source: Box<WorkflowError>,
         /// Failure to prove pre-header abandonment (an existing header may be live).
         cleanup: Box<pse_operations::canonical::CanonicalError>,
+    },
+    /// Scientific transfer or graph handoff needs exact attributed cleanup/recovery.
+    #[error("artifact {artifact_key} transfer requires recovery: {source}",artifact_key=.artifact.key)]
+    ArtifactTransferUnsettled {
+        /// Committed or uncertain analysis occurrence, when one was issued.
+        analysis: Option<String>,
+        /// Original sealed artifact, including inactive or absent staging outcomes.
+        artifact: Box<pse_operations::canonical_artifacts::Artifact>,
+        /// Exact internal obligation kind; no other owner's lifetime is released.
+        owner_kind: String,
+        /// Exact internal obligation identity, including random staging owners.
+        owner: String,
+        /// Original read grant whose explicit release may be uncertain; its finite lease remains authoritative.
+        read: Option<String>,
+        /// Original typed transfer/cleanup failure.
+        #[source]
+        source: Box<WorkflowError>,
     },
     /// Bounded scientific IPC framing, schema, shape or decoder refusal.
     #[error(transparent)]
@@ -254,7 +271,7 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
     code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
-    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
+    forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
 fn contract(message: impl Into<String>) -> WorkflowError {
