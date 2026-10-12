@@ -391,6 +391,8 @@ pub enum FactBatch {
     r#RuntimeRouteDecisions(Vec<super::r#runtime::r#route_decisions::Row>),
     #[doc = stringify!(r#RuntimeRunLineage)]
     r#RuntimeRunLineage(Vec<super::r#runtime::r#run_lineage::Row>),
+    #[doc = stringify!(r#RuntimeScientificContexts)]
+    r#RuntimeScientificContexts(Vec<super::r#runtime::r#scientific_contexts::Row>),
     #[doc = stringify!(r#RuntimeSimulationEvents)]
     r#RuntimeSimulationEvents(Vec<super::r#runtime::r#simulation_events::Row>),
     #[doc = stringify!(r#RuntimeSimulationSamples)]
@@ -1278,6 +1280,12 @@ impl FactBatch {
                     81u8, 204u8, 122u8, 69u8, 187u8, 41u8,
                 ])
             }
+            Self::r#RuntimeScientificContexts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    117u8, 94u8, 47u8, 185u8, 134u8, 56u8, 220u8, 238u8, 78u8, 164u8,
+                    68u8, 254u8, 28u8, 182u8, 127u8, 198u8,
+                ])
+            }
             Self::r#RuntimeSimulationEvents(_) => {
                 pse_ids::SemanticId::from_bytes([
                     68u8, 37u8, 108u8, 83u8, 90u8, 159u8, 135u8, 70u8, 231u8, 174u8,
@@ -1352,8 +1360,8 @@ impl FactBatch {
             }
             Self::r#RuntimeTrajectoryEndpoints(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    130u8, 66u8, 78u8, 156u8, 33u8, 155u8, 176u8, 19u8, 141u8, 96u8,
-                    74u8, 245u8, 39u8, 210u8, 70u8, 180u8,
+                    37u8, 85u8, 88u8, 138u8, 192u8, 92u8, 104u8, 154u8, 29u8, 126u8,
+                    106u8, 24u8, 31u8, 228u8, 203u8, 242u8,
                 ])
             }
             Self::r#RuntimeValidationFindings(_) => {
@@ -1509,6 +1517,7 @@ impl FactBatch {
             Self::r#RuntimeResponseSensitivities(rows) => rows.len(),
             Self::r#RuntimeRouteDecisions(rows) => rows.len(),
             Self::r#RuntimeRunLineage(rows) => rows.len(),
+            Self::r#RuntimeScientificContexts(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
             Self::r#RuntimeSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeSolutionPool(rows) => rows.len(),
@@ -2245,6 +2254,11 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeScientificContexts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeSimulationEvents(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2939,6 +2953,10 @@ impl FactBatch {
             }
             Self::r#RuntimeRunLineage(rows) => {
                 rows.get(index).map(|row| Self::r#RuntimeRunLineage(vec![row.clone()]))
+            }
+            Self::r#RuntimeScientificContexts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeScientificContexts(vec![row.clone()]))
             }
             Self::r#RuntimeSimulationEvents(rows) => {
                 rows.get(index)
@@ -4501,6 +4519,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeScientificContexts(left),
+                Self::r#RuntimeScientificContexts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(right),
             ) => {
@@ -5636,6 +5665,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeRunLineage(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeScientificContexts(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7623,6 +7659,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeScientificContexts(left),
+                Self::r#RuntimeScientificContexts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(right),
             ) => {
@@ -8504,6 +8555,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
             }
             Self::r#RuntimeRunLineage(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
+            Self::r#RuntimeScientificContexts(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
@@ -9558,6 +9614,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeScientificContexts(left),
+                Self::r#RuntimeScientificContexts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(mut right),
             ) => {
@@ -9951,6 +10014,7 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeRouteDecisions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeRunLineage(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeScientificContexts(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolutionPool(rows) => crate::HeapUsage::heap_bytes(rows),

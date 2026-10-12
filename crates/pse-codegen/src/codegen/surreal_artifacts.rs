@@ -15,20 +15,26 @@ DEFINE FUNCTION fn::pse_artifact_v1::abandon_study_inputs($rpc_expiry:int,$study
     FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); };
     LET $inputs=SELECT id FROM canonical_study_inputs WHERE study=$study ORDER BY key LIMIT 64;
     DELETE $inputs.id;
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN array::len($owners)<64 AND array::len($inputs)<64;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN array::len($owners)<64 AND array::len($inputs)<64;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::authority($rpc_expiry:int,$row:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$row.primary_problem) FOR UPDATE;
     IF $guard=NONE OR $guard.incarnation!=$row.primary_authority OR $row.key!='pse.artifact.v1:'+$row.primary_authority+':'+$row.creation_nonce+':'+<string><int>$row.creation_expires_at { THROW 'artifact creation authority differs'; };
-    RETURN $guard;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $guard;
+};
+// Recovery validates the original immutable intent without granting content access.
+DEFINE FUNCTION fn::pse_artifact_v1::original($rpc_expiry:int,$intent:object) -> object {
+    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$intent);
+    LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
+    IF $row!=NONE AND object::remove($row,['id','active','retiring'])!=object::remove($intent,['active','retiring']) { THROW 'artifact recovery requires exact original intent'; };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $guard;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::available($rpc_expiry:int,$key:string) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
     IF $row=NONE OR !$row.active OR $row.retiring { THROW 'artifact unavailable'; };
-    RETURN $row;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::producer($rpc_expiry:int,$input:object) -> bool {
     fn::pse_execution_v1::result_creator($rpc_expiry,$input.run);
@@ -36,7 +42,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::producer($rpc_expiry:int,$input:object) -> 
     LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$input.attempt);
     LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$input.manifest);
     IF $attempt=NONE OR $manifest=NONE OR $attempt.run!=$input.run OR !$attempt.terminal OR !$attempt.closed OR $attempt.ingestion_open OR $attempt.closed_manifest!=$input.manifest OR $manifest.attempt!=$input.attempt OR $manifest.generation!=$attempt.generation { THROW 'artifact producer inventory unavailable'; };
-    RETURN true;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:array<object>,$inputs:array<object>) -> object {
     LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$row);
@@ -46,7 +52,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
     LET $old=SELECT * FROM ONLY type::record('canonical_artifacts',$row.key) FOR UPDATE;
     IF $old!=NONE {
         IF $old.retiring OR object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'immutable artifact request changed'; };
-        RETURN $old;
+        fn::pse_execution_v1::deadline($rpc_expiry); RETURN $old;
     };
     FOR $source IN $sources {
         fn::pse_execution_v1::source_creator($rpc_expiry,$source.problem,$source.key);
@@ -66,8 +72,13 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
     CREATE ONLY type::record('canonical_artifacts',$row.key) CONTENT $row;
     FOR $source IN $sources { CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='artifact',owner=$row.key; };
     FOR $input IN $inputs { CREATE ONLY type::record('canonical_artifact_staging_inputs',$input.key) CONTENT object::remove($input,['protection']); };
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN $row;
+    FOR $input IN $inputs {
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
+        IF $pin=NONE OR $pin.released { THROW 'artifact transfer protection unavailable'; };
+        fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
+    };
+    fn::pse_execution_v1::lease($rpc_expiry,<int>$row.creation_expires_at);
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:object) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -76,8 +87,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:o
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_blocks',$block.key);
     IF $old!=NONE { IF object::remove($old,['id'])!=$block { THROW 'immutable artifact block changed'; }; }
     ELSE { IF $row.active { THROW 'artifact content sealed'; }; CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN true;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$obligation:object) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -93,8 +103,8 @@ DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$oblig
     fn::pse_artifact_v1::attach($rpc_expiry,$key,$obligation,false);
     DELETE $inputs.id;
     LET $saved=UPDATE ONLY type::record('canonical_artifacts',$key) SET active=true;
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN $saved;
+    IF !$row.active { fn::pse_execution_v1::lease($rpc_expiry,<int>$row.creation_expires_at); };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $saved;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::attach($rpc_expiry:int,$key:string,$obligation:object,$require_active:bool) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -106,7 +116,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::attach($rpc_expiry:int,$key:string,$obligat
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_obligations',$obligation.key) FOR UPDATE;
     IF $old!=NONE { IF object::remove($old,['id'])!=$obligation { THROW 'artifact obligation identity changed'; }; }
     ELSE { CREATE ONLY type::record('canonical_artifact_obligations',$obligation.key) CONTENT $obligation; };
-    RETURN true;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::release($rpc_expiry:int,$obligation:object) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -121,14 +131,15 @@ DEFINE FUNCTION fn::pse_artifact_v1::release($rpc_expiry:int,$obligation:object)
     IF $released!=NONE { IF object::remove($released,['id'])!=$obligation { THROW 'artifact release identity changed'; }; }
     ELSE { CREATE ONLY type::record('canonical_artifact_releases',$obligation.key) CONTENT $obligation; };
     DELETE ONLY type::record('canonical_artifact_obligations',$obligation.key);
-    RETURN true;
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::acquire($rpc_expiry:int,$key:string,$protection:string) -> object {
     LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$protection) FOR UPDATE;
     IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$row.revision { THROW 'artifact read protection absent'; };
     UPSERT type::record('canonical_artifact_reads',$protection) SET key=$protection,artifact=$key;
-    RETURN $row;
+    fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
 };
 DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protection:string,$ordinal:decimal) -> object {
     LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
@@ -137,10 +148,11 @@ DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protectio
     IF $pin=NONE OR $pin.released OR $pin.expires_at<=time::micros() OR $pin.revision!=$row.revision OR $read=NONE OR $read.artifact!=$key { THROW 'artifact read grant unavailable'; };
     LET $blocks=SELECT * FROM canonical_artifact_blocks WHERE artifact=$key AND ordinal=$ordinal LIMIT 1;
     IF array::len($blocks)!=1 { THROW 'artifact block unavailable'; };
-    RETURN $blocks[0];
+    fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN $blocks[0];
 };
 DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> object {
-    LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$intent);
+    LET $guard=fn::pse_artifact_v1::original($rpc_expiry,$intent);
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$intent.key) FOR UPDATE;
     LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$intent.key LIMIT 1;
     IF array::len($owners)!=0 { THROW 'artifact has retained obligations'; };
@@ -148,26 +160,25 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     LET $reads=SELECT key FROM canonical_artifact_reads WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $read IN $reads {
         LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$read.key) FOR UPDATE;
-        IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
+        IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$intent.primary_problem,$read.key,false);
-        IF time::micros()<$grant.grant_deadline { RETURN {complete:false,waiting:true}; };
+        IF time::micros()<$grant.grant_deadline { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
         fn::pse_retention_v1::settle_protection($rpc_expiry,$intent.primary_problem,$read.key);
         DELETE ONLY type::record('canonical_artifact_reads',$read.key);
     };
-    IF array::len($reads)=64 { RETURN {complete:false,waiting:false}; };
+    IF array::len($reads)=64 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $row!=NONE { UPDATE ONLY type::record('canonical_artifacts',$intent.key) SET retiring=true; };
-    IF time::micros()<$intent.creation_expires_at { RETURN {complete:false,waiting:true}; };
+    IF time::micros()<$intent.creation_expires_at { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:true}; };
     LET $blocks=SELECT id FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
-    IF array::len($blocks)!=0 { DELETE $blocks.id; RETURN {complete:false,waiting:false}; };
+    IF array::len($blocks)!=0 { DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
     FOR $input IN $inputs { fn::pse_execution_v1::result_creator($rpc_expiry,$input.run); };
-    IF array::len($inputs)!=0 { DELETE $inputs.id; RETURN {complete:false,waiting:false}; };
+    IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='artifact' AND owner=$intent.key ORDER BY key LIMIT 64;
     FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
-    IF array::len($roots)!=0 { DELETE $roots.id; RETURN {complete:false,waiting:false}; };
+    IF array::len($roots)!=0 { DELETE $roots.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
     DELETE ONLY type::record('canonical_artifacts',$intent.key);
-    fn::pse_execution_v1::deadline($rpc_expiry);
-    RETURN {complete:true,waiting:false};
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,waiting:false};
 };
 "#;

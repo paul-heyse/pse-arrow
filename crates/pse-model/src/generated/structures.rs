@@ -1165,6 +1165,39 @@ impl PartialEq for ModelingUnitFactor {
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ScientificArtifactCoordinate {
+    ///id
+    pub r#id: pse_ids::SemanticId,
+    ///quantity_id
+    pub r#quantity_id: pse_ids::SemanticId,
+    ///unit_id
+    pub r#unit_id: pse_ids::SemanticId,
+    ///scale
+    pub r#scale: f64,
+    ///offset
+    pub r#offset: f64,
+}
+impl crate::SemanticEq for ScientificArtifactCoordinate {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#id, &other.r#id)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity_id, &other.r#quantity_id)
+            && crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
+            && crate::SemanticEq::semantic_eq(&self.r#scale, &other.r#scale)
+            && crate::SemanticEq::semantic_eq(&self.r#offset, &other.r#offset)
+    }
+}
+impl PartialEq for ScientificArtifactCoordinate {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct VersionRequirement {
     ///operator
     pub r#operator: crate::generated::enums::ModelingVersionOperator,
@@ -1734,6 +1767,30 @@ impl crate::HeapUsage for ModelingUnitFactor {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symbol))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#num))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#den))
+    }
+}
+impl crate::SemanticFrame for ScientificArtifactCoordinate {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#id));
+        crate::SemanticFrame::frame(&self.r#id, hash);
+        hash.str(stringify!(r#quantity_id));
+        crate::SemanticFrame::frame(&self.r#quantity_id, hash);
+        hash.str(stringify!(r#unit_id));
+        crate::SemanticFrame::frame(&self.r#unit_id, hash);
+        hash.str(stringify!(r#scale));
+        crate::SemanticFrame::frame(&self.r#scale, hash);
+        hash.str(stringify!(r#offset));
+        crate::SemanticFrame::frame(&self.r#offset, hash);
+    }
+}
+impl crate::HeapUsage for ScientificArtifactCoordinate {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#unit_id))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#scale))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#offset))
     }
 }
 impl crate::SemanticFrame for VersionRequirement {

@@ -276,6 +276,22 @@ mod canonical_artifact_tests {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    async fn canonical_artifact_live_read_prevents_collection_after_owner_release() {
+        let (store,revision)=fixture().await;
+        let (intent,blocks)=content(&store,&revision).await;
+        store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","reader").await.unwrap();
+        let read=store.read_artifact(&intent.key,Duration::from_secs(10)).await.unwrap();
+        let copied=read.block(0).await.unwrap();
+        store.release_artifact(&intent.key,"user","reader").await.unwrap();
+        assert!(!store.collect_artifact(&intent).await.unwrap(),"a live exact read keeps its immutable content available");
+        assert_eq!(read.block(0).await.unwrap().payload,copied.payload);
+        read.release().await.unwrap();
+        // Original acquisition authority still has its finite issue window;
+        // release does not let collection invent proof that a delayed read cannot commit.
+        assert!(!store.collect_artifact(&intent).await.unwrap());
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
     async fn canonical_artifact_bounded_collection_fences_late_original_creation() {
         let (store,revision)=fixture().await;
         let (intent,blocks)=content(&store,&revision,"project","p").await;

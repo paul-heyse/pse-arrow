@@ -21,6 +21,10 @@ pub struct RuntimeTrajectoryEndpointsRow {
     pub r#time: f64,
     ///mode
     pub r#mode: i64,
+    ///mode_name
+    pub r#mode_name: String,
+    ///mode_identity
+    pub r#mode_identity: pse_ids::ContentHash,
     ///state_ids
     pub r#state_ids: Vec<pse_ids::SemanticId>,
     ///input_ids
@@ -54,7 +58,11 @@ impl crate::SemanticEq for RuntimeTrajectoryEndpointsRow {
             ) && crate::SemanticEq::semantic_eq(&self.r#event_id, &other.r#event_id)
             && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
             && crate::SemanticEq::semantic_eq(&self.r#mode, &other.r#mode)
-            && crate::SemanticEq::semantic_eq(&self.r#state_ids, &other.r#state_ids)
+            && crate::SemanticEq::semantic_eq(&self.r#mode_name, &other.r#mode_name)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#mode_identity,
+                &other.r#mode_identity,
+            ) && crate::SemanticEq::semantic_eq(&self.r#state_ids, &other.r#state_ids)
             && crate::SemanticEq::semantic_eq(&self.r#input_ids, &other.r#input_ids)
             && crate::SemanticEq::semantic_eq(&self.r#output_ids, &other.r#output_ids)
             && crate::SemanticEq::semantic_eq(&self.r#state, &other.r#state)
@@ -99,6 +107,10 @@ impl crate::SemanticFrame for RuntimeTrajectoryEndpointsRow {
         crate::SemanticFrame::frame(&self.r#time, hash);
         hash.str(stringify!(r#mode));
         crate::SemanticFrame::frame(&self.r#mode, hash);
+        hash.str(stringify!(r#mode_name));
+        crate::SemanticFrame::frame(&self.r#mode_name, hash);
+        hash.str(stringify!(r#mode_identity));
+        crate::SemanticFrame::frame(&self.r#mode_identity, hash);
         hash.str(stringify!(r#state_ids));
         crate::SemanticFrame::frame(&self.r#state_ids, hash);
         hash.str(stringify!(r#input_ids));
@@ -132,6 +144,8 @@ impl crate::HeapUsage for RuntimeTrajectoryEndpointsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#event_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode_name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#state_ids))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#input_ids))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#output_ids))

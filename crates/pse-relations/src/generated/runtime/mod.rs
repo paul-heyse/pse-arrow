@@ -201,6 +201,8 @@ pub mod r#route_decisions;
 ///Generated relation contract.
 pub mod r#run_lineage;
 ///Generated relation contract.
+pub mod r#scientific_contexts;
+///Generated relation contract.
 pub mod r#simulation_events;
 ///Generated relation contract.
 pub mod r#simulation_samples;

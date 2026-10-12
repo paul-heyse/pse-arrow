@@ -8,20 +8,20 @@ pub use pse_model::generated::r#runtime::r#trajectory_endpoints::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    130u8, 66u8, 78u8, 156u8, 33u8, 155u8, 176u8, 19u8, 141u8, 96u8, 74u8, 245u8, 39u8,
-    210u8, 70u8, 180u8,
+    37u8, 85u8, 88u8, 138u8, 192u8, 92u8, 104u8, 154u8, 29u8, 126u8, 106u8, 24u8, 31u8,
+    228u8, 203u8, 242u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "trajectory_endpoints";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Runtime;
 /// The schema generation.
-pub const VERSION: u32 = 1u32;
+pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    190u8, 53u8, 79u8, 108u8, 81u8, 14u8, 128u8, 114u8, 75u8, 100u8, 6u8, 95u8, 215u8,
-    241u8, 174u8, 49u8, 151u8, 182u8, 119u8, 160u8, 87u8, 171u8, 184u8, 8u8, 21u8, 130u8,
-    185u8, 176u8, 206u8, 242u8, 14u8, 21u8,
+    225u8, 254u8, 200u8, 150u8, 11u8, 98u8, 179u8, 129u8, 119u8, 157u8, 0u8, 56u8, 107u8,
+    202u8, 145u8, 8u8, 188u8, 38u8, 236u8, 40u8, 144u8, 103u8, 217u8, 67u8, 86u8, 181u8,
+    36u8, 248u8, 48u8, 53u8, 76u8, 54u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeTrajectoryEndpointsRow {
     fn append(
@@ -48,42 +48,50 @@ impl crate::columnar::ArrowValue for RuntimeTrajectoryEndpointsRow {
         crate::columnar::ArrowValue::append(&self.r#time, children[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#mode, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#state_ids,
+            &self.r#mode_name,
             children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#input_ids,
+            &self.r#mode_identity,
             children[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_ids,
+            &self.r#state_ids,
             children[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#state, children[9usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#input_ids,
+            children[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#output_ids,
+            children[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#state, children[11usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#outputs,
-            children[10usize].as_mut(),
+            children[12usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#integrals,
-            children[11usize].as_mut(),
+            children[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#input_columns,
-            children[12usize].as_mut(),
+            children[14usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#inputs, children[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, children[15usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#endpoint_satisfied,
-            children[14usize].as_mut(),
+            children[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#prefix_complete,
-            children[15usize].as_mut(),
+            children[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#missing_observations,
-            children[16usize].as_mut(),
+            children[18usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -109,35 +117,39 @@ impl crate::columnar::ArrowValue for RuntimeTrajectoryEndpointsRow {
         > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <f64 as crate::columnar::ArrowValue>::append_null(children[4usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
-        <Vec<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
-        <Vec<
-            pse_ids::SemanticId,
-        > as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[6usize].as_mut())?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
         <Vec<
             pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[8usize].as_mut())?;
         <Vec<
-            f64,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         <Vec<
-            f64,
+            pse_ids::SemanticId,
         > as crate::columnar::ArrowValue>::append_null(children[10usize].as_mut())?;
         <Vec<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[11usize].as_mut())?;
         <Vec<
-            i64,
+            f64,
         > as crate::columnar::ArrowValue>::append_null(children[12usize].as_mut())?;
         <Vec<
             f64,
         > as crate::columnar::ArrowValue>::append_null(children[13usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
-        <bool as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <Vec<
+            i64,
+        > as crate::columnar::ArrowValue>::append_null(children[14usize].as_mut())?;
         <Vec<
             f64,
-        > as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        > as crate::columnar::ArrowValue>::append_null(children[15usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[16usize].as_mut())?;
+        <bool as crate::columnar::ArrowValue>::append_null(children[17usize].as_mut())?;
+        <Vec<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[18usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -176,66 +188,74 @@ impl crate::columnar::ArrowValue for RuntimeTrajectoryEndpointsRow {
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#state_ids: <Vec<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#mode_name: <String as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#input_ids: <Vec<
-                pse_ids::SemanticId,
-            > as crate::columnar::ArrowValue>::read(
+            r#mode_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
                 index,
             )?,
-            r#output_ids: <Vec<
+            r#state_ids: <Vec<
                 pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(8usize).as_ref(),
                 index,
             )?,
-            r#state: <Vec<
-                f64,
+            r#input_ids: <Vec<
+                pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(9usize).as_ref(),
                 index,
             )?,
-            r#outputs: <Vec<
-                f64,
+            r#output_ids: <Vec<
+                pse_ids::SemanticId,
             > as crate::columnar::ArrowValue>::read(
                 input.column(10usize).as_ref(),
                 index,
             )?,
-            r#integrals: <Vec<
+            r#state: <Vec<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(11usize).as_ref(),
                 index,
             )?,
-            r#input_columns: <Vec<
-                i64,
+            r#outputs: <Vec<
+                f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(12usize).as_ref(),
                 index,
             )?,
-            r#inputs: <Vec<
+            r#integrals: <Vec<
                 f64,
             > as crate::columnar::ArrowValue>::read(
                 input.column(13usize).as_ref(),
                 index,
             )?,
-            r#endpoint_satisfied: <bool as crate::columnar::ArrowValue>::read(
+            r#input_columns: <Vec<
+                i64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(14usize).as_ref(),
                 index,
             )?,
-            r#prefix_complete: <bool as crate::columnar::ArrowValue>::read(
+            r#inputs: <Vec<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(15usize).as_ref(),
+                index,
+            )?,
+            r#endpoint_satisfied: <bool as crate::columnar::ArrowValue>::read(
+                input.column(16usize).as_ref(),
+                index,
+            )?,
+            r#prefix_complete: <bool as crate::columnar::ArrowValue>::read(
+                input.column(17usize).as_ref(),
                 index,
             )?,
             r#missing_observations: <Vec<
                 f64,
             > as crate::columnar::ArrowValue>::read(
-                input.column(16usize).as_ref(),
+                input.column(18usize).as_ref(),
                 index,
             )?,
         })
@@ -307,39 +327,47 @@ impl crate::columnar::RelationRow for RuntimeTrajectoryEndpointsRow {
         crate::columnar::ArrowValue::append(&self.r#time, columns[4usize].as_mut())?;
         crate::columnar::ArrowValue::append(&self.r#mode, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
-            &self.r#state_ids,
+            &self.r#mode_name,
             columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#input_ids,
+            &self.r#mode_identity,
             columns[7usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
-            &self.r#output_ids,
+            &self.r#state_ids,
             columns[8usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#state, columns[9usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#outputs, columns[10usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#input_ids,
+            columns[9usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(
+            &self.r#output_ids,
+            columns[10usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#state, columns[11usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#outputs, columns[12usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#integrals,
-            columns[11usize].as_mut(),
+            columns[13usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#input_columns,
-            columns[12usize].as_mut(),
+            columns[14usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#inputs, columns[13usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#inputs, columns[15usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#endpoint_satisfied,
-            columns[14usize].as_mut(),
+            columns[16usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#prefix_complete,
-            columns[15usize].as_mut(),
+            columns[17usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#missing_observations,
-            columns[16usize].as_mut(),
+            columns[18usize].as_mut(),
         )?;
         Ok(())
     }
@@ -376,10 +404,10 @@ impl crate::columnar::RelationRow for RuntimeTrajectoryEndpointsRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        50_176_usize + size_of::<Self::Builder>()
+        57_344_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        392usize
+        448usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -420,6 +448,14 @@ impl crate::columnar::RelationRow for RuntimeTrajectoryEndpointsRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            crate::columnar::allocation_add(8, (self.r#mode_name).len())?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(32usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -547,7 +583,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 17usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 19usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -580,58 +616,68 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 17usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "state_ids",
+        name: "mode_name",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "input_ids",
+        name: "mode_identity",
         position: 7usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "output_ids",
+        name: "state_ids",
         position: 8usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "state",
+        name: "input_ids",
         position: 9usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "outputs",
+        name: "output_ids",
         position: 10usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "integrals",
+        name: "state",
         position: 11usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "input_columns",
+        name: "outputs",
         position: 12usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "inputs",
+        name: "integrals",
         position: 13usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "endpoint_satisfied",
+        name: "input_columns",
         position: 14usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "prefix_complete",
+        name: "inputs",
         position: 15usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "missing_observations",
+        name: "endpoint_satisfied",
         position: 16usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "prefix_complete",
+        position: 17usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "missing_observations",
+        position: 18usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -648,28 +694,32 @@ pub mod columns {
     pub const TIME: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///mode
     pub const MODE: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    ///mode_name
+    pub const MODE_NAME: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    ///mode_identity
+    pub const MODE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///state_ids
-    pub const STATE_IDS: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const STATE_IDS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///input_ids
-    pub const INPUT_IDS: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const INPUT_IDS: crate::columnar::ColumnReference = super::COLUMNS[9usize];
     ///output_ids
-    pub const OUTPUT_IDS: crate::columnar::ColumnReference = super::COLUMNS[8usize];
+    pub const OUTPUT_IDS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
     ///state
-    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
+    pub const STATE: crate::columnar::ColumnReference = super::COLUMNS[11usize];
     ///outputs
-    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[10usize];
+    pub const OUTPUTS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
     ///integrals
-    pub const INTEGRALS: crate::columnar::ColumnReference = super::COLUMNS[11usize];
+    pub const INTEGRALS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
     ///input_columns
-    pub const INPUT_COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[12usize];
+    pub const INPUT_COLUMNS: crate::columnar::ColumnReference = super::COLUMNS[14usize];
     ///inputs
-    pub const INPUTS: crate::columnar::ColumnReference = super::COLUMNS[13usize];
+    pub const INPUTS: crate::columnar::ColumnReference = super::COLUMNS[15usize];
     ///endpoint_satisfied
-    pub const ENDPOINT_SATISFIED: crate::columnar::ColumnReference = super::COLUMNS[14usize];
+    pub const ENDPOINT_SATISFIED: crate::columnar::ColumnReference = super::COLUMNS[16usize];
     ///prefix_complete
-    pub const PREFIX_COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[15usize];
+    pub const PREFIX_COMPLETE: crate::columnar::ColumnReference = super::COLUMNS[17usize];
     ///missing_observations
-    pub const MISSING_OBSERVATIONS: crate::columnar::ColumnReference = super::COLUMNS[16usize];
+    pub const MISSING_OBSERVATIONS: crate::columnar::ColumnReference = super::COLUMNS[18usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -683,6 +733,8 @@ pub struct RuntimeTrajectoryEndpointsView<'a> {
     event_id_column: &'a arrow_array::FixedSizeBinaryArray,
     time_column: &'a arrow_array::Float64Array,
     mode_column: &'a arrow_array::Int64Array,
+    mode_name_column: &'a arrow_array::StringArray,
+    mode_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     state_ids_column: &'a arrow_array::ListArray,
     input_ids_column: &'a arrow_array::ListArray,
     output_ids_column: &'a arrow_array::ListArray,
@@ -756,39 +808,45 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
             mode_column: crate::columnar::array::<
                 arrow_array::Int64Array,
             >(batch.column(5usize).as_ref())?,
+            mode_name_column: crate::columnar::array::<
+                arrow_array::StringArray,
+            >(batch.column(6usize).as_ref())?,
+            mode_identity_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(7usize).as_ref())?,
             state_ids_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(6usize).as_ref())?,
+            >(batch.column(8usize).as_ref())?,
             input_ids_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
             output_ids_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(8usize).as_ref())?,
+            >(batch.column(10usize).as_ref())?,
             state_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(9usize).as_ref())?,
+            >(batch.column(11usize).as_ref())?,
             outputs_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(10usize).as_ref())?,
+            >(batch.column(12usize).as_ref())?,
             integrals_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(11usize).as_ref())?,
+            >(batch.column(13usize).as_ref())?,
             input_columns_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(12usize).as_ref())?,
+            >(batch.column(14usize).as_ref())?,
             inputs_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(13usize).as_ref())?,
+            >(batch.column(15usize).as_ref())?,
             endpoint_satisfied_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(14usize).as_ref())?,
+            >(batch.column(16usize).as_ref())?,
             prefix_complete_column: crate::columnar::array::<
                 arrow_array::BooleanArray,
-            >(batch.column(15usize).as_ref())?,
+            >(batch.column(17usize).as_ref())?,
             missing_observations_column: crate::columnar::array::<
                 arrow_array::ListArray,
-            >(batch.column(16usize).as_ref())?,
+            >(batch.column(18usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -877,6 +935,30 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "mode_name",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn mode_name_column(&self) -> &'a arrow_array::StringArray {
+        self.mode_name_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "mode_name", "`.")]
+    pub fn mode_name_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[6usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "mode_identity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn mode_identity_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.mode_identity_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "mode_identity", "`.")]
+    pub fn mode_identity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[7usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "state_ids",
         "`, including its offsets and validity bitmap.",
     )]
@@ -885,7 +967,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "state_ids", "`.")]
     pub fn state_ids_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -897,7 +979,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "input_ids", "`.")]
     pub fn input_ids_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -909,7 +991,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "output_ids", "`.")]
     pub fn output_ids_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[8usize]
+        &self.batch.schema_ref().fields()[10usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -921,7 +1003,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "state", "`.")]
     pub fn state_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[9usize]
+        &self.batch.schema_ref().fields()[11usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -933,7 +1015,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "outputs", "`.")]
     pub fn outputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[10usize]
+        &self.batch.schema_ref().fields()[12usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -945,7 +1027,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "integrals", "`.")]
     pub fn integrals_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[11usize]
+        &self.batch.schema_ref().fields()[13usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -957,7 +1039,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "input_columns", "`.")]
     pub fn input_columns_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[12usize]
+        &self.batch.schema_ref().fields()[14usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -969,7 +1051,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "inputs", "`.")]
     pub fn inputs_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[13usize]
+        &self.batch.schema_ref().fields()[15usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -985,7 +1067,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
         "`.",
     )]
     pub fn endpoint_satisfied_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[14usize]
+        &self.batch.schema_ref().fields()[16usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -997,7 +1079,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "prefix_complete", "`.")]
     pub fn prefix_complete_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[15usize]
+        &self.batch.schema_ref().fields()[17usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -1013,7 +1095,7 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
         "`.",
     )]
     pub fn missing_observations_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[16usize]
+        &self.batch.schema_ref().fields()[18usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -1039,6 +1121,14 @@ impl<'a> RuntimeTrajectoryEndpointsView<'a> {
             r#event_id: crate::columnar::ArrowValue::read(self.event_id_column, index)?,
             r#time: crate::columnar::ArrowValue::read(self.time_column, index)?,
             r#mode: crate::columnar::ArrowValue::read(self.mode_column, index)?,
+            r#mode_name: crate::columnar::ArrowValue::read(
+                self.mode_name_column,
+                index,
+            )?,
+            r#mode_identity: crate::columnar::ArrowValue::read(
+                self.mode_identity_column,
+                index,
+            )?,
             r#state_ids: crate::columnar::ArrowValue::read(
                 self.state_ids_column,
                 index,
