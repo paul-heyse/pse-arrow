@@ -185,7 +185,7 @@ impl ModelingPackage {
             .reserve("study:terminal-report", projection_bytes)?;
         let owners: Vec<Arc<dyn pse_columnar::PayloadOwner>> = vec![owner, projection_owner];
         let decision =
-            pse_operations::study_policy::transition(&definition.graph(), &facts, status.cancelled)
+            pse_model::study_policy::transition(&definition.graph(), &facts, status.cancelled)
                 .map_err(policy_error)?;
         let run_id = RunId::from_id(
             pse_ids::SemanticId::parse_hex(
@@ -256,7 +256,7 @@ impl ModelingPackage {
         }
         let graph = definition.graph();
         let admitted =
-            pse_operations::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
+            pse_model::study_policy::AdmittedStudy::new(&graph).map_err(policy_error)?;
         let positions: BTreeMap<_, _> = graph
             .points
             .iter()
@@ -422,7 +422,7 @@ impl ModelingPackage {
                                 if let Some(children) = dependents.get(&graph.points[index].key) {
                                     frontier.extend(children);
                                 }
-                                if pse_operations::study_policy::may_retry(&graph.points[index],
+                                if pse_model::study_policy::may_retry(&graph.points[index],
                                     &facts[index], work_cancel.token().is_cancelled()) {
                                     frontier.insert(index);
                                 }
@@ -1227,7 +1227,7 @@ async fn execute(
     }
 }
 fn scoped_action(
-    admitted: &pse_operations::study_policy::AdmittedStudy,
+    admitted: &pse_model::study_policy::AdmittedStudy,
     key: OccurrenceKey,
     facts: &[PointFacts],
     positions: &BTreeMap<OccurrenceKey, usize>,
@@ -1345,7 +1345,7 @@ impl ContinuationRetention {
                 fact.lifecycle,
                 StudyPointState::Completed | StudyPointState::Failed | StudyPointState::Cancelled
             )
-            || pse_operations::study_policy::may_retry(point, fact, cancelled)
+            || pse_model::study_policy::may_retry(point, fact, cancelled)
         {
             return;
         }
@@ -1577,7 +1577,7 @@ pub(in crate::workflow) fn result_diagnostic(result: &RunResult) -> Option<Bound
 pub(in crate::workflow) fn policy_refusal(refusal: &Refusal) -> BoundaryDiagnostic {
     refusal.boundary_diagnostic()
 }
-fn policy_error(error: pse_operations::study_policy::PolicyError) -> WorkflowError {
+fn policy_error(error: pse_model::study_policy::PolicyError) -> WorkflowError {
     pse_model::diagnostic::project_typed(&error, DiagnosticStage::StudyPolicy).into()
 }
 fn study_error(rule: DiagnosticRule, detail: &str) -> WorkflowError {

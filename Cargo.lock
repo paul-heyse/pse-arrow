@@ -6324,6 +6324,7 @@ version = "0.0.1"
 dependencies = [
  "miette",
  "nutype",
+ "petgraph",
  "pse-diagnostics",
  "pse-ids",
  "pse-quantity",
@@ -6359,7 +6360,6 @@ dependencies = [
  "arrow-schema",
  "futures-util",
  "miette",
- "petgraph",
  "pse-codegen",
  "pse-columnar",
  "pse-diagnostics",

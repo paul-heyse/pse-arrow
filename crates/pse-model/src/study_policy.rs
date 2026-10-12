@@ -4,8 +4,8 @@
 //! Shared, effect-free study admission and transition. Adapters own all I/O and fencing.
 use petgraph::algo::is_cyclic_directed;
 use petgraph::graphmap::DiGraphMap;
-use pse_model::generated::enums::StudyPointState;
-use pse_model::study::{
+use crate::generated::enums::StudyPointState;
+use crate::study::{
     ActionKind, Availability, Conclusion, ContinuationPermission, Dependency, EffectState,
     OccurrenceGraph, OccurrenceKey, PointAction, PointFacts, PointPolicy, Refusal, RetryFailure,
     SeedAvailability, SeedNeed, SeedRole, SeedUnavailable, StartPolicy, StartProvenance,
@@ -93,7 +93,7 @@ pse_diagnostics::impl_diagnostic! {
         facts
     }
 }
-impl pse_model::diagnostic::DiagnosticProjection for PolicyError {}
+impl crate::diagnostic::DiagnosticProjection for PolicyError {}
 
 /// Check occurrence identity and all dependency meanings before scheduling.
 /// Operation owners admit descriptor/output/input compatibility before deriving this graph.
@@ -563,9 +563,9 @@ fn unavailable(
 #[cfg(test)]
 mod study_policy_unit {
     use super::*;
-    use pse_model::generated::enums::CandidateUse;
-    use pse_model::generated::identities::SolutionId;
-    use pse_model::study::{ScientificFacts, SeedEdge, SeedFact};
+    use crate::generated::enums::CandidateUse;
+    use crate::generated::identities::SolutionId;
+    use crate::study::{ScientificFacts, SeedEdge, SeedFact};
 
     fn point(key: u32) -> PointPolicy {
         PointPolicy {

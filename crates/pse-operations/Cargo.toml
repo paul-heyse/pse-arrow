@@ -27,7 +27,6 @@ canonical-tests = []
 [dependencies]
 tokio-util.workspace = true
 tracing.workspace = true
-petgraph.workspace = true
 pse-diagnostics.workspace = true
 pse-ids.workspace = true
 # The registry owns canonical rows, enumerations and typed identities.

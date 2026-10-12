@@ -1065,7 +1065,7 @@ impl Runtime {
             start,
             effect: facts.effect,
         });
-        let settled = !pse_operations::study_policy::may_retry(
+        let settled = !pse_model::study_policy::may_retry(
             &point_policy(point)?,
             &facts,
             study.cancelled,
@@ -1388,7 +1388,7 @@ impl Runtime {
             .canonical_study(&point.study)
             .await?
             .ok_or_else(|| contract("study absent"))?;
-        let settled = !pse_operations::study_policy::may_retry(&policy, &facts, study.cancelled);
+        let settled = !pse_model::study_policy::may_retry(&policy, &facts, study.cancelled);
         // SAFETY: this owner projects the drained scientific result and its admitted
         // durable completion after checking that the point names this exact attempt.
         Ok(unsafe {
@@ -1839,7 +1839,7 @@ impl StudyDefinition {
 
     /// Validate supported producer and consumer roles for every immutable descriptor.
     pub fn validate_roles(&self) -> Result<(), WorkflowError> {
-        pse_operations::study_policy::admit(&self.graph()).map_err(|error| {
+        pse_model::study_policy::admit(&self.graph()).map_err(|error| {
             WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
         })?;
         for point in &self.points {
@@ -1905,7 +1905,7 @@ impl super::ModelingPackage {
         if points.is_empty() {
             return Err(WorkflowError::Typed(
                 pse_model::diagnostic::DiagnosticCause::new(
-                    pse_operations::study_policy::PolicyError::Empty,
+                    pse_model::study_policy::PolicyError::Empty,
                 ),
             ));
         }
@@ -1969,7 +1969,7 @@ impl super::ModelingPackage {
             modeling_revision: self.canonical_revision().key.clone(),
             points: admitted,
         };
-        pse_operations::study_policy::admit(&definition.graph()).map_err(|error| {
+        pse_model::study_policy::admit(&definition.graph()).map_err(|error| {
             WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
         })?;
         definition.validate_roles()?;

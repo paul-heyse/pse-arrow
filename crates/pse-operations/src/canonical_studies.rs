@@ -282,7 +282,7 @@ impl StudyScope {
             policies.push(decode(predecessor.policy.as_slice())?);
             facts.push(predecessor.facts()?);
         }
-        crate::study_policy::candidate_action(&policy, &policies, &facts, self.cancelled)
+        pse_model::study_policy::candidate_action(&policy, &policies, &facts, self.cancelled)
             .map_err(|error| CanonicalError::Configuration(error.to_string()))
     }
 }
@@ -496,7 +496,7 @@ impl CanonicalStore {
                 let graph = OccurrenceGraph {
                     points: points.iter().map(|point| point.policy.clone()).collect(),
                 };
-                crate::study_policy::admit(&graph)
+                pse_model::study_policy::admit(&graph)
                     .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
                 for point in points {
                     if cancelled() {
@@ -1962,7 +1962,7 @@ mod canonical_studies_server_unit {
         });
         let policy = decode_point_policy(&claim.point.policy, claim.point.occurrence).unwrap();
         let settled = effect != EffectState::Unknown
-            && !crate::study_policy::may_retry(&policy, &facts, false);
+            && !pse_model::study_policy::may_retry(&policy, &facts, false);
         // SAFETY: the just-sealed failed attempt backs this actual observation;
         // retry classification controls policy only, never result usability.
         unsafe {

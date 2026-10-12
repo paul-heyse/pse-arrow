@@ -29,6 +29,8 @@ pub mod scalars;
 pub mod strategy;
 /// Pure occurrence, dependency and outcome facts shared by study executors.
 pub mod study;
+/// Effect-free study admission, candidate decisions and transition policy.
+pub mod study_policy;
 #[cfg(test)]
 mod vocabulary_tests;
 /// An invalid declared semantic enum member.
