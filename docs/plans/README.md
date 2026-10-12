@@ -4,6 +4,14 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
+[Plan 37: SurrealDB lifecycle and integration target](37-surrealdb-lifecycle-and-integration.md)
+owns the new review's seven findings, nine confirmed rule decisions and bounded capability
+investigations. Its three companions develop scientific artifacts/history/policy, connection
+lifetimes and beta tooling/operations. The maintainer selected a hard pivot with fresh target
+data and regenerated evidence. Existing execution plans remain unchanged until this standalone
+work is implemented and accepted; its final handoff then reconciles affected owners before
+returning to their remaining work. The coordinator owns current package status and disposition.
+
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded
 retirement pass. Its [checkpoint](32-workspace-content-lifecycle.md#open-items-and-current-checkpoint)

@@ -1182,6 +1182,43 @@ status_profile = "finding"
 status_column = 2
 owner_column = 3
 
+# Plan 37 has one package/disposition status owner; companions contain design only.
+
+[[scope_tables]]
+path = "docs/plans/37-surrealdb-lifecycle-and-integration.md"
+name = "work-packages"
+heading = "Work packages"
+headers = [
+  "Packet",
+  "Required input",
+  "Delivery and owner",
+  "Acceptance and replacement",
+  "Status",
+]
+kind = "packet"
+id_column = 0
+status_profile = "packet"
+id_pattern = '^([A-Z]+[0-9]+)\b'
+status_column = 4
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/37-surrealdb-lifecycle-and-integration.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision / work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+status_profile = "finding"
+status_column = 2
+owner_column = 3
+
 # Closed immutable legacy scalar encodings: exact source spans, never fallback parsing.
 
 [[legacy_yaml]]
