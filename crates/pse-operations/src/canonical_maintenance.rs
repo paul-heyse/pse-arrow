@@ -57,6 +57,14 @@ fn invalid(reason: impl Into<String>) -> CanonicalError {
     CanonicalError::Configuration(reason.into())
 }
 
+fn connection_matches(options: &super::CanonicalOptions, config: &serde_json::Value, credentials: &serde_json::Value) -> bool {
+    config.get("endpoint").and_then(serde_json::Value::as_str) == Some(options.endpoint.as_str())
+        && config.get("namespace").and_then(serde_json::Value::as_str) == Some(options.namespace.as_str())
+        && config.get("database").and_then(serde_json::Value::as_str) == Some(options.database.as_str())
+        && [("username", &options.username), ("password", &options.password), ("selection_username", &options.selection_username), ("selection_password", &options.selection_password)]
+            .iter().all(|(key, value)| credentials.get(*key).and_then(serde_json::Value::as_str) == Some(value.as_str()))
+}
+
 fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
     let ast = surrealdb_syn::parse(input).map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
     let mut definitions = BTreeMap::new();
@@ -135,6 +143,8 @@ impl CanonicalStore {
             return Err(CanonicalError::Quiesced);
         }
         let credentials = std::fs::read(self.state_path.join("credentials.json")).map_err(|_| CanonicalError::Quiesced)?;
+        let credential_document: serde_json::Value = serde_json::from_slice(&credentials).map_err(|_| CanonicalError::Quiesced)?;
+        if !connection_matches(&self.connection_options, &config, &credential_document) { return Err(CanonicalError::Quiesced); }
         let digest = sha256(&credentials);
         if listener.get("credentials_sha256").and_then(serde_json::Value::as_str) != Some(digest.as_str()) { return Err(CanonicalError::Quiesced); }
         Ok(config)
@@ -283,6 +293,25 @@ impl CanonicalStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn maintenance_authority_binds_original_connection_and_credentials() {
+        let options = super::super::CanonicalOptions {
+            endpoint: "ws://127.0.0.1:12345".into(), namespace: "selected".into(), database: "selected".into(),
+            username: "owner".into(), password: "private".into(), selection_username: "reader".into(), selection_password: "private-reader".into(),
+            state_path: std::path::PathBuf::new(), initializer_nonce: Some("nonce".into()),
+        };
+        let config = serde_json::json!({"endpoint":options.endpoint,"namespace":options.namespace,"database":options.database});
+        let credentials = serde_json::json!({"username":options.username,"password":options.password,"selection_username":options.selection_username,"selection_password":options.selection_password});
+        assert!(connection_matches(&options, &config, &credentials));
+        for key in ["endpoint", "namespace", "database"] {
+            let mut changed=config.clone(); changed[key]=serde_json::json!("foreign");
+            assert!(!connection_matches(&options,&changed,&credentials));
+        }
+        for key in ["username", "password", "selection_username", "selection_password"] {
+            let mut changed=credentials.clone(); changed[key]=serde_json::json!("foreign");
+            assert!(!connection_matches(&options,&config,&changed));
+        }
+    }
     #[test]
     fn catalog_comparison_preserves_assertions_permissions_and_numeric_meaning() {
         let expected = parse_definitions("DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;").unwrap();
