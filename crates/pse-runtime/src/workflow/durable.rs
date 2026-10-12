@@ -2930,7 +2930,7 @@ impl Operations {
             let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest)).map_err(|error|contract(error.to_string()))?;
             let mut artifact = self.store.new_artifact(revision,"seed",provenance,1,payload.len() as u64).await?;
             let block = pse_operations::canonical_artifacts::artifact_block(&artifact.key,0,"seed-capsule:v1",payload,&capsule.header.digest,1);
-            pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block));
+            pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block),owner_kind,owner);
             Ok(self.store.persist_artifact(&artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block),owner_kind,owner).await?)
         }).await
     }

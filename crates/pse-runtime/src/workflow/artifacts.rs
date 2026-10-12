@@ -176,7 +176,7 @@ impl Runtime {
             let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
             let mut header=self.canonical_store().new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes).await?;
             let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))|pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows)).collect::<Vec<_>>();
-            pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(&input),&blocks);
+            pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner);
             self.canonical_store().persist_artifact(&header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner).await?;
             Ok(ScientificArtifact {runtime:self.clone(),header})
         }).await

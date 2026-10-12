@@ -52,13 +52,13 @@ pub fn artifact_block(artifact: &str, ordinal: u64, relation: &str, payload: Vec
 }
 
 /// Bind the exact ordered scientific closure before the first durable effect.
-pub fn seal_artifact_request(header: &mut Artifact, sources: &[Revision], inputs: &[ResultRead], blocks: &[ArtifactBlock]) {
+pub fn seal_artifact_request(header: &mut Artifact, sources: &[Revision], inputs: &[ResultRead], blocks: &[ArtifactBlock], owner_kind:&str, owner:&str) {
     header.creation_request_digest.clear();
-    header.creation_request_digest=request_digest(header,sources,inputs,blocks);
+    header.creation_request_digest=request_digest(header,sources,inputs,blocks,owner_kind,owner);
 }
-fn request_digest(header:&Artifact,sources:&[Revision],inputs:&[ResultRead],blocks:&[ArtifactBlock])->String {
+fn request_digest(header:&Artifact,sources:&[Revision],inputs:&[ResultRead],blocks:&[ArtifactBlock],owner_kind:&str,owner:&str)->String {
     let mut hash=FramedHasher::new(Frame::CanonicalPayloadV1);
-    hash.str("pse.artifact.complete-request.v1");
+    hash.str("pse.artifact.complete-request.v1").str(owner_kind).str(owner);
     let mut row=header.clone(); row.creation_request_digest.clear(); row.active=false; row.retiring=false;
     row.frame(&mut hash);
     hash.u64(sources.len() as u64);
@@ -136,7 +136,7 @@ impl CanonicalStore {
     pub async fn persist_artifact(&self, header:&Artifact, sources:&[Revision], inputs:&[ResultRead], blocks:&[ArtifactBlock], owner_kind:&str, owner:&str)->Result<Artifact,CanonicalError> {
         let activity=self.admit_activity()?;
         activity.scope(async {
-            if header.creation_request_digest!=request_digest(header,sources,inputs,blocks) { return Err(CanonicalError::OperationReused); }
+            if header.creation_request_digest!=request_digest(header,sources,inputs,blocks,owner_kind,owner) { return Err(CanonicalError::OperationReused); }
             let result=async {
                 self.ensure_writes()?;
                 if header.active || header.retiring || header.interpretation!=wire::INTERPRETATION || header.block_count!=blocks.len() as u64 || sources.is_empty() || sources.len()>65 || inputs.len()>64 || inputs.iter().any(|input|!input.belongs_to(self)) { return Err(invalid("artifact exact closure differs")); }
@@ -232,20 +232,20 @@ mod canonical_artifact_tests {
         let revision=store.edit("artifact-source",None,"original-source",&[]).await.unwrap();
         (store,revision)
     }
-    async fn content(store:&CanonicalStore,revision:&Revision)->(Artifact,Vec<ArtifactBlock>) {
+    async fn content(store:&CanonicalStore,revision:&Revision,owner_kind:&str,owner:&str)->(Artifact,Vec<ArtifactBlock>) {
         let bytes=vec![0,255,1,128];
         let mut intent=store.new_artifact(revision,"test-exact-capsule",vec![7],1,bytes.len() as u64).await.unwrap();
         // Test controls issue a shorter original window before sealing/effects.
         intent.creation_expires_at-=59_500_000;
         intent.key=format!("pse.artifact.v1:{}:{}:{}",intent.primary_authority,intent.creation_nonce,intent.creation_expires_at);
         let blocks=vec![artifact_block(&intent.key,0,"capsule",bytes,"original-encoding",1)];
-        seal_artifact_request(&mut intent,std::slice::from_ref(revision),&[],&blocks);
+        seal_artifact_request(&mut intent,std::slice::from_ref(revision),&[],&blocks,owner_kind,owner);
         (intent,blocks)
     }
     #[tokio::test]
     async fn canonical_artifact_independent_owners_and_exact_copied_read() {
         let (store,revision)=fixture().await;
-        let (intent,blocks)=content(&store,&revision).await;
+        let (intent,blocks)=content(&store,&revision,"user","alice").await;
         let saved=store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","alice").await.unwrap();
         store.retain_artifact(&saved.key,"audit","audit-1").await.unwrap();
         store.release_artifact(&saved.key,"user","alice").await.unwrap();
@@ -262,7 +262,7 @@ mod canonical_artifact_tests {
     #[tokio::test]
     async fn canonical_artifact_owner_release_fences_both_acquisition_orders() {
         let (store,revision)=fixture().await;
-        let (intent,blocks)=content(&store,&revision).await;
+        let (intent,blocks)=content(&store,&revision,"audit","independent").await;
         store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"audit","independent").await.unwrap();
         store.retain_artifact(&intent.key,"user","retain-first").await.unwrap();
         store.release_artifact(&intent.key,"user","retain-first").await.unwrap();
@@ -278,7 +278,7 @@ mod canonical_artifact_tests {
     #[tokio::test]
     async fn canonical_artifact_bounded_collection_fences_late_original_creation() {
         let (store,revision)=fixture().await;
-        let (intent,blocks)=content(&store,&revision).await;
+        let (intent,blocks)=content(&store,&revision,"project","p").await;
         store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"project","p").await.unwrap();
         store.release_artifact(&intent.key,"project","p").await.unwrap();
         assert!(!store.collect_artifact(&intent).await.unwrap());
@@ -294,7 +294,8 @@ mod canonical_artifact_tests {
     #[tokio::test]
     async fn canonical_artifact_exact_seal_refuses_changed_content_before_effects() {
         let (store,revision)=fixture().await;
-        let (intent,mut blocks)=content(&store,&revision).await;
+        let (intent,mut blocks)=content(&store,&revision,"user","alice").await;
+        assert!(matches!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","changed-owner").await,Err(CanonicalError::OperationReused)));
         blocks[0].payload=vec![9].into();
         assert!(matches!(store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","alice").await,Err(CanonicalError::OperationReused)));
         assert!(store.artifact(&intent.key).await.is_err());
@@ -303,9 +304,9 @@ mod canonical_artifact_tests {
     #[tokio::test]
     async fn canonical_artifact_preheader_study_abandonment_fences_both_orders() {
         let (store,revision)=fixture().await;
-        let (mut intent,blocks)=content(&store,&revision).await;
+        let (mut intent,blocks)=content(&store,&revision,"user","independent-owner").await;
         intent.kind="seed".into();
-        seal_artifact_request(&mut intent,std::slice::from_ref(&revision),&[],&blocks);
+        seal_artifact_request(&mut intent,std::slice::from_ref(&revision),&[],&blocks,"user","independent-owner");
         store.persist_artifact(&intent,std::slice::from_ref(&revision),&[],&blocks,"user","independent-owner").await.unwrap();
         store.retain_study_input("staging-first","solution",&intent.key).await.unwrap();
         assert_eq!(store.study_input("staging-first","solution").await.unwrap(),intent.key);

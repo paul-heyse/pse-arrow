@@ -471,7 +471,7 @@ mod canonical_result_retention_server_unit {
         store.forget_history(&request.revision).await.unwrap();
         let mut artifact = store.new_artifact(&request.revision,"analysis-fixture",vec![1],1,2).await.unwrap();
         let block = crate::canonical_artifacts::artifact_block(&artifact.key,0,&set,vec![0,17],&escaped.batch.digest,1);
-        crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&request.revision),std::slice::from_ref(&read),std::slice::from_ref(&block));
+        crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&request.revision),std::slice::from_ref(&read),std::slice::from_ref(&block),"user","multipage-artifact");
         store.persist_artifact(&artifact,std::slice::from_ref(&request.revision),std::slice::from_ref(&read),&[block],"user","multipage-artifact").await.unwrap();
         let artifact_read=store.read_artifact(&artifact.key,Duration::from_secs(60)).await.unwrap();
         let mut header = store
