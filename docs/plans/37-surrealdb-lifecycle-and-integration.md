@@ -1,8 +1,8 @@
 ---
 title: SurrealDB lifecycle and integration target
-status: draft
+status: in-progress
 date: 2026-10-12
-adrs: []
+adrs: [ADR-0181]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md]
 scenario_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#representative-changes-and-failure-journeys]
 doc_owner: docs/plans/37-surrealdb-lifecycle-and-integration.md
@@ -77,30 +77,30 @@ D0 classifies ADR needs under the repository's decision rules: amend proposed re
 
 ## Work packages
 
-All status is prospective. Linked companions own the implementation visions and revealing tests.
+The table owns current package status. Linked companions own the implementation visions and revealing tests. The approved tranche completes investigations and settled foundations; A1–A3, production deployment rollout/C3, Q1 and H1 remain outside this execution tranche.
 
 | Packet | Required input | Delivery and owner | Acceptance and replacement | Status |
 |---|---|---|---|---|
-| D0 | Confirmed decisions/current owners | Coordinator: decision route, shared contracts, clean-cutover target | Required ADR/review/design changes before dependent implementation | Scheduled |
-| A0 | Exact scientific and replay owners | [37a](37a-scientific-artifacts-history-and-policy.md#a0-scientific-closure-and-collection-decisions): settle artifact sufficiency/reduced replay | Valid/invalid selections and complete reachable mutation paths; gates A2/A3 | Scheduled |
+| D0 | Confirmed decisions/current owners | Coordinator: decision route, shared contracts, clean-cutover target | Required ADR/review/design changes before dependent implementation | In progress — B1 ADR and bounded target review routed; remaining scientific decisions retain their dependent route |
+| A0 | Exact scientific and replay owners | [37a](37a-scientific-artifacts-history-and-policy.md#a0-scientific-closure-and-collection-decisions): settle artifact sufficiency/reduced replay | Valid/invalid selections and complete reachable mutation paths; gates A2/A3 | Complete — scientific closure/replay decisions; A1–A3 implementation remains scheduled |
 | A1 | D0 input contract | [37a](37a-scientific-artifacts-history-and-policy.md#a1-retained-exact-study-inputs): exact external start admission | Both retirement orders, pending restart/retry and release; replace late-acquisition-only retained path | Scheduled |
 | A2 | D0/A0, A1 input operation | [37a](37a-scientific-artifacts-history-and-policy.md#a2-independent-artifact-promotion-and-retirement): promotion/read/release | Producer retires, selected content survives, unrelated outputs drain; replace coarse-only consumer obligations | Scheduled |
 | A3 | D0/A0, A2 closure | [37a](37a-scientific-artifacts-history-and-policy.md#a3-releasable-history-and-dominating-retirement): history release/collection | No retired identity resurrection; audit/unknown protection; delete unnecessary detail after settlement | Scheduled |
-| A4 | Current pure study facts | [37a](37a-scientific-artifacts-history-and-policy.md#a4-production-policy-compile-and-test-boundary): relocate actual policy/tests | Same production policy compiles/tests without SDK/codegen/columnar; delete old implementation/imports | Scheduled |
-| B1 | D0 close contract | [37b](37b-connection-and-transport-lifetimes.md#b1-logical-release-and-authoritative-shutdown): caller/activity ownership | Close/admission/renew/publication races and final drain; replace physical-close caller wiring | Scheduled |
-| B2 | Current bounded WS contract | [37b](37b-connection-and-transport-lifetimes.md#b2-finite-acknowledged-restoration): finite ready/failed restoration | Missing ACK/send failure cannot park future callers or dispatch partial setup | Scheduled |
-| B3 | Current admission/payload ownership | [37b](37b-connection-and-transport-lifetimes.md#b3-explicit-exceptional-admission-completion): explicit terminal release | Held metadata cannot retain non-payload slots; preserve payload physical drain | Scheduled |
-| C0 | Beta.6/current generated output | [37c](37c-tooling-and-operational-integration.md#c0-beta-input-and-command-qualification): DDL/dispatch qualification | Semantic fidelity, exact selection/auth, executable provenance; gates tool consumers | Scheduled |
-| C1 | C0 and namespace owner; C2 initial frozen chain for replay/parity | [37c](37c-tooling-and-operational-integration.md#c1-owned-declarative-database-tests): declarative tests/disposal | Register enclosing scope before creation; parity/setup/error/interrupt controls; replace duplicated assertions where fitting | Scheduled |
-| C2 | D0/C0; B1 shutdown for persistent maintenance | [37c](37c-tooling-and-operational-integration.md#c2-frozen-forward-rollouts-and-exclusive-maintenance): forward rollouts | Frozen order/hash/repair plus behavior; owner loss fences effects; no old rollout import | Scheduled |
+| A4 | Current pure study facts | [37a](37a-scientific-artifacts-history-and-policy.md#a4-production-policy-compile-and-test-boundary): relocate actual policy/tests | Same production policy compiles/tests without SDK/codegen/columnar; delete old implementation/imports | Complete — integrated policy relocation; targeted compile and 16 unit tests passed |
+| B1 | D0 close contract | [37b](37b-connection-and-transport-lifetimes.md#b1-logical-release-and-authoritative-shutdown): caller/activity ownership | Close/admission/renew/publication races and final drain; replace physical-close caller wiring | Complete — integrated caller/activity/physical ownership; targeted39 operations and4 runtime controls plus scoped native/Python compile passed |
+| B2 | Current bounded WS contract | [37b](37b-connection-and-transport-lifetimes.md#b2-finite-acknowledged-restoration): finite ready/failed restoration | Missing ACK/send failure cannot park future callers or dispatch partial setup | Complete — integrated finite restoration; SDK and actual canonical transport controls passed |
+| B3 | Current admission/payload ownership | [37b](37b-connection-and-transport-lifetimes.md#b3-explicit-exceptional-admission-completion): explicit terminal release | Held metadata cannot retain non-payload slots; preserve payload physical drain | Complete — integrated explicit terminal/physical owner release; payload controls retained |
+| C0 | Beta.6/current generated output | [37c](37c-tooling-and-operational-integration.md#c0-beta-input-and-command-qualification): DDL/dispatch qualification | Semantic fidelity, exact selection/auth, executable provenance; gates tool consumers | Complete for the initial qualified subset — exact beta executable, direct generated-schema comparator and sync/replay/parity passed |
+| C1 | C0 and namespace owner; C2 initial frozen chain for replay/parity | [37c](37c-tooling-and-operational-integration.md#c1-owned-declarative-database-tests): declarative tests/disposal | Register enclosing scope before creation; parity/setup/error/interrupt controls; replace duplicated assertions where fitting | Complete for the approved foundation — registered namespace owner, qualified default-actor assertions, isolation/disposal and failure retention |
+| C2 | D0/C0; B1 shutdown for persistent maintenance | [37c](37c-tooling-and-operational-integration.md#c2-frozen-forward-rollouts-and-exclusive-maintenance): forward rollouts | Frozen order/hash/repair plus behavior; owner loss fences effects; no old rollout import | Complete for the approved foundation — disposable chain/catch-up, offline refusals and actual reservation-revocation/unknown-SQL fencing passed; persistent rollout remains scheduled |
 | C3 | D0/final target declarations | [37c](37c-tooling-and-operational-integration.md#c3-clean-rebuild-and-operational-cutover): reset/reseed/activation | Owned drain/reset/rebuild and fresh identities; delete replaced historical adapters | Scheduled |
-| I1 | Concrete A0 relationships | [37c](37c-tooling-and-operational-integration.md#bounded-capability-investigations): native references | Exact structural meaning/races, equivalent simplification or explicit non-adoption | Scheduled |
-| I2 | Notification/follow-up consumers | 37c: events/live/changefeeds | Useful replacement with retry/resync owner, or reason/trigger | Scheduled |
-| I3 | Protected-read workloads/transport contracts | 37c: streaming and alternative transports | Complete-operation comparison; no unconfirmed WS cutover | Scheduled |
-| I4 | Retention and backend behavior | 37c: history, files, reclaim/compaction | Explicit logical/physical outcomes and diagnostic need; no TTL/byte-return inference | Scheduled |
-| I5 | Actual graph/query access | 37c: indexes/functions/EXPLAIN/edges/caches | Useful shape or no-consumer decision; no wholesale conversion | Scheduled |
-| I6 | Fixture/inspection/maintenance consumers | 37c: testcontainers/MCP/Studio/metrics/wakeups | Minimal compatible integration or observable trigger | Scheduled |
-| I7 | Confirmed local/retry limits | 37c with 37a: checkpoint and extension boundaries | Sufficiency/extension decisions; no remote/resume/search/WASM commitment | Scheduled |
+| I1 | Concrete A0 relationships | [37c](37c-tooling-and-operational-integration.md#bounded-capability-investigations): native references | Exact structural meaning/races, equivalent simplification or explicit non-adoption | Complete — explicit guards retained; typed structural links only where fitting |
+| I2 | Notification/follow-up consumers | 37c: events/live/changefeeds | Useful replacement with retry/resync owner, or reason/trigger | Complete — explicit readiness/polling retained; measured wakeup trigger |
+| I3 | Protected-read workloads/transport contracts | 37c: streaming and alternative transports | Complete-operation comparison; no unconfirmed WS cutover | Complete — patched WS/paged reads retained; full-operation comparison trigger |
+| I4 | Retention and backend behavior | 37c: history, files, reclaim/compaction | Explicit logical/physical outcomes and diagnostic need; no TTL/byte-return inference | Complete — owned bytes, history disabled, logical/physical reclaim distinguished |
+| I5 | Actual graph/query access | 37c: indexes/functions/EXPLAIN/edges/caches | Useful shape or no-consumer decision; no wholesale conversion | Complete — selective INFO/EXPLAIN and indexed/NOINDEX fixture controls; current access paths retained |
+| I6 | Fixture/inspection/maintenance consumers | 37c: testcontainers/MCP/Studio/metrics/wakeups | Minimal compatible integration or observable trigger | Complete — native fixtures and VIEWER inspection retained; optional adoption triggers |
+| I7 | Confirmed local/retry limits | 37c with 37a: checkpoint and extension boundaries | Sufficiency/extension decisions; no remote/resume/search/WASM commitment | Complete — local retry and workload-specific restart boundaries |
 | Q1 | Adopted functions implemented, I outcomes settled | Coordinator: assembled affected acceptance | Fresh actual Rust/native/Python/recovery artifacts and scope-end checks, zero failure baseline | Scheduled |
 | H1 | Q1 accepted, adopted findings resolved | Coordinator: enduring contracts/existing-plan reconciliation | Update other plans/status only now; retain their actual incomplete qualification | Scheduled |
 
@@ -119,10 +119,10 @@ The coordinator owns common registry declarations, manifests, generated-output c
 | [F01](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f01) | Review S02 | Scheduled | A1 with A0/A2 | Exact admission survives retirement/restart/retry; retirement-first refuses. Current late binding was not an established wrong-answer bug. |
 | [F02](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f02) | Review S03 | Scheduled | A0/A2 | Useful artifact survives producer retirement while unrelated outputs drain; whole-run pin alone insufficient. |
 | [F03](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f03) | Review S03/S08 | Scheduled | A0/A3 | Detail drains, audit/unknowns survive, retired identity replay cannot resurrect. |
-| [F04](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04) | Review S04 | Scheduled | B1 | Actual dependents govern close; caller release cannot tear down another's work. |
-| [F05](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f05) | Review S05 | Scheduled | B2 | Finite acknowledged ready/failure; no partial-session dispatch. |
-| [F06](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f06) | Review S05 | Scheduled | B3 | Non-payload slots release without epoch collection; payload drain remains correct. |
-| [F07](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f07) | Review S06 | Scheduled | A4 | Actual policy/test closure excludes unrelated integration dependencies. |
+| [F04](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04) | Review S04 | Resolved | B1 | Actual caller/activity admission, protected cleanup and two-driver close controls passed; ordinary runtime close no longer disconnects shared clients. Q1 still owns assembled qualification. |
+| [F05](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f05) | Review S05 | Resolved | B2 | Finite acknowledged ready/failure and send-failure controls; physical drain, no partial-session dispatch. |
+| [F06](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f06) | Review S05 | Resolved | B3 | Held metadata/cancellation terminal controls release nonbyte activity/admission; malformed payload physical drain retained. |
+| [F07](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f07) | Review S06 | Resolved | A4 | Actual policy/test closure excludes unrelated integration dependencies. |
 
 ## Verification and completion
 
@@ -136,22 +136,58 @@ I packages must record a settled adoption/non-adoption outcome, consumer/trigger
 
 Completion requires adopted packages implemented and replacements deleted, I outcomes recorded, seven findings resolved with evidence, fresh Q1 accepted, and enduring meaning transferred through the design route. H1 then reconciles only affected existing plans, preserving their remaining work and original evidence limits. Do not promote Plan 36's interrupted managed run or resume it automatically.
 
-## Current checkpoint and authoring outcome
+## Current checkpoint and bounded execution
 
-The four plan documents are authored. Product implementation is **not_run**. All nine recommendations and OP01 are confirmed. A0/C0 deliberately own remaining scientific-closure and beta-compatibility decisions; write their results into dependent designs before coding those branches. Documentation checks establish publication only.
+**2026-10-12:** completed the maintainer-approved investigation/foundation tranche begun on baseline `a6aedd31`. The approved choice includes settled A4/B1–B3 foundations and disposable C1/C2 controls. Production scientific artifact/history implementation A1–A3, persistent deployment rollout/C3, assembled Q1 and existing-plan reconciliation H1 remain scheduled for later execution. Existing plans/status have not been revised.
 
-Next executable work after product authorization: establish D0's ready contracts, settle A0/C0 and undertake independent A4/B2/B3. Existing execution plans/status remain unchanged. No service/store/data cleanup is performed by this authoring task.
+[A0 scientific closure and replay evidence](37-investigation-evidence/scientific-closure-and-replay.md) settles small owned seed capsules, artifact-owned selected IPC blocks and explicit reduced-replay ownership. A2 must emit sufficient endpoint/analysis context and typed artifact locators before producer release. A3 preserves operation IDs and validates owning context before absence/replay; retain compact owner locators where immutable binding cannot otherwise survive deleted receipts. No caller-asserted run substitution is permitted.
+
+[Operational capability evidence](37-investigation-evidence/operational-capabilities.md) records concrete consumers, retained mechanisms and observable revisit triggers for I2/I3/I5/I6. The remaining scientific capability outcomes I1/I4/I7 are in the A0 contribution. Non-adoption decisions do not claim capabilities are absent or establish performance.
+
+D0 created proposed [ADR-0181](../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md). The [independent B1 target review](../design_review/reviews/design_review_b1-connection-lifetimes_2026-10-12.md) accepted the lifetime contract before implementation; architecture revision157 precedes B1 code. Supervisor continuation, protected-release handoff, direct aliases and partial driver teardown are explicit constraints. ADR status remains proposed under the decision-PR route.
+
+A4 integrated as `6255da3a9`: actual production policy and all16 direct tests moved to `pse-model`; operations export/source removed, actual callers rewired and petgraph ownership moved without dependency-version changes. **Tested:** `just check-package pse-model`, `just unit-package pse-model study_policy` (16 passed,0 failed,38 filtered), and `just check-library pse-operations -p pse-runtime` (0 failures/warnings), through the worktree's admitted environment. Actual normal/test closures contain63 packages and exclude SDK/codegen/columnar/Arrow/DataFusion. This establishes the policy boundary, not assembled Plan37 qualification.
+
+B2/B3 integrated as `32d73ed0c` and their clean worktree was removed. **Tested:** final vendored SDK WS/query/select controls52/52, engine-api lifetime controls6/6 and actual `test(canonical::transport::tests)`19/19, zero failures, through the owned compile/native-local route with canonical force-validation. Wasm shared-source changes were not target-compiled. Two pre-existing vendor manifest homepage warnings remain reported; no product compiler warnings were observed. The patch adds a separate clearable nonbyte activity owner, preserving payload classification and remote-unknown semantics.
+
+B1 integrated as `b8a2756ee`: ordinary runtime/Python close releases logical admission; actual operations, durable supervisors, heartbeat/progress publication, protected acquisition/release and detached native joins retain admitted activity. Physical refusal preserves usable admission, while accepted close excludes new work and drains both drivers with resumable partial-close ownership. Idle aliases and sealed remote-recovery intents do not pin a connection indefinitely. Independent source review found no material defect. **Tested:** through the worktree's private registry and plain compile-admitted route against the owned3.3.0 fixture, `just unit-package pse-runtime caller_lifetime_tests --features canonical-tests --execution-effects canonical` passed4/4 (546 skipped), and serial `just unit-package pse-operations 'test(canonical::lifetime::tests) | test(canonical::transport::lifetime_tests) | test(canonical::transport::tests) | test(canonical::canonical_server_unit::source_protection)' --features canonical-tests --execution-effects canonical` passed39/39 (188 skipped), both with zero failures/warnings and force-validation. `scripts/pse-env --native --resource-class compile -- just check-library pse-py -p pse-runtime --features pse-runtime/native-solvers,pse-py/native-solvers` passed with zero Rust warnings/errors. An earlier native-observer route compiled but ran no tests because its requested CPU width did not fit the inherited lane; that failed attempt remains unqualified. The final tests use the existing supported route; no capacity contract was changed. The Python exposed signature is unchanged, so no generated stub was edited or regenerated. Q1 must rebuild and exercise the installed extension and assembled scientific journeys.
+
+C0/C1 uses a fresh owned beta-profile service and private resource registry; original application stores remain untouched. **Tested:** the complete generated-contract fixture helper passed in `generated-oracle-v4`: direct generated installation and seven semantic cases, sync/replay/parity15/15, cross-namespace credential refusal, exact child/namespace disposal and unrelated-fixture preservation. Selected INFO/EXPLAIN/index-versus-NOINDEX evidence settles I5 with current access paths retained; it does not measure representative scale. Script/resource/maintenance controls passed97/97 against zero failures; the subsequently expanded maintenance module passed22/22 and existing supervisor module200/200. Failed earlier probes remain separately retained; one SQL-shell namespace recreation was corrected from the archived exact resource authority and independently checked absent. CLI child drain and remote SQL settlement are not interchangeable.
+
+C2's approved maintenance foundation is implemented and independently source-reviewed. **Tested:** `scripts.tests.surrealkit_rollout_fixture_check` passed the disposable three-rollout chain/catch-up journey (seven successful plan/up commands, four offline invalid-chain refusals), and its `owner-revocation` mode passed against a separate registered service generation in `maintenance-owner-revocation-v2`, through the private-registry native-light route. The actual lock was unexpired when this test revoked its own reservation identity. The exact beta child stopped with `owner_lost` and authentic native drain; listener drain completed. Exact status and one 15-second repair retained SQL uncertainty; repair refused the still-live beta lock. Ordinary open/start and the operation settlement callback refused; pending nonce/input remained unknown with admission closed and no activation. Root independently verified the exact child scopes and selected service drained. This tests reservation revocation, not process death, successful interrupted-SQL settlement, arbitrary transformations or persistent rollout qualification. The first failed observer probe remains failed; its original start was separately reconciled only after exact stored step acknowledgements, manifest/catalog comparison and authentic drain. No replay, TTL manipulation, rollout completion or activation followed.
+
+All contributions are integrated on main and both clean worktrees removed; no owned jobs remain. The disposable unknown-operation control stays retained and fenced, with its service stopped. Remaining implementation scope is D0's dependent scientific decision route followed by A1–A3, then persistent C2/C3 and assembled Q1; H1 follows full acceptance. Scope-end Q1 hygiene/integration was not run mid-plan.
+
+The root end-of-turn bundle regenerated the ADR index. Its formatter first
+reported24 internal trailing-whitespace errors in the new async wrappers;
+removing their whitespace-only blank lines allowed the prescribed `just fmt`
+rerun to complete. Ruff's remaining diagnostics are not a clean lint result;
+Q1 still owns scope-end lint/type/integration qualification. The private-registry
+`just ready` environment bundle passed both gates; the unrelated default
+registry's migration fence was left untouched.
 
 ## Outcome (recorded after implementation)
 
 ### What was built
 
-Not yet implemented. Record evidence labels and named acceptance conditions when Q1 closes.
+**Implemented:** the investigation/foundation tranche recorded above, with
+**Tested** targeted controls under their named conditions. Full Plan37
+implementation and Q1 acceptance remain open; record their evidence labels and
+named assembled acceptance conditions here when they close.
 
 ### A mistake made and corrected
 
-Record an actual implementation correction at closeout.
+The initial disposal helper selected the namespace it was removing. The pinned
+SQL shell reselected and recreated it after REMOVE. Removal now runs from an
+unselected root session and verifies actual catalog absence before disposition.
+The failed invocation retains its outcome; an authenticated correction removed
+only its exact recreated fixture. Full-plan closeout will record any further
+implementation corrections.
 
 ### Deviations from the plan, deliberate
 
-Record actual departures and their decision route at closeout. OP01 is already the target, not a future deviation.
+The beta test fixture explicitly permits its independently authenticated parity
+clone; ordinary simulator session capacity is unchanged. The maintenance failure
+control revokes its own reservation while keeping the native composer alive;
+process-death qualification remains outside this bounded result. OP01 is the
+target, not a deviation. Full-plan closeout records any further departures.

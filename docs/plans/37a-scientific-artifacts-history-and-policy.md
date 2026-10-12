@@ -1,6 +1,6 @@
 ---
 title: Scientific artifacts, history and policy boundaries
-status: draft
+status: in-progress
 date: 2026-10-12
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md]
@@ -39,16 +39,15 @@ Provenance means exact attribution and enough interpretation/assessment to use r
 
 ## A0. Scientific closure and collection decisions
 
-Settle the concrete contracts that A2/A3 consume before their implementation. This bounded inquiry must produce:
+The [completed A0 investigation](37-investigation-evidence/scientific-closure-and-replay.md) supplies source-backed sufficient/insufficient selections, physical alternatives, affected entrypoints and revealing tests. Its selected contracts govern A1–A3:
 
-1. A closure specification for each promised artifact kind above, with a valid and insufficient selection drawn from actual current producers. Identify which metadata is interpretation, usability, attribution or optional audit detail.
-2. A physical realization comparison: self-contained seed/content copy versus references to immutable blocks. Prefer a small owned seed capsule using the existing SeedDocument/SeedPayload semantics. Use selected block references for larger content only where they remove meaningful duplication without retaining the entire producer.
-3. The minimal run/study retirement/replay contract and complete affected mutation/recovery entrypoints. State which old responses become retired/history-unavailable and which compact terminal attribution remains.
-4. Exact atomic conflict/settlement operations and bounded collection order, plus necessary registry/ADR changes for D0.
+- Use small owned seed capsules, and artifact-owned bounded IPC copies for selected final-state, trajectory and local-analysis rows. Preserve exact original bits and row identities. Shared producer-block references are not the initial target: copying the admitted scientific selection removes producer collection coupling. Revisit sharing only for measured repeated large overlap with a complete independent block-retention contract.
+- Keep persisted graph analyses under their existing owner and narrow their inputs to independent artifacts. Original opaque producer IPC locators are provenance, not active authority after producer release. A2 emits typed artifact-owned block/row/field locators or exact manifest mapping, with complete selected graph endpoints and quantitative evidence.
+- Before final-state/trajectory promotion, A2 materializes endpoint mode/integral/input coordinate and unit interpretation while original preparation exists. Local analysis includes original case/binding, statistical assumptions, validity and required upstream input context. Missing interpretation refuses the promised promotion; no consumer guesses array meanings after retirement.
+- Reduced replay validates immutable owning store/run/study context before absence or mutation. Preserve operation identities/hash meaning. Caller-asserted replacement context cannot prove original ownership; retain compact operation-to-owner locators where an independently validated immutable binding cannot otherwise survive receipt deletion. Audit-required detail and unknown effects remain protective. The source entrypoint inventory and both-order tests are in the investigation.
+- Native references and ENFORCED endpoints express fitting structural links only. Explicit creator/reclaimer conflict, permission, scientific closure and borrower guards remain authoritative. Keep owned bytes and disabled VERSION; neither files/history/compaction nor remote numerical resume is selected.
 
-The preferred seed capsule preserves original identity and IEEE payload bits; it is not a newly solved result. A2 must also support independently useful selected result/analysis content, not stop after the easiest seed copy. Storage choice remains gated by scientific sufficiency and actual payload sharing, not a generic content-addressed-store requirement.
-
-A0 completes when the coordinator records chosen contracts, alternatives and revealing tests here and routes any newly exposed rule decision. If a promised kind cannot be made sufficient from current data, identify the necessary producer metadata change and schedule it with that consumer. Do not silently weaken the promised product or defer its required producer work to Q1.
+RC01–RC03 authorize these target choices. D0 still routes new relation/history/public-boundary decisions before A1–A3 implementation. A0 is complete as a design investigation; it does not establish an implemented artifact or retention mechanism. No producer context requirement is deferred to Q1.
 
 ## A1. Retained exact study inputs
 

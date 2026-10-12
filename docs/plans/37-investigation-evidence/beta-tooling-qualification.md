@@ -11,7 +11,7 @@ doc_retention: while-dependent
 # Qualified initial tooling boundary
 
 [Plan37](../37-surrealdb-lifecycle-and-integration.md) owns current status and
-acceptance. These are bounded C0/C1 observations and selected outcomes; they do
+acceptance. These are bounded tooling-foundation observations and selected outcomes; they do
 not qualify persistent rollout, final scientific declarations or assembled Q1.
 
 **Interface-checked:** Context7 `/surrealdb/surrealkit` supplied discovery leads;
@@ -90,8 +90,8 @@ owner settles it; CLI0, lock TTL and catalog parity do not supply that authority
 **Tested:** through `scripts/pse-env --resource-class light --`,
 `python -m unittest scripts.tests.test_surrealkit scripts.tests.test_test_resources
 scripts.tests.test_surrealkit_maintenance` passed97 controls with zero failures.
-The subsequent maintenance probe preparation added two controls; its focused
-module passed21/21. `python -m unittest scripts.tests.test_surreal_server`
+Subsequent maintenance probe preparation and bootstrap-readiness correction
+expanded its focused module to22/22 passing controls. `python -m unittest scripts.tests.test_surreal_server`
 passed200/200 after correcting recovery-profile classification: the explicit
 `tooling_fixture` selection is immutable across recovery, including refusal to
 toggle it. The earlier supervisor run had one error against the zero baseline;
@@ -121,3 +121,46 @@ frozen-input refusal controls. It does not qualify arbitrary data transformation
 failed completion repair, persistent deployment rollout or activation. The
 exclusive maintenance adapter keeps those operation-specific settlement and
 service-owner obligations separate from beta's chain bookkeeping.
+
+## Exclusive reservation-revocation control
+
+**Tested, 2026-10-12:** the corrected `owner-revocation` mode of
+`scripts.tests.surrealkit_rollout_fixture_check` completed with exit0 against the
+fresh registered `beta-revocation-v2` service, generation
+`84c5f229-a798-447a-a751-bcdfae4c1174`. The command used
+`scripts/pse-env --native= --resource-class light --`, the private root registry,
+exact registered controls selection and pinned beta executable. Evidence lives
+in `/tmp/pse37-execution-SMD3bG/maintenance-owner-revocation-v2`.
+
+The observer saw the actual `running_start` barrier and the beta global lock
+with a live 900-second expiry, then revoked only its captured reservation nonce.
+The native composer remained alive; process death was not exercised. The beta
+child reported `owner_lost` and its exact native scope drained. Only after that
+drain did the test restore its original still-live reservation and drain its
+listener. Status succeeded. One exact repair attempt with a 15-second bound
+refused the still-live lock with exit1; no lock deletion or TTL adjustment was
+performed. Beta supports `running_start` repair to failed metadata when it can
+acquire authority; that transition does not settle the interrupted SQL step.
+
+Ordinary open/start refused, and the actual operation callback refused to claim
+the unfinished step settled. Pending nonce
+`ba9a55e3476b485e8873cbcad667df37`, frozen input identity and SQL outcome remain
+unknown; admission is closed, the exact service/children are physically drained,
+and no activation occurred. The enclosing control is retained/incomplete/pinned,
+not disposed as a successful rollout. Root independently checked all exact native
+scopes and the selected service's stopped state.
+
+The first probe failed before revocation because its observer queried beta
+metadata before bootstrap completed. Its deadline also expired after the start
+SQL had completed. Exact status, original manifest checksum, stored step
+acknowledgements, generated catalog comparison and child/listener drain later
+established settlement of that original start only. Its failed probe outcome
+remains unchanged; no completion, activation or replay was used. The corrected
+observer retries only exact transient beta metadata absence under its original
+deadline; permission, syntax and other missing-table errors still fail. The
+fixture's finite overall clock includes the observed bootstrap/DDL cost.
+
+This establishes the disposable reservation-revocation and unknown-outcome
+refusal foundation. Successful interrupted-SQL settlement, process-death
+recovery, arbitrary transformations, persistent rollout and assembled Q1 remain
+unqualified.

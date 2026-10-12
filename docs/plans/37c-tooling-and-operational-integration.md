@@ -1,6 +1,6 @@
 ---
 title: SurrealKit tooling and operational integration
-status: draft
+status: in-progress
 date: 2026-10-12
 adrs: []
 review_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md]
@@ -89,6 +89,8 @@ The following are required decision packages, not a commitment to adopt every ca
 | I6 | Compare exact released-server/network needs with owned native fixtures and testcontainers; assess selected-service HTTP MCP/domain operations, optional Studio/metrics/OTel and maintenance wakeups. | Override container image/backend/caps/readiness if adopted; default v2.2 memory/root is not3.3 RocksDB qualification. Keep authenticated VIEWER inspection. Domain writes invoke canonical owners. Add diagnostics/timer only for a consumer; no mandatory collector or scheduler, and a timer never authorizes deletion. |
 | I7 | Identify workload-specific restart sufficiency and remote/other extension boundaries. Distinguish seed, partial trajectory, backup and VERSION from numerical resume. Assess search/vector/GQL/Postgres wire/WASM/SurrealML/hosted/cloud leads only for a simulator consumer. | Record truthful retry/local-first limits under RC06/RC07. Durable resume, remote binding and new query/runtime features need a later concrete product/contract decision; eligible libraries are not rejected for license or current mechanism alone. |
 
+The [scientific decisions](37-investigation-evidence/scientific-closure-and-replay.md) and [operational decisions](37-investigation-evidence/operational-capabilities.md) now supply the source-led outcomes, concrete consumers, alternatives and observable revisit triggers. I2 retains explicit durable readiness and bounded polling despite a real LIVE wakeup consumer. I3 retains patched WS and existing protected pages/blocks. I6 retains native owned fixtures and authenticated VIEWER inspection. I1/I4/I7 retain explicit conflict guards, owned bytes/history-disabled and truthful local retry. I5's actual access-path inventory governs selective fixture checks and reinspection when A declarations change; no blanket graph/index rewrite is selected.
+
 Some questions can conclude during source investigation; others require new target fixtures after A/B/C foundations. Capture unresolved selection premises as gates on their dependent work, not a reason to hold independent corrections. Any adopted additional contract changes D0 and the affected plan before implementation. Deferred decisions follow the existing register route with owner/check/observable trigger/next review; no competing backlog is introduced.
 
 ## Coverage limits, acceptance and handoff
@@ -100,3 +102,21 @@ The review did not qualify full numerical models, derivative/scaling/closure cha
 During implementation, run targeted tooling/unit/fixture controls with authentic ownership and relevant scope-aware environment routes. At overall functional scope end Q1 integrates scientific/transport/tooling behavior and runs the necessary static/manual checks once. Report actual outcomes against zero failures; never equate a beta test report, exited CLI, empty cgroup or successful REMOVE with all broader drain/settlement/physical recovery claims.
 
 Transfer new enduring instructions to the substrate/agent-environment/architecture owners through D0/H1. Existing execution plans remain unedited until Plan37 is implemented and accepted, then receive only the reconciliation needed before returning to their remaining work.
+
+## Initial qualified adapter evidence
+
+The [beta boundary evidence](37-investigation-evidence/beta-tooling-qualification.md)
+records the actual exact-release acquisition, admitted generated/fixture/setup
+surface, complete-schema comparison, namespace isolation/disposal, independent
+review corrections and explicit permission/qualification limits. Initial CLI
+support is sync, initial plan, frozen replay and sync/both tests; seed/custom SQL
+and extra actor modes remain unsupported until qualified. The coordinator owns
+package completion and the remaining persistent maintenance boundary.
+
+The separate maintenance foundation uses the existing exclusive service owner
+and durable unknown-operation fence. Its disposable reservation-revocation
+control observes an actual running beta step and live lock, then proves exact
+child/listener drain, ordinary admission refusal and preservation of unknown SQL
+through status and a supported repair refusal. It does not qualify process death,
+successful interrupted-step settlement or persistent deployment rollout. See the
+same evidence owner for the actual failure, correction and qualification limits.

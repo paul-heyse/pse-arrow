@@ -1,8 +1,8 @@
 ---
 title: Connection and transport lifetimes
-status: draft
+status: in-progress
 date: 2026-10-12
-adrs: []
+adrs: [ADR-0181]
 review_sources: [docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md]
 doc_owner: docs/plans/37-surrealdb-lifecycle-and-integration.md
 doc_topics: [current-work, design, storage]
@@ -15,11 +15,11 @@ doc_retention: while-dependent
 
 This companion develops F04–F06 and confirmed RC04/RC05. [Plan 37](37-surrealdb-lifecycle-and-integration.md) owns status, finding disposition, rule decisions and assembled acceptance. The [connection inquiry](../design_review/evidence/surrealdb-lifecycle-and-integration-2026-10-12/connection-and-transport-lifetimes.md) supplies the reviewed source routes and counterexamples.
 
-**Implemented, source-inspected:** Python NativeRuntime.close clears caches and calls CanonicalStore.disconnect. The latter drains ResultReadDrain then closes ordinary and activation clients. Runtime::from_shared, Operations and Heartbeat retain shared store capabilities. Some active runs keep counted protections and already cause safe close refusal; that does not constitute a complete borrower contract for every dependent/alias.
+**Reviewed baseline, source-inspected:** before B1, Python NativeRuntime.close cleared caches and called CanonicalStore.disconnect. The latter drained ResultReadDrain then closed ordinary and activation clients. Runtime::from_shared, Operations and Heartbeat retained shared store capabilities. Some active runs kept counted protections and already caused safe close refusal; that did not constitute a complete borrower contract for every dependent/alias.
 
-The production bounded native router already owns finite queues, original request clocks, ordered setup, dispatch uncertainty, byte charges and actual physical closure. Its ReplayCursor tracks awaiting/index/refreshed but no acknowledged-operation deadline. The existing five-second replay wrapper only covers first-send completion. Normal replies/reset explicitly release AdmissionPermit; malformed non-payload terminal removals do not. Exact locked Papaya removal clones retired values sharing permits, so ordinary local drop is insufficient.
+The reviewed bounded native router already owned finite queues, original request clocks, ordered setup, dispatch uncertainty, byte charges and actual physical closure. Before B2/B3, its ReplayCursor tracked awaiting/index/refreshed but no acknowledged-operation deadline. The five-second replay wrapper only covered first-send completion. Normal replies/reset explicitly released AdmissionPermit; malformed non-payload terminal removals did not. Exact locked Papaya removal clones retired values sharing permits, so ordinary local drop is insufficient.
 
-**Proposed:** corrections below. No transport tests, probes, services or timing measurements were run during authoring. Retain SDK/server 3.3.0 and the narrowly patched WS path; no codec rewrite or transport replacement is selected. Fresh target data cutover removes legacy compatibility, not current request/drain guarantees.
+The sections below specify the corrections; the coordinator owns their current implementation and acceptance status. No transport tests, probes, services or timing measurements were run during initial authoring. Retain SDK/server 3.3.0 and the narrowly patched WS path; no codec rewrite or transport replacement is selected. Fresh target data cutover removes legacy compatibility, not current request/drain guarantees.
 
 ## B1. Logical release and authoritative shutdown
 
@@ -37,7 +37,16 @@ Map all actual entrypoints, not only the representative NativeRuntime: runtime c
 
 A refusal is not shutdown. A completed physical close makes the owner terminal; reopening constructs/revalidates a selected connection under explicit owner action. Low-level SDK disconnect remains available to authentic transport fixtures/operators but cannot be called by ordinary runtime release. Native worker drain, local driver drain and remote DB effect settlement remain separate outcomes.
 
-D0 must record the Rust/Python boundary decision and required design review before this change. Keep the existing Python close spelling where appropriate but change and regenerate its declared contract/stubs; remove physical-close wiring and any replaced lifecycle mechanism rather than add a compatibility method that retains the old unsafe interpretation. Registry/codegen own generated declarations.
+An exact sealed remote-recovery intent, such as `AnalysisUnsettled.intent`, can
+outlive its caller and physical socket. Its original authority, nonce, key and
+creation expiry remain unchanged; an independently validated caller can settle
+that same intent under fresh admission. Retaining an idle error/result does not
+retain a perpetual physical activity or prove its remote effect settled. Queued
+protection cleanup instead retains its issuing store, revision, grant and activity
+until acknowledged release or explicit authentic recovery, because it still owns
+local cleanup. SDK ownership remains live through actual local request drain.
+
+D0 records the Rust/Python boundary decision and required design review before this change. Keep the Python close spelling and update its documented logical-release contract; remove physical-close wiring and any replaced lifecycle mechanism rather than add a compatibility method that retains the old unsafe interpretation. Registry/codegen own generated declarations. Source inspection during B1 confirms the exposed signature remains `close(self, /) -> None`; removing Rust's injected `Python<'_>` and internal fallible wrapper does not change PyO3 metadata. No registry, generator or stub declaration changes. Q1 rebuilds and checks the installed boundary; any actual declaration change requires regeneration.
 
 **Proposed revealing controls:** one caller releases while another performs renewal/publication; admitted work finishes after its original caller releases; closed caller refuses new work; atomic last-release/new-admission race; physical close refuses protected readers and durable dependents; refusal leaves their required RPCs working; final activity completion permits real driver close. Exercise failed/cancelled publication and uncertainty transfer, not just successful queries. A local policy/mock peer can establish most cases; Q1 adds actual durable/native/Python wiring.
 

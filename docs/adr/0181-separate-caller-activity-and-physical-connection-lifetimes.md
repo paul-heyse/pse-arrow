@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-03, AP-04, AP-07, DP-09, PS-10]
 blueprint: [§20.5, §20.6, §21]
 review: docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04
-evidence: Proposed
+evidence: 'Tested: Plan37 B1 targeted canonical lifetime/source-protection controls39/39 and runtime caller controls4/4, 2026-10-12; scoped native/pse-py compile passed. Assembled Q1 remains open.'
 supersedes: []
 superseded-by: null
 revisit: A supported remote deployment or independently restartable transport requires a different authentic physical shutdown owner.
@@ -35,11 +35,11 @@ Select a shared physical admission gate, independent logical caller admission, a
 
 ## Outcome
 
-A logical caller close is idempotent and refuses new work through that caller. Clones share its closed state; a separately constructed runtime has independent caller authority. Admitted work retains an activity through heartbeat, publication, cancellation, drain and exact settlement or transfer to an explicitly owned recovery activity. An idle alias is not an activity and cannot bypass admission to issue work.
+A logical caller close is idempotent and refuses new work through that caller. Clones share its closed state; a separately constructed runtime has independent caller authority. Admitted work retains an activity through heartbeat, publication, cancellation, local drain and exact settlement or explicit recovery handoff. Connection-dependent recovery keeps its activity. A returned sealed remote-recovery intent preserves uncertainty and original authority without making a held error/result a perpetual connection activity; recovery requires fresh admission by a validated caller. An idle alias is not an activity and cannot bypass admission to issue work.
 
 The shared physical owner atomically refuses shutdown while actual activities or protected readers remain, preserving their usable admission; otherwise it moves Open to Closing before excluding new admission and draining both clients. Refusal is not close. Cancellation or partial driver failure leaves Closing and authentic drain/recovery ownership, never false success or automatic reopening. Reopening requires a newly validated owner. Shutdown does not infer that submitted remote effects or native workers have stopped.
 
-Ordinary Rust/Python callers receive typed closed/unavailable diagnostics. The Python close spelling remains but its declaration is regenerated with logical-release meaning. Explicit cache clearing stays separate. Physical shutdown remains an explicit deployment/fixture/admin operation; remove ordinary caller wiring to it. The common gate covers direct canonical operations and activation as well as runtime entrypoints.
+Ordinary Rust/Python callers receive typed closed/unavailable diagnostics. The Python close spelling and exposed `close(self, /) -> None` signature remain; its documentation states logical-release meaning. Regenerate the compiled stub if its actual declaration changes. Explicit cache clearing stays separate. Physical shutdown remains an explicit deployment/fixture/admin operation; remove ordinary caller wiring to it. The common gate covers direct canonical operations and activation as well as runtime entrypoints.
 
 ### Consequences
 
@@ -51,7 +51,7 @@ Local peer and policy controls distinguish refused admission, before-dispatch in
 
 ### Confirmation
 
-The operator confirmed RC04 and authorized this tranche on 2026-10-12. The source review motivates the change; the [bounded target review](../design_review/reviews/design_review_b1-connection-lifetimes_2026-10-12.md) accepts the proposed contract before implementation. Targeted tests and assembled Q1 remain different claims; proposed ADR status is unchanged until the repository's decision-PR route.
+The operator confirmed RC04 and authorized this tranche on 2026-10-12. The source review motivates the change; the [bounded target review](../design_review/reviews/design_review_b1-connection-lifetimes_2026-10-12.md) accepted the contract before implementation. B1 is implemented with targeted canonical lifetime/source-protection controls39/39 and runtime caller controls4/4 passing against the owned disposable3.3.0 service. The scoped native/pse-py compile passed without Rust warnings/errors. Independent source review found no material defect. Targeted tests and assembled Q1 remain different claims; proposed ADR status is unchanged until the repository's decision-PR route.
 
 ## Pros and cons
 
