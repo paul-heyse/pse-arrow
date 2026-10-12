@@ -65,6 +65,7 @@ path = [
   ".agents/**",
   "docs/**",
   "packages/**",
+  "database/canonical-rollout/**",
   "tests/golden/**",
   "tests/fixtures/**",
   "tests/conformance/fixtures/**",

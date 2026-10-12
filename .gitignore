@@ -90,3 +90,6 @@ lcov.info
 
 # rustc internal-compiler-error dumps (written to the cwd on a compiler crash)
 rustc-ice-*.txt
+
+# Local publisher synchronization; frozen publications themselves are committed.
+/database/.canonical-rollout.publish.lock
