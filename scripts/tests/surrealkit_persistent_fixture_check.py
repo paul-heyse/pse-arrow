@@ -140,7 +140,7 @@ class Fixture:
             result = subprocess.run([str(self.canonical), "canonical-validate-definitions", "--state", str(state)],
                 cwd=ROOT, env=environment, capture_output=True, text=True, timeout=30, check=False)
             server.write_json(state / "wrong-initializer.json", {"exit_code": result.returncode, "stdout": result.stdout, "stderr": result.stderr})
-            self.checked(result.returncode != 0 and "initializer" in result.stderr.lower(), "Actual canonical validator refuses wrong live initializer token")
+            self.checked(result.returncode != 0 and "canonical store is quiesced" in result.stderr.lower(), "Actual canonical validator refuses wrong live initializer token")
 
     def phased(self, folder: Path) -> None:
         state = self.setup("phased")
