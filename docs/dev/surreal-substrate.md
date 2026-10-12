@@ -460,7 +460,24 @@ completion share one pending nonce; completion requires an independently settled
 Settlement retains the selected pending record and phase evidence until explicit canonical
 activation. Metadata repair refuses unsettled SQL, including beta's `running_complete`
 shortcut. Beta TTL, CLI success and catalog parity alone cannot supply settlement.
-Persistent generated-schema settlement and final cutover qualification remain Plan37 work.
+The fixed `settle` route loads the immutable publication from `database/canonical-rollout`,
+checks beta's exact manifest/step identities and acknowledgements, and invokes
+`canonical-validate-definitions` under this reservation's live initializer nonce.
+Only producer-owned schema actions are admitted. Unknown schema SQL may reconcile after
+authentic child/listener drain and exact AST postconditions; arbitrary data SQL requires
+its own domain owner. A `sql_settled` phase permits metadata repair but cannot activate;
+settle again after beta reaches the required terminal phase. Final `activate` independently
+checks the current generated target, original predecessor and exact operation settlement,
+then publishes an atomic activation receipt/marker. Lost activation acknowledgement retries
+the same nonce; cleanup failure retains the fence. Ordinary admission remains closed until
+explicit normal start. Phase-only definition witnesses cannot activate the product.
+
+The `up`, `start`, `complete`, `status` and `repair` commands use `--binary` for the pinned
+beta executable. `settle` and `activate` use it for the compiled `canonical-tools` xtask;
+all commands require the exact `--state` and `--folder`, and continuation/recovery requires
+`--pending-nonce`. Production publication is append-only through its producer; normal
+code generation does not rewrite frozen steps. Actual persistent cutover qualification
+remains in Plan37 until the integrated journeys pass.
 
 ## Disposable tests and retained evidence
 
