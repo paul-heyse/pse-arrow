@@ -37,6 +37,7 @@ native-abi = ["dep:bindgen"]
 full-codegen = ["package-fixtures", "native-abi"]
 canonical-tools = [
   "dep:pse-operations",
+  "pse-operations/canonical-maintenance",
   "dep:pse-model",
   "dep:pse-runtime",
   "dep:pse-engine",

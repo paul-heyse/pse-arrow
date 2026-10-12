@@ -23,6 +23,8 @@ default = []
 test-support = []
 # Explicit remote mechanism fixture; ordinary unit selection does not start a server.
 canonical-tests = []
+# Parse-only server libraries; ordinary scientific runtime does not select these.
+canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 
 [dependencies]
 tokio-util.workspace = true
@@ -43,6 +45,8 @@ thiserror.workspace = true
 miette.workspace = true
 tokio.workspace = true
 surrealdb.workspace = true
+surrealdb-syn = { workspace = true, optional = true }
+surrealdb-sql = { workspace = true, optional = true }
 
 [dev-dependencies]
 pse-columnar.workspace = true

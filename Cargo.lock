@@ -3673,6 +3673,7 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.1.5",
+ "rayon",
 ]
 
 [[package]]
@@ -3695,7 +3696,6 @@ dependencies = [
  "allocator-api2",
  "equivalent",
  "foldhash 0.2.0",
- "rayon",
 ]
 
 [[package]]
@@ -6371,6 +6371,8 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "surrealdb",
+ "surrealdb-sql",
+ "surrealdb-syn",
  "thiserror 2.0.21",
  "tokio",
  "tokio-tungstenite",
@@ -7188,6 +7190,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "reblessive"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbc4a4ea2a66a41a1152c4b3d86e8954dc087bdf33af35446e6e176db4e73c8c"
+
+[[package]]
 name = "reborrow"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7629,7 +7637,7 @@ checksum = "54299df1d95fb17c25f9ae7f4169db76de708c231a19e29a50b7d74e87853246"
 dependencies = [
  "fixedbitset",
  "foldhash 0.1.5",
- "hashbrown 0.17.1",
+ "hashbrown 0.15.5",
  "indexmap",
  "ndarray 0.17.2",
  "num-traits",
@@ -8230,6 +8238,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "storekey"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bd9a94571bde7369ecaac47cec2e6844642d99166bd452fbd8def74b5b917b2f"
+dependencies = [
+ "bytes",
+ "storekey-derive",
+ "uuid",
+]
+
+[[package]]
+name = "storekey-derive"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6079d53242246522ec982de613c5c952cc7b1380ef2f8622fcdab9bfe73c0098"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "stringprep"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8455,6 +8485,66 @@ dependencies = [
  "url",
  "uuid",
  "web-time 1.1.0",
+]
+
+[[package]]
+name = "surrealdb-sql"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6397f3b9141dbceca638116045b525c9f31bea3a6b374ab3546fa052bfb07e33"
+dependencies = [
+ "bytes",
+ "chrono",
+ "geo",
+ "getrandom 0.3.4",
+ "hex",
+ "phf 0.13.1",
+ "rand 0.9.5",
+ "regex",
+ "rust_decimal",
+ "serde",
+ "surrealdb-common",
+ "surrealdb-iam",
+ "surrealdb-strand",
+ "surrealdb-types",
+ "unicase",
+ "uuid",
+]
+
+[[package]]
+name = "surrealdb-strand"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adc99fc8f56f55b3bcadd4ee4fe6ec4811dc04a3e686099fd0c69af7ee4edde0"
+dependencies = [
+ "revision",
+ "serde",
+ "storekey",
+]
+
+[[package]]
+name = "surrealdb-syn"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bab01f470fa61bc45a4c46286f7ba94297d6ec7c46708845d9e164311fb8e443"
+dependencies = [
+ "bytes",
+ "chrono",
+ "geo",
+ "phf 0.13.1",
+ "reblessive",
+ "regex",
+ "rust_decimal",
+ "surrealdb-cnf",
+ "surrealdb-common",
+ "surrealdb-iam",
+ "surrealdb-sql",
+ "surrealdb-strand",
+ "surrealdb-types",
+ "thiserror 2.0.21",
+ "tracing",
+ "unicase",
+ "uuid",
 ]
 
 [[package]]

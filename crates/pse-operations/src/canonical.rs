@@ -8,6 +8,9 @@ use crate::{canonical_codec::CodecError, generated::surreal as wire};
 pub(crate) mod lifetime;
 #[path = "canonical_transport.rs"]
 pub(crate) mod transport;
+#[cfg(feature = "canonical-maintenance")]
+#[path = "canonical_maintenance.rs"]
+pub mod maintenance;
 pub use lifetime::{ConnectionActivity, inherit_activity};
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
@@ -201,6 +204,8 @@ struct WriteAdmission {
     accepting_writes: bool,
     #[serde(default)]
     derived_rebuild_pending: Option<PendingRebuild>,
+    #[serde(default)]
+    surrealkit_rollout_pending: Option<PendingRebuild>,
 }
 
 impl WriteAdmission {
@@ -218,9 +223,13 @@ impl WriteAdmission {
         database: &str,
         nonce: Option<&str>,
     ) -> Result<(), CanonicalError> {
+        if self.derived_rebuild_pending.is_some() && self.surrealkit_rollout_pending.is_some() {
+            return Err(CanonicalError::Quiesced);
+        }
         let owner = self
             .derived_rebuild_pending
             .as_ref()
+            .or(self.surrealkit_rollout_pending.as_ref())
             .and_then(|pending| pending.initializer.as_ref())
             .ok_or(CanonicalError::Quiesced)?;
         if self.accepting_writes
@@ -264,7 +273,7 @@ impl WriteAdmission {
         database: &str,
         initializer_nonce: Option<&str>,
     ) -> Result<(), CanonicalError> {
-        if self.derived_rebuild_pending.is_some() {
+        if self.derived_rebuild_pending.is_some() || self.surrealkit_rollout_pending.is_some() {
             return self.require_initializer(state, namespace, database, initializer_nonce);
         }
         // An old handle cannot provision its previous namespace after cutover.
@@ -389,7 +398,7 @@ impl CanonicalOptions {
         }
         let initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
         let admission = WriteAdmission::read(state)?;
-        if admission.derived_rebuild_pending.is_some() {
+        if admission.derived_rebuild_pending.is_some() || admission.surrealkit_rollout_pending.is_some() {
             admission.require_initializer(
                 state,
                 &deployment.namespace,
@@ -2383,6 +2392,19 @@ mod canonical_admission_unit {
             override_true.require_writes(&scope.0, "fresh", "current", Some(nonce)),
             Err(CanonicalError::Quiesced)
         ));
+    }
+
+    #[test]
+    fn rollout_initializer_requires_exact_live_owner_and_rejects_competing_pending_work() {
+        let (scope, owner) = scope();
+        let nonce = owner["nonce"].as_str().unwrap();
+        let mut selected = admission(owner.clone(), false);
+        selected.surrealkit_rollout_pending = selected.derived_rebuild_pending.take();
+        assert!(selected.require_writes(&scope.0, "fresh", "current", Some(nonce)).is_ok());
+        assert!(selected.require_writes(&scope.0, "fresh", "other", Some(nonce)).is_err());
+        assert!(selected.require_writes(&scope.0, "fresh", "current", None).is_err());
+        selected.derived_rebuild_pending = admission(owner.clone(), false).derived_rebuild_pending;
+        assert!(selected.require_writes(&scope.0, "fresh", "current", Some(nonce)).is_err());
     }
 
     #[test]

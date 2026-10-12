@@ -143,6 +143,9 @@ pyo3-arrow = "=0.19.0"
 pyo3-introspection = "=0.29.2"
 
 # ---- runtime ----
+# Exact server parser/AST, only selected by maintenance catalog validation.
+surrealdb-syn = "=3.3.0"
+surrealdb-sql = "=3.3.0"
 surrealdb = { version = "=3.3.0", path = "vendor/surrealdb", default-features = false, features = [
   "protocol-ws",
   "rustls",

@@ -62,6 +62,23 @@ enum Cmd {
     CanonicalInit {
         state: PathBuf,
     },
+    /// Compare actual installed generated definitions under a live maintenance owner.
+    #[cfg(feature = "canonical-tools")]
+    CanonicalValidateDefinitions {
+        #[arg(long)]
+        state: PathBuf,
+        /// Ordered producer-selected source/target phase inputs; validation only.
+        #[arg(long)]
+        schema: Vec<PathBuf>,
+    },
+    /// Activate only the exact settled production schema operation.
+    #[cfg(feature = "canonical-tools")]
+    CanonicalActivate {
+        #[arg(long)]
+        state: PathBuf,
+        #[arg(long)]
+        settlement: PathBuf,
+    },
     /// Derive a relevant producer identity from selected Cargo units and consumed inputs.
     ProducerIdentityFixture {
         #[arg(long)]
@@ -220,6 +237,14 @@ fn main() -> Result<()> {
             println!("canonical database initialized and interpretation verified");
             Ok(())
         }
+        #[cfg(feature = "canonical-tools")]
+        Cmd::CanonicalValidateDefinitions { state, schema } => {
+            canonical_maintenance(&state, None, &schema)
+        }
+        #[cfg(feature = "canonical-tools")]
+        Cmd::CanonicalActivate { state, settlement } => {
+            canonical_maintenance(&state, Some(&settlement), &[])
+        }
         Cmd::ProducerIdentityFixture { output } => {
             producer_identity::qualified_fixture(&root, &output)?;
             Ok(())
@@ -325,6 +350,31 @@ fn main() -> Result<()> {
 }
 
 /// Resolve the runtime checkout, never the location baked into a cached executable.
+#[cfg(feature = "canonical-tools")]
+fn canonical_maintenance(state: &Path, settlement: Option<&Path>, schemas: &[PathBuf]) -> Result<()> {
+    let options = pse_operations::canonical::CanonicalOptions::from_state(state)?;
+    let executor = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()?;
+    let witness = executor.block_on(async {
+        let store = pse_operations::canonical::CanonicalStore::connect(&options).await?;
+        let result = match settlement {
+            Some(path) => store.activate_definitions(path).await,
+            None if schemas.is_empty() => store.validate_definitions().await,
+            None => store.validate_definition_files(schemas).await,
+        };
+        // This owner finishes both drivers even when validation refuses. A
+        // successful body alone never establishes enclosing physical cleanup.
+        let drained = store.disconnect().await;
+        let witness = result?;
+        drained?;
+        Ok::<_, pse_operations::canonical::CanonicalError>(witness)
+    })?;
+    println!("{}", serde_json::to_string(&witness)?);
+    Ok(())
+}
+
 fn workspace_root() -> Result<PathBuf> {
     let start = std::env::current_dir().context("reading invocation directory")?;
     workspace::find_workspace_root(&start).map_err(|error| anyhow!(error))
