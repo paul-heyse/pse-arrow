@@ -91,7 +91,9 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(
                 tool.subprocess,
                 "run",
-                return_value=subprocess.CompletedProcess([], 0, "chain valid", ""),
+                return_value=subprocess.CompletedProcess(
+                    [], 0, "1 rollout(s) are valid, in order: one\n", ""
+                ),
             ),
             patch.object(
                 tool.native_operation, "run_child_scope", side_effect=self.native
@@ -245,6 +247,46 @@ class MaintenanceTests(unittest.TestCase):
         self.assertLess(self.calls.index("authority"), self.calls.index("child"))
         self.assertGreater(self.calls.index("drain"), self.calls.index("child"))
         self.assertEqual(result["attempts"][0]["listener_drain"], "complete")
+
+    def test_whole_chain_submission_binds_beta_order_instead_of_filename_order(self) -> None:
+        for identity in ("a", "z"):
+            (self.folder / "rollouts" / (identity + ".toml")).write_text(
+                'id = "' + identity + '"\n'
+            )
+        output = "3 rollout(s) are valid, in order: z, one, a\n"
+        with patch.object(
+            tool.subprocess, "run",
+            return_value=subprocess.CompletedProcess([], 0, output, ""),
+        ):
+            value = self.run_tool()
+        self.assertEqual(value["rollouts"], ["z", "one", "a"])
+        self.assertEqual(self.current()["rollouts"], ["z", "one", "a"])
+        self.assertEqual(value["sql_outcome"], "unknown")
+        self.assertEqual(value["attempts"][0]["child"]["owned_drain"], "complete")
+
+    def test_invalid_beta_order_refuses_before_listener_or_sql(self) -> None:
+        for output in (
+            "chain valid",  # No authenticated chain order.
+            "1 rollout(s) are valid, in order: other\n",  # Wrong inventory.
+            "2 rollout(s) are valid, in order: one, one\n",  # Duplicate.
+            "2 rollout(s) are valid, in order: one\n",  # Wrong count.
+            "1 rollout(s) are valid, in order: one, extra\n",  # Extra input.
+        ):
+            with self.subTest(output=output):
+                server.write_json(self.state / "config.json", self.config)
+                self.calls.clear()
+                with (
+                    patch.object(
+                        tool.subprocess, "run",
+                        return_value=subprocess.CompletedProcess([], 0, output, ""),
+                    ),
+                    self.assertRaisesRegex(tool.MaintenanceError, "Validated beta rollout order"),
+                ):
+                    self.run_tool()
+                self.assertEqual(self.current()["phase"], "prepared")
+                self.assertEqual(self.current()["sql_outcome"], "not_submitted")
+                self.assertNotIn("listener", self.calls)
+                self.assertNotIn("child", self.calls)
 
     def test_timeout_failure_or_unproved_child_drain_retains_unknown(self) -> None:
         for status, reason, drain in [
@@ -529,6 +571,31 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(result["settlement"]["steps"][0]["outcome"], "acknowledged")
         self.assertEqual(result["settlement"]["canonical"], witness)
         self.assertEqual(canonical.call_args.kwargs["expected_schemas"], ())
+
+    def test_whole_chain_settlement_cannot_omit_initial_baseline(self):
+        value, item, row, witness = self.generated_fixture()
+        baseline = {**item, "id": "initial-baseline"}
+        with (
+            patch.object(tool, "publication", return_value={"rollouts": [baseline, item]}),
+            patch.object(server, "maintenance_query", return_value={"value": [row]}) as query,
+            patch.object(tool, "canonical_tool", return_value=witness) as canonical,
+            self.assertRaisesRegex(tool.MaintenanceError, "Whole-chain submission"),
+        ):
+            tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+        query.assert_not_called()
+        canonical.assert_not_called()
+        self.assertEqual(self.current()["sql_outcome"], "unknown")
+        value["rollouts"] = ["initial-baseline", "one"]
+        tool.update(self.state, value)
+        with (
+            patch.object(tool, "publication", return_value={"rollouts": [baseline, item]}),
+            patch.object(server, "maintenance_query", return_value={"value": [row]}),
+            patch.object(tool, "canonical_tool", return_value=witness) as canonical,
+            self.assertRaisesRegex(tool.MaintenanceError, "Actual beta manifest identity"),
+        ):
+            tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+        canonical.assert_not_called()
+        self.assertEqual(self.current()["sql_outcome"], "unknown")
 
     def test_generated_unknown_sql_reconciles_but_metadata_must_complete_before_activation(self):
         value, item, row, witness = self.generated_fixture("running_complete", acknowledged=False)

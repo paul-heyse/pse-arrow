@@ -134,6 +134,25 @@ def environment(
     return result
 
 
+def validated_rollout_order(output: str, inventory: list[str]) -> list[str]:
+    """Consume pinned beta lint's chain order, retaining every frozen manifest."""
+    matched = re.fullmatch(
+        r"([1-9][0-9]*) rollout\(s\) are valid, in order: "
+        r"([A-Za-z0-9_-]+(?:, [A-Za-z0-9_-]+)*)",
+        output.strip(),
+    )
+    if matched is None:
+        raise MaintenanceError("Validated beta rollout order is unavailable")
+    ordered = matched[2].split(", ")
+    if (
+        len(ordered) != int(matched[1])
+        or len(set(ordered)) != len(ordered)
+        or sorted(ordered) != sorted(inventory)
+    ):
+        raise MaintenanceError("Validated beta rollout order differs from frozen inventory")
+    return ordered
+
+
 def selected(state: Path) -> dict[str, object]:
     config = surreal_server.config_for(state)
     if (
@@ -255,6 +274,11 @@ def execute(
     args = command(mode, rollout_id)
     provenance = surrealkit.verify(binary)
     files, input_digest = inputs(folder)
+    rollout_inventory = sorted(
+        Path(name).stem
+        for name in files
+        if Path(name).parent == Path("rollouts") and name.endswith(".toml")
+    )
     with surreal_server.lifecycle_reservation(state):
         config = selected(state)
         owner = surreal_server.read_json(state / "lifecycle-owner.json")
@@ -306,11 +330,7 @@ def execute(
                 "command": args,
                 "phase": "prepared",
                 "sql_outcome": "not_submitted",
-                "rollouts": sorted(
-                    Path(name).stem
-                    for name in files
-                    if Path(name).parent == Path("rollouts") and name.endswith(".toml")
-                ),
+                "rollouts": rollout_inventory,
                 "tool": provenance,
                 "owner": owner,
                 "attempts": [],
@@ -353,6 +373,12 @@ def execute(
             raise MaintenanceError(
                 "Frozen chain lint failed; pending selection retained"
             )
+        ordered = validated_rollout_order(lint.stdout, rollout_inventory)
+        if mode == "up":
+            # Filenames carry timestamps plus digest suffixes; lexical order
+            # can differ from beta's validated source-to-target chain order.
+            value["rollouts"] = ordered
+            update(state, value)
         record: dict[str, object] = {
             "command": args,
             "directory": str(attempt),
@@ -569,6 +595,10 @@ def generated_settler(folder: Path, binary: Path) -> Callable[[Path, str, Mappin
         if inputs(folder)[1] != selected["input_sha256"]:
             raise MaintenanceError("Selected frozen publication changed before settlement")
         ordered = declarations["rollouts"]
+        if selected["command"][1] == "up" and list(selected["rollouts"]) != [
+            item["id"] for item in ordered
+        ]:
+            raise MaintenanceError("Whole-chain submission differs from full producer publication")
         chosen = [item for item in ordered if item["id"] in selected["rollouts"]]
         if not chosen or [item["id"] for item in chosen] != list(selected["rollouts"]):
             raise MaintenanceError("Submitted rollout identities differ from producer publication")
