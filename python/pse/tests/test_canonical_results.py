@@ -66,7 +66,9 @@ def _physical(runtime: pse.Runtime) -> pse.PhysicalContext:
     )
 
 
-def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
+def _package(
+    runtime: pse.Runtime, source: str = SOURCE
+) -> tuple[pse.ModelingPackage, DeclarationId]:
     root = Path(__file__).resolve().parents[3]
     physical = _physical(runtime)
     manifest = (
@@ -76,7 +78,7 @@ def _package(runtime: pse.Runtime) -> tuple[pse.ModelingPackage, DeclarationId]:
     )
     manifest = manifest.replace("dependencies = []", PRIMITIVES)
     package = runtime.modeling_from_documents(
-        [{"package.toml": manifest, "models/root.pse": SOURCE}], physical
+        [{"package.toml": manifest, "models/root.pse": source}], physical
     )
     case = next(
         row.declaration_id for row in package.declarations() if row.name == "Root"
@@ -316,13 +318,16 @@ def test_canonical_result_selection_and_progress_reopen(
 ) -> None:
     runtime = canonical_substrate.runtime(inspection_settings)
     assert runtime.durable
-    package, case = _package(runtime)
+    package, case = _package(
+        runtime, SOURCE.replace("annotation check", "annotation objective x(minimize); annotation check")
+    )
     parameter = next(
         member.id for member in package.inspect(case, _settings()).members
         if member.lineage.path == "a" or member.lineage.path.endswith(".a")
     )
     settings = msgspec.structs.replace(
-        _settings(), sensitivity=SensitivityRequest(parameters=(parameter,))
+        _settings(), intent=NativeSolveIntent.OPTIMIZE,
+        sensitivity=SensitivityRequest(parameters=(parameter,))
     )
     prepared = package.prepare_solve(case, settings)
     controls = pse.AnalysisControls(roots=(), direction="downstream")
@@ -719,6 +724,8 @@ def test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader(
                 "pytest",
                 f"{Path(__file__).resolve()}::{test_canonical_default_no_receipt_reopens_scalar_with_sibling_loader.__name__}",
                 *collection,
+                "--basetemp",
+                str(tmp_path / "loader-child"),
                 "-q",
                 "-s",
             ],
