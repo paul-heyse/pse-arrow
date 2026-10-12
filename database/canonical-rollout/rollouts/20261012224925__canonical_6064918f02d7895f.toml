@@ -1,0 +1,3529 @@
+id = "20261012224925__canonical_6064918f02d7895f"
+name = "canonical_6064918f02d7895f"
+source_schema_hash = "ad301433f67ec7108b54797ac5d7a61df8c92f62fa52ae631da3f49731576ac3"
+target_schema_hash = "5e0004de9ba93a15c17450a84565b851cfe98537d35bc8550ef5935699b530f1"
+compatibility = "phased"
+renames = []
+
+[[steps]]
+id = "apply_expand_schema"
+phase = "start"
+kind = "apply_files"
+
+[[steps.files]]
+path = "schema/canonical.surql"
+hash = "9f3135d86cf2c712a9f6798c62a66cc357603997769f6c279846052dfbef11a2"
+
+[[steps]]
+id = "rollback_expand_schema"
+phase = "rollback"
+kind = "remove_entities"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "active"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "configuration"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "creation_expires_at"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "creation_nonce"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "creation_request_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "edge_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "input_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "method"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "node_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "primary_authority"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "primary_problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "retiring"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analyses"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "analysis"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "evidence_artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "evidence_block"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "evidence_field"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "evidence_row"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "source"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_edges"
+name = "target"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_inputs"
+name = "analysis"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_inputs"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_inputs"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_inputs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_inputs"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_nodes"
+name = "analysis"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_nodes"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_nodes"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_analysis_nodes"
+name = "semantic"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "original_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "relation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_blocks"
+name = "rows"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_obligations"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_obligations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_obligations"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_obligations"
+name = "owner_kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_reads"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_reads"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_releases"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_releases"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_releases"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_releases"
+name = "owner_kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_staging_inputs"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_staging_inputs"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_staging_inputs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_staging_inputs"
+name = "manifest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifact_staging_inputs"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "active"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "block_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "creation_expires_at"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "creation_nonce"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "creation_request_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "payload_bytes"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "primary_authority"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "primary_problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "provenance"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "retiring"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_artifacts"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "claim_operation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "close_generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "closed"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "closed_manifest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "completion"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "expires_at"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "finalization_study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "ingestion_open"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "outcome"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "seed_manifest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "terminal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_attempts"
+name = "worker"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "bytes"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "format"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "producer"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_body_contents"
+name = "version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_edges"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_edges"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_edges"
+name = "source_version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_edges"
+name = "target_name"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_edges"
+name = "target_scope"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "disposition"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "minimal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "point"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "result"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_execution_operations"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "analysis_creation_closed_through"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "artifact_creation_closed_through"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "incarnation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_guards"
+name = "protection_closed_through"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_identities"
+name = "category"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_identities"
+name = "identity"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_identities"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_identities"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_identities"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_locators"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_locators"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_locators"
+name = "point"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_locators"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_locators"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligation_counts"
+name = "count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligation_counts"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "attribution"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "owner_kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "purpose"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_obligations"
+name = "released"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "after_locator"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "complete"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "outcome"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_history_retirements"
+name = "owner_kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_interpretations"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_interpretations"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_interpretations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_interpretations"
+name = "schema_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "input_sha256"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "predecessor"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_maintenance_activations"
+name = "schema_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "from_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "logical"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "name"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "scope"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "to_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_memberships"
+name = "version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_payload_blocks"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_payload_blocks"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_payload_blocks"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_payload_blocks"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_payload_blocks"
+name = "version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problem_runs"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problem_runs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problem_runs"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problem_runs"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problem_runs"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problems"
+name = "head"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problems"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_problems"
+name = "sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "content"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "dependencies"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "descriptor"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "producer"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "receipt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_associations"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "association"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "content"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "dependencies"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "issuing_store"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "producer"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "receipt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_product_descriptors"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "dependencies"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "producer"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_products"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "authority_incarnation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "expires_at"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "grant_deadline"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "grant_nonce"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "released"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_protections"
+name = "sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_reclaimed_ranges"
+name = "from_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_reclaimed_ranges"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_reclaimed_ranges"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_reclaimed_ranges"
+name = "to_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "payload"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "result_set"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_batches"
+name = "row_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "batch"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_max"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_max.bits"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_max.projection"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_min"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_min.bits"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "coordinate_min.projection"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "end"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "output"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "partition"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "result_set"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_block_outputs"
+name = "start"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "batch"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "columns"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_max"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_max.bits"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_max.projection"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_min"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_min.bits"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "coordinate_min.projection"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "end"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "output"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "partition"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "payload_bytes"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "payload_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "result_set"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "rows"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_blocks"
+name = "start"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_manifests"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_manifests"
+name = "descriptors"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_manifests"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_manifests"
+name = "generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_manifests"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_protections"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_protections"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_protections"
+name = "manifest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_protections"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_retirements"
+name = "after_generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_retirements"
+name = "complete"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_retirements"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_retirements"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "batch"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "experiment_id"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "offset"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "output"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "partition"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "relation_id"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "result_set"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "row"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "run_id"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_rows"
+name = "step"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "attempt_generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "backend"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "batch"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "batch_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "data"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "first_ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "layout"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "payload_bytes"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "preparation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "profile"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "result_set"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "run_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_seeds"
+name = "step"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "name"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "next_ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_result_sets"
+name = "row_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "operation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "parent"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_revisions"
+name = "sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "owner"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "owner_kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_roots"
+name = "sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_run_sources"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_run_sources"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_run_sources"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_run_sources"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_run_sources"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "attestation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "cancelled"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "current_attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "current_generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "request"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "source_selection"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "source_sequence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "terminal_attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_runs"
+name = "terminal_class"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "bytes"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "format"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_selection_receipts"
+name = "version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "logical"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "name"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "scope"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "stage"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_staged_edits"
+name = "version"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "abandoned"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "activated"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "cleanup_complete"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "closed"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "edit_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "expected_head"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "expires_at"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_stages"
+name = "request_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "active"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "cancelled"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "generation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "metadata"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "next_ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "point_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "problem"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_studies"
+name = "terminal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "dependent"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "in"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "out"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "predecessor"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_dependencies"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_inputs"
+name = "artifact"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_inputs"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_inputs"
+name = "solution"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_inputs"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "assigned"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "attempt"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "descriptor"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "facts"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "occurrence"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "outcome"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "policy"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "run"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "seed_solution"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "settled"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "start"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_points"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "dirty"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "eligible"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "notify"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "notify_after"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "notify_revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "ordinal"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "pending"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "point"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "premises"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "source_revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "notify_after"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "rebuild_after"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "rebuild_pending"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "revision"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_readiness_cursors"
+name = "verify_after"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_retirements"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_study_retirements"
+name = "study"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "block_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "closed"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "creator_stage"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "logical"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "payload_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "payload_len"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_manifests"
+name = "reference_count"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_receipts"
+name = "content_digest"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_version_receipts"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_versions"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_versions"
+name = "key"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_versions"
+name = "kind"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_versions"
+name = "logical"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_versions"
+name = "payload"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_analysis_v1::activate"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_analysis_v1::append"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_analysis_v1::available"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_analysis_v1::begin"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_analysis_v1::read"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::abandon_study_inputs"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::acquire"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::activate"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::append"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::attach"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::authority"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::available"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::begin"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::collect"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::original"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::producer"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::read"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_artifact_v1::release"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::append"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::append_many"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::available"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::begin_run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::cancel"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::check_closed_acknowledgments"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::claim"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::close"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::close_acknowledged"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::current_writer"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::deadline"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::empty"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::fence"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::lease"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::manifest"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::operation"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::protection_grant"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::recover"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::register"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::renew"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::result_creator"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::seal"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::seal_ack"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::seed"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::seed_eligible"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::source_creator"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::study_cancelled"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::study_seal_ack"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::summary_cancelled"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::touch"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::verify_acknowledged"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_execution_v1::writer"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::associate"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::check_identity"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::check_owner"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::collect"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::drop_obligation"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::effect_free"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::identity"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::operation"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::owner_key"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::parent_obligated"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::point"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::read_attempt"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::read_manifest"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::read_run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::read_seed"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::record_operation"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::release"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::retain"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_history_v1::visible_run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::collect_run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::forget_analysis"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::forget_run"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::forget_study"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::settle_analysis"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_retention_v1::settle_protection"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::activate"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::append"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::cancel"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::claim"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::conclude"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::create"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::finalize"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::guard"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::observe"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::readiness_cursor"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::readiness_invalidate"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::readiness_notify_advance"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::readiness_repair"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::readiness_scan_advance"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::scope"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::seal"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::settle"
+
+[[steps.entities]]
+kind = "function"
+name = "fn::pse_study_v1::started"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analyses"
+name = "canonical_analyses_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_edges"
+name = "analysis_edge_source"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_edges"
+name = "analysis_edge_target"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_edges"
+name = "analysis_edges"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_edges"
+name = "canonical_analysis_edges_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_inputs"
+name = "analysis_input_artifact"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_inputs"
+name = "analysis_inputs"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_inputs"
+name = "canonical_analysis_inputs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_nodes"
+name = "analysis_nodes"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_analysis_nodes"
+name = "canonical_analysis_nodes_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_blocks"
+name = "artifact_blocks"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_blocks"
+name = "canonical_artifact_blocks_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_obligations"
+name = "artifact_obligations"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_obligations"
+name = "artifact_owner"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_obligations"
+name = "canonical_artifact_obligations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_reads"
+name = "artifact_reads"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_reads"
+name = "canonical_artifact_reads_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_releases"
+name = "canonical_artifact_releases_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_staging_inputs"
+name = "artifact_staging_owner"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_staging_inputs"
+name = "artifact_staging_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifact_staging_inputs"
+name = "canonical_artifact_staging_inputs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_artifacts"
+name = "canonical_artifacts_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_attempts"
+name = "attempt_live"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_attempts"
+name = "attempt_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_attempts"
+name = "canonical_attempts_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_body_contents"
+name = "canonical_body_contents_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_edges"
+name = "canonical_edges_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_edges"
+name = "edge_ordinal"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_edges"
+name = "edge_source"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_edges"
+name = "edge_target"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_execution_operations"
+name = "canonical_execution_operations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_execution_operations"
+name = "execution_operation_compaction"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_execution_operations"
+name = "execution_operation_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_guards"
+name = "canonical_guards_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_guards"
+name = "guard_incarnation"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_identities"
+name = "canonical_history_identities_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_identities"
+name = "history_identity_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_locators"
+name = "canonical_history_locators_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_locators"
+name = "history_run_locators"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_locators"
+name = "history_study_locators"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_obligation_counts"
+name = "canonical_history_obligation_counts_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_obligations"
+name = "canonical_history_obligations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_obligations"
+name = "history_obligation_owner"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_history_retirements"
+name = "canonical_history_retirements_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_interpretations"
+name = "canonical_interpretations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_maintenance_activations"
+name = "canonical_maintenance_activations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "canonical_memberships_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_active"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_logical"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_pages"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_scope_head_pages"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_scope_pages"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_selection"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_memberships"
+name = "membership_version"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_payload_blocks"
+name = "canonical_payload_blocks_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_payload_blocks"
+name = "payload_blocks"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_problem_runs"
+name = "canonical_problem_runs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_problem_runs"
+name = "problem_run_cleanup"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_problem_runs"
+name = "problem_run_edge"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_problems"
+name = "canonical_problems_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_associations"
+name = "canonical_product_associations_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_associations"
+name = "product_content_association"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_associations"
+name = "product_descriptor_association"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_associations"
+name = "product_discovery"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_associations"
+name = "product_receipt_association"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_product_descriptors"
+name = "canonical_product_descriptors_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_products"
+name = "canonical_products_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_protections"
+name = "canonical_protections_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_protections"
+name = "protection_interval"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_protections"
+name = "protection_revision"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_reclaimed_ranges"
+name = "canonical_reclaimed_ranges_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_reclaimed_ranges"
+name = "reclaimed_interval"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_batches"
+name = "canonical_result_batches_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_batches"
+name = "result_batch_order"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_block_outputs"
+name = "canonical_result_block_outputs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_block_outputs"
+name = "result_output_batch"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_block_outputs"
+name = "result_output_range"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_blocks"
+name = "canonical_result_blocks_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_blocks"
+name = "result_block_batch"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_blocks"
+name = "result_block_page"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_blocks"
+name = "result_block_range"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_manifests"
+name = "canonical_result_manifests_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_protections"
+name = "canonical_result_protections_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_protections"
+name = "result_read_attempt"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_protections"
+name = "result_read_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_retirements"
+name = "canonical_result_retirements_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_rows"
+name = "canonical_result_rows_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_rows"
+name = "result_row_batch"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_rows"
+name = "result_row_selection"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_seeds"
+name = "canonical_result_seeds_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_seeds"
+name = "result_seed_attempt"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_seeds"
+name = "result_seed_eligibility"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_sets"
+name = "canonical_result_sets_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_result_sets"
+name = "result_set_attempt"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_revisions"
+name = "canonical_revisions_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_revisions"
+name = "revision_operation"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_revisions"
+name = "revision_sequence"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_roots"
+name = "canonical_roots_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_roots"
+name = "root_interval"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_roots"
+name = "root_owner"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_roots"
+name = "root_revision"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_run_sources"
+name = "canonical_run_sources_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_run_sources"
+name = "run_source_cleanup"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_run_sources"
+name = "run_source_edge"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_runs"
+name = "canonical_runs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_runs"
+name = "run_order"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_runs"
+name = "run_revision"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_runs"
+name = "run_terminal_selection"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_selection_receipts"
+name = "canonical_selection_receipts_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_staged_edits"
+name = "canonical_staged_edits_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_staged_edits"
+name = "stage_edits"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_staged_edits"
+name = "staged_version"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_stages"
+name = "canonical_stages_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_stages"
+name = "stage_cleanup"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_stages"
+name = "stage_expiry"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_studies"
+name = "canonical_studies_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_studies"
+name = "study_discovery"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_studies"
+name = "study_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_dependencies"
+name = "canonical_study_dependencies_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_dependencies"
+name = "study_dependencies"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_dependencies"
+name = "study_dependents"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_inputs"
+name = "canonical_study_inputs_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_inputs"
+name = "study_inputs"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_points"
+name = "canonical_study_points_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_points"
+name = "study_candidates"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_points"
+name = "study_point_occurrence"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_points"
+name = "study_point_run"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_points"
+name = "study_points_order"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_readiness"
+name = "canonical_study_readiness_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_readiness"
+name = "study_ready_candidates"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_readiness"
+name = "study_ready_notifications"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_readiness"
+name = "study_ready_order"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_readiness_cursors"
+name = "canonical_study_readiness_cursors_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_study_retirements"
+name = "canonical_study_retirements_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_version_manifests"
+name = "canonical_version_manifests_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_version_manifests"
+name = "manifest_kind"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_version_receipts"
+name = "canonical_version_receipts_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_versions"
+name = "canonical_versions_key"
+
+[[steps.entities]]
+kind = "index"
+scope = "canonical_versions"
+name = "version_logical"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_analyses"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_analysis_edges"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_analysis_inputs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_analysis_nodes"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifact_blocks"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifact_obligations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifact_reads"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifact_releases"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifact_staging_inputs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_artifacts"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_attempts"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_body_contents"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_edges"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_execution_operations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_guards"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_history_identities"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_history_locators"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_history_obligation_counts"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_history_obligations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_history_retirements"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_interpretations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_maintenance_activations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_memberships"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_payload_blocks"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_problem_runs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_problems"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_product_associations"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_product_descriptors"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_products"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_protections"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_reclaimed_ranges"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_batches"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_block_outputs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_blocks"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_manifests"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_protections"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_retirements"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_rows"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_seeds"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_result_sets"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_revisions"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_roots"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_run_sources"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_runs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_selection_receipts"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_staged_edits"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_stages"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_studies"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_dependencies"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_inputs"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_points"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_readiness"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_readiness_cursors"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_study_retirements"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_version_manifests"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_version_receipts"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_versions"

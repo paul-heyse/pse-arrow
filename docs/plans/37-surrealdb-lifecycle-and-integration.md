@@ -83,17 +83,17 @@ The table owns current package status. Linked companions own the implementation 
 |---|---|---|---|---|
 | D0 | Confirmed decisions/current owners | Coordinator: decision route, shared contracts, clean-cutover target | Required ADR/review/design changes before dependent implementation | Complete for the selected target — proposed ADR-0182/revision158 and independent bounded target acceptance precede dependent implementation; Q1 remains separate |
 | A0 | Exact scientific and replay owners | [37a](37a-scientific-artifacts-history-and-policy.md#a0-scientific-closure-and-collection-decisions): settle artifact sufficiency/reduced replay | Valid/invalid selections and complete reachable mutation paths; gates A2/A3 | Complete — scientific closure/replay decisions; A1–A3 implementation remains scheduled |
-| A1 | D0 input contract | [37a](37a-scientific-artifacts-history-and-policy.md#a1-retained-exact-study-inputs): exact external start admission | Both retirement orders, pending restart/retry and release; replace late-acquisition-only retained path | Scheduled |
-| A2 | D0/A0, A1 input operation | [37a](37a-scientific-artifacts-history-and-policy.md#a2-independent-artifact-promotion-and-retirement): promotion/read/release | Producer retires, selected content survives, unrelated outputs drain; replace coarse-only consumer obligations | Scheduled |
-| A3 | D0/A0, A2 closure | [37a](37a-scientific-artifacts-history-and-policy.md#a3-releasable-history-and-dominating-retirement): history release/collection | No retired identity resurrection; audit/unknown protection; delete unnecessary detail after settlement | Scheduled |
+| A1 | D0 input contract | [37a](37a-scientific-artifacts-history-and-policy.md#a1-retained-exact-study-inputs): exact external start admission | Both retirement orders, pending restart/retry and release; replace late-acquisition-only retained path | In progress — copied admission and consumers integrated; final actual native study acceptance pending |
+| A2 | D0/A0, A1 input operation | [37a](37a-scientific-artifacts-history-and-policy.md#a2-independent-artifact-promotion-and-retirement): promotion/read/release | Producer retires, selected content survives, unrelated outputs drain; replace coarse-only consumer obligations | In progress — independent content, producer contexts and public recovery integrated; final actual scientific/Python acceptance pending |
+| A3 | D0/A0, A2 closure | [37a](37a-scientific-artifacts-history-and-policy.md#a3-releasable-history-and-dominating-retirement): history release/collection | No retired identity resurrection; audit/unknown protection; delete unnecessary detail after settlement | Complete at mechanism level — actual final artifact/history/maintenance selection passed13/13 with zero failures; Q1 owns public composition |
 | A4 | Current pure study facts | [37a](37a-scientific-artifacts-history-and-policy.md#a4-production-policy-compile-and-test-boundary): relocate actual policy/tests | Same production policy compiles/tests without SDK/codegen/columnar; delete old implementation/imports | Complete — integrated policy relocation; targeted compile and 16 unit tests passed |
 | B1 | D0 close contract | [37b](37b-connection-and-transport-lifetimes.md#b1-logical-release-and-authoritative-shutdown): caller/activity ownership | Close/admission/renew/publication races and final drain; replace physical-close caller wiring | Complete — integrated caller/activity/physical ownership; targeted39 operations and4 runtime controls plus scoped native/Python compile passed |
 | B2 | Current bounded WS contract | [37b](37b-connection-and-transport-lifetimes.md#b2-finite-acknowledged-restoration): finite ready/failed restoration | Missing ACK/send failure cannot park future callers or dispatch partial setup | Complete — integrated finite restoration; SDK and actual canonical transport controls passed |
 | B3 | Current admission/payload ownership | [37b](37b-connection-and-transport-lifetimes.md#b3-explicit-exceptional-admission-completion): explicit terminal release | Held metadata cannot retain non-payload slots; preserve payload physical drain | Complete — integrated explicit terminal/physical owner release; payload controls retained |
 | C0 | Beta.6/current generated output | [37c](37c-tooling-and-operational-integration.md#c0-beta-input-and-command-qualification): DDL/dispatch qualification | Semantic fidelity, exact selection/auth, executable provenance; gates tool consumers | Complete for the initial qualified subset — exact beta executable, direct generated-schema comparator and sync/replay/parity passed |
 | C1 | C0 and namespace owner; C2 initial frozen chain for replay/parity | [37c](37c-tooling-and-operational-integration.md#c1-owned-declarative-database-tests): declarative tests/disposal | Register enclosing scope before creation; parity/setup/error/interrupt controls; replace duplicated assertions where fitting | Complete for the approved foundation — registered namespace owner, qualified default-actor assertions, isolation/disposal and failure retention |
-| C2 | D0/C0; B1 shutdown for persistent maintenance | [37c](37c-tooling-and-operational-integration.md#c2-frozen-forward-rollouts-and-exclusive-maintenance): forward rollouts | Frozen order/hash/repair plus behavior; owner loss fences effects; no old rollout import | Complete for the approved foundation — disposable chain/catch-up, offline refusals and actual reservation-revocation/unknown-SQL fencing passed; persistent rollout remains scheduled |
-| C3 | D0/final target declarations | [37c](37c-tooling-and-operational-integration.md#c3-clean-rebuild-and-operational-cutover): reset/reseed/activation | Owned drain/reset/rebuild and fresh identities; delete replaced historical adapters | Scheduled |
+| C2 | D0/C0; B1 shutdown for persistent maintenance | [37c](37c-tooling-and-operational-integration.md#c2-frozen-forward-rollouts-and-exclusive-maintenance): forward rollouts | Frozen order/hash/repair plus behavior; owner loss fences effects; no old rollout import | Complete — final persistent fixture passed24/24 including compatible forward chain, lost activation ACK and actual caller death; frozen production v5 publication validated |
+| C3 | D0/final target declarations | [37c](37c-tooling-and-operational-integration.md#c3-clean-rebuild-and-operational-cutover): reset/reseed/activation | Owned drain/reset/rebuild and fresh identities; delete replaced historical adapters | Complete — fresh regeneration/old authority refusal passed in the24-control fixture; obsolete adapters/callers/declarations deleted |
 | I1 | Concrete A0 relationships | [37c](37c-tooling-and-operational-integration.md#bounded-capability-investigations): native references | Exact structural meaning/races, equivalent simplification or explicit non-adoption | Complete — explicit guards retained; typed structural links only where fitting |
 | I2 | Notification/follow-up consumers | 37c: events/live/changefeeds | Useful replacement with retry/resync owner, or reason/trigger | Complete — explicit readiness/polling retained; measured wakeup trigger |
 | I3 | Protected-read workloads/transport contracts | 37c: streaming and alternative transports | Complete-operation comparison; no unconfirmed WS cutover | Complete — patched WS/paged reads retained; full-operation comparison trigger |
@@ -144,17 +144,19 @@ the shared target before dependent code. The [independent bounded target review]
 accepted it at Proposed design level with no new material findings or rule impacts.
 The scientific storage foundation, copied seed/graph consumers, typed Rust/Python history
 adapters, explicit history obligations, permanent operation/owner fences and bounded history
-collector are integrated on main. Persistent maintenance now has a generated-definition
-validator, exact settled-phase activation and a frozen beta.6 rollout producer; the owned
-persistent rollout/regeneration journey has reached actual beta schema application, but
-acceptance remains open: its first invocation lacked native child ownership, and its next
-invocation exposed a strict post-reap manager-transition race. Both failed fixtures remain
-retained with SQL uncertainty; their exact processes and services drained. The fixture now
-requires authenticated native ownership before effects and gives borrower release a fresh
-metadata clock. The bounded native drain correction and a fresh matching-binary run are next.
-Fresh regeneration no longer requires preserving old data. Scientific producer contexts,
-public Rust/Python artifact consumers and settlement-only original-intent recovery are now
-integrated; full generation and actual consumer verification remain in progress.
+collector are integrated on main. Persistent maintenance has a generated-definition validator, exact settled-phase activation
+and a frozen beta.6 rollout producer. The final owned persistent journey passed all24
+controls, including compatible forward catch-up, activation receipt replay, fresh regeneration
+and actual caller death with unknown SQL retained. Its failed predecessor fixtures remain
+retained with their original uncertainty; exact processes/services drained. The production
+v5 frozen publication is generated and validated. The workstation's exhausted inotify allowance
+was corrected by the maintainer; native cleanup retains exact terminal proof and one bounded
+normal clock, with original cancellation clocks dominating first-signal control as well.
+Scientific producer contexts, public Rust/Python artifact consumers and settlement-only
+original-intent recovery are integrated. Full generation passed. The native worker preflight
+passed, while final runtime test compilation exposed obsolete ResultRead analysis test callers;
+those now use exact copied transport-fixture artifacts without claiming scientific sufficiency.
+Actual final native and rebuilt Python consumer qualification are next.
 
 Independent implementation review exposed and drove corrections to selected-client authority,
 released-obligation resurrection, effect-free occurrence settlement, exact operation attribution,
@@ -163,12 +165,12 @@ controls exercised the first integrated artifact/history tranche with zero failu
 both-order study/seed controls and the final scientific consumers still require verification.
 The obsolete preparation/backfill/history paths, callers and declarations have been removed.
 Current split-product decoding, authored revisions, current backup/recovery and anti-forgery
-checks remain. Expanded history controls, live artifact readers, inactive-intent recovery and
-explicit retained-input worker replacement still require final actual verification after
-matching schema regeneration.
+checks remain. Expanded history controls, live artifact readers and inactive-intent recovery passed in
+the final13-control native storage selection. Explicit retained-input worker replacement and
+scientific/public Python consumers still require final actual verification.
 These are implementation checkpoints, not Q1 acceptance. Existing plans remain unchanged until
 H1 after Q1 acceptance. The earlier bounded-tranche checkpoint below retains its original scope
-and evidence. Persistent C2/C3, final A1–A3 verification, Q1 and H1 remain open.
+and evidence. Final A1/A2 consumer verification, Q1 and H1 remain open.
 
 
 **2026-10-12:** completed the maintainer-approved investigation/foundation tranche begun on baseline `a6aedd31`. The approved choice includes settled A4/B1–B3 foundations and disposable C1/C2 controls. Production scientific artifact/history implementation A1–A3, persistent deployment rollout/C3, assembled Q1 and existing-plan reconciliation H1 remain scheduled for later execution. Existing plans/status have not been revised.

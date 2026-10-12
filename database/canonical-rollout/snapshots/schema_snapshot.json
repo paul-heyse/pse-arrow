@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "path": "schema/canonical.surql",
+      "hash": "9f3135d86cf2c712a9f6798c62a66cc357603997769f6c279846052dfbef11a2"
+    }
+  ]
+}
