@@ -566,11 +566,12 @@ impl ProtectionOwner {
             .swap(true, std::sync::atomic::Ordering::AcqRel)
             && let Some(store) = &self.store
         {
-            store.result_read_drain.release().complete(Ok(()));
+            let release = store.result_read_drain.release();
             self.activity
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .take();
+            release.complete(Ok(()));
         }
     }
 }
@@ -621,6 +622,10 @@ impl Drop for ProtectionOwner {
                 if let Err(error) = &result {
                     operation_failed("canonical::protection_drop", error);
                 }
+                // Completion wakes physical drain. Relinquish this task's
+                // continuation first; failure keeps its exact recovery owner
+                // in the release guard instead of reporting a false drain.
+                drop(store);
                 release.complete(result);
             });
         }
