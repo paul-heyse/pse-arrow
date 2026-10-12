@@ -414,6 +414,14 @@ fn blocking_on_with_recovery<
             })
         });
         if let Ok(value) = ready {
+            // Observe a signal that arrived during the final (possibly first)
+            // poll before Python can discard the acknowledged result on return.
+            if signal.is_none()
+                && let Err(error)=py.check_signals()
+            {
+                cancel();
+                signal=Some(error);
+            }
             return match signal {
                 Some(e) => {
                     use errors::ReportSource;
