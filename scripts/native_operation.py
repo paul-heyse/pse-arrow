@@ -1766,7 +1766,10 @@ def run_child_scope(
         *command,
     ]
 
+    normal_deadline: float | None = None
+
     def settle_scope() -> None:
+        nonlocal normal_deadline
         # run still owns non-raising signal handling here. A first signal may
         # establish cancellation; repeated signals cannot unwind this drain.
         # Reaping can precede the manager's terminal transition. Join that
@@ -1844,6 +1847,7 @@ def run_child_scope(
         observation=process_observation,
         foreground=handoff,
         on_reaped=settle_scope,
+        cleanup_clock=lambda: normal_deadline,
     )
 
 
@@ -1855,6 +1859,7 @@ def run(
     observation: dict[str, object] | None = None,
     foreground: Path | None = None,
     on_reaped: Callable[[], None] | None = None,
+    cleanup_clock: Callable[[], float | None] | None = None,
 ) -> int:
     # Only the measured native owner consumes this marker. Its descendants must
     # not overwrite the initial setup or supervisor-return boundaries.
@@ -1888,6 +1893,12 @@ def run(
         if received_signal is None:
             received_signal = signum
             cancellation_deadline = time.monotonic() + 10
+            cleanup_deadline = cleanup_clock() if cleanup_clock is not None else None
+            if cleanup_deadline is not None:
+                cancellation_deadline = min(
+                    cancellation_deadline,
+                    original_cancellation_clock(cleanup_deadline),
+                )
         if observation is not None:
             observation["forwarded_signal"] = signum
             observation["cancellation_deadline"] = cancellation_deadline

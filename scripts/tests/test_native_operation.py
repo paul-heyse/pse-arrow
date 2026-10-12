@@ -2088,6 +2088,42 @@ class NativeOperationTests(unittest.TestCase):
                     pause.assert_not_called()
                 allocation.release.assert_not_called()
 
+    def test_first_signal_control_obeys_existing_normal_cleanup_clock(self) -> None:
+        elapsed = [100.0]
+        deadline: list[float | None] = [None]
+        child = MagicMock()
+        child.pid = 987654
+        child.returncode = 0
+        child.wait.return_value = 0
+        observation: dict[str, object] = {}
+
+        def cleanup() -> None:
+            deadline[0] = 100.025
+            elapsed[0] = 100.020
+            signal.raise_signal(signal.SIGINT)
+
+        def cancel_control(
+            _child: object, signum: int, _foreground: Path, *, deadline: float
+        ) -> tuple[float, int]:
+            self.assertEqual(deadline, 100.025)
+            elapsed[0] = deadline
+            return deadline, signum
+
+        with (
+            patch.object(operation.subprocess, "Popen", return_value=child),
+            patch.object(operation.time, "monotonic", side_effect=lambda: elapsed[0]),
+            patch.object(operation, "cancel_foreground", side_effect=cancel_control) as cancel,
+        ):
+            result = operation.run(
+                ["completed-wrapper"], {}, observation=observation,
+                foreground=Path("/owned/handoff"), on_reaped=cleanup,
+                cleanup_clock=lambda: deadline[0],
+            )
+        self.assertEqual(result, 128 + signal.SIGINT)
+        self.assertEqual(observation["cancellation_deadline"], 100.025)
+        self.assertEqual(elapsed[0], 100.025)
+        cancel.assert_called_once()
+
     def test_selected_cleanup_callback_runs_on_spawn_failure_without_claiming_reap(
         self,
     ) -> None:
