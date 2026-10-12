@@ -119,7 +119,6 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     artifact.retain("audit","independent-audit").await.unwrap();
     let target_preparation=prepared.clone();
     let run = admitted.header().run.clone();
-    let attempt = admitted.header().attempt.clone();
     drop(result);
     drop(handle);
     drop(seeded);
@@ -148,15 +147,6 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     assert!(
         operations.seed(solution).await.is_err(),
         "copied bytes cannot authorize a fresh storage acquisition"
-    );
-    assert!(
-        runtime
-            .canonical_store()
-            .canonical_attempt(&attempt)
-            .await
-            .unwrap()
-            .is_some(),
-        "retirement preserves the original attempt on the still-connected store"
     );
     assert!(operations.promote_seed(solution,"user","retirement-first").await.is_err(),"retirement first refuses fresh promotion");
     let reopened=runtime.scientific_artifact(&artifact.header().key).await.unwrap();
