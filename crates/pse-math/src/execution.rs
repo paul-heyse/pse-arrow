@@ -2212,8 +2212,13 @@ impl CompiledBody {
         }
     }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
-    pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
-        self.scalar_products = self.scalar_products.with_owner(owner.clone());
+    pub fn with_owner(self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+        self.with_owner_and_scalar_foreign_allowance(owner, 0)
+    }
+    /// Transfer the constructor's admitted foreign allowance only for new exact scalars.
+    pub fn with_owner_and_scalar_foreign_allowance(mut self, owner: Arc<dyn crate::AllocationOwner>, foreign_bytes: usize) -> Self {
+        if self.scalar_products.has_unowned() { self.retained_bytes = self.retained_bytes.saturating_add(foreign_bytes); }
+        self.scalar_products = self.scalar_products.with_owner_and_foreign_allowance(owner.clone(), foreign_bytes);
         self.support = self.support.with_owner(owner.clone());
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
@@ -5163,6 +5168,35 @@ mod compact_tests {
         assert!(result.values.is_empty() && result.jacobian.is_empty() && result.second.is_empty());
         drop(worker);
         assert!(weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn retained_scalar_upgrades_detach_the_completed_producers_abort_control() {
+        let producer = Arc::new(AtomicBool::new(false));
+        let body = analytic_body(4096);
+        let value = body.prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &producer).unwrap();
+        let scalars = value.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &producer).unwrap();
+        assert_eq!(Arc::strong_count(&producer), 1, "exact evaluator must not retain the producer token");
+        // Successful Flight waiters cancel their token when the last waiter drains.
+        producer.store(true, Ordering::Release);
+        let old = Arc::downgrade(&producer);
+        drop(producer);
+        assert!(old.upgrade().is_none());
+        for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let fresh = Arc::new(AtomicBool::new(false));
+            let support = value.upgrade(order, &fresh).unwrap();
+            let retained = support.compile_reusing(Optimization::default(), EvaluationLimits::default(), &fresh, &scalars).unwrap();
+            let original = support.compile(Optimization::default(), EvaluationLimits::default(), &fresh).unwrap();
+            assert_eq!(retained.scalar_builds, 0);
+            assert_eq!(Arc::strong_count(&fresh), 1, "derived templates must not retain current constructor controls");
+            for requested in [DerivativeOrder::Value, DerivativeOrder::First, DerivativeOrder::Second].into_iter().filter(|requested| *requested <= order) {
+                let operations = |program: &CompiledBody| program.programs[requested].as_ref().unwrap().iter().filter_map(|stage| match stage { CompiledStage::Block { evaluator, .. } => Some(operation_count(evaluator.count_operations())), _ => None }).sum::<usize>();
+                assert_eq!(operations(&retained), operations(&original), "the drained producer must not truncate common-pair optimization");
+                assert_eq!(eval(&mut retained.worker(), &[2., 3., 1.], requested).unwrap(), eval(&mut original.worker(), &[2., 3., 1.], requested).unwrap());
+            }
+            fresh.store(true, Ordering::Release);
+            assert!(matches!(support.compile_reusing(Optimization::default(), EvaluationLimits::default(), &fresh, &scalars), Err(MathError::Cancelled)));
+        }
     }
 
     #[test]

@@ -152,6 +152,33 @@ impl Default for Optimization {
         }
     }
 }
+// Symbolica 3.0.1 stores the builder's abort callback in its evaluator settings.
+// Its public API has no settings setter. Detach the producer flag before retaining
+// an exact evaluator; later serial vectorization reads only its constructor scope.
+thread_local! {
+    static CURRENT_ABORT: std::cell::RefCell<Option<Arc<std::sync::atomic::AtomicBool>>> = const { std::cell::RefCell::new(None) };
+}
+struct RestoreAbort(Option<Arc<std::sync::atomic::AtomicBool>>);
+impl Drop for RestoreAbort {
+    fn drop(&mut self) { CURRENT_ABORT.with(|current| { current.replace(self.0.take()); }); }
+}
+fn scoped_abort<T>(flag: &Arc<std::sync::atomic::AtomicBool>, work: impl FnOnce() -> T) -> T {
+    let restore = RestoreAbort(CURRENT_ABORT.with(|current| current.replace(Some(flag.clone()))));
+    let result = work();
+    drop(restore);
+    result
+}
+struct AbortBinding(std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>);
+impl AbortBinding {
+    fn cancelled(&self) -> bool {
+        let producer = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
+        producer.map_or_else(|| CURRENT_ABORT.with(|current| current.borrow().as_ref().is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))), |flag| flag.load(std::sync::atomic::Ordering::Acquire))
+    }
+}
+struct DetachAbort(Arc<AbortBinding>);
+impl Drop for DetachAbort {
+    fn drop(&mut self) { self.0.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take(); }
+}
 fn exact_evaluator(
     expressions: &[Atom],
     parameters: &[Atom],
@@ -166,10 +193,11 @@ fn exact_evaluator(
     {
         return Err(MathError::Contract("optimizer budget".into()));
     }
-    let abort = std::sync::Arc::clone(cancelled);
+    let abort = Arc::new(AbortBinding(std::sync::Mutex::new(Some(cancelled.clone()))));
+    let detach = DetachAbort(abort.clone());
     let ev = Atom::evaluator_multiple(expressions, parameters)
         .abort_check(Some(Box::new(move || {
-            abort.load(std::sync::atomic::Ordering::Relaxed)
+            abort.cancelled()
         })))
         .cores(options.cores)
         .horner_iterations(options.horner_iterations)
@@ -186,6 +214,7 @@ fn exact_evaluator(
                 MathError::Library(e.to_string())
             }
         })?;
+    drop(detach);
     if !ev.is_real() {
         return Err(MathError::Contract(
             "complex arithmetic is outside this profile".into(),
@@ -263,4 +292,33 @@ fn instruction_bytes<T>(export: &ExportedInstructions<T>) -> Option<usize> {
                 .checked_add(numeric)?
                 .checked_add(instruction_bytes(own)?)
         })
+}
+
+#[cfg(test)]
+mod abort_binding_tests {
+    use super::*;
+    #[test]
+    fn constructor_abort_binding_is_fresh_nested_and_restored_after_unwind() {
+        let producer = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let binding = Arc::new(AbortBinding(std::sync::Mutex::new(Some(producer.clone()))));
+        let detach = DetachAbort(binding.clone());
+        producer.store(true, std::sync::atomic::Ordering::Release);
+        assert!(binding.cancelled(), "initial optimizer threads read the producer flag");
+        drop(detach);
+        assert_eq!(Arc::strong_count(&producer), 1);
+        assert!(!binding.cancelled());
+        let current = Arc::new(std::sync::atomic::AtomicBool::new(true));
+        scoped_abort(&current, || {
+            assert!(binding.cancelled());
+            let nested = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| scoped_abort(&nested, || {
+                assert!(!binding.cancelled());
+                panic!("test nested unwind");
+            })));
+            assert!(binding.cancelled());
+            assert_eq!(Arc::strong_count(&nested), 1);
+        });
+        assert!(!binding.cancelled());
+        assert_eq!(Arc::strong_count(&current), 1);
+    }
 }
