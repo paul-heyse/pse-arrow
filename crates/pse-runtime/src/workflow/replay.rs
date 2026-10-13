@@ -289,7 +289,7 @@ pub struct ScientificReplay {
 }
 impl ScientificReplay {
     /// Full immutable production inputs with actual physical/provider/compiled owners.
-    pub fn inputs(&self) -> &RunRequest { &self.result.request }
+    pub fn inputs(&self) -> &RunRequest { self.result.replay_request() }
     fn traces(&self) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
         self.result.replay_traces()
     }
@@ -311,7 +311,7 @@ impl ScientificReplay {
         Ok(ReplayDecisionDocument { decisions: self.decision_rows(), _owner: owner })
     }
     fn sources(&self) -> Box<dyn Iterator<Item = &ModelingPackage> + '_> {
-        match &self.result.request {
+        match self.inputs() {
             RunRequest::Modeling(steps) => Box::new(steps.iter().map(|step| &step.source)),
             RunRequest::Simulation(simulation) => Box::new(std::iter::once(&simulation.source)),
             RunRequest::Fit(fit) => Box::new(std::iter::once(&fit.source)),
@@ -348,7 +348,7 @@ impl ScientificReplay {
         let mut shooting_constructor = None;
         let mut contexts = Vec::new();
         let mut horizon = None;
-        match &self.result.request {
+        match self.inputs() {
             RunRequest::Modeling(steps) => for (index, step) in steps.iter().enumerate() {
                 runtime_premises.push(step.solve.execution_snapshot().clone());
                 solver_settings.push(ReplaySolverSettings::from_profile(&step.profile));
@@ -397,7 +397,7 @@ impl ScientificReplay {
             #[cfg(feature = "solver-diffsol")]
             shooting_constructor,
             contexts, horizon,
-            decisions: self.decision_rows(), native_attempts: self.native_attempts().map(|(step, mechanism, component, native)| ReplayNativeAttempt { step, mechanism, component, record: native.clone() }).collect(), native_record_coverage: match &self.result.request {
+            decisions: self.decision_rows(), native_attempts: self.native_attempts().map(|(step, mechanism, component, native)| ReplayNativeAttempt { step, mechanism, component, record: native.clone() }).collect(), native_record_coverage: match self.inputs() {
                 RunRequest::Simulation(_) | RunRequest::Horizon(_) => ReplayNativeRecordCoverage::IntegrationReportOnly,
                 _ => ReplayNativeRecordCoverage::StrategyAttempts,
             }, coverage: self.coverage.clone(), native_continuation: false, _owner: owner };
@@ -412,7 +412,7 @@ impl ScientificReplay {
     /// Fresh replay with caller cancellation shared by pending preparation/admission.
     pub async fn rerun_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
         if cancel.token().is_cancelled() { return Err(crate::math::MathRuntimeError::Cancelled.into()); }
-        match &self.result.request {
+        match self.inputs() {
             RunRequest::Modeling(steps) => {
                 let mut fresh = Vec::with_capacity(steps.len());
                 for step in steps {
@@ -461,6 +461,9 @@ impl ScientificReplay {
     }
 }
 impl RunResult {
+    fn replay_request(&self) -> &RunRequest {
+        self.original_horizon_request.as_ref().unwrap_or(&self.request)
+    }
     fn replay_traces(&self) -> Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> {
         let retained: Box<dyn Iterator<Item = (usize, &Arc<crate::math::strategy::Trace>)> + '_> = match &self.request {
             RunRequest::Modeling(steps) => Box::new((0..steps.len()).filter_map(|index| {
@@ -486,7 +489,7 @@ impl RunResult {
     }
     /// Retain the complete immutable input/decision closure, without numerical work or history lookup.
     pub fn replay(self: &Arc<Self>) -> ScientificReplay {
-        let (requested, observed, completed_time) = match &self.request {
+        let (requested, observed, completed_time) = match self.replay_request() {
             RunRequest::Modeling(steps) => {
                 let mut count = 0;
                 for index in 0..steps.len() { if self.modeling_result(index).is_some() {
@@ -1553,7 +1556,7 @@ pub struct ReplayDecisionDocument {
 }
 impl ScientificReplay {
     fn constructor_extent(&self) -> Result<usize, WorkflowError> {
-        let original = match &self.result.request {
+        let original = match self.inputs() {
             RunRequest::Modeling(steps) => steps.iter().try_fold(1024usize, |bytes, step| {
                 let inputs = &step.original_inputs;
                 let specialization = inputs.specialization.as_ref().map_or(0, |original| original.retained_bytes());

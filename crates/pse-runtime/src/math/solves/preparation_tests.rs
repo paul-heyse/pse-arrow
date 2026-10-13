@@ -932,8 +932,13 @@ async fn actual_pounce_observed_recovery_precedes_unobserved_profiles() {
     let Representation::Algebraic(source)=&prepared.solve.representation else {panic!("algebraic original");};
     let execution=Execution::new(flag.clone(),&prepared.solve.profile.controls);
     let contract=native::assembled::contract(&source.prepared.prepared.plan);
-    let observed=SolveReport::new(Backend::Pounce,&contract,NativeTermination {code:-1,
+    let mut observed=SolveReport::new(Backend::Pounce,&contract,NativeTermination {code:-1,
         name:"MaximumIterationsExceeded".into(),message:None,category:Termination::Limit,assurance:Assurance::None},&execution);
+    assert!(prepared.solve.automatic_operations(Some(&observed),&flag).unwrap().iter().all(|operation|operation.candidate.observed.is_none()),
+        "missing native quality escalation evidence cannot authorize recovery");
+    observed.pounce_statistics=Some(Box::default());
+    assert!(prepared.solve.automatic_operations(Some(&observed),&flag).unwrap().iter().all(|operation|operation.candidate.observed.is_none()));
+    observed.pounce_statistics.as_mut().unwrap().quality_escalations=1;
     let recovered=prepared.solve.automatic_operations(Some(&observed),&flag).unwrap();
     assert!(recovered.iter().any(|operation|operation.candidate.observed.is_some()));
     let mut candidates=inventory.iter().map(|operation|operation.candidate.clone()).collect::<Vec<_>>();

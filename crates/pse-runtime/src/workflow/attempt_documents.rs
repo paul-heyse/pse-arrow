@@ -322,14 +322,14 @@ impl RunResult {
         let owner = self.runtime.shared.math().reserve("attempt:retained-summary", extent)?;
         let mut summary = AttemptSummary { run_id: self.run_id, requested_steps, steps: Vec::new(),
             omitted_steps: requested_steps.saturating_sub(limits.steps), native_attempts: Vec::new(),
-            omitted_native_attempts: 0, native_record_coverage: match &self.request {
+            omitted_native_attempts: 0, native_record_coverage: match self.original_horizon_request.as_ref().unwrap_or(&self.request) {
                 RunRequest::Simulation(_) | RunRequest::Horizon(_) => super::ReplayNativeRecordCoverage::IntegrationReportOnly,
                 _ => super::ReplayNativeRecordCoverage::StrategyAttempts,
             }, failure: None,
             usable: self.usable(), _owner: owner };
-        for (step, mechanism, record) in self.native_attempt_records() {
+        for (step, mechanism, component, record) in self.native_attempt_records() {
             if summary.native_attempts.len() < limits.events {
-                summary.native_attempts.push(super::ReplayNativeAttempt { step, mechanism, record: record.clone() });
+                summary.native_attempts.push(super::ReplayNativeAttempt { step, mechanism, component, record: record.clone() });
             } else { summary.omitted_native_attempts += 1; }
         }
         let mut events = limits.events;

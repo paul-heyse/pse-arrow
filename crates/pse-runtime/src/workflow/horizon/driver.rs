@@ -1391,6 +1391,7 @@ impl Loop {
                 report,
             );
             result.modeling_failure = failure;
+            result.original_horizon_request = Some(RunRequest::Horizon(admitted.request()));
             result
         } else {
             let report = Arc::new(super::HorizonOutcome {
