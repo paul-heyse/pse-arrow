@@ -685,6 +685,31 @@ impl PreparedCase {
             dependencies,
         })
     }
+    /// Dependency and block-inventory discovery from existing source products.
+    /// Excludes conditional plans, artifact compilation and new matching proofs.
+    /// # Errors
+    /// Overflow before dependency or graph allocation.
+    pub fn automatic_alternatives_allocation_bound(&self) -> Result<Option<usize>> {
+        let Some(dependencies) = self.plan.dependency_allocation_bound()? else { return Ok(None); };
+        let edges = self.plan.structure().instances().iter().try_fold(0usize, |n, binding| {
+            binding.contributions.len().checked_mul(binding.slots.len()).and_then(|edges| n.checked_add(edges))
+        }).ok_or(MathError::Limit("automatic dependency edge extent"))?;
+        let graph = pse_structural::initialization::Plan::allocation_bound(&self.structure, edges)
+            .map_err(|_| MathError::Limit("automatic block inventory extent"))?;
+        Ok(Some(dependencies.checked_add(graph)
+            .and_then(|n| edges.checked_mul(2 * size_of::<(SemanticId, SemanticId)>()).and_then(|edges| n.checked_add(edges)))
+            .ok_or(MathError::Limit("automatic block inventory extent"))?))
+    }
+    /// Capability and structural witness scratch for one authenticated compiler
+    /// boundary. Shared source plans/artifacts retain their existing ownership.
+    /// # Errors
+    /// Overflow before selected fact construction.
+    pub fn block_admission_allocation_bound(&self, boundary: &pse_structural::initialization::Block) -> Result<Option<usize>> {
+        let Some(capability) = self.plan.conditional_capability_allocation_bound(&boundary.members.rows)? else { return Ok(None); };
+        let witness = self.structure.conditional_witness_allocation_bound(boundary)
+            .map_err(|_| MathError::Limit("conditional witness extent"))?;
+        Ok(Some(capability.checked_add(witness).ok_or(MathError::Limit("block admission extent"))?))
+    }
     /// Conditional initialization restricts this admitted source: at most one
     /// block per row, each with a subset of source support and incidence. Account
     /// for retained block products beside schedule/dependency construction and

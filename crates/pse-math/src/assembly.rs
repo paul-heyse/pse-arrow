@@ -130,6 +130,41 @@ impl CasePlan {
         })?;
         Ok(result)
     }
+    /// Checked peak population for original dependency discovery, without evaluator
+    /// compilation or sparse derivative assembly. Opaque bodies retain caller-owned
+    /// conservative admission. Source plans and bodies remain borrowed and charged.
+    pub fn dependency_allocation_bound(&self) -> Result<Option<usize>, MathError> {
+        let overflow = || MathError::Limit("dependency discovery extent");
+        let mut bytes = size_of::<Vec<ContributionDependencies>>();
+        for binding in self.structure.instances() {
+            let body = &self.bodies[&binding.body];
+            // First support is contained by the owner's second-support traversal
+            // envelope; this does not compile second derivatives or evaluators.
+            let Some(scratch) = body.arithmetic_analysis_allocation_bound(Some(binding.slots.len()))? else { return Ok(None); };
+            let dimensions = binding.slots.len().checked_add(binding.contributions.len()).ok_or_else(overflow)?;
+            let metadata = dimensions.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>()).ok_or_else(overflow)?;
+            let dependencies = binding.contributions.len().checked_mul(size_of::<ContributionDependencies>()
+                .checked_add(binding.slots.len().checked_mul(2 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>())).ok_or_else(overflow)?).ok_or_else(overflow)?)
+                .and_then(|n| n.checked_mul(2)).ok_or_else(overflow)?;
+            bytes = bytes.checked_add(scratch).and_then(|n| n.checked_add(metadata)).and_then(|n| n.checked_add(dependencies)).ok_or_else(overflow)?;
+        }
+        Ok(Some(bytes))
+    }
+    /// Capability traversal scratch for precisely the selected row contributors.
+    /// The body owner includes compact stage copies and transitive provider demand;
+    /// opaque regions use the caller's prepaid construction envelope.
+    pub fn conditional_capability_allocation_bound(&self, rows: &[SemanticId]) -> Result<Option<usize>, MathError> {
+        let overflow = || MathError::Limit("conditional capability extent");
+        let mut bytes = 0usize;
+        for binding in self.structure.instances() {
+            if !binding.contributions.iter().any(|c| matches!(c.target, Target::Row(row) if rows.contains(&row))) { continue; }
+            let Some(scratch) = self.bodies[&binding.body].arithmetic_analysis_allocation_bound(None)? else { return Ok(None); };
+            let metadata = binding.slots.len().checked_add(binding.contributions.len())
+                .and_then(|n| n.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>())).ok_or_else(overflow)?;
+            bytes = bytes.checked_add(scratch).and_then(|n| n.checked_add(metadata)).ok_or_else(overflow)?;
+        }
+        Ok(Some(bytes))
+    }
     /// Visit original contributions one at a time, preserving distinct numerical
     /// and conservative execution support. Break refuses further projection
     /// without collecting the rest of a potentially large contribution inventory.

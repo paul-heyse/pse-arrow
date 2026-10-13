@@ -109,6 +109,19 @@ pub struct StructuralAnalysis {
     pub contributions: Vec<Incidence>,
 }
 impl StructuralAnalysis {
+    /// Checked selected-boundary peak extent for restricting the existing witness.
+    /// This includes validation sets, block identity sorting, vector growth and
+    /// conditional scope metadata, without rematching or copying unrelated blocks.
+    pub fn conditional_witness_allocation_bound(&self, boundary: &crate::initialization::Block) -> Result<usize, ProjectionError> {
+        let rows = boundary.members.rows.len();
+        let columns = boundary.members.columns.len();
+        let members = rows.checked_add(columns).and_then(|n| n.checked_add(boundary.inputs.len())).ok_or(ProjectionError::Limit)?;
+        let contributions = self.contributions.iter().filter(|edge| boundary.members.rows.contains(&edge.row) && boundary.members.columns.contains(&edge.column)).count();
+        members.checked_mul(8 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>()) + 8 * size_of::<SemanticId>())
+            .and_then(|n| rows.checked_mul(4 * size_of::<Block>() + 4 * size_of::<(SemanticId, SemanticId)>()).and_then(|blocks| n.checked_add(blocks)))
+            .and_then(|n| contributions.checked_mul(2 * size_of::<Incidence>()).and_then(|edges| n.checked_add(edges)))
+            .and_then(|n| n.checked_add(size_of::<Self>() + 128)).ok_or(ProjectionError::Limit)
+    }
     /// Restrict an existing complete matching/BTF witness to a compiler-issued union
     /// of whole square blocks. This preserves structural proof without rematching;
     /// the compiler remains owner of complete execution/validity input authentication.

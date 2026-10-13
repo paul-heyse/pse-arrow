@@ -26,6 +26,22 @@ pub struct Plan {
     pub blocks: Vec<Block>,
 }
 impl Plan {
+    /// Checked graph/schedule discovery population from the existing matching/BTF
+    /// proof and an upper bound on execution edges. No matching thread or native
+    /// evaluator is constructed. The incidence owner's graph envelope bounds the
+    /// smaller condensation/SCC maps and both numerical and merged schedules.
+    pub fn allocation_bound(a: &StructuralAnalysis, execution_edges: usize) -> Result<usize, ProjectionError> {
+        let edges = a.contributions.len().checked_add(execution_edges).ok_or(ProjectionError::Limit)?;
+        let graph = crate::incidence::CaseIncidence::memory_extent(a.square.rows.len(), a.square.columns.len(), edges)?;
+        let scope = match &a.scope {
+            Scope::Independent { members, .. } => members.len(),
+            Scope::Conditional { rows, columns, inputs, .. } => rows.len().checked_add(columns.len()).and_then(|n| n.checked_add(inputs.len())).ok_or(ProjectionError::Limit)?,
+            Scope::Whole(_) | Scope::Partial(_) => 0,
+        };
+        graph.checked_sub(crate::incidence::MATCHING_STACK)
+            .and_then(|n| scope.checked_mul(4 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>())).and_then(|scope| n.checked_add(scope)))
+            .ok_or(ProjectionError::Limit)
+    }
     /// Complete an unchanged numerical matching/BTF witness with execution and
     /// validity dependencies. Control cycles merge square numerical blocks; they
     /// never supply a matching edge or establish numerical regularity.

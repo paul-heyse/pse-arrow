@@ -589,41 +589,36 @@ impl NleOracle for AlgebraicOracle {
 /// declare no box. A parameter coordinate is unbounded in these callbacks; the KKT-point
 /// analysis pins it at its value ([`crate::transform::Pinned`]) and nothing solves for it.
 pub fn contract(assembly: &CasePlan) -> OracleContract {
-    let declared: std::collections::BTreeMap<_, _> = assembly
-        .structure()
-        .variables()
-        .iter()
-        .map(|v| (v.port.id, v))
-        .collect();
+    let declared: std::collections::BTreeMap<_, _> = assembly.structure().variables().iter().map(|v| (v.port.id, v)).collect();
     OracleContract {
         identity: assembly.structure().key(),
         variables: assembly
             .columns()
             .iter()
-            .map(|id| match declared.get(id) {
-                Some(v) => Variable {
-                    id: *id,
-                    lower: if v.domain == ModelingVariableDomain::Binary {
-                        v.lower.unwrap_or(0.0).max(0.0)
-                    } else {
-                        v.lower.unwrap_or(f64::NEG_INFINITY)
-                    },
-                    upper: if v.domain == ModelingVariableDomain::Binary {
-                        v.upper.unwrap_or(1.0).min(1.0)
-                    } else {
-                        v.upper.unwrap_or(f64::INFINITY)
-                    },
-                },
-                None => Variable {
-                    id: *id,
-                    lower: f64::NEG_INFINITY,
-                    upper: f64::INFINITY,
-                },
-            })
+            .map(|id| declared_variable_contract(*id, declared.get(id).copied()))
             .collect(),
         rows: assembly.structure().rows().iter().map(|r| r.id).collect(),
         derivatives: assembly.order(),
         smoothness: assembly.available_order(),
+    }
+}
+/// Declared box of one original coordinate, shared by complete and selected
+/// oracle contracts. Parameter coordinates retain their unbounded native box.
+pub fn variable_contract(assembly: &CasePlan, id: pse_ids::SemanticId) -> Variable {
+    declared_variable_contract(id, assembly.structure().variables().iter().find(|v| v.port.id == id))
+}
+fn declared_variable_contract(id: pse_ids::SemanticId, declaration: Option<&pse_math::binding::Variable>) -> Variable {
+    match declaration {
+        Some(v) => Variable {
+            id,
+            lower: if v.domain == ModelingVariableDomain::Binary {
+                v.lower.unwrap_or(0.0).max(0.0)
+            } else { v.lower.unwrap_or(f64::NEG_INFINITY) },
+            upper: if v.domain == ModelingVariableDomain::Binary {
+                v.upper.unwrap_or(1.0).min(1.0)
+            } else { v.upper.unwrap_or(f64::INFINITY) },
+        },
+        None => Variable { id, lower: f64::NEG_INFINITY, upper: f64::INFINITY },
     }
 }
 impl CoefficientProblem {

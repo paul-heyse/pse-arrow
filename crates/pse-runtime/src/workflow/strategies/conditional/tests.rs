@@ -1985,6 +1985,11 @@ async fn block_admission_facts_match_actual_conditional_capabilities_and_matchin
             let rows = block.boundary.members.rows.iter().copied().collect();
             let columns = block.boundary.members.columns.iter().copied().collect();
             assert_eq!(source.plan.conditional_available_order(&rows, &columns, &flag)?, block.plan.available_order());
+            let actual_contract = native::assembled::contract(&block.plan);
+            for variable in &actual_contract.variables {
+                let selected = native::assembled::variable_contract(&source.plan, variable.id);
+                assert_eq!((selected.id, selected.lower, selected.upper), (variable.id, variable.lower, variable.upper));
+            }
             let witness = source.structure.conditional_witness(&block.boundary).unwrap();
             assert_eq!(witness.square, block.structure.square);
             assert_eq!(witness.contributions, block.structure.contributions);
@@ -1996,4 +2001,41 @@ async fn block_admission_facts_match_actual_conditional_capabilities_and_matchin
         }
         Ok(())
     }).unwrap().finish().await.unwrap();
+}
+
+#[tokio::test]
+async fn small_block_override_validation_fits_without_all_block_construction() {
+    let runtime = construction_runtime();
+    let prepared = construction_source(runtime.clone(), 4).await;
+    let compiled = prepared._source.case.compiled().clone();
+    let discovery = compiled.automatic_alternatives_allocation_bound().unwrap().unwrap();
+    let replaced = compiled.initialization_allocation_bound().unwrap().unwrap();
+    let selected_source = compiled.clone();
+    let (id, selected) = runtime.native().submit(1, discovery, move |flag, _| {
+        let pse_compiler::workspace::Alternative::Available(schedule) = selected_source.automatic_alternatives(&flag)?.initialization else { panic!("complete source inventory required"); };
+        let block = schedule.blocks.iter().min_by_key(|block| block.members.rows.len()).unwrap();
+        assert_eq!(block.members.rows.len(), 1, "control selects one small compiler block");
+        Ok((block.id, selected_source.block_admission_allocation_bound(block)?.unwrap()))
+    }).unwrap().finish().await.unwrap();
+    let mut profile = SolverProfile { intent: SolveIntent::Initialize, ..Default::default() };
+    profile.block_overrides.insert(id, crate::math::settings::BlockSolveOverride {
+        backend: Some(Backend::Kinsol), settings: None, controls: None,
+    });
+    let pool = runtime.shared.pool();
+    let policy = &runtime.shared.budget().math;
+    let fixed = policy.stack_bytes + policy.foreign_bytes + policy.inner_session_bytes;
+    // Selected oracle boxes, retained boundary descriptors and contextual routing
+    // fit in the margin. No matching stack or evaluator bundle is admitted here.
+    let free = fixed + discovery.max(selected) + (1 << 20);
+    assert!(free < replaced, "selected validation must fit below replaced all-block demand");
+    let pressure = runtime.native().reserve("test:selected-block-validation-pressure",
+        runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - free).unwrap();
+    let baseline = pool.reserved();
+    assert!(runtime.native().reserve("test:replaced-all-block-demand", replaced).is_err(),
+        "the control leaves insufficient capacity for the removed construction demand");
+    let before = runtime.native().preparation_effects();
+    runtime.native().validate_prepared_block_overrides(&prepared._source.case, &profile, &prepared.original_numerics).await.unwrap();
+    assert_eq!(runtime.native().preparation_effects().since(before).function_assemblies, 0);
+    assert_eq!(pool.reserved(), baseline, "validation drains both independently admitted phases");
+    drop(pressure);
 }
