@@ -1381,6 +1381,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            183u8, 100u8, 131u8, 126u8, 67u8, 171u8, 199u8, 169u8, 157u8, 248u8, 100u8,
+            56u8, 197u8, 238u8, 174u8, 109u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeLiveSimulationSamples(
+                super::r#runtime::r#live_simulation_samples::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8, 157u8, 19u8,
             95u8, 3u8, 57u8, 68u8,
         ])
@@ -2252,6 +2264,9 @@ pub fn encode(
         pse_model::generated::facts::FactBatch::r#RuntimeInfeasibilityCertificates(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeLiveSimulationSamples(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
         pse_model::generated::facts::FactBatch::r#RuntimeLocalValidity(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }

@@ -22,6 +22,7 @@ fn policy() -> PathPolicy {
         parameter_tolerance: NumericalPolicy::default().engineering_relative_fraction,
         hyperplane_tolerance: NumericalPolicy::default().engineering_relative_fraction,
         events: None,
+        effort: None,
     }
 }
 #[test]

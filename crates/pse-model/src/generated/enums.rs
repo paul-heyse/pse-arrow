@@ -22081,6 +22081,10 @@ impl StudyRetryFailure {
     reason = "closed enum spellings preserve registry and sanctioned parity names"
 )]
 pub enum StudySeedNeed {
+    ///pending
+    #[serde(rename = "pending")]
+    #[strum(serialize = "pending")]
+    Pending,
     ///not_needed
     #[serde(rename = "not_needed")]
     #[strum(serialize = "not_needed")]
@@ -22097,8 +22101,8 @@ impl crate::SemanticEq for StudySeedNeed {
 }
 impl StudySeedNeed {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 2usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<2usize>() {
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -22110,8 +22114,9 @@ impl StudySeedNeed {
     /// The presentation ordinal, never a semantic identity.
     pub const fn ordinal(self) -> usize {
         match self {
-            Self::NotNeeded => 0usize,
-            Self::Required => 1usize,
+            Self::Pending => 0usize,
+            Self::NotNeeded => 1usize,
+            Self::Required => 2usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -22122,6 +22127,7 @@ impl StudySeedNeed {
     )]
     pub const fn idaes_name(self) -> Option<&'static str> {
         match self {
+            Self::Pending => None,
             Self::NotNeeded => None,
             Self::Required => None,
         }
@@ -22138,7 +22144,7 @@ impl schemars::JsonSchema for StudySeedNeed {
     }
     fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
         schemars::json_schema!(
-            { "type" : "string", "enum" : ["not_needed", "required"] }
+            { "type" : "string", "enum" : ["pending", "not_needed", "required"] }
         )
     }
 }

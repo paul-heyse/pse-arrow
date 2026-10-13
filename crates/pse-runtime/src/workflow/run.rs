@@ -482,6 +482,14 @@ impl super::ModelingSimulation {
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
         self.start_owned(None, self.admission_deadline()?, None)
     }
+    /// Bind a bounded live subscription before any native effect. Dropping the cursor
+    /// detaches only that subscription; the run retains cancellation and drain ownership.
+    pub fn start_live(
+        &self, options: super::LiveSimulationOptions,
+    ) -> Result<(RunHandle, super::LiveSimulationCursor), WorkflowError> {
+        let (handle, cursor) = self.start_owned_live(None, self.admission_deadline()?, None, Some(options))?;
+        Ok((handle, cursor.ok_or_else(|| contract("live subscription absent"))?))
+    }
     /// Start with caller cancellation linked through pending admission and native drain.
     pub fn start_with_cancel(
         &self,
@@ -538,6 +546,12 @@ impl super::ModelingSimulation {
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
+        self.start_owned_live(attempt, deadline, parent, None).map(|(handle, _)| handle)
+    }
+    fn start_owned_live(
+        &self, attempt: Option<DurableAttempt>, deadline: std::time::Instant,
+        parent: Option<crate::CancelSource>, live: Option<super::LiveSimulationOptions>,
+    ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.runtime.clone();
@@ -551,8 +565,19 @@ impl super::ModelingSimulation {
             let cancel = FlightCancellation::default();
             let forwarding = cancel.clone();
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
+            let canonical_attempt = durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
+            let live = live.map(|options| super::live_simulation::LiveDispatch::new(
+                self.clone(), options, run_id, canonical_attempt,
+            )).transpose()?;
+            let (observer, mut live_receiver, subscriber, cursor) = match live {
+                Some(live) => (Some((live.retention, live.observer)), Some(live.receiver), Some(live.subscriber), Some(live.cursor)),
+                None => (None, None, None, None),
+            };
             let dispatch_source = self.clone();
-            let mut dispatch = Some(move || dispatch_source.submit(run_id, submission));
+            let mut dispatch = Some(move || match observer {
+                Some((retention, observer)) => dispatch_source.submit_with_samples(run_id, submission, retention, observer),
+                None => dispatch_source.submit(run_id, submission),
+            });
             let handle = if durable.is_none() {
                 Some(dispatch
                     .take()
@@ -645,7 +670,55 @@ impl super::ModelingSimulation {
                             sender.send_replace(Some(Arc::new(refused)));
                             return;
                         }
-                        let report = match handle.finish().await {
+                        if live_receiver.is_some() && let Some(attempt) = durable.as_mut() {
+                            if let Err(error) = attempt.begin_live_samples() {
+                                if let Some(subscriber) = &subscriber {
+                                    super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)), &cancel, deadline).await;
+                                }
+                            }
+                        }
+                        let finished = handle.finish();
+                        tokio::pin!(finished);
+                        let mut joined = None;
+                        let mut selected = false;
+                        if let Some(receiver) = live_receiver.as_mut() {
+                            loop {
+                                tokio::select! {
+                                    result = &mut finished, if joined.is_none() => { joined = Some(result); }
+                                    event = receiver.recv() => {
+                                        let Some(event) = event else { break; };
+                                        let append = match &event {
+                                            super::LiveSimulationEvent::Sample(batch) => Some(batch.table.clone()),
+                                            super::LiveSimulationEvent::Selected { .. } => { selected = true; None },
+                                            _ => None,
+                                        };
+                                        if let Some(subscriber) = &subscriber {
+                                            super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
+                                        }
+                                        if let (Some(table), Some(attempt)) = (append, durable.as_mut()) {
+                                            let event = match attempt.publish_live_samples(&table).await {
+                                                Ok(rows) => super::LiveSimulationEvent::Recorded { rows },
+                                                Err(error) => super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)),
+                                            };
+                                            if let Some(subscriber) = &subscriber {
+                                                super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if selected && let Some(attempt) = durable.as_mut() {
+                                let event = match attempt.close_live_samples().await {
+                                    Ok(()) => super::LiveSimulationEvent::RecordingClosed,
+                                    Err(error) => super::LiveSimulationEvent::RecordingUnknown(Arc::new(error)),
+                                };
+                                if let Some(subscriber) = &subscriber {
+                                    super::live_simulation::deliver(subscriber, event, &cancel, deadline).await;
+                                }
+                            }
+                        }
+                        let joined = match joined { Some(result) => result, None => finished.await };
+                        let report = match joined {
                             Ok(((report, checks, accuracy), owner)) => prepared
                                 .finish(run_id, report, checks, accuracy, owner)
                                 .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
@@ -656,20 +729,24 @@ impl super::ModelingSimulation {
                         let result = RunResult::joined(run_id, runtime, request, None, report)
                             .finished(durable, cancelled)
                             .await;
-                        sender.send_replace(Some(Arc::new(result)));
+                        let result = Arc::new(result);
+                        sender.send_replace(Some(result.clone()));
+                        if let Some(subscriber) = &subscriber {
+                            super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::Joined(result), &cancel, deadline).await;
+                        }
                     },
                     move || forwarding.cancel(),
                     parent,
                 ),
             ));
-            Ok(RunHandle {
+            Ok((RunHandle {
                 lease,
                 receiver,
                 progress,
                 run_id,
                 attempt_id,
                 canonical_keys,
-            })
+            }, cursor))
         })
     }
 }

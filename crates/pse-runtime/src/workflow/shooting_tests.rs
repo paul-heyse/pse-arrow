@@ -87,6 +87,8 @@ fn methods() -> Vec<Method> {
 }
 fn solver() -> SolverProfile {
     SolverProfile {
+        block_overrides: std::collections::BTreeMap::new(),
+        block_workers: 1,
         selection: SolverSelection::Explicit(Backend::Ipopt),
         controls: Controls {
             hessian: HessianMode::LimitedMemory,
@@ -989,6 +991,8 @@ async fn multiple_shooting_continuity_closes() {
         },
         ShootingProfile {
             solver: SolverProfile {
+                block_overrides: std::collections::BTreeMap::new(),
+                block_workers: 1,
                 controls: Controls {
                     hessian: HessianMode::Exact,
                     ..Default::default()

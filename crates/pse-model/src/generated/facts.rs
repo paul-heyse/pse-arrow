@@ -317,6 +317,10 @@ pub enum FactBatch {
     r#RuntimeInfeasibilityCertificates(
         Vec<super::r#runtime::r#infeasibility_certificates::Row>,
     ),
+    #[doc = stringify!(r#RuntimeLiveSimulationSamples)]
+    r#RuntimeLiveSimulationSamples(
+        Vec<super::r#runtime::r#live_simulation_samples::Row>,
+    ),
     #[doc = stringify!(r#RuntimeLocalValidity)]
     r#RuntimeLocalValidity(Vec<super::r#runtime::r#local_validity::Row>),
     #[doc = stringify!(r#RuntimeModelingChecks)]
@@ -1112,6 +1116,12 @@ impl FactBatch {
                     82u8, 44u8, 133u8, 253u8, 98u8, 228u8,
                 ])
             }
+            Self::r#RuntimeLiveSimulationSamples(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    183u8, 100u8, 131u8, 126u8, 67u8, 171u8, 199u8, 169u8, 157u8, 248u8,
+                    100u8, 56u8, 197u8, 238u8, 174u8, 109u8,
+                ])
+            }
             Self::r#RuntimeLocalValidity(_) => {
                 pse_ids::SemanticId::from_bytes([
                     137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8,
@@ -1489,6 +1499,7 @@ impl FactBatch {
             Self::r#RuntimeFittedParameterCells(rows) => rows.len(),
             Self::r#RuntimeIncumbents(rows) => rows.len(),
             Self::r#RuntimeInfeasibilityCertificates(rows) => rows.len(),
+            Self::r#RuntimeLiveSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeLocalValidity(rows) => rows.len(),
             Self::r#RuntimeModelingChecks(rows) => rows.len(),
             Self::r#RuntimeModelingConformance(rows) => rows.len(),
@@ -2110,6 +2121,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeLiveSimulationSamples(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2834,6 +2850,10 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeInfeasibilityCertificates(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeLiveSimulationSamples(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeLiveSimulationSamples(vec![row.clone()]))
             }
             Self::r#RuntimeLocalValidity(rows) => {
                 rows.get(index)
@@ -4219,6 +4239,17 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeLiveSimulationSamples(left),
+                Self::r#RuntimeLiveSimulationSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeLocalValidity(left), Self::r#RuntimeLocalValidity(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5469,6 +5500,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeLiveSimulationSamples(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7152,6 +7190,29 @@ impl FactBatch {
                     _ => false,
                 }
             }
+            (
+                Self::r#RuntimeLiveSimulationSamples(left),
+                Self::r#RuntimeLiveSimulationSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#accuracy_attempt,
+                                &right.r#accuracy_attempt,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#sample,
+                                &right.r#sample,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#symbol_id,
+                                &right.r#symbol_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
             (Self::r#RuntimeLocalValidity(left), Self::r#RuntimeLocalValidity(right)) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -8394,6 +8455,13 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
             }
+            Self::r#RuntimeLiveSimulationSamples(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#accuracy_attempt, &mut hash);
+                crate::SemanticFrame::frame(&row.r#sample, &mut hash);
+                crate::SemanticFrame::frame(&row.r#symbol_id, &mut hash);
+            }
             Self::r#RuntimeLocalValidity(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -9421,6 +9489,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeLiveSimulationSamples(left),
+                Self::r#RuntimeLiveSimulationSamples(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeLocalValidity(left),
                 Self::r#RuntimeLocalValidity(mut right),
             ) => {
@@ -9956,6 +10031,9 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeIncumbents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeInfeasibilityCertificates(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeLiveSimulationSamples(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeLocalValidity(rows) => crate::HeapUsage::heap_bytes(rows),

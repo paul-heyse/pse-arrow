@@ -815,6 +815,29 @@ pub(super) async fn finish_result_table_prefix(
     Ok(())
 }
 
+/// One sealed live batch advances coverage only after its actual append ACK.
+pub(super) async fn append_live_sample_batch(
+    store: &CanonicalStore,
+    fence: &AttemptFence,
+    pool: &Arc<dyn MemoryPool>,
+    acknowledgments: &super::durable::PublicationAcks,
+    position: &mut ResultStreamPosition,
+    table: &FieldCheckedBatch,
+) -> Result<(), WorkflowError> {
+    let id = pse_relations::generated::runtime::live_simulation_samples::RELATION_ID;
+    if table.relation_id() != id {
+        return Err(contract("live sample relation differs from declared producer"));
+    }
+    acknowledgments.expect(fence, &id.to_string())?;
+    let end = position.origin.checked_add(table.batch().num_rows() as u64)
+        .ok_or_else(|| contract("live sample row extent"))?;
+    let mut queue = ResultAppendQueue::new(store, fence, pool, acknowledgments);
+    store_result_chunk(&mut queue, id, table, position.origin, &mut position.ordinal).await?;
+    queue.flush().await?;
+    position.origin = end;
+    Ok(())
+}
+
 async fn store_result_chunk(
     queue: &mut ResultAppendQueue<'_>,
     id: SemanticId,

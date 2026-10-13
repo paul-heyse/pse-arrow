@@ -2370,4 +2370,120 @@ impl NativePreparedOperation {
             inner,
         })
     }
+    /// Bind requested live physical output before dispatch of a prepared simulation.
+    #[pyo3(signature=(*, capacity=16, compact=false))]
+    fn start_live(&self, py: Python<'_>, capacity: usize, compact: bool) -> PyResult<(NativeRunHandle, NativeLiveSimulationCursor)> {
+        let PreparedOperation::Simulation(simulation) = &self.inner else {
+            return Err(invalid(py, "live samples require a prepared simulation"));
+        };
+        let (inner, cursor) = py.detach(|| {
+            let _enter = self.owner.executor.enter();
+            simulation.start_live(native::LiveSimulationOptions {
+                capacity,
+                retention: if compact { pse_backend_native::dynamics::SampleRetention::Compact } else { pse_backend_native::dynamics::SampleRetention::Full },
+            })
+        }).map_err(|error| errors::diagnostic(py, &error))?;
+        Ok((NativeRunHandle { owner: self.owner.clone(), inner }, NativeLiveSimulationCursor { owner: self.owner.clone(), inner: Arc::new(cursor) }))
+    }
+}
+
+/// Owned subscription independent of the public run cancellation lease.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeLiveSimulationCursor {
+    owner: Arc<runtime::Runtime>,
+    inner: Arc<native::LiveSimulationCursor>,
+}
+#[pymethods]
+impl NativeLiveSimulationCursor {
+    fn close(&self) { self.inner.close(); }
+    fn next_event(&self, py: Python<'_>) -> PyResult<Option<NativeLiveSimulationEvent>> {
+        let event = blocking(py, &self.owner, async { Ok(self.inner.next().await) }, || self.inner.close())?;
+        Ok(event.map(|inner| NativeLiveSimulationEvent { owner: self.owner.clone(), inner: Arc::new(inner) }))
+    }
+    #[pyo3(signature=() -> "typing.Awaitable[NativeLiveSimulationEvent | None]")]
+    fn next_async<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
+        let inner = self.inner.clone();
+        let owner = self.owner.clone();
+        pyo3_async_runtimes::tokio::future_into_py_with_locals(py, locals, async move {
+            let event = inner.next().await;
+            Python::attach(|py| event.map(|inner| Py::new(py, NativeLiveSimulationEvent { owner, inner: Arc::new(inner) })).transpose())
+        })
+    }
+}
+/// Typed projection keeps provisional rows, ACK and joined completion distinguishable.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeLiveSimulationEvent {
+    owner: Arc<runtime::Runtime>,
+    inner: Arc<native::LiveSimulationEvent>,
+}
+#[pymethods]
+impl NativeLiveSimulationEvent {
+    #[getter]
+    fn kind(&self) -> &'static str {
+        match self.inner.as_ref() {
+            native::LiveSimulationEvent::Sample(_) => "sample",
+            native::LiveSimulationEvent::AttemptFinished(_) => "attempt_finished",
+            native::LiveSimulationEvent::Selected { .. } => "selected",
+            native::LiveSimulationEvent::Recorded { .. } => "recorded",
+            native::LiveSimulationEvent::RecordingUnknown(_) => "recording_unknown",
+            native::LiveSimulationEvent::RecordingClosed => "recording_closed",
+            native::LiveSimulationEvent::Joined(_) => "joined",
+        }
+    }
+    #[getter]
+    fn accuracy_attempt(&self) -> Option<u64> {
+        match self.inner.as_ref() {
+            native::LiveSimulationEvent::Sample(batch) => Some(batch.accuracy_attempt),
+            native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.attempt),
+            native::LiveSimulationEvent::Selected { accuracy_attempt } => Some(*accuracy_attempt),
+            _ => None,
+        }
+    }
+    #[getter]
+    fn sample_ordinal(&self) -> Option<usize> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::Sample(batch) => Some(batch.ordinal), _ => None }
+    }
+    #[getter]
+    fn recorded_rows(&self) -> Option<u64> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::Recorded { rows } => Some(*rows), _ => None }
+    }
+    #[getter]
+    fn canonical_attempt_key(&self) -> Option<String> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::Sample(batch) => batch.canonical_attempt.clone(), _ => None }
+    }
+    #[getter]
+    fn completed_time(&self) -> Option<f64> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.completed_time), _ => None }
+    }
+    #[getter]
+    fn produced_samples(&self) -> Option<usize> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.coverage.produced()), _ => None }
+    }
+    #[getter]
+    fn checks_satisfied(&self) -> Option<bool> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.checks_satisfied), _ => None }
+    }
+    #[getter]
+    fn checks_complete(&self) -> Option<bool> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.checks_complete), _ => None }
+    }
+    #[getter]
+    fn termination(&self) -> Option<&'static str> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::AttemptFinished(summary) => Some(summary.termination.as_str()), _ => None }
+    }
+    fn table(&self, py: Python<'_>) -> PyResult<Option<inspection::TableStream>> {
+        match self.inner.as_ref() {
+            native::LiveSimulationEvent::Sample(batch) => inspection::TableStream::from_batch(batch.table.clone()).map(Some).map_err(|error| errors::diagnostic(py, &error)),
+            _ => Ok(None),
+        }
+    }
+    fn result(&self) -> Option<NativeRunResult> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::Joined(inner) => Some(NativeRunResult { owner: self.owner.clone(), inner: inner.clone() }), _ => None }
+    }
+    fn diagnostic(&self) -> Option<inspection::DiagnosticReport> {
+        match self.inner.as_ref() { native::LiveSimulationEvent::RecordingUnknown(error) => Some(inspection::DiagnosticReport::observe(error.as_ref())), _ => None }
+    }
 }

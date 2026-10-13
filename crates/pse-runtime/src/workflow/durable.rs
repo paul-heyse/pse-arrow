@@ -683,6 +683,8 @@ impl PublicationAcks {
 }
 #[derive(Debug)]
 pub(crate) struct DurableAttempt {
+    live_prefix: super::result_projection::ResultStreamPosition,
+    live_prefix_failed: bool,
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
@@ -713,6 +715,8 @@ impl DurableAttempt {
         let fence = Arc::new(OnceLock::new());
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
+            live_prefix: Default::default(),
+            live_prefix_failed: false,
             horizon_prefix: None,
             #[cfg(any(
                 feature = "solver-diffsol",
@@ -746,6 +750,8 @@ impl DurableAttempt {
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
         Ok(Self {
+            live_prefix: Default::default(),
+            live_prefix_failed: false,
             horizon_prefix: None,
             #[cfg(any(
                 feature = "solver-diffsol",
@@ -927,6 +933,38 @@ impl DurableAttempt {
     }
     pub(crate) fn set_output(&mut self, output: super::StudyOutputDemand) {
         self.output = output;
+    }
+    pub(super) fn begin_live_samples(&self) -> Result<(), WorkflowError> {
+        self.acknowledgments.expect(self.fence()?, &pse_relations::generated::runtime::live_simulation_samples::RELATION_ID.to_string())
+    }
+    pub(super) async fn publish_live_samples(
+        &mut self,
+        table: &pse_relations::columnar::FieldCheckedBatch,
+    ) -> Result<u64, WorkflowError> {
+        if self.live_prefix_failed {
+            return Err(contract("live sample recording is incomplete after an earlier refusal"));
+        }
+        let fence = self.fence()?.clone();
+        let result = super::result_projection::append_live_sample_batch(
+            &self.operations.store, &fence, &self.operations.pool, &self.acknowledgments,
+            &mut self.live_prefix, table,
+        ).await;
+        if let Err(error) = result {
+            self.live_prefix_failed = true;
+            return Err(error);
+        }
+        Ok(self.live_prefix.origin)
+    }
+    pub(super) async fn close_live_samples(&mut self) -> Result<(), WorkflowError> {
+        if self.live_prefix_failed {
+            return Err(contract("live sample recording remains incomplete"));
+        }
+        let fence = self.fence()?.clone();
+        super::result_projection::finish_result_table_prefix(
+            &self.operations.store, &fence,
+            pse_relations::generated::runtime::live_simulation_samples::RELATION_ID,
+            &self.acknowledgments, self.live_prefix,
+        ).await
     }
     #[cfg(any(
         feature = "solver-diffsol",

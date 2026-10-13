@@ -7,7 +7,7 @@
 use super::assessment::Obligations;
 use super::cases::CaseOverrides;
 use super::*;
-use crate::math::solves::{NumericalInputs, SolverProfile};
+use crate::math::solves::{NumericalInputs, SolverProfile, Outcome};
 use crate::workflow::staged::{Overlay, Staged, Start, bounded};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
 use pse_kernels::DerivativeOrder;
@@ -52,6 +52,8 @@ pub struct ModelingInitialization {
     pub minimum_step: f64,
     /// Step growth after an accepted homotopy step.
     pub growth: f64,
+    /// Optional comparable native-iteration target; omitted retains declared growth.
+    pub effort: Option<pse_model::strategy::EffortPolicy>,
     /// Attempts across stages, homotopy and the original specification.
     pub maximum_attempts: usize,
     /// Wall-clock budget of the whole initialization.
@@ -67,6 +69,7 @@ impl Default for ModelingInitialization {
             initial_step: 0.25,
             minimum_step: 1e-6,
             growth: 1.5,
+            effort: None,
             maximum_attempts: 128,
             time_limit: Duration::from_secs(60),
             discrete: DiscreteInitialization::Refuse,
@@ -251,6 +254,7 @@ impl ModelingInitialization {
             || self.minimum_step > self.initial_step
             || !self.growth.is_finite()
             || self.growth <= 1.
+            || self.effort.is_some_and(|policy| !policy.is_valid())
         {
             return Err(contract("invalid bounded initialization policy"));
         }
@@ -700,7 +704,7 @@ impl Initializer<'_> {
             1.,
             self.policy.growth,
             self.policy.maximum_attempts,
-        ) {
+        ).and_then(|steps| steps.with_effort(self.policy.effort)) {
             Ok(steps) => steps,
             Err(error) => {
                 self.report.failure = Some(
@@ -743,7 +747,13 @@ impl Initializer<'_> {
                     if fraction == 1. {
                         return true;
                     }
-                    if !initial && let Err(error) = steps.accepted(1. - progress) {
+                    let effort = self.report.attempts.last()
+                        .and_then(|attempt| attempt.result.as_ref().ok())
+                        .and_then(|result| match &result.outcome {
+                            Outcome::Native(report) => crate::math::strategy::path_control::EffortObservation::from_report(report),
+                            _ => None,
+                        });
+                    if !initial && let Err(error) = steps.accepted_effort(1. - progress, false, effort) {
                         self.report.failure =
                             Some(error.boundary_diagnostic(
                                 pse_diagnostics::DiagnosticStage::Initialization,
@@ -902,6 +912,7 @@ mod tests {
             initial_step: 1.,
             minimum_step: 1e-6,
             growth: 1.5,
+            effort: None,
             maximum_attempts: 256,
             time_limit: Duration::from_secs(60),
             discrete: Default::default(),
@@ -1087,6 +1098,7 @@ mod tests {
             initial_step: 0.25,
             minimum_step: 0.01,
             growth: 2.,
+            effort: None,
             maximum_attempts: 10,
             time_limit: Duration::from_secs(20),
             discrete: Default::default(),

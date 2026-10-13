@@ -191,6 +191,8 @@ use pse_engine::{
     session::{BoundModel, EngineFactory},
 };
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
+mod live_simulation;
+pub use live_simulation::{LiveSampleBatch, LiveSimulationCursor, LiveSimulationEvent, LiveSimulationOptions};
 use std::sync::Arc;
 mod canonical;
 mod source_settlement;

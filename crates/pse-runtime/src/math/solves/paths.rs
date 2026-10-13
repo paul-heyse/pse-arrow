@@ -214,6 +214,8 @@ pub struct PathPolicy {
     pub hyperplane_tolerance: f64,
     /// Optional explicitly bounded numerical event observation/localization.
     pub events: Option<EventPolicy>,
+    /// Optional comparable native-iteration target; absent retains fixed displacement.
+    pub effort: Option<pse_model::strategy::EffortPolicy>,
 }
 impl PathPolicy {
     fn validate(&self) -> Result<(), ProblemError> {
@@ -229,6 +231,7 @@ impl PathPolicy {
             .iter()
             .any(|v| !v.is_finite() || *v <= 0.)
             || self.minimum_step > self.step
+            || self.effort.is_some_and(|policy| !policy.is_valid())
         {
             return Err(ProblemError::Contract(
                 "finite positive path geometry/accuracy required".into(),
@@ -374,6 +377,11 @@ impl PreparedPath {
             .f64(p.backward_limit)
             .f64(p.parameter_tolerance)
             .f64(p.hyperplane_tolerance);
+        if let Some(effort) = p.effort {
+            h.bool(true).u64(u64::from(effort.target_iterations));
+        } else {
+            h.bool(false);
+        }
         if let Some(e) = &p.events {
             h.bool(true)
                 .u64(e.observations as u64)
@@ -2369,7 +2377,7 @@ pub(crate) fn run_path(
             path.request.policy.step,
             1.,
             path.request.policy.subdivisions,
-        )?;
+        )?.with_effort(path.request.policy.effort)?;
         let mut chart = path.request.selection.as_ref().map(|s| s.previous.clone());
         let mut transport = origin_transport(path, &point, orientation_id);
         let mut source = orientation_id;
@@ -2588,7 +2596,11 @@ pub(crate) fn run_path(
                         return Ok(());
                     }
                 }
-                steps.accepted_reset(path.request.policy.step)?;
+                steps.accepted_effort(
+                    path.request.policy.step,
+                    true,
+                    crate::math::strategy::path_control::EffortObservation::from_report(&report),
+                )?;
                 orientation = tangent.normalized.clone();
                 point = next.clone();
                 source = native::square_response::point_key(&point);

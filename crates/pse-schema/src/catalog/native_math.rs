@@ -75,6 +75,24 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         column("mode_names",T::list(text())),
         column("mode_identities",T::list(T::hash())),
     ],"Original prepared scientific interpretation for independent result artifacts. Ordered coordinate inventories carry canonical physical unit/basis via the retained physical source, and explicit normalized-to-physical scales/offsets. Profile and binding are exact owner-encoded documents, never inferred from an artifact selector. Empty mode/time inventories identify nontransient producers. This metadata confers no reuse/restart permission.");
+    relation(
+        b,
+        N::Runtime,
+        "live_simulation_samples",
+        S::Derived,
+        &["run_id", "accuracy_attempt", "sample", "symbol_id"],
+        vec![
+            run_id(),
+            column("accuracy_attempt", ordinal()),
+            column("sample", ordinal()),
+            column("time", real()),
+            column("symbol_id", T::id()),
+            column("quantity_id", T::id()),
+            column("unit_id", T::id()),
+            column("value", real()),
+        ],
+        "Provisional completed physical samples qualified by the actual accuracy attempt; recording acknowledgement and final scientific selection remain separate.",
+    );
     relation_version(
         b,
         N::Runtime,

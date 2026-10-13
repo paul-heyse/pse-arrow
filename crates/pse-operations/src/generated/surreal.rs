@@ -13,7 +13,7 @@ pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
 pub const INTERPRETATION: &str = "pse.substrate.v5";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "6064918f02d7895f0fe790f54bb71bdfbdc423984485b3da582101b59f43e7d9";
+pub const SCHEMA_DIGEST: &str = "869b2af993fd18001e871bc6617105bbd6f963c504ae31c998ffece128ba9d83";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
 ///Encode the registry row using native exact values.
@@ -3939,6 +3939,9 @@ pub fn encode_canonical_study_points(
             "descriptor",
             crate::canonical_codec::encode_bytes(row.r#descriptor.clone())?,
         );
+    if let Some(value) = &row.r#admission {
+        object.insert("admission", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
     object.insert("facts", crate::canonical_codec::encode_bytes(row.r#facts.clone())?);
     if let Some(value) = &row.r#outcome {
         object.insert("outcome", crate::canonical_codec::encode_bytes(value.clone())?);
@@ -3986,6 +3989,10 @@ pub fn decode_canonical_study_points(
         r#descriptor: crate::canonical_codec::decode_bytes(
             crate::canonical_codec::required(&mut object, "descriptor")?,
         )?,
+        r#admission: match object.remove("admission") {
+            None | Some(surrealdb::types::Value::None) => None,
+            Some(value) => Some(crate::canonical_codec::decode_bytes(value)?),
+        },
         r#facts: crate::canonical_codec::decode_bytes(
             crate::canonical_codec::required(&mut object, "facts")?,
         )?,

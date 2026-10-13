@@ -893,6 +893,7 @@ mod native_tests {
                     initial_step: 0.25,
                     minimum_step: 1e-6,
                     growth: 1.5,
+                    effort: None,
                     maximum_attempts: 64,
                     time_limit: Duration::from_secs(60),
                     discrete: Default::default(),

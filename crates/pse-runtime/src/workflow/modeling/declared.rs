@@ -174,6 +174,8 @@ pub struct InitializationOverrides {
     pub minimum_step: Option<f64>,
     /// Optional growth factor.
     pub growth: Option<f64>,
+    /// Optional continuation effort target; absent preserves the declared step rule.
+    pub effort: Option<pse_model::strategy::EffortPolicy>,
     /// Optional attempt bound.
     pub maximum_attempts: Option<usize>,
     /// Optional wall-clock bound.
@@ -296,6 +298,7 @@ impl DeclaredExecution {
         field!(initial_step);
         field!(minimum_step);
         field!(growth);
+        plan.effort = overrides.effort;
         field!(maximum_attempts);
         field!(time_limit);
         if let Some(discrete) = overrides.discrete {

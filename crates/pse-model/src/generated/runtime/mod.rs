@@ -145,6 +145,8 @@ pub mod r#incumbents;
 ///Generated relation contract.
 pub mod r#infeasibility_certificates;
 ///Generated relation contract.
+pub mod r#live_simulation_samples;
+///Generated relation contract.
 pub mod r#local_validity;
 ///Generated relation contract.
 pub mod r#modeling_checks;

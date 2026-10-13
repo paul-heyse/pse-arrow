@@ -8,6 +8,8 @@ use crate::workflow::tests::{id, physical, runtime};
 use pse_backend_native::execution::BackendSettings;
 pub(super) fn profile(intent: SolveIntent) -> SolverProfile {
     SolverProfile {
+        block_overrides: std::collections::BTreeMap::new(),
+        block_workers: 1,
         intent,
         selection: SolverSelection::Auto,
         controls: Controls::default(),
@@ -280,6 +282,8 @@ async fn failed_continuation_preserves_original_bindings_and_prior_solved_unknow
             root,
             compiler_profile(),
             SolverProfile {
+                block_overrides: std::collections::BTreeMap::new(),
+                block_workers: 1,
                 controls: Controls {
                     start: StartPolicy::PreviousAccepted,
                     iterations: 50,

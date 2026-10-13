@@ -16,6 +16,8 @@ from pse._build import (
     _NativePreparedOperation,
     _NativeProgressStream,
     _NativeRunHandle,
+    _NativeLiveSimulationCursor,
+    _NativeLiveSimulationEvent,
     _NativeRunResult,
     _NativeScientificReplay,
     _NativeStart,
@@ -202,6 +204,114 @@ class PreparedOperation:
     def start(self) -> "RunHandle":
         """Start one admitted native operation."""
         return RunHandle(self._handle.start())
+
+    def start_live(
+        self, *, capacity: int = 16, compact: bool = False
+    ) -> tuple["RunHandle", "LiveSimulationCursor"]:
+        """Subscribe before a simulation starts; each sample is provisional.
+
+        Compact output omits full terminal payload retention. Consume or close the
+        cursor while the run is active: its bounded queue applies backpressure.
+        """
+        run, cursor = self._handle.start_live(capacity=capacity, compact=compact)
+        return RunHandle(run), LiveSimulationCursor(cursor)
+
+
+@attrs.frozen
+class LiveSimulationEvent:
+    """Provisional physical rows, actual recording ACK, or joined completion."""
+
+    _handle: _NativeLiveSimulationEvent
+
+    @property
+    def kind(self) -> str:
+        return self._handle.kind
+
+    @property
+    def accuracy_attempt(self) -> int | None:
+        return self._handle.accuracy_attempt
+
+    @property
+    def sample_ordinal(self) -> int | None:
+        return self._handle.sample_ordinal
+
+    @property
+    def canonical_attempt_key(self) -> str | None:
+        return self._handle.canonical_attempt_key
+
+    @property
+    def recorded_rows(self) -> int | None:
+        return self._handle.recorded_rows
+
+    @property
+    def produced_samples(self) -> int | None:
+        return self._handle.produced_samples
+
+    @property
+    def completed_time(self) -> float | None:
+        return self._handle.completed_time
+
+    @property
+    def checks_complete(self) -> bool | None:
+        return self._handle.checks_complete
+
+    @property
+    def checks_satisfied(self) -> bool | None:
+        return self._handle.checks_satisfied
+
+    @property
+    def termination(self) -> str | None:
+        return self._handle.termination
+
+    def table(self) -> TableStream | None:
+        """The original checked provisional rows, when this event is a sample."""
+        stream = self._handle.table()
+        return None if stream is None else TableStream(stream)
+
+    def result(self) -> "RunResult | None":
+        """Joined science/recording result, available only on the joined event."""
+        result = self._handle.result()
+        return None if result is None else RunResult(result)
+
+    def diagnostic(self) -> DiagnosticReport | None:
+        return self._handle.diagnostic()
+
+
+@attrs.frozen
+class LiveSimulationCursor:
+    """Bounded subscription; closing it detaches output without cancelling science."""
+
+    _handle: _NativeLiveSimulationCursor
+
+    def close(self) -> None:
+        self._handle.close()
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> LiveSimulationEvent:
+        event = self._handle.next_event()
+        if event is None:
+            raise StopIteration
+        return LiveSimulationEvent(event)
+
+    def __aiter__(self) -> Self:
+        return self
+
+    async def __anext__(self) -> LiveSimulationEvent:
+        event = await self._handle.next_async()
+        if event is None:
+            raise StopAsyncIteration
+        return LiveSimulationEvent(event)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None,
+        exc_value: BaseException | None, traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
 
 @attrs.frozen

@@ -23,6 +23,8 @@ pub struct RuntimeCanonicalStudyPointsRow {
     pub r#policy: crate::Bytes,
     ///descriptor
     pub r#descriptor: crate::Bytes,
+    ///admission
+    pub r#admission: Option<crate::Bytes>,
     ///facts
     pub r#facts: crate::Bytes,
     ///outcome
@@ -51,6 +53,7 @@ impl crate::SemanticEq for RuntimeCanonicalStudyPointsRow {
                 &other.r#seed_solution,
             ) && crate::SemanticEq::semantic_eq(&self.r#policy, &other.r#policy)
             && crate::SemanticEq::semantic_eq(&self.r#descriptor, &other.r#descriptor)
+            && crate::SemanticEq::semantic_eq(&self.r#admission, &other.r#admission)
             && crate::SemanticEq::semantic_eq(&self.r#facts, &other.r#facts)
             && crate::SemanticEq::semantic_eq(&self.r#outcome, &other.r#outcome)
             && crate::SemanticEq::semantic_eq(&self.r#run, &other.r#run)
@@ -84,6 +87,8 @@ impl crate::SemanticFrame for RuntimeCanonicalStudyPointsRow {
         crate::SemanticFrame::frame(&self.r#policy, hash);
         hash.str(stringify!(r#descriptor));
         crate::SemanticFrame::frame(&self.r#descriptor, hash);
+        hash.str(stringify!(r#admission));
+        crate::SemanticFrame::frame(&self.r#admission, hash);
         hash.str(stringify!(r#facts));
         crate::SemanticFrame::frame(&self.r#facts, hash);
         hash.str(stringify!(r#outcome));
@@ -112,6 +117,7 @@ impl crate::HeapUsage for RuntimeCanonicalStudyPointsRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#seed_solution))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#policy))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#descriptor))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#admission))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#facts))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#outcome))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run))

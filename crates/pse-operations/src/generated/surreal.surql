@@ -546,6 +546,7 @@ DEFINE FIELD occurrence ON canonical_study_points TYPE decimal ASSERT $value = N
 DEFINE FIELD seed_solution ON canonical_study_points TYPE option<string>;
 DEFINE FIELD policy ON canonical_study_points TYPE bytes;
 DEFINE FIELD descriptor ON canonical_study_points TYPE bytes;
+DEFINE FIELD admission ON canonical_study_points TYPE option<bytes>;
 DEFINE FIELD facts ON canonical_study_points TYPE bytes;
 DEFINE FIELD outcome ON canonical_study_points TYPE option<bytes>;
 DEFINE FIELD run ON canonical_study_points TYPE string;
