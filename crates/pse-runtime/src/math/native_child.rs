@@ -10,6 +10,7 @@ use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ExecutionScope};
 use pse_math::{implicit::{InnerSolver, Options, Problem, Unknown}, jets::EvaluationLimits};
 use pse_model::diagnostic::{BoundaryDiagnostic, DiagnosticProjection};
+use pse_model::HeapUsage;
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, Read, Write}, os::{fd::AsFd, unix::net::UnixStream},
@@ -90,24 +91,29 @@ impl PortableRootSource {
     }
 }
 
-/// Explicit private executable and finite child-address-space reservation.
+/// Explicit private executable and finite opaque-work allowance.
 /// The launcher observes this exact file again before spawn and verifies the child's
 /// running executable, native version and compiled product during its handshake.
 #[derive(Clone, Debug)]
 pub struct NativeChild {
     executable: PathBuf,
     observation: pse_buildinfo::FileObservation,
-    /// Parent worker charge covering parent/child decode, programs, foreign work and IPC.
-    pub worker_bytes: usize,
+    /// Separately charged allowance for SUNDIALS/KLU/private allocator, registry and
+    /// compiled-program populations and startup/main/foreign stack unknowns. This is
+    /// admission accounting, not an allocator-enforced complete process/RSS maximum.
+    pub opaque_bytes: usize,
+    /// Explicit strict whole-child memory selection; currently refused before launch.
+    pub require_complete_memory_bound: bool,
     #[cfg(test)]
     test_mode: Option<(String, PathBuf)>,
 }
 impl NativeChild {
     /// Select a trusted deployed private worker. There is no PATH search or auto-build.
-    pub fn qualify(executable: impl AsRef<Path>, worker_bytes: usize) -> Result<Self, MathRuntimeError> {
-        if worker_bytes == 0 { return Err(contract("native child requires a finite positive allocation")); }
+    pub fn qualify(executable: impl AsRef<Path>, opaque_bytes: usize) -> Result<Self, MathRuntimeError> {
+        if opaque_bytes == 0 { return Err(contract("native child requires a finite positive opaque allowance")); }
         let observation = pse_buildinfo::FileObservation::capture(executable.as_ref()).map_err(infrastructure)?;
-        Ok(Self { executable: observation.canonical.clone(), observation, worker_bytes,
+        Ok(Self { executable: observation.canonical.clone(), observation, opaque_bytes,
+            require_complete_memory_bound: false,
             #[cfg(test)] test_mode: None,
         })
     }
@@ -169,33 +175,33 @@ impl MathService {
         let deadline = original_deadline.map_or(deadline, |outer| outer.min(deadline));
         let scope = ExecutionScope::new(cancel.flag(), Some(deadline));
         checkpoint(&scope)?;
-        // Reserve a finite whole child population before encoding or launching anything.
-        // The existing submission owner retains it through this closure's kill/wait and screen.
+        if child.require_complete_memory_bound {
+            return Err(pse_backend_native::ProblemError::Unsupported(
+                "strict complete child memory/RSS bounds are not qualified for SUNDIALS/KLU/private allocations".into()).into());
+        }
+        // The existing submission owner holds this finite opaque-work allowance and
+        // population/CPU admission through kill/wait and original screening. Known
+        // buffers and the explicit native-owner stack have a separate shared-pool lease.
         let submission = Submission { cancel, progress: Arc::new(pse_backend_native::solve::Progress::new(0)),
             admitted: None, deadline: Some(deadline) };
-        let bytes = child.worker_bytes;
+        let bytes = child.opaque_bytes;
         let recipe_extent = source.body.portable_payload_bytes()?;
         let replay_extent = pse_ids::scientific_replay::QualifiedScientificRecipe::scratch_bytes(recipe_extent)
             .map_err(infrastructure)?;
-        let preflight = replay_extent.checked_mul(2)
-            .and_then(|n| n.checked_add(source.context.quantities.allocation_extent().checked_mul(32)?))
-            .and_then(|n| n.checked_add(recipe_extent.checked_mul(32)?))
-            .and_then(|n| n.checked_add(source.evaluation.scratch_bytes.checked_mul(2)?))
+        let known_bytes = replay_extent.checked_mul(2)
+            .and_then(|n| n.checked_add(4 * REQUEST_LIMIT + 2 * RESPONSE_LIMIT))
             .and_then(|n| n.checked_add(NATIVE_CHILD_STACK_BYTES))
             .ok_or_else(|| contract("native child construction extent"))?;
-        if preflight > bytes { return Err(contract("native child allocation does not cover its source population")); }
+        let service = self.clone();
         self.submit_with(1, bytes, submission, move |flag, _| {
             let scope = ExecutionScope::new(flag, Some(deadline));
             checkpoint(&scope)?;
+            // Immediate pool refusal cannot create admission hold-and-wait. This lease
+            // remains live across every child exit/drain and all original evaluation.
+            let _known = service.reserve("math:native-child-known-extents", known_bytes)?;
             let wire = source.wire()?;
             let payload = serde_json::to_vec(&wire).map_err(infrastructure)?;
             if payload.len() > REQUEST_LIMIT { return Err(contract("native child request frame limit")); }
-            let scratch = pse_ids::scientific_replay::QualifiedScientificRecipe::scratch_bytes(wire.body.len())
-                .map_err(infrastructure)?;
-            let minimum = scratch.checked_mul(2).and_then(|n| n.checked_add(payload.len().checked_mul(4)?))
-                .and_then(|n| n.checked_add(source.evaluation.scratch_bytes.checked_mul(2)?))
-                .ok_or_else(|| contract("native child complete allocation extent"))?;
-            if minimum > bytes { return Err(contract("native child allocation does not cover parent/child reconstruction and IPC")); }
             let original = source.problem(&scope)?;
             original.validate_options(&source.options)?;
             let result = launch(&child, payload, &scope)?;
@@ -206,7 +212,7 @@ impl MathService {
             }
             let retained = size_of::<PortableRootResult>() + result.executable_sha256.capacity()
                 + result.proposal.as_ref().map_or(0, |point| point.capacity()*size_of::<f64>())
-                + result.refusal.as_ref().map_or(0, |diagnostic| serde_json::to_vec(diagnostic).map_or(0, |v| v.len())*4);
+                + result.refusal.as_ref().map_or(0, HeapUsage::heap_bytes);
             Ok((result, retained))
         })
     }
@@ -285,10 +291,12 @@ fn launch(child: &NativeChild, payload: Vec<u8>, scope: &ExecutionScope) -> Resu
             return Err(contract("native child executable/build/profile/attempt handshake differs"));
         }
         let request = digest(&payload);
-        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
-        h.str(PROTOCOL).id(&attempt).hash(&request).str(&hello.executable.sha256).part(&serde_json::to_vec(&hello.native_build).map_err(infrastructure)?);
-        let execution = h.finish_hash();
         let remaining = scope.remaining(Duration::MAX).map_err(pse_math::MathError::Scope)?;
+        let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
+        h.str(PROTOCOL).id(&attempt).hash(&request).str(&hello.executable.sha256)
+            .part(&serde_json::to_vec(&hello.native_build).map_err(infrastructure)?)
+            .u64(remaining.as_secs()).u64(u64::from(remaining.subsec_nanos()));
+        let execution = h.finish_hash();
         let envelope = Request { attempt, execution, request, remaining, source: payload };
         send(&mut owned.channel, &envelope, REQUEST_LIMIT, scope)?;
         let response: Response = receive(&mut owned.channel, RESPONSE_LIMIT, scope)?;
@@ -332,8 +340,20 @@ fn read_bytes(channel: &mut UnixStream, mut bytes: &mut [u8], scope: &ExecutionS
     Ok(())
 }
 fn send(channel: &mut UnixStream, value: &impl Serialize, limit: usize, scope: &ExecutionScope) -> Result<(), MathRuntimeError> {
+    struct Count { bytes: usize, limit: usize }
+    impl Write for Count {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.bytes = self.bytes.checked_add(bytes.len()).filter(|count| *count <= self.limit)
+                .ok_or_else(|| io::Error::other("native child outgoing frame limit"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    }
+    checkpoint(scope)?;
+    let mut count = Count { bytes: 0, limit };
+    serde_json::to_writer(&mut count, value).map_err(|e| contract(e.to_string()))?;
     let bytes = serde_json::to_vec(value).map_err(infrastructure)?;
-    if bytes.len() > limit { return Err(contract("native child outgoing frame limit")); }
+    if bytes.len() != count.bytes { return Err(contract("native child frame extent changed")); }
     write_bytes(channel, &(bytes.len() as u64).to_le_bytes(), scope)?;
     write_bytes(channel, &bytes, scope)
 }
@@ -372,7 +392,8 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     }
     let mut h = FramedHasher::new(pse_ids::Frame::DerivedBindingV1);
     h.str(PROTOCOL).id(&attempt).hash(&request.request).str(&hello.executable.sha256)
-        .part(&serde_json::to_vec(&hello.native_build).map_err(infrastructure)?);
+        .part(&serde_json::to_vec(&hello.native_build).map_err(infrastructure)?)
+        .u64(request.remaining.as_secs()).u64(u64::from(request.remaining.subsec_nanos()));
     if h.finish_hash() != request.execution { return Err(contract("native child execution profile identity differs")); }
     let deadline = Instant::now().checked_add(request.remaining).ok_or_else(|| contract("native child receiving deadline extent"))?;
     let scope = ExecutionScope::new(Arc::default(), Some(deadline));

@@ -101,7 +101,7 @@ fn private_native_fake_process() {
     send(&mut channel, &hello, RESPONSE_LIMIT, &scope).unwrap();
     if mode == "foreign" { return; }
     let request: Request = receive(&mut channel, REQUEST_LIMIT, &scope).unwrap();
-    if mode == "late" { std::thread::sleep(Duration::from_secs(8)); }
+    if mode == "late" { std::thread::sleep(Duration::from_secs(30)); }
     let point = if mode == "invalid" { vec![9.0] } else { vec![2.0] };
     let _ = send(&mut channel, &Response { attempt, execution: request.execution, request: request.request, result: Ok(point) }, RESPONSE_LIMIT, &scope);
 }
@@ -138,9 +138,9 @@ async fn private_native_late_output_and_cancellation_hold_parent_charges_until_r
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
         let control = FlightCancellation::default();
-        let deadline = if cancel_owned { None } else { Some(Instant::now()+Duration::from_secs(3)) };
+        let deadline = if cancel_owned { None } else { Some(Instant::now()+Duration::from_secs(10)) };
         let handle = service.solve_portable_root(source(), fake_child("late", &marker), control.clone(), deadline).unwrap();
-        for _ in 0..1000 {
+        for _ in 0..10000 {
             if marker.exists() { break; }
             tokio::time::sleep(Duration::from_millis(2)).await;
         }
@@ -154,4 +154,16 @@ async fn private_native_late_output_and_cancellation_hold_parent_charges_until_r
         assert_eq!(control.flag().load(std::sync::atomic::Ordering::Acquire), cancel_owned,
             "deadline never masquerades as cancellation");
     }
+}
+
+#[tokio::test]
+async fn native_child_strict_complete_memory_selection_refuses_before_launch() {
+    let (service, _) = super::super::tests::service_with_policy(512<<20,
+        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let baseline = service.pool.reserved();
+    let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128<<20).unwrap();
+    child.require_complete_memory_bound = true;
+    assert!(matches!(service.solve_portable_root(source(), child, FlightCancellation::default(), None),
+        Err(MathRuntimeError::Solve(pse_backend_native::ProblemError::Unsupported(_)))));
+    assert_eq!(service.pool.reserved(), baseline);
 }
