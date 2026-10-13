@@ -70,9 +70,13 @@ class StepContractTests(unittest.TestCase):
         }
         steps = producer.step_bindings(spec, "source.surql", "target.surql")
         self.assertEqual(
-            cast('dict[str, object]', steps[0]["postcondition"])["sql"], ["source.surql", "target.surql"]
+            cast("dict[str, object]", steps[0]["postcondition"])["sql"],
+            ["source.surql", "target.surql"],
         )
-        self.assertEqual(cast('dict[str, object]', steps[1]["postcondition"])["sql"], ["target.surql"])
+        self.assertEqual(
+            cast("dict[str, object]", steps[1]["postcondition"])["sql"],
+            ["target.surql"],
+        )
 
 
 if __name__ == "__main__":

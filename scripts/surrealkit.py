@@ -400,7 +400,9 @@ def validate_input(
         raise ToolError("Only exact release built-in setup SQL is admitted")
     if (folder / "seed").exists() or (folder / "seeds").exists():
         raise ToolError("Seed SQL requires separate settlement qualification")
-    expected_rollouts = cast("Mapping[str, object]", record.get("tool_rollouts", {})).get(folder.name, {})
+    expected_rollouts = cast(
+        "Mapping[str, object]", record.get("tool_rollouts", {})
+    ).get(folder.name, {})
     rollout_files = {
         str(path.relative_to(folder / "rollouts")): digest(path)
         for path in (folder / "rollouts").rglob("*")

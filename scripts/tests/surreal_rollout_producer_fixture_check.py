@@ -39,7 +39,9 @@ def check(binary: Path, scratch: Path) -> None:
     assert codec["predecessor"] == third["id"]
     assert codec["steps"] == []
     assert [
-        step["phase"] for step in cast("list[dict[str, object]]", third["steps"]) if step["phase"] != "rollback"
+        step["phase"]
+        for step in cast("list[dict[str, object]]", third["steps"])
+        if step["phase"] != "rollback"
     ] == ["start", "complete"]
     assert len(cast("list[object]", producer.load(folder)["rollouts"])) == 4
     assert (

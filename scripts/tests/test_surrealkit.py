@@ -260,7 +260,9 @@ class NamespaceTests(unittest.TestCase):
         resources.record_drain(resource)
 
         def failed(*_args: object, **kwargs: object) -> int:
-            cast('dict[str, object]', kwargs["observation"]).update(owned_drain="complete")
+            cast("dict[str, object]", kwargs["observation"]).update(
+                owned_drain="complete"
+            )
             return 1
 
         with (

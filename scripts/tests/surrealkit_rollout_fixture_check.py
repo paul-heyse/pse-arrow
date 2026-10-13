@@ -100,7 +100,10 @@ def validate(resource: str, folder: Path) -> None:
         for path in (folder / "schema").rglob("*")
         if path.is_file()
     }
-    if actual != {"canonical.surql": owner["canonical_sha256"], **cast("dict[str, str]", owner["additives"])}:
+    if actual != {
+        "canonical.surql": owner["canonical_sha256"],
+        **cast("dict[str, str]", owner["additives"]),
+    }:
         raise tool.ToolError("Unowned probe schema file set refused")
     for name, digest in cast("dict[str, str]", owner["additives"]).items():
         if hashlib.sha256(DECLARATIONS[name]).hexdigest() != digest:
@@ -366,9 +369,15 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         catalogs = sql(
             resource, "catchup", "INFO FOR DB; INFO FOR TABLE plan37_rollout_probe;"
         )
-        assert "canonical_runs" in cast("dict[str, object]", cast("dict[str, object]", catalogs[0])["tables"])
-        assert "canonical_interpretations" in cast("dict[str, object]", cast("dict[str, object]", catalogs[0])["tables"])
-        assert {"value", "extra"} <= cast("dict[str, object]", cast("dict[str, object]", catalogs[1])["fields"]).keys()
+        assert "canonical_runs" in cast(
+            "dict[str, object]", cast("dict[str, object]", catalogs[0])["tables"]
+        )
+        assert "canonical_interpretations" in cast(
+            "dict[str, object]", cast("dict[str, object]", catalogs[0])["tables"]
+        )
+        assert {"value", "extra"} <= cast(
+            "dict[str, object]", cast("dict[str, object]", catalogs[1])["fields"]
+        ).keys()
         proof["catchup_data"] = sql(
             resource,
             "catchup",
@@ -385,7 +394,10 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
             },
         )
         for index, result in enumerate(
-            [*cast("list[dict[str, object]]", proof["commands"]), *proof["offline_controls"]]
+            [
+                *cast("list[dict[str, object]]", proof["commands"]),
+                *proof["offline_controls"],
+            ]
         ):
             retained = evidence / ("command-" + str(index))
             shutil.copytree(Path(cast("str", result["output"])), retained)
@@ -568,18 +580,31 @@ def owner_revocation(
                                     values
                                     and values[0]
                                     and len(cast("list[object]", values[1])) == 1
-                                    and cast("list[dict[str, object]]", values[1])[0]["ttl_live"] is True
-                                    and cast("list[dict[str, object]]", values[0])[0]["status"] == "running_start"
+                                    and cast("list[dict[str, object]]", values[1])[0][
+                                        "ttl_live"
+                                    ]
+                                    is True
+                                    and cast("list[dict[str, object]]", values[0])[0][
+                                        "status"
+                                    ]
+                                    == "running_start"
                                     and any(
                                         step["step_id"] == "owner_revocation_barrier"
                                         and step["status"] == "running"
-                                        for step in cast("list[dict[str, object]]", cast("list[dict[str, object]]", values[0])[0]["steps"])
+                                        for step in cast(
+                                            "list[dict[str, object]]",
+                                            cast("list[dict[str, object]]", values[0])[
+                                                0
+                                            ]["steps"],
+                                        )
                                     )
                                 ):
                                     proof.update(
                                         before_revocation=values,
                                         child_before_revocation=child_record,
-                                        original_pending_nonce=cast("str", value["nonce"]),
+                                        original_pending_nonce=cast(
+                                            "str", value["nonce"]
+                                        ),
                                     )
                                     revoked.update(
                                         owner, nonce="revoked-" + uuid.uuid4().hex
@@ -624,9 +649,12 @@ def owner_revocation(
         value = cast("dict[str, object]", server.config_for(state)[maintenance.PENDING])
         maintenance.require_child_drains(state, value)
         attempt = cast("list[dict[str, object]]", value["attempts"])[-1]
-        result = server.read_json(Path(cast("str", attempt["directory"])) / "child.json")
+        result = server.read_json(
+            Path(cast("str", attempt["directory"])) / "child.json"
+        )
         if (
-            cast("dict[str, object]", attempt.get("child", {})).get("owned_drain") != "complete"
+            cast("dict[str, object]", attempt.get("child", {})).get("owned_drain")
+            != "complete"
             or result.get("reason") != "owner_lost"
             or value["sql_outcome"] != "unknown"
             or value["input_sha256"] != selected_digest
@@ -694,13 +722,20 @@ def owner_revocation(
             proof["recovery_catalog"] = rows
             if (
                 selected["input_sha256"] != selected_digest
-                or cast("list[dict[str, object]]", rows[0])[0]["status"] not in {"running_start", "failed"}
+                or cast("list[dict[str, object]]", rows[0])[0]["status"]
+                not in {"running_start", "failed"}
                 or any(
                     step["step_id"] == "owner_revocation_barrier"
                     and step["status"] == "completed"
-                    for step in cast("list[dict[str, object]]", cast("list[dict[str, object]]", rows[0])[0]["steps"])
+                    for step in cast(
+                        "list[dict[str, object]]",
+                        cast("list[dict[str, object]]", rows[0])[0]["steps"],
+                    )
                 )
-                or cast("dict[str, object]", rows[1])["tables"] != cast("list[dict[str, object]]", proof["before_revocation"])[2]["tables"]
+                or cast("dict[str, object]", rows[1])["tables"]
+                != cast("list[dict[str, object]]", proof["before_revocation"])[2][
+                    "tables"
+                ]
             ):
                 raise tool.ToolError(
                     "Interrupted nonmutating barrier has unexpected effects"
@@ -717,7 +752,8 @@ def owner_revocation(
             raise tool.ToolError("Unsettled beta phase was cleared")
         final = server.config_for(state)
         if (
-            cast("dict[str, object]", final.get(maintenance.PENDING, {})).get("nonce") != value["nonce"]
+            cast("dict[str, object]", final.get(maintenance.PENDING, {})).get("nonce")
+            != value["nonce"]
             or final.get("accepting_writes") is not False
             or (state / ".maintenance-listener.json").exists()
         ):
@@ -728,7 +764,9 @@ def owner_revocation(
             admission_opened=False,
         )
         shutil.copytree(folder, evidence / "selected-input")
-        shutil.copytree(state / ".surrealkit" / cast("str", value["nonce"]), evidence / "attempts")
+        shutil.copytree(
+            state / ".surrealkit" / cast("str", value["nonce"]), evidence / "attempts"
+        )
         server.write_json(evidence / "qualification.json", proof)
         resources.record_drain(resource)
     # The failed/interrupted rollout remains an exact durable owner obligation.

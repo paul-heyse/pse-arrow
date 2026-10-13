@@ -216,11 +216,16 @@ def require_child_drains(state: Path, value: dict[str, object]) -> None:
     """No maintenance restart may reconnect a predecessor's undrained writer."""
     # Attempts are emitted only by execute/canonical_tool for this exact pending owner.
     attempts = cast("list[dict[str, object]]", value["attempts"])
-    canonical_attempts = cast("list[dict[str, object]]", value.get("canonical_attempts", []))
+    canonical_attempts = cast(
+        "list[dict[str, object]]", value.get("canonical_attempts", [])
+    )
     for attempt in [*attempts, *canonical_attempts]:
         if not attempt.get("child_scope_requested"):
             continue
-        if cast("Mapping[str, object]", attempt.get("child", {})).get("owned_drain") == "complete":
+        if (
+            cast("Mapping[str, object]", attempt.get("child", {})).get("owned_drain")
+            == "complete"
+        ):
             continue
         directory = Path(cast("str", attempt["directory"]))
         expected = state / ".surrealkit" / str(value["nonce"])
@@ -239,7 +244,9 @@ def require_child_drains(state: Path, value: dict[str, object]) -> None:
             raise MaintenanceError(
                 drain.diagnostic() + "; maintenance listener remains closed"
             )
-        cast("dict[str, object]", attempt.setdefault("child", {}))["owned_drain"] = "complete"
+        cast("dict[str, object]", attempt.setdefault("child", {}))["owned_drain"] = (
+            "complete"
+        )
         cast("dict[str, object]", attempt["child"])["scope"] = dict(drain.owner or {})
         update(state, value)
 
@@ -318,12 +325,17 @@ def execute(
                     value.get("phase") != "start_settled"
                     or value.get("command") != ["rollout", "start", rollout_id]
                     or value.get("rollouts") != [rollout_id]
-                    or cast("Mapping[str, object]", value.get("settlement", {})).get("phase") != "start"
+                    or cast("Mapping[str, object]", value.get("settlement", {})).get(
+                        "phase"
+                    )
+                    != "start"
                 ):
                     raise MaintenanceError(
                         "Completion requires the exact settled start phase"
                     )
-                cast("list[dict[str, object]]", value.setdefault("phase_history", [])).append(
+                cast(
+                    "list[dict[str, object]]", value.setdefault("phase_history", [])
+                ).append(
                     {
                         "command": value["command"],
                         "settlement": value.pop("settlement"),
@@ -354,7 +366,9 @@ def execute(
                 "attempts": [],
                 "phase_history": [],
             }
-            if rollout_id is not None and rollout_id not in cast("list[str]", value["rollouts"]):
+            if rollout_id is not None and rollout_id not in cast(
+                "list[str]", value["rollouts"]
+            ):
                 raise MaintenanceError("Selected rollout is absent from frozen chain")
             if rollout_id is not None:
                 value["rollouts"] = [rollout_id]
@@ -541,7 +555,9 @@ def settle(
             surreal_server.require_maintenance_owner(
                 state, surreal_server.config_for(state)
             )
-            evidence = operation_settler(state, endpoint, cast("Mapping[str, object]", immutable(value)))
+            evidence = operation_settler(
+                state, endpoint, cast("Mapping[str, object]", immutable(value))
+            )
             if (
                 not isinstance(evidence, Mapping)
                 or evidence.get("outcome") != "settled"
@@ -549,13 +565,20 @@ def settle(
                 or evidence.get("input_sha256") != value["input_sha256"]
                 or not isinstance(evidence.get("operation"), Mapping)
                 or not all(
-                    isinstance(cast("Mapping[str, object]", evidence["operation"]).get(key), str)
+                    isinstance(
+                        cast("Mapping[str, object]", evidence["operation"]).get(key),
+                        str,
+                    )
                     and cast("Mapping[str, object]", evidence["operation"])[key]
                     for key in ("owner", "identity")
                 )
                 or not isinstance(evidence.get("phase"), str)
                 or evidence["phase"]
-                != ("start" if cast("list[str]", value["command"])[1] == "start" else "complete")
+                != (
+                    "start"
+                    if cast("list[str]", value["command"])[1] == "start"
+                    else "complete"
+                )
                 or not isinstance(evidence.get("steps"), list)
                 or any(
                     not isinstance(step, Mapping)
@@ -694,7 +717,10 @@ def generated_settler(
                 raise MaintenanceError(
                     "Actual beta step acknowledgements are unavailable"
                 )
-            expected = {step["id"]: step for step in cast("list[dict[str, object]]", item["steps"])}
+            expected = {
+                step["id"]: step
+                for step in cast("list[dict[str, object]]", item["steps"])
+            }
             if len(expected) != len(cast("list[object]", item["steps"])):
                 raise MaintenanceError("Producer step identities are ambiguous")
             observed = {}
@@ -832,7 +858,9 @@ def canonical_tool(
         "phase": "prepared",
         "child_scope_requested": True,
     }
-    cast("list[dict[str, object]]", value.setdefault("canonical_attempts", [])).append(record)
+    cast("list[dict[str, object]]", value.setdefault("canonical_attempts", [])).append(
+        record
+    )
     update(state, value)
     observation: dict[str, object] = {}
     try:
@@ -919,8 +947,16 @@ def activate(state: Path, nonce: str, binary: Path) -> dict[str, object]:
         if (
             value.get("phase") != "settled"
             or value.get("sql_outcome") != "settled"
-            or cast("Mapping[str, object]", value.get("settlement", {})).get("phase_complete") is False
-            or cast("Mapping[str, object]", cast("Mapping[str, object]", value.get("settlement", {})).get("canonical", {})).get("scope")
+            or cast("Mapping[str, object]", value.get("settlement", {})).get(
+                "phase_complete"
+            )
+            is False
+            or cast(
+                "Mapping[str, object]",
+                cast("Mapping[str, object]", value.get("settlement", {})).get(
+                    "canonical", {}
+                ),
+            ).get("scope")
             != "generated-target"
         ):
             raise MaintenanceError(
@@ -1021,14 +1057,21 @@ def owned_child(
     }
     if mode == "canonical-validate":
         arguments = ["canonical-validate-definitions", "--state", str(state)]
-        for definition in cast("list[dict[str, str]]", authority.get("definition_inputs", [])):
+        for definition in cast(
+            "list[dict[str, str]]", authority.get("definition_inputs", [])
+        ):
             path = Path(definition["path"])
             if surrealkit.digest(path) != definition["sha256"]:
                 raise MaintenanceError("Exact phase definition input changed")
             arguments.extend(["--schema", str(path)])
     elif mode == "canonical-activate":
         current = pending(
-            state, str(cast("Mapping[str, object]", surreal_server.config_for(state)[PENDING])["nonce"])
+            state,
+            str(
+                cast("Mapping[str, object]", surreal_server.config_for(state)[PENDING])[
+                    "nonce"
+                ]
+            ),
         )
         arguments = [
             "canonical-activate",
@@ -1198,7 +1241,12 @@ def main() -> int:
             timeout=args.timeout,
         )
         print(json.dumps(result, indent=2))
-        return 0 if cast("list[dict[str, object]]", result["attempts"])[-1]["phase"] == "cli_succeeded" else 1
+        return (
+            0
+            if cast("list[dict[str, object]]", result["attempts"])[-1]["phase"]
+            == "cli_succeeded"
+            else 1
+        )
     except (
         MaintenanceError,
         surrealkit.ToolError,

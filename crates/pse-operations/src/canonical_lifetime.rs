@@ -49,22 +49,12 @@ impl Default for PhysicalLifetime {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub(crate) struct ConnectionAccess {
     pub(crate) physical: Arc<PhysicalLifetime>,
     caller: Arc<AtomicBool>,
     continuation: Option<ConnectionActivity>,
 }
-impl Default for ConnectionAccess {
-    fn default() -> Self {
-        Self {
-            physical: Arc::default(),
-            caller: Arc::default(),
-            continuation: None,
-        }
-    }
-}
-
 /// Authority to finish already admitted work, including its required children.
 /// Cloning shares that one activity; dropping an idle caller is unrelated.
 #[derive(Clone, Debug)]

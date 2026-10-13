@@ -112,14 +112,21 @@ def wrong_namespace(
     record: resources.ResourceRecord,
     other: resources.ResourceRecord,
 ) -> None:
-    secret = server.read_json(Path(cast("str", record["directory"])) / "credentials.json")
+    secret = server.read_json(
+        Path(cast("str", record["directory"])) / "credentials.json"
+    )
     env = {
         key: value
         for key, value in os.environ.items()
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
-    env.update(SURREAL_USER=cast("str", secret["username"]), SURREAL_PASS=cast("str", secret["password"]))
-    with tempfile.TemporaryDirectory(dir=Path(cast("str", record["directory"]))) as directory:
+    env.update(
+        SURREAL_USER=cast("str", secret["username"]),
+        SURREAL_PASS=cast("str", secret["password"]),
+    )
+    with tempfile.TemporaryDirectory(
+        dir=Path(cast("str", record["directory"]))
+    ) as directory:
         result = subprocess.run(
             [
                 cast("dict[str, str]", config["server"])["binary"],
@@ -195,9 +202,13 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         assert other in eligible
         assert resources.reclaim(resource) == "removed"
         # Exact namespace removal must leave the independently registered owner.
-        catalog = cast("dict[str, object]", resources.namespace_sql(config, "INFO FOR ROOT;")[0])["namespaces"]
+        catalog = cast(
+            "dict[str, object]", resources.namespace_sql(config, "INFO FOR ROOT;")[0]
+        )["namespaces"]
         assert record["namespace"] not in cast("dict[str, object]", catalog)
-        assert resources.resource_status(other)["namespace"] in cast("dict[str, object]", catalog)
+        assert resources.resource_status(other)["namespace"] in cast(
+            "dict[str, object]", catalog
+        )
         assert resources.reclaim(other) == "removed"
         (evidence / "disposal.json").write_text(
             json.dumps(

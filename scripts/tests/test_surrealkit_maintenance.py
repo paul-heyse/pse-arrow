@@ -157,12 +157,20 @@ class MaintenanceTests(unittest.TestCase):
         timeout: float = 120,
     ) -> dict[str, object]:
         return tool.execute(
-            self.binary, self.state, self.folder, "up",
-            rollout_id=rollout_id, pending_nonce=pending_nonce, timeout=timeout,
+            self.binary,
+            self.state,
+            self.folder,
+            "up",
+            rollout_id=rollout_id,
+            pending_nonce=pending_nonce,
+            timeout=timeout,
         )
 
     def current(self) -> dict[str, object]:
-        return cast('dict[str, object]', server.read_json(self.state / "config.json")[tool.PENDING])
+        return cast(
+            "dict[str, object]",
+            server.read_json(self.state / "config.json")[tool.PENDING],
+        )
 
     def evidence(self, selected: Mapping[str, object]) -> dict[str, object]:
         return {
@@ -261,7 +269,10 @@ class MaintenanceTests(unittest.TestCase):
         )
         self.assertLess(self.calls.index("authority"), self.calls.index("child"))
         self.assertGreater(self.calls.index("drain"), self.calls.index("child"))
-        self.assertEqual(cast('list[dict[str, object]]', result["attempts"])[0]["listener_drain"], "complete")
+        self.assertEqual(
+            cast("list[dict[str, object]]", result["attempts"])[0]["listener_drain"],
+            "complete",
+        )
 
     def test_whole_chain_submission_binds_beta_order_instead_of_filename_order(
         self,
@@ -280,7 +291,13 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(value["rollouts"], ["z", "one", "a"])
         self.assertEqual(self.current()["rollouts"], ["z", "one", "a"])
         self.assertEqual(value["sql_outcome"], "unknown")
-        self.assertEqual(cast('dict[str, object]', cast('list[dict[str, object]]', value["attempts"])[0]["child"])["owned_drain"], "complete")
+        self.assertEqual(
+            cast(
+                "dict[str, object]",
+                cast("list[dict[str, object]]", value["attempts"])[0]["child"],
+            )["owned_drain"],
+            "complete",
+        )
 
     def test_invalid_beta_order_refuses_before_listener_or_sql(self) -> None:
         for output in (
@@ -327,7 +344,15 @@ class MaintenanceTests(unittest.TestCase):
                 result = self.run_tool()
                 self.assertEqual(result["phase"], "unknown")
                 self.assertEqual(result["sql_outcome"], "unknown")
-                self.assertEqual(cast('dict[str, object]', cast('list[dict[str, object]]', result["attempts"])[0]["result"])["reason"], reason)
+                self.assertEqual(
+                    cast(
+                        "dict[str, object]",
+                        cast("list[dict[str, object]]", result["attempts"])[0][
+                            "result"
+                        ],
+                    )["reason"],
+                    reason,
+                )
                 self.assertFalse(
                     server.read_json(self.state / "config.json")["accepting_writes"]
                 )
@@ -353,7 +378,10 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(result["phase"], "unknown")
             self.assertEqual(result["sql_outcome"], "unknown")
             self.assertEqual(result["command"], ["rollout", "up", "--complete"])
-            self.assertEqual(cast('list[dict[str, object]]', result["attempts"])[-1]["phase"], "cli_succeeded")
+            self.assertEqual(
+                cast("list[dict[str, object]]", result["attempts"])[-1]["phase"],
+                "cli_succeeded",
+            )
         with self.assertRaisesRegex(tool.MaintenanceError, "exact SQL settlement"):
             tool.execute(
                 self.binary,
@@ -419,7 +447,12 @@ class MaintenanceTests(unittest.TestCase):
             self.assertRaisesRegex(server.SupervisorError, "invocation changed"),
         ):
             self.run_tool()
-        self.assertEqual(cast('list[dict[str, object]]', self.current()["attempts"])[0]["listener_drain"], "unresolved")
+        self.assertEqual(
+            cast("list[dict[str, object]]", self.current()["attempts"])[0][
+                "listener_drain"
+            ],
+            "unresolved",
+        )
         self.assertFalse(
             server.read_json(self.state / "config.json")["accepting_writes"]
         )
@@ -453,7 +486,12 @@ class MaintenanceTests(unittest.TestCase):
     ) -> None:
         self.native_drain = "unresolved"
         value = self.run_tool()
-        attempt = Path(cast('str', cast('list[dict[str, object]]', value["attempts"])[0]["directory"]))
+        attempt = Path(
+            cast(
+                "str",
+                cast("list[dict[str, object]]", value["attempts"])[0]["directory"],
+            )
+        )
         native_record = {
             "scope": {
                 "unit": "original",
@@ -501,7 +539,13 @@ class MaintenanceTests(unittest.TestCase):
                 pending_nonce=str(value["nonce"]),
             )
         observed.assert_called_once_with(native_record)
-        self.assertEqual(cast('dict[str, object]', cast('list[dict[str, object]]', result["attempts"])[0]["child"])["owned_drain"], "complete")
+        self.assertEqual(
+            cast(
+                "dict[str, object]",
+                cast("list[dict[str, object]]", result["attempts"])[0]["child"],
+            )["owned_drain"],
+            "complete",
+        )
         self.assertEqual(
             result["phase"], "unknown", "native drain alone never settles submitted SQL"
         )
@@ -509,6 +553,7 @@ class MaintenanceTests(unittest.TestCase):
     def test_settlement_rejects_boolean_and_wrong_selection(self) -> None:
         value = self.run_tool()
         for proof in [True, {**self.evidence(value), "input_sha256": "wrong"}]:
+
             def invalid_evidence(
                 _state: Path,
                 _endpoint: str,
@@ -517,12 +562,10 @@ class MaintenanceTests(unittest.TestCase):
                 proof: object = proof,
             ) -> Mapping[str, object]:
                 # Deliberately violate the callback's evidence contract to test refusal.
-                return cast('Mapping[str, object]', proof)
+                return cast("Mapping[str, object]", proof)
 
             with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
-                tool.settle(
-                    self.state, str(value["nonce"]), invalid_evidence
-                )
+                tool.settle(self.state, str(value["nonce"]), invalid_evidence)
             self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
 
@@ -541,14 +584,20 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(selected["phase"], "unknown")
             # Mutation probes deliberately cast away the immutable callback surface.
             with self.assertRaises(TypeError):
-                cast('dict[str, object]', selected)["input_sha256"] = "changed"
+                cast("dict[str, object]", selected)["input_sha256"] = "changed"
             with self.assertRaises(TypeError):
-                cast('list[dict[str, object]]', selected["attempts"])[0]["phase"] = "changed"
+                cast("list[dict[str, object]]", selected["attempts"])[0]["phase"] = (
+                    "changed"
+                )
             return self.evidence(selected)
 
         result = tool.settle(self.state, str(value["nonce"]), operation)
         self.assertEqual(
-            cast('dict[str, object]', cast('dict[str, object]', result["settlement"])["operation"])["identity"], "actual-operation-id"
+            cast(
+                "dict[str, object]",
+                cast("dict[str, object]", result["settlement"])["operation"],
+            )["identity"],
+            "actual-operation-id",
         )
         self.assertEqual(self.current()["phase"], "settled")
         self.assertEqual(self.current()["sql_outcome"], "settled")
@@ -564,7 +613,7 @@ class MaintenanceTests(unittest.TestCase):
         value = tool.execute(
             self.binary, self.state, self.folder, "start", rollout_id="one"
         )
-        nonce = cast('str', value["nonce"])
+        nonce = cast("str", value["nonce"])
         with self.assertRaisesRegex(tool.MaintenanceError, "exact settled start"):
             tool.execute(
                 self.binary,
@@ -609,7 +658,7 @@ class MaintenanceTests(unittest.TestCase):
             capture.assert_called_once()
         self.assertEqual(value["previous_marker"], marker)
         proof = {**self.evidence(value), "phase": "start"}
-        tool.settle(self.state, cast('str', value["nonce"]), lambda *_: proof)
+        tool.settle(self.state, cast("str", value["nonce"]), lambda *_: proof)
         with patch.object(tool, "predecessor_marker") as capture:
             result = tool.execute(
                 self.binary,
@@ -617,7 +666,7 @@ class MaintenanceTests(unittest.TestCase):
                 self.folder,
                 "complete",
                 rollout_id="one",
-                pending_nonce=cast('str', value["nonce"]),
+                pending_nonce=cast("str", value["nonce"]),
             )
             capture.assert_not_called()
         self.assertEqual(result["previous_marker"], marker)
@@ -627,7 +676,9 @@ class MaintenanceTests(unittest.TestCase):
             self.binary, self.state, self.folder, "start", rollout_id="one"
         )
         with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
-            tool.settle(self.state, cast('str', value["nonce"]), lambda *_: self.evidence(value))
+            tool.settle(
+                self.state, cast("str", value["nonce"]), lambda *_: self.evidence(value)
+            )
         self.assertEqual(self.current()["sql_outcome"], "unknown")
         self.assertNotIn("settlement", self.current())
 
@@ -689,11 +740,19 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(tool, "canonical_tool", return_value=witness) as canonical,
         ):
             result = tool.settle_generated(
-                self.state, cast('str', value["nonce"]), self.folder, self.binary
+                self.state, cast("str", value["nonce"]), self.folder, self.binary
             )
         self.assertEqual(result["phase"], "settled")
-        self.assertEqual(cast('list[dict[str, object]]', cast('dict[str, object]', result["settlement"])["steps"])[0]["outcome"], "acknowledged")
-        self.assertEqual(cast('dict[str, object]', result["settlement"])["canonical"], witness)
+        self.assertEqual(
+            cast(
+                "list[dict[str, object]]",
+                cast("dict[str, object]", result["settlement"])["steps"],
+            )[0]["outcome"],
+            "acknowledged",
+        )
+        self.assertEqual(
+            cast("dict[str, object]", result["settlement"])["canonical"], witness
+        )
         self.assertEqual(canonical.call_args.kwargs["expected_schemas"], ())
 
     def test_whole_chain_settlement_cannot_omit_initial_baseline(self) -> None:
@@ -709,7 +768,9 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(tool, "canonical_tool", return_value=witness) as canonical,
             self.assertRaisesRegex(tool.MaintenanceError, "Whole-chain submission"),
         ):
-            tool.settle_generated(self.state, cast('str', value["nonce"]), self.folder, self.binary)
+            tool.settle_generated(
+                self.state, cast("str", value["nonce"]), self.folder, self.binary
+            )
         query.assert_not_called()
         canonical.assert_not_called()
         self.assertEqual(self.current()["sql_outcome"], "unknown")
@@ -725,7 +786,9 @@ class MaintenanceTests(unittest.TestCase):
                 tool.MaintenanceError, "Actual beta manifest identity"
             ),
         ):
-            tool.settle_generated(self.state, cast('str', value["nonce"]), self.folder, self.binary)
+            tool.settle_generated(
+                self.state, cast("str", value["nonce"]), self.folder, self.binary
+            )
         canonical.assert_not_called()
         self.assertEqual(self.current()["sql_outcome"], "unknown")
 
@@ -741,19 +804,25 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(tool, "canonical_tool", return_value=witness),
         ):
             result = tool.settle_generated(
-                self.state, cast('str', value["nonce"]), self.folder, self.binary
+                self.state, cast("str", value["nonce"]), self.folder, self.binary
             )
         self.assertEqual(result["phase"], "sql_settled")
-        self.assertEqual(cast('list[dict[str, object]]', cast('dict[str, object]', result["settlement"])["steps"])[0]["outcome"], "reconciled")
+        self.assertEqual(
+            cast(
+                "list[dict[str, object]]",
+                cast("dict[str, object]", result["settlement"])["steps"],
+            )[0]["outcome"],
+            "reconciled",
+        )
         with self.assertRaisesRegex(tool.MaintenanceError, "final canonical"):
-            tool.activate(self.state, cast('str', value["nonce"]), self.binary)
+            tool.activate(self.state, cast("str", value["nonce"]), self.binary)
         repaired = tool.execute(
             self.binary,
             self.state,
             self.folder,
             "repair",
             rollout_id="one",
-            pending_nonce=cast('str', value["nonce"]),
+            pending_nonce=cast("str", value["nonce"]),
         )
         self.assertEqual(repaired["phase"], "sql_settled")
         row["status"] = "completed"
@@ -763,7 +832,7 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(tool, "canonical_tool", return_value=witness),
         ):
             result = tool.settle_generated(
-                self.state, cast('str', value["nonce"]), self.folder, self.binary
+                self.state, cast("str", value["nonce"]), self.folder, self.binary
             )
         self.assertEqual(result["phase"], "settled")
 
@@ -774,11 +843,17 @@ class MaintenanceTests(unittest.TestCase):
         for change in ("checksum", "data"):
             with self.subTest(change=change):
                 if change == "checksum":
-                    cast('list[dict[str, object]]', row["steps"])[0]["checksum"] = "substituted"
+                    cast("list[dict[str, object]]", row["steps"])[0]["checksum"] = (
+                        "substituted"
+                    )
                 else:
-                    cast('list[dict[str, object]]', row["steps"])[0]["checksum"] = cast('list[dict[str, object]]', item["steps"])[0]["checksum"]
-                    cast('list[dict[str, object]]', row["steps"])[0]["kind"] = "run_sql"
-                    cast('list[dict[str, object]]', item["steps"])[0]["kind"] = "run_sql"
+                    cast("list[dict[str, object]]", row["steps"])[0]["checksum"] = cast(
+                        "list[dict[str, object]]", item["steps"]
+                    )[0]["checksum"]
+                    cast("list[dict[str, object]]", row["steps"])[0]["kind"] = "run_sql"
+                    cast("list[dict[str, object]]", item["steps"])[0]["kind"] = (
+                        "run_sql"
+                    )
                 with (
                     patch.object(
                         tool, "publication", return_value={"rollouts": [item]}
@@ -792,7 +867,10 @@ class MaintenanceTests(unittest.TestCase):
                     self.assertRaises(tool.MaintenanceError),
                 ):
                     tool.settle_generated(
-                        self.state, cast('str', value["nonce"]), self.folder, self.binary
+                        self.state,
+                        cast("str", value["nonce"]),
+                        self.folder,
+                        self.binary,
                     )
                 canonical.assert_not_called()
                 self.assertEqual(self.current()["sql_outcome"], "unknown")
@@ -838,9 +916,20 @@ class MaintenanceTests(unittest.TestCase):
                 self.state, self.endpoint(self.state), value, self.binary
             )
         self.assertEqual(self.current()["nonce"], value["nonce"])
-        self.assertEqual(cast('list[dict[str, object]]', self.current()["canonical_attempts"])[-1]["phase"], "unknown")
         self.assertEqual(
-            cast('dict[str, object]', cast('list[dict[str, object]]', self.current()["canonical_attempts"])[-1]["child"])["owned_drain"], "complete"
+            cast("list[dict[str, object]]", self.current()["canonical_attempts"])[-1][
+                "phase"
+            ],
+            "unknown",
+        )
+        self.assertEqual(
+            cast(
+                "dict[str, object]",
+                cast("list[dict[str, object]]", self.current()["canonical_attempts"])[
+                    -1
+                ]["child"],
+            )["owned_drain"],
+            "complete",
         )
 
     def test_activation_requires_final_canonical_settlement(self) -> None:
@@ -849,14 +938,14 @@ class MaintenanceTests(unittest.TestCase):
             patch.object(tool, "canonical_tool") as canonical,
             self.assertRaisesRegex(tool.MaintenanceError, "final canonical"),
         ):
-            tool.activate(self.state, cast('str', value["nonce"]), self.binary)
+            tool.activate(self.state, cast("str", value["nonce"]), self.binary)
         canonical.assert_not_called()
         self.assertEqual(self.current()["nonce"], value["nonce"])
 
     def test_activation_failure_and_drain_failure_retain_exact_pending(self) -> None:
         value = self.run_tool()
         proof = {**self.evidence(value), "canonical": {"scope": "generated-target"}}
-        tool.settle(self.state, cast('str', value["nonce"]), lambda *_: proof)
+        tool.settle(self.state, cast("str", value["nonce"]), lambda *_: proof)
         with (
             patch.object(
                 tool,
@@ -865,7 +954,7 @@ class MaintenanceTests(unittest.TestCase):
             ),
             self.assertRaisesRegex(tool.MaintenanceError, "lost activation"),
         ):
-            tool.activate(self.state, cast('str', value["nonce"]), self.binary)
+            tool.activate(self.state, cast("str", value["nonce"]), self.binary)
         self.assertEqual(self.current()["nonce"], value["nonce"])
         with (
             patch.object(
@@ -878,7 +967,7 @@ class MaintenanceTests(unittest.TestCase):
             ),
             self.assertRaisesRegex(server.SupervisorError, "drain failed"),
         ):
-            tool.activate(self.state, cast('str', value["nonce"]), self.binary)
+            tool.activate(self.state, cast("str", value["nonce"]), self.binary)
         self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertEqual(self.current()["activation"], {"issuing_store": "store"})
 
@@ -887,7 +976,7 @@ class MaintenanceTests(unittest.TestCase):
     ) -> None:
         value = self.run_tool()
         proof = {**self.evidence(value), "canonical": {"scope": "generated-target"}}
-        tool.settle(self.state, cast('str', value["nonce"]), lambda *_: proof)
+        tool.settle(self.state, cast("str", value["nonce"]), lambda *_: proof)
 
         def activation(
             state: Path,
@@ -904,7 +993,7 @@ class MaintenanceTests(unittest.TestCase):
             return {"issuing_store": "same-store"}
 
         with patch.object(tool, "canonical_tool", side_effect=activation):
-            result = tool.activate(self.state, cast('str', value["nonce"]), self.binary)
+            result = tool.activate(self.state, cast("str", value["nonce"]), self.binary)
         self.assertEqual(result["activation"], {"issuing_store": "same-store"})
         self.assertNotIn(tool.PENDING, server.read_json(self.state / "config.json"))
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
@@ -1008,7 +1097,7 @@ class OwnedChildTests(unittest.TestCase):
             result = server.read_json(attempt / "child.json")
             self.assertEqual(result["reason"], "owner_lost")
             self.assertLess(
-                cast('int', result["exit_code"]),
+                cast("int", result["exit_code"]),
                 0,
                 "TERM-ignoring child was reaped after owned escalation",
             )
@@ -1148,7 +1237,11 @@ class RevocationPreparationTests(unittest.TestCase):
         self,
     ) -> None:
         for table in ("__rollout", "__entity"):
-            values: list[object] = ["The table '" + table + "' does not exist", [], {"tables": {}}]
+            values: list[object] = [
+                "The table '" + table + "' does not exist",
+                [],
+                {"tables": {}},
+            ]
             self.assertEqual(probe.checked_catalog(values, bootstrap=True), [])
             with self.assertRaisesRegex(probe.tool.ToolError, "query refused"):
                 probe.checked_catalog(values)
@@ -1159,7 +1252,11 @@ class RevocationPreparationTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(probe.tool.ToolError, "query refused"):
                 probe.checked_catalog([error], bootstrap=True)
-        acknowledged: list[object] = [[{"status": "running_start"}], [True], {"tables": {}}]
+        acknowledged: list[object] = [
+            [{"status": "running_start"}],
+            [True],
+            {"tables": {}},
+        ]
         self.assertEqual(
             probe.checked_catalog(acknowledged, bootstrap=True), acknowledged
         )
@@ -1252,7 +1349,9 @@ class RevocationPreparationTests(unittest.TestCase):
             self.assertEqual(value["steps"][0]["id"], "owner_revocation_barrier")
             self.assertEqual(frozen.read_bytes(), generated)
             self.assertEqual(
-                cast('dict[str, object]', record["maintenance_revocation_probe"])["input_sha256"],
+                cast("dict[str, object]", record["maintenance_revocation_probe"])[
+                    "input_sha256"
+                ],
                 probe.maintenance.inputs(folder)[1],
             )
             self.assertEqual(value["source_schema_hash"], "source")

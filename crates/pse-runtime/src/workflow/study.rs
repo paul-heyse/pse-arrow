@@ -440,7 +440,7 @@ impl Runtime {
                 let mut admitted_seeds = BTreeMap::new();
                 let mut seed_lane = super::study_operations::StudyPreparationLane::new();
                 let mut seed_preparation: Option<(
-                    (pse_ids::ContentHash, Vec<String>, Vec<SemanticId>),
+                    super::study_operations::StudyBindingKey,
                     super::ModelingSolvePreparation,
                 )> = None;
                 let mut admission = None;

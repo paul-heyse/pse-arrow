@@ -62,7 +62,11 @@ def beta6_step_checksum(step: dict[str, object]) -> str:
     schema actions emitted by run_plan are admitted here; arbitrary SQL is not.
     EntityKey's absent scope deserializes to None and serializes as JSON null.
     """
-    normalized: dict[str, object] = {"id": step["id"], "phase": step["phase"], "kind": step["kind"]}
+    normalized: dict[str, object] = {
+        "id": step["id"],
+        "phase": step["phase"],
+        "kind": step["kind"],
+    }
     kind = step["kind"]
     if kind == "apply_files":
         normalized["files"] = [
@@ -70,7 +74,9 @@ def beta6_step_checksum(step: dict[str, object]) -> str:
             for file in cast("list[dict[str, object]]", step["files"])
             if isinstance(file, dict) and set(file) == {"path", "hash"}
         ]
-        if len(cast("list[object]", normalized["files"])) != len(cast("list[object]", step["files"])):
+        if len(cast("list[object]", normalized["files"])) != len(
+            cast("list[object]", step["files"])
+        ):
             raise ProducerError("Only frozen schema files are admitted")
     elif kind in {"remove_entities", "restore_definitions"}:
         normalized["entities"] = [
@@ -339,7 +345,11 @@ def publish(
                     for name, digest in inventory(owned).items()
                 }
             )
-            releases = list(cast("list[dict[str, object]]", previous["releases"])) if previous else []
+            releases = (
+                list(cast("list[dict[str, object]]", previous["releases"]))
+                if previous
+                else []
+            )
             releases.append({"id": identity, "files": new_files})
             head_files = {
                 name: digest

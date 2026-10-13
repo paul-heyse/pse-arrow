@@ -22,6 +22,8 @@ use pse_model::study::{ScientificFacts, SeedNeed, SeedRole};
 use pse_modeling::Limits;
 use std::{collections::BTreeMap, sync::Arc};
 
+pub(in crate::workflow) type StudyBindingKey = (ContentHash, Vec<String>, Vec<SemanticId>);
+
 /// Exact source/context required when reconstructing an operation from stored bundles.
 #[derive(
     Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
@@ -409,14 +411,14 @@ impl DeclaredStudyAdmission {
     pub(in crate::workflow) fn binding_key(
         operation: &StudyOperation,
         binding: &super::AdmittedBinding,
-    ) -> Result<(ContentHash, Vec<String>, Vec<SemanticId>), WorkflowError> {
+    ) -> Result<StudyBindingKey, WorkflowError> {
         let (descriptor, paths) = Self::key(operation, &super::PointOverlay::default())?;
         Ok((descriptor, paths, binding.entries.keys().copied().collect()))
     }
     pub(in crate::workflow) fn matches(&self, key: &(ContentHash, Vec<String>)) -> bool {
         self.operation == key.0 && self.paths == key.1 && self.members.is_empty()
     }
-    fn matches_binding(&self, key: &(ContentHash, Vec<String>, Vec<SemanticId>)) -> bool {
+    fn matches_binding(&self, key: &StudyBindingKey) -> bool {
         self.operation == key.0 && self.paths == key.1 && self.members == key.2
     }
     pub(in crate::workflow) async fn prepare(
@@ -1177,7 +1179,7 @@ pub(in crate::workflow) struct StudyPreparationLane {
 struct PreparedLaneInputs {
     original: ModelingPackage,
     package: ModelingPackage,
-    key: (ContentHash, Vec<String>, Vec<SemanticId>),
+    key: StudyBindingKey,
     admission: Option<DeclaredStudyAdmission>,
     scope: Arc<super::modeling::engagement::HeldPreparationScope>,
 }

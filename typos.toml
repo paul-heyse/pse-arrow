@@ -87,6 +87,9 @@ thr = "thr"                             # Thread-count column abbreviation in ca
 clonable = "clonable"                   # Exact dyn-clonable package spelling in Cargo graph evidence.
 
 [default.extend-identifiers]
+# Exact homotopy option names in the cited solver literature.
+homMaxTries = "homMaxTries"
+homMaxNewtonSteps = "homMaxNewtonSteps"
 # Header-defined PETSc ABI symbol, preserved exactly in Rust and C bindings.
 PETSC_ERR_ARG_SIZ = "PETSC_ERR_ARG_SIZ"
 PSE_PETSC_ERR_ARG_SIZ = "PSE_PETSC_ERR_ARG_SIZ"
