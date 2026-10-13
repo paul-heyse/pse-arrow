@@ -24,9 +24,9 @@ from pse._build import (
 )
 from pse._inspection import TableStream
 from pse.contracts.documents import (
-    AnalysisControls,
     AdviceMetric,
     AdviceObservation,
+    AnalysisControls,
     AttemptSummary,
     Completion,
     CompositionRequest,
@@ -37,8 +37,8 @@ from pse.contracts.documents import (
     PointStatus,
     ProgressCoverage,
     ProgressEventDocument,
-    RouteDocument,
     ReplayDocument,
+    RouteDocument,
     RuntimeAccuracyGoalAssessmentsRow,
     SolverAdviceInputs,
     StudyCancel,
@@ -211,7 +211,7 @@ class RunResult:
     _handle: _NativeRunResult
 
     def replay(self) -> "ScientificReplay":
-        """Retain exact inputs and observed decisions independently of mutable history."""
+        """Retain exact inputs and observed decisions without mutable history."""
         return ScientificReplay(self._handle.replay())
 
     def available_start(self, step: int | None = None) -> _NativeStart | None:

@@ -150,9 +150,13 @@ impl MathService {
                 mut report,
                 values,
                 inclusive_work,
-            } = prepared
-                .realization
-                .execute(self, execution.clone(), budget, original_start, &mut capture_component)?;
+            } = prepared.realization.execute(
+                self,
+                execution.clone(),
+                budget,
+                original_start,
+                &mut capture_component,
+            )?;
             work = inclusive_work;
             if !crate::workflow::numerics::native_use(&report, &prepared.original.numerics.policy)
                 .permits_use()

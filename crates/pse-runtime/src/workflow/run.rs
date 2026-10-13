@@ -428,18 +428,24 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
     }
 }
 /// The existing supervisor keeps ownership through cancellation and native drain.
-async fn supervised_with_cancel(
+fn supervised_with_cancel(
     work: impl Future<Output = ()>,
     stop: impl FnOnce(),
     parent: Option<crate::CancelSource>,
-) {
-    tokio::pin!(work);
-    if let Some(parent) = parent {
-        tokio::select! {
-            () = &mut work => {},
-            () = parent.cancelled() => { stop(); work.await; },
+) -> impl Future<Output = ()> {
+    // Box before constructing the supervisor future. Keeping the full scientific
+    // future inline makes task-local polling/drop exceed ordinary executor stacks.
+    let mut work = Box::pin(work);
+    async move {
+        if let Some(parent) = parent {
+            tokio::select! {
+                () = &mut work => {},
+                () = parent.cancelled() => { stop(); work.await; },
+            }
+        } else {
+            work.await;
         }
-    } else { work.await; }
+    }
 }
 
 #[cfg(test)]
@@ -451,14 +457,21 @@ mod cancellation_tests {
         let flight = native.clone();
         let (observed, cancellation) = tokio::sync::oneshot::channel();
         let (release, drain) = tokio::sync::oneshot::channel();
-        let task = tokio::spawn(super::supervised_with_cancel(async move {
-            flight.cancelled().await;
-            observed.send(()).unwrap();
-            drain.await.unwrap();
-        }, move || native.cancel(), Some(parent.clone())));
+        let task = tokio::spawn(super::supervised_with_cancel(
+            async move {
+                flight.cancelled().await;
+                observed.send(()).unwrap();
+                drain.await.unwrap();
+            },
+            move || native.cancel(),
+            Some(parent.clone()),
+        ));
         parent.cancel();
         cancellation.await.unwrap();
-        assert!(!task.is_finished(), "the supervisor must own drain after cancellation");
+        assert!(
+            !task.is_finished(),
+            "the supervisor must own drain after cancellation"
+        );
         release.send(()).unwrap();
         task.await.unwrap();
     }
@@ -470,10 +483,21 @@ impl super::ModelingSimulation {
         self.start_owned(None, self.admission_deadline()?, None)
     }
     /// Start with caller cancellation linked through pending admission and native drain.
-    pub fn start_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
-        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
+    pub fn start_with_cancel(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
         let deadline = self.admission_deadline()?;
-        self.start_owned(None, cancel.deadline().map_or(deadline, |parent| deadline.min(parent)), Some(cancel.clone()))
+        self.start_owned(
+            None,
+            cancel
+                .deadline()
+                .map_or(deadline, |parent| deadline.min(parent)),
+            Some(cancel.clone()),
+        )
     }
     pub(crate) async fn start_attempt(
         &self,
@@ -544,79 +568,100 @@ impl super::ModelingSimulation {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let prepared = self.clone();
-            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
-                let request = RunRequest::Simulation(Box::new(prepared.clone()));
-                let stop = cancel.clone();
-                let registered = async {
-                    if let Some(attempt) = durable.as_mut() {
-                        attempt.register(run_id, &request).await?;
-                        let stop = stop.clone();
-                        attempt.start(Arc::new(move || stop.cancel())).await?;
-                    }
-                    Ok::<(), WorkflowError>(())
-                }
-                .await;
-                if let Err(error) = registered {
-                    if let Some(handle) = handle {
-                        handle.cancel();
-                        let _ = handle.finish().await;
-                    }
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+            tokio::spawn(crate::workflow::inherit_runtime_activity(
+                supervised_with_cancel(
+                    async move {
+                        let request = RunRequest::Simulation(Box::new(prepared.clone()));
+                        let stop = cancel.clone();
+                        let registered = async {
+                            if let Some(attempt) = durable.as_mut() {
+                                attempt.register(run_id, &request).await?;
+                                let stop = stop.clone();
+                                attempt.start(Arc::new(move || stop.cancel())).await?;
+                            }
+                            Ok::<(), WorkflowError>(())
+                        }
+                        .await;
+                        if let Err(error) = registered {
+                            if let Some(handle) = handle {
+                                handle.cancel();
+                                let _ = handle.finish().await;
+                            }
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let handle = match handle {
-                    Some(handle) => Ok(handle),
-                    None => match dispatch.take() {
-                        Some(dispatch) => dispatch(),
-                        None => Err(contract("native dispatch absent")),
-                    },
-                };
-                let handle = match handle {
-                    Ok(handle) => handle,
-                    Err(error) => {
-                        let refused =
-                            RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let handle = match handle {
+                            Some(handle) => Ok(handle),
+                            None => match dispatch.take() {
+                                Some(dispatch) => dispatch(),
+                                None => Err(contract("native dispatch absent")),
+                            },
+                        };
+                        let handle = match handle {
+                            Ok(handle) => handle,
+                            Err(error) => {
+                                let refused = RunResult::joined(
+                                    run_id,
+                                    runtime,
+                                    request,
+                                    None,
+                                    Err(Arc::new(error)),
+                                )
                                 .refused(durable)
                                 .await;
-                        sender.send_replace(Some(Arc::new(refused)));
-                        return;
-                    }
-                };
-                if let Err(error) = admit(
-                    &mut durable,
-                    run_id,
-                    &request,
-                    admitted(signal),
-                    Arc::new(move || stop.cancel()),
-                )
-                .await
-                {
-                    handle.cancel();
-                    let _ = handle.finish().await;
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                                sender.send_replace(Some(Arc::new(refused)));
+                                return;
+                            }
+                        };
+                        if let Err(error) = admit(
+                            &mut durable,
+                            run_id,
+                            &request,
+                            admitted(signal),
+                            Arc::new(move || stop.cancel()),
+                        )
+                        .await
+                        {
+                            handle.cancel();
+                            let _ = handle.finish().await;
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let report = match handle.finish().await {
-                    Ok(((report, checks, accuracy), owner)) => prepared
-                        .finish(run_id, report, checks, accuracy, owner)
-                        .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
-                        .map_err(Arc::new),
-                    Err(error) => Err(Arc::new(WorkflowError::Math(error))),
-                };
-                let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                let result = RunResult::joined(run_id, runtime, request, None, report)
-                    .finished(durable, cancelled)
-                    .await;
-                sender.send_replace(Some(Arc::new(result)));
-            }, move || forwarding.cancel(), parent)));
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let report = match handle.finish().await {
+                            Ok(((report, checks, accuracy), owner)) => prepared
+                                .finish(run_id, report, checks, accuracy, owner)
+                                .map(|trajectory| RunReport::Simulation(Box::new(trajectory)))
+                                .map_err(Arc::new),
+                            Err(error) => Err(Arc::new(WorkflowError::Math(error))),
+                        };
+                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
+                        let result = RunResult::joined(run_id, runtime, request, None, report)
+                            .finished(durable, cancelled)
+                            .await;
+                        sender.send_replace(Some(Arc::new(result)));
+                    },
+                    move || forwarding.cancel(),
+                    parent,
+                ),
+            ));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -648,10 +693,20 @@ impl super::ShootingProblem {
         self.start_requested(Some(initial), None)
     }
     /// Preserve caller cancellation through the existing shooting supervisor.
-    pub fn start_replay_with_cancel(self: &Arc<Self>, initial: Option<Vec<f64>>, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
-        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
-        if initial.as_ref().is_some_and(|initial| initial.len() != self.initial_extent() || initial.iter().any(|v| !v.is_finite())) {
-            return Err(contract("shooting initial coordinate extent or nonfinite value"));
+    pub fn start_replay_with_cancel(
+        self: &Arc<Self>,
+        initial: Option<Vec<f64>>,
+        cancel: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
+        if initial.as_ref().is_some_and(|initial| {
+            initial.len() != self.initial_extent() || initial.iter().any(|v| !v.is_finite())
+        }) {
+            return Err(contract(
+                "shooting initial coordinate extent or nonfinite value",
+            ));
         }
         self.start_requested(initial, Some(cancel.clone()))
     }
@@ -671,7 +726,10 @@ impl super::ShootingProblem {
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
                 .ok_or_else(|| contract("submitted task deadline extent"))?;
-            let deadline = parent.as_ref().and_then(crate::CancelSource::deadline).map_or(deadline, |outer| deadline.min(outer));
+            let deadline = parent
+                .as_ref()
+                .and_then(crate::CancelSource::deadline)
+                .map_or(deadline, |outer| deadline.min(outer));
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             let prepared = self.clone();
             let mut declared_profile = self.solver.clone();
@@ -720,75 +778,96 @@ impl super::ShootingProblem {
                 problem: self.clone(),
                 initial,
             };
-            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
-                let stop = cancel.clone();
-                let registered = async {
-                    if let Some(attempt) = durable.as_mut() {
-                        attempt.register(run_id, &request).await?;
-                        let stop = stop.clone();
-                        attempt.start(Arc::new(move || stop.cancel())).await?;
-                    }
-                    Ok::<(), WorkflowError>(())
-                }
-                .await;
-                if let Err(error) = registered {
-                    if let Some(handle) = handle {
-                        handle.cancel();
-                        let _ = handle.finish().await;
-                    }
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+            tokio::spawn(crate::workflow::inherit_runtime_activity(
+                supervised_with_cancel(
+                    async move {
+                        let stop = cancel.clone();
+                        let registered = async {
+                            if let Some(attempt) = durable.as_mut() {
+                                attempt.register(run_id, &request).await?;
+                                let stop = stop.clone();
+                                attempt.start(Arc::new(move || stop.cancel())).await?;
+                            }
+                            Ok::<(), WorkflowError>(())
+                        }
+                        .await;
+                        if let Err(error) = registered {
+                            if let Some(handle) = handle {
+                                handle.cancel();
+                                let _ = handle.finish().await;
+                            }
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let handle = match handle {
-                    Some(handle) => Ok(handle),
-                    None => match dispatch.take() {
-                        Some(dispatch) => dispatch().map_err(WorkflowError::from),
-                        None => Err(contract("native dispatch absent")),
-                    },
-                };
-                let handle = match handle {
-                    Ok(handle) => handle,
-                    Err(error) => {
-                        let refused =
-                            RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let handle = match handle {
+                            Some(handle) => Ok(handle),
+                            None => match dispatch.take() {
+                                Some(dispatch) => dispatch().map_err(WorkflowError::from),
+                                None => Err(contract("native dispatch absent")),
+                            },
+                        };
+                        let handle = match handle {
+                            Ok(handle) => handle,
+                            Err(error) => {
+                                let refused = RunResult::joined(
+                                    run_id,
+                                    runtime,
+                                    request,
+                                    None,
+                                    Err(Arc::new(error)),
+                                )
                                 .refused(durable)
                                 .await;
-                        sender.send_replace(Some(Arc::new(refused)));
-                        return;
-                    }
-                };
-                if let Err(error) = admit(
-                    &mut durable,
-                    run_id,
-                    &request,
-                    admitted(signal),
-                    Arc::new(move || stop.cancel()),
-                )
-                .await
-                {
-                    handle.cancel();
-                    let _ = handle.finish().await;
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                                sender.send_replace(Some(Arc::new(refused)));
+                                return;
+                            }
+                        };
+                        if let Err(error) = admit(
+                            &mut durable,
+                            run_id,
+                            &request,
+                            admitted(signal),
+                            Arc::new(move || stop.cancel()),
+                        )
+                        .await
+                        {
+                            handle.cancel();
+                            let _ = handle.finish().await;
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let (report, owner) = match handle.finish().await {
-                    Ok((report, owner)) => (Ok(report), Some(owner)),
-                    Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
-                };
-                let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                let result = RunResult::joined(run_id, runtime, request, owner, report)
-                    .finished(durable, cancelled)
-                    .await;
-                sender.send_replace(Some(Arc::new(result)));
-            }, move || forwarding.cancel(), parent)));
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let (report, owner) = match handle.finish().await {
+                            Ok((report, owner)) => (Ok(report), Some(owner)),
+                            Err(error) => (Err(Arc::new(WorkflowError::Math(error))), None),
+                        };
+                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
+                        let result = RunResult::joined(run_id, runtime, request, owner, report)
+                            .finished(durable, cancelled)
+                            .await;
+                        sender.send_replace(Some(Arc::new(result)));
+                    },
+                    move || forwarding.cancel(),
+                    parent,
+                ),
+            ));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -807,10 +886,21 @@ impl super::PreparedFit {
         self.start_owned(None, self.admission_deadline()?, None)
     }
     /// Start with caller cancellation linked through pending admission and native drain.
-    pub fn start_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
-        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
+    pub fn start_with_cancel(
+        &self,
+        cancel: &crate::CancelSource,
+    ) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() {
+            return Err(MathRuntimeError::Cancelled.into());
+        }
         let deadline = self.admission_deadline()?;
-        self.start_owned(None, cancel.deadline().map_or(deadline, |parent| deadline.min(parent)), Some(cancel.clone()))
+        self.start_owned(
+            None,
+            cancel
+                .deadline()
+                .map_or(deadline, |parent| deadline.min(parent)),
+            Some(cancel.clone()),
+        )
     }
     pub(crate) async fn start_attempt(
         &self,
@@ -905,75 +995,96 @@ impl super::PreparedFit {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let request = RunRequest::Fit(Box::new(self.clone()));
-            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
-                let stop = cancel.clone();
-                let registered = async {
-                    if let Some(attempt) = durable.as_mut() {
-                        attempt.register(run_id, &request).await?;
-                        let stop = stop.clone();
-                        attempt.start(Arc::new(move || stop.cancel())).await?;
-                    }
-                    Ok::<(), WorkflowError>(())
-                }
-                .await;
-                if let Err(error) = registered {
-                    if let Some(handle) = handle {
-                        handle.cancel();
-                        let _ = handle.finish().await;
-                    }
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+            tokio::spawn(crate::workflow::inherit_runtime_activity(
+                supervised_with_cancel(
+                    async move {
+                        let stop = cancel.clone();
+                        let registered = async {
+                            if let Some(attempt) = durable.as_mut() {
+                                attempt.register(run_id, &request).await?;
+                                let stop = stop.clone();
+                                attempt.start(Arc::new(move || stop.cancel())).await?;
+                            }
+                            Ok::<(), WorkflowError>(())
+                        }
+                        .await;
+                        if let Err(error) = registered {
+                            if let Some(handle) = handle {
+                                handle.cancel();
+                                let _ = handle.finish().await;
+                            }
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let handle = match handle {
-                    Some(handle) => Ok(handle),
-                    None => match dispatch.take() {
-                        Some(dispatch) => dispatch().map_err(WorkflowError::from),
-                        None => Err(contract("native dispatch absent")),
-                    },
-                };
-                let handle = match handle {
-                    Ok(handle) => handle,
-                    Err(error) => {
-                        let refused =
-                            RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let handle = match handle {
+                            Some(handle) => Ok(handle),
+                            None => match dispatch.take() {
+                                Some(dispatch) => dispatch().map_err(WorkflowError::from),
+                                None => Err(contract("native dispatch absent")),
+                            },
+                        };
+                        let handle = match handle {
+                            Ok(handle) => handle,
+                            Err(error) => {
+                                let refused = RunResult::joined(
+                                    run_id,
+                                    runtime,
+                                    request,
+                                    None,
+                                    Err(Arc::new(error)),
+                                )
                                 .refused(durable)
                                 .await;
-                        sender.send_replace(Some(Arc::new(refused)));
-                        return;
-                    }
-                };
-                if let Err(error) = admit(
-                    &mut durable,
-                    run_id,
-                    &request,
-                    admitted(signal),
-                    Arc::new(move || stop.cancel()),
-                )
-                .await
-                {
-                    handle.cancel();
-                    let _ = handle.finish().await;
-                    let refused =
-                        RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                                sender.send_replace(Some(Arc::new(refused)));
+                                return;
+                            }
+                        };
+                        if let Err(error) = admit(
+                            &mut durable,
+                            run_id,
+                            &request,
+                            admitted(signal),
+                            Arc::new(move || stop.cancel()),
+                        )
+                        .await
+                        {
+                            handle.cancel();
+                            let _ = handle.finish().await;
+                            let refused = RunResult::joined(
+                                run_id,
+                                runtime,
+                                request,
+                                None,
+                                Err(Arc::new(error)),
+                            )
                             .refused(durable)
                             .await;
-                    sender.send_replace(Some(Arc::new(refused)));
-                    return;
-                }
-                let (report, owner) = match handle.finish().await {
-                    Ok((r, o)) => (Ok(r), Some(o)),
-                    Err(e) => (Err(Arc::new(WorkflowError::Math(e))), None),
-                };
-                let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
-                let result = RunResult::joined(run_id, runtime, request, owner, report)
-                    .finished(durable, cancelled)
-                    .await;
-                sender.send_replace(Some(Arc::new(result)));
-            }, move || forwarding.cancel(), parent)));
+                            sender.send_replace(Some(Arc::new(refused)));
+                            return;
+                        }
+                        let (report, owner) = match handle.finish().await {
+                            Ok((r, o)) => (Ok(r), Some(o)),
+                            Err(e) => (Err(Arc::new(WorkflowError::Math(e))), None),
+                        };
+                        let cancelled = cancel.flag().load(std::sync::atomic::Ordering::Acquire);
+                        let result = RunResult::joined(run_id, runtime, request, owner, report)
+                            .finished(durable, cancelled)
+                            .await;
+                        sender.send_replace(Some(Arc::new(result)));
+                    },
+                    move || forwarding.cancel(),
+                    parent,
+                ),
+            ));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -1067,7 +1178,9 @@ impl super::ModelingSolvePreparation {
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.source.runtime.launch(vec![self.clone()], false, None, None)
+        self.source
+            .runtime
+            .launch(vec![self.clone()], false, None, None)
     }
 }
 

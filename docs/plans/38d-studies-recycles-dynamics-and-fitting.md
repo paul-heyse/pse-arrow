@@ -10,6 +10,20 @@ doc_topics: [architecture, preparation, validation]
 
 # Plan 38d: Studies, recycles, dynamics and fitting
 
+## Dependency handoff — Plan 38b, 2026-10-13
+
+[38b](38b-solver-policy-observation-and-diagnostics.md#execution-checkpoint--2026-10-13)
+delivers common governing policy consumers across current study/scientific routes and the
+authorized early D2 producer: bounded actual G evaluations, raw G(x)-x, physical Err/Tol,
+known/unknown roles, failed latest samples and retained last-successful state. Accelerated
+step norm and iteration totals remain distinct. Library iteration/acceleration defaults are
+unchanged. Its Verification owns targeted producer, retained-evidence and replay controls.
+
+D1/D2 remain Planned for their wider frontier/seed, numerical-chain, repeatability,
+acceleration/restart/successor and independent original-science acceptance. D3–D5 are not
+completed by policy-consumer migration or replay constructors. Reuse the shared policy and
+observation products without moving scientific map/controller authority into them.
+
 ## Scientific responsibility and baseline
 
 This companion integrates [Plan 38](38-efficiency-and-solver-target.md)'s local immutable products and common policy into complete scientific workflows. It owns original problem/map/branch/derivative meaning, not native algorithms or storage topology. Blueprint §12.5/§13/§17/§19 and current authored models remain the scientific baseline. [Pipeline evidence](../design_review/evidence/efficiency-and-solver-target-audit-2026-10-12/pipeline-diagnostics-and-advice.md) and [independent assessment](../design_review/evidence/efficiency-and-solver-target-audit-2026-10-12/independent-target-assessment.md) supply the corrected scope.

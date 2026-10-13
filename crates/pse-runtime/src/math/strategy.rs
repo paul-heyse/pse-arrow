@@ -98,9 +98,16 @@ pub(crate) fn next_automatic(
         }
         let facts = pse_model::strategy::TransitionFacts {
             observation: last.native,
-            original_satisfied: last.original.as_ref().is_some_and(OriginalConclusion::satisfied),
-            original_cause: last.original.as_ref().and_then(OriginalConclusion::cause)
-                .as_deref().map(failure),
+            original_satisfied: last
+                .original
+                .as_ref()
+                .is_some_and(OriginalConclusion::satisfied),
+            original_cause: last
+                .original
+                .as_ref()
+                .and_then(OriginalConclusion::cause)
+                .as_deref()
+                .map(failure),
             auxiliary: false,
             seed_permitted: false,
         };
@@ -134,13 +141,18 @@ pub(crate) fn next_automatic(
         factorizations: None,
         proof_steps: None,
     });
-    let baseline = candidates.iter().map(|candidate| candidate.identity).collect::<Vec<_>>();
+    let baseline = candidates
+        .iter()
+        .map(|candidate| candidate.identity)
+        .collect::<Vec<_>>();
     let advice = request.advice.as_ref().filter(|advice| {
         request.policy == pse_model::strategy::CompositionPolicy::Auto
             && advice_cohort.is_some_and(|cohort| advice.applies(cohort, &baseline, limits))
     });
-    let inventory = candidates.iter().enumerate().map(|(index, candidate)| {
-        pse_model::strategy::PolicyCandidate {
+    let inventory = candidates
+        .iter()
+        .enumerate()
+        .map(|(index, candidate)| pse_model::strategy::PolicyCandidate {
             state: if candidate.prepared {
                 pse_model::generated::enums::NativeAssessmentState::Ready
             } else {
@@ -149,18 +161,28 @@ pub(crate) fn next_automatic(
             preference: pse_model::strategy::CandidatePreference {
                 baseline_rank: u32::try_from(index).unwrap_or(u32::MAX),
                 observed: candidate.observed,
-                advisory: advice.and_then(|advice| advice.rank(candidate.identity))
+                advisory: advice
+                    .and_then(|advice| advice.rank(candidate.identity))
                     .and_then(|rank| u32::try_from(rank).ok()),
                 ..Default::default()
             },
-        }
-    }).collect::<Vec<_>>();
-    for index in pse_model::strategy::candidate_order(&inventory, None,
-        request.policy == pse_model::strategy::CompositionPolicy::Declared) {
+        })
+        .collect::<Vec<_>>();
+    for index in pse_model::strategy::candidate_order(
+        &inventory,
+        None,
+        request.policy == pse_model::strategy::CompositionPolicy::Declared,
+    ) {
         let candidate = &candidates[index];
-        if attempted.contains(&index) || !pse_model::strategy::permits_candidate_start(
-            start, &request.recovery, candidate.start, candidate.replacement, inherited,
-        ) {
+        if attempted.contains(&index)
+            || !pse_model::strategy::permits_candidate_start(
+                start,
+                &request.recovery,
+                candidate.start,
+                candidate.replacement,
+                inherited,
+            )
+        {
             continue;
         }
         if work.attempts >= limits.attempts {
@@ -200,7 +222,9 @@ pub(crate) fn automatic_decision_key(
             .str(candidate.start.as_str())
             .bool(candidate.replacement);
         h.bool(candidate.observed.is_some());
-        if let Some(rank) = candidate.observed { h.u64(u64::from(rank)); }
+        if let Some(rank) = candidate.observed {
+            h.u64(u64::from(rank));
+        }
         h.bool(candidate.prepared);
         for key in &candidate.support {
             h.hash(key);
@@ -495,14 +519,16 @@ pub(crate) struct Assessment {
 }
 /// Terminal semantics are independent of the declaration's numerical recovery permissions.
 pub(crate) fn transition(mechanism: &Mechanism, assessment: &Assessment) -> Transition {
-    pse_model::strategy::governing_transition(&mechanism.transitions,
+    pse_model::strategy::governing_transition(
+        &mechanism.transitions,
         pse_model::strategy::TransitionFacts {
             observation: assessment.observation,
             original_satisfied: assessment.original.satisfied(),
             original_cause: assessment.original.cause().as_deref().map(failure),
             auxiliary: assessment.auxiliary,
             seed_permitted: assessment.retention.candidate.permits_seed(),
-        })
+        },
+    )
 }
 
 fn limit(detail: &str) -> ProblemError {
@@ -848,7 +874,8 @@ pub struct Trace {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RungProducts {
     pub(crate) native_attempt: Option<Arc<pse_backend_native::solve::AttemptRecord>>,
-    pub(crate) native_components: Option<pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>>>,
+    pub(crate) native_components:
+        Option<pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>>>,
     pub(crate) provider: Option<ProviderEvidence>,
     pub(crate) statistical: Option<Arc<crate::math::surrogate::SurrogateProposal>>,
     pub(crate) derived: Option<ContentHash>,
@@ -860,11 +887,14 @@ pub(crate) struct RungProducts {
         Option<pse_math::SharedAllocation<Vec<pse_backend_native::kkt::path::arclength::Event>>>,
 }
 /// Copy only compact native facts while the actual report still owns their admission.
-pub(crate) fn retain_native_attempt(service: &crate::math::MathService,
-    report: &pse_backend_native::solve::SolveReport)
-    -> Result<Arc<pse_backend_native::solve::AttemptRecord>, ProblemError> {
+pub(crate) fn retain_native_attempt(
+    service: &crate::math::MathService,
+    report: &pse_backend_native::solve::SolveReport,
+) -> Result<Arc<pse_backend_native::solve::AttemptRecord>, ProblemError> {
     let bytes = pse_backend_native::solve::AttemptRecord::retained_extent(report)?;
-    let owner = service.reserve("math:native-attempt-record", bytes).map_err(crate::math::MathRuntimeError::into_problem)?;
+    let owner = service
+        .reserve("math:native-attempt-record", bytes)
+        .map_err(crate::math::MathRuntimeError::into_problem)?;
     pse_backend_native::solve::AttemptRecord::capture(report, owner)
 }
 /// Bounded component collector admitted before a producer can execute native work.
@@ -876,22 +906,38 @@ pub(crate) struct NativeComponentCapture {
 }
 #[cfg(feature = "solver-kinsol")]
 impl NativeComponentCapture {
-    pub(crate) fn new(service: &crate::math::MathService, capacity: usize) -> Result<Self, crate::math::MathRuntimeError> {
-        let bytes = capacity.checked_mul(size_of::<Arc<pse_backend_native::solve::AttemptRecord>>())
+    pub(crate) fn new(
+        service: &crate::math::MathService,
+        capacity: usize,
+    ) -> Result<Self, crate::math::MathRuntimeError> {
+        let bytes = capacity
+            .checked_mul(size_of::<Arc<pse_backend_native::solve::AttemptRecord>>())
             .and_then(|bytes| bytes.checked_add(size_of::<Self>() + 128))
             .ok_or_else(|| ProblemError::memory("native component record table extent"))?;
         let owner = service.reserve("math:native-component-record-table", bytes)?;
-        Ok(Self { records: Vec::with_capacity(capacity), owner, capacity })
+        Ok(Self {
+            records: Vec::with_capacity(capacity),
+            owner,
+            capacity,
+        })
     }
-    pub(crate) fn capture(&mut self, service: &crate::math::MathService,
-        report: &pse_backend_native::solve::SolveReport) -> Result<(), crate::math::MathRuntimeError> {
+    pub(crate) fn capture(
+        &mut self,
+        service: &crate::math::MathService,
+        report: &pse_backend_native::solve::SolveReport,
+    ) -> Result<(), crate::math::MathRuntimeError> {
         if self.records.len() >= self.capacity {
-            return Err(ProblemError::Contract("native component producer exceeded its admitted record capacity".into()).into());
+            return Err(ProblemError::Contract(
+                "native component producer exceeded its admitted record capacity".into(),
+            )
+            .into());
         }
         self.records.push(retain_native_attempt(service, report)?);
         Ok(())
     }
-    pub(crate) fn finish(self) -> pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>> {
+    pub(crate) fn finish(
+        self,
+    ) -> pse_math::SharedAllocation<Vec<Arc<pse_backend_native::solve::AttemptRecord>>> {
         pse_math::SharedAllocation::from(Arc::new(self.records)).with_owner(self.owner)
     }
 }
@@ -1654,8 +1700,8 @@ fn run_inner<T>(
             Some(&pending),
             work,
             actual_facts.inherited,
-         None,
-     );
+            None,
+        );
         if !matches!(decision, AutoDecision::Assess) {
             result.terminal = Some(Arc::new(ProblemError::Internal(
                 "original assessment was not selected".into(),

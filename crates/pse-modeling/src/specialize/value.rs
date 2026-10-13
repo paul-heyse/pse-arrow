@@ -14,7 +14,18 @@ use std::collections::{BTreeMap, BTreeSet};
 mod structure;
 
 /// A fully explicit structural value.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub enum Value {
     /// Predicate.

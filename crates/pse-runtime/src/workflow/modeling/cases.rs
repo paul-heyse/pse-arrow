@@ -960,7 +960,9 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let original = engagement::OriginalPreparationInputs::capture(self, root, instance, &bindings, limits)?;
+                let original = engagement::OriginalPreparationInputs::capture(
+                    self, root, instance, &bindings, limits,
+                )?;
                 bindings
                     .demand
                     .extend(case.values.keys().chain(case.variables.keys()).cloned());

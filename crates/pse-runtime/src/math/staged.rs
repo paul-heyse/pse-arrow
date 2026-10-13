@@ -1237,8 +1237,8 @@ impl NativeSession {
                 None,
                 work,
                 false,
-             None,
-         );
+                None,
+            );
             direct_batch &= matches!(
                 decision,
                 super::strategy::AutoDecision::Dispatch { candidate: 0 }
@@ -2121,7 +2121,8 @@ mod admission_tests {
             Some(&last),
             result.work,
             false,
-         None) else {
+            None,
+        ) else {
             panic!("actual native resource report must stop");
         };
         assert!(retains_stopped_native_report(

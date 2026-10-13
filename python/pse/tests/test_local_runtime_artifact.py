@@ -82,9 +82,13 @@ os.replace(replacement, extension)
 try:
     runtime.run_record("never-issued")
 except pse.InspectionError as error:
-    assert "actual loaded module association" in error.report.message, error.report.message
+    assert "actual loaded module association" in error.report.message, (
+        error.report.message
+    )
 else:
-    raise AssertionError("deferred access accepted a replacement for the mapped artifact")
+    raise AssertionError(
+        "deferred access accepted a replacement for the mapped artifact"
+    )
 assert not state.exists()
 runtime.close()
 print("refused replaced mapped artifact before store access")

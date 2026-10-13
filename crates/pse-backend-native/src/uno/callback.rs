@@ -353,15 +353,28 @@ pub(crate) unsafe extern "C" fn iteration(
             let point = unsafe { input(current, extent) };
             if let Ok(point) = point {
                 let length = extent.min(crate::solve::SNAPSHOT_COORDINATES);
-                let values = c.oracle.contract().variables.iter().zip(point)
-                    .take(length).map(|(variable, value)| crate::solve::NativeCoordinate {
-                        variable: variable.id, value: *value }).collect();
+                let values = c
+                    .oracle
+                    .contract()
+                    .variables
+                    .iter()
+                    .zip(point)
+                    .take(length)
+                    .map(|(variable, value)| crate::solve::NativeCoordinate {
+                        variable: variable.id,
+                        value: *value,
+                    })
+                    .collect();
                 c.current = Some(std::sync::Arc::new(crate::solve::NativeSnapshot {
                     iteration: u64::try_from(number).ok(),
-                    phase: match mode { 0 => crate::solve::NativePhase::Main,
+                    phase: match mode {
+                        0 => crate::solve::NativePhase::Main,
                         1 => crate::solve::NativePhase::Restoration,
-                        _ => crate::solve::NativePhase::Unknown },
-                    values, total_coordinates: extent, partial: length < extent,
+                        _ => crate::solve::NativePhase::Unknown,
+                    },
+                    values,
+                    total_coordinates: extent,
+                    partial: length < extent,
                 }));
             }
         }

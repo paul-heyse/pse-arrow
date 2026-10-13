@@ -3093,7 +3093,7 @@
         },
         "native_defaults": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Native defaults only when supplied by a getter.",
           "type": "object"
@@ -3111,7 +3111,7 @@
         },
         "options": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Complete actual adapter options, separate from queried defaults.",
           "type": "object"
@@ -6455,6 +6455,132 @@
       ],
       "type": "object"
     },
+    "ReplayShootingBound": {
+      "additionalProperties": false,
+      "description": "Original source-bound output/control bound in exact IEEE bits.",
+      "properties": {
+        "id": {
+          "description": "Exact contract coordinate.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string"
+        },
+        "lower": {
+          "description": "Original optional lower bound.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "upper": {
+          "description": "Original optional upper bound.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "ReplayShootingConstructor": {
+      "additionalProperties": false,
+      "description": "Original shooting request over its complete original simulation constructor.",
+      "properties": {
+        "controls": {
+          "description": "Original scheduled control coordinates and bounds.",
+          "items": {
+            "$ref": "#/$defs/ReplayShootingBound"
+          },
+          "type": "array"
+        },
+        "eager_first": {
+          "description": "Original callback derivative demand policy.",
+          "type": "boolean"
+        },
+        "initial": {
+          "description": "Original caller starting coordinate vector, distinct from native continuation.",
+          "items": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "integral": {
+          "additionalProperties": false,
+          "description": "Original integral objective weights.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "method": {
+          "$ref": "#/$defs/ShootingMethod",
+          "description": "Single or multiple shooting."
+        },
+        "nodes": {
+          "description": "Exact requested inner node times.",
+          "items": {
+            "format": "uint64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "path": {
+          "description": "Original path output coordinates and bounds.",
+          "items": {
+            "$ref": "#/$defs/ReplayShootingBound"
+          },
+          "type": "array"
+        },
+        "simulation": {
+          "$ref": "#/$defs/ReplaySimulationConstructor",
+          "description": "Complete original integrated constructor."
+        },
+        "solver": {
+          "$ref": "#/$defs/ReplaySolverSettings",
+          "description": "Complete original scientific/native controls."
+        },
+        "terminal": {
+          "additionalProperties": false,
+          "description": "Original terminal objective weights.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "format": "uint64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "simulation",
+        "method",
+        "nodes",
+        "controls",
+        "path",
+        "terminal",
+        "integral",
+        "eager_first",
+        "solver"
+      ],
+      "type": "object"
+    },
     "ReplaySimulationConstructor": {
       "additionalProperties": false,
       "description": "Portable original integrated constructor; all methods still enter the existing supervisor.",
@@ -7340,6 +7466,13 @@
         "parameters"
       ],
       "type": "object"
+    },
+    "ShootingMethod": {
+      "enum": [
+        "single",
+        "multiple"
+      ],
+      "type": "string"
     },
     "Snapshot": {
       "additionalProperties": false,
@@ -8470,6 +8603,17 @@
         "$ref": "#/$defs/Snapshot"
       },
       "type": "array"
+    },
+    "shooting_constructor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReplayShootingConstructor"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Complete original shooting and simulation constructor."
     },
     "simulation_constructors": {
       "description": "Complete original simulation constructors across all linked methods.",

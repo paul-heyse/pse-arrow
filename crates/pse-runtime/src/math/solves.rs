@@ -106,11 +106,13 @@ impl SolverProfile {
     /// Resolve request-only curvature from the original producer's actual capability.
     /// Native adapters receive only a concrete acting method.
     pub(crate) fn resolve_curvature(&mut self, available: pse_kernels::DerivativeOrder) {
-        self.controls.hessian = pse_model::strategy::resolve_curvature(self.controls.hessian,
+        self.controls.hessian = pse_model::strategy::resolve_curvature(
+            self.controls.hessian,
             pse_model::strategy::CurvatureFacts {
                 exact: available >= pse_kernels::DerivativeOrder::Second,
                 least_squares_response: false,
-            });
+            },
+        );
     }
 }
 /// A compiled case with its selected values, providers and convexity evidence.
@@ -521,20 +523,27 @@ impl PreparedSolve {
     #[cfg(feature = "solver-kinsol")]
     fn applicable_causal_supplier(&self) -> Option<&Arc<dyn causal::CausalSupplier>> {
         pse_model::strategy::permits_automatic_supplier(self.automatic_operation_facts())
-            .then_some(self.causal_supplier.as_ref()).flatten()
+            .then_some(self.causal_supplier.as_ref())
+            .flatten()
     }
     #[cfg(feature = "solver-kinsol")]
     pub(crate) fn automatic_operation_facts(&self) -> pse_model::strategy::AutomaticOperationFacts {
         pse_model::strategy::AutomaticOperationFacts {
             start: self.profile.controls.start,
             backend: self.backend(),
-            roots_or_nlp: self.backend().is_some_and(|backend| matches!(
-                execution::adapter(backend).representation(),
-                execution::Representation::Roots | execution::Representation::Nlp)),
+            roots_or_nlp: self.backend().is_some_and(|backend| {
+                matches!(
+                    execution::adapter(backend).representation(),
+                    execution::Representation::Roots | execution::Representation::Nlp
+                )
+            }),
             root_intent: self.profile.intent == SolveIntent::Root,
             sensitivity: self.profile.sensitivity.is_some(),
             exact_convexity: matches!(self.profile.convexity, ConvexityPolicy::Exact),
-            explicit_presolve: matches!(self.profile.presolve, native::presolve::Policy::Explicit { .. }),
+            explicit_presolve: matches!(
+                self.profile.presolve,
+                native::presolve::Policy::Explicit { .. }
+            ),
             default_settings: matches!(self.profile.backend, BackendSettings::Default),
             single_thread: self.profile.controls.threads == 1,
         }
@@ -679,35 +688,64 @@ impl PreparedSolve {
     /// same complete original contract and contextual scientific interpretation. Any
     /// unresolved leaf keeps the whole ordinary inventory in baseline order.
     fn equivalent_advice_original(&self, leaf: &Self) -> Result<bool, ProblemError> {
-        let Some(base) = &self.route_decision else { return Ok(false); };
-        let Some(candidate) = &leaf.route_decision else { return Ok(false); };
-        let selected_outputs = |solve: &Self| solve.selected_outputs.as_ref().map(|outputs| outputs.identity);
-        if base.state != routing::AssessmentState::Ready || base.refusal.is_some()
-            || !base.evidence.is_empty() || !base.artifacts.is_empty()
-            || candidate.state != routing::AssessmentState::Ready || candidate.refusal.is_some()
-            || !candidate.evidence.is_empty() || !candidate.artifacts.is_empty()
-            || candidate.classes != base.classes || candidate.representation != base.representation
-            || candidate.intent != base.intent || candidate.lexicographic != base.lexicographic
-            || candidate.selected != Some(leaf.route) || base.selected != Some(self.route)
-            || candidate.snapshot != base.snapshot || leaf.snapshot.identity() != self.snapshot.identity()
+        let Some(base) = &self.route_decision else {
+            return Ok(false);
+        };
+        let Some(candidate) = &leaf.route_decision else {
+            return Ok(false);
+        };
+        let selected_outputs = |solve: &Self| {
+            solve
+                .selected_outputs
+                .as_ref()
+                .map(|outputs| outputs.identity)
+        };
+        if base.state != routing::AssessmentState::Ready
+            || base.refusal.is_some()
+            || !base.evidence.is_empty()
+            || !base.artifacts.is_empty()
+            || candidate.state != routing::AssessmentState::Ready
+            || candidate.refusal.is_some()
+            || !candidate.evidence.is_empty()
+            || !candidate.artifacts.is_empty()
+            || candidate.classes != base.classes
+            || candidate.representation != base.representation
+            || candidate.intent != base.intent
+            || candidate.lexicographic != base.lexicographic
+            || candidate.selected != Some(leaf.route)
+            || base.selected != Some(self.route)
+            || candidate.snapshot != base.snapshot
+            || leaf.snapshot.identity() != self.snapshot.identity()
             || leaf.original_identity()? != self.original_identity()?
-            || leaf.numerics.key != self.numerics.key || leaf.normalization != self.normalization
+            || leaf.numerics.key != self.numerics.key
+            || leaf.normalization != self.normalization
             || leaf.tolerances.variables != self.tolerances.variables
             || leaf.tolerances.rows != self.tolerances.rows
             || leaf.tolerances.integrality != self.tolerances.integrality
-            || leaf.accuracy != self.accuracy || leaf.work_precision != self.work_precision
+            || leaf.accuracy != self.accuracy
+            || leaf.work_precision != self.work_precision
             || selected_outputs(leaf) != selected_outputs(self)
-            || leaf.profile.intent != self.profile.intent || leaf.profile.convexity != self.profile.convexity
+            || leaf.profile.intent != self.profile.intent
+            || leaf.profile.convexity != self.profile.convexity
             || leaf.profile.composition.branch != self.profile.composition.branch
             || leaf.profile.controls.start != StartPolicy::NoPriorStart
             || leaf.profile.composition.policy != pse_model::strategy::CompositionPolicy::Auto
-            || leaf.profile.composition.advice.is_some() || leaf.profile.sensitivity.is_some()
-            || leaf.explicit_start.is_some() || leaf.proposal_start.is_some()
-            || leaf.task_scope.is_some() || leaf.task_admission.is_some() || leaf.point_accuracy.is_some()
-            || leaf.composition.is_some() || !leaf.automatic_products.is_empty()
-        { return Ok(false); }
+            || leaf.profile.composition.advice.is_some()
+            || leaf.profile.sensitivity.is_some()
+            || leaf.explicit_start.is_some()
+            || leaf.proposal_start.is_some()
+            || leaf.task_scope.is_some()
+            || leaf.task_admission.is_some()
+            || leaf.point_accuracy.is_some()
+            || leaf.composition.is_some()
+            || !leaf.automatic_products.is_empty()
+        {
+            return Ok(false);
+        }
         #[cfg(feature = "solver-kinsol")]
-        if leaf.causal_supplier.is_some() { return Ok(false); }
+        if leaf.causal_supplier.is_some() {
+            return Ok(false);
+        }
         Ok(true)
     }
     pub(crate) fn advice_cohort(
@@ -717,49 +755,111 @@ impl PreparedSolve {
     ) -> Result<Option<pse_model::strategy::advice::AdviceCohort>, ProblemError> {
         use pse_math::convexity::ConvexityClass;
         use pse_model::generated::enums::ModelingVariableDomain;
-        let Representation::Algebraic(source) = &self.representation else { return Ok(None); };
+        let Representation::Algebraic(source) = &self.representation else {
+            return Ok(None);
+        };
         // A hash match alone cannot establish equivalent nonconvex branches. Tasks
         // without the original owner's equivalence grant retain their baseline.
         if self.profile.intent != SolveIntent::Optimize
-            || !matches!(source.prepared.prepared.facts.convexity.class,
-                ConvexityClass::Affine | ConvexityClass::ConvexQuadratic(_) | ConvexityClass::Cone(_))
-            || source.prepared.prepared.facts.domains.iter().any(|domain| *domain != ModelingVariableDomain::Continuous)
+            || !matches!(
+                source.prepared.prepared.facts.convexity.class,
+                ConvexityClass::Affine
+                    | ConvexityClass::ConvexQuadratic(_)
+                    | ConvexityClass::Cone(_)
+            )
+            || source
+                .prepared
+                .prepared
+                .facts
+                .domains
+                .iter()
+                .any(|domain| *domain != ModelingVariableDomain::Continuous)
             || self.profile.selection != SolverSelection::Auto
             || !matches!(self.profile.backend, BackendSettings::Default)
             || self.profile.composition.policy != pse_model::strategy::CompositionPolicy::Auto
             || self.profile.composition.branch != pse_model::strategy::BranchPolicy::any_qualified()
             || self.profile.controls.start != StartPolicy::NoPriorStart
-            || inherited || start != pse_model::strategy::StartOrigin::Specification
-            || self.proposal_start.is_some() || self.explicit_start.is_some()
-            || self.composition.is_some() || self.profile.sensitivity.is_some()
-        { return Ok(None); }
-        let Some(root_decision) = &self.route_decision else { return Ok(None); };
-        if root_decision.state != routing::AssessmentState::Ready || root_decision.refusal.is_some()
-            || !root_decision.evidence.is_empty() || !root_decision.artifacts.is_empty()
-        { return Ok(None); }
+            || inherited
+            || start != pse_model::strategy::StartOrigin::Specification
+            || self.proposal_start.is_some()
+            || self.explicit_start.is_some()
+            || self.composition.is_some()
+            || self.profile.sensitivity.is_some()
+        {
+            return Ok(None);
+        }
+        let Some(root_decision) = &self.route_decision else {
+            return Ok(None);
+        };
+        if root_decision.state != routing::AssessmentState::Ready
+            || root_decision.refusal.is_some()
+            || !root_decision.evidence.is_empty()
+            || !root_decision.artifacts.is_empty()
+        {
+            return Ok(None);
+        }
         let mut profiles = Vec::with_capacity(self.automatic_products.len());
         for rung in &self.automatic_products {
-            let PreparedRung::Original(leaf) = rung else { return Ok(None); };
-            if !self.equivalent_advice_original(leaf)? { return Ok(None); }
-            profiles.push((leaf.automatic_comparison_identity()?, comparison_profile_key(&leaf.profile)?));
+            let PreparedRung::Original(leaf) = rung else {
+                return Ok(None);
+            };
+            if !self.equivalent_advice_original(leaf)? {
+                return Ok(None);
+            }
+            profiles.push((
+                leaf.automatic_comparison_identity()?,
+                comparison_profile_key(&leaf.profile)?,
+            ));
         }
-        let profiles = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
-            &("advice-ordered-original-profiles", profiles, comparison_profile_key(&self.profile)?))
-            .map_err(|error| ProblemError::Contract(error.to_string()))?;
-        let Some(limits) = self.profile.composition.limits else { return Ok(None); };
-        let branch_start = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
-            &("advice-branch-start", self.profile.composition.branch, self.profile.controls.start,
-                &self.profile.composition.recovery, start))
-            .map_err(|error| ProblemError::Contract(error.to_string()))?;
-        let accuracy = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
-            &("advice-accuracy", self.numerics.key, self.normalization.key(), self.work_precision))
-            .map_err(|error| ProblemError::Contract(error.to_string()))?;
-        let exposure = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
-            &("declared-task-exposure", self.snapshot.identity(), self.profile.controls.identity()?, limits))
-            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let profiles = pse_ids::document::of(
+            pse_ids::Frame::NumericalDecisionV2,
+            &(
+                "advice-ordered-original-profiles",
+                profiles,
+                comparison_profile_key(&self.profile)?,
+            ),
+        )
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let Some(limits) = self.profile.composition.limits else {
+            return Ok(None);
+        };
+        let branch_start = pse_ids::document::of(
+            pse_ids::Frame::NumericalDecisionV2,
+            &(
+                "advice-branch-start",
+                self.profile.composition.branch,
+                self.profile.controls.start,
+                &self.profile.composition.recovery,
+                start,
+            ),
+        )
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let accuracy = pse_ids::document::of(
+            pse_ids::Frame::NumericalDecisionV2,
+            &(
+                "advice-accuracy",
+                self.numerics.key,
+                self.normalization.key(),
+                self.work_precision,
+            ),
+        )
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let exposure = pse_ids::document::of(
+            pse_ids::Frame::NumericalDecisionV2,
+            &(
+                "declared-task-exposure",
+                self.snapshot.identity(),
+                self.profile.controls.identity()?,
+                limits,
+            ),
+        )
+        .map_err(|error| ProblemError::Contract(error.to_string()))?;
         Ok(Some(pse_model::strategy::advice::AdviceCohort {
-            original: self.original_identity()?, profiles,
-            branch_start, accuracy, exposure,
+            original: self.original_identity()?,
+            profiles,
+            branch_start,
+            accuracy,
+            exposure,
         }))
     }
     /// Actual comparison inputs, without starting a native attempt. Unsupported branch
@@ -769,16 +869,30 @@ impl PreparedSolve {
         &self,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Option<SolverAdviceInputs>, MathRuntimeError> {
-        let Some(cohort) = self.advice_cohort(self.entry_origin(false), false)? else { return Ok(None); };
-        let Some(limits) = self.profile.composition.limits else { return Ok(None); };
-        let candidates = self.advice_comparison_operations(cancel)?.into_iter()
-            .map(|operation| operation.candidate.identity).collect();
-        Ok(Some(SolverAdviceInputs { cohort, candidates, limits }))
+        let Some(cohort) = self.advice_cohort(self.entry_origin(false), false)? else {
+            return Ok(None);
+        };
+        let Some(limits) = self.profile.composition.limits else {
+            return Ok(None);
+        };
+        let candidates = self
+            .advice_comparison_operations(cancel)?
+            .into_iter()
+            .map(|operation| operation.candidate.identity)
+            .collect();
+        Ok(Some(SolverAdviceInputs {
+            cohort,
+            candidates,
+            limits,
+        }))
     }
     /// Actual immutable process/build observations consumed during contextual admission.
-    pub fn execution_snapshot(&self) -> &execution::Snapshot { &self.snapshot }
+    pub fn execution_snapshot(&self) -> &execution::Snapshot {
+        &self.snapshot
+    }
     fn advice_comparison_operations(
-        &self, cancel: &Arc<std::sync::atomic::AtomicBool>,
+        &self,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Vec<AutomaticOperation>, MathRuntimeError> {
         let mut operations = self.automatic_operations(None, cancel)?;
         operations.extend(self.automatic_native_route_operations()?);
@@ -789,16 +903,27 @@ impl PreparedSolve {
     /// Offer the full equivalent inventory before the first dispatch only when a
     /// complete frozen comparison applies. Missing/foreign advice preserves baseline recovery.
     pub(crate) fn automatic_entry_operations(
-        &self, start: pse_model::strategy::StartOrigin, inherited: bool,
+        &self,
+        start: pse_model::strategy::StartOrigin,
+        inherited: bool,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Vec<AutomaticOperation>, MathRuntimeError> {
         if let Some(advice) = &self.profile.composition.advice
-            && matches!(advice.support, pse_model::strategy::advice::AdviceSupport::CompleteMatched { .. })
+            && matches!(
+                advice.support,
+                pse_model::strategy::advice::AdviceSupport::CompleteMatched { .. }
+            )
             && let Some(cohort) = self.advice_cohort(start, inherited)?
-            && let Some(limits) = self.profile.composition.limits {
+            && let Some(limits) = self.profile.composition.limits
+        {
             let operations = self.advice_comparison_operations(cancel)?;
-            let baseline = operations.iter().map(|operation| operation.candidate.identity).collect::<Vec<_>>();
-            if advice.applies(&cohort, &baseline, limits) { return Ok(operations); }
+            let baseline = operations
+                .iter()
+                .map(|operation| operation.candidate.identity)
+                .collect::<Vec<_>>();
+            if advice.applies(&cohort, &baseline, limits) {
+                return Ok(operations);
+            }
         }
         self.automatic_operations(None, cancel)
     }
@@ -823,7 +948,8 @@ impl PreparedSolve {
                 .hash(&original_request)
                 .hash(&comparison_profile_key(profile)?)
                 .str(kind.as_str());
-            Ok(super::strategy::AutoCandidate { observed: None,
+            Ok(super::strategy::AutoCandidate {
+                observed: None,
                 identity: binding.finish_hash(),
                 kind,
                 start: if replacement {
@@ -898,15 +1024,19 @@ impl PreparedSolve {
                                 .is_none_or(|backend| adapter.backend() == backend)
                     })
                     .collect::<Vec<_>>();
-                let inventory = adapters.iter().map(|adapter| pse_model::strategy::PolicyCandidate {
-                    state: routing::AssessmentState::Ready,
-                    preference: pse_model::strategy::CandidatePreference {
-                        baseline_rank: u32::from(adapter.automatic().unwrap_or(u8::MAX)),
-                        ..Default::default()
-                    },
-                }).collect::<Vec<_>>();
+                let inventory = adapters
+                    .iter()
+                    .map(|adapter| pse_model::strategy::PolicyCandidate {
+                        state: routing::AssessmentState::Ready,
+                        preference: pse_model::strategy::CandidatePreference {
+                            baseline_rank: u32::from(adapter.automatic().unwrap_or(u8::MAX)),
+                            ..Default::default()
+                        },
+                    })
+                    .collect::<Vec<_>>();
                 let adapter = pse_model::strategy::candidate_order(&inventory, None, false)
-                    .first().map(|&index| adapters[index]);
+                    .first()
+                    .map(|&index| adapters[index]);
                 // A complete reconstruction has no outer unknowns and needs no NLP backend.
                 // The actual binder still checks every named supplier, dependency and row.
                 if complete || adapter.is_some() {
@@ -920,7 +1050,9 @@ impl PreparedSolve {
                     if !complete && let Some(adapter) = adapter {
                         profile.selection = SolverSelection::Explicit(adapter.backend());
                         profile.controls.hessian = pse_model::strategy::resolve_curvature(
-                            self.requested_hessian, pse_model::strategy::CurvatureFacts::default());
+                            self.requested_hessian,
+                            pse_model::strategy::CurvatureFacts::default(),
+                        );
                     }
                     profile.sensitivity = None;
                     operations.push(AutomaticOperation {
@@ -973,10 +1105,10 @@ impl PreparedSolve {
                         profile.controls = description.controls;
                         profile.backend = BackendSettings::Pounce(description.settings);
                         let mut observed = candidate(
-                                MechanismKind::NativeGlobalization,
-                                description.replaces_start,
-                                &profile,
-                            )?;
+                            MechanismKind::NativeGlobalization,
+                            description.replaces_start,
+                            &profile,
+                        )?;
                         observed.observed = Some(u32::try_from(observed_rank).unwrap_or(u32::MAX));
                         Ok(AutomaticOperation {
                             candidate: observed,
@@ -1008,7 +1140,8 @@ impl PreparedSolve {
                     .hash(&comparison_profile_key(&profile)?)
                     .str(MechanismKind::NativeGlobalization.as_str());
                 Ok(AutomaticOperation {
-                    candidate: super::strategy::AutoCandidate { observed: None,
+                    candidate: super::strategy::AutoCandidate {
+                        observed: None,
                         identity: binding.finish_hash(),
                         kind: MechanismKind::NativeGlobalization,
                         start,
@@ -1058,17 +1191,24 @@ impl PreparedSolve {
         }) else {
             return Vec::new();
         };
-        let choices = decision.eligibility.iter().filter(|entry| {
-            execution::LINKED.get(entry.backend).is_some_and(|adapter| {
-                adapter.capability().automatic_classes.contains(class)
+        let choices = decision
+            .eligibility
+            .iter()
+            .filter(|entry| {
+                execution::LINKED
+                    .get(entry.backend)
+                    .is_some_and(|adapter| adapter.capability().automatic_classes.contains(class))
             })
-        }).cloned().collect::<Vec<_>>();
+            .cloned()
+            .collect::<Vec<_>>();
         let inventory = routing::policy_candidates(&execution::LINKED, &[*class], false, &choices);
         let Some(current_index) = choices.iter().position(|entry| entry.backend == current) else {
             return Vec::new();
         };
         pse_model::strategy::candidate_successors(&inventory, current_index)
-            .into_iter().map(|index| choices[index].backend).collect()
+            .into_iter()
+            .map(|index| choices[index].backend)
+            .collect()
     }
 
     fn profile_for_automatic_backend(
@@ -1357,84 +1497,179 @@ impl PreparedSolve {
     }
     /// Actual postconstructor declaration, borrowed without copying the prepared graph.
     pub fn replay_declaration(&self) -> Option<&pse_model::strategy::NumericalStrategy> {
-        self.composition.as_ref().map(|composition| &composition.declaration)
+        self.composition
+            .as_ref()
+            .map(|composition| &composition.declaration)
     }
     /// Borrow the full effective profile for immutable scientific replay.
-    pub(crate) fn replay_profile(&self) -> &SolverProfile { &self.profile }
+    pub(crate) fn replay_profile(&self) -> &SolverProfile {
+        &self.profile
+    }
     /// Borrow the actual ordered declared products without cloning prepared capabilities.
     pub(crate) fn replay_rungs(&self) -> Option<&[PreparedRung]> {
-        self.composition.as_ref().map(|composition| composition.rungs.as_slice())
+        self.composition
+            .as_ref()
+            .map(|composition| composition.rungs.as_slice())
     }
     /// Borrow the actual ordered caller/compiler automatic inventory.
-    pub(crate) fn replay_automatic_products(&self) -> &[PreparedRung] { &self.automatic_products }
+    pub(crate) fn replay_automatic_products(&self) -> &[PreparedRung] {
+        &self.automatic_products
+    }
     /// Actual borrowed deep-copy metadata bound; immutable compiler products stay shared.
     pub(crate) fn replay_metadata_extent(&self) -> Result<usize, ProblemError> {
-        fn extent(input: &PreparedSolve, depth: usize, count: &mut usize) -> Result<usize, ProblemError> {
+        fn extent(
+            input: &PreparedSolve,
+            depth: usize,
+            count: &mut usize,
+        ) -> Result<usize, ProblemError> {
             *count += 1;
-            if depth >= 64 || *count > 4096 { return Err(ProblemError::memory("replay metadata graph allowance")); }
-            let mut bytes = input._owner.size().checked_add(size_of::<PreparedSolve>() + 1024)
-                .and_then(|bytes| bytes.checked_add(input.route_decision.as_ref().map_or(0, routing::Decision::retained_bytes)))
+            if depth >= 64 || *count > 4096 {
+                return Err(ProblemError::memory("replay metadata graph allowance"));
+            }
+            let mut bytes = input
+                ._owner
+                .size()
+                .checked_add(size_of::<PreparedSolve>() + 1024)
+                .and_then(|bytes| {
+                    bytes.checked_add(
+                        input
+                            .route_decision
+                            .as_ref()
+                            .map_or(0, routing::Decision::retained_bytes),
+                    )
+                })
                 .ok_or_else(|| ProblemError::memory("replay metadata extent"))?;
             if let Representation::Algebraic(case) = &input.representation {
-                let entries = case.values.scalars.len().checked_add(case.providers.len())
-                    .ok_or_else(|| ProblemError::memory("replay scalar/provider metadata extent"))?;
-                bytes = bytes.checked_add(entries.checked_mul(1024).ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?)
-                    .ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?;
+                let entries = case
+                    .values
+                    .scalars
+                    .len()
+                    .checked_add(case.providers.len())
+                    .ok_or_else(|| {
+                        ProblemError::memory("replay scalar/provider metadata extent")
+                    })?;
+                bytes =
+                    bytes
+                        .checked_add(entries.checked_mul(1024).ok_or_else(|| {
+                            ProblemError::memory("replay binding metadata extent")
+                        })?)
+                        .ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?;
                 for provider in case.providers.values() {
                     let spec = provider.spec();
-                    let ports = spec.inputs.len().checked_add(spec.outputs.len())
+                    let ports = spec
+                        .inputs
+                        .len()
+                        .checked_add(spec.outputs.len())
                         .and_then(|count| count.checked_mul(size_of::<pse_kernels::Port>()))
                         .ok_or_else(|| ProblemError::memory("replay provider port extent"))?;
-                    bytes = bytes.checked_add(ports).ok_or_else(|| ProblemError::memory("replay provider port extent"))?;
+                    bytes = bytes
+                        .checked_add(ports)
+                        .ok_or_else(|| ProblemError::memory("replay provider port extent"))?;
                     for shape in spec.shapes.inputs.iter().chain(&spec.shapes.outputs) {
-                        let cells = shape.coordinates.iter().try_fold(shape.axes.len().checked_add(shape.cells.len())
-                            .ok_or_else(|| ProblemError::memory("replay provider shape extent"))?, |count, coordinate| {
-                            count.checked_add(coordinate.len()).ok_or_else(|| ProblemError::memory("replay provider coordinate extent"))
-                        })?;
-                        let shape_bytes = cells.checked_mul(size_of::<pse_ids::SemanticId>())
-                            .and_then(|bytes| bytes.checked_add(shape.coordinates.len().checked_mul(size_of::<Vec<pse_ids::SemanticId>>())?))
-                            .and_then(|bytes| bytes.checked_add(size_of::<pse_kernels::ProviderShape>()))
+                        let cells =
+                            shape.coordinates.iter().try_fold(
+                                shape.axes.len().checked_add(shape.cells.len()).ok_or_else(
+                                    || ProblemError::memory("replay provider shape extent"),
+                                )?,
+                                |count, coordinate| {
+                                    count.checked_add(coordinate.len()).ok_or_else(|| {
+                                        ProblemError::memory("replay provider coordinate extent")
+                                    })
+                                },
+                            )?;
+                        let shape_bytes = cells
+                            .checked_mul(size_of::<pse_ids::SemanticId>())
+                            .and_then(|bytes| {
+                                bytes.checked_add(
+                                    shape
+                                        .coordinates
+                                        .len()
+                                        .checked_mul(size_of::<Vec<pse_ids::SemanticId>>())?,
+                                )
+                            })
+                            .and_then(|bytes| {
+                                bytes.checked_add(size_of::<pse_kernels::ProviderShape>())
+                            })
                             .ok_or_else(|| ProblemError::memory("replay provider shape extent"))?;
-                        bytes = bytes.checked_add(shape_bytes).ok_or_else(|| ProblemError::memory("replay provider shape extent"))?;
+                        bytes = bytes
+                            .checked_add(shape_bytes)
+                            .ok_or_else(|| ProblemError::memory("replay provider shape extent"))?;
                     }
                 }
                 if let Some(sensitivity) = &case.sensitivity {
                     let copied = match sensitivity {
-                        ParametricPreparation::Available(value) => value.normalization.variables.len()
-                            .checked_add(value.normalization.rows.len()).and_then(|cells| cells.checked_mul(size_of::<f64>()))
-                            .and_then(|bytes| bytes.checked_add(value.parameters.len().checked_mul(size_of::<(pse_ids::SemanticId, f64)>())?))
-                            .ok_or_else(|| ProblemError::memory("replay sensitivity metadata extent"))?,
-                        ParametricPreparation::Unavailable(native::square_response::Withheld::Infeasible(value)
+                        ParametricPreparation::Available(value) => value
+                            .normalization
+                            .variables
+                            .len()
+                            .checked_add(value.normalization.rows.len())
+                            .and_then(|cells| cells.checked_mul(size_of::<f64>()))
+                            .and_then(|bytes| {
+                                bytes.checked_add(
+                                    value.parameters.len().checked_mul(size_of::<(
+                                        pse_ids::SemanticId,
+                                        f64,
+                                    )>(
+                                    ))?,
+                                )
+                            })
+                            .ok_or_else(|| {
+                                ProblemError::memory("replay sensitivity metadata extent")
+                            })?,
+                        ParametricPreparation::Unavailable(
+                            native::square_response::Withheld::Infeasible(value)
                             | native::square_response::Withheld::Structural(value)
                             | native::square_response::Withheld::Neighborhood(value)
-                            | native::square_response::Withheld::Numerical(value)) => value.len(),
+                            | native::square_response::Withheld::Numerical(value),
+                        ) => value.len(),
                         ParametricPreparation::Unavailable(_) => 0,
                     };
-                    bytes = bytes.checked_add(copied).ok_or_else(|| ProblemError::memory("replay sensitivity metadata extent"))?;
+                    bytes = bytes.checked_add(copied).ok_or_else(|| {
+                        ProblemError::memory("replay sensitivity metadata extent")
+                    })?;
                 }
             }
-            for product in input.automatic_products.iter().chain(input.replay_rungs().unwrap_or_default()) {
+            for product in input
+                .automatic_products
+                .iter()
+                .chain(input.replay_rungs().unwrap_or_default())
+            {
                 let PreparedRung::Original(child) = product else {
-                    return Err(ProblemError::Unsupported("opaque replay metadata requires its original product producer".into()));
+                    return Err(ProblemError::Unsupported(
+                        "opaque replay metadata requires its original product producer".into(),
+                    ));
                 };
                 let child_bytes = extent(child, depth + 1, count)?;
-                bytes = bytes.checked_add(size_of::<PreparedRung>()).and_then(|bytes| bytes.checked_add(child_bytes))
-                    .ok_or_else(|| ProblemError::memory("replay nested original metadata extent"))?;
+                bytes = bytes
+                    .checked_add(size_of::<PreparedRung>())
+                    .and_then(|bytes| bytes.checked_add(child_bytes))
+                    .ok_or_else(|| {
+                        ProblemError::memory("replay nested original metadata extent")
+                    })?;
             }
             Ok(bytes)
         }
         extent(self, 0, &mut 0)
     }
     /// Keep the caller's pre-copy metadata grant on every newly cloned original node.
-    pub(crate) fn retaining_replay_metadata(mut self, owner: Arc<pse_columnar::AllocationLease>) -> Self {
+    pub(crate) fn retaining_replay_metadata(
+        mut self,
+        owner: Arc<pse_columnar::AllocationLease>,
+    ) -> Self {
         fn retain(input: &mut PreparedSolve, owner: &Arc<pse_columnar::AllocationLease>) {
             input.replay_metadata_owner = Some(owner.clone());
             for product in &mut input.automatic_products {
-                if let PreparedRung::Original(child) = product { retain(child, owner); }
+                if let PreparedRung::Original(child) = product {
+                    retain(child, owner);
+                }
             }
-            if let Some(composition) = &mut input.composition && let Some(composition) = Arc::get_mut(composition) {
+            if let Some(composition) = &mut input.composition
+                && let Some(composition) = Arc::get_mut(composition)
+            {
                 for product in &mut composition.rungs {
-                    if let PreparedRung::Original(child) = product { retain(child, owner); }
+                    if let PreparedRung::Original(child) = product {
+                        retain(child, owner);
+                    }
                 }
             }
         }
@@ -1462,16 +1697,26 @@ impl PreparedSolve {
                 "new execution requires the authored recycle owner to reconstruct its automatic causal supplier from retained original case inputs; an opaque historical supplier cannot establish detached controller state".into(),
             ));
         }
-        let automatic_products = self.automatic_products.iter()
-            .map(PreparedRung::fresh_replay_copy).collect::<Result<Vec<_>, _>>()?;
-        let composition = self.composition.as_ref().map(|composition| {
-            Ok::<_, ProblemError>(Arc::new(PreparedComposition {
-                declaration: composition.declaration.clone(),
-                rungs: composition.rungs.iter().map(PreparedRung::fresh_replay_copy)
-                    .collect::<Result<Vec<_>, _>>()?,
-                _owner: composition._owner.clone(),
-            }))
-        }).transpose()?;
+        let automatic_products = self
+            .automatic_products
+            .iter()
+            .map(PreparedRung::fresh_replay_copy)
+            .collect::<Result<Vec<_>, _>>()?;
+        let composition = self
+            .composition
+            .as_ref()
+            .map(|composition| {
+                Ok::<_, ProblemError>(Arc::new(PreparedComposition {
+                    declaration: composition.declaration.clone(),
+                    rungs: composition
+                        .rungs
+                        .iter()
+                        .map(PreparedRung::fresh_replay_copy)
+                        .collect::<Result<Vec<_>, _>>()?,
+                    _owner: composition._owner.clone(),
+                }))
+            })
+            .transpose()?;
         let mut replay = self.clone();
         replay.automatic_products = automatic_products;
         replay.composition = composition;
@@ -2804,12 +3049,14 @@ impl MathService {
                         == execution::Representation::Nlp
             }
         };
-        if pse_model::strategy::requires_affine_preparation(pse_model::strategy::AffinePreparationFacts {
-            automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
-            explicitly_requested: affine_requested,
-            nlp_possible,
-            missing: result.prepared.presolve.affine.iter().any(Option::is_none),
-        }) {
+        if pse_model::strategy::requires_affine_preparation(
+            pse_model::strategy::AffinePreparationFacts {
+                automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
+                explicitly_requested: affine_requested,
+                nlp_possible,
+                missing: result.prepared.presolve.affine.iter().any(Option::is_none),
+            },
+        ) {
             let source = result.prepared.clone();
             let construction = super::jobs::ConstructionEstimate::from_bound(
                 source.class_allocation_bound(&values)?,
@@ -5662,7 +5909,9 @@ impl execution::OriginalModel for OriginalCase<'_> {
 }
 
 /// Advice comparison projection; actual effective keys retain the complete body.
-pub(crate) fn comparison_profile_key(profile: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
+pub(crate) fn comparison_profile_key(
+    profile: &SolverProfile,
+) -> Result<pse_ids::ContentHash, ProblemError> {
     let mut baseline = profile.clone();
     baseline.composition.advice = None;
     Ok(profile_key(&baseline)?.as_id())

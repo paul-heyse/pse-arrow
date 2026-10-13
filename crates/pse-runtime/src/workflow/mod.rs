@@ -7,23 +7,22 @@ mod controls;
 pub use controls::{
     InventoryControls, ProgressControls, RunControls, StudyRunControls, StudyWaitControls,
 };
-mod completion;
 mod attempt_documents;
+mod completion;
 mod replay;
-pub use replay::{
-    ScientificReplay, ReplayDocument, ReplaySourceDocument, ReplaySourceObject,
-    ReplayPhysicalSource, ReplayProvider, ReplayProviderPort, ReplayProviderShape,
-    ReplaySolverSettings, ReplayDecisions, ReplayCoverage, ReplayCaseConstructor,
-    ReplayCaseInputs, ReplayVariableState, ReplayBoundOverride, ReplaySimulationConstructor,
-    ReplayFitConstructor, ReplayHorizonConstructor, ReplayHorizonController,
-    ReplayHorizonEstimator, ReplayHorizonSignal,
-    ReplayDecisionDocument, ReplayNativeAttempt, ReplayNativeRecordCoverage, ReplayScreenedStart,
-};
-#[cfg(feature = "solver-diffsol")]
-pub use replay::{ReplayShootingConstructor, ReplayShootingBound};
 pub use attempt_documents::{
-    AttemptDecision, AttemptFailureSummary, AttemptFinding, AttemptOriginalConclusion,
-    AttemptIntervals, AttemptStartSummary, AttemptStepSummary, AttemptSummary, AttemptSummaryLimits,
+    AttemptDecision, AttemptFailureSummary, AttemptFinding, AttemptIntervals,
+    AttemptOriginalConclusion, AttemptStartSummary, AttemptStepSummary, AttemptSummary,
+    AttemptSummaryLimits,
+};
+pub use replay::{
+    ReplayBoundOverride, ReplayCaseConstructor, ReplayCaseInputs, ReplayCoverage,
+    ReplayDecisionDocument, ReplayDecisions, ReplayDocument, ReplayFitConstructor,
+    ReplayHorizonConstructor, ReplayHorizonController, ReplayHorizonEstimator, ReplayHorizonSignal,
+    ReplayNativeAttempt, ReplayNativeRecordCoverage, ReplayPhysicalSource, ReplayProvider,
+    ReplayProviderPort, ReplayProviderShape, ReplayScreenedStart, ReplayShootingBound,
+    ReplayShootingConstructor, ReplaySimulationConstructor, ReplaySolverSettings,
+    ReplaySourceDocument, ReplaySourceObject, ReplayVariableState, ScientificReplay,
 };
 mod connected_results;
 pub mod result_blocks;

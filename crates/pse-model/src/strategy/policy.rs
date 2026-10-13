@@ -36,7 +36,10 @@ pub fn candidate_order(
     declared: bool,
 ) -> Vec<usize> {
     if let Some(index) = explicit {
-        return (index < candidates.len()).then_some(index).into_iter().collect();
+        return (index < candidates.len())
+            .then_some(index)
+            .into_iter()
+            .collect();
     }
     if declared {
         return (0..candidates.len()).collect();
@@ -65,7 +68,12 @@ pub fn candidate_order(
             .unwrap_or(order.len());
         order[first..end].sort_by_key(|&index| {
             let p = candidates[index].preference;
-            (p.observed.unwrap_or(u32::MAX), p.advisory.unwrap_or(u32::MAX), p.baseline_rank, index)
+            (
+                p.observed.unwrap_or(u32::MAX),
+                p.advisory.unwrap_or(u32::MAX),
+                p.baseline_rank,
+                index,
+            )
         });
         first = end;
     }
@@ -78,7 +86,9 @@ pub fn candidate_successors(candidates: &[PolicyCandidate], current: usize) -> V
     if order.first() != Some(&current) {
         return Vec::new();
     }
-    order.into_iter().skip(1)
+    order
+        .into_iter()
+        .skip(1)
         .take_while(|&index| candidates[index].state != CandidateState::PendingEvidence)
         .collect()
 }
@@ -112,14 +122,22 @@ pub struct TransitionFacts {
 }
 /// Terminal veto precedes original success, including when producers disagree.
 pub const fn permits_numerical_continuation(observation: Observation) -> bool {
-    matches!(observation, Observation::Converged | Observation::Auxiliary
-        | Observation::Limited | Observation::Stalled | Observation::NumericalFailure)
+    matches!(
+        observation,
+        Observation::Converged
+            | Observation::Auxiliary
+            | Observation::Limited
+            | Observation::Stalled
+            | Observation::NumericalFailure
+    )
 }
 impl TransitionFacts {
     /// A hard stop cannot be reversed by native convergence or a satisfied flag.
     pub fn terminal(self) -> bool {
         !permits_numerical_continuation(self.observation)
-            || self.original_cause.is_some_and(|cause| !permits_numerical_continuation(cause))
+            || self
+                .original_cause
+                .is_some_and(|cause| !permits_numerical_continuation(cause))
     }
 }
 /// Shared transition meaning; the existing walker owns effects, clocks and aggregate work.
@@ -188,13 +206,20 @@ pub struct AutomaticOperationFacts {
 }
 /// A block schedule may be offered; matching/schedule construction remains compiler-owned.
 pub fn permits_automatic_blocks(facts: AutomaticOperationFacts) -> bool {
-    facts.start == StartPolicy::NoPriorStart && !facts.sensitivity
-        && facts.exact_convexity && !facts.explicit_presolve && facts.roots_or_nlp
+    facts.start == StartPolicy::NoPriorStart
+        && !facts.sensitivity
+        && facts.exact_convexity
+        && !facts.explicit_presolve
+        && facts.roots_or_nlp
 }
 /// A retained raw-map supplier may be offered; its actual contract remains supplier-owned.
 pub fn permits_automatic_supplier(facts: AutomaticOperationFacts) -> bool {
-    facts.start == StartPolicy::NoPriorStart && facts.backend == Some(Backend::Kinsol)
-        && !facts.sensitivity && facts.root_intent && facts.single_thread && facts.default_settings
+    facts.start == StartPolicy::NoPriorStart
+        && facts.backend == Some(Backend::Kinsol)
+        && !facts.sensitivity
+        && facts.root_intent
+        && facts.single_thread
+        && facts.default_settings
 }
 /// Cheap owner-issued facts for demand-driven affine preprocessing evidence.
 #[derive(Clone, Copy, Debug)]
@@ -217,73 +242,241 @@ pub fn requires_affine_preparation(facts: AffinePreparationFacts) -> bool {
 mod tests {
     use super::*;
     fn candidate(state: CandidateState, priority: u32, baseline_rank: u32) -> PolicyCandidate {
-        PolicyCandidate { state, preference: CandidatePreference { priority, baseline_rank, ..Default::default() } }
+        PolicyCandidate {
+            state,
+            preference: CandidatePreference {
+                priority,
+                baseline_rank,
+                ..Default::default()
+            },
+        }
     }
     #[test]
     fn preference_keeps_science_explicit_order_and_pending_barriers() {
-        let mut candidates = vec![candidate(CandidateState::Ready,0,0), candidate(CandidateState::Ready,0,1), candidate(CandidateState::Ready,1,0)];
+        let mut candidates = vec![
+            candidate(CandidateState::Ready, 0, 0),
+            candidate(CandidateState::Ready, 0, 1),
+            candidate(CandidateState::Ready, 1, 0),
+        ];
         candidates[1].preference.advisory = Some(0);
         candidates[2].preference.observed = Some(0);
-        assert_eq!(candidate_order(&candidates,None,false), vec![1,0,2]);
+        assert_eq!(candidate_order(&candidates, None, false), vec![1, 0, 2]);
         candidates[0].preference.observed = Some(0);
-        assert_eq!(candidate_order(&candidates,None,false), vec![0,1,2]);
-        assert_eq!(candidate_order(&candidates,Some(1),false), vec![1]);
-        assert_eq!(candidate_order(&candidates,None,true), vec![0,1,2]);
-        candidates[0].state=CandidateState::PendingEvidence;
-        assert_eq!(candidate_order(&candidates,None,false),vec![0,1,2]);
-        assert!(candidate_successors(&candidates,1).is_empty());
-        candidates[0].state=CandidateState::Refused;
-        assert_eq!(candidate_order(&candidates,None,false),vec![1,2]);
+        assert_eq!(candidate_order(&candidates, None, false), vec![0, 1, 2]);
+        assert_eq!(candidate_order(&candidates, Some(1), false), vec![1]);
+        assert_eq!(candidate_order(&candidates, None, true), vec![0, 1, 2]);
+        candidates[0].state = CandidateState::PendingEvidence;
+        assert_eq!(candidate_order(&candidates, None, false), vec![0, 1, 2]);
+        assert!(candidate_successors(&candidates, 1).is_empty());
+        candidates[0].state = CandidateState::Refused;
+        assert_eq!(candidate_order(&candidates, None, false), vec![1, 2]);
     }
     #[test]
     fn recovery_does_not_cross_pending_evidence_or_stale_selection() {
-        let candidates=vec![candidate(CandidateState::Refused,0,0),candidate(CandidateState::Ready,0,1),candidate(CandidateState::SupportedPendingArtifacts,0,2),candidate(CandidateState::PendingEvidence,0,3),candidate(CandidateState::Ready,0,4)];
-        assert_eq!(candidate_successors(&candidates,1),vec![2]);
-        assert!(candidate_successors(&candidates,2).is_empty());
+        let candidates = vec![
+            candidate(CandidateState::Refused, 0, 0),
+            candidate(CandidateState::Ready, 0, 1),
+            candidate(CandidateState::SupportedPendingArtifacts, 0, 2),
+            candidate(CandidateState::PendingEvidence, 0, 3),
+            candidate(CandidateState::Ready, 0, 4),
+        ];
+        assert_eq!(candidate_successors(&candidates, 1), vec![2]);
+        assert!(candidate_successors(&candidates, 2).is_empty());
     }
     #[test]
     fn every_hard_terminal_dominates_satisfied_and_recovery() {
-        let allowed=[Transition::Finish,Transition::Recover,Transition::Continue,Transition::Subdivide,Transition::Stop];
+        let allowed = [
+            Transition::Finish,
+            Transition::Recover,
+            Transition::Continue,
+            Transition::Subdivide,
+            Transition::Stop,
+        ];
         for observation in Observation::ALL {
-            let facts=TransitionFacts { observation,original_satisfied:true,original_cause:None,auxiliary:false,seed_permitted:true };
-            assert_eq!(governing_transition(&allowed,facts),if permits_numerical_continuation(observation) {Transition::Finish} else {Transition::Stop});
-            assert_eq!(governing_transition(&allowed,TransitionFacts { observation:Observation::Converged,original_cause:Some(observation),..facts }),if permits_numerical_continuation(observation) {Transition::Finish} else {Transition::Stop});
+            let facts = TransitionFacts {
+                observation,
+                original_satisfied: true,
+                original_cause: None,
+                auxiliary: false,
+                seed_permitted: true,
+            };
+            assert_eq!(
+                governing_transition(&allowed, facts),
+                if permits_numerical_continuation(observation) {
+                    Transition::Finish
+                } else {
+                    Transition::Stop
+                }
+            );
+            assert_eq!(
+                governing_transition(
+                    &allowed,
+                    TransitionFacts {
+                        observation: Observation::Converged,
+                        original_cause: Some(observation),
+                        ..facts
+                    }
+                ),
+                if permits_numerical_continuation(observation) {
+                    Transition::Finish
+                } else {
+                    Transition::Stop
+                }
+            );
         }
-        assert_eq!(governing_transition(&allowed,TransitionFacts { observation:Observation::Converged,original_satisfied:false,original_cause:None,auxiliary:false,seed_permitted:true }),Transition::Stop);
+        assert_eq!(
+            governing_transition(
+                &allowed,
+                TransitionFacts {
+                    observation: Observation::Converged,
+                    original_satisfied: false,
+                    original_cause: None,
+                    auxiliary: false,
+                    seed_permitted: true
+                }
+            ),
+            Transition::Stop
+        );
     }
     #[test]
     fn automatic_curvature_uses_whole_producer_facts_and_preserves_explicit() {
-        assert_eq!(resolve_curvature(HessianMode::Auto,CurvatureFacts::default()),HessianMode::LimitedMemory);
-        assert_eq!(resolve_curvature(HessianMode::Auto,CurvatureFacts {exact:true,least_squares_response:false}),HessianMode::Exact);
-        assert_eq!(resolve_curvature(HessianMode::Auto,CurvatureFacts {exact:true,least_squares_response:true}),HessianMode::GaussNewton);
-        assert_eq!(resolve_curvature(HessianMode::Partitioned,CurvatureFacts::default()),HessianMode::Partitioned);
+        assert_eq!(
+            resolve_curvature(HessianMode::Auto, CurvatureFacts::default()),
+            HessianMode::LimitedMemory
+        );
+        assert_eq!(
+            resolve_curvature(
+                HessianMode::Auto,
+                CurvatureFacts {
+                    exact: true,
+                    least_squares_response: false
+                }
+            ),
+            HessianMode::Exact
+        );
+        assert_eq!(
+            resolve_curvature(
+                HessianMode::Auto,
+                CurvatureFacts {
+                    exact: true,
+                    least_squares_response: true
+                }
+            ),
+            HessianMode::GaussNewton
+        );
+        assert_eq!(
+            resolve_curvature(HessianMode::Partitioned, CurvatureFacts::default()),
+            HessianMode::Partitioned
+        );
     }
     #[test]
     fn structural_alternatives_preserve_original_entry_and_request_permissions() {
-        let facts=AutomaticOperationFacts {start:StartPolicy::NoPriorStart,backend:Some(Backend::Kinsol),roots_or_nlp:true,root_intent:true,sensitivity:false,exact_convexity:true,explicit_presolve:false,default_settings:true,single_thread:true};
+        let facts = AutomaticOperationFacts {
+            start: StartPolicy::NoPriorStart,
+            backend: Some(Backend::Kinsol),
+            roots_or_nlp: true,
+            root_intent: true,
+            sensitivity: false,
+            exact_convexity: true,
+            explicit_presolve: false,
+            default_settings: true,
+            single_thread: true,
+        };
         assert!(permits_automatic_blocks(facts));
         assert!(permits_automatic_supplier(facts));
-        assert!(!permits_automatic_blocks(AutomaticOperationFacts {start:StartPolicy::Explicit,..facts}));
-        assert!(!permits_automatic_blocks(AutomaticOperationFacts {explicit_presolve:true,..facts}));
-        assert!(!permits_automatic_blocks(AutomaticOperationFacts {exact_convexity:false,..facts}));
-        assert!(!permits_automatic_supplier(AutomaticOperationFacts {root_intent:false,..facts}));
-        assert!(!permits_automatic_supplier(AutomaticOperationFacts {default_settings:false,..facts}));
-        assert!(!permits_automatic_supplier(AutomaticOperationFacts {single_thread:false,..facts}));
-        let rules=StartRules {policy:StartPolicy::NoPriorStart,recovery:vec![StartOrigin::Auxiliary]};
-        assert!(!permits_candidate_start(&rules,&[],StartOrigin::Auxiliary,true,false));
-        assert!(permits_candidate_start(&rules,&rules.recovery,StartOrigin::Auxiliary,true,false));
-        assert!(!permits_candidate_start(&rules,&rules.recovery,StartOrigin::Auxiliary,true,true));
-        let explicit=StartRules {policy:StartPolicy::Explicit,recovery:vec![StartOrigin::Auxiliary]};
-        assert!(!permits_candidate_start(&explicit,&[],StartOrigin::Specification,false,false));
-        assert!(permits_candidate_start(&explicit,&[],StartOrigin::Explicit,false,true));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {
+            start: StartPolicy::Explicit,
+            ..facts
+        }));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {
+            explicit_presolve: true,
+            ..facts
+        }));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {
+            exact_convexity: false,
+            ..facts
+        }));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {
+            root_intent: false,
+            ..facts
+        }));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {
+            default_settings: false,
+            ..facts
+        }));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {
+            single_thread: false,
+            ..facts
+        }));
+        let rules = StartRules {
+            policy: StartPolicy::NoPriorStart,
+            recovery: vec![StartOrigin::Auxiliary],
+        };
+        assert!(!permits_candidate_start(
+            &rules,
+            &[],
+            StartOrigin::Auxiliary,
+            true,
+            false
+        ));
+        assert!(permits_candidate_start(
+            &rules,
+            &rules.recovery,
+            StartOrigin::Auxiliary,
+            true,
+            false
+        ));
+        assert!(!permits_candidate_start(
+            &rules,
+            &rules.recovery,
+            StartOrigin::Auxiliary,
+            true,
+            true
+        ));
+        let explicit = StartRules {
+            policy: StartPolicy::Explicit,
+            recovery: vec![StartOrigin::Auxiliary],
+        };
+        assert!(!permits_candidate_start(
+            &explicit,
+            &[],
+            StartOrigin::Specification,
+            false,
+            false
+        ));
+        assert!(permits_candidate_start(
+            &explicit,
+            &[],
+            StartOrigin::Explicit,
+            false,
+            true
+        ));
     }
     #[test]
     fn affine_evidence_is_demanded_only_for_a_consuming_representation() {
-        let facts=AffinePreparationFacts {automatic:true,explicitly_requested:false,nlp_possible:true,missing:true};
+        let facts = AffinePreparationFacts {
+            automatic: true,
+            explicitly_requested: false,
+            nlp_possible: true,
+            missing: true,
+        };
         assert!(requires_affine_preparation(facts));
-        assert!(!requires_affine_preparation(AffinePreparationFacts {nlp_possible:false,..facts}));
-        assert!(!requires_affine_preparation(AffinePreparationFacts {missing:false,..facts}));
-        assert!(!requires_affine_preparation(AffinePreparationFacts {automatic:false,..facts}));
-        assert!(requires_affine_preparation(AffinePreparationFacts {automatic:false,explicitly_requested:true,..facts}));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {
+            nlp_possible: false,
+            ..facts
+        }));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {
+            missing: false,
+            ..facts
+        }));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {
+            automatic: false,
+            ..facts
+        }));
+        assert!(requires_affine_preparation(AffinePreparationFacts {
+            automatic: false,
+            explicitly_requested: true,
+            ..facts
+        }));
     }
 }

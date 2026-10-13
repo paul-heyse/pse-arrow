@@ -1115,7 +1115,7 @@ regularization is derived from the requested gap
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 
-One bounded typed attempt product extends native WorkEvidence/reports and strategy trace. It retains actual method meanings, absent counters, effective controls, original assessment, start/reuse and actual phase intervals. Synchronous decision evidence is independent of lossy ordinary progress; the existing nonblocking optional writer and explicit coverage remain. Raw recycle history records actual G(x)-x and known sample roles, not accelerated step norm or inferred iteration history.
+One bounded typed attempt product extends native WorkEvidence/reports and strategy trace. It retains actual method meanings, absent counters, effective controls, original assessment, start/reuse and actual phase intervals. Synchronous decision evidence is independent of lossy ordinary progress; the existing nonblocking optional writer and explicit coverage remain. Raw recycle history records actual G(x)-x and known sample roles, not accelerated step norm or inferred iteration history. Observed option maps use the existing diagnostic tags, preserving native infinite sentinels distinctly from missing values; requested options retain their primitive input contract.
 
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md), Plan 25n N2/N3.
 

@@ -20,16 +20,33 @@ mod fixed_reactions;
 
 #[test]
 fn presolve_replay_document_preserves_retained_options_without_requalifying_them() {
-    let options = PresolveOptions { certify_tol: 0.125, licq_action: LicqAction::AutoL1,
-        auxiliary_coupling: AuxiliaryCouplingPolicy::Aggressive, print_level: 8,
-        enabled: true, auxiliary: true, auxiliary_tol: 1e-10, fbbt: true,
-        fbbt_max_constraints: 17, ..PresolveOptions::defaults() };
-    let policy = Policy::Explicit { options, required: BTreeSet::from([Pass::Fbbt]) };
+    let options = PresolveOptions {
+        certify_tol: 0.125,
+        licq_action: LicqAction::AutoL1,
+        auxiliary_coupling: AuxiliaryCouplingPolicy::Aggressive,
+        print_level: 8,
+        enabled: true,
+        auxiliary: true,
+        auxiliary_tol: 1e-10,
+        fbbt: true,
+        fbbt_max_constraints: 17,
+        ..PresolveOptions::defaults()
+    };
+    let policy = Policy::Explicit {
+        options,
+        required: BTreeSet::from([Pass::Fbbt]),
+    };
     let document = policy.document_options();
     assert_eq!(document.len(), 21);
     assert_eq!(document["certify_tol"], OptionValue::Real(0.125));
-    assert_eq!(document["presolve_licq_action"], OptionValue::Text("auto_l1".into()));
-    assert_eq!(document["presolve_auxiliary_coupling"], OptionValue::Text("aggressive".into()));
+    assert_eq!(
+        document["presolve_licq_action"],
+        OptionValue::Text("auto_l1".into())
+    );
+    assert_eq!(
+        document["presolve_auxiliary_coupling"],
+        OptionValue::Text("aggressive".into())
+    );
     assert_eq!(document["presolve_print_level"], OptionValue::Integer(8));
     assert_eq!(document["presolve_auxiliary_tol"], OptionValue::Real(1e-10));
     assert_eq!(document["fbbt_max_constraints"], OptionValue::Integer(17));
@@ -39,7 +56,10 @@ fn presolve_replay_document_preserves_retained_options_without_requalifying_them
     registered.remove("certify_tol");
     let reconstructed = Policy::from_native_options(&registered, BTreeSet::new()).unwrap();
     let mut reconstructed = reconstructed.document_options();
-    assert_eq!(reconstructed.remove("certify_tol"), Some(OptionValue::Real(PresolveOptions::defaults().certify_tol)));
+    assert_eq!(
+        reconstructed.remove("certify_tol"),
+        Some(OptionValue::Real(PresolveOptions::defaults().certify_tol))
+    );
     assert_eq!(registered, reconstructed);
     assert!(Policy::Off.document_options().is_empty());
     assert!(Policy::Auto.document_options().is_empty());

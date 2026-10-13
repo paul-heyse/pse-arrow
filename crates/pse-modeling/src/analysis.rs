@@ -60,7 +60,18 @@ use std::collections::BTreeMap;
 
 /// A reserved fact. Every member of a namespace is a variant, so an undeclared fact is
 /// unrepresentable rather than refused by its spelling.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub enum Fact {
     /// The selected analysis route, a [`Route`] member.

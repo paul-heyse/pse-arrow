@@ -1328,11 +1328,23 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let constructor = &document.simulation_constructors[0];
     assert_eq!(constructor.profile.samples, simulation.profile().samples);
     assert_eq!(constructor.profile.schedule, simulation.profile().schedule);
-    assert_eq!(constructor.profile.end.to_bits(), simulation.profile().end.to_bits());
+    assert_eq!(
+        constructor.profile.end.to_bits(),
+        simulation.profile().end.to_bits()
+    );
     let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
-    let reconstructed = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
-    assert_eq!(reconstructed.contract().parameters, simulation.contract().parameters);
-    assert_eq!(reconstructed.profile().samples, simulation.profile().samples);
+    let reconstructed = constructor
+        .reconstruct(&sources[0], &crate::CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        reconstructed.contract().parameters,
+        simulation.contract().parameters
+    );
+    assert_eq!(
+        reconstructed.profile().samples,
+        simulation.profile().samples
+    );
 
     let permits = simulation.runtime.shared.compiler_cpu();
     let width = permits.available_permits();
@@ -1340,16 +1352,27 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let held = permits.acquire_many(width as u32).await.unwrap();
     let cancel = crate::CancelSource::new();
     let pending = replay.rerun_with_cancel(&cancel).await.unwrap();
-    assert!(tokio::time::timeout(std::time::Duration::from_millis(20), pending.wait()).await.is_err());
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), pending.wait())
+            .await
+            .is_err()
+    );
     cancel.cancel();
-    let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), pending.wait()).await.unwrap().unwrap();
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), pending.wait())
+        .await
+        .unwrap()
+        .unwrap();
     assert!(stopped.report().is_err());
     assert_ne!(stopped.run_id, original.run_id);
     drop(held);
     let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
     assert_ne!(fresh.run_id, original.run_id);
     assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-    let coverage = fresh.replay().document_with_limit(128 << 20).unwrap().coverage;
+    let coverage = fresh
+        .replay()
+        .document_with_limit(128 << 20)
+        .unwrap()
+        .coverage;
     assert_eq!(coverage.observed, simulation.profile().samples.len());
 }
 
@@ -1364,24 +1387,59 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
     assert!(width > 0);
     let held = permits.acquire_many(width as u32).await.unwrap();
     let parent = crate::CancelSource::new();
-    let handle = problem.start_replay_with_cancel(Some(initial.clone()), &parent).unwrap();
-    assert!(tokio::time::timeout(std::time::Duration::from_millis(20), handle.wait()).await.is_err());
+    let handle = problem
+        .start_replay_with_cancel(Some(initial.clone()), &parent)
+        .unwrap();
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(20), handle.wait())
+            .await
+            .is_err()
+    );
     parent.cancel();
-    let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), handle.wait()).await.unwrap().unwrap();
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), handle.wait())
+        .await
+        .unwrap()
+        .unwrap();
     assert!(stopped.report().is_err());
     drop(held);
     let replay = stopped.replay();
     let document = replay.document_with_limit(128 << 20).unwrap();
     let constructor = document.shooting_constructor.as_ref().unwrap();
-    assert_eq!(constructor.initial, Some(initial.iter().map(|x| x.to_bits()).collect()));
+    assert_eq!(
+        constructor.initial,
+        Some(initial.iter().map(|x| x.to_bits()).collect())
+    );
     assert_eq!(constructor.controls.len(), requested.controls.len());
-    assert_eq!(constructor.terminal, requested.objective.terminal.iter().map(|(id, x)| (*id, x.to_bits())).collect());
-    assert_eq!(constructor.simulation.profile.samples, simulation.profile().samples);
+    assert_eq!(
+        constructor.terminal,
+        requested
+            .objective
+            .terminal
+            .iter()
+            .map(|(id, x)| (*id, x.to_bits()))
+            .collect()
+    );
+    assert_eq!(
+        constructor.simulation.profile.samples,
+        simulation.profile().samples
+    );
     let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
-    let reconstructed = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
+    let reconstructed = constructor
+        .reconstruct(&sources[0], &crate::CancelSource::new())
+        .await
+        .unwrap();
     assert_eq!(reconstructed.initial_extent(), problem.initial_extent());
     let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
     assert_ne!(fresh.run_id, stopped.run_id);
     assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-    assert_eq!(fresh.replay().document_with_limit(128 << 20).unwrap().shooting_constructor.unwrap().initial, constructor.initial);
+    assert_eq!(
+        fresh
+            .replay()
+            .document_with_limit(128 << 20)
+            .unwrap()
+            .shooting_constructor
+            .unwrap()
+            .initial,
+        constructor.initial
+    );
 }

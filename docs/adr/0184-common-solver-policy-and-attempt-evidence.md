@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-04, AP-07, DP-09, PS-08, PS-09, PS-10, PS-11]
 blueprint: [§15.6, §16.5, §18.6, §18.7, §19.2, §21]
 review: docs/design_review/reviews/design_review_plan38b-common-policy-and-attempt-evidence_2026-10-13.md
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A consumed method needs numerical continuation state or a history comparison outside the explicit profile, branch, start and observation contracts.
@@ -59,7 +59,12 @@ Keep original root/LS/VI/global and branch/start/accuracy permissions distinct, 
 
 ### Confirmation
 
-Interface-checked target grounded in the audit and current source. The independent bounded target review accepted this amendment before dependent product changes; actual targeted implementation evidence belongs to Plan38b and assembled scientific/native/durable acceptance to Plan38g. No speed, memory, whole-product or ADR-acceptance claim follows.
+**Interface-checked:** the independent bounded target review accepted the amendment before
+dependent product changes. **Tested:** Plan38b's Verification records injected policy,
+terminal-veto/budget, native observation/raw-map, retained summary/replay and public generated
+Rust/Python controls on the linked native correctness build with explicit force-validation.
+The named commands and conditions remain at that owner. Assembled scientific/native/durable
+acceptance remains Plan38g. No speed, memory, whole-product or ADR-acceptance claim follows.
 
 ## Pros and cons
 

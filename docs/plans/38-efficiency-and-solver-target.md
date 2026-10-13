@@ -263,3 +263,22 @@ remain fail-closed with original-identity settlement. No storage topology, numer
 policy or native session reuse choice is selected here. Other companions, shared finding
 closure and assembled qualification remain open at their existing owners. Existing-plan,
 status/index and campaign reconciliation remains deferred until the series is implemented.
+
+## Execution checkpoint — Plan 38b, 2026-10-13
+
+The maintainer authorized B1–B5 and I-B1–I-B3, including the minimum C1/C3 native
+observation and D2 raw-map producer slices. Proposed ADR-0184 and architecture revision 161
+install the independently reviewed target. [38b](38b-solver-policy-observation-and-diagnostics.md#execution-checkpoint--2026-10-13)
+owns implementation acceptance and its exclusions. ADR status remains proposed.
+B1–B5 and I-B1–I-B3 are complete within the companion's bounded acceptance; assembled
+qualification and wider shared finding obligations remain open.
+
+The shared pure policy now governs contextual routing and the existing workflow walker;
+compact native/component evidence, retained-only summaries, immutable scientific replay and
+optional complete matched-cohort advice are integrated. Actual native settings/admission,
+original scientific assessment, aggregate budgets and nonblocking ordinary progress retain
+their existing owners. New numerical methods, native-state reset/reuse, parallel capacity,
+scientific controllers, storage/analytics and assembled qualification remain with their
+companions. Minimum producer delivery does not close C1/C3/D2 or shared F09–F12; their
+remaining obligations and 38g acceptance remain open. Existing-plan/status/index and campaign
+reconciliation remains deferred until the series is implemented.

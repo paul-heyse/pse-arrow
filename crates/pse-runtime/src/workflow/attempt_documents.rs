@@ -4,11 +4,16 @@
 use super::{RunReport, RunRequest, RunResult, WorkflowError, contract};
 use crate::math::strategy::{Event, OriginalConclusion, Trace};
 use pse_ids::{ContentHash, SemanticId};
-use pse_model::{diagnostic::{BoundaryClass, DiagnosticCode}, generated::{enums::{CandidateUse,
-    NumericalAttemptObservation as Observation, NumericalEventKind}, identities::RunId},
-    strategy::{Phase, Transition, WorkCharge, WorkObservation}};
-use std::sync::Arc;
 use pse_model::diagnostic::Observation as NumberObservation;
+use pse_model::{
+    diagnostic::{BoundaryClass, DiagnosticCode},
+    generated::{
+        enums::{CandidateUse, NumericalAttemptObservation as Observation, NumericalEventKind},
+        identities::RunId,
+    },
+    strategy::{Phase, Transition, WorkCharge, WorkObservation},
+};
+use std::sync::Arc;
 
 /// Actual submitted-start provenance. Full portable coordinates belong to replay.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
@@ -56,12 +61,20 @@ pub struct AttemptSummaryLimits {
     pub findings: usize,
 }
 impl Default for AttemptSummaryLimits {
-    fn default() -> Self { Self { steps: 16, events: 64, findings: 32 } }
+    fn default() -> Self {
+        Self {
+            steps: 16,
+            events: 64,
+            findings: 32,
+        }
+    }
 }
 impl AttemptSummaryLimits {
     pub(super) fn validate(self) -> Result<Self, WorkflowError> {
         if self.steps > 1024 || self.events > 4096 || self.findings > 4096 {
-            return Err(contract("attempt summary exceeds bounded explanation capacity"));
+            return Err(contract(
+                "attempt summary exceeds bounded explanation capacity",
+            ));
         }
         Ok(self)
     }
@@ -102,14 +115,21 @@ pub struct AttemptDecision {
 }
 impl From<&Event> for AttemptDecision {
     fn from(event: &Event) -> Self {
-        Self { mechanism: event.mechanism, kind: event.kind, phase: event.phase,
-            decision: event.decision, observation: event.observation, transition: event.transition,
-            permission: event.permission, work: event.work,
+        Self {
+            mechanism: event.mechanism,
+            kind: event.kind,
+            phase: event.phase,
+            decision: event.decision,
+            observation: event.observation,
+            transition: event.transition,
+            permission: event.permission,
+            work: event.work,
             original: event.original.as_ref().map(|original| match original {
                 OriginalConclusion::Satisfied => AttemptOriginalConclusion::Satisfied,
                 OriginalConclusion::Refused { .. } => AttemptOriginalConclusion::Refused,
                 OriginalConclusion::Unavailable { .. } => AttemptOriginalConclusion::Unavailable,
-            }) }
+            }),
+        }
     }
 }
 /// A retained original-coordinate violation. IDs and physical tolerance belong to the producer.
@@ -157,8 +177,12 @@ pub struct AttemptStepSummary {
     /// Maximum original physical violation divided by its declared tolerance.
     pub normalized_physical_violation: Option<NumberObservation>,
     /// Actual options submitted by the adapter, separate from queried native defaults.
+    #[serde(serialize_with = "pse_backend_native::solve::serialize_option_observations")]
+    #[schemars(with = "std::collections::BTreeMap<String, NumberObservation>")]
     pub effective_options: pse_backend_native::solve::Options,
     /// Defaults only when the native library supplies a readback API.
+    #[serde(serialize_with = "pse_backend_native::solve::serialize_option_observations")]
+    #[schemars(with = "std::collections::BTreeMap<String, NumberObservation>")]
     pub native_defaults: pse_backend_native::solve::Options,
     /// Actual submitted seed transformations and source identity.
     pub start: Option<AttemptStartSummary>,
@@ -181,16 +205,32 @@ pub struct AttemptStepSummary {
 }
 impl AttemptStepSummary {
     fn empty(step: usize) -> Self {
-        Self { step, backend: None, observation: None, accepted: None, work: None,
-            start_submitted: None, reused_native_state: None, normalized_physical_violation: None,
-            effective_options: Default::default(), native_defaults: Default::default(), start: None,
+        Self {
+            step,
+            backend: None,
+            observation: None,
+            accepted: None,
+            work: None,
+            start_submitted: None,
+            reused_native_state: None,
+            normalized_physical_violation: None,
+            effective_options: Default::default(),
+            native_defaults: Default::default(),
+            start: None,
             intervals: Default::default(),
-            decisions: Vec::new(), omitted_decisions: 0, findings: Vec::new(),
-            omitted_findings: 0, dropped_progress: None, native_observations: None, raw_map: None }
+            decisions: Vec::new(),
+            omitted_decisions: 0,
+            findings: Vec::new(),
+            omitted_findings: 0,
+            dropped_progress: None,
+            native_observations: None,
+            raw_map: None,
+        }
     }
     fn trace(&mut self, trace: &Trace, remaining: &mut usize) {
         let count = trace.events.len().min(*remaining);
-        self.decisions.extend(trace.events.iter().take(count).map(AttemptDecision::from));
+        self.decisions
+            .extend(trace.events.iter().take(count).map(AttemptDecision::from));
         self.omitted_decisions = trace.events.len() - count;
         *remaining -= count;
     }
@@ -204,38 +244,60 @@ impl AttemptStepSummary {
         self.native_observations = native.evidence.native_observations.clone();
         self.effective_options = native.options.clone();
         self.native_defaults = native.native_defaults.clone();
-        self.start = native.start_receipt.as_ref().map(|start| AttemptStartSummary {
-            previous_attempt: start.previous_attempt,
-            layout: start.seed.as_ref().map(|seed| seed.compatibility.layout),
-            data: start.seed.as_ref().map(|seed| seed.compatibility.data),
-            transformations: start.transformations.clone(),
-            sparse_variables: start.sparse_seed.as_ref().map_or(0, |seed| seed.len()),
-            submitted: start.submitted,
-        });
+        self.start = native
+            .start_receipt
+            .as_ref()
+            .map(|start| AttemptStartSummary {
+                previous_attempt: start.previous_attempt,
+                layout: start.seed.as_ref().map(|seed| seed.compatibility.layout),
+                data: start.seed.as_ref().map(|seed| seed.compatibility.data),
+                transformations: start.transformations.clone(),
+                sparse_variables: start.sparse_seed.as_ref().map_or(0, |seed| seed.len()),
+                submitted: start.submitted,
+            });
         if let Some(observations) = &native.evidence.native_observations
-            && let pse_backend_native::solve::NativeCounters::Ipopt { wall_seconds, .. } = &observations.counters {
-            self.intervals.native_including_callbacks_seconds = wall_seconds.map(NumberObservation::number);
+            && let pse_backend_native::solve::NativeCounters::Ipopt { wall_seconds, .. } =
+                &observations.counters
+        {
+            self.intervals.native_including_callbacks_seconds =
+                wall_seconds.map(NumberObservation::number);
         }
         if let Some(raw) = &native.evidence.raw_map {
             let count = raw.samples.len().min(*remaining);
             self.raw_map = Some(pse_backend_native::solve::RawMapHistory {
-                problem: raw.problem, profile: raw.profile,
+                problem: raw.problem,
+                profile: raw.profile,
                 samples: raw.samples.iter().take(count).cloned().collect(),
-                omitted: raw.omitted.saturating_add((raw.samples.len() - count) as u64),
-                last_successful: raw.last_successful.clone(), last_evaluation: raw.last_evaluation.clone(),
+                omitted: raw
+                    .omitted
+                    .saturating_add((raw.samples.len() - count) as u64),
+                last_successful: raw.last_successful.clone(),
+                last_evaluation: raw.last_evaluation.clone(),
             });
             *remaining -= count;
         }
         if let Some(quality) = &native.quality {
-            self.normalized_physical_violation = Some(NumberObservation::number(quality.normalized_max));
-            let findings = quality.rows.iter().chain(&quality.bounds).chain(&quality.integrality)
-                .filter(|finding| !finding.physical.is_finite() || finding.physical > finding.tolerance);
+            self.normalized_physical_violation =
+                Some(NumberObservation::number(quality.normalized_max));
+            let findings = quality
+                .rows
+                .iter()
+                .chain(&quality.bounds)
+                .chain(&quality.integrality)
+                .filter(|finding| {
+                    !finding.physical.is_finite() || finding.physical > finding.tolerance
+                });
             for finding in findings {
                 if *remaining > 0 {
-                    self.findings.push(AttemptFinding { source: finding.id, violation: NumberObservation::number(finding.physical),
-                        tolerance: NumberObservation::number(finding.tolerance) });
+                    self.findings.push(AttemptFinding {
+                        source: finding.id,
+                        violation: NumberObservation::number(finding.physical),
+                        tolerance: NumberObservation::number(finding.tolerance),
+                    });
                     *remaining -= 1;
-                } else { self.omitted_findings += 1; }
+                } else {
+                    self.omitted_findings += 1;
+                }
             }
         }
     }
@@ -279,10 +341,20 @@ fn native_copy_extent(native: &pse_backend_native::solve::SolveReport) -> Option
         }
     }
     if let Some(start) = &native.start_receipt {
-        extent = extent.checked_add(start.transformations.len().checked_mul(size_of::<pse_backend_native::solve::SeedTransformation>())?)?;
+        extent = extent.checked_add(
+            start
+                .transformations
+                .len()
+                .checked_mul(size_of::<pse_backend_native::solve::SeedTransformation>())?,
+        )?;
         for transform in &start.transformations {
             if let pse_backend_native::solve::SeedTransformation::Presolve(value) = transform {
-                extent = extent.checked_add(value.passes.len().checked_mul(size_of::<pse_backend_native::presolve::Pass>())?)?;
+                extent = extent.checked_add(
+                    value
+                        .passes
+                        .len()
+                        .checked_mul(size_of::<pse_backend_native::presolve::Pass>())?,
+                )?;
             }
         }
     }
@@ -291,46 +363,92 @@ fn native_copy_extent(native: &pse_backend_native::solve::SolveReport) -> Option
 impl RunResult {
     /// Automatic compact retained-only diagnosis, including after cancellation/deadline.
     pub fn attempt_summary(&self) -> Result<Arc<AttemptSummary>, WorkflowError> {
-        if let Some(summary) = self.attempt_summary.get() { return Ok(summary.clone()); }
+        if let Some(summary) = self.attempt_summary.get() {
+            return Ok(summary.clone());
+        }
         let summary = Arc::new(self.attempt_summary_with_limits(AttemptSummaryLimits::default())?);
         let _ = self.attempt_summary.set(summary.clone());
         Ok(self.attempt_summary.get().cloned().unwrap_or(summary))
     }
     /// Explicit bounded detail. This never evaluates a model, prepares a solver or queries history.
-    pub fn attempt_summary_with_limits(&self, limits: AttemptSummaryLimits) -> Result<AttemptSummary, WorkflowError> {
+    pub fn attempt_summary_with_limits(
+        &self,
+        limits: AttemptSummaryLimits,
+    ) -> Result<AttemptSummary, WorkflowError> {
         let limits = limits.validate()?;
-        let mut extent = limits.steps.saturating_mul(size_of::<AttemptStepSummary>() + 16384)
-            .saturating_add(limits.events.saturating_mul(size_of::<AttemptDecision>() + size_of::<super::ReplayNativeAttempt>() + 64))
-            .saturating_add(limits.findings.saturating_mul(size_of::<AttemptFinding>() + 4096))
+        let mut extent = limits
+            .steps
+            .saturating_mul(size_of::<AttemptStepSummary>() + 16384)
+            .saturating_add(limits.events.saturating_mul(
+                size_of::<AttemptDecision>() + size_of::<super::ReplayNativeAttempt>() + 64,
+            ))
+            .saturating_add(
+                limits
+                    .findings
+                    .saturating_mul(size_of::<AttemptFinding>() + 4096),
+            )
             .saturating_add(size_of::<AttemptSummary>() + 512);
-        let requested_steps = match &self.request { RunRequest::Modeling(steps) => steps.len(), _ => 1 };
+        let requested_steps = match &self.request {
+            RunRequest::Modeling(steps) => steps.len(),
+            _ => 1,
+        };
         // Admit copies of actual variable-size option/start payloads before cloning them.
         for step in 0..requested_steps.min(limits.steps) {
-            let native = self.modeling_result(step).and_then(|result| match &result.outcome {
-                crate::math::solves::Outcome::Native(native) => Some(native.as_ref()), _ => None,
-            }).or_else(|| match &self.report {
-                Ok(RunReport::Fit(report)) => report.solve.as_ref(),
-                #[cfg(feature = "solver-diffsol")]
-                Ok(RunReport::Shooting(report)) => report.solve.as_ref(),
-                _ => None,
-            });
+            let native = self
+                .modeling_result(step)
+                .and_then(|result| match &result.outcome {
+                    crate::math::solves::Outcome::Native(native) => Some(native.as_ref()),
+                    _ => None,
+                })
+                .or_else(|| match &self.report {
+                    Ok(RunReport::Fit(report)) => report.solve.as_ref(),
+                    #[cfg(feature = "solver-diffsol")]
+                    Ok(RunReport::Shooting(report)) => report.solve.as_ref(),
+                    _ => None,
+                });
             if let Some(native) = native {
-                extent = native_copy_extent(native).and_then(|copied| extent.checked_add(copied))
+                extent = native_copy_extent(native)
+                    .and_then(|copied| extent.checked_add(copied))
                     .ok_or_else(|| contract("attempt summary option/start extent overflow"))?;
             }
         }
-        let owner = self.runtime.shared.math().reserve("attempt:retained-summary", extent)?;
-        let mut summary = AttemptSummary { run_id: self.run_id, requested_steps, steps: Vec::new(),
-            omitted_steps: requested_steps.saturating_sub(limits.steps), native_attempts: Vec::new(),
-            omitted_native_attempts: 0, native_record_coverage: match self.original_horizon_request.as_ref().unwrap_or(&self.request) {
-                RunRequest::Simulation(_) | RunRequest::Horizon(_) => super::ReplayNativeRecordCoverage::IntegrationReportOnly,
+        let owner = self
+            .runtime
+            .shared
+            .math()
+            .reserve("attempt:retained-summary", extent)?;
+        let mut summary = AttemptSummary {
+            run_id: self.run_id,
+            requested_steps,
+            steps: Vec::new(),
+            omitted_steps: requested_steps.saturating_sub(limits.steps),
+            native_attempts: Vec::new(),
+            omitted_native_attempts: 0,
+            native_record_coverage: match self
+                .original_horizon_request
+                .as_ref()
+                .unwrap_or(&self.request)
+            {
+                RunRequest::Simulation(_) | RunRequest::Horizon(_) => {
+                    super::ReplayNativeRecordCoverage::IntegrationReportOnly
+                }
                 _ => super::ReplayNativeRecordCoverage::StrategyAttempts,
-            }, failure: None,
-            usable: self.usable(), _owner: owner };
+            },
+            failure: None,
+            usable: self.usable(),
+            _owner: owner,
+        };
         for (step, mechanism, component, record) in self.native_attempt_records() {
             if summary.native_attempts.len() < limits.events {
-                summary.native_attempts.push(super::ReplayNativeAttempt { step, mechanism, component, record: record.clone() });
-            } else { summary.omitted_native_attempts += 1; }
+                summary.native_attempts.push(super::ReplayNativeAttempt {
+                    step,
+                    mechanism,
+                    component,
+                    record: record.clone(),
+                });
+            } else {
+                summary.omitted_native_attempts += 1;
+            }
         }
         let mut events = limits.events;
         let mut findings = limits.findings;
@@ -343,35 +461,53 @@ impl RunResult {
                 if let crate::math::solves::Outcome::Native(native) = &result.outcome {
                     projected.native(native, &mut findings);
                 }
-                if let Some(trace) = &result.strategy { projected.trace(trace, &mut events); }
-            } else { match &self.report {
-                Ok(RunReport::Fit(report)) => {
-                    projected.accepted = Some(self.usable());
-                    if let Some(native) = &report.solve { projected.native(native, &mut findings); }
-                    if let Some(trace) = &report.strategy { projected.trace(trace, &mut events); }
+                if let Some(trace) = &result.strategy {
+                    projected.trace(trace, &mut events);
                 }
-                #[cfg(feature = "solver-diffsol")]
-                Ok(RunReport::Shooting(report)) => {
-                    projected.accepted = Some(self.usable());
-                    if let Some(native) = &report.solve { projected.native(native, &mut findings); }
-                    if let Some(trace) = &report.strategy { projected.trace(trace, &mut events); }
+            } else {
+                match &self.report {
+                    Ok(RunReport::Fit(report)) => {
+                        projected.accepted = Some(self.usable());
+                        if let Some(native) = &report.solve {
+                            projected.native(native, &mut findings);
+                        }
+                        if let Some(trace) = &report.strategy {
+                            projected.trace(trace, &mut events);
+                        }
+                    }
+                    #[cfg(feature = "solver-diffsol")]
+                    Ok(RunReport::Shooting(report)) => {
+                        projected.accepted = Some(self.usable());
+                        if let Some(native) = &report.solve {
+                            projected.native(native, &mut findings);
+                        }
+                        if let Some(trace) = &report.strategy {
+                            projected.trace(trace, &mut events);
+                        }
+                    }
+                    Ok(RunReport::Simulation(_)) | Ok(RunReport::Horizon(_)) => {
+                        projected.accepted = Some(self.usable());
+                    }
+                    Err(error) => {
+                        projected.observation =
+                            Some(crate::math::strategy::workflow_failure(error));
+                        if let Some(trace) = error.strategy_trace() {
+                            projected.trace(trace, &mut events);
+                        }
+                    }
+                    _ => {}
                 }
-                Ok(RunReport::Simulation(_)) | Ok(RunReport::Horizon(_)) => {
-                    projected.accepted = Some(self.usable());
-                }
-                Err(error) => {
-                    projected.observation = Some(crate::math::strategy::workflow_failure(error));
-                    if let Some(trace) = error.strategy_trace() { projected.trace(trace, &mut events); }
-                }
-                _ => {}
-            }}
+            }
             summary.steps.push(projected);
         }
         if let Err(error) = &self.report {
             let diagnostic = error.boundary_diagnostic();
             summary.failure = Some(AttemptFailureSummary {
                 observation: crate::math::strategy::workflow_failure(error),
-                code: diagnostic.code, class: diagnostic.class, retained_only: true });
+                code: diagnostic.code,
+                class: diagnostic.class,
+                retained_only: true,
+            });
         }
         Ok(summary)
     }
@@ -382,32 +518,66 @@ mod tests {
     use super::*;
     #[test]
     fn default_summary_is_one_shared_product_and_custom_bounds_are_explicit() {
-        let result = RunResult::joined(RunId::from_bytes([91; 16]), crate::workflow::tests::runtime(),
-            RunRequest::Modeling(vec![]), None, Ok(RunReport::Modeling(vec![]))).completed();
+        let result = RunResult::joined(
+            RunId::from_bytes([91; 16]),
+            crate::workflow::tests::runtime(),
+            RunRequest::Modeling(vec![]),
+            None,
+            Ok(RunReport::Modeling(vec![])),
+        )
+        .completed();
         let first = result.attempt_summary().unwrap();
         let second = result.attempt_summary().unwrap();
         assert!(Arc::ptr_eq(&first, &second));
         assert_eq!(first.requested_steps, 0);
-        assert!(result.attempt_summary_with_limits(AttemptSummaryLimits {
-            steps: 1, events: usize::MAX, findings: 0,
-        }).is_err());
+        assert!(
+            result
+                .attempt_summary_with_limits(AttemptSummaryLimits {
+                    steps: 1,
+                    events: usize::MAX,
+                    findings: 0,
+                })
+                .is_err()
+        );
     }
     #[test]
     fn retained_nonfinite_physical_violation_is_observed_not_missing() {
-        use pse_backend_native::solve::{Assurance, Backend, Controls, Execution, NativeTermination, SolveReport, Termination};
-        let contract = pse_backend_native::OracleContract {
-            identity: ContentHash::from_bytes([92; 32]), variables: vec![], rows: vec![],
-            derivatives: pse_kernels::DerivativeOrder::Value, smoothness: pse_kernels::DerivativeOrder::Value,
+        use pse_backend_native::solve::{
+            Assurance, Backend, Controls, Execution, NativeTermination, SolveReport, Termination,
         };
-        let execution = Execution::new(Arc::new(std::sync::atomic::AtomicBool::new(false)), &Controls::default());
-        let mut report = SolveReport::new(Backend::Kinsol, &contract, NativeTermination {
-            code: -1, name: "retained_failure".into(), message: None,
-            category: Termination::Numerical, assurance: Assurance::None,
-        }, &execution);
+        let contract = pse_backend_native::OracleContract {
+            identity: ContentHash::from_bytes([92; 32]),
+            variables: vec![],
+            rows: vec![],
+            derivatives: pse_kernels::DerivativeOrder::Value,
+            smoothness: pse_kernels::DerivativeOrder::Value,
+        };
+        let execution = Execution::new(
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            &Controls::default(),
+        );
+        let mut report = SolveReport::new(
+            Backend::Kinsol,
+            &contract,
+            NativeTermination {
+                code: -1,
+                name: "retained_failure".into(),
+                message: None,
+                category: Termination::Numerical,
+                assurance: Assurance::None,
+            },
+            &execution,
+        );
         for (value, tag) in [(f64::INFINITY, "positive_infinity"), (f64::NAN, "nan")] {
             report.quality = Some(pse_backend_native::quality::Quality {
-                rows: vec![pse_backend_native::quality::Violation { id: SemanticId::NIL,
-                    physical: value, tolerance: 1.0 }], bounds: vec![], integrality: vec![], normalized_max: value,
+                rows: vec![pse_backend_native::quality::Violation {
+                    id: SemanticId::NIL,
+                    physical: value,
+                    tolerance: 1.0,
+                }],
+                bounds: vec![],
+                integrality: vec![],
+                normalized_max: value,
             });
             let mut step = AttemptStepSummary::empty(0);
             step.native(&report, &mut 1);
@@ -418,17 +588,46 @@ mod tests {
     }
     #[test]
     fn explanation_admission_is_finite_and_zero_is_explicit() {
-        assert!(AttemptSummaryLimits { steps: 0, events: 0, findings: 0 }.validate().is_ok());
-        assert!(AttemptSummaryLimits { steps: 1, events: usize::MAX, findings: 0 }.validate().is_err());
+        assert!(
+            AttemptSummaryLimits {
+                steps: 0,
+                events: 0,
+                findings: 0
+            }
+            .validate()
+            .is_ok()
+        );
+        assert!(
+            AttemptSummaryLimits {
+                steps: 1,
+                events: usize::MAX,
+                findings: 0
+            }
+            .validate()
+            .is_err()
+        );
     }
     #[test]
     fn decision_projection_preserves_original_refusal_despite_native_success() {
-        let event = Event { mechanism: 2, kind: NumericalEventKind::Finished, phase: Phase::Assessment,
-            original: Some(OriginalConclusion::Unavailable { cause: Arc::new(pse_backend_native::ProblemError::Cancelled) }),
-            decision: None, observation: Some(Observation::Converged), transition: Some(Transition::Stop),
-            permission: None, work: None, cause: None };
+        let event = Event {
+            mechanism: 2,
+            kind: NumericalEventKind::Finished,
+            phase: Phase::Assessment,
+            original: Some(OriginalConclusion::Unavailable {
+                cause: Arc::new(pse_backend_native::ProblemError::Cancelled),
+            }),
+            decision: None,
+            observation: Some(Observation::Converged),
+            transition: Some(Transition::Stop),
+            permission: None,
+            work: None,
+            cause: None,
+        };
         let projected = AttemptDecision::from(&event);
-        assert!(matches!(projected.original, Some(AttemptOriginalConclusion::Unavailable)));
+        assert!(matches!(
+            projected.original,
+            Some(AttemptOriginalConclusion::Unavailable)
+        ));
         assert_eq!(projected.observation, Some(Observation::Converged));
         assert_eq!(projected.transition, Some(Transition::Stop));
     }

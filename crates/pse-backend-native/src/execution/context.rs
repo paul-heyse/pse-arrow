@@ -8,7 +8,9 @@ use pse_ids::{ContentHash, FramedHasher};
 use std::collections::BTreeMap;
 
 /// The build/linkage fact for one registered adapter.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct BuildObservation {
     /// This binary links the native implementation.
@@ -17,7 +19,9 @@ pub struct BuildObservation {
     pub identity: Option<ContentHash>,
 }
 /// One immutable build/runtime observation supplied by the composition boundary.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
     /// Registered adapter observations, including absent native implementations.
@@ -114,17 +118,26 @@ impl Snapshot {
 mod build_inventory {
     use super::*;
     use serde::{Deserialize as _, ser::SerializeSeq as _};
-    pub(super) fn serialize<S: serde::Serializer>(value: &BTreeMap<Backend, BuildObservation>, serializer: S) -> Result<S::Ok, S::Error> {
+    pub(super) fn serialize<S: serde::Serializer>(
+        value: &BTreeMap<Backend, BuildObservation>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
         let mut sequence = serializer.serialize_seq(Some(value.len()))?;
-        for entry in value { sequence.serialize_element(&entry)?; }
+        for entry in value {
+            sequence.serialize_element(&entry)?;
+        }
         sequence.end()
     }
-    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<BTreeMap<Backend, BuildObservation>, D::Error> {
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<BTreeMap<Backend, BuildObservation>, D::Error> {
         let entries = Vec::<(Backend, BuildObservation)>::deserialize(deserializer)?;
         let mut result = BTreeMap::new();
         for (backend, observation) in entries {
             if result.insert(backend, observation).is_some() {
-                return Err(serde::de::Error::custom("duplicate native build observation"));
+                return Err(serde::de::Error::custom(
+                    "duplicate native build observation",
+                ));
             }
         }
         Ok(result)
@@ -135,8 +148,17 @@ mod transport_tests {
     use super::*;
     #[test]
     fn native_snapshot_inventory_transport_preserves_absence_and_refuses_duplicates() {
-        let original = Snapshot { adapters: BTreeMap::from([(Backend::Ipopt, BuildObservation { linked: false, identity: None })]),
-            ipopt: None, scip_omp_cancellation: false };
+        let original = Snapshot {
+            adapters: BTreeMap::from([(
+                Backend::Ipopt,
+                BuildObservation {
+                    linked: false,
+                    identity: None,
+                },
+            )]),
+            ipopt: None,
+            scip_omp_cancellation: false,
+        };
         let bytes = serde_json::to_vec(&original).unwrap();
         let restored: Snapshot = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(restored, original);

@@ -309,11 +309,17 @@ impl SolveReport {
             }
             for (last, already) in [
                 (history.last_successful.as_ref(), None),
-                (history.last_evaluation.as_ref(), history.last_successful.as_ref()),
+                (
+                    history.last_evaluation.as_ref(),
+                    history.last_successful.as_ref(),
+                ),
             ] {
                 if let Some(last) = last
                     && !already.is_some_and(|held| Arc::ptr_eq(held, last))
-                    && !history.samples.iter().any(|sample| Arc::ptr_eq(sample, last))
+                    && !history
+                        .samples
+                        .iter()
+                        .any(|sample| Arc::ptr_eq(sample, last))
                 {
                     extent.add(size_of::<RawMapSample>() + 2 * size_of::<usize>())?;
                     extent.vector(&last.values)?;

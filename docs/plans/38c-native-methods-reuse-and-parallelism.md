@@ -100,3 +100,17 @@ I-C4 investigates SPQR exact API/build/index-width/memory/threshold fit as a sep
 I-C1 settles profile reachability/reset/history for AU02 and native width/context hooks; I-C2 records a select/investigate/defer outcome for every family above, with an actual request trigger and fitting alternative; I-C3 settles remaining cubic/implicit/presolve/evaluator validity, preserving current implemented KLU/IDAS reverse-cursor and guarded-root decisions rather than redoing them; I-C4 settles sparse tier/fill support. Retain start/dual/accuracy-dependent presolve facts as fresh, FERAL SparseLu Markowitz semantics and request-local IBEX Function/System even if immutable Rust transport declarations are retained.
 
 Use library skills, Context7 and exact pinned/fork sources; probes are discretionary and cannot touch another owner's active work or clear shared caches. Each outcome states evidence, selected/retained contract, affected dependents and support limit. Compile/targeted unit controls accompany changes, with explicit Arrow validation if consumed. G1–G3 own assembled native/scientific/performance and scope-end checks after all selected functional work. Historical failed/stopped native assessments remain failed/stopped until that current scope is qualified.
+
+## Dependency handoff — Plan 38b, 2026-10-13
+
+[38b](38b-solver-policy-observation-and-diagnostics.md#execution-checkpoint--2026-10-13)
+delivers the authorized minimum C1/C3 producer slice: optional method-specific observations,
+actual effective settings/defaults and stop/checkpoint fidelity, bounded submitted-oracle
+snapshots, early-failure counter truth and portable seed restoration with explicit refusal
+of unavailable native continuation. Native/component records retain their admitted owners.
+Existing numerical algorithms, pins and defaults are unchanged. Its Verification owns the
+scoped native controls; these are not full per-profile, reset/history or scientific acceptance.
+
+C1/C3 remain Planned for their wider compatibility, callback, method-family, dynamics and
+scientific-consumer obligations. I-C1–I-C4 and C2/C4–C6 are not completed by this handoff.
+Consume the existing observation product rather than adding a second counter/attempt authority.

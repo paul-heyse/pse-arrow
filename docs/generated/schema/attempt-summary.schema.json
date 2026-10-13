@@ -367,7 +367,7 @@
         },
         "effective_options": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Actual options submitted by the adapter, separate from queried native defaults.",
           "type": "object"
@@ -385,7 +385,7 @@
         },
         "native_defaults": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Defaults only when the native library supplies a readback API.",
           "type": "object"
@@ -816,7 +816,7 @@
         },
         "native_defaults": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Native defaults only when supplied by a getter.",
           "type": "object"
@@ -834,7 +834,7 @@
         },
         "options": {
           "additionalProperties": {
-            "$ref": "#/$defs/OptionValue"
+            "$ref": "#/$defs/Observation"
           },
           "description": "Complete actual adapter options, separate from queried defaults.",
           "type": "object"
@@ -1596,29 +1596,6 @@
         "indices"
       ],
       "type": "object"
-    },
-    "OptionValue": {
-      "anyOf": [
-        {
-          "description": "Native Boolean.",
-          "type": "boolean"
-        },
-        {
-          "description": "Native integer.",
-          "format": "int32",
-          "type": "integer"
-        },
-        {
-          "description": "Finite native real.",
-          "format": "double",
-          "type": "number"
-        },
-        {
-          "description": "Native text/enumeration.",
-          "type": "string"
-        }
-      ],
-      "description": "Native option type; each adapter validates registration, type and protected controls.\nA document states the value itself: a JSON Boolean, integer, other number or string\ndecodes as the Boolean, integer, real or text option of that value."
     },
     "PhysicalObservation": {
       "additionalProperties": false,

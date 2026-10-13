@@ -979,9 +979,13 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let original = engagement::OriginalPreparationInputs::capture(self, root, instance, &bindings, limits)?;
+                let original = engagement::OriginalPreparationInputs::capture(
+                    self, root, instance, &bindings, limits,
+                )?;
                 if let Some(scope) = &self.held_preparation {
-                    let mut model = scope.prepare(self, root, instance, bindings, limits, cancel).await?;
+                    let mut model = scope
+                        .prepare(self, root, instance, bindings, limits, cancel)
+                        .await?;
                     model.original = Some(original);
                     return Ok(model);
                 }

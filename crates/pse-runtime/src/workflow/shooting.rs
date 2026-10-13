@@ -286,17 +286,27 @@ impl ShootingProblem {
         mut request: ShootingProfile,
         cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
-        let original_extent = size_of::<ShootingProfile>().saturating_add(1024)
+        let original_extent = size_of::<ShootingProfile>()
+            .saturating_add(1024)
             .saturating_add(crate::workflow::replay::profile_extent(&request.solver)?)
             .saturating_add(request.nodes.len().saturating_mul(16))
             .saturating_add((request.controls.len() + request.path.len()).saturating_mul(128))
-            .saturating_add((request.objective.terminal.len() + request.objective.integral.len()).saturating_mul(192));
-        let original_owner = simulation.runtime.shared.math().reserve("replay:original-shooting-constructor", original_extent)?;
+            .saturating_add(
+                (request.objective.terminal.len() + request.objective.integral.len())
+                    .saturating_mul(192),
+            );
+        let original_owner = simulation
+            .runtime
+            .shared
+            .math()
+            .reserve("replay:original-shooting-constructor", original_extent)?;
         let original_inputs = Arc::new(request.clone());
         let profile = simulation.profile();
         let c = simulation.contract();
         request.solver.controls.hessian = pse_model::strategy::resolve_curvature(
-            request.solver.controls.hessian, pse_model::strategy::CurvatureFacts::default());
+            request.solver.controls.hessian,
+            pse_model::strategy::CurvatureFacts::default(),
+        );
         if !matches!(
             request.solver.controls.hessian,
             HessianMode::LimitedMemory | HessianMode::Partitioned | HessianMode::FiniteDifference
@@ -2020,5 +2030,7 @@ impl ShootingProblem {
 }
 
 impl ShootingProblem {
-    pub(super) fn replay_constructor_extent(&self) -> usize { self._original_owner.size() }
+    pub(super) fn replay_constructor_extent(&self) -> usize {
+        self._original_owner.size()
+    }
 }

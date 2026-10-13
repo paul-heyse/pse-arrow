@@ -645,7 +645,9 @@ impl PreparedFit {
 }
 
 impl PreparedFit {
-    pub(in crate::workflow) fn execution_snapshot(&self) -> &pse_backend_native::execution::Snapshot {
+    pub(in crate::workflow) fn execution_snapshot(
+        &self,
+    ) -> &pse_backend_native::execution::Snapshot {
         &self.problem.snapshot
     }
 }

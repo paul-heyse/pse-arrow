@@ -197,15 +197,29 @@ impl PreparedRung {
                 return Ok(Self::Original(Box::new(prepared.fresh_replay_copy()?)));
             }
             #[cfg(feature = "solver-kinsol")]
-            Self::Blocks(_) => "MathService::prepare_blocks with the retained original schedule and a new task scope",
+            Self::Blocks(_) => {
+                "MathService::prepare_blocks with the retained original schedule and a new task scope"
+            }
             #[cfg(feature = "solver-kinsol")]
-            Self::Causal(_) => "the authored recycle supplier's prepare with retained original inputs and a new task scope",
-            Self::Multistart(_) => "MathService::prepare_multistart with the exact retained specification proposal and a new task scope",
-            Self::Derived(_) => "MathService::prepare_derived with the exact retained DerivedRequest, original correspondences and a new task scope",
-            Self::Surrogate(_) => "MathService::prepare_surrogate and prepare_surrogate_phase with the retained fidelity/evaluator inputs and a new actor/task scope",
+            Self::Causal(_) => {
+                "the authored recycle supplier's prepare with retained original inputs and a new task scope"
+            }
+            Self::Multistart(_) => {
+                "MathService::prepare_multistart with the exact retained specification proposal and a new task scope"
+            }
+            Self::Derived(_) => {
+                "MathService::prepare_derived with the exact retained DerivedRequest, original correspondences and a new task scope"
+            }
+            Self::Surrogate(_) => {
+                "MathService::prepare_surrogate and prepare_surrogate_phase with the retained fidelity/evaluator inputs and a new actor/task scope"
+            }
             #[cfg(feature = "solver-petsc")]
-            Self::Petsc(_) => "MathService::prepare_petsc_source and its flow/blocks producer with the retained domain/mass supplier and a new task scope",
-            Self::Path { .. } => "MathService::prepare_path with the retained PathRequest, oriented PathStart, curvature premises and a new task scope",
+            Self::Petsc(_) => {
+                "MathService::prepare_petsc_source and its flow/blocks producer with the retained domain/mass supplier and a new task scope"
+            }
+            Self::Path { .. } => {
+                "MathService::prepare_path with the retained PathRequest, oriented PathStart, curvature premises and a new task scope"
+            }
         };
         Err(ProblemError::Unsupported(format!(
             "new execution is missing producer reprepare premises for {route}; historical scoped controllers are not resumable state"

@@ -979,27 +979,44 @@ pub fn policy_candidates(
     choices: &[Eligibility],
 ) -> Vec<pse_model::strategy::PolicyCandidate> {
     use pse_model::strategy::{CandidatePreference, PolicyCandidate};
-    choices.iter().map(|entry| {
-        let adapter = table.get(entry.backend);
-        let class = adapter.and_then(|adapter| classes.iter().position(|class| {
-            adapter.capability().automatic_classes.contains(class)
-        }));
-        let rank = adapter.and_then(|adapter| adapter.automatic());
-        let supported = class.is_some() && rank.is_some();
-        let priority = class.map(|index| {
-            index + if sensitivity && adapter.is_some_and(|adapter| !adapter.capability().sensitivities) {
-                classes.len()
-            } else { 0 }
-        }).and_then(|index| u32::try_from(index).ok()).unwrap_or(u32::MAX);
-        PolicyCandidate {
-            state: if supported { entry.state } else { AssessmentState::Refused },
-            preference: CandidatePreference {
-                priority,
-                baseline_rank: u32::from(rank.unwrap_or(u8::MAX)),
-                ..Default::default()
-            },
-        }
-    }).collect()
+    choices
+        .iter()
+        .map(|entry| {
+            let adapter = table.get(entry.backend);
+            let class = adapter.and_then(|adapter| {
+                classes
+                    .iter()
+                    .position(|class| adapter.capability().automatic_classes.contains(class))
+            });
+            let rank = adapter.and_then(|adapter| adapter.automatic());
+            let supported = class.is_some() && rank.is_some();
+            let priority = class
+                .map(|index| {
+                    index
+                        + if sensitivity
+                            && adapter.is_some_and(|adapter| !adapter.capability().sensitivities)
+                        {
+                            classes.len()
+                        } else {
+                            0
+                        }
+                })
+                .and_then(|index| u32::try_from(index).ok())
+                .unwrap_or(u32::MAX);
+            PolicyCandidate {
+                state: if supported {
+                    entry.state
+                } else {
+                    AssessmentState::Refused
+                },
+                preference: CandidatePreference {
+                    priority,
+                    baseline_rank: u32::from(rank.unwrap_or(u8::MAX)),
+                    ..Default::default()
+                },
+            }
+        })
+        .collect()
 }
 impl Requirements<'_> {
     /// Assess every exposed algebraic adapter through the one eligibility rule.
@@ -1061,8 +1078,11 @@ impl Requirements<'_> {
         } else {
             match selection {
                 SolverSelection::Explicit(backend) => Some(backend),
-                SolverSelection::Auto => pse_model::strategy::candidate_order(&candidates, None, false)
-                    .first().map(|&index| eligibility[index].backend),
+                SolverSelection::Auto => {
+                    pse_model::strategy::candidate_order(&candidates, None, false)
+                        .first()
+                        .map(|&index| eligibility[index].backend)
+                }
             }
         };
         let preferred_entry =
@@ -1254,7 +1274,10 @@ impl Requirements<'_> {
         let selected = match selection {
             SolverSelection::Explicit(b) => b,
             SolverSelection::Auto => preferred.ok_or_else(|| {
-                ProblemError::Unsupported(format!("no eligible native route: {}", assessed(choices)))
+                ProblemError::Unsupported(format!(
+                    "no eligible native route: {}",
+                    assessed(choices)
+                ))
             })?,
         };
         if !self.available(selected) {

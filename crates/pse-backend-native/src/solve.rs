@@ -4,23 +4,25 @@
 mod exact_objective;
 mod observations;
 mod record;
-mod snapshot;
 mod retention;
+mod snapshot;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
-pub use record::{AttemptRecord, SubmittedStartRecord};
-pub use observations::{NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
-    ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
-    RawMapSample, StopFidelity};
 #[cfg(any(feature = "kinsol", test))]
 pub(crate) use observations::RawMapCapture;
 #[cfg(feature = "ipopt")]
 pub(crate) use observations::SNAPSHOT_COORDINATES;
+pub use observations::{
+    NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
+    ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
+    RawMapSample, StopFidelity,
+};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
     scalar,
     scalars::{Fraction, Tolerance},
 };
+pub use record::{AttemptRecord, SubmittedStartRecord};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -76,6 +78,39 @@ pub enum OptionValue {
 }
 /// Effective options retain origin, including native defaults when queried.
 pub type Options = BTreeMap<String, OptionValue>;
+/// Encode observed native options without losing nonfinite library sentinels.
+/// Input options retain their finite, primitive contract; this codec is only for evidence.
+pub fn serialize_option_observations<S: serde::Serializer>(
+    options: &Options,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::{SerializeMap as _, SerializeStruct as _};
+    struct BorrowedOption<'a>(&'a OptionValue);
+    impl serde::Serialize for BorrowedOption<'_> {
+        fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+            use pse_model::diagnostic::Observation;
+            match self.0 {
+                OptionValue::Bool(value) => Observation::Boolean(*value).serialize(serializer),
+                OptionValue::Integer(value) => {
+                    Observation::Integer(i64::from(*value)).serialize(serializer)
+                }
+                OptionValue::Real(value) => Observation::number(*value).serialize(serializer),
+                OptionValue::Text(value) => {
+                    // Borrow the existing text; projection creates no unadmitted clone.
+                    let mut record = serializer.serialize_struct("Observation", 2)?;
+                    record.serialize_field("kind", "text")?;
+                    record.serialize_field("value", value)?;
+                    record.end()
+                }
+            }
+        }
+    }
+    let mut map = serializer.serialize_map(Some(options.len()))?;
+    for (key, value) in options {
+        map.serialize_entry(key, &BorrowedOption(value))?;
+    }
+    map.end()
+}
 /// Native stopping budgets in normalized coordinates, resolved from the numerical policy
 /// and the solved function's acceptance budgets (F20). They are never user input: user
 /// [`Controls`] carry no accuracy, and every attempt receives the value its preparation
@@ -1471,7 +1506,12 @@ pub struct WorkingSetTransfer {
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
-#[serde(tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    content = "value",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
 pub enum SeedTransformation {
     /// Model coordinate normalization, by its identity.
     Normalization(ContentHash),

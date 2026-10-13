@@ -476,13 +476,13 @@ class AttemptStepSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     #: Actual lossy progress count, independent of synchronous decisions.
     dropped_progress: Annotated[int, msgspec.Meta(ge=0)] | None = None
     #: Actual options submitted by the adapter, separate from queried native defaults.
-    effective_options: dict[str, OptionValue]
+    effective_options: dict[str, Observation]
     #: Retained original-coordinate violations.
     findings: tuple[AttemptFinding, ...]
     #: Available interval observations; overlapping native/callback costs are never added.
     intervals: AttemptIntervals
     #: Defaults only when the native library supplies a readback API.
-    native_defaults: dict[str, OptionValue]
+    native_defaults: dict[str, Observation]
     #: Actual family-specific counters, phase and cooperative stop coverage.
     native_observations: NativeObservations | None = None
     #: Maximum original physical violation divided by its declared tolerance.
@@ -507,7 +507,7 @@ class AttemptStepSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     work: WorkObservation | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.accepted), v.optional_key(v.scalar_key)(self.backend), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.scalar_key)(self.dropped_progress), v.mapping_key(v.scalar_key, v.scalar_key)(self.effective_options), v.sequence_key(v.record_key)(self.findings), v.record_key(self.intervals), v.mapping_key(v.scalar_key, v.scalar_key)(self.native_defaults), v.optional_key(v.record_key)(self.native_observations), v.optional_key(v.record_key)(self.normalized_physical_violation), v.optional_key(v.scalar_key)(self.observation), v.scalar_key(self.omitted_decisions), v.scalar_key(self.omitted_findings), v.optional_key(v.record_key)(self.raw_map), v.optional_key(v.scalar_key)(self.reused_native_state), v.optional_key(v.record_key)(self.start), v.optional_key(v.scalar_key)(self.start_submitted), v.scalar_key(self.step), v.optional_key(v.record_key)(self.work),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.accepted), v.optional_key(v.scalar_key)(self.backend), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.scalar_key)(self.dropped_progress), v.mapping_key(v.scalar_key, v.record_key)(self.effective_options), v.sequence_key(v.record_key)(self.findings), v.record_key(self.intervals), v.mapping_key(v.scalar_key, v.record_key)(self.native_defaults), v.optional_key(v.record_key)(self.native_observations), v.optional_key(v.record_key)(self.normalized_physical_violation), v.optional_key(v.scalar_key)(self.observation), v.scalar_key(self.omitted_decisions), v.scalar_key(self.omitted_findings), v.optional_key(v.record_key)(self.raw_map), v.optional_key(v.scalar_key)(self.reused_native_state), v.optional_key(v.record_key)(self.start), v.optional_key(v.scalar_key)(self.start_submitted), v.scalar_key(self.step), v.optional_key(v.record_key)(self.work),))
 
 
 class AttemptSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4834,11 +4834,11 @@ class NativeAttemptRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     #: Actual executed adapter.
     backend: enums.NativeBackend
     #: Native defaults only when supplied by a getter.
-    native_defaults: dict[str, OptionValue]
+    native_defaults: dict[str, Observation]
     #: Shared bounded native counters, phase, submitted snapshots and stop fidelity.
     observations: NativeObservations | None = None
     #: Complete actual adapter options, separate from queried defaults.
-    options: dict[str, OptionValue]
+    options: dict[str, Observation]
     #: Actual owner-emitted build/runtime/numerical provenance, without parsing.
     provenance: dict[str, str]
     #: Shared bounded raw map history, preserving omissions, failures and sample roles.
@@ -4859,7 +4859,7 @@ class NativeAttemptRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
     work: WorkEvidence
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.abandoned), v.scalar_key(self.backend), v.mapping_key(v.scalar_key, v.scalar_key)(self.native_defaults), v.optional_key(v.record_key)(self.observations), v.mapping_key(v.scalar_key, v.scalar_key)(self.options), v.mapping_key(v.scalar_key, v.scalar_key)(self.provenance), v.optional_key(v.record_key)(self.raw_map), v.scalar_key(self.reused_native_state), v.sequence_key(v.scalar_key)(self.rows), v.optional_key(v.record_key)(self.start), v.scalar_key(self.start_submitted), v.record_key(self.termination), v.sequence_key(v.scalar_key)(self.variables), v.record_key(self.work),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.abandoned), v.scalar_key(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.native_defaults), v.optional_key(v.record_key)(self.observations), v.mapping_key(v.scalar_key, v.record_key)(self.options), v.mapping_key(v.scalar_key, v.scalar_key)(self.provenance), v.optional_key(v.record_key)(self.raw_map), v.scalar_key(self.reused_native_state), v.sequence_key(v.scalar_key)(self.rows), v.optional_key(v.record_key)(self.start), v.scalar_key(self.start_submitted), v.record_key(self.termination), v.sequence_key(v.scalar_key)(self.variables), v.record_key(self.work),))
 
 
 class NativeCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6249,6 +6249,8 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     native_record_coverage: ReplayNativeRecordCoverage
     #: Actual immutable build/runtime observations used by constructor admission.
     runtime_premises: tuple[Snapshot, ...]
+    #: Complete original shooting and simulation constructor.
+    shooting_constructor: ReplayShootingConstructor | None = None
     #: Complete original simulation constructors across all linked methods.
     simulation_constructors: tuple[ReplaySimulationConstructor, ...]
     #: Full actual solver settings for all original solver owners.
@@ -6259,7 +6261,7 @@ class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
     sources: tuple[ReplaySourceDocument, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.sequence_key(v.record_key)(self.case_constructors), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.record_key)(self.fit_constructor), v.optional_key(v.sequence_key(v.scalar_key))(self.horizon), v.optional_key(v.record_key)(self.horizon_constructor), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.sequence_key(v.record_key)(self.simulation_constructors), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.sequence_key(v.record_key)(self.case_constructors), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.record_key)(self.fit_constructor), v.optional_key(v.sequence_key(v.scalar_key))(self.horizon), v.optional_key(v.record_key)(self.horizon_constructor), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.optional_key(v.record_key)(self.shooting_constructor), v.sequence_key(v.record_key)(self.simulation_constructors), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
 
 
 class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6542,6 +6544,48 @@ class ReplayScreenedStart(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.record_key(self.branch), v.scalar_key(self.origin), v.record_key(self.source), v.scalar_key(self.target), v.mapping_key(v.scalar_key, v.scalar_key)(self.values),))
+
+
+class ReplayShootingBound(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original source-bound output/control bound in exact IEEE bits."""
+
+    #: Exact contract coordinate.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original optional lower bound.
+    lower: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Original optional upper bound.
+    upper: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.optional_key(v.scalar_key)(self.lower), v.optional_key(v.scalar_key)(self.upper),))
+
+
+class ReplayShootingConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original shooting request over its complete original simulation constructor."""
+
+    #: Original scheduled control coordinates and bounds.
+    controls: tuple[ReplayShootingBound, ...]
+    #: Original callback derivative demand policy.
+    eager_first: bool
+    #: Original caller starting coordinate vector, distinct from native continuation.
+    initial: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] | None = None
+    #: Original integral objective weights.
+    integral: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+    #: Single or multiple shooting.
+    method: enums.ShootingMethod
+    #: Exact requested inner node times.
+    nodes: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+    #: Original path output coordinates and bounds.
+    path: tuple[ReplayShootingBound, ...]
+    #: Complete original integrated constructor.
+    simulation: ReplaySimulationConstructor
+    #: Complete original scientific/native controls.
+    solver: ReplaySolverSettings
+    #: Original terminal objective weights.
+    terminal: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.controls), v.scalar_key(self.eager_first), v.optional_key(v.sequence_key(v.scalar_key))(self.initial), v.mapping_key(v.scalar_key, v.scalar_key)(self.integral), v.scalar_key(self.method), v.sequence_key(v.scalar_key)(self.nodes), v.sequence_key(v.record_key)(self.path), v.record_key(self.simulation), v.record_key(self.solver), v.mapping_key(v.scalar_key, v.scalar_key)(self.terminal),))
 
 
 class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8889,6 +8933,8 @@ __all__ = [
     "ReplayProviderPort",
     "ReplayProviderShape",
     "ReplayScreenedStart",
+    "ReplayShootingBound",
+    "ReplayShootingConstructor",
     "ReplaySimulationConstructor",
     "ReplaySolverSettings",
     "ReplaySourceDocument",

@@ -4,11 +4,20 @@
 
 from pathlib import Path
 
+import msgspec
 import pytest
 
 import pse
+from pse import codec
+from pse.contracts import documents
 from pse.contracts.documents import SourceDelta
-from pse.tests.test_native_workflow import package_documents
+from pse.contracts.enums import NativeSolveIntent
+from pse.tests.test_native_workflow import (
+    declaration,
+    identity,
+    package_documents,
+    revision,
+)
 
 
 def physical_documents() -> dict[str, str]:
@@ -83,7 +92,7 @@ def test_configured_ephemeral_runtime_does_not_open_its_substrate(
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("ephemeral,database", [(False, None), (True, "orphan")])
+@pytest.mark.parametrize(("ephemeral", "database"), [(False, None), (True, "orphan")])
 def test_local_composition_requires_explicit_ephemeral_and_valid_sink_selection(
     inspection_settings: pse.EngineSettings,
     ephemeral: bool,
@@ -91,3 +100,107 @@ def test_local_composition_requires_explicit_ephemeral_and_valid_sink_selection(
 ) -> None:
     with pytest.raises(pse.InspectionError):
         pse.Runtime(inspection_settings, ephemeral=ephemeral, database=database)
+
+
+@pytest.mark.unit
+def test_retained_attempt_summary_and_replay_use_original_inputs(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    physical = runtime.physical_from_documents(physical_documents())
+    prepared = revision(runtime, physical).prepare_solve(
+        declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+    )
+    handle = prepared.start()
+    result = handle.wait()
+    summary = result.attempt_summary
+    assert summary.usable == result.usable
+    assert summary.requested_steps == 1
+    assert summary.omitted_steps == 0
+    assert result.attempt_summary == summary
+    # This original root has no established equivalent convex optimization cohort.
+    assert prepared.advice_inputs is None
+    with pytest.raises(pse.InspectionError, match="equivalence"):
+        prepared.freeze_advice("native_execution_nanoseconds", ())
+    replay = result.replay()
+    document = replay.document(bytes=128 * 1024 * 1024)
+    assert document.coverage.usable == result.usable
+    assert not document.native_continuation
+    assert document.sources
+    assert document.case_constructors
+    assert (
+        codec.decode_json(codec.encode_json(document), documents.ReplayDocument)
+        == document
+    )
+    with pytest.raises(pse.InspectionError, match="checkpoint"):
+        replay.native_continuation()
+    with pytest.raises(pse.InspectionError, match="allocation"):
+        replay.document(bytes=1)
+    repeated = replay.rerun().wait()
+    assert repeated.run_id != result.run_id
+    assert repeated.usable == result.usable
+    assert result.attempt_summary == summary
+    runtime.close()
+
+
+@pytest.mark.unit
+def test_frozen_advice_uses_actual_native_cohort_and_survives_replay(
+    inspection_settings: pse.EngineSettings,
+) -> None:
+    runtime = pse.Runtime(inspection_settings, ephemeral=True)
+    physical = runtime.physical_from_documents(physical_documents())
+    source = (
+        f'package advice {{ @id("{identity(202).to_hex()}") def Root {{ '
+        "var x:Scalar; annotation bounds x(0,2); annotation start x(1); "
+        "let f:Scalar=x; annotation objective f(minimize); eq floor:x>=0.5; } }"
+    )
+    package = runtime.modeling_from_documents([package_documents(source)], physical)
+    settings = pse.SolveSettings()
+    settings = msgspec.structs.replace(
+        settings,
+        composition=msgspec.structs.replace(
+            settings.composition, limits=documents.WorkLimits(attempts=4)
+        ),
+    )
+    prepared = package.prepare_solve(declaration(202), settings)
+    inputs = prepared.advice_inputs
+    assert inputs is not None
+    assert inputs.candidates
+    # Scripted observations exercise materialization, without claiming measured benefit.
+    observations = tuple(
+        documents.AdviceObservation(
+            attempt=candidate,
+            candidate=candidate,
+            cohort=inputs.cohort,
+            matched=inputs.candidates[0],
+            outcome="complete",
+            value=float(index + 1),
+        )
+        for index, candidate in enumerate(inputs.candidates)
+    )
+    frozen = prepared.freeze_advice("native_execution_nanoseconds", observations)
+    assert isinstance(frozen.support, documents.AdviceSupportCompleteMatched)
+    assert frozen.support.pairs == 1
+    assert (
+        codec.decode_json(codec.encode_json(frozen), documents.FrozenAdvice) == frozen
+    )
+    tied = prepared.freeze_advice("native_execution_nanoseconds", ())
+    assert isinstance(tied.support, documents.AdviceSupportBaselineTie)
+    assert tied.ordered == tied.baseline
+    settings = msgspec.structs.replace(
+        settings,
+        composition=msgspec.structs.replace(settings.composition, advice=frozen),
+    )
+    advised = package.prepare_solve(declaration(202), settings)
+    assert advised.advice_inputs == inputs
+    assert advised.strategy_profile != prepared.strategy_profile
+    result = advised.start().wait()
+    assert result.usable
+    summary = result.attempt_summary
+    assert (
+        codec.decode_json(codec.encode_json(summary), documents.AttemptSummary)
+        == summary
+    )
+    exported = result.replay().document(bytes=128 * 1024 * 1024)
+    assert exported.case_constructors[0].settings.composition.advice == frozen
+    runtime.close()

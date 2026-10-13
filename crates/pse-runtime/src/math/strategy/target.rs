@@ -143,7 +143,8 @@ pub(crate) fn callable<T>(
                 if let Some(point) = source.start_identity {
                     binding.hash(&point);
                 }
-                Ok(strategy::AutoCandidate { observed: None,
+                Ok(strategy::AutoCandidate {
+                    observed: None,
                     identity: binding.finish_hash(),
                     kind: if index == 0 {
                         pse_model::strategy::MechanismKind::Direct
@@ -168,8 +169,8 @@ pub(crate) fn callable<T>(
             last.as_ref(),
             admission.observation()?,
             false,
-         None,
-     );
+            None,
+        );
         let index = match decision {
             strategy::AutoDecision::Dispatch { candidate } => candidate,
             _ => {
@@ -298,8 +299,11 @@ pub(crate) fn callable<T>(
                 });
                 // The walker may discard a completed value on cancellation/accounting
                 // or assessment expiry. Capture producer facts before handing it over.
-                if let Ok(value) = &value && let Some(report) = native_report(value) {
-                    native_attempt = Some(strategy::retain_native_attempt(service, report).map_err(Arc::new)?);
+                if let Ok(value) = &value
+                    && let Some(report) = native_report(value)
+                {
+                    native_attempt =
+                        Some(strategy::retain_native_attempt(service, report).map_err(Arc::new)?);
                 }
                 let observation = match &value {
                     Ok(value) => classify(value),
@@ -361,7 +365,11 @@ pub(crate) fn callable<T>(
             event.decision = Some(decision_key);
             event.mechanism = mechanism_count;
         }
-        products.push(strategy::RungProducts { start: source.start_identity, native_attempt, ..Default::default() });
+        products.push(strategy::RungProducts {
+            start: source.start_identity,
+            native_attempt,
+            ..Default::default()
+        });
         declaration.mechanisms.push(operation.mechanisms[0].clone());
         mechanism_count += 1;
         last = result
@@ -639,33 +647,76 @@ mod tests {
     }
     #[test]
     fn callable_retains_native_facts_when_walker_discards_post_native_cancelled_value() {
-        use pse_backend_native::solve::{Assurance, Execution, NativeTermination, SolveReport, Termination};
+        use pse_backend_native::solve::{
+            Assurance, Execution, NativeTermination, SolveReport, Termination,
+        };
         let service = crate::math::tests::service();
         let solver = super::super::super::solves::SolverProfile::default();
         let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let scope = pse_kernels::ExecutionScope::new(flag.clone(), None);
-        let source = Source { original: hash(1), preparation: hash(2), profile: hash(3),
-            profile_projection: None, backend: Some(Backend::Ipopt), solver: Some(&solver),
-            controls: &solver.controls, request: &solver.composition,
-            start: StartOrigin::Specification, start_identity: None };
-        let error = callable(&service, source, &scope, |_, _| {
-            let contract = pse_backend_native::OracleContract { identity: hash(1),
-                derivatives: pse_kernels::DerivativeOrder::First, smoothness: pse_kernels::DerivativeOrder::First,
-                variables: vec![], rows: vec![] };
-            let execution = Execution::new(flag.clone(), &solver.controls);
-            let mut report = SolveReport::new(Backend::Ipopt, &contract, NativeTermination { code: 0,
-                name: "completed before original cancellation".into(), message: None,
-                category: Termination::Success, assurance: Assurance::None }, &execution);
-            report.options.insert("actual_fixture_option".into(), pse_backend_native::solve::OptionValue::Integer(7));
-            flag.store(true, std::sync::atomic::Ordering::Release);
-            Ok(report)
-        }, |report| Some(report), strategy::observe_native, |_, _| panic!("cancelled scope must refuse original assessment")).unwrap_err();
+        let source = Source {
+            original: hash(1),
+            preparation: hash(2),
+            profile: hash(3),
+            profile_projection: None,
+            backend: Some(Backend::Ipopt),
+            solver: Some(&solver),
+            controls: &solver.controls,
+            request: &solver.composition,
+            start: StartOrigin::Specification,
+            start_identity: None,
+        };
+        let error = callable(
+            &service,
+            source,
+            &scope,
+            |_, _| {
+                let contract = pse_backend_native::OracleContract {
+                    identity: hash(1),
+                    derivatives: pse_kernels::DerivativeOrder::First,
+                    smoothness: pse_kernels::DerivativeOrder::First,
+                    variables: vec![],
+                    rows: vec![],
+                };
+                let execution = Execution::new(flag.clone(), &solver.controls);
+                let mut report = SolveReport::new(
+                    Backend::Ipopt,
+                    &contract,
+                    NativeTermination {
+                        code: 0,
+                        name: "completed before original cancellation".into(),
+                        message: None,
+                        category: Termination::Success,
+                        assurance: Assurance::None,
+                    },
+                    &execution,
+                );
+                report.options.insert(
+                    "actual_fixture_option".into(),
+                    pse_backend_native::solve::OptionValue::Integer(7),
+                );
+                flag.store(true, std::sync::atomic::Ordering::Release);
+                Ok(report)
+            },
+            |report| Some(report),
+            strategy::observe_native,
+            |_, _| panic!("cancelled scope must refuse original assessment"),
+        )
+        .unwrap_err();
         let trace = error.strategy_trace().unwrap();
         assert_eq!(trace.products.len(), 1);
         let record = trace.products[0].native_attempt.as_ref().unwrap();
         assert_eq!(record.termination.category, Termination::Success);
-        assert_eq!(record.options["actual_fixture_option"], pse_backend_native::solve::OptionValue::Integer(7));
-        assert!(trace.events.iter().any(|event| event.observation == Some(Observation::Cancelled)));
+        assert_eq!(
+            record.options["actual_fixture_option"],
+            pse_backend_native::solve::OptionValue::Integer(7)
+        );
+        assert!(
+            trace
+                .events
+                .iter()
+                .any(|event| event.observation == Some(Observation::Cancelled))
+        );
     }
     #[cfg(feature = "solver-pounce")]
     #[test]
@@ -765,7 +816,11 @@ mod tests {
         assert_eq!(profiles.len(), 2);
         assert_ne!(profiles[0], profiles[1]);
         assert_eq!(trace.declaration.mechanisms.len(), 2);
-        let retained = trace.products.iter().filter_map(|product| product.native_attempt.as_ref()).collect::<Vec<_>>();
+        let retained = trace
+            .products
+            .iter()
+            .filter_map(|product| product.native_attempt.as_ref())
+            .collect::<Vec<_>>();
         assert_eq!(retained.len(), 2);
         assert_eq!(retained[0].termination.category, Termination::Infeasible);
         assert_eq!(retained[1].termination.category, Termination::Success);

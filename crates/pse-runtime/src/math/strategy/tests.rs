@@ -232,7 +232,8 @@ async fn engineering_refinement_original_success_stops_catalog_without_promoting
             Some(&last),
             charge(0).observed,
             false,
-         None),
+            None
+        ),
         AutoDecision::Finish
     ));
     assert_eq!(last.permission, Some(CandidateUse::Unusable));
@@ -1355,7 +1356,8 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
         recovery: Vec::new(),
     };
     let candidates = vec![
-        AutoCandidate { observed: None,
+        AutoCandidate {
+            observed: None,
             identity: hash(1),
             kind: MechanismKind::ReducedSpace,
             start: StartOrigin::Auxiliary,
@@ -1364,7 +1366,8 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             reservation: None,
             prepared: false,
         },
-        AutoCandidate { observed: None,
+        AutoCandidate {
+            observed: None,
             identity: hash(2),
             kind: MechanismKind::Direct,
             start: StartOrigin::Specification,
@@ -1389,8 +1392,9 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             &BTreeSet::new(),
             None,
             work,
-            false
-        , None),
+            false,
+            None
+        ),
         AutoDecision::Dispatch { candidate: 1 }
     ));
     let refused = AutoObservation {
@@ -1411,14 +1415,24 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             &BTreeSet::new(),
             Some(&refused),
             work,
-            false
-        , None),
+            false,
+            None
+        ),
         AutoDecision::Stop { .. }
     ));
     let mut attempted = BTreeSet::new();
     attempted.insert(1);
     assert!(matches!(
-        next_automatic(&request, &start, &candidates, &attempted, None, work, false, None),
+        next_automatic(
+            &request,
+            &start,
+            &candidates,
+            &attempted,
+            None,
+            work,
+            false,
+            None
+        ),
         AutoDecision::Stop { .. }
     ));
 }
@@ -1429,14 +1443,39 @@ fn automatic_hard_terminal_veto_cannot_be_reversed_by_original_satisfaction() {
         policy: pse_model::strategy::StartPolicy::NoPriorStart,
         recovery: Vec::new(),
     };
-    let work = WorkObservation { attempts: 0, evaluations: None, iterations: None,
-        factorizations: None, proof_steps: None };
-    for native in [Observation::Cancelled, Observation::ResourceExhausted,
-        Observation::ContractFailure, Observation::Panic, Observation::OperationalFailure] {
-        let last = AutoObservation { awaiting_assessment:false, native,
-            original:Some(OriginalConclusion::Satisfied), permission:Some(CandidateUse::Usable) };
-        assert!(matches!(next_automatic(&request,&starts,&[],&BTreeSet::new(),Some(&last),work,false, None),
-            AutoDecision::Stop {..}));
+    let work = WorkObservation {
+        attempts: 0,
+        evaluations: None,
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    };
+    for native in [
+        Observation::Cancelled,
+        Observation::ResourceExhausted,
+        Observation::ContractFailure,
+        Observation::Panic,
+        Observation::OperationalFailure,
+    ] {
+        let last = AutoObservation {
+            awaiting_assessment: false,
+            native,
+            original: Some(OriginalConclusion::Satisfied),
+            permission: Some(CandidateUse::Usable),
+        };
+        assert!(matches!(
+            next_automatic(
+                &request,
+                &starts,
+                &[],
+                &BTreeSet::new(),
+                Some(&last),
+                work,
+                false,
+                None
+            ),
+            AutoDecision::Stop { .. }
+        ));
     }
 }
 #[tokio::test]
@@ -1455,7 +1494,8 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         policy: pse_model::strategy::StartPolicy::NoPriorStart,
         recovery: Vec::new(),
     };
-    let mut candidates = [AutoCandidate { observed: None,
+    let mut candidates = [AutoCandidate {
+        observed: None,
         identity: hash(1),
         kind: MechanismKind::ReducedSpace,
         start: StartOrigin::Specification,
@@ -1479,8 +1519,8 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         None,
         work,
         false,
-     None,
- );
+        None,
+    );
     assert!(matches!(prepare, AutoDecision::Prepare { candidate: 0 }));
     let before = automatic_decision_key(&request, &candidates, &prepare, None, work).unwrap();
     candidates[0].prepared = true;
@@ -1502,8 +1542,8 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         None,
         work,
         false,
-     None,
- );
+        None,
+    );
     assert!(matches!(dispatch, AutoDecision::Dispatch { candidate: 0 }));
     assert_ne!(
         before,
@@ -1518,8 +1558,9 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
             &BTreeSet::new(),
             None,
             work,
-            false
-        , None),
+            false,
+            None
+        ),
         AutoDecision::Stop { .. }
     ));
 }
@@ -1662,7 +1703,8 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
     declaration.mechanisms[0]
         .transitions
         .push(Transition::Continue);
-    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate { observed: None,
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+        observed: None,
         identity: if kind == MechanismKind::Block {
             hash(3)
         } else {
@@ -1726,7 +1768,8 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
                 Some(&last),
                 failed.work,
                 false,
-             None),
+                None
+            ),
             AutoDecision::Dispatch { candidate: 1 },
         ));
     }
@@ -1762,7 +1805,8 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
                 Some(&last),
                 failed.work,
                 false,
-             None),
+                None
+            ),
             AutoDecision::Stop { .. },
         ));
     }
@@ -1962,7 +2006,8 @@ async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_p
         .push(Transition::Continue);
     declaration.mechanisms[1].starts = vec![StartOrigin::Specification];
     declaration.start.recovery.push(StartOrigin::Specification);
-    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate { observed: None,
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+        observed: None,
         identity: if kind == MechanismKind::Block {
             hash(3)
         } else {
@@ -2022,7 +2067,8 @@ async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_p
                 Some(&last),
                 result.work,
                 false,
-             None),
+                None
+            ),
             AutoDecision::Stop { .. }
         ));
     };
@@ -2238,7 +2284,8 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
         policy: StartPolicy::NoPriorStart,
         recovery: Vec::new(),
     };
-    let candidate = AutoCandidate { observed: None,
+    let candidate = AutoCandidate {
+        observed: None,
         identity: hash(1),
         kind: MechanismKind::Direct,
         start: StartOrigin::Specification,
@@ -2278,8 +2325,9 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
             &BTreeSet::new(),
             Some(&qualified),
             work,
-            false
-        , None),
+            false,
+            None
+        ),
         AutoDecision::Finish
     ));
     let seed = numerics::auxiliary_start(true);
@@ -2315,26 +2363,93 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
 
 #[test]
 fn automatic_advice_requires_actual_cohort_and_preserves_declared_or_missing_evidence() {
-    use pse_model::strategy::advice::{AdviceCohort, AdviceMetric, AdviceObservation, AdviceOutcome, FrozenAdvice};
-    let cohort=AdviceCohort {original:hash(10),profiles:hash(11),branch_start:hash(12),accuracy:hash(13),exposure:hash(14)};
-    let mut limits=limits(); limits.attempts=2;
-    let advice=FrozenAdvice::freeze(cohort.clone(),AdviceMetric::NativeExecutionNanoseconds,
-        vec![hash(1),hash(2)],(1..=2).map(|index| AdviceObservation {
-            cohort:cohort.clone(),matched:hash(20),candidate:hash(index),attempt:hash(30+index),
-            outcome:AdviceOutcome::Complete,value:Some(if index==1 {10.0} else {1.0}),
-        }).collect(),limits).unwrap();
-    let mut request=pse_model::strategy::CompositionRequest {limits:Some(limits),advice:Some(advice),..Default::default()};
-    let starts=pse_model::strategy::StartRules {policy:pse_model::strategy::StartPolicy::NoPriorStart,recovery:vec![]};
-    let candidates=(1..=2).map(|index| AutoCandidate { observed: None,identity:hash(index),kind:MechanismKind::Direct,
-        start:StartOrigin::Specification,replacement:false,support:BTreeSet::new(),reservation:None,prepared:true}).collect::<Vec<_>>();
-    let work=WorkObservation {attempts:0,evaluations:None,iterations:None,factorizations:None,proof_steps:None};
-    let next=|request:&pse_model::strategy::CompositionRequest,actual:Option<&AdviceCohort>| {
-        next_automatic(request,&starts,&candidates,&BTreeSet::new(),None,work,false,actual)
+    use pse_model::strategy::advice::{
+        AdviceCohort, AdviceMetric, AdviceObservation, AdviceOutcome, FrozenAdvice,
     };
-    assert!(matches!(next(&request,Some(&cohort)),AutoDecision::Dispatch {candidate:1}));
-    assert!(matches!(next(&request,None),AutoDecision::Dispatch {candidate:0}));
-    let mut foreign=cohort.clone();foreign.branch_start=hash(99);
-    assert!(matches!(next(&request,Some(&foreign)),AutoDecision::Dispatch {candidate:0}));
-    request.policy=pse_model::strategy::CompositionPolicy::Declared;
-    assert!(matches!(next(&request,Some(&cohort)),AutoDecision::Dispatch {candidate:0}));
+    let cohort = AdviceCohort {
+        original: hash(10),
+        profiles: hash(11),
+        branch_start: hash(12),
+        accuracy: hash(13),
+        exposure: hash(14),
+    };
+    let mut limits = limits();
+    limits.attempts = 2;
+    let advice = FrozenAdvice::freeze(
+        cohort.clone(),
+        AdviceMetric::NativeExecutionNanoseconds,
+        vec![hash(1), hash(2)],
+        (1..=2)
+            .map(|index| AdviceObservation {
+                cohort: cohort.clone(),
+                matched: hash(20),
+                candidate: hash(index),
+                attempt: hash(30 + index),
+                outcome: AdviceOutcome::Complete,
+                value: Some(if index == 1 { 10.0 } else { 1.0 }),
+            })
+            .collect(),
+        limits,
+    )
+    .unwrap();
+    let mut request = pse_model::strategy::CompositionRequest {
+        limits: Some(limits),
+        advice: Some(advice),
+        ..Default::default()
+    };
+    let starts = pse_model::strategy::StartRules {
+        policy: pse_model::strategy::StartPolicy::NoPriorStart,
+        recovery: vec![],
+    };
+    let candidates = (1..=2)
+        .map(|index| AutoCandidate {
+            observed: None,
+            identity: hash(index),
+            kind: MechanismKind::Direct,
+            start: StartOrigin::Specification,
+            replacement: false,
+            support: BTreeSet::new(),
+            reservation: None,
+            prepared: true,
+        })
+        .collect::<Vec<_>>();
+    let work = WorkObservation {
+        attempts: 0,
+        evaluations: None,
+        iterations: None,
+        factorizations: None,
+        proof_steps: None,
+    };
+    let next = |request: &pse_model::strategy::CompositionRequest,
+                actual: Option<&AdviceCohort>| {
+        next_automatic(
+            request,
+            &starts,
+            &candidates,
+            &BTreeSet::new(),
+            None,
+            work,
+            false,
+            actual,
+        )
+    };
+    assert!(matches!(
+        next(&request, Some(&cohort)),
+        AutoDecision::Dispatch { candidate: 1 }
+    ));
+    assert!(matches!(
+        next(&request, None),
+        AutoDecision::Dispatch { candidate: 0 }
+    ));
+    let mut foreign = cohort.clone();
+    foreign.branch_start = hash(99);
+    assert!(matches!(
+        next(&request, Some(&foreign)),
+        AutoDecision::Dispatch { candidate: 0 }
+    ));
+    request.policy = pse_model::strategy::CompositionPolicy::Declared;
+    assert!(matches!(
+        next(&request, Some(&cohort)),
+        AutoDecision::Dispatch { candidate: 0 }
+    ));
 }

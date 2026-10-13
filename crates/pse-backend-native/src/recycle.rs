@@ -366,7 +366,9 @@ impl CausalMap {
     }
 }
 impl FixedPointOracle for CausalMap {
-    fn physical_tear_coordinates(&self) -> bool { true }
+    fn physical_tear_coordinates(&self) -> bool {
+        true
+    }
     fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.original.as_ref()
     }
