@@ -540,6 +540,7 @@ mod tests {
 
     #[tokio::test]
     async fn stable_output_and_stable_checks_share_first_repeated_concurrent_and_group_scope() {
+        use std::collections::BTreeMap;
         use datafusion::arrow::datatypes::DataType;
         use datafusion::execution::session_state::SessionStateBuilder;
         use pse_schema::model::{Authority, DerivationGranularity, FieldContract, Namespace, RelationDecl, SnapshotClass};

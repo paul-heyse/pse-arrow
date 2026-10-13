@@ -6,6 +6,7 @@ mod modeling;
 use documents::DocumentContent;
 mod routes;
 mod settings;
+mod source_settlement;
 pub(crate) use modeling::{
     ModelingDiagnosticSettings, ModelingLimits, NativeModelingConformance,
     NativeModelingDiagnosticSamples, NativeModelingDiagnostics, NativeModelingElasticAttempt,
@@ -481,6 +482,8 @@ fn blocking_on_with_recovery<
                                 ("analysis_key", error.report_analysis_key()),
                                 ("artifact_key", error.report_artifact_key()),
                                 ("study_key", error.report_study_key()),
+                                ("source_problem", error.report_source_problem()),
+                                ("source_operation", error.report_source_operation()),
                             ] {
                                 if let Some(key) = key {
                                     e.value(py).setattr(field, key)?;
@@ -519,6 +522,70 @@ fn blocking_on_with_recovery<
 pub(crate) struct NativeRuntime {
     owner: Arc<runtime::Runtime>,
     inner: native::Runtime,
+    recording: Option<Arc<DeferredCanonical>>,
+}
+
+#[derive(Debug)]
+struct DeferredCanonical {
+    substrate: std::path::PathBuf,
+    database: Option<String>,
+    producer: Option<std::path::PathBuf>,
+    artifact: std::path::PathBuf,
+    connected: tokio::sync::OnceCell<native::Runtime>,
+}
+
+impl NativeRuntime {
+    async fn configured_runtime(&self, stop: &CancelSource) -> Result<native::Runtime,native::WorkflowError> {
+        if self.inner.canonical().is_ok() { return Ok(self.inner.clone()); }
+        let configured = self.recording.as_ref().ok_or(native::WorkflowError::RecordingUnavailable)?;
+        configured.connected.get_or_try_init(|| self.open_recording(configured, stop)).await.cloned()
+    }
+    async fn recording_operation<T, F, Fut>(&self, stop: &CancelSource, operation: F) -> Result<T,native::WorkflowError>
+    where F: FnOnce(native::Runtime) -> Fut, Fut: Future<Output=Result<T,native::WorkflowError>> {
+        self.inner.scope_activity(async {
+            let recording = self.configured_runtime(stop).await?;
+            operation(recording).await
+        }).await
+    }
+    fn recording_runtime(&self, py: Python<'_>) -> PyResult<native::Runtime> {
+        let stop = CancelSource::new();
+        blocking(py,&self.owner,self.recording_operation(&stop,|recording|async {Ok(recording)}),||stop.cancel())
+    }
+    async fn open_recording(&self, configured: &DeferredCanonical, stop: &CancelSource) -> Result<native::Runtime,native::WorkflowError> {
+        use pse_runtime::math::portable::{PortableError, ReplayAdmission};
+        let typed = |error: PortableError| native::WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(pse_model::diagnostic::project_typed(&error,pse_diagnostics::DiagnosticStage::ModelingAdmission)));
+        let deadline = std::time::Instant::now().checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT).ok_or_else(||native::WorkflowError::Input("deployment startup deadline extent".into()))?;
+        // The loaded image, not a path saved at construction, identifies this integration.
+        // Revalidate immediately before and after receiving observation: a rebuilt or
+        // deleted mapped artifact cannot acquire the replacement file's qualification.
+        let verify_loaded = || -> Result<(), native::WorkflowError> {
+            let loaded = pse_buildinfo::loaded_module_path(Self::new as *const () as usize)
+                .map_err(|error| native::WorkflowError::Input(format!("actual loaded module association: {error}")))?;
+            if loaded != configured.artifact {
+                return Err(native::WorkflowError::Input("actual loaded module differs from configured recording integration".into()));
+            }
+            Ok(())
+        };
+        verify_loaded()?;
+        let math = self.owner.shared.math();
+        #[allow(unsafe_code, reason = "actual imported composition root qualifies its requested recording/import integration")]
+        // SAFETY: artifact is verified against this actual imported module at construction;
+        // the operator-selected receipt retains the existing deployment trust contract.
+        let startup = unsafe { math.observe_deployment_runtime(configured.artifact.clone(),configured.producer.clone(),pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,deadline,stop) }.await.map_err(typed)?;
+        let producer = if configured.producer.is_some() { startup.producer.clone().map(Into::into) } else {
+            let anchor = Self::new as *const () as usize;
+            #[allow(unsafe_code, reason = "actual imported composition root retains controlled receiving qualification at import integration")]
+            // SAFETY: callback observes this composition root under the existing controlled
+            // profile, which refuses unavailable process-wide Python ownership.
+            let observed = unsafe { math.observe_local_runtime(pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,anchor,Arc::new(move ||local_python_configuration(anchor)),deadline,stop) }.await;
+            match observed { Ok(producer)=>Some(producer), Err(PortableError::Qualification(_))=>None, Err(error)=>return Err(typed(error)) }
+        };
+        verify_loaded()?;
+        let options=pse_operations::canonical::CanonicalOptions::from_state_for_database(&configured.substrate,configured.database.as_deref())?;
+        let store=pse_operations::canonical::CanonicalStore::connect(&options).await?;
+        store.open().await?;
+        self.inner.with_canonical(native::CanonicalDeployment::new(store,native::OuterAttestation { source:startup.outer.source,build:startup.outer.build },producer))
+    }
 }
 #[pymethods]
 impl NativeRuntime {
@@ -527,6 +594,10 @@ impl NativeRuntime {
         self.inner.close();
     }
 
+    /// Observe the original source acknowledgement without issuing another edit.
+    fn source_settlement(&self, py: Python<'_>, problem: &str, operation: &str) -> PyResult<documents::DocumentValue<native::SourceSettlement>> {
+        self.source_settlement_native(py, problem, operation)
+    }
     /// Reopen an exact retained canonical source selection without authored document replay.
     fn modeling_revision(
         &self,
@@ -534,24 +605,23 @@ impl NativeRuntime {
         revision: &str,
         physical: &NativePhysicalContext,
     ) -> PyResult<NativeModelingPackage> {
+        let connection_stop = CancelSource::new();
         let inner = blocking(
             py,
             &self.owner,
-            async {
-                let revision = self
-                    .inner
-                    .canonical_store()
+            self.recording_operation(&connection_stop, |recording| async move { (async {
+                let revision = recording
+                    .canonical_store()?
                     .revision(revision)
                     .await?
                     .ok_or_else(|| {
                         native::WorkflowError::Input("canonical modeling revision absent".into())
                     })?;
-                self.inner
+                recording
                     .modeling_revision(revision, physical.inner.clone(), Default::default())
                     .await
-            },
-            || {},
-        )?;
+            }).await }),
+            || connection_stop.cancel())?;
         Ok(NativeModelingPackage::from_revision(
             self.owner.clone(),
             inner,
@@ -629,144 +699,36 @@ impl NativeRuntime {
     }
     /// Canonical durable deployment; ephemeral execution is an explicit local choice.
     #[new]
-    #[pyo3(signature = (settings, *, substrate, database=None, producer=None, ephemeral=false))]
+    #[pyo3(signature = (settings, *, substrate=None, database=None, producer=None, ephemeral=false))]
     fn new(
         py: Python<'_>,
         settings: &inspection::EngineSettings,
-        substrate: &str,
+        substrate: Option<&str>,
         database: Option<&str>,
         producer: Option<&str>,
         ephemeral: bool,
     ) -> PyResult<Self> {
-        let owner = py
-            .detach(|| runtime::acquire(settings))
-            .map_err(|e| errors::diagnostic(py, &e))?;
-        let actual = pse_buildinfo::loaded_module_path(Self::new as *const () as usize)
-            .map_err(|error| invalid(py, error.to_string()))?;
-        let imported: std::path::PathBuf =
-            py.import("pse._native")?.getattr("__file__")?.extract()?;
-        if imported
-            .canonicalize()
-            .map_err(|error| invalid(py, error.to_string()))?
-            != actual
-                .canonicalize()
-                .map_err(|error| invalid(py, error.to_string()))?
-        {
-            return Err(invalid(
-                py,
-                "Python import does not identify the actual loaded native module",
-            ));
+        if substrate.is_none() && (!ephemeral || database.is_some() || producer.is_some()) {
+            return Err(invalid(py, "a canonical substrate is required for durable construction, database or producer selection"));
         }
-        use pse_runtime::math::portable::{PortableError, ReplayAdmission};
-        // One original startup clock covers checkout capture, strict inputs and
-        // receiving observation. Retaining these hashes records startup checkout
-        // context; it does not refresh current run or loaded-artifact assurance.
-        let deadline = std::time::Instant::now()
-            .checked_add(ReplayAdmission::STARTUP_OBSERVATION_LIMIT)
-            .ok_or_else(|| invalid(py, "deployment startup deadline extent"))?;
-        let cancelled = CancelSource::new();
-        let captured_stop = cancelled.clone();
-        let math = owner.shared.math().clone();
-        let actual_artifact = actual.clone();
-        let receipt = producer.map(std::path::PathBuf::from);
-        let startup = blocking(
-            py,
-            &owner,
-            async move {
-                #[allow(unsafe_code, reason = "actual imported composition root verifies the operator-owned strict receipt under its startup owner")]
-                // SAFETY: actual_artifact is this imported composition root, and
-                // a selected receipt retains the existing reviewed provenance contract.
-                let observation = unsafe { math.observe_deployment_runtime(
-                    actual_artifact, receipt,
-                    pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
-                    deadline, &captured_stop,
-                ) }.await;
-                Ok(observation)
-            },
-            || cancelled.cancel(),
-        )?.map_err(|error| errors::diagnostic(py, &error))?;
-        let attestation = native::OuterAttestation {
-            source: startup.outer.source,
-            build: startup.outer.build,
-        };
-        let options = pse_operations::canonical::CanonicalOptions::from_state_for_database(
-            std::path::Path::new(substrate),
-            database,
-        )
-        .map_err(|e| errors::diagnostic(py, &e))?;
-        let canonical = blocking(
-            py,
-            &owner,
-            async {
-                let store = pse_operations::canonical::CanonicalStore::connect(&options)
-                    .await
-                    .map_err(native::WorkflowError::Canonical)?;
-                store
-                    .open()
-                    .await
-                    .map_err(native::WorkflowError::Canonical)?;
-                Ok(store)
-            },
-            || {},
-        )?;
-        let producer = if producer.is_some() {
-            startup.producer.clone().map(Into::into)
-        } else {
-            let anchor = Self::new as *const () as usize;
-            let captured_stop = cancelled.clone();
-            let math = owner.shared.math().clone();
-            // SAFETY: this actual imported Rust composition root observes its own
-            // interpreter/module context. Reconstruction is immutable Rust math,
-            // with no Python/plugin/provider callbacks or uncontrolled executable
-            // mutation; later native use has its separate generation owner.
-            #[allow(
-                unsafe_code,
-                reason = "ADR-0164 controlled Python deployment-local reconstruction admission"
-            )]
-            // SAFETY: the actual imported composition root and effective interpreter
-            // are observed under the controlled reconstruction contract above.
-            let observed = blocking(
-                py,
-                &owner,
-                async move {
-                    // The signal bridge cancels the completion-owned math job and
-                    // waits for its native drain. Python attaches outside the loader scope.
-                    // SAFETY: this actual imported composition root observes its own
-                    // interpreter and module under the controlled reconstruction profile.
-                    let observation = unsafe {
-                        math.observe_local_runtime(
-                            pse_runtime::math::portable::ExpectedProducerTarget::PYTHON,
-                            anchor,
-                            Arc::new(move || local_python_configuration(anchor)),
-                            deadline,
-                            &captured_stop,
-                        )
-                    }
-                    .await;
-                    Ok(observation)
-                },
-                || cancelled.cancel(),
-            )?;
-            match observed {
-                Ok(admission) => Some(admission),
-                Err(PortableError::Qualification(_)) => None,
-                Err(error) => return Err(errors::diagnostic(py, &error)),
-            }
-        };
-        let inner = native::Runtime::from_shared(
-            owner.shared.clone(),
-            owner.model.clone(),
-            native::CanonicalDeployment::new(canonical, attestation, producer),
-        )
-        .map_err(|error| errors::diagnostic(py, &error))?;
-        let inner = if ephemeral {
-            inner
-                .with_durability(native::DurabilitySelection::Ephemeral)
-                .map_err(|error| errors::diagnostic(py, &error))?
-        } else {
-            inner
-        };
-        Ok(Self { owner, inner })
+        let owner = py.detach(||runtime::acquire(settings)).map_err(|error|errors::diagnostic(py,&error))?;
+        let actual=pse_buildinfo::loaded_module_path(Self::new as *const () as usize).map_err(|error|invalid(py,error.to_string()))?;
+        let imported:std::path::PathBuf=py.import("pse._native")?.getattr("__file__")?.extract()?;
+        if imported.canonicalize().map_err(|error|invalid(py,error.to_string()))? != actual.canonicalize().map_err(|error|invalid(py,error.to_string()))? {
+            return Err(invalid(py,"Python import does not identify the actual loaded native module"));
+        }
+        let inner=native::Runtime::from_shared_local(owner.shared.clone(),owner.model.clone()).map_err(|error|errors::diagnostic(py,&error))?;
+        let recording=substrate.map(|substrate| Arc::new(DeferredCanonical {
+            substrate:substrate.into(), database:database.map(str::to_owned), producer:producer.map(Into::into), artifact:actual,
+            connected:tokio::sync::OnceCell::new(),
+        }));
+        let mut runtime=Self { owner,inner,recording };
+        if !ephemeral {
+            runtime.inner=runtime.recording_runtime(py)?.with_durability(native::DurabilitySelection::Durable {
+                worker:native::Operations::process_worker("runtime"),policy:native::LeasePolicy::default(),
+            }).map_err(|error|errors::diagnostic(py,&error))?;
+        }
+        Ok(runtime)
     }
     /// Whether runs durably record canonical terminal observations.
     #[getter]
@@ -797,7 +759,7 @@ impl NativeRuntime {
             async {
                 let pool = self.owner.shared.pool();
                 let token = cancel.token();
-                let validation = self.owner.model.validation_context();
+                let validation = self.owner.model.admission_context();
                 let bundle =
                     pse_admission::authoring_driver::document::load_package_documents_owned(
                         &documents,
@@ -824,17 +786,26 @@ impl NativeRuntime {
     }
     /// Exact canonical run metadata through its generated one-row Arrow contract.
     fn run_record(&self, py: Python<'_>, run: &str) -> PyResult<inspection::TableStream> {
-        let batch = blocking(py, &self.owner, self.inner.run_record(run), || {})?;
+        let connection_stop = CancelSource::new();
+        let batch = blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.run_record(run)).await }),
+            || connection_stop.cancel())?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
     }
     /// Exact attempt metadata and recorded terminal class.
     fn attempt_record(&self, py: Python<'_>, attempt: &str) -> PyResult<inspection::TableStream> {
-        let batch = blocking(py, &self.owner, self.inner.attempt_record(attempt), || {})?;
+        let connection_stop = CancelSource::new();
+        let batch = blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.attempt_record(attempt)).await }),
+            || connection_stop.cancel())?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
     }
     /// Exact protected admitted manifest, projected by its registry schema.
     fn result_manifest(&self, py: Python<'_>, attempt: &str) -> PyResult<inspection::TableStream> {
-        let batch = blocking(py, &self.owner, self.inner.result_manifest(attempt), || {})?;
+        let connection_stop = CancelSource::new();
+        let batch = blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.result_manifest(attempt)).await }),
+            || connection_stop.cancel())?;
         inspection::TableStream::from_batch(batch).map_err(|error| errors::diagnostic(py, &error))
     }
     fn recover_artifact_intent(
@@ -842,17 +813,16 @@ impl NativeRuntime {
         py: Python<'_>,
         intent: &[u8],
     ) -> PyResult<NativeArtifactSettlement> {
-        Ok(NativeArtifactSettlement {
-            inner: self
-                .inner
-                .recover_artifact_intent(intent)
-                .map_err(|error| errors::diagnostic(py, &error))?,
-            owner: self.owner.clone(),
-        })
-    }
+        let connection_stop = CancelSource::new();
+        let inner = blocking(py,&self.owner,self.recording_operation(&connection_stop,|recording|async move {recording.recover_artifact_intent(intent)}),||connection_stop.cancel())?;
+        Ok(NativeArtifactSettlement {inner,owner:self.owner.clone()})
+}
     fn scientific_artifact(&self, py: Python<'_>, key: &str) -> PyResult<NativeScientificArtifact> {
+        let connection_stop = CancelSource::new();
         Ok(NativeScientificArtifact {
-            inner: blocking(py, &self.owner, self.inner.scientific_artifact(key), || {})?,
+            inner: blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.scientific_artifact(key)).await }),
+            || connection_stop.cancel())?,
             owner: self.owner.clone(),
         })
     }
@@ -863,23 +833,23 @@ impl NativeRuntime {
         owner_kind: &str,
         owner: &str,
     ) -> PyResult<NativeScientificArtifact> {
+        let connection_stop = CancelSource::new();
         let solution = pse_ids::SemanticId::parse_hex(solution)
             .map(pse_model::generated::identities::SolutionId::from_id)
             .map_err(|error| invalid(py, error.to_string()))?;
         let inner = blocking_on_with_recovery(
             py,
             self.owner.executor,
-            self.inner
-                .promote_seed_artifact(solution, owner_kind, owner),
-            || {},
+            self.recording_operation(&connection_stop, |recording| async move { (recording
+                .promote_seed_artifact(solution, owner_kind, owner)).await }),
+            || connection_stop.cancel(),
             |value| {
                 Some((
                     "artifact_key",
                     value.header().key.clone(),
                     Some(value.header().clone()),
                 ))
-            },
-        )?;
+            })?;
         Ok(NativeScientificArtifact {
             inner,
             owner: self.owner.clone(),
@@ -894,6 +864,7 @@ impl NativeRuntime {
         owner_kind: &str,
         owner: &str,
     ) -> PyResult<NativeScientificArtifact> {
+        let connection_stop = CancelSource::new();
         let kind = match kind {
             "final-state" => native::artifacts::ScientificArtifactKind::FinalState,
             "trajectory" => native::artifacts::ScientificArtifactKind::Trajectory,
@@ -901,34 +872,37 @@ impl NativeRuntime {
             _ => return Err(invalid(py, "unknown scientific artifact kind")),
         };
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let inner = blocking_on_with_recovery(
             py,
             self.owner.executor,
-            self.inner.promote_scientific_artifact(
+            self.recording_operation(&connection_stop, |recording| async move { (recording.promote_scientific_artifact(
                 run,
                 attempt,
                 kind,
                 owner_kind,
                 owner,
-                cancel.clone(),
-            ),
-            || cancel.cancel(),
+                operation_cancel.clone(),
+            )).await }),
+            || { connection_stop.cancel(); cancel.cancel(); },
             |value| {
                 Some((
                     "artifact_key",
                     value.header().key.clone(),
                     Some(value.header().clone()),
                 ))
-            },
-        )?;
+            })?;
         Ok(NativeScientificArtifact {
             inner,
             owner: self.owner.clone(),
         })
     }
     fn analysis(&self, py: Python<'_>, key: &str) -> PyResult<NativeAnalysis> {
+        let connection_stop = CancelSource::new();
         Ok(NativeAnalysis {
-            inner: blocking(py, &self.owner, self.inner.analysis(key), || {})?,
+            inner: blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.analysis(key)).await }),
+            || connection_stop.cancel())?,
             owner: self.owner.clone(),
         })
     }
@@ -939,79 +913,85 @@ impl NativeRuntime {
         attempt: &str,
         controls: &[u8],
     ) -> PyResult<NativeAnalysis> {
+        let connection_stop = CancelSource::new();
         let controls: native::AnalysisControls =
             documents::decode(py, "analysis controls", controls, 128 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         Ok(NativeAnalysis {
             inner: blocking_analysis(
                 py,
                 &self.owner,
-                self.inner
-                    .result_analysis(run, attempt, &controls, cancel.clone()),
-                || cancel.cancel(),
-            )?,
+            self.recording_operation(&connection_stop, |recording| async move { (recording
+                    .result_analysis(run, attempt, &controls, operation_cancel.clone())).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?,
             owner: self.owner.clone(),
         })
     }
     fn retain_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
+        let connection_stop = CancelSource::new();
         let obligation: native::HistoryObligation =
             documents::decode(py, "history obligation", obligation, 128 * 1024)?;
         blocking(
             py,
             &self.owner,
-            self.inner.retain_history_obligation(&obligation),
-            || {},
-        )
+            self.recording_operation(&connection_stop, |recording| async move { (recording.retain_history_obligation(&obligation)).await }),
+            || connection_stop.cancel())
     }
     fn release_history_obligation(&self, py: Python<'_>, obligation: &[u8]) -> PyResult<()> {
+        let connection_stop = CancelSource::new();
         let obligation: native::HistoryObligation =
             documents::decode(py, "history obligation", obligation, 128 * 1024)?;
         blocking(
             py,
             &self.owner,
-            self.inner.release_history_obligation(&obligation),
-            || {},
-        )
+            self.recording_operation(&connection_stop, |recording| async move { (recording.release_history_obligation(&obligation)).await }),
+            || connection_stop.cancel())
     }
     fn release_history(&self, py: Python<'_>, owner: &[u8]) -> PyResult<()> {
+        let connection_stop = CancelSource::new();
         let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
-        blocking(py, &self.owner, self.inner.release_history(&owner), || {})
+        blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.release_history(&owner)).await }),
+            || connection_stop.cancel())
     }
     fn reclaim_history_page(&self, py: Python<'_>, owner: &[u8]) -> PyResult<Vec<u8>> {
+        let connection_stop = CancelSource::new();
         let owner: native::HistoryOwner = documents::decode(py, "history owner", owner, 32 * 1024)?;
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let page = blocking(
             py,
             &self.owner,
-            self.inner.reclaim_history_page(&owner, &cancel),
-            || cancel.cancel(),
-        )?;
+            self.recording_operation(&connection_stop, |recording| async move { (recording.reclaim_history_page(&owner, &operation_cancel)).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         documents::encode(py, &page)
     }
     fn forget_study_results(&self, py: Python<'_>, study: &str) -> PyResult<()> {
+        let connection_stop = CancelSource::new();
         blocking(
             py,
             &self.owner,
-            self.inner.forget_study_results(study),
-            || {},
-        )
+            self.recording_operation(&connection_stop, |recording| async move { (recording.forget_study_results(study)).await }),
+            || connection_stop.cancel())
     }
     fn forget_analysis_results(&self, py: Python<'_>, analysis: &str) -> PyResult<bool> {
+        let connection_stop = CancelSource::new();
         blocking(
             py,
             &self.owner,
-            self.inner.forget_analysis_results(analysis),
-            || {},
-        )
+            self.recording_operation(&connection_stop, |recording| async move { (recording.forget_analysis_results(analysis)).await }),
+            || connection_stop.cancel())
     }
     fn reclaim_run_results(&self, py: Python<'_>, run: &str) -> PyResult<Vec<u8>> {
+        let connection_stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let page = blocking(
             py,
             &self.owner,
-            self.inner.reclaim_run_results(run, &cancel),
-            || cancel.cancel(),
-        )?;
+            self.recording_operation(&connection_stop, |recording| async move { (recording.reclaim_run_results(run, &operation_cancel)).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         documents::encode(py, &page)
     }
     /// Newest semantic run under explicit recorded result classes.
@@ -1025,6 +1005,7 @@ impl NativeRuntime {
         start: u64,
         end: u64,
     ) -> PyResult<inspection::TableStream> {
+        let connection_stop = CancelSource::new();
         let classes = classes
             .into_iter()
             .map(|class| {
@@ -1035,13 +1016,13 @@ impl NativeRuntime {
             })
             .collect::<PyResult<Vec<_>>>()?;
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let reader = blocking(
             py,
             &self.owner,
-            self.inner
-                .latest_results(problem, &classes, relation, start, end, cancel.clone()),
-            || cancel.cancel(),
-        )?;
+            self.recording_operation(&connection_stop, |recording| async move { (recording
+                .latest_results(problem, &classes, relation, start, end, operation_cancel.clone())).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         Ok(inspection::TableStream::from_canonical(
             reader,
             self.owner.clone(),
@@ -1060,14 +1041,15 @@ impl NativeRuntime {
         start: u64,
         end: u64,
     ) -> PyResult<inspection::TableStream> {
+        let connection_stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let reader = blocking(
             py,
             &self.owner,
-            self.inner
-                .results(run, attempt, relation, start, end, cancel.clone()),
-            || cancel.cancel(),
-        )?;
+            self.recording_operation(&connection_stop, |recording| async move { (recording
+                .results(run, attempt, relation, start, end, operation_cancel.clone())).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         Ok(inspection::TableStream::from_canonical(
             reader,
             self.owner.clone(),
@@ -1093,12 +1075,14 @@ impl NativeRuntime {
         maximum: Option<f64>,
         missing: Option<bool>,
     ) -> PyResult<inspection::TableStream> {
+        let connection_stop = CancelSource::new();
         let output = id(py, output)?;
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let reader = blocking(
             py,
             &self.owner,
-            self.inner.output_results(
+            self.recording_operation(&connection_stop, |recording| async move { (recording.output_results(
                 run,
                 attempt,
                 relation,
@@ -1110,10 +1094,9 @@ impl NativeRuntime {
                 minimum,
                 maximum,
                 missing,
-                cancel.clone(),
-            ),
-            || cancel.cancel(),
-        )?;
+                operation_cancel.clone(),
+            )).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         Ok(inspection::TableStream::from_canonical(
             reader,
             self.owner.clone(),
@@ -1136,30 +1119,31 @@ impl NativeRuntime {
         start: u64,
         end: u64,
     ) -> PyResult<()> {
+        let connection_stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         blocking(
             py,
             &self.owner,
-            async {
-                let mut reader = self
-                    .inner
-                    .results(run, attempt, relation, start, end, cancel.clone())
+            self.recording_operation(&connection_stop, |recording| async move { (async {
+                let mut reader = recording
+                    .results(run, attempt, relation, start, end, operation_cancel.clone())
                     .await?;
                 reader.export_ipc(std::path::Path::new(destination)).await
-            },
-            || cancel.cancel(),
-        )
+            }).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })
     }
     /// Read one admitted terminal attempt's exact recorded progress history.
     #[pyo3(signature = (run, attempt))]
     fn progress(&self, py: Python<'_>, run: &str, attempt: &str) -> PyResult<NativeProgressStream> {
+        let connection_stop = CancelSource::new();
         let cancel = pse_columnar::CancellationToken::new();
+        let operation_cancel = cancel.clone();
         let stream = blocking(
             py,
             &self.owner,
-            self.inner.progress(run, attempt, cancel.clone()),
-            || cancel.cancel(),
-        )?;
+            self.recording_operation(&connection_stop, |recording| async move { (recording.progress(run, attempt, operation_cancel.clone())).await }),
+            || { connection_stop.cancel(); cancel.cancel(); })?;
         Ok(NativeProgressStream {
             owner: self.owner.clone(),
             run_key: run.into(),
@@ -1180,6 +1164,7 @@ impl NativeRuntime {
         maximum_actions: Option<usize>,
         maximum_in_flight: Option<usize>,
     ) -> PyResult<usize> {
+        let connection_stop = CancelSource::new();
         let stop = CancelSource::new();
         let settings = native::WorkerSettings {
             maximum_actions,
@@ -1187,18 +1172,19 @@ impl NativeRuntime {
             until_idle: true,
             ..native::WorkerSettings::default()
         };
-        let processed = blocking(py, &self.owner, self.inner.serve(settings, &stop), || {
-            stop.cancel();
-        })?;
+        let operation_stop = stop.clone();
+        let processed = blocking(py, &self.owner,
+            self.recording_operation(&connection_stop, |recording| async move { (recording.serve(settings, &operation_stop)).await }),
+            || { connection_stop.cancel(); stop.cancel(); })?;
         Ok(processed)
     }
     /// A handle on a durable study of this runtime's store.
     fn study(&self, py: Python<'_>, study_id: &str) -> PyResult<NativeStudyHandle> {
-        Ok(NativeStudyHandle {
-            owner: self.owner.clone(),
-            inner: self.inner.study(id(py, study_id)?.into()),
-        })
-    }
+        let connection_stop = CancelSource::new();
+        let study = id(py,study_id)?.into();
+        let inner = blocking(py,&self.owner,self.recording_operation(&connection_stop,|recording|async move {Ok(recording.study(study))}),||connection_stop.cancel())?;
+        Ok(NativeStudyHandle {owner:self.owner.clone(),inner})
+}
     fn capabilities(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         documents::encode(py, &self.inner.capabilities())
     }

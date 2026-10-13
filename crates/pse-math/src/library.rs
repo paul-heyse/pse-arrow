@@ -3,6 +3,7 @@
 
 //! Exact public Symbolica integration. No project arithmetic instructions.
 use crate::MathError;
+use std::sync::Arc;
 use symbolica::domains::{float::Complex, rational::Rational};
 use symbolica::{
     atom::{Atom, AtomCore, NamespacedSymbol, Symbol, SymbolAttribute, SymbolBuilder},
@@ -183,7 +184,7 @@ fn exact_evaluator(
     expressions: &[Atom],
     parameters: &[Atom],
     options: Optimization,
-    cancelled: &std::sync::Arc<std::sync::atomic::AtomicBool>,
+    cancelled: &Arc<std::sync::atomic::AtomicBool>,
 ) -> Result<ExpressionEvaluator<Complex<Rational>>, MathError> {
     crate::context()?;
     if options.cores == 0

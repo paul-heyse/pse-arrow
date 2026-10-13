@@ -6161,8 +6161,22 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
         v.unique(v.scalar_key)(self, None, self.required_passes)
 
 
+class SourceAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual immutable acknowledgement of the requested source operation."""
+
+    #: Original acknowledged canonical predecessor, if any.
+    parent: str | None = None
+    #: Exact retained revision accepted by the existing source-import API.
+    revision: str
+    #: Actual canonical occurrence sequence, not a local compiler generation.
+    sequence: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.revision), v.scalar_key(self.sequence),))
+
+
 class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """An atomic source edit against one exact canonical parent. Omission retains
+    """An atomic source edit against one exact locally admitted receiver. Omission retains
     inherited objects; deletion must be named explicitly.
     """
 
@@ -6172,7 +6186,7 @@ class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
     documents: SourceDocumentDelta = msgspec.field(default_factory=lambda: msgspec.convert({"additions": [], "removals": [], "replacements": []}, type=SourceDocumentDelta))
     #: Explicit fit ownership changes; omitted fits remain inherited.
     fits: SourceFitDelta = msgspec.field(default_factory=lambda: msgspec.convert({"additions": [], "removals": [], "replacements": []}, type=SourceFitDelta))
-    #: Exact canonical revision key of the receiver, also used for publication CAS.
+    #: Exact revision_id of the receiver; actual publication separately checks its canonical origin.
     parent: str
     #: Existing declarations explicitly removed.
     removals: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...] = msgspec.field(default_factory=tuple)
@@ -6229,6 +6243,21 @@ class SourceLocation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.end), v.optional_key(v.scalar_key)(self.name), v.scalar_key(self.path), v.optional_key(v.scalar_key)(self.revision), v.scalar_key(self.source), v.optional_key(v.scalar_key)(self.start),))
+
+
+class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Receipt observation for one original operation, without retrying any mutation."""
+
+    #: Actual acknowledgement when observed. Absence remains unproved: it does
+    #: not establish that publication was never issued or cannot still complete.
+    acknowledgement: SourceAcknowledgement | None = None
+    #: Original operation identity, never replaced with a fresh issue.
+    operation: str
+    #: Original problem identity carried by the source publication or refusal.
+    problem: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
 
 
 class SparseMatrix(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7420,10 +7449,12 @@ __all__ = [
     "SimulationOperation",
     "SolveControls",
     "SolveSettings",
+    "SourceAcknowledgement",
     "SourceDelta",
     "SourceDocumentDelta",
     "SourceFitDelta",
     "SourceLocation",
+    "SourceSettlement",
     "SparseMatrix",
     "StartPolicy",
     "StartPolicyContinuation",

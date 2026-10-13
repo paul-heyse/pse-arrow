@@ -5922,7 +5922,7 @@
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
-  "description": "An atomic source edit against one exact canonical parent. Omission retains\ninherited objects; deletion must be named explicitly.",
+  "description": "An atomic source edit against one exact locally admitted receiver. Omission retains\ninherited objects; deletion must be named explicitly.",
   "properties": {
     "additions": {
       "default": [],
@@ -5951,7 +5951,7 @@
       "description": "Explicit fit ownership changes; omitted fits remain inherited."
     },
     "parent": {
-      "description": "Exact canonical revision key of the receiver, also used for publication CAS.",
+      "description": "Exact revision_id of the receiver; actual publication separately checks its canonical origin.",
       "type": "string"
     },
     "removals": {

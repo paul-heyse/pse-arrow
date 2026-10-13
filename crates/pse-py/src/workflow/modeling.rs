@@ -63,13 +63,13 @@ pub(super) fn from_documents(
         .map(document_bytes)
         .collect::<Vec<_>>();
     let cancel = CancelSource::new();
-    let inner = blocking(
+    let inner = source_settlement::blocking_source(
         py,
         &runtime.owner,
         async {
             let pool = runtime.owner.shared.pool();
             let token = cancel.token();
-            let validation = runtime.owner.model.validation_context();
+            let validation = runtime.owner.model.admission_context();
             let bundles = documents
                 .iter()
                 .map(|documents| {
@@ -202,7 +202,7 @@ impl NativeModelingPackage {
             source,
             self.owner.shared.budget().math.workspace_bytes / 2,
         )?;
-        let inner = super::source_settlement::blocking_source(
+        let inner = source_settlement::blocking_source(
             py,
             &self.owner,
             self.inner.with_declarations(edit.declarations),
@@ -224,7 +224,7 @@ impl NativeModelingPackage {
             self.owner.shared.budget().math.workspace_bytes / 2,
         )?;
         let cancel = CancelSource::new();
-        let inner = super::source_settlement::blocking_source(
+        let inner = source_settlement::blocking_source(
             py,
             &self.owner,
             self.inner.with_delta(delta, &cancel),
@@ -247,7 +247,7 @@ impl NativeModelingPackage {
             .map(document_bytes)
             .collect::<Vec<_>>();
         let cancel = CancelSource::new();
-        let inner = super::source_settlement::blocking_source(
+        let inner = source_settlement::blocking_source(
             py,
             &self.owner,
             self.inner.reload_from_parent(&documents, &cancel),
@@ -270,7 +270,7 @@ impl NativeModelingPackage {
             source,
             self.owner.shared.budget().math.workspace_bytes,
         )?;
-        let inner = super::source_settlement::blocking_source(
+        let inner = source_settlement::blocking_source(
             py,
             &self.owner,
             self.inner.clone().with_fit_declarations(data),

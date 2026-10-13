@@ -209,6 +209,7 @@ pub(super) fn documents() -> Vec<Document> {
         document::<pse_runtime::workflow::ConformanceControls>("conformance-controls"),
         document::<pse_runtime::workflow::DeclarationEdit>("declaration-edit"),
         document::<pse_runtime::workflow::SourceDelta>("source-delta"),
+        document::<pse_runtime::workflow::SourceSettlement>("source-settlement"),
         document::<pse_runtime::workflow::DeclarationInventory>("declaration-inventory"),
         document::<pse_runtime::workflow::ModelingInspection>("modeling-inspection"),
         document::<pse_runtime::workflow::ConicRequest>("conic-request"),

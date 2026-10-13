@@ -372,7 +372,9 @@ with foreign owners refuses construction; supported custom planning/functions an
 partition choices remain available. Durable composition installs operations from its configured canonical store and pool with
 positive lease/heartbeat intervals, rather than accepting arbitrary live operations from
 another deployment. Explicit local composition needs no store; actual store operations
-without a configured sink refuse with typed diagnostics.
+without a configured sink refuse with typed diagnostics. Recording/read operations have their own configured owner and do not change default scientific execution durability. APIs requiring canonical source publication refuse an ephemeral execution owner before writing partial source state.
+
+`Runtime.source_settlement(problem, operation)` reads only the immutable acknowledgement of the original source publication. A missing acknowledgement leaves its outcome unproved; settlement never reissues an edit. Source errors expose the original problem and operation. A definite refusal requires evidence from the actual source transaction phase, not a later receipt-read failure. Python interruption drains the original operation and preserves any actual acknowledgement identity on the raised exception.
 
 ### 19.1 Cases and overlays
 

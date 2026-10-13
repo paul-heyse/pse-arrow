@@ -441,7 +441,7 @@ pub(crate) fn bounded_evaluator(
         add(bound, mul(layout.width(), vectors)?)?,
     )?)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
-    let evaluator = super::scoped_abort(cancelled, || evaluator.clone().vectorize(&symbolica::prelude::Dualizer::new(dual, zero_components.to_vec())))
+    let evaluator = scoped_abort(cancelled, || evaluator.clone().vectorize(&symbolica::prelude::Dualizer::new(dual, zero_components.to_vec())))
         .map_err(|error| if cancelled.load(std::sync::atomic::Ordering::Acquire) { MathError::Cancelled } else { MathError::Library(error) })?;
     if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
     if total(evaluator.count_operations())? > bound {

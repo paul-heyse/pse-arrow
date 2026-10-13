@@ -1159,8 +1159,8 @@ def test_parsed_reload_noop_accepts_text_and_bytes_on_exact_package_handle(
     same_bytes = package.reload_from_parent(
         [{path: text.encode("utf-8") for path, text in sources.items()}]
     )
-    assert same_text.canonical_revision == package.canonical_revision
-    assert same_bytes.canonical_revision == package.canonical_revision
+    assert same_text.revision_id == package.revision_id
+    assert same_bytes.revision_id == package.revision_id
     assert same_bytes.canonical_problem == package.canonical_problem
     assert same_bytes.declarations() == original
 
@@ -1186,7 +1186,7 @@ def test_parsed_reload_complete_order_and_removal_match_independent_fresh_ingres
     changed = package.reload_from_parent([expanded])
     fresh = runtime.modeling_from_documents([expanded], physical)
     assert changed.canonical_problem == package.canonical_problem
-    assert changed.canonical_revision != package.canonical_revision
+    assert changed.revision_id != package.revision_id
     # Public inventories follow membership keys, not parsed document order.
     # Compare every authored field by identity; V4 separately witnesses the exact
     # ordered source frame, document content and admitted physical context.
@@ -1215,7 +1215,7 @@ def test_parsed_reload_failure_and_wrong_parent_delta_preserve_original_revision
 ) -> None:
     sources = package_documents("package reload {param a:Scalar=1;}")
     package = runtime.modeling_from_documents([sources], physical)
-    revision_key = package.canonical_revision
+    revision_key = package.revision_id
     original = package.declarations()
     malformed = dict(sources)
     malformed["models/fixed.pse"] = "package reload {def Broken {eq e:1 +;}}"
@@ -1223,6 +1223,6 @@ def test_parsed_reload_failure_and_wrong_parent_delta_preserve_original_revision
         package.reload_from_parent([malformed])
     with pytest.raises(pse.InspectionError):
         package.with_delta(documents.SourceDelta(parent="different-canonical-parent"))
-    assert package.canonical_revision == revision_key
+    assert package.revision_id == revision_key
     assert package.declarations() == original
-    assert package.reload_from_parent([sources]).canonical_revision == revision_key
+    assert package.reload_from_parent([sources]).revision_id == revision_key

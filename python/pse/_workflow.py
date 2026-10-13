@@ -42,6 +42,7 @@ from pse.contracts.documents import (
     ResultReclamationPage,
     RunControls,
     SolveSettings,
+    SourceSettlement,
 )
 from pse.contracts.identities import (
     SolutionId,
@@ -123,6 +124,13 @@ class Runtime:
                 physical._handle,  # noqa: SLF001 - same native boundary
             )
         )
+
+    def source_settlement(self, problem: str, operation: str) -> SourceSettlement:
+        """Observe the original source acknowledgement without replaying the edit.
+
+        An absent acknowledgement leaves the original outcome unproved.
+        """
+        return self._handle.source_settlement(problem, operation)
 
     def resource_usage(self) -> ResourceReport:
         """Observe the shared deployment's accounted pool and process memory."""
