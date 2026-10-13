@@ -702,6 +702,8 @@ pub struct ReplayPreparedProduct {
 pub struct ReplayPreparedNode {
     /// Exact original scientific binding identity.
     pub original: ContentHash,
+    /// Exact compiler artifacts, evaluator admission and composed preparation identity.
+    pub preparation: ContentHash,
     /// Actual build/runtime observation of this profile's admission.
     pub runtime: pse_backend_native::execution::Snapshot,
     /// Full actual immutable scientific/native profile body.
@@ -728,10 +730,42 @@ pub struct ReplayPreparedGraph {
     /// Exact root original node.
     pub root: usize,
 }
+#[derive(Clone, Copy)]
+struct ReplayGraphBound { depth: usize, occurrences: usize, bytes: usize }
 impl ReplayPreparedGraph {
+    fn reconstruction_extent(&self) -> Result<usize, WorkflowError> {
+        let mut bounds: Vec<ReplayGraphBound> = Vec::with_capacity(self.nodes.len());
+        let mut occurrences = 0usize;
+        let mut bytes = self.nodes.len().checked_mul(size_of::<super::ModelingSolvePreparation>())
+            .ok_or_else(|| contract("replay original graph table extent overflow"))?;
+        for (index, node) in self.nodes.iter().enumerate() {
+            let mut bound = ReplayGraphBound { depth: 1, occurrences: 1,
+                bytes: encoded_extent(node, EXPORT_MAX)?.checked_mul(8).and_then(|bytes| bytes.checked_add(65536))
+                    .ok_or_else(|| contract("replay original node copy extent overflow"))? };
+            for product in node.automatic.iter().chain(&node.rungs) {
+                if product.required_producer.is_some() {
+                    return Err(contract(format!("portable prepared product requires fresh {:?} producer rebind", product.required_producer)));
+                }
+                let child = product.node.filter(|child| *child < index)
+                    .ok_or_else(|| contract("replay original graph has a missing, cyclic or nonpostorder product"))?;
+                let child = bounds[child];
+                bound.depth = bound.depth.max(child.depth.checked_add(1).ok_or_else(|| contract("replay original graph depth overflow"))?);
+                bound.occurrences = bound.occurrences.checked_add(child.occurrences)
+                    .ok_or_else(|| contract("replay original graph occurrence expansion overflow"))?;
+                bound.bytes = bound.bytes.checked_add(child.bytes).ok_or_else(|| contract("replay original graph copy expansion overflow"))?;
+            }
+            occurrences = occurrences.checked_add(bound.occurrences).filter(|total| *total <= 4096)
+                .ok_or_else(|| contract("replay original graph exceeds 4096 expanded preparation occurrences"))?;
+            if bound.depth > 64 { return Err(contract("replay original graph exceeds depth 64")); }
+            bytes = bytes.checked_add(bound.bytes).filter(|bytes| *bytes <= EXPORT_MAX)
+                .ok_or_else(|| contract("replay original graph expanded copy allowance exceeds finite capacity"))?;
+            bounds.push(bound);
+        }
+        Ok(bytes)
+    }
     fn extent(input: &crate::math::solves::PreparedSolve, depth: usize, count: &mut usize) -> Result<usize, WorkflowError> {
         *count += 1;
-        if depth > 64 || *count > 4096 { return Err(contract("replay prepared graph exceeds finite depth/node allowance")); }
+        if depth >= 64 || *count > 4096 { return Err(contract("replay prepared graph exceeds finite depth/node allowance")); }
         let mut bytes = profile_extent(input.replay_profile())?
             .saturating_add(encoded_extent(input.execution_snapshot(), EXPORT_MAX)?.saturating_mul(8))
             .saturating_add(input.requested_start().map_or(0, warm_start_extent))
@@ -774,7 +808,7 @@ impl ReplayPreparedGraph {
         let rungs = input.replay_rungs().unwrap_or_default().iter().map(|product| self.product(product)).collect::<Result<Vec<_>, _>>()?;
         let node = self.nodes.len();
         self.nodes.push(ReplayPreparedNode { original: input.original_identity().map_err(crate::math::MathRuntimeError::from)?,
-            runtime: input.execution_snapshot().clone(), settings: ReplaySolverSettings::from_profile(input.replay_profile()),
+            preparation: input.preparation_identity().map_err(crate::math::MathRuntimeError::from)?, runtime: input.execution_snapshot().clone(), settings: ReplaySolverSettings::from_profile(input.replay_profile()),
             profile: input.strategy_profile().map_err(crate::math::MathRuntimeError::from)?,
             requested_start: input.requested_start().map(pse_backend_native::solve::WarmStart::snapshot),
             requested_screened_start: input.requested_screened_start().map(ReplayScreenedStart::new),
@@ -863,6 +897,10 @@ impl ReplayCaseConstructor {
         if graph.nodes.is_empty() || graph.nodes.len() > 4096 || graph.root != graph.nodes.len() - 1 {
             return Err(contract("replay original graph has an invalid root/node allowance"));
         }
+        let _shape_owner = package.runtime.shared.math().reserve("replay:graph-structural-validation",
+            graph.nodes.len().checked_mul(size_of::<ReplayGraphBound>()).and_then(|bytes| bytes.checked_add(128))
+                .ok_or_else(|| contract("replay graph validation extent overflow"))?)?;
+        let expanded_extent = graph.reconstruction_extent()?;
         for (index, node) in graph.nodes.iter().enumerate() {
             for product in node.automatic.iter().chain(&node.rungs) {
                 if product.required_producer.is_some() {
@@ -878,7 +916,7 @@ impl ReplayCaseConstructor {
             }
         }
         let owner = package.runtime.shared.math().reserve("replay:original-graph-reconstruction",
-            encoded_extent(graph, EXPORT_MAX)?.saturating_mul(8).saturating_add(65536))?;
+            expanded_extent)?;
         let mut built: Vec<super::ModelingSolvePreparation> = Vec::with_capacity(graph.nodes.len());
         for node in &graph.nodes {
             let mut prepared = self.reconstruct_body(package, &node.settings, node.requested_start.as_ref(),
@@ -900,6 +938,9 @@ impl ReplayCaseConstructor {
             if let Some(declaration) = &node.declaration {
                 prepared.solve = prepared.solve.with_strategy(declaration.clone(), products(&node.rungs)?)
                     .map_err(crate::math::MathRuntimeError::from)?;
+            }
+            if prepared.solve.preparation_identity().map_err(crate::math::MathRuntimeError::from)? != node.preparation {
+                return Err(contract("exact replay preparation differs; the recorded leaf compiler/evaluator/artifact producer must rebind its original constructor"));
             }
             if prepared.solve.execution_snapshot() != &node.runtime {
                 return Err(contract("reconstructed original profile requires its exact recorded build/runtime admission premises"));
@@ -1078,8 +1119,43 @@ mod tests {
         let missing_graph = missing.prepared_graph.as_mut().unwrap();
         missing_graph.nodes[missing_graph.root].rungs[0].required_producer = Some(ReplayProducerPremise::Derived);
         assert!(missing.reconstruct(&package, &crate::CancelSource::new()).await.is_err());
+        for repeated in [false, true] {
+            let mut excessive = constructor.clone();
+            let excessive_graph = excessive.prepared_graph.as_mut().unwrap();
+            let mut leaf = excessive_graph.nodes[0].clone();
+            leaf.automatic.clear(); leaf.rungs.clear(); leaf.declaration = None;
+            let template = graph.nodes[graph.root].rungs[0].clone();
+            excessive_graph.nodes.clear();
+            let length = if repeated { 20 } else { 65 };
+            for index in 0..length {
+                let mut node = leaf.clone();
+                if index > 0 {
+                    let mut product = template.clone(); product.node = Some(index - 1);
+                    node.automatic.push(product.clone());
+                    if repeated { node.automatic.push(product); }
+                }
+                excessive_graph.nodes.push(node);
+            }
+            excessive_graph.root = length - 1;
+            let before = runtime.native().preparation_effects();
+            let refusal = excessive.reconstruct(&package, &crate::CancelSource::new()).await.unwrap_err();
+            let effects = runtime.native().preparation_effects().since(before);
+            assert_eq!((effects.workspaces, effects.frontiers, effects.completions), (0, 0, 0));
+            assert!(refusal.to_string().contains(if repeated { "expanded preparation occurrences" } else { "depth 64" }), "{refusal}");
+        }
         drop(held);
         let sources = replay.reconstruct_sources(&runtime).unwrap();
+        let mut alternate_compiler = alternate_input.clone();
+        alternate_compiler.preparation.compiler.optimization.horner_iterations += 1;
+        let different = alternate_compiler.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap()
+            .with_start(constructor.requested_start.as_ref().unwrap().restore().unwrap()).unwrap();
+        assert_eq!(different.solve.strategy_profile().unwrap(), graph.nodes[1].profile);
+        assert_eq!(different.solve.original_identity().unwrap(), graph.nodes[1].original);
+        assert_ne!(different.solve.preparation_identity().unwrap(), graph.nodes[1].preparation);
+        let mut wrong_compiler = constructor.clone();
+        wrong_compiler.prepared_graph.as_mut().unwrap().nodes[1].preparation = different.solve.preparation_identity().unwrap();
+        let refusal = wrong_compiler.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap_err();
+        assert!(refusal.to_string().contains("compiler/evaluator/artifact producer"), "{refusal}");
         let restored = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
         assert_eq!(restored.solve.requested_start().unwrap().content_key(), identity);
         assert_eq!(restored.solve.replay_declaration(), Some(&declaration));
