@@ -742,6 +742,10 @@ impl Runtime {
         let study = store.canonical_study(&point.study).await?.ok_or_else(|| contract("lazy study absent"))?;
         let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
         let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
+        lazy.variants.validate()?;
+        if lazy.variants.graph().points.get(selected.variant) != Some(&point_policy(&point)?) {
+            return Err(contract("lazy selected policy differs from the immutable occurrence"));
+        }
         let physical = self.physical_source(&metadata.physical, cancel).await?;
         let base_revision = store.revision(&study.revision).await?.ok_or_else(|| contract("lazy base revision absent"))?;
         let base = self.modeling_revision(base_revision, physical, BTreeMap::new()).await?;

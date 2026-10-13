@@ -1774,6 +1774,42 @@ mod occurrence_execution_tests {
         (package, definition)
     }
     #[tokio::test]
+    async fn lazy_ephemeral_variants_keep_selected_order_and_original_scientific_results() {
+        use crate::workflow::{SourceDelta, SourceChoice, SelectedStudyVariant, StudyVariants, StudyInputs, OperationSource};
+        let (package, explicit) = fixture(&[1.]).await;
+        let replacement = pse_authoring::language::parse(
+            "package p { def Root { param t: Scalar = 1; var x: Scalar; eq e: x == 4+t; annotation start x(2+t); annotation check x(x > 0); } }",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default(),
+        ).unwrap().into_iter().find(|row| row.name == "e").unwrap();
+        let requested = |key| StudyPoint { operation: explicit.points[0].operation.operation.clone(),
+            preparation: explicit.points[0].operation.preparation.clone(), overlay: PointOverlay::default(),
+            policy: StudyPointPolicy { key: OccurrenceKey(key), dependencies: vec![], start: StartPolicy::Fresh, attempt_limit: 1 } };
+        let variants = StudyVariants { version: pse_model::document::Version, source: OperationSource::of(&package),
+            choices: vec![SourceChoice { alternatives: vec![
+                SourceDelta { parent: package.revision_id().into(), ..Default::default() },
+                SourceDelta { parent: package.revision_id().into(), replacements: vec![replacement], ..Default::default() },
+            ] }],
+            selected: vec![SelectedStudyVariant { ordinal: 1, point: requested(11) },
+                SelectedStudyVariant { ordinal: 0, point: requested(2) }],
+        };
+        let before = package.runtime.shared.math().preparations().views;
+        let definition = package.admit_study_inputs(explicit.physical, &StudyInputs::Lazy(variants),
+            &crate::workflow::StudyOutputDemand::Full {}, &crate::CancelSource::new()).await.unwrap();
+        assert_eq!(package.runtime.shared.math().preparations().views, before);
+        let report = package.study(&definition, 2, &crate::CancelSource::new()).await.unwrap();
+        assert_eq!(report.outcomes.iter().map(|outcome| outcome.key).collect::<Vec<_>>(), vec![OccurrenceKey(11), OccurrenceKey(2)]);
+        for (index, expected) in [5.0, 3.0].into_iter().enumerate() {
+            assert!(report.outcomes[index].scientific.usable);
+            assert!(matches!(report.outcomes[index].start, Some(StartProvenance::Fresh)));
+            let point = result(&report, index);
+            assert!((point.values.scalars[&member(point, "x")] - expected).abs() < 1e-8);
+        }
+        let table = report.table().unwrap();
+        assert_eq!(table.batch().num_rows(), 2);
+        assert_ne!(report.admitted_points[&0].operation.source, report.admitted_points[&1].operation.source);
+    }
+
+    #[tokio::test]
     async fn prediction_source_copy_drops_prior_task_and_start_preserving_original_identity() {
         let (package, definition) = fixture(&[1.]).await;
         let cancel = crate::CancelSource::new();
