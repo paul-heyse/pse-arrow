@@ -635,6 +635,39 @@ mod local_caller_tests {
         assert!(matches!(refused,Err(WorkflowError::CallerClosed)));assert!(!called.load(std::sync::atomic::Ordering::Acquire));
     }
     #[tokio::test]
+    async fn admitted_integration_keeps_one_continuation_across_acquisition_and_operation() {
+        let runtime=tests::runtime();
+        let (acquired,observed)=tokio::sync::oneshot::channel();
+        let (resume,released)=tokio::sync::oneshot::channel();
+        let executing=runtime.clone();
+        let task=tokio::spawn(async move {
+            executing.scope_activity(async {
+                // This barrier models an acquired integration before its actual operation.
+                let scope=executing.admission_context();
+                acquired.send(()).map_err(|_|contract("acquisition observer dropped"))?;
+                released.await.map_err(|_|contract("integration resume owner dropped"))?;
+                assert!(Arc::ptr_eq(&scope,&executing.admission_context()));
+                let declarations=pse_authoring::language::parse("package held {param a:Scalar=1;}",pse_ids::SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+                // Real local source admission starts after close and inherits only
+                // this admitted continuation, never authority from an idle alias.
+                let package=executing.modeling_package(declarations.clone(),tests::physical()).await?;
+                assert_eq!(&*package.declarations().await?,declarations.as_slice());
+                Ok(package.revision_id().to_owned())
+            }).await
+        });
+        observed.await.unwrap();
+        runtime.close();
+        let polled=Arc::new(std::sync::atomic::AtomicBool::new(false));let fresh=polled.clone();
+        let refused=runtime.scope_activity(async move {
+            fresh.store(true,std::sync::atomic::Ordering::Release);Ok(())
+        }).await;
+        assert!(matches!(refused,Err(WorkflowError::CallerClosed)));
+        assert!(!polled.load(std::sync::atomic::Ordering::Acquire));
+        resume.send(()).unwrap();
+        assert!(!task.await.unwrap().unwrap().is_empty());
+        assert!(matches!(runtime.admit_activity(),Err(WorkflowError::CallerClosed)));
+    }
+    #[tokio::test]
     async fn local_admission_scope_is_shared_only_by_its_operation() {
         let runtime=tests::runtime();
         let activity=runtime.admit_activity().unwrap();
