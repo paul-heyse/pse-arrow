@@ -1046,10 +1046,18 @@ impl Factory {
             .iter()
             .map(|(k, r)| r.worker_scoped(scope.nested()).map(|w| (*k, w)))
             .collect::<Result<_, _>>()?;
-        let parallel = if scope.admitted_threads().get() == 1 {
+        // Admission is a capacity ceiling, not placement or a promise of actual
+        // parallel work. Query the pool width only on a Rayon worker: outside one,
+        // current_num_threads would initialize the unrelated global pool.
+        let threads = if rayon::current_thread_index().is_some() {
+            scope.admitted_threads().get().min(rayon::current_num_threads())
+        } else {
+            1
+        };
+        let parallel = if threads == 1 {
             Par::Seq
         } else {
-            Par::rayon(scope.admitted_threads().get())
+            Par::rayon(threads)
         };
         let mut problem = Problem::new_with_parallelism(
             self.spec.id,
@@ -1713,26 +1721,46 @@ mod tests {
         };
         let admitted = pse_kernels::ExecutionScope::new(cancel.clone(), None)
             .with_admitted_threads(std::num::NonZeroUsize::new(2).unwrap());
+        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
         assert_eq!(
-            factory
+            pool.install(|| factory
                 .problem(admitted.clone())
                 .unwrap()
                 .factor
                 .lock()
                 .unwrap()
-                .parallel,
+                .parallel),
+            Par::rayon(2)
+        );
+        // A capacity larger than the installed pool cannot create another team.
+        assert_eq!(
+            pool.install(|| factory
+                .problem(admitted.clone().with_admitted_threads(std::num::NonZeroUsize::new(4).unwrap()))
+                .unwrap().factor.lock().unwrap().parallel),
             Par::rayon(2)
         );
         assert_eq!(
-            factory
+            pool.install(|| factory
                 .problem(admitted.nested())
                 .unwrap()
                 .factor
                 .lock()
                 .unwrap()
-                .parallel,
+                .parallel),
             Par::Seq
         );
+        // A fresh host thread has no installed Rayon owner. Explicit admitted width
+        // must fall back to Seq without consulting or initializing the global pool.
+        std::thread::scope(|threads| {
+            let outside = admitted.clone();
+            let factor_parallelism = threads.spawn(|| {
+                assert!(rayon::current_thread_index().is_none());
+                factory.problem(outside).unwrap().factor.lock().unwrap().parallel
+            }).join().unwrap();
+            assert_eq!(factor_parallelism, Par::Seq);
+        });
+        let serial_pool = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
+        assert_eq!(serial_pool.install(|| factory.problem(admitted.clone()).unwrap().factor.lock().unwrap().parallel), Par::Seq);
         let mut provider = factory.create().unwrap();
         let context = EvaluationContext {
             cancelled: cancel.as_ref(),
