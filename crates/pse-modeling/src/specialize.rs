@@ -49,7 +49,7 @@ pub use objectives::{ObjectiveBound, ObjectiveLevel, ObjectiveMember, Objectives
 use value::{Evaluator, value_type};
 
 /// Explicit limits checked before expansion/allocation.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Limits {
     /// Maximum nested definitions.
     pub depth: usize,
@@ -110,7 +110,7 @@ impl Realization {
     }
 }
 /// Root structural bindings and demands. Numeric runtime values have a separate owner.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Bindings {
     /// Immutable equation omission and elastic policy, applied after source specialization.
     pub formulation: Formulation,
@@ -120,12 +120,14 @@ pub struct Bindings {
     pub scope: Environment,
     /// Reserved compile-time facts: the analysis route, the objective level and the
     /// selected stages (ADR-0123 Outcome 1).
+    #[serde(with = "facts_wire")]
+    #[schemars(with = "Vec<(crate::analysis::Fact, Value)>")]
     pub facts: BTreeMap<crate::analysis::Fact, Value>,
     /// Additional member paths requested by the caller.
     pub demand: Vec<String>,
 }
 /// Generic analysis overlay over selected semantic equations. Science remains in source.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub struct Formulation {
     /// Remove these outer equations from this attempt only.
     pub omitted: BTreeSet<SemanticId>,
@@ -3056,5 +3058,20 @@ impl SpecializedModel {
                 })
             })
             .collect()
+    }
+}
+
+// Preserve typed Stage(String) keys without JSON stringification or lost namespace.
+mod facts_wire {
+    use super::*;
+    pub(super) fn serialize<S: serde::Serializer>(values: &BTreeMap<crate::analysis::Fact, Value>, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+        serde::Serialize::serialize(&values.iter().collect::<Vec<_>>(), serializer)
+    }
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> std::result::Result<BTreeMap<crate::analysis::Fact, Value>, D::Error> {
+        let rows = <Vec<(crate::analysis::Fact, Value)> as serde::Deserialize>::deserialize(deserializer)?;
+        let count = rows.len();
+        let values: BTreeMap<_, _> = rows.into_iter().collect();
+        if count != values.len() { return Err(serde::de::Error::custom("duplicate structural fact")); }
+        Ok(values)
     }
 }

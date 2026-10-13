@@ -492,16 +492,14 @@ impl HeldPreparationScope {
 }
 
 /// Captured at actual construction, never inferred from a prepared model hash.
-#[cfg(feature = "solver-diffsol")]
 #[derive(Debug)]
-pub(in crate::workflow) struct OriginalPreparationInputs {
-    pub(in crate::workflow) root: DeclarationId,
-    pub(in crate::workflow) instance: InstanceId,
-    pub(in crate::workflow) bindings: Bindings,
-    pub(in crate::workflow) limits: Limits,
+pub(crate) struct OriginalPreparationInputs {
+    pub(crate) root: DeclarationId,
+    pub(crate) instance: InstanceId,
+    pub(crate) bindings: Bindings,
+    pub(crate) limits: Limits,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
-#[cfg(feature = "solver-diffsol")]
 impl OriginalPreparationInputs {
     pub(in crate::workflow) fn capture(
         source: &ModelingPackage,

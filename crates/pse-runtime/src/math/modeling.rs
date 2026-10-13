@@ -114,6 +114,8 @@ pub(crate) fn source_revision_frame(
 /// Kernel products retain memory after the workspace generation rotates.
 #[derive(Clone, Debug)]
 pub struct ModelingPreparation {
+    /// Exact original source-specialization constructor, retained at the workflow boundary.
+    pub(crate) original: Option<Arc<crate::workflow::modeling::engagement::OriginalPreparationInputs>>,
     pub(super) product: PreparedModeling,
     pub(super) solved: Solved,
     pub(super) consumed_sources: Arc<BTreeMap<String, String>>,
@@ -141,6 +143,7 @@ impl ModelingPreparation {
     /// The admitted selected-supplier equation view, retaining the same product owner.
     pub(crate) fn original_equations(&self) -> Option<Self> {
         Some(Self {
+            original: self.original.clone(),
             product: self.product.original_equations()?,
             ..self.clone()
         })

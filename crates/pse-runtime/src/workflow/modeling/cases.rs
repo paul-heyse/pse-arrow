@@ -78,6 +78,7 @@ pub(in crate::workflow) struct CaseOverrides {
 /// One immutable case plus the numerical declarations selected for this analysis.
 #[derive(Clone, Debug)]
 pub struct ModelingSolvePreparation {
+    pub(in crate::workflow) original_inputs: Arc<crate::workflow::replay::OriginalCaseInputs>,
     pub(in crate::workflow) stored_seed_owner: Option<Arc<dyn pse_columnar::PayloadOwner>>,
     /// Exact transient binding and original attribution, owned through result retention.
     pub bound_source: Option<Arc<pse_columnar::Leased<super::super::AdmittedBinding>>>,
@@ -96,6 +97,7 @@ pub struct ModelingSolvePreparation {
 /// Numerical resolution precedes native routing so diagnostics can inspect an
 /// underdetermined or otherwise ineligible problem without requesting a solver.
 pub(in crate::workflow) struct ModelingCaseResolution {
+    pub(super) original_inputs: Arc<crate::workflow::replay::OriginalCaseInputs>,
     pub(super) case_bindings: ModelingCaseBindings,
     pub compiler: Profile,
     pub model: ModelingCasePreparation,
@@ -768,6 +770,7 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let ModelingCaseResolution {
+            original_inputs,
             compiler,
             case_bindings,
             model,
@@ -917,6 +920,7 @@ impl ModelingPackage {
         #[cfg(not(feature = "solver-kinsol"))]
         let _ = numerics;
         Ok(ModelingSolvePreparation {
+            original_inputs,
             stored_seed_owner: None,
             bound_source: None,
             source: self.clone(),
@@ -996,6 +1000,9 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
+        let original_inputs = crate::workflow::replay::OriginalCaseInputs::capture(
+            self, &model, &case, order, compiler, &solver, &numerical, &overrides,
+        )?;
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
@@ -1225,6 +1232,7 @@ impl ModelingPackage {
             )
             .await?;
         Ok(ModelingCaseResolution {
+            original_inputs,
             case_bindings: case,
             compiler,
             numerics,

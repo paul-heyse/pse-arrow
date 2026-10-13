@@ -223,6 +223,7 @@ pub(in crate::workflow) async fn rebind_prediction_source(
         );
     }
     let prepared = super::ModelingSolvePreparation {
+        original_inputs: template.original_inputs.clone(),
         stored_seed_owner: None,
         bound_source: Some(package.retain_bound_source(binding)?),
         model,

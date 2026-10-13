@@ -2313,3 +2313,144 @@ mod tests {
         );
     }
 }
+
+impl ModelingPackage {
+    /// Export owned immutable inputs; physical sources are actual admitted bytes.
+    pub(in crate::workflow) fn replay_source(
+        &self,
+    ) -> Result<crate::workflow::replay::ReplaySourceDocument, WorkflowError> {
+        use crate::workflow::replay::{ReplayProvider, ReplaySourceDocument, ReplaySourceObject};
+        Ok(ReplaySourceDocument {
+            identity: self.revision.identity().as_id(),
+            interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            build: pse_backend_native::execution::LINKED.build_identity(),
+            physical_identity: self.physical.identity(),
+            physical_sources: crate::workflow::replay::physical_sources(&self.physical)?,
+            providers: self.providers.iter().map(|(name, provider)| ReplayProvider::new(name, provider)).collect(),
+            objects: self.revision.admitted.objects.values().map(|object| ReplaySourceObject {
+                logical: object.logical.clone(), scope: object.scope.clone(), name: object.name.clone(),
+                version: object.version.clone(), kind: object.kind.clone(), payload: object.payload.clone(),
+                references: object.references.clone(),
+            }).collect(),
+        })
+    }
+    /// Reconstruct through production local admission while retaining actual callable premises.
+    pub(in crate::workflow) fn reconstruct_replay_source(
+        &self,
+        runtime: &Runtime,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        self.replay_source()?.reconstruct(runtime, self.physical.clone(), self.providers.as_ref().clone())
+    }
+}
+impl Runtime {
+    pub(in crate::workflow) fn admit_replay_source(
+        &self,
+        document: &crate::workflow::replay::ReplaySourceDocument,
+        physical: super::PhysicalContext,
+        providers: BTreeMap<String, pse_kernels::Registration>,
+    ) -> Result<ModelingPackage, WorkflowError> {
+        if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
+            || document.build != pse_backend_native::execution::LINKED.build_identity()
+            || document.physical_identity != physical.identity()
+            || document.physical_sources != crate::workflow::replay::physical_sources(&physical)?
+        {
+            return Err(contract("replay interpretation, native build or actual physical sources differ"));
+        }
+        let actual: Vec<_> = providers.iter().map(|(name, provider)| crate::workflow::replay::ReplayProvider::new(name, provider)).collect();
+        if document.providers != actual {
+            return Err(contract("replay requires every exact executable provider registration"));
+        }
+        let mut edits = Vec::with_capacity(document.objects.len());
+        let mut logicals = BTreeSet::new();
+        let mut names = BTreeSet::new();
+        for object in &document.objects {
+            if !logicals.insert(object.logical.clone()) || !names.insert((object.scope.clone(), object.name.clone())) {
+                return Err(contract("replay source contains duplicate logical or lexical identity"));
+            }
+            let edited = edit(object.logical.clone(), object.scope.clone(), object.name.clone(),
+                object.kind.clone(), object.payload.clone(), object.references.clone());
+            if edited.version.as_ref().is_none_or(|version| version.key != object.version) {
+                return Err(contract("replay source object body/reference identity differs"));
+            }
+            edits.push(edited);
+        }
+        if document.objects.iter().flat_map(|object| &object.references).any(|reference| !names.contains(reference)) {
+            return Err(contract("replay source is missing a referenced immutable object"));
+        }
+        let context = document.objects.iter().find(|object| object.logical == CONTEXT_LOGICAL)
+            .ok_or_else(|| contract("replay source context absent"))?;
+        if context.kind != CONTEXT || !logicals.contains(PHYSICAL_SCOPE_LOGICAL) || !logicals.contains(INGRESS_FRAME) {
+            return Err(contract("replay source interpretation or physical/ingress frame absent"));
+        }
+        let identity: SourceRevisionHash = decode(&context.payload)?;
+        if identity.as_id() != document.identity {
+            return Err(contract("replay source identity differs from its actual context body"));
+        }
+        // Recompute lexical dependency meaning from actual declarations. Self-consistent
+        // hashes alone do not establish a complete source closure.
+        let mut index = SourceIndex { roots_complete: true, ..Default::default() };
+        for object in &document.objects {
+            if object.kind.starts_with("modeling:") && object.kind != CONTEXT {
+                let source: SourcePayload = decode(&object.payload)?;
+                if object.logical != logical(source.0.declaration_id)
+                    || object.scope != scope(source.0.parent_id) || object.name != source.0.name
+                    || object.kind != kind(&source.0) {
+                    return Err(contract("replay declaration membership differs from its body"));
+                }
+                index.parsed_fields.insert(source.0.declaration_id, parsed_fields(self, &source.0, source.1.as_ref())?);
+                index.scopes.insert(source.0.declaration_id);
+                index.imports.insert(source.0.declaration_id);
+                index.insert(source)?;
+            }
+        }
+        let rows: Vec<_> = index.rows.values().cloned().collect();
+        for row in &rows {
+            let references: BTreeSet<_> = index.references(row)?.into_iter().map(|id| {
+                let target = &index.rows[&id]; (scope(target.parent_id), target.name.clone())
+            }).collect();
+            let object = document.objects.iter().find(|object| object.logical == logical(row.declaration_id))
+                .ok_or_else(|| contract("replay declaration body absent"))?;
+            if references != object.references.iter().cloned().collect() {
+                return Err(contract("replay lexical dependency closure differs from actual source meaning"));
+            }
+        }
+        let frame_object = document.objects.iter().find(|object| object.logical == INGRESS_FRAME)
+            .ok_or_else(|| contract("replay ingress frame absent"))?;
+        let frame: IngressFrame = decode(&frame_object.payload)?;
+        let ordered: BTreeSet<_> = frame.order.iter().copied().collect();
+        if ordered.len() != frame.order.len() || ordered != index.rows.keys().copied().collect() {
+            return Err(contract("replay ingress order omits or duplicates a declaration"));
+        }
+        let ordered_rows = frame.order.iter().map(|id| index.rows[id].clone()).collect::<Vec<_>>();
+        let physical_object = document.objects.iter().find(|object| object.logical == PHYSICAL_SCOPE_LOGICAL)
+            .ok_or_else(|| contract("replay physical scope absent"))?;
+        let mut physical_scope: PhysicalScope = decode(&physical_object.payload)?;
+        if let Some(documents) = &mut physical_scope.documents {
+            for object in &document.objects {
+                if object.kind == "physical_scope_document" {
+                    let member: PhysicalScope = decode(&object.payload)?;
+                    if member.package != physical_scope.package {
+                        return Err(contract("replay physical document package differs"));
+                    }
+                    if let Some(visible) = member.documents { documents.extend(visible); }
+                }
+            }
+        }
+        for (id, expected) in &frame.data {
+            let data = document.objects.iter().find(|object| object.logical == format!("data:{id}"))
+                .ok_or_else(|| contract("replay data payload absent"))?;
+            if pse_ids::preimage::hash(&data.payload) != *expected {
+                return Err(contract("replay data bytes differ from original ingress content"));
+            }
+        }
+        let names = selected_source::physical_bindings(&ordered_rows, &physical_scope, &physical.quantities);
+        let actual_identity = crate::math::modeling::source_revision_frame(&ordered_rows,
+            frame.data.iter().map(|(id, content)| (*id, *content)), &physical.key, &names);
+        if actual_identity != identity {
+            return Err(contract("replay source context differs from actual complete scientific inputs"));
+        }
+        let admitted = AdmittedModelRevision::apply(self, None, &edits)?;
+        let revision = SourceRevision::admitted(admitted, identity, None, None)?;
+        self.package_from_revision(revision, physical, providers)
+    }
+}

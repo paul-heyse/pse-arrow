@@ -245,6 +245,8 @@ pub struct HorizonRequest {
     pub identity: pse_ids::ContentHash,
     pub(in crate::workflow) sources: Vec<super::ModelingPackage>,
     pub(in crate::workflow) provenance: Vec<u8>,
+    /// Exact original request retained for fresh scientific reruns, never native continuation.
+    pub(in crate::workflow) original: std::sync::Arc<Horizon>,
 }
 
 /// Compact original outcome. Unselected history is unavailable rather than an

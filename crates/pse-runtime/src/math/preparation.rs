@@ -170,6 +170,7 @@ impl PreparedBasis {
             .into());
         }
         Ok(ModelingPreparation {
+            original: None,
             product: self.product.clone(),
             solved: revision.solved(root, instance)?,
             consumed_sources: Arc::new(BTreeMap::new()),
@@ -399,6 +400,7 @@ impl MathService {
         }
         let owner = self.own_modeling_product(&product, lease)?;
         Ok(ModelingPreparation {
+            original: None,
             product: product.with_owner(owner.clone()),
             solved,
             consumed_sources: Arc::default(),

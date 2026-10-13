@@ -14,7 +14,7 @@ use std::collections::{BTreeMap, BTreeSet};
 mod structure;
 
 /// A fully explicit structural value.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 pub enum Value {
     /// Predicate.
     Boolean(bool),

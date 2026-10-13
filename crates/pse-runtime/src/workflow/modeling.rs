@@ -22,10 +22,10 @@ mod bound;
 mod canonical;
 pub(crate) use canonical::LocalSourcePremises;
 pub(crate) use canonical::reload::RetainedIngress;
-pub(super) mod cases;
+pub(in crate::workflow) mod cases;
 mod conformance;
 pub(super) mod declared;
-pub(in crate::workflow) mod engagement;
+pub(crate) mod engagement;
 mod path_pipeline;
 mod preparation;
 pub use declared::{DeclaredExecution, DeclaredProcedure, InitializationOverrides};
@@ -979,15 +979,17 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let original = engagement::OriginalPreparationInputs::capture(self, root, instance, &bindings, limits)?;
                 if let Some(scope) = &self.held_preparation {
-                    return scope
-                        .prepare(self, root, instance, bindings, limits, cancel)
-                        .await;
+                    let mut model = scope.prepare(self, root, instance, bindings, limits, cancel).await?;
+                    model.original = Some(original);
+                    return Ok(model);
                 }
                 let engagement = self
                     .engage(root, instance, bindings, limits, cancel)
                     .await?;
-                let model = engagement.model().clone();
+                let mut model = engagement.model().clone();
+                model.original = Some(original);
                 engagement.close().await?;
                 Ok(model)
             })

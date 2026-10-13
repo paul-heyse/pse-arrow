@@ -612,6 +612,7 @@ pub(super) struct Admitted {
     _held_owner: Option<Arc<pse_columnar::AllocationLease>>,
     /// Existing operation-owner projections recorded before native effects.
     provenance: Vec<u8>,
+    original: Arc<Horizon>,
     sources: Vec<ModelingPackage>,
     plant: Arc<Plant>,
     steps: usize,
@@ -638,6 +639,7 @@ impl Admitted {
             identity: self.identity.as_id(),
             sources: self.sources.clone(),
             provenance: self.provenance.clone(),
+            original: self.original.clone(),
         }
     }
     pub(super) async fn new(
@@ -701,6 +703,7 @@ impl Admitted {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        let original = Arc::new(horizon.clone());
         let mut sources = vec![horizon.plant.source.clone()];
         if let Some(estimator) = &horizon.estimator {
             sources.push(estimator.package.clone());
@@ -886,6 +889,7 @@ impl Admitted {
             .math()
             .reserve("horizon:rolling-role-state", history_bytes)?;
         Ok(Self {
+            original,
             output,
             _history_owner: history_owner,
             held: Vec::new(),

@@ -380,6 +380,7 @@ impl ModelingResult {
         // Construct explicitly: cloning the whole preparation first would copy
         // old recovery inventories/task handles before replacing its solve.
         let prepared = ModelingSolvePreparation {
+            original_inputs: self.prepared.original_inputs.clone(),
             stored_seed_owner: None,
             bound_source: self.prepared.bound_source.clone(),
             model: self.prepared.model.clone(),
