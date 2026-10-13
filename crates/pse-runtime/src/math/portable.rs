@@ -3,6 +3,7 @@
 
 //! Canonical, qualified admitted-body publication and strict numerical reconstruction.
 //! A missing eligible product remains distinct from successful reconstruction.
+use futures_util::FutureExt;
 use pse_compiler::{
     typed_math::{AdmittedBody, portable_payload_hash, reconstruct_portable},
     workspace::{CompilerContext, physical_identity},
@@ -1227,7 +1228,7 @@ pub async fn publish_body(
         body,
         context,
     )?;
-    let key = publish_description(store, read, &description, deadline.into()).await?;
+    let key = publish_description(service, store, read, &description, deadline.into()).await?;
     Ok(PublishedBody {
         key,
         semantic_identity: description.semantic_identity,
@@ -1274,6 +1275,7 @@ async fn publish_with_producer_key(
         context,
     )?;
     let key = publish_description(
+        service,
         store,
         read,
         &description,
@@ -1451,6 +1453,7 @@ pub(crate) fn describe_body(
     reason = "ADR-0164 compiler-sealed description and actual receiving admission are required by this private publication owner"
 )]
 pub(crate) async fn publish_description(
+    service: &super::MathService,
     store: &CanonicalStore,
     read: &SelectedRead,
     description: &BodyDescription,
@@ -1458,20 +1461,41 @@ pub(crate) async fn publish_description(
 ) -> Result<String, PortableError> {
     // Callers may use original provenance only for acknowledgment. New eligible
     // publication must establish a current namespace before constructing this value.
-    Ok(
+    let publication = || async {
         if pse_operations::canonical_selection::is_replay_producer(&description.producer) {
             // SAFETY: this private path is reached only after current receiving admission;
             // descriptions are compiler-sealed and bound to the consumer's exact read.
             unsafe {
                 store.publish_scientific_description_until(read, &description.description, deadline)
             }
-            .await?
+            .await
         } else {
             store
                 .publish_description_until(read, &description.description, deadline)
-                .await?
-        },
-    )
+                .await
+        }
+    };
+    Ok(charged_publication(service, publication).await??)
+}
+
+// Publication carries nested clock/activity and staging futures. Keep that
+// phase off its caller's preparation stack while charging its complete heap
+// state to the same scientific runtime until the original operation settles.
+// The callback remains uncalled until admission, including on allocation refusal.
+async fn charged_publication<F, Fut>(
+    service: &super::MathService,
+    publication: F,
+) -> Result<Fut::Output, PortableError>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future + Send,
+{
+    let _owner = reserve_portable(
+        service,
+        "math:canonical-publication-future",
+        size_of::<Fut>(),
+    )?;
+    Ok(publication().boxed().await)
 }
 /// Return only a dependency-qualified persisted product, reconstructed from its actual
 /// concrete receipts. A hit with corrupt or incomplete receipts is an error; it never
@@ -2565,6 +2589,47 @@ mod canonical_portable_body_tests {
     use pse_modeling::{Bindings, InstanceId, Limits, PhysicalScope};
     use pse_operations::canonical::{CanonicalOptions, ObjectEdit};
     use std::{collections::BTreeMap, path::Path, sync::Mutex, time::Duration};
+
+    #[tokio::test]
+    async fn charged_publication_refuses_before_constructing_operation() {
+        let service = crate::math::tests::limited_service(1024);
+        let baseline = service.pool.reserved();
+        let constructed = AtomicBool::new(false);
+        let result = charged_publication(&service, || {
+            constructed.store(true, std::sync::atomic::Ordering::SeqCst);
+            async {
+                let payload = [3u8; 2048];
+                std::future::pending::<()>().await;
+                std::hint::black_box(payload)
+            }
+        })
+        .await;
+        assert!(result.is_err());
+        assert!(!constructed.load(std::sync::atomic::Ordering::SeqCst));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
+    async fn charged_publication_holds_allocation_until_operation_returns() {
+        let service = crate::math::tests::limited_service(8192);
+        let baseline = service.pool.reserved();
+        let (complete, completion) = tokio::sync::oneshot::channel();
+        let operation = charged_publication(&service, || {
+            assert!(service.pool.reserved() > baseline);
+            async {
+                let payload = [7u8; 2048];
+                completion.await.unwrap();
+                assert!(service.pool.reserved() > baseline);
+                Err::<u8, _>(std::hint::black_box(payload)[0])
+            }
+        });
+        tokio::pin!(operation);
+        assert!(futures_util::poll!(operation.as_mut()).is_pending());
+        assert!(service.pool.reserved() > baseline);
+        complete.send(()).unwrap();
+        assert_eq!(operation.await.unwrap(), Err(7));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
     #[allow(
         unsafe_code,
         reason = "controlled deployment fixtures test refusal and outer-binding semantics"

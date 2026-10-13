@@ -5,7 +5,7 @@ use super::{
     Durability, Operations, RunDurability, Runtime, WorkflowError, contract,
     durable::{DurableAttempt, DurableRecord},
 };
-use futures_util::{StreamExt, stream::FuturesUnordered};
+use futures_util::{FutureExt, StreamExt, stream::FuturesUnordered};
 use pse_admission::authoring_driver::document::{
     OwnedDocumentSet, load_package_documents_owned, package_checksum,
 };
@@ -1665,9 +1665,28 @@ impl Runtime {
                 let group = &group;
                 let recovery_position = tokio::sync::Mutex::new(None);
                 let recovery_position = &recovery_position;
+                let work = move |mut lane: super::study::StudyCandidateLane, recovery, drain| async move {
+                    let result = self
+                        .group_lane(recovery, recovery_position, group, &mut lane, &drain)
+                        .await;
+                    (lane, result)
+                };
+                // Infer the exact nested future extent without constructing one
+                // on the main stack. Charge it before active future allocation,
+                // as well as the idle owner vector. The pinned FuturesUnordered
+                // task/Arc metadata fits in 128 bytes per boxed handle; its shared
+                // queue/stub fits in 256.
+                fn future_bytes<S, F, Fut>(_: &F) -> usize
+                where
+                    F: Fn(S, bool, crate::CancelSource) -> Fut,
+                    Fut: Future,
+                {
+                    size_of::<Fut>()
+                }
+                let future_bytes = future_bytes(&work);
                 let _owner = self.shared.math().reserve(
                     "study:worker-input-lanes",
-                    width * (size_of::<super::study::StudyCandidateLane>() + 128),
+                    width * (size_of::<super::study::StudyCandidateLane>() + future_bytes + 128) + 256,
                 )?;
                 let owners = (0..width)
                     .map(|_| super::study::StudyCandidateLane::new())
@@ -1676,11 +1695,11 @@ impl Runtime {
                     settings,
                     owners,
                     stop,
-                    move |mut lane, recovery, drain| async move {
-                        let result = self
-                            .group_lane(recovery, recovery_position, group, &mut lane, &drain)
-                            .await;
-                        (lane, result)
+                    move |lane, recovery, drain| {
+                        // A lane's nested preparation/execution future is large.
+                        // The scheduler transfers and polls this heap handle,
+                        // retaining the exact owner until its awaited drain ends.
+                        work(lane, recovery, drain).boxed()
                     },
                 )
                 .await;

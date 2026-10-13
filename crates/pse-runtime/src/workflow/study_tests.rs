@@ -942,82 +942,196 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
         seed: pse_operations::mint_id(),
     };
     let (physical, _) = sources(CASES);
-    let before=runtime.canonical_store().study_page(None).await.unwrap();
-    let failure=runtime.start_defined_study(physical,definition,&crate::CancelSource::new()).await.unwrap_err();
-    assert!(matches!(failure,WorkflowError::SeedRead(_)),"{failure:?}");
-    assert_eq!(runtime.canonical_store().study_page(None).await.unwrap(),before);
-    assert!(matches!(runtime.work_once().await.unwrap(),Processed::Idle));
+    let before = runtime.canonical_store().study_page(None).await.unwrap();
+    let failure = runtime
+        .start_defined_study(physical, definition, &crate::CancelSource::new())
+        .await
+        .unwrap_err();
+    assert!(matches!(failure, WorkflowError::SeedRead(_)), "{failure:?}");
+    assert_eq!(
+        runtime.canonical_store().study_page(None).await.unwrap(),
+        before
+    );
+    assert!(matches!(
+        runtime.work_once().await.unwrap(),
+        Processed::Idle
+    ));
     drop(package);
 }
 
-#[cfg(all(feature = "canonical-tests",feature="solver-ipopt"))]
+#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
-async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement() {
-    let runtime=durable_tests::durable_runtime_on(tests::runtime_with_workspace(64<<20));
-    let (package,mut definition)=related_definition(&runtime).await;
+async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement()
+ {
+    let runtime = durable_tests::durable_runtime_on(tests::runtime_with_workspace(64 << 20));
+    let (package, mut definition) = related_definition(&runtime).await;
     definition.points.truncate(2);
-    let second_key=definition.points[1].policy.key;
-    definition.points[1]=definition.points[0].clone();
-    definition.points[1].policy.key=second_key;
-    let cancel=crate::CancelSource::new();
-    let mut lane=study_operations::StudyPreparationLane::new();
-    let prepared=lane.prepare(&package,&definition.points[0].operation,&definition.points[0].binding,&cancel).await.unwrap();
-    let original=prepared.start(&runtime,&cancel).await.unwrap().wait().await.unwrap();
-    assert!(original.usable(),"{:?}",original.report());
-    let producer=original.canonical_run_key().unwrap().to_owned();
-    let attempt=original.canonical_attempt_key().unwrap().to_owned();
-    let record=runtime.operations().unwrap().record(&producer,&attempt).await.unwrap();
-    assert_eq!(record.solutions.len(),1);
-    let solution=record.solutions[0].1;
+    let second_key = definition.points[1].policy.key;
+    definition.points[1] = definition.points[0].clone();
+    definition.points[1].policy.key = second_key;
+    let cancel = crate::CancelSource::new();
+    let mut lane = study_operations::StudyPreparationLane::new();
+    let prepared = lane
+        .prepare(
+            &package,
+            &definition.points[0].operation,
+            &definition.points[0].binding,
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let original = prepared
+        .start(&runtime, &cancel)
+        .await
+        .unwrap()
+        .wait()
+        .await
+        .unwrap();
+    assert!(original.usable(), "{:?}", original.report());
+    let producer = original.canonical_run_key().unwrap().to_owned();
+    let attempt = original.canonical_attempt_key().unwrap().to_owned();
+    let record = runtime
+        .operations()
+        .unwrap()
+        .record(&producer, &attempt)
+        .await
+        .unwrap();
+    assert_eq!(record.solutions.len(), 1);
+    let solution = record.solutions[0].1;
     drop(record);
     drop(original);
     drop(prepared);
     lane.close().await.unwrap();
     for point in &mut definition.points {
-        point.policy.start=StartPolicy::Explicit {role:SeedRole::PrimalSolution,seed:solution};
+        point.policy.start = StartPolicy::Explicit {
+            role: SeedRole::PrimalSolution,
+            seed: solution,
+        };
     }
-    let (physical,_)=sources(CASES);
-    let handle=runtime.start_defined_study(physical,definition.clone(),&cancel).await.unwrap();
-    let study=handle.study_id().to_string();
-    let store=runtime.canonical_store();
-    let capsule=store.study_input(&study,&solution.to_string()).await.unwrap();
-    let retained=runtime.operations().unwrap().artifact_seed(&capsule).await.unwrap();
-    assert_eq!(retained.solution(),solution);
-    assert_eq!(retained.header().run,producer);
-    assert_eq!(retained.header().attempt,attempt);
+    let (physical, _) = sources(CASES);
+    let handle = runtime
+        .start_defined_study(physical, definition.clone(), &cancel)
+        .await
+        .unwrap();
+    let study = handle.study_id().to_string();
+    let store = runtime.canonical_store();
+    let capsule = store
+        .study_input(&study, &solution.to_string())
+        .await
+        .unwrap();
+    let retained = runtime
+        .operations()
+        .unwrap()
+        .artifact_seed(&capsule)
+        .await
+        .unwrap();
+    assert_eq!(retained.solution(), solution);
+    assert_eq!(retained.header().run, producer);
+    assert_eq!(retained.header().attempt, attempt);
     drop(retained);
     for point in &definition.points {
-        let native=store.canonical_study_point(&pse_operations::canonical_studies::point_key(&study,point.policy.key)).await.unwrap().unwrap();
-        assert_eq!(native.seed_solution.as_deref(),Some(solution.to_string().as_str()));
-        assert_eq!(store.study_input(&study,native.seed_solution.as_ref().unwrap()).await.unwrap(),capsule,"repeated exact external seed shares one copied study input");
-        assert!(!native.assigned && native.attempt.is_none(),"producer retires before any dispatch");
+        let native = store
+            .canonical_study_point(&pse_operations::canonical_studies::point_key(
+                &study,
+                point.policy.key,
+            ))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            native.seed_solution.as_deref(),
+            Some(solution.to_string().as_str())
+        );
+        assert_eq!(
+            store
+                .study_input(&study, native.seed_solution.as_ref().unwrap())
+                .await
+                .unwrap(),
+            capsule,
+            "repeated exact external seed shares one copied study input"
+        );
+        assert!(
+            !native.assigned && native.attempt.is_none(),
+            "producer retires before any dispatch"
+        );
     }
     drop(package);
     runtime.clear_program_cache();
-    let mut retired=false;
+    let mut retired = false;
     for _ in 0..32 {
-        if store.forget_run_results(&producer).await.is_ok() {retired=true;break;}
+        if store.forget_run_results(&producer).await.is_ok() {
+            retired = true;
+            break;
+        }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    assert!(retired,"study owns copied capsule, not a coarse producer obligation");
-    assert!(runtime.operations().unwrap().seed(solution).await.is_err(),"fresh original lookup is unavailable");
-    let replacement=runtime.clone().with_durability(DurabilitySelection::Durable {worker:"replacement-retained-study-input".into(),policy:LeasePolicy::default()}).unwrap();
+    assert!(
+        retired,
+        "study owns copied capsule, not a coarse producer obligation"
+    );
+    assert!(
+        runtime.operations().unwrap().seed(solution).await.is_err(),
+        "fresh original lookup is unavailable"
+    );
+    let replacement = runtime
+        .clone()
+        .with_durability(DurabilitySelection::Durable {
+            worker: "replacement-retained-study-input".into(),
+            policy: LeasePolicy::default(),
+        })
+        .unwrap();
     for _ in 0..8 {
-        if handle.status().await.unwrap().points.iter().all(|point|point.settled) {break;}
-        assert!(!matches!(replacement.work_once().await.unwrap(),Processed::Idle),"replacement must consume retained study input");
+        if handle
+            .status()
+            .await
+            .unwrap()
+            .points
+            .iter()
+            .all(|point| point.settled)
+        {
+            break;
+        }
+        assert!(
+            !matches!(replacement.work_once().await.unwrap(), Processed::Idle),
+            "replacement must consume retained study input"
+        );
     }
-    let status=handle.status().await.unwrap();
-    assert_eq!(status.points.len(),2);
+    let status = handle.status().await.unwrap();
+    assert_eq!(status.points.len(), 2);
     for point in &status.points {
         assert!(point.settled);
-        let outcome=point.outcome.as_ref().unwrap();
-        assert!(outcome.scientific.usable,"{outcome:?}");
-        assert_eq!(outcome.start,Some(StartProvenance::Explicit {role:SeedRole::PrimalSolution,seed:solution}));
-        assert_eq!(outcome.key.0,point.point_index,"actual provenance belongs to each occurrence");
-        let result=replacement.operations().unwrap().record(&point.run,point.attempt.as_ref().unwrap()).await.unwrap();
-        assert_eq!(result.solutions.len(),1,"replacement executes a native corrected solve");
+        let outcome = point.outcome.as_ref().unwrap();
+        assert!(outcome.scientific.usable, "{outcome:?}");
+        assert_eq!(
+            outcome.start,
+            Some(StartProvenance::Explicit {
+                role: SeedRole::PrimalSolution,
+                seed: solution
+            })
+        );
+        assert_eq!(
+            outcome.key.0, point.point_index,
+            "actual provenance belongs to each occurrence"
+        );
+        let result = replacement
+            .operations()
+            .unwrap()
+            .record(&point.run, point.attempt.as_ref().unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            result.solutions.len(),
+            1,
+            "replacement executes a native corrected solve"
+        );
     }
-    assert_eq!(store.study_input(&study,&solution.to_string()).await.unwrap(),capsule);
+    assert_eq!(
+        store
+            .study_input(&study, &solution.to_string())
+            .await
+            .unwrap(),
+        capsule
+    );
 }
 
 #[cfg(feature = "canonical-tests")]
@@ -2666,7 +2780,7 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
 async fn managed_primary_publication_serves_exact_partial_history_and_escaped_arrow_retirement() {
     use datafusion::arrow::array::{Array, Float64Array};
     use pse_columnar::CancellationToken;
-    use pse_operations::canonical_analyses::{AnalysisNode,AnalysisEdge};
+    use pse_operations::canonical_analyses::{AnalysisEdge, AnalysisNode};
     use pse_operations::canonical_execution::{RunRequest, TerminalClass};
     use pse_relations::generated::{
         enums::NativeMetricKind,
@@ -2863,21 +2977,92 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
         // This fixture proves exact partial transport ownership only. Copy its
         // original IPC members under both actual protected result selections;
         // it cannot claim a final state or a qualified scientific local analysis.
-        let producer_inputs=[current.selection().clone(),historical.selection().clone()];
-        let mut original_members=Vec::new();
+        let producer_inputs = [current.selection().clone(), historical.selection().clone()];
+        let mut original_members = Vec::new();
         for input in &producer_inputs {
-            let set=input.sets().iter().find(|set|set.name==solve_metrics::RELATION_ID.to_string()).unwrap();
-            assert_eq!(set.batch_count,1);
-            original_members.push(store.result_payload(input,&set.key,0).await.unwrap());
+            let set = input
+                .sets()
+                .iter()
+                .find(|set| set.name == solve_metrics::RELATION_ID.to_string())
+                .unwrap();
+            assert_eq!(set.batch_count, 1);
+            let member = store.result_payload(input, &set.key, 0).await.unwrap();
+            assert_eq!(
+                member.batch.row_count, 3,
+                "artifact evidence preserves the full original member rather than the projected reader slice"
+            );
+            original_members.push(member);
         }
-        let provenance=serde_json::to_vec(&producer_inputs.iter().map(|input|(&input.run().key,&input.run().revision,input.run().sequence,&input.attempt().key,input.attempt().generation,&input.attempt().outcome,input.manifest(),input.sets())).collect::<Vec<_>>()).unwrap();
-        let mut artifact=store.new_artifact(&revision,"transport-fixture",provenance,2,original_members.iter().map(|member|member.batch.payload.len() as u64).sum()).await.unwrap();
-        let blocks=original_members.iter().enumerate().map(|(ordinal,member)|pse_operations::canonical_artifacts::artifact_block(&artifact.key,ordinal as u64,"runtime.solve_metrics",member.batch.payload.to_vec(),&member.batch.digest,member.batch.row_count)).collect::<Vec<_>>();
+        let provenance = serde_json::to_vec(
+            &producer_inputs
+                .iter()
+                .map(|input| {
+                    (
+                        &input.run().key,
+                        &input.run().revision,
+                        input.run().sequence,
+                        &input.attempt().key,
+                        input.attempt().generation,
+                        &input.attempt().outcome,
+                        input.manifest(),
+                        input.sets(),
+                    )
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+        let mut artifact = store
+            .new_artifact(
+                &revision,
+                "transport-fixture",
+                provenance,
+                2,
+                original_members
+                    .iter()
+                    .map(|member| member.batch.payload.len() as u64)
+                    .sum(),
+            )
+            .await
+            .unwrap();
+        let blocks = original_members
+            .iter()
+            .enumerate()
+            .map(|(ordinal, member)| {
+                pse_operations::canonical_artifacts::artifact_block(
+                    &artifact.key,
+                    ordinal as u64,
+                    "runtime.solve_metrics",
+                    member.batch.payload.to_vec(),
+                    &member.batch.digest,
+                    member.batch.row_count,
+                )
+            })
+            .collect::<Vec<_>>();
         drop(original_members);
-        let staging_owner=format!("partial-transport-staging:{}",fixture.nonce);
-        pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&producer_inputs,&blocks,"audit",&staging_owner);
-        store.persist_artifact(&artifact,std::slice::from_ref(&revision),&producer_inputs,&blocks,"audit",&staging_owner).await.unwrap();
-        let artifact_read=store.read_artifact(&artifact.key,Duration::from_secs(90)).await.unwrap();
+        let staging_owner = format!("partial-transport-staging:{}", fixture.nonce);
+        pse_operations::canonical_artifacts::seal_artifact_request(
+            &mut artifact,
+            std::slice::from_ref(&revision),
+            &producer_inputs,
+            &blocks,
+            "audit",
+            &staging_owner,
+        );
+        store
+            .persist_artifact(
+                &artifact,
+                std::slice::from_ref(&revision),
+                &producer_inputs,
+                &blocks,
+                "audit",
+                &staging_owner,
+            )
+            .await
+            .unwrap();
+        let artifact_read = store
+            .read_artifact(&artifact.key, Duration::from_secs(90))
+            .await
+            .unwrap();
         drop(producer_inputs);
         let mut analysis = store
             .new_analysis(
@@ -2896,7 +3081,19 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
             semantic: "partial-transport-temperature".into(),
             kind: "result".into(),
         };
-        let edges=(0..2).map(|ordinal|AnalysisEdge {key:format!("serving-transport-edge-{}-{ordinal}",fixture.nonce),analysis:analysis.key.clone(),source:node.semantic.clone(),target:node.semantic.clone(),kind:format!("retained_partial_transport_{ordinal}"),evidence_artifact:Some(artifact.key.clone()),evidence_block:Some(ordinal),evidence_row:Some(2),evidence_field:Some("real".into())}).collect::<Vec<_>>();
+        let edges = (0..2)
+            .map(|ordinal| AnalysisEdge {
+                key: format!("serving-transport-edge-{}-{ordinal}", fixture.nonce),
+                analysis: analysis.key.clone(),
+                source: node.key.clone(),
+                target: node.key.clone(),
+                kind: format!("retained_partial_transport_{ordinal}"),
+                evidence_artifact: Some(artifact.key.clone()),
+                evidence_block: Some(ordinal),
+                evidence_row: Some(2),
+                evidence_field: Some("real".into()),
+            })
+            .collect::<Vec<_>>();
         let inputs = [artifact_read];
         pse_operations::canonical_analyses::seal_analysis_request(
             &mut analysis,
@@ -2918,8 +3115,13 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                 .unwrap()
                 .active
         );
-        store.release_artifact_intent(&artifact,"audit",&staging_owner).await.unwrap();
-        for read in &inputs {read.release().await.unwrap();}
+        store
+            .release_artifact_intent(&artifact, "audit", &staging_owner)
+            .await
+            .unwrap();
+        for read in &inputs {
+            read.release().await.unwrap();
+        }
         drop(inputs);
         // Both exact protected selections are open before any native owner is
         // released, and remain open throughout all sixteen real publications.
@@ -3008,19 +3210,39 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
                 .await
                 .is_err()
         );
-        assert!(store.analysis(&analysis.key).await.unwrap().active,"the independent graph survives while producer results drain");
-        let retained_edges=store.analysis_edge_page(&analysis.key,None).await.unwrap();
-        assert_eq!(retained_edges.len(),2);
-        assert!(retained_edges.iter().all(|edge|edge.evidence_artifact.as_deref()==Some(artifact.key.as_str()) && edge.evidence_field.as_deref()==Some("real")));
-        let independent=store.read_artifact(&artifact.key,Duration::from_secs(10)).await.unwrap();
+        assert!(
+            store.analysis(&analysis.key).await.unwrap().active,
+            "the independent graph survives while producer results drain"
+        );
+        let retained_edges = store.analysis_edge_page(&analysis.key, None).await.unwrap();
+        assert_eq!(retained_edges.len(), 2);
+        assert!(
+            retained_edges
+                .iter()
+                .all(
+                    |edge| edge.evidence_artifact.as_deref() == Some(artifact.key.as_str())
+                        && edge.evidence_row == Some(2)
+                        && edge.evidence_field.as_deref() == Some("real")
+                )
+        );
+        let independent = store
+            .read_artifact(&artifact.key, Duration::from_secs(10))
+            .await
+            .unwrap();
         for ordinal in 0..2 {
-            let copied=independent.block(ordinal).await.unwrap();
-            assert_eq!(copied.payload,blocks[ordinal as usize].payload,"both original IPC members remain bit-exact after producer retirement");
+            let copied = independent.block(ordinal).await.unwrap();
+            assert_eq!(
+                copied.payload, blocks[ordinal as usize].payload,
+                "both original IPC members remain bit-exact after producer retirement"
+            );
         }
         independent.release().await.unwrap();
         // Analysis retirement may still await its original finite creation window;
         // it never needs to keep the reclaimed producer's result inventory.
-        let _complete=runtime.forget_analysis_results(&analysis.key).await.unwrap();
+        let _complete = runtime
+            .forget_analysis_results(&analysis.key)
+            .await
+            .unwrap();
         // Escaped decoded Arrow buffers need no storage access after reader close,
         // native publication and original producer result cleanup have finished.
         let values = current_values

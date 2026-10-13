@@ -353,6 +353,7 @@ impl ModelingPackage {
                         #[cfg(test)]
                         math.record_preparation_publication();
                         portable::publish_description(
+                            math,
                             store,
                             &selected.read,
                             description,
