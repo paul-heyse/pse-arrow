@@ -242,6 +242,15 @@ pub struct ReplayDocument {
     pub solver_settings: Vec<ReplaySolverSettings>,
     /// Original portable case constructors, retaining all supplied structural and numerical inputs.
     pub case_constructors: Vec<ReplayCaseConstructor>,
+    /// Complete original simulation constructors across all linked methods.
+    pub simulation_constructors: Vec<ReplaySimulationConstructor>,
+    /// Complete original fit and experiment constructor.
+    pub fit_constructor: Option<ReplayFitConstructor>,
+    /// Complete original closed-loop plant and stage constructors.
+    pub horizon_constructor: Option<ReplayHorizonConstructor>,
+    /// Complete original shooting and simulation constructor.
+    #[cfg(feature = "solver-diffsol")]
+    pub shooting_constructor: Option<ReplayShootingConstructor>,
     /// Original physical mappings and full constructor configurations, using existing producer documents.
     pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
     /// Full original horizon provenance, including output demand, period, stages and mappings.
@@ -260,20 +269,19 @@ pub struct ReplayDocument {
 #[derive(Clone, Debug)]
 pub struct ScientificReplay {
     source_run: RunId,
-    runtime: Runtime,
-    request: RunRequest,
+    result: Arc<RunResult>,
     traces: Vec<(usize, Arc<crate::math::strategy::Trace>)>,
     coverage: ReplayCoverage,
 }
 impl ScientificReplay {
     /// Full immutable production inputs with actual physical/provider/compiled owners.
-    pub fn inputs(&self) -> &RunRequest { &self.request }
+    pub fn inputs(&self) -> &RunRequest { &self.result.request }
     /// Inspect exact original effective declarations/decisions without running numerical work.
     pub fn recorded_decisions(&self) -> Vec<ReplayDecisions> {
         self.traces.iter().map(|(step, trace)| ReplayDecisions::new(*step, trace)).collect()
     }
     fn sources(&self) -> Vec<&ModelingPackage> {
-        match &self.request {
+        match &self.result.request {
             RunRequest::Modeling(steps) => steps.iter().map(|step| &step.source).collect(),
             RunRequest::Simulation(simulation) => vec![&simulation.source],
             RunRequest::Fit(fit) => vec![&fit.source],
@@ -297,33 +305,44 @@ impl ScientificReplay {
                 .and_then(|total| total.checked_add(source.physical.retained_bytes().checked_mul(16)?))
         }).ok_or_else(|| contract("replay export extent overflow"))?;
         if extent > bytes { return Err(contract("complete replay closure exceeds requested export allocation")); }
-        let owner = self.runtime.shared.math().reserve("replay:complete-export", bytes)?;
+        let owner = self.result.runtime.shared.math().reserve("replay:complete-export", bytes)?;
         let sources = sources.into_iter().map(ModelingPackage::replay_source).collect::<Result<Vec<_>, _>>()?;
         let mut solver_settings = Vec::new();
         let mut case_constructors = Vec::new();
+        let mut simulation_constructors = Vec::new();
+        let mut fit_constructor = None;
+        let mut horizon_constructor = None;
+        #[cfg(feature = "solver-diffsol")]
+        let mut shooting_constructor = None;
         let mut contexts = Vec::new();
         let mut horizon = None;
-        match &self.request {
+        match &self.result.request {
             RunRequest::Modeling(steps) => for (index, step) in steps.iter().enumerate() {
                 solver_settings.push(ReplaySolverSettings::from_profile(&step.profile));
                 case_constructors.push(step.original_inputs.document(index)?);
                 contexts.push(super::artifacts::solve_context(step, self.source_run,
                     i64::try_from(index).map_err(|_| contract("replay step ordinal"))?)?);
             },
-            RunRequest::Simulation(simulation) => contexts.push(simulation.scientific_context(self.source_run, super::dynamics::profile_identity(simulation.profile()).map_err(crate::math::MathRuntimeError::from)?.as_id())?),
+            RunRequest::Simulation(simulation) => {
+                simulation_constructors.push(simulation.original_inputs.as_ref().ok_or_else(|| contract("original simulation constructor absent"))?.document(0));
+                contexts.push(simulation.scientific_context(self.source_run, super::dynamics::profile_identity(simulation.profile()).map_err(crate::math::MathRuntimeError::from)?.as_id())?);
+            }
             RunRequest::Fit(fit) => {
+                fit_constructor = Some(fit.original_inputs.document(0));
                 solver_settings.push(ReplaySolverSettings::from_profile(&fit.problem.profile.solver));
                 contexts.push(fit.scientific_context(self.source_run)?);
             }
             RunRequest::Horizon(request) => {
                 horizon = Some(request.provenance.clone());
                 let original = &request.original;
+                horizon_constructor = Some(ReplayHorizonConstructor::new(original)?);
                 contexts.push(original.plant.scientific_context(self.source_run, super::dynamics::profile_identity(original.plant.profile()).map_err(crate::math::MathRuntimeError::from)?.as_id())?);
                 if let Some(estimator) = &original.estimator { solver_settings.push(ReplaySolverSettings::from_profile(&estimator.analysis.solver)); }
                 if let Some(controller) = &original.controller { solver_settings.push(ReplaySolverSettings::from_profile(&controller.analysis.solver)); }
             }
             #[cfg(feature = "solver-diffsol")]
             RunRequest::Shooting { problem, initial } => {
+                shooting_constructor = Some(ReplayShootingConstructor::new(problem, initial)?);
                 solver_settings.push(ReplaySolverSettings::from_profile(&problem.solver));
                 let mut context = problem.simulation.scientific_context(self.source_run, problem.profile_key.as_id())?;
                 // The exact caller initial is part of input reconstruction, not a native checkpoint.
@@ -332,7 +351,11 @@ impl ScientificReplay {
             }
         }
         let document = ReplayDocument { version: pse_model::document::Version, source_run: self.source_run,
-            build: pse_backend_native::execution::LINKED.build_identity(), sources, solver_settings, case_constructors, contexts, horizon,
+            build: pse_backend_native::execution::LINKED.build_identity(), sources, solver_settings, case_constructors,
+            simulation_constructors, fit_constructor, horizon_constructor,
+            #[cfg(feature = "solver-diffsol")]
+            shooting_constructor,
+            contexts, horizon,
             decisions: self.recorded_decisions(), coverage: self.coverage.clone(), native_continuation: false, _owner: owner };
         let encoded = serde_json::to_vec(&document).map_err(|error| contract(error.to_string()))?;
         if encoded.len().saturating_mul(2) > bytes { return Err(contract("complete replay document exceeds export allocation")); }
@@ -342,12 +365,12 @@ impl ScientificReplay {
     /// Frozen controls/inputs remain exact; scheduling, floating-point/native paths may differ.
     pub async fn rerun(&self) -> Result<RunHandle, WorkflowError> {
         let cancel = crate::CancelSource::new();
-        match &self.request {
-            RunRequest::Modeling(steps) => self.runtime.start_modeling(steps.clone(), false, &cancel).await,
+        match &self.result.request {
+            RunRequest::Modeling(steps) => self.result.runtime.start_modeling(steps.clone(), false, &cancel).await,
             RunRequest::Simulation(simulation) => simulation.start(),
             RunRequest::Fit(fit) => fit.start(),
             #[cfg(feature = "solver-diffsol")]
-            RunRequest::Horizon(request) => self.runtime.start_horizon(request.original.as_ref().clone(), &cancel).await,
+            RunRequest::Horizon(request) => self.result.runtime.start_horizon(request.original.as_ref().clone(), &cancel).await,
             #[cfg(not(feature = "solver-diffsol"))]
             RunRequest::Horizon(_) => Err(contract("horizon replay requires the original linked dynamic supervisor")),
             #[cfg(feature = "solver-diffsol")]
@@ -361,7 +384,7 @@ impl ScientificReplay {
 }
 impl RunResult {
     /// Retain the complete immutable input/decision closure, without numerical work or history lookup.
-    pub fn replay(&self) -> ScientificReplay {
+    pub fn replay(self: &Arc<Self>) -> ScientificReplay {
         let mut traces = Vec::new();
         let (requested, observed, completed_time) = match &self.request {
             RunRequest::Modeling(steps) => {
@@ -389,7 +412,7 @@ impl RunResult {
         if let Err(error) = &self.report && let Some(trace) = error.strategy_trace() {
             traces.push((observed, trace.clone()));
         }
-        ScientificReplay { source_run: self.run_id, runtime: self.runtime.clone(), request: self.request.clone(), traces,
+        ScientificReplay { source_run: self.run_id, result: self.clone(), traces,
             coverage: ReplayCoverage { requested, observed, completed_time, usable: self.usable(),
                 terminal: self.report.as_ref().err().map(|error| crate::math::strategy::workflow_failure(error)) } }
     }
@@ -629,5 +652,305 @@ mod tests {
         bindings.facts.insert(pse_modeling::analysis::Fact::Stage("stage1".into()), pse_modeling::specialize::Value::Boolean(true));
         let restored: pse_modeling::Bindings = serde_json::from_slice(&serde_json::to_vec(&bindings).unwrap()).unwrap();
         assert_eq!(bindings, restored);
+    }
+}
+
+/// One complete original integrated constructor retained before mode preparation.
+#[derive(Debug)]
+pub(crate) struct OriginalSimulationInputs {
+    document: ReplaySimulationConstructor,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl OriginalSimulationInputs {
+    #[expect(clippy::too_many_arguments, reason = "retain the actual integrated constructor without changing its scientific request contract")]
+    pub(in crate::workflow) fn capture(package: &ModelingPackage,
+        root: pse_modeling::DeclarationId, instance: pse_modeling::InstanceId, bindings: &pse_modeling::Bindings,
+        limits: pse_modeling::Limits, case: &pse_compiler::workspace::ModelingCaseBindings,
+        compiler: pse_compiler::workspace::Profile, profile: &super::SimulationProfile,
+        order: pse_kernels::DerivativeOrder, exact_parameters: &BTreeSet<SemanticId>,
+        provisional_quadratures: &BTreeSet<SemanticId>) -> Result<Arc<Self>, WorkflowError> {
+        let bytes = 65536usize.saturating_add(crate::math::modeling::bindings_bytes(bindings))
+            .saturating_add(profile.samples.len().saturating_mul(32))
+            .saturating_add((case.values.len() + case.members.len() + case.variables.len()).saturating_mul(512));
+        let owner = package.runtime.shared.math().reserve("replay:original-simulation-constructor", bytes)?;
+        Ok(Arc::new(Self { document: ReplaySimulationConstructor { source: 0, root, instance,
+            bindings: bindings.clone(), preparation: super::PreparationSettings { compiler, limits },
+            case: ReplayCaseInputs::new(case), profile: profile.clone(), order: derivative_order(order),
+            exact_parameters: exact_parameters.clone(), provisional_quadratures: provisional_quadratures.clone() }, _owner: owner }))
+    }
+    fn document(&self, source: usize) -> ReplaySimulationConstructor {
+        ReplaySimulationConstructor { source, ..self.document.clone() }
+    }
+}
+/// Portable original integrated constructor; all methods still enter the existing supervisor.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplaySimulationConstructor {
+    /// Source closure index.
+    pub source: usize,
+    /// Original authored root.
+    pub root: pse_modeling::DeclarationId,
+    /// Original instance identity.
+    pub instance: pse_modeling::InstanceId,
+    /// Full structural arguments, facts and demand.
+    pub bindings: pse_modeling::Bindings,
+    /// Original compiler and specialization allowances.
+    pub preparation: super::PreparationSettings,
+    /// Full original case values/fixed-state overrides.
+    pub case: ReplayCaseInputs,
+    /// Full native dynamic settings, horizon, start, sensitivities and allowance.
+    pub profile: super::SimulationProfile,
+    /// Original requested partial order.
+    pub order: u8,
+    /// Explicit exact derivative parameter demand.
+    pub exact_parameters: BTreeSet<SemanticId>,
+    /// Explicit provisional quadrature demands.
+    pub provisional_quadratures: BTreeSet<SemanticId>,
+}
+impl ReplaySimulationConstructor {
+    /// Reconstruct original dynamics from source through actual compiler/physical admission.
+    pub async fn reconstruct(&self, package: &ModelingPackage, cancel: &crate::CancelSource)
+        -> Result<super::ModelingSimulation, WorkflowError> {
+        let order = match self.order { 0 => pse_kernels::DerivativeOrder::Value, 1 => pse_kernels::DerivativeOrder::First,
+            2 => pse_kernels::DerivativeOrder::Second, _ => return Err(contract("replay dynamic derivative order invalid")) };
+        package.prepare_simulation_with_controls(self.root, self.instance, self.bindings.clone(),
+            self.preparation.limits, self.case.restore(), self.preparation.compiler, self.profile.clone(), order,
+            &self.exact_parameters, &self.provisional_quadratures, None, cancel).await
+    }
+}
+/// Original fit preparation, retained before derivative/profile resolution.
+#[derive(Debug)]
+pub(crate) struct OriginalFitInputs {
+    document: ReplayFitConstructor,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+impl OriginalFitInputs {
+    pub(in crate::workflow) fn capture(package: &ModelingPackage,
+        id: pse_model::generated::identities::FitId, profile: &super::FitProfile,
+        compiler: pse_compiler::workspace::Profile, limits: pse_modeling::Limits) -> Result<Arc<Self>, WorkflowError> {
+        let owner = package.runtime.shared.math().reserve("replay:original-fit-constructor",
+            65536usize.saturating_add(profile.simulations.values().map(|p| p.samples.len().saturating_mul(32) + 4096).sum::<usize>()))?;
+        Ok(Arc::new(Self { document: ReplayFitConstructor { source: 0, id,
+            preparation: super::PreparationSettings { compiler, limits }, solver: ReplaySolverSettings::from_profile(&profile.solver),
+            simulations: profile.simulations.clone(), rank_tolerance: profile.rank_tolerance,
+            max_cells: profile.max_cells, derivatives: profile.derivatives, uncertainty: profile.uncertainty.clone() }, _owner: owner }))
+    }
+    fn document(&self, source: usize) -> ReplayFitConstructor { ReplayFitConstructor { source, ..self.document.clone() } }
+}
+/// Portable fit constructor. Exact fit/experiment declarations are in its source objects.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayFitConstructor {
+    /// Source closure index.
+    pub source: usize,
+    /// Exact authored fit declaration.
+    pub id: pse_model::generated::identities::FitId,
+    /// Original compiler and expansion controls.
+    pub preparation: super::PreparationSettings,
+    /// Complete original native/scientific policy.
+    pub solver: ReplaySolverSettings,
+    /// Complete original integration controls by experiment identity.
+    pub simulations: BTreeMap<pse_modeling::InstanceId, super::SimulationProfile>,
+    /// Original response rank cutoff.
+    pub rank_tolerance: f64,
+    /// Original finite derivative/rank allowance.
+    pub max_cells: usize,
+    /// Original derivative evidence policy.
+    pub derivatives: super::FitDerivatives,
+    /// Complete requested uncertainty/propagation controls.
+    pub uncertainty: Option<super::FitUncertainty>,
+}
+impl ReplayFitConstructor {
+    /// Rebuild the authored fit/experiments through existing production admission.
+    pub async fn reconstruct(&self, package: &ModelingPackage, cancel: &crate::CancelSource) -> Result<super::PreparedFit, WorkflowError> {
+        package.prepare_fit(self.id, super::FitProfile { solver: self.solver.profile()?, simulations: self.simulations.clone(),
+            rank_tolerance: self.rank_tolerance, max_cells: self.max_cells, derivatives: self.derivatives,
+            uncertainty: self.uncertainty.clone() }, self.preparation.compiler, self.preparation.limits, cancel).await
+    }
+}
+/// Original source-bound output/control bound in exact IEEE bits.
+#[cfg(feature = "solver-diffsol")]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayShootingBound {
+    /// Exact contract coordinate.
+    pub id: SemanticId,
+    /// Original optional lower bound.
+    pub lower: Option<u64>,
+    /// Original optional upper bound.
+    pub upper: Option<u64>,
+}
+/// Original shooting request over its complete original simulation constructor.
+#[cfg(feature = "solver-diffsol")]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayShootingConstructor {
+    /// Complete original integrated constructor.
+    pub simulation: ReplaySimulationConstructor,
+    /// Single or multiple shooting.
+    pub method: super::ShootingMethod,
+    /// Exact requested inner node times.
+    pub nodes: Vec<u64>,
+    /// Original scheduled control coordinates and bounds.
+    pub controls: Vec<ReplayShootingBound>,
+    /// Original path output coordinates and bounds.
+    pub path: Vec<ReplayShootingBound>,
+    /// Original terminal objective weights.
+    pub terminal: BTreeMap<SemanticId, u64>,
+    /// Original integral objective weights.
+    pub integral: BTreeMap<SemanticId, u64>,
+    /// Original callback derivative demand policy.
+    pub eager_first: bool,
+    /// Complete original scientific/native controls.
+    pub solver: ReplaySolverSettings,
+    /// Original caller starting coordinate vector, distinct from native continuation.
+    pub initial: Option<Vec<u64>>,
+}
+#[cfg(feature = "solver-diffsol")]
+impl ReplayShootingConstructor {
+    fn new(problem: &super::ShootingProblem, initial: &Option<Vec<f64>>) -> Result<Self, WorkflowError> {
+        let request = &problem.original_inputs;
+        Ok(Self { simulation: problem.simulation.original_inputs.as_ref().ok_or_else(|| contract("shooting original simulation constructor absent"))?.document(0),
+            method: request.method, nodes: request.nodes.iter().map(|v| v.to_bits()).collect(),
+            controls: request.controls.iter().map(|v| ReplayShootingBound { id: v.input, lower: v.lower.map(f64::to_bits), upper: v.upper.map(f64::to_bits) }).collect(),
+            path: request.path.iter().map(|v| ReplayShootingBound { id: v.output, lower: v.lower.map(f64::to_bits), upper: v.upper.map(f64::to_bits) }).collect(),
+            terminal: bits(&request.objective.terminal), integral: bits(&request.objective.integral),
+            eager_first: request.evaluation == super::ShootingEvaluationPolicy::EagerFirst,
+            solver: ReplaySolverSettings::from_profile(&request.solver), initial: initial.as_ref().map(|v| v.iter().map(|v| v.to_bits()).collect()) })
+    }
+    /// Rebuild original shooting through the existing simulation and shooting admission owners.
+    pub async fn reconstruct(&self, package: &ModelingPackage, cancel: &crate::CancelSource) -> Result<Arc<super::ShootingProblem>, WorkflowError> {
+        let simulation = self.simulation.reconstruct(package, cancel).await?;
+        Ok(Arc::new(simulation.shooting(super::ShootingProfile { method: self.method,
+            nodes: self.nodes.iter().map(|v| f64::from_bits(*v)).collect(),
+            controls: self.controls.iter().map(|v| super::ShootingControl { input: v.id, lower: v.lower.map(f64::from_bits), upper: v.upper.map(f64::from_bits) }).collect(),
+            path: self.path.iter().map(|v| super::PathBound { output: v.id, lower: v.lower.map(f64::from_bits), upper: v.upper.map(f64::from_bits) }).collect(),
+            objective: super::ShootingObjective { terminal: unbits(&self.terminal), integral: unbits(&self.integral) },
+            evaluation: if self.eager_first { super::ShootingEvaluationPolicy::EagerFirst } else { super::ShootingEvaluationPolicy::Demanded },
+            solver: self.solver.profile()? })?))
+    }
+}
+
+impl ReplayCaseConstructor {
+    fn from_analysis(source: usize, analysis: &super::ModelingAnalysis) -> Result<Self, WorkflowError> {
+        if !analysis.numerical.implicit.is_empty() { return Err(contract("portable analysis replay requires library-owned export of caller-supplied implicit capabilities")); }
+        Ok(Self { source, root: analysis.root, instance: analysis.instance, bindings: analysis.bindings.clone(),
+            preparation: super::PreparationSettings { compiler: analysis.compiler, limits: analysis.limits },
+            case: ReplayCaseInputs::new(&analysis.case), order: derivative_order(analysis.order),
+            settings: ReplaySolverSettings::from_profile(&analysis.solver), declarations: analysis.numerical.declarations.clone(),
+            targets: analysis.numerical.targets.clone(), seed: BTreeMap::new(), parameters: BTreeMap::new(), fixes: BTreeMap::new() })
+    }
+    fn analysis(&self) -> Result<super::ModelingAnalysis, WorkflowError> {
+        let order = match self.order { 0 => pse_kernels::DerivativeOrder::Value, 1 => pse_kernels::DerivativeOrder::First,
+            2 => pse_kernels::DerivativeOrder::Second, _ => return Err(contract("replay analysis derivative order invalid")) };
+        Ok(super::ModelingAnalysis { root: self.root, instance: self.instance, bindings: self.bindings.clone(),
+            limits: self.preparation.limits, case: self.case.restore(), order, compiler: self.preparation.compiler,
+            solver: self.settings.profile()?, numerical: crate::math::solves::NumericalInputs {
+                declarations: self.declarations.clone(), targets: self.targets.clone(), implicit: BTreeMap::new() } })
+    }
+}
+/// Exact original horizon signal, preserving all trajectory value bits.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub enum ReplayHorizonSignal {
+    /// Plant contract output.
+    Measured(SemanticId),
+    /// Named estimator output.
+    Estimated(String),
+    /// Driven input ordinal.
+    Applied(usize),
+    /// Complete declared trajectory in exact original bits.
+    Trajectory(Vec<u64>),
+}
+impl ReplayHorizonSignal {
+    fn new(value: &super::HorizonSignal) -> Self { match value {
+        super::HorizonSignal::Measured(id) => Self::Measured(*id), super::HorizonSignal::Estimated(path) => Self::Estimated(path.clone()),
+        super::HorizonSignal::Applied(input) => Self::Applied(*input), super::HorizonSignal::Trajectory(values) => Self::Trajectory(values.iter().map(|v| v.to_bits()).collect()) } }
+    fn restore(&self) -> super::HorizonSignal { match self {
+        Self::Measured(id) => super::HorizonSignal::Measured(*id), Self::Estimated(path) => super::HorizonSignal::Estimated(path.clone()),
+        Self::Applied(input) => super::HorizonSignal::Applied(*input), Self::Trajectory(values) => super::HorizonSignal::Trajectory(values.iter().map(|v| f64::from_bits(*v)).collect()) } }
+}
+/// Original NMPC stage, including its complete source, analysis and mapping.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayHorizonController {
+    /// Full source-qualified original analysis.
+    pub analysis: ReplayCaseConstructor,
+    /// Exact original case-signal bindings.
+    pub bindings: Vec<(String, ReplayHorizonSignal)>,
+    /// Original first-move mappings.
+    pub moves: Vec<(String, usize)>,
+    /// Original optional advanced-step predictions.
+    pub predictions: Option<Vec<(String, String)>>,
+}
+/// Original MHE stage, including exact window and prior meaning.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayHorizonEstimator {
+    /// Full source-qualified original analysis.
+    pub analysis: ReplayCaseConstructor,
+    /// Original finite estimation window.
+    pub window: usize,
+    /// Exact ordered measured-output mappings.
+    pub measurements: Vec<(SemanticId, Vec<String>)>,
+    /// Original driven-input window bindings; false is Constant, true is Periods.
+    pub inputs: Vec<(usize, bool, Vec<String>)>,
+    /// Full prior/next-state mapping and exact original prior bits.
+    pub arrival: Vec<(String, String, u64)>,
+}
+/// Full original horizon constructor; an interrupted observation never replaces its requested horizon.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct ReplayHorizonConstructor {
+    /// Original output demand, separate from observed coverage.
+    pub output: super::StudyOutputDemand,
+    /// Complete original plant constructor and source index.
+    pub plant: ReplaySimulationConstructor,
+    /// Original period in exact IEEE bits.
+    pub period: u64,
+    /// Original requested finite periods.
+    pub steps: usize,
+    /// Exact driven plant identities and initial input bits.
+    pub inputs: Vec<(SemanticId, u64)>,
+    /// Full optional original estimator.
+    pub estimator: Option<ReplayHorizonEstimator>,
+    /// Full optional original controller.
+    pub controller: Option<ReplayHorizonController>,
+}
+impl ReplayHorizonConstructor {
+    fn new(horizon: &super::Horizon) -> Result<Self, WorkflowError> {
+        let mut next = 1;
+        let estimator = if let Some(estimator) = &horizon.estimator {
+            let analysis = ReplayCaseConstructor::from_analysis(next, &estimator.analysis)?; next += 1;
+            Some(ReplayHorizonEstimator { analysis, window: estimator.window, measurements: estimator.measurements.clone(),
+                inputs: estimator.inputs.iter().map(|(input, binding)| match binding { super::WindowInput::Constant(path) => (*input, false, vec![path.clone()]),
+                    super::WindowInput::Periods(paths) => (*input, true, paths.clone()) }).collect(),
+                arrival: estimator.arrival.iter().map(|v| (v.prior.clone(), v.next.clone(), v.initial.to_bits())).collect() })
+        } else { None };
+        let controller = if let Some(controller) = &horizon.controller {
+            Some(ReplayHorizonController { analysis: ReplayCaseConstructor::from_analysis(next, &controller.analysis)?,
+                bindings: controller.bindings.iter().map(|(path, value)| (path.clone(), ReplayHorizonSignal::new(value))).collect(),
+                moves: controller.moves.clone(), predictions: controller.advanced.as_ref().map(|v| v.predictions.clone()) })
+        } else { None };
+        Ok(Self { output: horizon.output.clone(), plant: horizon.plant.original_inputs.as_ref()
+            .ok_or_else(|| contract("original horizon plant constructor absent"))?.document(0),
+            period: horizon.period.to_bits(), steps: horizon.steps, inputs: horizon.inputs.iter().map(|v| (v.parameter, v.initial.to_bits())).collect(),
+            estimator, controller })
+    }
+    /// Rebuild the exact original plant and stages from admitted source packages.
+    pub async fn reconstruct(&self, sources: &[ModelingPackage], cancel: &crate::CancelSource) -> Result<super::Horizon, WorkflowError> {
+        let source = |index| sources.get(index).ok_or_else(|| contract("replay horizon source closure absent"));
+        let plant = self.plant.reconstruct(source(self.plant.source)?, cancel).await?;
+        let estimator = if let Some(estimator) = &self.estimator {
+            let mut inputs = Vec::new();
+            for (input, periods, paths) in &estimator.inputs {
+                let binding = if *periods { super::WindowInput::Periods(paths.clone()) } else {
+                    if paths.len() != 1 { return Err(contract("replay constant window input extent")); }
+                    super::WindowInput::Constant(paths[0].clone()) };
+                inputs.push((*input, binding));
+            }
+            Some(super::HorizonEstimator { package: source(estimator.analysis.source)?.clone(), analysis: estimator.analysis.analysis()?,
+                window: estimator.window, measurements: estimator.measurements.clone(), inputs,
+                arrival: estimator.arrival.iter().map(|(prior, next, initial)| super::Arrival { prior: prior.clone(), next: next.clone(), initial: f64::from_bits(*initial) }).collect() })
+        } else { None };
+        let controller = if let Some(controller) = &self.controller {
+            Some(super::HorizonController { package: source(controller.analysis.source)?.clone(), analysis: controller.analysis.analysis()?,
+                bindings: controller.bindings.iter().map(|(path, value)| (path.clone(), value.restore())).collect(), moves: controller.moves.clone(),
+                advanced: controller.predictions.as_ref().map(|predictions| super::AdvancedStep { predictions: predictions.clone() }) })
+        } else { None };
+        Ok(super::Horizon { output: self.output.clone(), plant, period: f64::from_bits(self.period), steps: self.steps,
+            inputs: self.inputs.iter().map(|(parameter, initial)| super::HorizonInput { parameter: *parameter, initial: f64::from_bits(*initial) }).collect(), estimator, controller })
     }
 }

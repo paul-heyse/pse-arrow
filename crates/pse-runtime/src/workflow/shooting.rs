@@ -126,6 +126,8 @@ enum Row {
 /// A prepared shooting problem: the NLP over the controls and the inner nodes' states.
 #[derive(Debug)]
 pub struct ShootingProblem {
+    pub(super) original_inputs: Arc<ShootingProfile>,
+    _original_owner: Arc<pse_columnar::AllocationLease>,
     snapshot: native::execution::Snapshot,
     structural_assessment: Option<native::structural::Assessment>,
     pub(super) simulation: super::ModelingSimulation,
@@ -284,6 +286,10 @@ impl ShootingProblem {
         mut request: ShootingProfile,
         cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
+        let original_owner = simulation.runtime.shared.math().reserve("replay:original-shooting-constructor",
+            65536usize.saturating_add(request.nodes.len().saturating_mul(16))
+                .saturating_add((request.controls.len() + request.path.len()).saturating_mul(128)))?;
+        let original_inputs = Arc::new(request.clone());
         let profile = simulation.profile();
         let c = simulation.contract();
         request.solver.controls.hessian = pse_model::strategy::resolve_curvature(
@@ -639,6 +645,8 @@ impl ShootingProblem {
                 .map_err(math)?
                 .into_positions();
         let mut problem = Self {
+            original_inputs,
+            _original_owner: original_owner,
             snapshot: native::execution::Snapshot::observe(&native::execution::LINKED),
             structural_assessment: None,
             simulation: simulation.clone(),

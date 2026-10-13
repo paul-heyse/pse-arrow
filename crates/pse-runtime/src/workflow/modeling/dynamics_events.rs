@@ -106,6 +106,9 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
+        let original_inputs = crate::workflow::replay::OriginalSimulationInputs::capture(self,
+            root, instance, &bindings, limits, &case, compiler, &profile, derivatives,
+            exact_parameters, provisional_quadratures)?;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -162,7 +165,7 @@ impl ModelingPackage {
                 let snapshot = pse_backend_native::execution::Snapshot::observe(
                     &pse_backend_native::execution::LINKED,
                 );
-                self.prepare_simulation_modes(
+                let mut simulation = self.prepare_simulation_modes(
                     root,
                     instance,
                     bindings,
@@ -178,7 +181,9 @@ impl ModelingPackage {
                     base,
                     cancel,
                 )
-                .await
+                .await?;
+                simulation.original_inputs = Some(original_inputs);
+                Ok(simulation)
             })
             .await
     }

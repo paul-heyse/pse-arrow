@@ -225,6 +225,7 @@ pub(crate) struct FitProblem {
 /// Fitting mathematics with an admitted execution route.
 #[derive(Clone, Debug)]
 pub struct PreparedFit {
+    pub(in crate::workflow) original_inputs: Arc<crate::workflow::replay::OriginalFitInputs>,
     pub(crate) source: super::ModelingPackage,
     assessments: Vec<modeling::Assessment>,
     pub(crate) problem: Arc<FitProblem>,

@@ -90,6 +90,7 @@ fn frozen_allowances(
 /// Immutable generated simulation. No authored state/RHS declaration is introduced.
 #[derive(Clone, Debug)]
 pub struct ModelingSimulation {
+    pub(in crate::workflow) original_inputs: Option<Arc<crate::workflow::replay::OriginalSimulationInputs>>,
     /// The model, case and instance it simulates (`pse_model::lineage`).
     pub(in crate::workflow) solved: pse_model::lineage::Solved,
     quantities: Arc<pse_quantity::QuantityRegistry>,
@@ -2564,6 +2565,7 @@ impl ModelingPackage {
             )
             .ok_or_else(|| contract_error("dynamic allowance storage extent"))?;
         Ok(ModelingSimulation {
+            original_inputs: None,
             solved: model.solved(),
             quantities: self.quantities.clone(),
             modes: vec![SimulationMode {

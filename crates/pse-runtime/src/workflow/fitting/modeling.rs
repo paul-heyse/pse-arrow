@@ -95,6 +95,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedFit, WorkflowError> {
+        let original_inputs = crate::workflow::replay::OriginalFitInputs::capture(self, id, &profile, compiler, limits)?;
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
@@ -173,6 +174,7 @@ impl ModelingPackage {
                 )
                 .map_err(crate::math::MathRuntimeError::from)?;
                 Ok(PreparedFit {
+                    original_inputs,
                     source: self.clone(),
                     problem: Arc::new(problem),
                     route,
