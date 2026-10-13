@@ -224,29 +224,38 @@ pub(super) fn conditional_route(
     solver: &SolverProfile,
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
 ) -> Result<native::routing::Route, native::ProblemError> {
+    let contract = native::assembled::contract(&executable.assembly);
+    let structure = native::routing::Structure {
+        variables: view.plan.columns().to_vec(),
+        equations: view.plan.structure().rows().iter().map(|row| pse_structural::incidence::Constraint {
+            id: row.id, lower: row.lower.is_finite().then_some(row.lower), upper: row.upper.is_finite().then_some(row.upper),
+        }).collect(),
+        witness: view.structure.clone().into(),
+    };
+    conditional_contract_route(snapshot, &contract, view.plan.available_order(), view.plan.order(), structure, solver, numerics)
+}
+pub(super) fn conditional_contract_route(
+    snapshot: &execution::Snapshot, contract: &native::OracleContract,
+    available: pse_kernels::DerivativeOrder, prepared_order: pse_kernels::DerivativeOrder,
+    structure: native::routing::Structure, solver: &SolverProfile,
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+) -> Result<native::routing::Route, native::ProblemError> {
                 // Permission checks use the caller's request controls before this
                 // realization resolves Auto against this actual block capability.
                 let mut effective = solver.clone();
-                effective.resolve_curvature(view.plan.available_order());
+                effective.resolve_curvature(available);
                 let solver = &effective;
-                let c = native::assembled::contract(&executable.assembly);
-                let mut facts = native::routing::oracle_facts(&c, false, true);
-                facts.derivatives = view.plan.available_order();
-                facts.prepared_derivatives = view.plan.order();
-                let rows: Vec<_> = view
-                    .plan
-                    .structure()
-                    .rows()
-                    .iter()
-                    .map(|row| row.id)
-                    .collect();
+                let mut facts = native::routing::oracle_facts(contract, false, true);
+                facts.derivatives = available;
+                facts.prepared_derivatives = prepared_order;
+                let rows = &contract.rows;
                 let normalization = pse_math::normalization::Normalization::from_policy(
                     numerics,
-                    view.plan.columns(),
+                    &structure.variables,
                     &rows,
                 )?;
                 let tolerances =
-                    Tolerances::from_policy(numerics, view.plan.columns(), &rows)?;
+                    Tolerances::from_policy(numerics, &structure.variables, &rows)?;
                 let accuracy =
                     ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
                 native::routing::Requirements {
@@ -261,22 +270,8 @@ pub(super) fn conditional_route(
                     context: native::routing::Context {
                         snapshot: snapshot.clone(),
                         pending_classes: &[],
-                        structure: Some(native::routing::Structure {
-                            variables: view.plan.columns().to_vec(),
-                            equations: view
-                                .plan
-                                .structure()
-                                .rows()
-                                .iter()
-                                .map(|row| pse_structural::incidence::Constraint {
-                                    id: row.id,
-                                    lower: row.lower.is_finite().then_some(row.lower),
-                                    upper: row.upper.is_finite().then_some(row.upper),
-                                })
-                                .collect(),
-                            witness: view.structure.clone().into(),
-                        }),
-                        oracle: Some(&c),
+                        structure: Some(structure),
+                        oracle: Some(contract),
                         guards: &BTreeMap::new(),
                         budgets: Some(execution::Budgets {
                             tolerances: &tolerances,

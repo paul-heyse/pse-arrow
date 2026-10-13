@@ -109,6 +109,54 @@ pub struct StructuralAnalysis {
     pub contributions: Vec<Incidence>,
 }
 impl StructuralAnalysis {
+    /// Restrict an existing complete matching/BTF witness to a compiler-issued union
+    /// of whole square blocks. This preserves structural proof without rematching;
+    /// the compiler remains owner of complete execution/validity input authentication.
+    pub fn conditional_witness(
+        &self, boundary: &crate::initialization::Block,
+    ) -> Result<Self, ProjectionError> {
+        let rows: BTreeSet<_> = boundary.members.rows.iter().copied().collect();
+        let columns: BTreeSet<_> = boundary.members.columns.iter().copied().collect();
+        let inputs: BTreeSet<_> = boundary.inputs.iter().copied().collect();
+        if rows.is_empty() || rows.len() != columns.len()
+            || rows.len() != boundary.members.rows.len() || columns.len() != boundary.members.columns.len()
+            || inputs.len() != boundary.inputs.len() || !inputs.is_disjoint(&columns)
+            || boundary.id != BlockId::new(&self.scope, &boundary.members)
+            || !self.over.rows.is_empty() || !self.over.columns.is_empty()
+            || !self.under.rows.is_empty() || !self.under.columns.is_empty() {
+            return Err(ProjectionError::Invalid("foreign or incomplete conditional witness boundary".into()));
+        }
+        let model = match &self.scope {
+            Scope::Whole(model) | Scope::Independent { model, .. } | Scope::Conditional { model, .. } => *model,
+            Scope::Partial(_) => return Err(ProjectionError::Partial),
+        };
+        let mut blocks = Vec::new();
+        for block in &self.blocks {
+            let selected_rows = block.members.rows.iter().filter(|row| rows.contains(row)).count();
+            let selected_columns = block.members.columns.iter().filter(|column| columns.contains(column)).count();
+            if selected_rows == 0 && selected_columns == 0 { continue; }
+            if selected_rows != block.members.rows.len() || selected_columns != block.members.columns.len() {
+                return Err(ProjectionError::Invalid("conditional boundary splits an established BTF block".into()));
+            }
+            blocks.push(block.clone());
+        }
+        let covered_rows: BTreeSet<_> = blocks.iter().flat_map(|block| block.members.rows.iter().copied()).collect();
+        let covered_columns: BTreeSet<_> = blocks.iter().flat_map(|block| block.members.columns.iter().copied()).collect();
+        if covered_rows != rows || covered_columns != columns
+            || self.contributions.iter().any(|edge| rows.contains(&edge.row) && !columns.contains(&edge.column) && !inputs.contains(&edge.column)) {
+            return Err(ProjectionError::Invalid("conditional boundary omits original members or predecessor inputs".into()));
+        }
+        let matching: Vec<_> = self.matching.iter().filter(|(row, column)| rows.contains(row) && columns.contains(column)).copied().collect();
+        if matching.len() != rows.len() {
+            return Err(ProjectionError::Invalid("conditional boundary lacks the complete original matching".into()));
+        }
+        let scope = Scope::Conditional { model, rows, columns, inputs };
+        for block in &mut blocks { block.id = BlockId::new(&scope, &block.members); }
+        Ok(Self { scope, provenance: self.provenance, matching,
+            over: Part::default(), under: Part::default(), square: boundary.members.clone(), blocks,
+            contributions: self.contributions.iter().filter(|edge| covered_rows.contains(&edge.row) && covered_columns.contains(&edge.column)).cloned().collect(),
+        })
+    }
     /// Exact retained owned vector capacities; borrowed provenance and shared owners add no payload.
     pub fn retained_bytes(&self) -> usize {
         let part = |part: &Part| {

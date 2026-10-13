@@ -365,6 +365,7 @@ struct PreparationEffects {
     workspaces: AtomicUsize,
     frontiers: AtomicUsize,
     completions: AtomicUsize,
+    function_assemblies: AtomicUsize,
 }
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -372,6 +373,7 @@ pub(crate) struct PreparationEffectCounts {
     pub(crate) workspaces: usize,
     pub(crate) frontiers: usize,
     pub(crate) completions: usize,
+    pub(crate) function_assemblies: usize,
 }
 #[cfg(test)]
 impl PreparationEffectCounts {
@@ -380,6 +382,7 @@ impl PreparationEffectCounts {
             workspaces: self.workspaces - before.workspaces,
             frontiers: self.frontiers - before.frontiers,
             completions: self.completions - before.completions,
+            function_assemblies: self.function_assemblies - before.function_assemblies,
         }
     }
 }
@@ -392,6 +395,7 @@ impl MathService {
             workspaces: effects.workspaces.load(Relaxed),
             frontiers: effects.frontiers.load(Relaxed),
             completions: effects.completions.load(Relaxed),
+            function_assemblies: effects.function_assemblies.load(Relaxed),
         }
     }
 }

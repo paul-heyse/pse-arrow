@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-issued conditional equations executed in one original task.
 use super::*;
+use std::collections::BTreeSet;
 use pse_kernels::ExecutionScope;
 use pse_model::strategy::{MechanismKind, WorkObservation};
 
@@ -179,24 +180,53 @@ impl MathService {
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
             source.initialization_allocation_bound()?, self.policy.workspace_bytes,
         );
-        let (blocks, _lease) = self.job_retained_construction(1, construction, FlightCancellation::default(), None, move |flag| {
-            let pse_compiler::workspace::Alternative::Available(blocks) = source.automatic_blocks(&flag)? else {
+        let requested = profile.clone();
+        let (admissions, _lease) = self.job_retained_construction(1, construction, FlightCancellation::default(), None, move |flag| {
+            let pse_compiler::workspace::Alternative::Available(schedule) = source.automatic_alternatives(&flag)?.initialization else {
                 return Err(ProblemError::Unsupported("explicit block overrides require complete compiler block inventory".into()).into());
             };
-            let bytes = pse_compiler::workspace::PreparedBlock::retained_group_bytes(&blocks)
-                .ok_or(MathRuntimeError::Limit("block override inventory extent"))?;
-            Ok((blocks, bytes))
+            requested.validate_block_ids(schedule.blocks.iter().map(|block| block.id))?;
+            let original = native::assembled::contract(&source.plan);
+            let mut admissions = Vec::with_capacity(requested.block_overrides.len());
+            let mut bytes = size_of::<Vec<(pse_structural::incidence::BlockId, native::OracleContract, pse_kernels::DerivativeOrder, native::routing::Structure)>>();
+            for boundary in schedule.blocks.iter().filter(|block| requested.block_overrides.contains_key(&block.id)) {
+                let rows = boundary.members.rows.iter().copied().collect::<BTreeSet<_>>();
+                let columns = boundary.members.columns.iter().copied().collect::<BTreeSet<_>>();
+                let available = source.plan.conditional_available_order(&rows, &columns, &flag)?;
+                let contract = native::OracleContract {
+                    identity: boundary.id.0,
+                    variables: original.variables.iter().filter(|variable| columns.contains(&variable.id)).cloned().collect(),
+                    rows: source.plan.structure().rows().iter().filter(|row| rows.contains(&row.id)).map(|row| row.id).collect(),
+                    derivatives: source.plan.order(), smoothness: available,
+                };
+                let witness = source.structure.conditional_witness(boundary)
+                    .map_err(|error| ProblemError::Contract(error.to_string()))?;
+                let structure = native::routing::Structure {
+                    variables: boundary.members.columns.clone(),
+                    equations: source.plan.structure().rows().iter().filter(|row| rows.contains(&row.id)).map(|row| pse_structural::incidence::Constraint {
+                        id: row.id, lower: row.lower.is_finite().then_some(row.lower), upper: row.upper.is_finite().then_some(row.upper),
+                    }).collect(),
+                    witness: Arc::new(witness).into(),
+                };
+                let scope_members = rows.len().checked_add(columns.len()).and_then(|n| n.checked_add(boundary.inputs.len()))
+                    .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
+                let scope_bytes = scope_members.checked_mul(11 * size_of::<pse_ids::SemanticId>() + 16 * size_of::<usize>())
+                    .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
+                let owned = size_of_val(&contract) + size_of_val(&structure) + size_of::<pse_structural::incidence::BlockId>()
+                    + contract.variables.capacity() * size_of::<native::Variable>() + contract.rows.capacity() * size_of::<pse_ids::SemanticId>()
+                    + structure.variables.capacity() * size_of::<pse_ids::SemanticId>() + structure.equations.capacity() * size_of::<pse_structural::incidence::Constraint>()
+                    + structure.witness.retained_bytes() + scope_bytes + 64;
+                bytes = bytes.checked_add(owned).ok_or(MathRuntimeError::Limit("block admission fact extent"))?;
+                admissions.push((boundary.id, contract, available, structure));
+            }
+            Ok((admissions, bytes))
         }).await?;
-        profile.validate_block_ids(blocks.iter().map(|block| block.boundary.id))?;
         let snapshot = execution::Snapshot::observe(&execution::LINKED);
-        for block in blocks.iter().filter(|block| profile.block_overrides.contains_key(&block.boundary.id)) {
-            let executable = self.assemble_functions(pse_compiler::workspace::PreparedFunctions {
-                plan: block.plan.clone(), artifacts: block.artifacts.clone(),
-            }, self.reserve("math:block-override-functions", block.plan.owner_wrapper_bytes() + 1024)?, &crate::CancelSource::new()).await?;
-            let mut effective = profile.block_profile(block.boundary.id)?;
+        for (id, contract, available, structure) in admissions.iter() {
+            let mut effective = profile.block_profile(*id)?;
             effective.intent = SolveIntent::Initialize;
             effective.presolve = native::presolve::Policy::Off;
-            super::super::initialization::conditional_route(&snapshot, block, &executable, &effective, numerics)?;
+            super::super::initialization::conditional_contract_route(&snapshot, contract, *available, contract.derivatives, structure.clone(), &effective, numerics)?;
         }
         Ok(())
     }

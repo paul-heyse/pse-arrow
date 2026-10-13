@@ -28,6 +28,8 @@ impl MathService {
             "case_operation_layout",
             plan.operation_layout_allocation_bound()?,
         )?;
+        #[cfg(test)]
+        self.preparation_effects.function_assemblies.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let _span = tracing::info_span!("pse.case.function_assembly").entered();
         let assembly =
             Arc::new(plan.assemble(artifacts.iter().map(|a| a.program.clone()).collect())?);

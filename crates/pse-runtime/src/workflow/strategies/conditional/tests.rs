@@ -1909,7 +1909,7 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
 async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids() {
     let runtime = construction_runtime();
     let declarations = pse_authoring::language::parse(
-        "package ready {def Root {var a:Scalar; var b:Scalar; var c:Scalar; eq first:a==1; eq second:b==2; eq downstream:c==a+b; annotation start a(0); annotation start b(0); annotation start c(0);}}",
+        "package ready {def Root {param p:Scalar=1; var a:Scalar; var b:Scalar; var c:Scalar; eq first:a==p; eq second:b==2; eq downstream:c==a+b; annotation start a(0); annotation start b(0); annotation start c(0);}}",
         id(94), pse_authoring::language::IdentityPolicy::Named, Default::default(),
     ).unwrap();
     let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
@@ -1935,6 +1935,18 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     assert_eq!(actual.values.scalars.len(), expected.values.scalars.len());
     for (id, expected) in &expected.values.scalars { assert!((actual.values.scalars[id] - expected).abs() < 1e-8); }
     assert!(actual.attempts.iter().all(|attempt| attempt.committed));
+    let original = package.prepare_analysis(&analysis, &cancel).await.unwrap();
+    let original_source = original.model.case.compiled();
+    let parameter = original_source.plan.structure().parameters()[0].id;
+    let before = runtime.native().preparation_effects();
+    let rebound = package.prepare_analysis_attempt(&analysis, crate::workflow::modeling::cases::CaseOverrides {
+        parameters: BTreeMap::from([(parameter, 1.25)]), ..Default::default()
+    }, &cancel).await.unwrap();
+    assert_eq!(rebound.model.values.scalars[&parameter], 1.25);
+    assert!(Arc::ptr_eq(&original_source.plan, &rebound.model.case.compiled().plan));
+    assert_eq!(original_source.artifacts.allocation_identity(), rebound.model.case.compiled().artifacts.allocation_identity());
+    assert_eq!(runtime.native().preparation_effects().since(before).function_assemblies, 0,
+        "value-only override validation must not construct temporary conditional evaluators");
     #[cfg(feature = "solver-ipopt")]
     {
         let mut auto = analysis.clone();
@@ -1958,4 +1970,30 @@ async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids()
     analysis.solver.composition.policy = pse_model::strategy::CompositionPolicy::Declared;
     let direct_error = package.prepare_analysis(&analysis, &cancel).await.unwrap_err();
     assert!(direct_error.to_string().contains("unknown compiler block identity"), "{direct_error}");
+}
+
+
+#[tokio::test]
+async fn block_admission_facts_match_actual_conditional_capabilities_and_matching() {
+    let runtime = construction_runtime();
+    let prepared = construction_source(runtime.clone(), 2).await;
+    let source = prepared._source.case.compiled().clone();
+    let demand = source.initialization_allocation_bound().unwrap().unwrap();
+    runtime.native().submit(1, demand, move |flag, _| {
+        let pse_compiler::workspace::Alternative::Available(actual) = source.automatic_blocks(&flag)? else { panic!("actual complete block source required"); };
+        for block in actual.iter() {
+            let rows = block.boundary.members.rows.iter().copied().collect();
+            let columns = block.boundary.members.columns.iter().copied().collect();
+            assert_eq!(source.plan.conditional_available_order(&rows, &columns, &flag)?, block.plan.available_order());
+            let witness = source.structure.conditional_witness(&block.boundary).unwrap();
+            assert_eq!(witness.square, block.structure.square);
+            assert_eq!(witness.contributions, block.structure.contributions);
+            assert_eq!(witness.matching.len(), block.structure.matching.len());
+            assert!(witness.matching.iter().all(|(row, column)| witness.contributions.iter().any(|edge| edge.row == *row && edge.column == *column)));
+            let mut foreign = block.boundary.clone();
+            foreign.id = pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([92; 32]));
+            assert!(source.structure.conditional_witness(&foreign).is_err());
+        }
+        Ok(())
+    }).unwrap().finish().await.unwrap();
 }

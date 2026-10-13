@@ -2604,14 +2604,12 @@ fn conditional_block_keeps_actual_guard_provider_execution_inputs() {
     )
     .unwrap();
     let selected = |row| {
-        source
-            .conditional(
-                &[id(row)].into_iter().collect(),
-                &[id(1)].into_iter().collect(),
-                &registry,
-                &cancel,
-            )
-            .unwrap()
+        let rows = [id(row)].into_iter().collect();
+        let columns = [id(1)].into_iter().collect();
+        let available = source.conditional_available_order(&rows, &columns, &cancel).unwrap();
+        let conditional = source.conditional(&rows, &columns, &registry, &cancel).unwrap();
+        assert_eq!(available, conditional.available_order(), "source facts must preserve selected transitive provider/validity demand");
+        conditional
     };
     let guarded = selected(60);
     let dependency = guarded.dependencies(&cancel).unwrap().remove(0);

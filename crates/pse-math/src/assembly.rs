@@ -810,6 +810,31 @@ impl CasePlan {
             coordinates,
         )
     }
+    /// Exact derivative capability of selected authored rows and formal coordinates,
+    /// including provider/transitive output demand. No conditional plan, sparse layout,
+    /// evaluator request or native program is constructed by this query.
+    pub fn conditional_available_order(
+        &self, rows: &BTreeSet<SemanticId>, columns: &BTreeSet<SemanticId>,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<DerivativeOrder, MathError> {
+        if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
+        if rows.is_empty() || rows.len() != columns.len()
+            || rows.iter().any(|row| !self.rows.contains_key(row))
+            || columns.iter().any(|column| self.columns.binary_search(column).is_err()) {
+            return Err(MathError::Contract("conditional capability inventory".into()));
+        }
+        let mut available = DerivativeOrder::Second;
+        for binding in self.structure.instances() {
+            if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
+            let outputs: Vec<_> = binding.contributions.iter().filter_map(|contribution| {
+                matches!(contribution.target, Target::Row(row) if rows.contains(&row)).then_some(contribution.output)
+            }).collect::<BTreeSet<_>>().into_iter().collect();
+            if outputs.is_empty() { continue; }
+            let coordinates: Vec<_> = binding.slots.iter().enumerate().filter_map(|(index, slot)| columns.contains(&slot.source()).then_some(index)).collect();
+            available = available.min(self.bodies[&binding.body].available_order_for_outputs(&outputs, &coordinates)?);
+        }
+        Ok(available)
+    }
     /// Compile one explicitly conditional initialization block. Outside variables
     /// become fixed boundary values and unrelated row demands disappear entirely.
     /// This is not an independent optimization decomposition.
