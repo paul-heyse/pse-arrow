@@ -1,9 +1,12 @@
 # Local SurrealDB substrate
 
-[Plan 30](../plans/30-websocket-and-persistent-agent-environment.md) owns
-the transport and agent-environment delivery scope. ADR-0164 owns the substrate decision. This page describes the local server
-operator surface implemented by `scripts/surreal_server.py`; it does not qualify
-scientific operations, remote deployment or physical power-loss survival.
+The [current-work index](../plans/README.md) routes to transport, lifecycle and
+qualification owners. [Plan 37](../plans/37-surrealdb-lifecycle-and-integration.md) owns
+the lifecycle transition and its affected acceptance; earlier plans retain their separately
+scoped qualification. Blueprint §20.5–§20.6 and ADR-0164 own the substrate contracts.
+This page describes the local server operator surface implemented by
+`scripts/surreal_server.py`; its bounded controls do not qualify all scientific operations,
+remote deployment, returned physical disk space or physical power-loss survival.
 
 ## Setup and state ownership
 
@@ -201,7 +204,11 @@ startup, stopping, maintenance, mismatch and unavailable manager observations ar
 Metadata exclusion and control waits consume an existing enclosing clock, including an
 expiry check after acquisition. Cancellation retains separate cleanup ownership. Native
 drain reports terminal unit ownership and empty descendants; a missing leader or an
-unavailable manager alone does not establish drain.
+unavailable manager alone does not establish drain. Normal wrapper return joins the
+manager's terminal transition under one absolute ten-second cleanup clock starting at
+reaping. Original authenticated cancellation clocks may shorten it and also bound a first
+signal during cleanup; they are never renewed. Mismatched or unavailable ownership refuses
+immediately, and an empty cgroup alone cannot establish a terminal unit.
 
 Worker and primary launch reservations retain their exact child handoff until the matching
 pending nonce is settled. The child records its actual scope inode before running the payload;
@@ -464,6 +471,10 @@ shortcut. Beta TTL, CLI success and catalog parity alone cannot supply settlemen
 The fixed `settle` route loads the immutable publication from `database/canonical-rollout`,
 checks beta's exact manifest/step identities and acknowledgements, and invokes
 `canonical-validate-definitions` under this reservation's live initializer nonce.
+Whole-chain submission captures the pinned beta's validated source-to-target order before
+SQL and requires a duplicate-free match to every frozen manifest. Filenames are not an
+execution order. Settlement independently verifies the producer's ordered publication and
+all earlier acknowledgements; an omitted initial baseline cannot claim full-chain settlement.
 Only producer-owned schema actions are admitted. Unknown schema SQL may reconcile after
 authentic child/listener drain and exact AST postconditions; arbitrary data SQL requires
 its own domain owner. A `sql_settled` phase permits metadata repair but cannot activate;
@@ -477,8 +488,9 @@ The `up`, `start`, `complete`, `status` and `repair` commands use `--binary` for
 beta executable. `settle` and `activate` use it for the compiled `canonical-tools` xtask;
 all commands require the exact `--state` and `--folder`, and continuation/recovery requires
 `--pending-nonce`. Production publication is append-only through its producer; normal
-code generation does not rewrite frozen steps. Actual persistent cutover qualification
-remains in Plan37 until the integrated journeys pass.
+code generation does not rewrite frozen steps. The production v5 publication and current
+generated schema remain separate from beta's manifest and step checksums. Plan37 owns the
+current acceptance disposition and any remaining assembled scientific qualification.
 
 The bounded actual persistent journey is
 `scripts/tests/surrealkit_persistent_fixture_check.py`. Under the coordinator's
@@ -493,6 +505,104 @@ caller's arbitrary SQL remains explicitly unknown; its separate profile and all
 fixture evidence remain pinned. This control never edits beta TTLs, fabricates an
 SQL acknowledgement, or treats physical drain as SQL settlement. Its synthetic
 predecessor does not establish historical migration compatibility.
+
+**Tested:** the final owned local journey on SurrealDB 3.3.0 and surrealkit 1.0.0-beta.6,
+using the matching force-validated canonical-tools binary and fresh v5 profiles under an
+authenticated exclusive native allocation, passed all 24 controls. These include independent
+phase settlement, wrong initializer and competing-operation refusals, exact lost-ACK
+activation replay, the compatible forward chain, fresh identities/credentials after
+regeneration, and actual caller SIGKILL with unknown SQL retained. Its final report includes
+all listener/context cleanup outcomes; exact native child lifetimes were independently
+verified drained. Earlier failed profiles retain their original uncertainty. This evidence
+is bounded to these lifecycle controls: it establishes no arbitrary-data transformation,
+historical migration, distributed deployment, power-loss, performance or physical-space
+reclamation guarantee. Plan37 records the actual acceptance scope and evidence owner.
+
+## Capability choices and revisit triggers
+
+The I1–I7 inquiries retained the following consumer-specific choices. The
+[identity and publication owner](../authoritative_design/sections/identity-and-publication.md#section-20-4)
+(blueprint §20.4–§20.6) and
+[workflow owner](../authoritative_design/sections/workflows-and-results.md#section-19-3)
+(blueprint §13.6, §19.3) govern their contracts. Optional adoption below does not
+block the retained artifact, history, caller or fixture lifecycles. These decisions
+claim neither capability absence nor representative performance.
+
+- **I1 — Structural references and guards.** Retain typed endpoints and ENFORCED
+  relations where both endpoints exist at insertion, with explicit attributed
+  obligations and lifecycle guards. Study dependencies may name a predecessor on
+  a later ingestion page; immediate enforcement is therefore selective. REFERENCE
+  deletion actions and custom cascades are not selected. Revisit for a concrete
+  relationship that removes existing machinery, with owned RocksDB controls for
+  both insertion/deletion orders and permissions. Native cascades cannot become
+  scientific release authority.
+
+- **I2 — Notifications and follow-up effects.** Retain persisted readiness/CAS,
+  bounded polling, receipt reconciliation and owner-driven cleanup. LIVE,
+  changefeeds and ASYNC are not correctness dependencies. Revisit after measured
+  idle discovery load, a responsiveness requirement below the configured poll
+  interval, or a named repeat-safe post-commit effect justifies it. A wake-up must
+  preserve periodic recovery and activity-owned teardown, reconnect/resubscribe
+  and missed-notification recovery; an owned experiment must interrupt the
+  subscription and still discover every eligible point. ASYNC needs its separate
+  effect owner; database feeds cannot establish process or physical drain.
+
+- **I3 — Transport and protected reads.** Retain the
+  [patched WS integration](https://github.com/paul-heyse/pse-arrow/blob/main/vendor/surrealdb/PATCH.md) and finite protected
+  page/block reads as the comparator. No alternative transport or streaming path
+  is selected. Revisit when a representative read exceeds an agreed memory/latency
+  requirement despite finite admission, or a consumer needs rows before a page
+  completes. Compare the same scientific selection through the complete consumer
+  journey, including peak resident memory, cancellation/rollback, statement and
+  transaction finality, protection through returned buffers, original clocks,
+  unknown-write settlement and physical drain. Use an independently owned fixture;
+  buffering every streamed row is not evidence of reduced memory.
+
+- **I4 — Payload, history and physical recovery.** Retain native bytes in bounded
+  owned blocks, explicit scientific/audit history and engine VERSION disabled.
+  Experimental files/buckets, external payload storage and routine per-run
+  compaction are not selected. A new file consumer must first own its publication,
+  backup and collection boundary. Revisit physical recovery if capacity admission
+  needs a reclaimed-byte promise: measure exact owned logical REMOVE acknowledgement,
+  queued engine reclamation and later RocksDB file-space return separately.
+  Logical disposal does not establish returned disk space; TTLs, timers and
+  compaction supply no deletion authority. Artifact/history correctness remains
+  independent of these optional facilities.
+
+- **I5 — Query paths and graph capabilities.** Retain registry-owned indexes,
+  native functions and attributed relations. Obligations/evidence carry owner,
+  role, provenance or settlement, so no blanket LIGHTWEIGHT/INLINE conversion is
+  selected. Revisit a concrete query after an inappropriate native scan/sort,
+  measured work beyond intended scaling, or a genuinely property-free endpoint
+  relationship. Changes belong to the declaration/query generator and need exact
+  selection, ordering and cursor equivalence across ordinary, explicit-index and
+  NOINDEX paths. Reinspect changed generated declarations with selective INFO and
+  EXPLAIN. EXPLAIN FULL executes/analyzes on the selected 3.3 release; use an owned,
+  effect-safe fixture. LIMIT and output cardinality do not establish examined work
+  or production-scale performance.
+
+- **I6 — Fixtures, inspection and diagnostics.** Retain owned native fixtures,
+  authenticated beta namespace lifecycles, selected-service VIEWER MCP, bounded
+  logs and explicit sweeps. Containers, domain-write MCP, mandatory Studio,
+  collectors and automatic maintenance are not selected. Revisit a reproducibility
+  gap in host binary/network isolation, a named operator domain action, an unresolved
+  SQL/session/reclaim diagnosis, or eligible deferred cleanup repeatedly exceeding
+  an explicit responsiveness requirement. Containers would need an exact image,
+  selected RocksDB profile, credentials, schema-aware readiness and checked cleanup;
+  domain actions must use the canonical owner. Diagnostic export needs an actual
+  owner outcome; a timer may wake cleanup but cannot change eligibility or restart
+  another owner's service. Studio remains an optional inspection client.
+
+- **I7 — Local retry and numerical checkpoints.** Retain local worker-loss/retry
+  and publication/settlement continuation. Seeds, partial trajectories, final
+  states, backups and engine history are not durable numerical checkpoints.
+  Numerical resume, remote binding and broader search/GQL/WASM/SurrealML/cloud
+  facilities are not selected. Revisit only for a supported consumer and explicit
+  product decision. The workload owner must define sufficient numerical state
+  (time/mode, state/rates, event/input position and any quadrature, sensitivity or
+  horizon state actually consumed), source/provider/numerical compatibility and
+  an equivalence claim before capture or recovery. Current local retry does not
+  depend on introducing that checkpoint boundary.
 
 ## Disposable tests and retained evidence
 
@@ -523,8 +633,8 @@ Use an already admitted `pse.Runtime` and `ModelingPackage` for authored and sci
 identities. This is distinct from raw native MCP inspection: constructing a runtime
 requires its existing deployment settings and qualified producer, and does not grant
 permission to initialize a missing database. The small authored Root fixture in
-[the modeling journey](../../python/pse/tests/test_modeling_run.py) and
-[the exact result/reopen journey](../../python/pse/tests/test_canonical_results.py)
+[the modeling journey](https://github.com/paul-heyse/pse-arrow/blob/main/python/pse/tests/test_modeling_run.py) and
+[the exact result/reopen journey](https://github.com/paul-heyse/pse-arrow/blob/main/python/pse/tests/test_canonical_results.py)
 show supported package and run construction. With their `package`, `case`, `settings`,
 `runtime` and completed `result` already available:
 

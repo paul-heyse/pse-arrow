@@ -6,9 +6,9 @@ date: 2026-10-12
 deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, AP-07, DP-09, DP-19, PS-10]
-blueprint: [§20.3, §20.4, §20.5, §20.6, §21]
-review: docs/design_review/reviews/design_review_plan37-remaining-target_2026-10-12.md
-evidence: Proposed
+blueprint: [§19.2, §20.3, §20.4, §20.5, §20.6, §21]
+review: git:e145eb7d229000dd9dda86882fe85c0b301657e2:docs/design_review/reviews/design_review_plan37-remaining-target_2026-10-12.md
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A supported consumer needs shared large blocks or independently verifiable owner binding that eliminates permanent operation locators.
@@ -27,7 +27,7 @@ OP01 replaces historical substrate preservation with fresh target state and rege
 
 ## Scope
 
-Amend blueprint §20.3–§20.6 and §21; add the artifact relation/operation family, reduced
+Amend blueprint §19.2, §20.3–§20.6 and §21; add the artifact relation/operation family, reduced
 replay and explicit maintenance activation. Use fresh `pse.substrate.v5` target stores.
 Preserve original scientific identities, opaque operation IDs/hash meaning and public handle
 identity. This changes preservation/cutover provisions of proposed ADR-0180 and ADR-0172,
@@ -152,7 +152,7 @@ space qualification remain separate claims.
 The maintainer confirmed RC01–RC09, OP01 and the remaining execution approach, then requested
 implementation on 2026-10-12. The independent bounded target review accepted this design
 at Proposed evidence level before dependent code.
-This proposed record does not claim implementation or qualification acceptance.
+**Tested:** Plan37 affected acceptance passed the storage/protection23, scientific/native14, public Python11, persistent lifecycle24, charged-publication/lane9 and actual managed Rust1/Python1 controls, plus scope-end checks. [Plan37 Outcome](../plans/37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation) owns exact commands, conditions, historical boundaries and exclusions. This does not change proposed ADR status or qualify other plans' campaigns.
 
 ## Pros and cons
 
@@ -163,7 +163,7 @@ Existing maintenance authority avoids duplicate operational ownership.
 ## More information
 
 [Plan37](../plans/37-surrealdb-lifecycle-and-integration.md) owns status and acceptance.
-[Scientific closure](../plans/37-investigation-evidence/scientific-closure-and-replay.md)
+[Scientific closure](https://github.com/paul-heyse/pse-arrow/blob/e145eb7d229000dd9dda86882fe85c0b301657e2/docs/plans/37-investigation-evidence/scientific-closure-and-replay.md)
 records sufficient selections and affected entrypoints. The source review remains unchanged.
 
 ## Status history

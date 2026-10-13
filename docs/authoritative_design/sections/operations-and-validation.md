@@ -349,7 +349,7 @@ and exclusions without executing anything. See the
 
 ### 24.2 Current qualification basis
 
-The most recent completed qualification is Plan 22's Q1 of 2026-09-29, on the final state of
+The historical full qualification basis is Plan 22's Q1 of 2026-09-29, on the final state of
 the solver, discrete-decision and operational-store work. The retired record states each
 command and result:
 [Plan 22 Outcome](https://github.com/paul-heyse/pse-arrow/blob/f57b71d56f6eb2c319c4340d6f26abc6a1dc5abc/docs/plans/22-solver-capabilities.md#outcome-recorded-after-implementation).
@@ -392,6 +392,12 @@ of 2026-09-25/26, is historical.
 A retired qualification is not transferred to changed paths. After a change, targeted
 tests show the new behavior; comprehensive qualification runs again only when the
 maintainer requests it.
+
+Focused SurrealDB lifecycle/integration acceptance and its exact commands, conditions and
+exclusions belong to the [Plan 37 Outcome](../../plans/37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation).
+That affected-scope evidence does not replace Plan 22's historical full basis, qualify
+unchanged or unexercised scientific scope, or close other plans' incomplete campaigns.
+Source integration and document reconciliation alone do not establish acceptance.
 
 ### 24.3 Benchmarks
 

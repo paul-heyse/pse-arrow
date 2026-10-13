@@ -665,17 +665,20 @@ Live/unsettled requests retain exact comparisons. Bounded collection releases oc
 request/result and header detail after actual obligations settle. Compact identity state can
 still grow with issued IDs; logical collection does not establish returned disk space.
 
-**Full analysis retirement (ADR-0172, proposed).** An analysis header owns staging, active
-and retiring phases. Creation atomically validates exact source revisions and result-read
-protections and installs source roots/input edges under existing source/run conflict guards;
-it never recreates generic source protections. Any surviving analysis-input row retains its
-run until that row is physically removed. Mutation, activation and individual copied-page
-acquisition register the existing header in a writable transaction and refuse absent or
-retiring authority. Returned arrays own their bytes and do not promise future page access.
+**Full analysis retirement (ADR-0172/ADR-0182, proposed).** An analysis header owns staging,
+active and retiring phases. Creation atomically validates exact source revisions and finite
+`ArtifactRead` grants, installs source roots, and attaches independent analysis obligations
+to each selected artifact under existing source-retention and artifact conflict guards.
+It never recreates generic source protections. Surviving analysis inputs retain their
+artifacts independently of producer run payloads. Mutation, activation and individual
+copied-page acquisition register the existing header in a writable transaction and refuse
+absent or retiring authority. Returned arrays own their bytes and do not promise future
+page access; original run/attempt locators preserve provenance without granting reads.
 
-Retirement closes the header and deletes bounded pages of edges before nodes, then inputs,
-source roots and temporary metadata; progress lives only in the retiring header. Original
-creation can still be dispatched without a header. Final settlement therefore registers the
+Retirement closes the header and deletes bounded pages of edges before nodes, then releases
+its exact artifact obligations while removing input rows, source roots and temporary
+metadata; other artifact owners remain independent. Progress lives only in the retiring
+header. Original creation can still be dispatched without a header. Final settlement therefore registers the
 exact header even when absent and the existing primary source-retention guard, after the
 immutable creation window closes. It advances that guard's monotone
 `analysis_creation_closed_through` scalar and removes the drained header atomically. Earlier

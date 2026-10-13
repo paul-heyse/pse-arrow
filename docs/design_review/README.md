@@ -23,15 +23,11 @@ and thirteen proposed rule impacts. The [supporting evidence](evidence/solver-me
 holds library inventories at the pins, the method landscape and an independent assessment.
 Disposition awaits plan creation.
 
-The [SurrealDB lifecycle and integration target review](reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md)
-assesses scientific artifact retention, shared connection lifetimes, operational recovery and
-library/tooling integration against the simulator target. Its Revise verdict records seven
-findings and nine proposed rule impacts, with SurrealKit 1.0.0-beta.6 selected as target tooling.
-The [supporting evidence](evidence/surrealdb-lifecycle-and-integration-2026-10-12/README.md)
-reconciles source inspections and both white papers; no fresh product tests or measurements
-were performed. [Plan 37](../plans/37-surrealdb-lifecycle-and-integration.md) now owns finding
-dispositions, the nine confirmed rule decisions and the standalone execution route. Authoring
-does not establish implementation or qualification.
+[Plan 37](../plans/37-surrealdb-lifecycle-and-integration.md) records the resolved lifecycle
+findings, confirmed rule decisions, bounded capability outcomes and affected acceptance.
+Its principal lifecycle review, B1 target review, remaining-target review and supporting
+evidence are retired to Git history with immutable references in that owner and ADR-0181/0182.
+This acceptance does not close the separate Plan 28 or Plan 36 qualification campaigns.
 
 [Plan 35](../plans/35-surrealdb-lifecycle-and-integration-remediation.md) owns the resolved
 SurrealDB lifecycle/integration findings, accepted RC01/RC02 and bounded capability decisions.

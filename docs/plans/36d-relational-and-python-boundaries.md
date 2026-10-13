@@ -149,6 +149,8 @@ D-N1: canonical `TableStream::from_canonical` directly `block_on`s a reader pull
 
 Select an explicit Python-controlled next consumption route in the Python boundary using the existing signal/cancel/drain owner. Generic C-stream callbacks remain interpreter-independent. Preserve one consumption, exact schema, refusal of requested casts, EOF versus failure/cancel, late error retention, arrays after close and same-executor reentry refusal. Per-RPC cancellation token consumption belongs to the canonical coordination owner, not an ad hoc Python-only SDK change.
 
+ADR-0181 separates ordinary caller release from physical administration. `Runtime.close()` releases that caller and its aliases; already admitted pulls/publication/native work retain continuation authority. A delayed-read control must explicitly join its owned read/response and use the authentic fixture/deployment physical-close owner when claiming transport drain. Ordinary caller close alone proves neither physical drain nor remote effect settlement. The dated implementation checkpoints below retain their original close semantics and evidence scope.
+
 ## P-D7: bounded boundary investigations and opportunities
 
 Implementation checkpoint, 2026-10-11: physical admission and row receipts now

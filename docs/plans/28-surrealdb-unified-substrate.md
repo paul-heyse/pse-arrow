@@ -763,6 +763,8 @@ mechanism, and justified distinct contracts and conditional retained-design deci
 
 ## Current checkpoint
 
+Plan37 has completed its distinct lifecycle/artifact/connection/tooling target. Its [Outcome](37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation) supplies affected acceptance, fresh v5 regeneration and enduring-owner links. This prerequisite handoff does not restart or qualify the stopped Plan28 campaign; E3/E4/E5 and scientific/model breadth retain the limits recorded below.
+
 On 2026-10-11 the maintainer requested cancellation of the active test run and an updated
 validation handoff. Testing is stopped. The reference operation has exited; its service is
 quiesced/inactive, has no listener, and all service contexts are physically drained.

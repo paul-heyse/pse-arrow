@@ -4,13 +4,10 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 37: SurrealDB lifecycle and integration target](37-surrealdb-lifecycle-and-integration.md)
-owns the new review's seven findings, nine confirmed rule decisions and bounded capability
-investigations. Its three companions develop scientific artifacts/history/policy, connection
-lifetimes and beta tooling/operations. The maintainer selected a hard pivot with fresh target
-data and regenerated evidence. Existing execution plans remain unchanged until this standalone
-work is implemented and accepted; its final handoff then reconciles affected owners before
-returning to their remaining work. The coordinator owns current package status and disposition.
+[Plan 36: Efficiency alignment](36-efficiency-alignment.md) owns the remaining reconciled
+efficiency scope. Its [maintainer stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12)
+owns the next execution boundary and open P-G1 acceptance. Plan37 supplies completed lifecycle
+prerequisites; this handoff does not resume Plan36 or qualify its stopped campaign.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded
@@ -93,6 +90,15 @@ execution follows only the explicitly recorded scope of active plans from 28 onw
 Plan 32 owns workspace content lifecycle work; Plan 28 retains its own scope.
 
 ## Latest completed plan
+
+[Plan 37: SurrealDB lifecycle and integration target](37-surrealdb-lifecycle-and-integration.md)
+records all seven resolved findings, nine confirmed rule decisions, settled capability outcomes
+and bounded affected acceptance. Its [Outcome](37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation)
+owns the final commands, causal repairs and qualification limits. Enduring contracts live in
+the architecture and operational guides. Supporting plans, inquiries and resolved reviews have
+retired to Git history; immutable references remain in the retained highest-numbered coordinator.
+Affected Plan28/36 contracts are reconciled without restarting or closing their separate work.
+
 
 [Plan 35: SurrealDB lifecycle and integration remediation](35-surrealdb-lifecycle-and-integration-remediation.md)
 records all six resolved findings, eight capability decisions and accepted RC01/RC02 changes.

@@ -592,21 +592,25 @@ Clones and exported Arrow buffers share allocation ownership through the last re
 incidence separately from conservative execution dependencies. Retained-result analysis
 records existing parametric and response sensitivity evidence with exact source/result
 provenance. An immutable header identifies method, configuration, interpretation, input
-digest and selected revisions/manifests. Quantitative evidence points to the original IPC
-row/field; graph reachability establishes neither a derivative value, numerical rank,
-scientific usability nor an unrecorded sensitivity.
+digest and selected revisions/manifests. Quantitative evidence uses typed artifact identity,
+block ordinal, row and generated field coordinates in independently retained IPC content.
+Original run/attempt/revision/manifest and encoding locators remain provenance; they do not
+authorize producer reads. Graph reachability establishes neither a derivative value,
+numerical rank, scientific usability nor an unrecorded sensitivity.
 
 Only an activated graph with complete declared node/edge membership is readable. Staged
-root/input admission protects every selected primary and physical source and exact result
-attempt before activation. Header/node/edge readers use native graph relations and ordered
-pages of at most 64 rows. Current methods are
+root/input admission protects every selected primary and physical source and verifies finite
+artifact-read grants before atomically attaching the analysis's independent obligations.
+Header/node/edge readers use native graph relations and ordered pages of at most 64 rows. Current methods are
 `original-incidence-execution-reachability:v1` and
 `result-sensitivity-provenance-reachability:v1`, bounded to 4,096 nodes, 8,192 edges and
 64 selected roots. Result analysis refuses an evidence relation above 4,096 rows instead
 of accepting its prefix. These are bounded methods, not a general graph scaling claim.
 Explicit analysis retirement removes its graph, lineage, inputs and all temporary lifecycle
-state after immutable creation authority is fenced and bounded cleanup completes (ADR-0172).
-Surviving input rows retain results until physical deletion ([§20.4](identity-and-publication.md#section-20-4)).
+state after immutable creation authority is fenced and bounded cleanup completes
+(ADR-0172/ADR-0182). Surviving inputs retain independent artifacts; releasing the graph's
+obligations does not release another owner's content or require producer payload retention
+([§20.4](identity-and-publication.md#section-20-4)).
 
 ### 19.3 Studies and reuse
 
@@ -1068,6 +1072,34 @@ is distinct from payload release. Original scientific IDs and opaque operation I
 meaning stay unchanged. A collected owner reports retired/history-unavailable rather than
 an invented completion, missing-as-never-issued inference or native redispatch. Original
 assessment, units and partiality remain scientific-owner authority.
+
+`Runtime.promote_seed_artifact(solution, owner_kind=..., owner=...)` preserves a qualified
+start; `promote_scientific_artifact(run, attempt, kind, owner_kind=..., owner=...)` admits a
+sufficient `final-state`, `trajectory` or `local-analysis` product without rerunning science.
+`scientific_artifact(key)` opens active independently retained content. A
+`ScientificArtifact` exposes exact `key`, `kind`, `original_intent`, `metadata()` and
+`block(ordinal)`, plus independently attributed `retain(kind, owner)`,
+`release(kind, owner)` and bounded `collect()`. Prepared algebraic solves consume a retained
+seed through `with_artifact_start(artifact)` under current scientific admission.
+
+`recover_artifact_intent(bytes)` decodes the exact bounded owner-emitted original document,
+available from `original_intent` or an uncertainty/interrupt diagnostic's `artifact_intent`.
+It returns `ArtifactSettlement` with only `key`, `release(kind, owner)` and `collect()`.
+Server effects recheck immutable intent equality and the original finite creation authority.
+Recovery neither replays promotion nor renews authority, adds retention, or grants content
+access. An absent, inactive or retiring header cannot become readable through recovery;
+active content acquisition remains a separate operation. A pending `collect()` returns
+`False`, including while original creation/read windows remain unsettled.
+
+History operations consume generated `HistoryOwner` (run or study) and `HistoryObligation`
+(key, owner, audit/unsettled purpose and attribution) documents.
+`retain_history_obligation` and `release_history_obligation` compare the exact attributed
+obligation; `release_history(owner)` explicitly and irreversibly releases settled detail
+separately from payload retirement. `reclaim_history_page(owner)` returns typed
+`HistoryReclamationPage` completion/removal/compaction counts. Study collection includes
+already settled member and summary-run detail in bounded pages. Permanent identities and
+unknown/audit obligations retain the protection specified in §20.4; release does not
+invent completion, redispatch native work or promise returned physical disk space.
 
 ### 21.1 Extension module, canonical operations and Arrow streams
 

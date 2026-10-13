@@ -7,8 +7,8 @@ deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-03, AP-04, AP-07, DP-09, PS-10]
 blueprint: [§20.5, §20.6, §21]
-review: docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04
-evidence: 'Tested: Plan37 B1 targeted canonical lifetime/source-protection controls39/39 and runtime caller controls4/4, 2026-10-12; scoped native/pse-py compile passed. Assembled Q1 remains open.'
+review: git:e145eb7d229000dd9dda86882fe85c0b301657e2:docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A supported remote deployment or independently restartable transport requires a different authentic physical shutdown owner.
@@ -51,7 +51,7 @@ Local peer and policy controls distinguish refused admission, before-dispatch in
 
 ### Confirmation
 
-The operator confirmed RC04 and authorized this tranche on 2026-10-12. The source review motivates the change; the [bounded target review](../design_review/reviews/design_review_b1-connection-lifetimes_2026-10-12.md) accepted the contract before implementation. B1 is implemented with targeted canonical lifetime/source-protection controls39/39 and runtime caller controls4/4 passing against the owned disposable3.3.0 service. The scoped native/pse-py compile passed without Rust warnings/errors. Independent source review found no material defect. Targeted tests and assembled Q1 remain different claims; proposed ADR status is unchanged until the repository's decision-PR route.
+The operator confirmed RC04 and authorized this tranche on 2026-10-12. The source review motivates the change; the [bounded target review](https://github.com/paul-heyse/pse-arrow/blob/e145eb7d229000dd9dda86882fe85c0b301657e2/docs/design_review/reviews/design_review_b1-connection-lifetimes_2026-10-12.md) accepted the contract before implementation. B1 is implemented with targeted canonical lifetime/source-protection controls39/39 and runtime caller controls4/4 passing against the owned disposable3.3.0 service. The scoped native/pse-py compile passed without Rust warnings/errors. Independent source review found no material defect. Targeted tests retain their original scope. **Tested:** the later rebuilt Rust/native/public Python lifecycle and managed cancellation consumers passed under the bounded conditions in [Plan37 Outcome](../plans/37-surrealdb-lifecycle-and-integration.md#outcome-recorded-after-implementation). Proposed ADR status remains unchanged until the decision-PR route.
 
 ## Pros and cons
 
@@ -59,7 +59,7 @@ The selected contract permits independent caller release and explicit finite shu
 
 ## More information
 
-[Plan37](../plans/37-surrealdb-lifecycle-and-integration.md) owns status and findings; [37b](../plans/37b-connection-and-transport-lifetimes.md) owns detailed behavior. [Source review F04](../design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04) records the baseline.
+[Plan37](../plans/37-surrealdb-lifecycle-and-integration.md) owns status and findings. Blueprint §20.6 and §21 own current behavior; [37b](https://github.com/paul-heyse/pse-arrow/blob/e145eb7d229000dd9dda86882fe85c0b301657e2/docs/plans/37b-connection-and-transport-lifetimes.md) records the completed design. [Source review F04](https://github.com/paul-heyse/pse-arrow/blob/e145eb7d229000dd9dda86882fe85c0b301657e2/docs/design_review/reviews/design_review_surrealdb-lifecycle-and-integration_2026-10-12.md#f04) records the baseline.
 
 ## Status history
 
