@@ -1631,13 +1631,21 @@ class NativeOperationTests(unittest.TestCase):
                     process.wait(timeout=10)
                     log.close()
 
-    def test_selected_workload_preserves_observer_cap_without_environment_authority(self) -> None:
+    def test_selected_workload_preserves_observer_cap_without_environment_authority(
+        self,
+    ) -> None:
         allocation = MagicMock(spec=host_admission.Allocation)
         allocation.nonce = "c" * 32
         allocation.profile = host_admission.select("reference")
         selected = {"unit": "child.scope", "group": "/child", "invocation": "b" * 32}
 
-        def completed(_command: list[str], _environment: dict[str, str], *, on_reaped: Callable[[], None], **_options: object) -> int:
+        def completed(
+            _command: list[str],
+            _environment: dict[str, str],
+            *,
+            on_reaped: Callable[[], None],
+            **_options: object,
+        ) -> int:
             on_reaped()
             return 0
 
@@ -1645,12 +1653,25 @@ class NativeOperationTests(unittest.TestCase):
             patch.object(host_admission, "inherit", return_value=allocation),
             patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
             patch.object(pse_env, "current_memory_ceiling", return_value=4 << 30),
-            patch.object(operation, "prepare_handoff", return_value=Path("/owned/handoff")),
+            patch.object(
+                operation, "prepare_handoff", return_value=Path("/owned/handoff")
+            ),
             patch.object(operation, "run", side_effect=completed) as run,
             patch.object(operation, "_record", return_value={"scope": selected}),
-            patch.object(operation, "drained", return_value=operation.DrainObservation(selected, operation.DrainPhase.COMPLETE, "controlled role drain")),
+            patch.object(
+                operation,
+                "drained",
+                return_value=operation.DrainObservation(
+                    selected, operation.DrainPhase.COMPLETE, "controlled role drain"
+                ),
+            ),
         ):
-            self.assertEqual(operation.run_child_scope(["observer-workload"], {"PSE_MEMORY_MAX": "140G"}), 0)
+            self.assertEqual(
+                operation.run_child_scope(
+                    ["observer-workload"], {"PSE_MEMORY_MAX": "140G"}
+                ),
+                0,
+            )
         self.assertIn(f"--property=MemoryMax={4 << 30}", run.call_args.args[0])
         self.assertNotIn(f"--property=MemoryMax={140 << 30}", run.call_args.args[0])
         allocation.release.assert_not_called()
@@ -1829,7 +1850,9 @@ class NativeOperationTests(unittest.TestCase):
                         elapsed[0] += delay
 
                     with (
-                        patch.object(host_admission, "inherit", return_value=allocation),
+                        patch.object(
+                            host_admission, "inherit", return_value=allocation
+                        ),
                         patch.object(
                             operation, "scope_owner", return_value={"unit": "parent"}
                         ),
@@ -2147,11 +2170,16 @@ class NativeOperationTests(unittest.TestCase):
         with (
             patch.object(operation.subprocess, "Popen", return_value=child),
             patch.object(operation.time, "monotonic", side_effect=lambda: elapsed[0]),
-            patch.object(operation, "cancel_foreground", side_effect=cancel_control) as cancel,
+            patch.object(
+                operation, "cancel_foreground", side_effect=cancel_control
+            ) as cancel,
         ):
             result = operation.run(
-                ["completed-wrapper"], {}, observation=observation,
-                foreground=Path("/owned/handoff"), on_reaped=cleanup,
+                ["completed-wrapper"],
+                {},
+                observation=observation,
+                foreground=Path("/owned/handoff"),
+                on_reaped=cleanup,
                 cleanup_clock=lambda: deadline[0],
             )
         self.assertEqual(result, 128 + signal.SIGINT)
@@ -2493,7 +2521,7 @@ class NativeOperationTests(unittest.TestCase):
                 self.assertEqual(signals, [signal.SIGTERM])
                 self.assertEqual(
                     operation.composer_registrations(operation._record(parent.path)),
-                    {},  # noqa: SLF001 -- assert the exact durable private operation protocol
+                    {},
                 )
                 with host_admission.allocation_metadata(allocation.directory) as ledger:
                     self.assertEqual(

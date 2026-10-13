@@ -9,7 +9,12 @@ import attrs
 
 from pse import codec
 from pse._analyses import Analysis
-from pse._artifacts import ArtifactSettlement, ArtifactOwnerKind, ScientificArtifact, ScientificArtifactKind
+from pse._artifacts import (
+    ArtifactOwnerKind,
+    ArtifactSettlement,
+    ScientificArtifact,
+    ScientificArtifactKind,
+)
 from pse._build import (
     EngineSettings,
     _NativePhysicalContext,
@@ -39,8 +44,8 @@ from pse.contracts.documents import (
     SolveSettings,
 )
 from pse.contracts.identities import (
-    StudyId,
     SolutionId,
+    StudyId,
 )
 from pse.contracts.values import ContentHash, SemanticId
 
@@ -150,12 +155,19 @@ class Runtime:
         )
 
     def promote_scientific_artifact(
-        self, run: str, attempt: str, kind: ScientificArtifactKind,
-        *, owner_kind: ArtifactOwnerKind, owner: str
+        self,
+        run: str,
+        attempt: str,
+        kind: ScientificArtifactKind,
+        *,
+        owner_kind: ArtifactOwnerKind,
+        owner: str,
     ) -> ScientificArtifact:
         """Preserve an interpreted scientific product; insufficient context refuses."""
         return ScientificArtifact(
-            self._handle.promote_scientific_artifact(run, attempt, kind, owner_kind, owner)
+            self._handle.promote_scientific_artifact(
+                run, attempt, kind, owner_kind, owner
+            )
         )
 
     def analysis(self, key: str) -> Analysis:

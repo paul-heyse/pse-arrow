@@ -41,7 +41,9 @@ class HistoryBoundary:
 
 @pytest.mark.unit
 @pytest.mark.parametrize("kind", ["run", "study"])
-def test_history_adapters_keep_explicit_owner_and_obligation_documents(kind: str) -> None:
+def test_history_adapters_keep_explicit_owner_and_obligation_documents(
+    kind: str,
+) -> None:
     owner = codec.decode_json(
         b'{"kind":"' + kind.encode() + b'","key":"original-owner"}', HistoryOwner
     )
@@ -53,7 +55,7 @@ def test_history_adapters_keep_explicit_owner_and_obligation_documents(kind: str
     )
     boundary = HistoryBoundary()
     runtime = object.__new__(pse.Runtime)
-    object.__setattr__(runtime, "_handle", cast(_NativeRuntime, boundary))
+    object.__setattr__(runtime, "_handle", cast("_NativeRuntime", boundary))
     runtime.retain_history_obligation(obligation)
     runtime.release_history_obligation(obligation)
     runtime.release_history(owner)

@@ -73,12 +73,18 @@ def beta6_step_checksum(step: dict[str, object]) -> str:
             raise ProducerError("Only frozen schema files are admitted")
     elif kind in {"remove_entities", "restore_definitions"}:
         normalized["entities"] = [
-            {"kind": entity["kind"], "scope": entity.get("scope"), "name": entity["name"]}
+            {
+                "kind": entity["kind"],
+                "scope": entity.get("scope"),
+                "name": entity["name"],
+            }
             for entity in step["entities"]
         ]
     else:
         raise ProducerError("Only beta-planned schema actions are admitted")
-    return sha(json.dumps(normalized, separators=(",", ":"), ensure_ascii=False).encode())
+    return sha(
+        json.dumps(normalized, separators=(",", ":"), ensure_ascii=False).encode()
+    )
 
 
 def declaration() -> tuple[bytes, str, str]:
@@ -86,7 +92,7 @@ def declaration() -> tuple[bytes, str, str]:
     rust = (ROOT / "crates/pse-operations/src/generated/surreal.rs").read_text()
     values = []
     for name in ("INTERPRETATION", "SCHEMA_DIGEST"):
-        match = re.search(r'pub const ' + name + r': &str = "([^"]+)";', rust)
+        match = re.search(r"pub const " + name + r': &str = "([^"]+)";', rust)
         if match is None:
             raise ProducerError("Canonical registry identity is absent")
         values.append(match[1])
@@ -97,13 +103,18 @@ def declaration() -> tuple[bytes, str, str]:
 
 def beta(binary: Path, folder: Path, *args: str) -> str:
     environment = {
-        key: value for key, value in os.environ.items()
+        key: value
+        for key, value in os.environ.items()
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
     result = subprocess.run(
         [str(binary), "rollout", *args, "--folder", str(folder)],
-        cwd=folder.parent, env=environment, text=True, capture_output=True,
-        timeout=60, check=False,
+        cwd=folder.parent,
+        env=environment,
+        text=True,
+        capture_output=True,
+        timeout=60,
+        check=False,
     )
     output = result.stdout + result.stderr
     if result.returncode:
@@ -123,8 +134,14 @@ def load(folder: Path, *, current: bool = False) -> dict[str, object]:
         raise ProducerError("Symlinked publication refused")
     actual = inventory(folder)
     register = json.loads((folder / REGISTER).read_text())
-    if (register.get("version"), register.get("producer"), register.get("tool_version")) != (
-        VERSION, PRODUCER, BETA,
+    if (
+        register.get("version"),
+        register.get("producer"),
+        register.get("tool_version"),
+    ) != (
+        VERSION,
+        PRODUCER,
+        BETA,
     ) or not register.get("releases"):
         raise ProducerError("Unknown or empty producer registration")
     expected = dict(register["head_files"])
@@ -141,18 +158,29 @@ def load(folder: Path, *, current: bool = False) -> dict[str, object]:
         identity = entry["id"]
         if re.fullmatch(r"[A-Za-z0-9_-]+", identity) is None:
             raise ProducerError("Invalid published rollout identity")
-        metadata = json.loads((folder / "rollouts" / identity / "producer.json").read_text())
+        metadata = json.loads(
+            (folder / "rollouts" / identity / "producer.json").read_text()
+        )
         raw = (folder / "rollouts" / (identity + ".toml")).read_bytes()
         spec = tomllib.loads(raw.decode())
-        if metadata["id"] != identity or metadata["predecessor"] != predecessor or spec["id"] != identity:
+        if (
+            metadata["id"] != identity
+            or metadata["predecessor"] != predecessor
+            or spec["id"] != identity
+        ):
             raise ProducerError("Published rollout order changed")
         if metadata["manifest_checksum"] != sha(raw):
             raise ProducerError("Beta manifest checksum changed")
-        if metadata["source_schema_hash"] != spec["source_schema_hash"] or metadata["target_schema_hash"] != spec["target_schema_hash"]:
+        if (
+            metadata["source_schema_hash"] != spec["source_schema_hash"]
+            or metadata["target_schema_hash"] != spec["target_schema_hash"]
+        ):
             raise ProducerError("Beta schema hash binding changed")
         if previous_hash is not None and spec["source_schema_hash"] != previous_hash:
             raise ProducerError("Published rollout predecessor hash changed")
-        if metadata["steps"] != step_bindings(spec, metadata["source_sql"], metadata["target_sql"]):
+        if metadata["steps"] != step_bindings(
+            spec, metadata["source_sql"], metadata["target_sql"]
+        ):
             raise ProducerError("Published schema-step binding changed")
         if metadata["schema_sha256"] != actual[metadata["target_sql"]]:
             raise ProducerError("Published canonical schema bytes changed")
@@ -163,32 +191,54 @@ def load(folder: Path, *, current: bool = False) -> dict[str, object]:
         schema, interpretation, digest = declaration()
         head = rollouts[-1]
         if (sha(schema), interpretation, digest) != (
-            head["schema_sha256"], head["interpretation"], head["schema_digest"],
+            head["schema_sha256"],
+            head["interpretation"],
+            head["schema_digest"],
         ):
-            raise ProducerError("Generated declaration changed; publish a forward rollout")
+            raise ProducerError(
+                "Generated declaration changed; publish a forward rollout"
+            )
     return result
 
 
-def step_bindings(spec: dict[str, object], source: str, target: str) -> list[dict[str, object]]:
+def step_bindings(
+    spec: dict[str, object], source: str, target: str
+) -> list[dict[str, object]]:
     bindings = []
     for step in spec["steps"]:
         phase = step["phase"]
-        bindings.append({
-            "id": step["id"], "phase": phase, "kind": step["kind"],
-            "checksum": beta6_step_checksum(step),
-            "postcondition": {
-                "mode": "layered_definitions_last_wins",
-                "sql": [source, target] if phase == "start" else [target] if phase == "complete" else [source],
-            },
-        })
+        bindings.append(
+            {
+                "id": step["id"],
+                "phase": phase,
+                "kind": step["kind"],
+                "checksum": beta6_step_checksum(step),
+                "postcondition": {
+                    "mode": "layered_definitions_last_wins",
+                    "sql": [source, target]
+                    if phase == "start"
+                    else [target]
+                    if phase == "complete"
+                    else [source],
+                },
+            }
+        )
     return bindings
 
 
-def publish(binary: Path, folder: Path, schema: bytes, interpretation: str, schema_digest: str) -> dict[str, object]:
+def publish(
+    binary: Path, folder: Path, schema: bytes, interpretation: str, schema_digest: str
+) -> dict[str, object]:
     """Plan offline and append one publication; never repair prior publications."""
     release = surrealkit.verify(binary)
-    if release["version"] != BETA or not schema.strip() or re.fullmatch(r"[0-9a-f]{64}", schema_digest) is None:
-        raise ProducerError("Exact beta.6 and a nonempty registry declaration are required")
+    if (
+        release["version"] != BETA
+        or not schema.strip()
+        or re.fullmatch(r"[0-9a-f]{64}", schema_digest) is None
+    ):
+        raise ProducerError(
+            "Exact beta.6 and a nonempty registry declaration are required"
+        )
     folder.parent.mkdir(parents=True, exist_ok=True)
     # The lock is outside the publication. Incomplete publication stays refused,
     # never silently pruned or adopted after an interrupted publisher.
@@ -197,22 +247,41 @@ def publish(binary: Path, folder: Path, schema: bytes, interpretation: str, sche
         if folder.exists():
             previous = load(folder)
             head = previous["rollouts"][-1]
-            if (sha(schema), interpretation, schema_digest) == (head["schema_sha256"], head["interpretation"], head["schema_digest"]):
+            if (sha(schema), interpretation, schema_digest) == (
+                head["schema_sha256"],
+                head["interpretation"],
+                head["schema_digest"],
+            ):
                 return head
         else:
             previous, head = None, None
-        with tempfile.TemporaryDirectory(prefix=".canonical-plan-", dir=folder.parent) as temporary:
+        with tempfile.TemporaryDirectory(
+            prefix=".canonical-plan-", dir=folder.parent
+        ) as temporary:
             candidate = Path(temporary) / "database"
             if previous is not None:
                 shutil.copytree(folder, candidate)
             else:
                 (candidate / "schema").mkdir(parents=True)
                 (candidate / "snapshots").mkdir()
-                write_json(candidate / "snapshots/schema_snapshot.json", {"version": 1, "files": []})
-                write_json(candidate / "snapshots/catalog_snapshot.json", {"version": 2, "entities": []})
+                write_json(
+                    candidate / "snapshots/schema_snapshot.json",
+                    {"version": 1, "files": []},
+                )
+                write_json(
+                    candidate / "snapshots/catalog_snapshot.json",
+                    {"version": 2, "entities": []},
+                )
             (candidate / "schema/canonical.surql").write_bytes(schema)
             before = set((candidate / "rollouts").glob("*.toml"))
-            beta(binary, candidate, "plan", "--name", "canonical_" + schema_digest[:16], "--allow-modified")
+            beta(
+                binary,
+                candidate,
+                "plan",
+                "--name",
+                "canonical_" + schema_digest[:16],
+                "--allow-modified",
+            )
             created = set((candidate / "rollouts").glob("*.toml")) - before
             if len(created) != 1:
                 raise ProducerError("Beta did not produce exactly one forward rollout")
@@ -222,35 +291,69 @@ def publish(binary: Path, folder: Path, schema: bytes, interpretation: str, sche
             checksum = sha(manifest.read_bytes())
             lint = beta(binary, candidate, "lint", identity)
             if "checksum " + checksum not in lint:
-                raise ProducerError("Actual beta manifest checksum differs from CLI contract")
+                raise ProducerError(
+                    "Actual beta manifest checksum differs from CLI contract"
+                )
             beta(binary, candidate, "lint")
             owned = candidate / "rollouts" / identity
             source_sql = "rollouts/" + identity + "/source-schema.surql"
             target_sql = "rollouts/" + identity + "/target-schema.surql"
-            (candidate / source_sql).write_bytes((folder / head["target_sql"]).read_bytes() if head else b"")
+            (candidate / source_sql).write_bytes(
+                (folder / head["target_sql"]).read_bytes() if head else b""
+            )
             (candidate / target_sql).write_bytes(schema)
             for name in ("schema_snapshot.json", "catalog_snapshot.json"):
-                shutil.copyfile(candidate / "snapshots" / name, owned / ("target-" + name.replace("_", "-")))
+                shutil.copyfile(
+                    candidate / "snapshots" / name,
+                    owned / ("target-" + name.replace("_", "-")),
+                )
             metadata = {
-                "id": identity, "producer": PRODUCER, "tool_version": BETA,
+                "id": identity,
+                "producer": PRODUCER,
+                "tool_version": BETA,
                 "predecessor": head["id"] if head else None,
-                "interpretation": interpretation, "schema_digest": schema_digest,
-                "schema_sha256": sha(schema), "manifest_checksum": checksum,
+                "interpretation": interpretation,
+                "schema_digest": schema_digest,
+                "schema_sha256": sha(schema),
+                "manifest_checksum": checksum,
                 "source_schema_hash": spec["source_schema_hash"],
                 "target_schema_hash": spec["target_schema_hash"],
-                "source_sql": source_sql, "target_sql": target_sql,
-                "target_schema_snapshot": "rollouts/" + identity + "/target-schema-snapshot.json",
-                "target_catalog_snapshot": "rollouts/" + identity + "/target-catalog-snapshot.json",
+                "source_sql": source_sql,
+                "target_sql": target_sql,
+                "target_schema_snapshot": "rollouts/"
+                + identity
+                + "/target-schema-snapshot.json",
+                "target_catalog_snapshot": "rollouts/"
+                + identity
+                + "/target-catalog-snapshot.json",
                 "steps": step_bindings(spec, source_sql, target_sql),
                 "release": release,
             }
             write_json(owned / "producer.json", metadata)
             new_files = {"rollouts/" + identity + ".toml": checksum}
-            new_files.update({"rollouts/" + identity + "/" + name: digest for name, digest in inventory(owned).items()})
+            new_files.update(
+                {
+                    "rollouts/" + identity + "/" + name: digest
+                    for name, digest in inventory(owned).items()
+                }
+            )
             releases = list(previous["releases"]) if previous else []
             releases.append({"id": identity, "files": new_files})
-            head_files = {name: digest for name, digest in inventory(candidate).items() if name.startswith(("schema/", "snapshots/"))}
-            write_json(candidate / REGISTER, {"version": VERSION, "producer": PRODUCER, "tool_version": BETA, "releases": releases, "head_files": head_files})
+            head_files = {
+                name: digest
+                for name, digest in inventory(candidate).items()
+                if name.startswith(("schema/", "snapshots/"))
+            }
+            write_json(
+                candidate / REGISTER,
+                {
+                    "version": VERSION,
+                    "producer": PRODUCER,
+                    "tool_version": BETA,
+                    "releases": releases,
+                    "head_files": head_files,
+                },
+            )
             load(candidate)
             if previous is None:
                 os.rename(candidate, folder)
@@ -277,10 +380,19 @@ def main() -> int:
         elif args.binary:
             result = publish(args.binary, args.folder, *declaration())
         else:
-            raise ProducerError("Select the exact verified beta executable with --binary")
+            raise ProducerError(
+                "Select the exact verified beta executable with --binary"
+            )
         print(json.dumps(result, indent=2))
         return 0
-    except (ProducerError, surrealkit.ToolError, OSError, ValueError, KeyError, TypeError) as error:
+    except (
+        ProducerError,
+        surrealkit.ToolError,
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+    ) as error:
         print("canonical-rollout: " + str(error), file=sys.stderr)
         return 1
 

@@ -6,11 +6,11 @@
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
 #[path = "canonical_lifetime.rs"]
 pub(crate) mod lifetime;
-#[path = "canonical_transport.rs"]
-pub(crate) mod transport;
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
+#[path = "canonical_transport.rs"]
+pub(crate) mod transport;
 pub use lifetime::{ConnectionActivity, inherit_activity};
 pub use pse_model::generated::runtime::{
     canonical_memberships::Row as Membership, canonical_revisions::Row as Revision,
@@ -407,7 +407,9 @@ impl CanonicalOptions {
         }
         let initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
         let admission = WriteAdmission::read(state)?;
-        if admission.derived_rebuild_pending.is_some() || admission.surrealkit_rollout_pending.is_some() {
+        if admission.derived_rebuild_pending.is_some()
+            || admission.surrealkit_rollout_pending.is_some()
+        {
             admission.require_initializer(
                 state,
                 &deployment.namespace,
@@ -541,13 +543,15 @@ impl ProtectedSelection {
             #[cfg(any(test, feature = "test-support"))]
             let fixture = store.fixture_lifetime.clone();
             let task = executor.spawn(async move {
-                let result = activity.scope(async move {
-                    let result = store.release_protection(&revision, &key).await;
-                    if result.is_ok() {
-                        owner.acknowledge_release();
-                    }
-                    result
-                }).await;
+                let result = activity
+                    .scope(async move {
+                        let result = store.release_protection(&revision, &key).await;
+                        if result.is_ok() {
+                            owner.acknowledge_release();
+                        }
+                        result
+                    })
+                    .await;
                 drop(activity);
                 // The last fixture borrower may physically disconnect here.
                 // Its own cleanup continuation must already have ended.
@@ -1980,9 +1984,7 @@ pub(crate) fn descriptor_for_product(
 ) -> Result<pse_model::generated::runtime::canonical_product_descriptors::Row, CanonicalError> {
     let blob = crate::canonical_staging::ProductBlob::decode(product.payload.as_slice())?;
     let receipt = blob.receipt.as_ref().ok_or_else(|| {
-        CanonicalError::Configuration(
-            "current product requires a selection receipt".into(),
-        )
+        CanonicalError::Configuration("current product requires a selection receipt".into())
     })?;
     if product.interpretation != wire::INTERPRETATION
         || blob.producer != product.producer
@@ -2418,11 +2420,27 @@ mod canonical_admission_unit {
         let nonce = owner["nonce"].as_str().unwrap();
         let mut selected = admission(owner.clone(), false);
         selected.surrealkit_rollout_pending = selected.derived_rebuild_pending.take();
-        assert!(selected.require_writes(&scope.0, "fresh", "current", Some(nonce)).is_ok());
-        assert!(selected.require_writes(&scope.0, "fresh", "other", Some(nonce)).is_err());
-        assert!(selected.require_writes(&scope.0, "fresh", "current", None).is_err());
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_ok()
+        );
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "other", Some(nonce))
+                .is_err()
+        );
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", None)
+                .is_err()
+        );
         selected.derived_rebuild_pending = admission(owner.clone(), false).derived_rebuild_pending;
-        assert!(selected.require_writes(&scope.0, "fresh", "current", Some(nonce)).is_err());
+        assert!(
+            selected
+                .require_writes(&scope.0, "fresh", "current", Some(nonce))
+                .is_err()
+        );
     }
 
     #[test]
@@ -3211,13 +3229,21 @@ mod canonical_server_unit {
     async fn source_protection_final_finish_drains_before_last_fixture_teardown() {
         let (store, _) = initialization_fixture().await;
         store.create().await.unwrap();
-        let revision = store.edit("last-finish", None, "source", &[]).await.unwrap();
-        let selection = store.protect(revision, std::time::Duration::from_secs(30)).await.unwrap();
+        let revision = store
+            .edit("last-finish", None, "source", &[])
+            .await
+            .unwrap();
+        let selection = store
+            .protect(revision, std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
         let resource = store.fixture_lifetime.as_ref().unwrap().resource.clone();
         store.close();
         drop(store);
         selection.finish().await.unwrap();
-        let status = crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource})).unwrap();
+        let status =
+            crate::testing::resource_bridge("status", &serde_json::json!({"resource": resource}))
+                .unwrap();
         assert_eq!(status["drained"], serde_json::json!(true));
         assert!(status.get("creation_borrower").is_none());
     }

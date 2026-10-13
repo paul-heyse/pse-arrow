@@ -3,7 +3,9 @@
 
 //! Owned selected scientific closure and attributed lifetime operations.
 
-pub(super) fn append(ddl: &mut String) { ddl.push_str(FUNCTIONS); }
+pub(super) fn append(ddl: &mut String) {
+    ddl.push_str(FUNCTIONS);
+}
 
 const FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_artifact_v1::abandon_study_inputs($rpc_expiry:int,$study:string) -> bool {

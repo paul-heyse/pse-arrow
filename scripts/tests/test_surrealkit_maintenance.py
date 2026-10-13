@@ -248,14 +248,17 @@ class MaintenanceTests(unittest.TestCase):
         self.assertGreater(self.calls.index("drain"), self.calls.index("child"))
         self.assertEqual(result["attempts"][0]["listener_drain"], "complete")
 
-    def test_whole_chain_submission_binds_beta_order_instead_of_filename_order(self) -> None:
+    def test_whole_chain_submission_binds_beta_order_instead_of_filename_order(
+        self,
+    ) -> None:
         for identity in ("a", "z"):
             (self.folder / "rollouts" / (identity + ".toml")).write_text(
                 'id = "' + identity + '"\n'
             )
         output = "3 rollout(s) are valid, in order: z, one, a\n"
         with patch.object(
-            tool.subprocess, "run",
+            tool.subprocess,
+            "run",
             return_value=subprocess.CompletedProcess([], 0, output, ""),
         ):
             value = self.run_tool()
@@ -277,10 +280,13 @@ class MaintenanceTests(unittest.TestCase):
                 self.calls.clear()
                 with (
                     patch.object(
-                        tool.subprocess, "run",
+                        tool.subprocess,
+                        "run",
                         return_value=subprocess.CompletedProcess([], 0, output, ""),
                     ),
-                    self.assertRaisesRegex(tool.MaintenanceError, "Validated beta rollout order"),
+                    self.assertRaisesRegex(
+                        tool.MaintenanceError, "Validated beta rollout order"
+                    ),
                 ):
                     self.run_tool()
                 self.assertEqual(self.current()["phase"], "prepared")
@@ -334,7 +340,14 @@ class MaintenanceTests(unittest.TestCase):
             self.assertEqual(result["command"], ["rollout", "up", "--complete"])
             self.assertEqual(result["attempts"][-1]["phase"], "cli_succeeded")
         with self.assertRaisesRegex(tool.MaintenanceError, "exact SQL settlement"):
-            tool.execute(self.binary, self.state, self.folder, "repair", rollout_id="one", pending_nonce=nonce)
+            tool.execute(
+                self.binary,
+                self.state,
+                self.folder,
+                "repair",
+                rollout_id="one",
+                pending_nonce=nonce,
+            )
         with self.assertRaisesRegex(tool.MaintenanceError, "pending rollout identity"):
             tool.execute(
                 self.binary, self.state, self.folder, "status", pending_nonce="other"
@@ -520,35 +533,71 @@ class MaintenanceTests(unittest.TestCase):
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
 
     def test_complete_requires_settled_start_and_retains_one_nonce(self) -> None:
-        value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+        value = tool.execute(
+            self.binary, self.state, self.folder, "start", rollout_id="one"
+        )
         nonce = value["nonce"]
         with self.assertRaisesRegex(tool.MaintenanceError, "exact settled start"):
-            tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=nonce)
+            tool.execute(
+                self.binary,
+                self.state,
+                self.folder,
+                "complete",
+                rollout_id="one",
+                pending_nonce=nonce,
+            )
         proof = {**self.evidence(value), "phase": "start"}
         tool.settle(self.state, nonce, lambda *_: proof)
-        result = tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=nonce)
+        result = tool.execute(
+            self.binary,
+            self.state,
+            self.folder,
+            "complete",
+            rollout_id="one",
+            pending_nonce=nonce,
+        )
         self.assertEqual(result["nonce"], nonce)
         self.assertEqual(result["command"], ["rollout", "complete", "one"])
-        self.assertEqual(result["phase_history"], [{"command": ["rollout", "start", "one"], "settlement": proof}])
+        self.assertEqual(
+            result["phase_history"],
+            [{"command": ["rollout", "start", "one"], "settlement": proof}],
+        )
         self.assertEqual(result["sql_outcome"], "unknown")
         self.assertNotIn("settlement", result)
         self.assertIsNone(result["previous_marker"])
 
-    def test_predecessor_is_captured_before_submission_and_never_recaptured(self) -> None:
-        marker = {"interpretation": "v5", "schema_digest": "before", "issuing_store": "store"}
+    def test_predecessor_is_captured_before_submission_and_never_recaptured(
+        self,
+    ) -> None:
+        marker = {
+            "interpretation": "v5",
+            "schema_digest": "before",
+            "issuing_store": "store",
+        }
         with patch.object(tool, "predecessor_marker", return_value=marker) as capture:
-            value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+            value = tool.execute(
+                self.binary, self.state, self.folder, "start", rollout_id="one"
+            )
             capture.assert_called_once()
         self.assertEqual(value["previous_marker"], marker)
         proof = {**self.evidence(value), "phase": "start"}
         tool.settle(self.state, value["nonce"], lambda *_: proof)
         with patch.object(tool, "predecessor_marker") as capture:
-            result = tool.execute(self.binary, self.state, self.folder, "complete", rollout_id="one", pending_nonce=value["nonce"])
+            result = tool.execute(
+                self.binary,
+                self.state,
+                self.folder,
+                "complete",
+                rollout_id="one",
+                pending_nonce=value["nonce"],
+            )
             capture.assert_not_called()
         self.assertEqual(result["previous_marker"], marker)
 
     def test_settlement_rejects_wrong_phase_without_publishing_settled(self) -> None:
-        value = tool.execute(self.binary, self.state, self.folder, "start", rollout_id="one")
+        value = tool.execute(
+            self.binary, self.state, self.folder, "start", rollout_id="one"
+        )
         with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
             tool.settle(self.state, value["nonce"], lambda *_: self.evidence(value))
         self.assertEqual(self.current()["sql_outcome"], "unknown")
@@ -556,17 +605,58 @@ class MaintenanceTests(unittest.TestCase):
 
     def generated_fixture(self, status="completed", *, acknowledged=True):
         value = self.run_tool()
-        step = {"id": "definition", "phase": "start", "kind": "apply_files", "checksum": "exact-step"}
-        item = {"id": "one", "manifest_checksum": "exact-manifest", "source_schema_hash": "source", "target_schema_hash": "target", "source_sql": "source.surql", "target_sql": "target.surql", "steps": [step]}
-        row = {name: item[name] for name in ("manifest_checksum", "source_schema_hash", "target_schema_hash")}
-        row.update(rollout_id="one", status=status, steps=[{"step_id": "definition", **{name: step[name] for name in ("phase", "kind", "checksum")}, "status": "completed" if acknowledged else "running", "error": None}])
-        witness = {"scope": "generated-target", "previous_marker": None, "schema_digest": "current"}
+        step = {
+            "id": "definition",
+            "phase": "start",
+            "kind": "apply_files",
+            "checksum": "exact-step",
+        }
+        item = {
+            "id": "one",
+            "manifest_checksum": "exact-manifest",
+            "source_schema_hash": "source",
+            "target_schema_hash": "target",
+            "source_sql": "source.surql",
+            "target_sql": "target.surql",
+            "steps": [step],
+        }
+        row = {
+            name: item[name]
+            for name in (
+                "manifest_checksum",
+                "source_schema_hash",
+                "target_schema_hash",
+            )
+        }
+        row.update(
+            rollout_id="one",
+            status=status,
+            steps=[
+                {
+                    "step_id": "definition",
+                    **{name: step[name] for name in ("phase", "kind", "checksum")},
+                    "status": "completed" if acknowledged else "running",
+                    "error": None,
+                }
+            ],
+        )
+        witness = {
+            "scope": "generated-target",
+            "previous_marker": None,
+            "schema_digest": "current",
+        }
         return value, item, row, witness
 
     def test_generated_settlement_joins_exact_ack_and_canonical_postconditions(self):
         value, item, row, witness = self.generated_fixture()
-        with patch.object(tool, "publication", return_value={"rollouts": [item]}), patch.object(server, "maintenance_query", return_value={"value": [row]}), patch.object(tool, "canonical_tool", return_value=witness) as canonical:
-            result = tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+        with (
+            patch.object(tool, "publication", return_value={"rollouts": [item]}),
+            patch.object(server, "maintenance_query", return_value={"value": [row]}),
+            patch.object(tool, "canonical_tool", return_value=witness) as canonical,
+        ):
+            result = tool.settle_generated(
+                self.state, value["nonce"], self.folder, self.binary
+            )
         self.assertEqual(result["phase"], "settled")
         self.assertEqual(result["settlement"]["steps"][0]["outcome"], "acknowledged")
         self.assertEqual(result["settlement"]["canonical"], witness)
@@ -576,8 +666,12 @@ class MaintenanceTests(unittest.TestCase):
         value, item, row, witness = self.generated_fixture()
         baseline = {**item, "id": "initial-baseline"}
         with (
-            patch.object(tool, "publication", return_value={"rollouts": [baseline, item]}),
-            patch.object(server, "maintenance_query", return_value={"value": [row]}) as query,
+            patch.object(
+                tool, "publication", return_value={"rollouts": [baseline, item]}
+            ),
+            patch.object(
+                server, "maintenance_query", return_value={"value": [row]}
+            ) as query,
             patch.object(tool, "canonical_tool", return_value=witness) as canonical,
             self.assertRaisesRegex(tool.MaintenanceError, "Whole-chain submission"),
         ):
@@ -588,31 +682,60 @@ class MaintenanceTests(unittest.TestCase):
         value["rollouts"] = ["initial-baseline", "one"]
         tool.update(self.state, value)
         with (
-            patch.object(tool, "publication", return_value={"rollouts": [baseline, item]}),
+            patch.object(
+                tool, "publication", return_value={"rollouts": [baseline, item]}
+            ),
             patch.object(server, "maintenance_query", return_value={"value": [row]}),
             patch.object(tool, "canonical_tool", return_value=witness) as canonical,
-            self.assertRaisesRegex(tool.MaintenanceError, "Actual beta manifest identity"),
+            self.assertRaisesRegex(
+                tool.MaintenanceError, "Actual beta manifest identity"
+            ),
         ):
             tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
         canonical.assert_not_called()
         self.assertEqual(self.current()["sql_outcome"], "unknown")
 
-    def test_generated_unknown_sql_reconciles_but_metadata_must_complete_before_activation(self):
-        value, item, row, witness = self.generated_fixture("running_complete", acknowledged=False)
-        with patch.object(tool, "publication", return_value={"rollouts": [item]}), patch.object(server, "maintenance_query", return_value={"value": [row]}), patch.object(tool, "canonical_tool", return_value=witness):
-            result = tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+    def test_generated_unknown_sql_reconciles_but_metadata_must_complete_before_activation(
+        self,
+    ):
+        value, item, row, witness = self.generated_fixture(
+            "running_complete", acknowledged=False
+        )
+        with (
+            patch.object(tool, "publication", return_value={"rollouts": [item]}),
+            patch.object(server, "maintenance_query", return_value={"value": [row]}),
+            patch.object(tool, "canonical_tool", return_value=witness),
+        ):
+            result = tool.settle_generated(
+                self.state, value["nonce"], self.folder, self.binary
+            )
         self.assertEqual(result["phase"], "sql_settled")
         self.assertEqual(result["settlement"]["steps"][0]["outcome"], "reconciled")
         with self.assertRaisesRegex(tool.MaintenanceError, "final canonical"):
             tool.activate(self.state, value["nonce"], self.binary)
-        repaired = tool.execute(self.binary, self.state, self.folder, "repair", rollout_id="one", pending_nonce=value["nonce"])
+        repaired = tool.execute(
+            self.binary,
+            self.state,
+            self.folder,
+            "repair",
+            rollout_id="one",
+            pending_nonce=value["nonce"],
+        )
         self.assertEqual(repaired["phase"], "sql_settled")
         row["status"] = "completed"
-        with patch.object(tool, "publication", return_value={"rollouts": [item]}), patch.object(server, "maintenance_query", return_value={"value": [row]}), patch.object(tool, "canonical_tool", return_value=witness):
-            result = tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+        with (
+            patch.object(tool, "publication", return_value={"rollouts": [item]}),
+            patch.object(server, "maintenance_query", return_value={"value": [row]}),
+            patch.object(tool, "canonical_tool", return_value=witness),
+        ):
+            result = tool.settle_generated(
+                self.state, value["nonce"], self.folder, self.binary
+            )
         self.assertEqual(result["phase"], "settled")
 
-    def test_generated_settlement_refuses_wrong_step_or_data_sql_before_canonical_tool(self):
+    def test_generated_settlement_refuses_wrong_step_or_data_sql_before_canonical_tool(
+        self,
+    ):
         value, item, row, witness = self.generated_fixture()
         for change in ("checksum", "data"):
             with self.subTest(change=change):
@@ -622,30 +745,69 @@ class MaintenanceTests(unittest.TestCase):
                     row["steps"][0]["checksum"] = item["steps"][0]["checksum"]
                     row["steps"][0]["kind"] = "run_sql"
                     item["steps"][0]["kind"] = "run_sql"
-                with patch.object(tool, "publication", return_value={"rollouts": [item]}), patch.object(server, "maintenance_query", return_value={"value": [row]}), patch.object(tool, "canonical_tool", return_value=witness) as canonical, self.assertRaises(tool.MaintenanceError):
-                    tool.settle_generated(self.state, value["nonce"], self.folder, self.binary)
+                with (
+                    patch.object(
+                        tool, "publication", return_value={"rollouts": [item]}
+                    ),
+                    patch.object(
+                        server, "maintenance_query", return_value={"value": [row]}
+                    ),
+                    patch.object(
+                        tool, "canonical_tool", return_value=witness
+                    ) as canonical,
+                    self.assertRaises(tool.MaintenanceError),
+                ):
+                    tool.settle_generated(
+                        self.state, value["nonce"], self.folder, self.binary
+                    )
                 canonical.assert_not_called()
                 self.assertEqual(self.current()["sql_outcome"], "unknown")
 
-    def test_canonical_child_wrong_authority_witness_keeps_pending_and_child_drain(self):
+    def test_canonical_child_wrong_authority_witness_keeps_pending_and_child_drain(
+        self,
+    ):
         value = self.run_tool()
         value["initializer"] = self.owner
         tool.update(self.state, value)
+
         def wrong_witness(command, env, *, cwd, observation):
             attempt = Path(command[command.index("--attempt") + 1])
             server.write_json(attempt / "child.json", {"reason": "exited"})
-            server.write_json(attempt / "stdout", {"namespace": "other", "database": value["database"], "instance_id": value["instance_id"], "initializer_nonce": self.owner["nonce"]})
+            server.write_json(
+                attempt / "stdout",
+                {
+                    "namespace": "other",
+                    "database": value["database"],
+                    "instance_id": value["instance_id"],
+                    "initializer_nonce": self.owner["nonce"],
+                },
+            )
             observation["owned_drain"] = "complete"
             return 0
-        with patch.object(tool.native_operation, "run_child_scope", side_effect=wrong_witness), self.assertRaisesRegex(tool.MaintenanceError, "selected maintenance authority"):
-            tool.canonical_tool(self.state, self.endpoint(self.state), value, self.binary)
+
+        with (
+            patch.object(
+                tool.native_operation, "run_child_scope", side_effect=wrong_witness
+            ),
+            self.assertRaisesRegex(
+                tool.MaintenanceError, "selected maintenance authority"
+            ),
+        ):
+            tool.canonical_tool(
+                self.state, self.endpoint(self.state), value, self.binary
+            )
         self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertEqual(self.current()["canonical_attempts"][-1]["phase"], "unknown")
-        self.assertEqual(self.current()["canonical_attempts"][-1]["child"]["owned_drain"], "complete")
+        self.assertEqual(
+            self.current()["canonical_attempts"][-1]["child"]["owned_drain"], "complete"
+        )
 
     def test_activation_requires_final_canonical_settlement(self) -> None:
         value = self.run_tool()
-        with patch.object(tool, "canonical_tool") as canonical, self.assertRaisesRegex(tool.MaintenanceError, "final canonical"):
+        with (
+            patch.object(tool, "canonical_tool") as canonical,
+            self.assertRaisesRegex(tool.MaintenanceError, "final canonical"),
+        ):
             tool.activate(self.state, value["nonce"], self.binary)
         canonical.assert_not_called()
         self.assertEqual(self.current()["nonce"], value["nonce"])
@@ -654,18 +816,38 @@ class MaintenanceTests(unittest.TestCase):
         value = self.run_tool()
         proof = {**self.evidence(value), "canonical": {"scope": "generated-target"}}
         tool.settle(self.state, value["nonce"], lambda *_: proof)
-        with patch.object(tool, "canonical_tool", side_effect=tool.MaintenanceError("lost activation ACK")), self.assertRaisesRegex(tool.MaintenanceError, "lost activation"):
+        with (
+            patch.object(
+                tool,
+                "canonical_tool",
+                side_effect=tool.MaintenanceError("lost activation ACK"),
+            ),
+            self.assertRaisesRegex(tool.MaintenanceError, "lost activation"),
+        ):
             tool.activate(self.state, value["nonce"], self.binary)
         self.assertEqual(self.current()["nonce"], value["nonce"])
-        with patch.object(tool, "canonical_tool", return_value={"issuing_store": "store"}), patch.object(server, "drain_maintenance_listener", side_effect=[None, server.SupervisorError("drain failed")]), self.assertRaisesRegex(server.SupervisorError, "drain failed"):
+        with (
+            patch.object(
+                tool, "canonical_tool", return_value={"issuing_store": "store"}
+            ),
+            patch.object(
+                server,
+                "drain_maintenance_listener",
+                side_effect=[None, server.SupervisorError("drain failed")],
+            ),
+            self.assertRaisesRegex(server.SupervisorError, "drain failed"),
+        ):
             tool.activate(self.state, value["nonce"], self.binary)
         self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertEqual(self.current()["activation"], {"issuing_store": "store"})
 
-    def test_activation_releases_pending_only_after_owned_drain_and_remains_closed(self) -> None:
+    def test_activation_releases_pending_only_after_owned_drain_and_remains_closed(
+        self,
+    ) -> None:
         value = self.run_tool()
         proof = {**self.evidence(value), "canonical": {"scope": "generated-target"}}
         tool.settle(self.state, value["nonce"], lambda *_: proof)
+
         def activation(state, endpoint, pending, binary, **options):
             self.assertEqual(pending["initializer"], self.owner)
             self.assertEqual(pending["settlement"], proof)
@@ -673,12 +855,15 @@ class MaintenanceTests(unittest.TestCase):
             self.assertIn(tool.PENDING, server.read_json(state / "config.json"))
             self.assertTrue((state / ".maintenance-listener.json").exists())
             return {"issuing_store": "same-store"}
+
         with patch.object(tool, "canonical_tool", side_effect=activation):
             result = tool.activate(self.state, value["nonce"], self.binary)
         self.assertEqual(result["activation"], {"issuing_store": "same-store"})
         self.assertNotIn(tool.PENDING, server.read_json(self.state / "config.json"))
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
-        self.assertFalse(server.read_json(self.state / "config.json")["accepting_writes"])
+        self.assertFalse(
+            server.read_json(self.state / "config.json")["accepting_writes"]
+        )
 
     def test_settlement_drain_or_owner_loss_cannot_clear_pending(self) -> None:
         value = self.run_tool()

@@ -3409,18 +3409,36 @@ def verify_observer(state: Path, config: dict[str, object], pid: int) -> None:
                     if not actual or not actual <= set(cpus):
                         if len(mismatches) < 16:
                             mismatches.append(
-                                {"tid": int(thread.name), "comm": (thread / "comm").read_text().strip()[:64], "cpus": sorted(actual)}
+                                {
+                                    "tid": int(thread.name),
+                                    "comm": (thread / "comm").read_text().strip()[:64],
+                                    "cpus": sorted(actual),
+                                }
                             )
                 except OSError as error:
                     if len(mismatches) < 16:
-                        mismatches.append({"tid": int(thread.name), "observation_error": str(error)})
+                        mismatches.append(
+                            {"tid": int(thread.name), "observation_error": str(error)}
+                        )
             affinity["threads_inspected"] = inspected
             affinity["thread_mismatches"] = mismatches
         except OSError as error:
             affinity["observation_error"] = str(error)
         raise SupervisorError(
             "Observer placement differs: "
-            + json.dumps({"pid": pid, "expected_group": str(profile), "actual_group": str(group), "expected_memory_max": integer(execution["observer_memory_bytes"]), "actual_memory_max": memory, "minimum_cpu_quota": integer(execution["cpu_threads"]), "actual_cpu_quota": cpu, "affinity": affinity}, sort_keys=True)
+            + json.dumps(
+                {
+                    "pid": pid,
+                    "expected_group": str(profile),
+                    "actual_group": str(group),
+                    "expected_memory_max": integer(execution["observer_memory_bytes"]),
+                    "actual_memory_max": memory,
+                    "minimum_cpu_quota": integer(execution["cpu_threads"]),
+                    "actual_cpu_quota": cpu,
+                    "affinity": affinity,
+                },
+                sort_keys=True,
+            )
         )
     # The envelope includes one observer process, not arbitrarily many independent
     # four-GiB ceilings. Kernel membership and PID start time establish live reuse.
@@ -6112,9 +6130,7 @@ def copy_current_database(
         write_json(state / "config.json", target)
 
 
-def rebuild(
-    state: Path, initializer: list[str]
-) -> dict[str, object]:
+def rebuild(state: Path, initializer: list[str]) -> dict[str, object]:
     """Regenerate owned design-phase state from current sources, without retaining old data."""
     if not initializer:
         raise SupervisorError("Fresh rebuild requires a current initializer command")
@@ -6184,10 +6200,9 @@ def initialize_rebuild(
                 "Current initializer failed; admission closed and exact target retained"
             )
         validate_interpretation(state, selected, SUBSTRATE_INTERPRETATION)
-        if (
-            read_json(state / "lifecycle-owner.json") != initializer_owner
-            or not reservation_live(initializer_owner)
-        ):
+        if read_json(
+            state / "lifecycle-owner.json"
+        ) != initializer_owner or not reservation_live(initializer_owner):
             raise SupervisorError("Initializer owner changed; admission remains closed")
         maintenance_phase(state, selected, "validated")
     finally:

@@ -467,17 +467,89 @@ impl PreparedFit {
         crate::math::strategy::target::declaration(&self.callable_source())
     }
 
-    pub(in crate::workflow) fn scientific_context(&self,run_id:pse_model::generated::identities::RunId)->Result<pse_model::generated::runtime::scientific_contexts::Row,WorkflowError> {
-        let p=&self.problem;
-        let lineage=p.lineage.lineage();
-        let inputs=p.parameter_ports.iter().map(|port|crate::workflow::artifacts::coordinate(port.id,port.quantity,&p.quantities,1.,0.)).collect::<Result<Vec<_>,_>>()?;
-        let outputs=p.measurements.iter().map(|measurement|crate::workflow::artifacts::coordinate(measurement.id,measurement.port.quantity,&p.quantities,1.,0.)).collect::<Result<Vec<_>,_>>()?;
-        let measurements=p.measurements.iter().map(|m|(m.id,m.experiment,m.row,m.time,m.sample_index,m.included,m.value,m.sigma,m.importance,m.port.id)).collect::<Vec<_>>();
-        let configuration=serde_json::to_vec(&(1u8,&p.declaration,&p.profile.simulations,p.profile.rank_tolerance,p.profile.max_cells,p.profile.derivatives,&p.profile.uncertainty,&p.bounds,&p.initial,measurements)).map_err(|error|contract(error.to_string()))?;
+    pub(in crate::workflow) fn scientific_context(
+        &self,
+        run_id: pse_model::generated::identities::RunId,
+    ) -> Result<pse_model::generated::runtime::scientific_contexts::Row, WorkflowError> {
+        let p = &self.problem;
+        let lineage = p.lineage.lineage();
+        let inputs = p
+            .parameter_ports
+            .iter()
+            .map(|port| {
+                crate::workflow::artifacts::coordinate(
+                    port.id,
+                    port.quantity,
+                    &p.quantities,
+                    1.,
+                    0.,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let outputs = p
+            .measurements
+            .iter()
+            .map(|measurement| {
+                crate::workflow::artifacts::coordinate(
+                    measurement.id,
+                    measurement.port.quantity,
+                    &p.quantities,
+                    1.,
+                    0.,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let measurements = p
+            .measurements
+            .iter()
+            .map(|m| {
+                (
+                    m.id,
+                    m.experiment,
+                    m.row,
+                    m.time,
+                    m.sample_index,
+                    m.included,
+                    m.value,
+                    m.sigma,
+                    m.importance,
+                    m.port.id,
+                )
+            })
+            .collect::<Vec<_>>();
+        let configuration = serde_json::to_vec(&(
+            1u8,
+            &p.declaration,
+            &p.profile.simulations,
+            p.profile.rank_tolerance,
+            p.profile.max_cells,
+            p.profile.derivatives,
+            &p.profile.uncertainty,
+            &p.bounds,
+            &p.initial,
+            measurements,
+        ))
+        .map_err(|error| contract(error.to_string()))?;
         Ok(pse_model::generated::runtime::scientific_contexts::Row {
-            run_id,step:0,model_id:lineage.model_id,case_id:lineage.case_id,instance_id:None,fit_id:lineage.fit_id,
-            source_identity:self.source.revision.identity().as_id(),physical_identity:self.source.physical.identity(),preparation_identity:p.key,profile_identity:p.profile_key.as_id(),
-            configuration:configuration.into(),binding:None,state:Vec::new(),inputs,outputs,integrals:Vec::new(),time:None,mode_names:Vec::new(),mode_identities:Vec::new(),
+            run_id,
+            step: 0,
+            model_id: lineage.model_id,
+            case_id: lineage.case_id,
+            instance_id: None,
+            fit_id: lineage.fit_id,
+            source_identity: self.source.revision.identity().as_id(),
+            physical_identity: self.source.physical.identity(),
+            preparation_identity: p.key,
+            profile_identity: p.profile_key.as_id(),
+            configuration: configuration.into(),
+            binding: None,
+            state: Vec::new(),
+            inputs,
+            outputs,
+            integrals: Vec::new(),
+            time: None,
+            mode_names: Vec::new(),
+            mode_identities: Vec::new(),
         })
     }
     /// Complete immutable source/execution identity.

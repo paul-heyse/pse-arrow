@@ -19,7 +19,10 @@ impl Runtime {
         let activity = self.canonical_store().admit_activity()?;
         activity
             .scope(async {
-                self.operations()?.store().retain_history_obligation(obligation).await?;
+                self.operations()?
+                    .store()
+                    .retain_history_obligation(obligation)
+                    .await?;
                 Ok(())
             })
             .await
@@ -33,7 +36,10 @@ impl Runtime {
         let activity = self.canonical_store().admit_activity()?;
         activity
             .scope(async {
-                self.operations()?.store().release_history_obligation(obligation).await?;
+                self.operations()?
+                    .store()
+                    .release_history_obligation(obligation)
+                    .await?;
                 Ok(())
             })
             .await
@@ -62,7 +68,11 @@ impl Runtime {
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                Ok(self.operations()?.store().reclaim_history_page(owner).await?)
+                Ok(self
+                    .operations()?
+                    .store()
+                    .reclaim_history_page(owner)
+                    .await?)
             })
             .await
     }

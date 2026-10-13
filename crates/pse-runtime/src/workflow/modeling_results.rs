@@ -55,7 +55,9 @@ impl RunResult {
             &cancel,
             &validation,
         );
-        collection.ensure::<pse_model::generated::runtime::scientific_contexts::Row>().map_err(relation)?;
+        collection
+            .ensure::<pse_model::generated::runtime::scientific_contexts::Row>()
+            .map_err(relation)?;
         collection
             .ensure::<modeling_checks::Row>()
             .map_err(relation)?;
@@ -159,9 +161,33 @@ impl RunResult {
             // Unattempted requests still publish the admission completed at submission.
             let prepared = result.map_or(request, |result| &result.prepared);
             let declaration = prepared.model.case.compiled().plan.structure();
-            if projection.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID) && !collection.skip_next::<pse_model::generated::runtime::scientific_contexts::Row>() {
-                let _copy=crate::workflow::result_export::working(&pool,"result:solve-context-copy",&[(declaration.variables().len()+declaration.parameters().len(),96),(prepared.model.values.scalars.len()+prepared.starts.len(),128),(1,65536)])?;
-                collection.push(super::artifacts::solve_context(prepared,self.run_id,step)?).await.map_err(relation)?;
+            if projection.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID)
+                && !collection
+                    .skip_next::<pse_model::generated::runtime::scientific_contexts::Row>()
+            {
+                let _copy = crate::workflow::result_export::working(
+                    &pool,
+                    "result:solve-context-copy",
+                    &[
+                        (
+                            declaration.variables().len() + declaration.parameters().len(),
+                            96,
+                        ),
+                        (
+                            prepared.model.values.scalars.len() + prepared.starts.len(),
+                            128,
+                        ),
+                        (1, 65536),
+                    ],
+                )?;
+                collection
+                    .push(super::artifacts::solve_context(
+                        prepared,
+                        self.run_id,
+                        step,
+                    )?)
+                    .await
+                    .map_err(relation)?;
             }
 
             if projection.wants(pse_relations::generated::runtime::route_decisions::RELATION_ID)

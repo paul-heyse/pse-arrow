@@ -11,13 +11,13 @@ use pse_model::generated::{
 };
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore, Revision},
-    canonical_results::ResultRead,
     canonical_execution::{
         AppendAck, AttemptFence, CanonicalAttempt, CanonicalRun, ClosedAttempt, EmptySetAck,
         RESULT_ACKNOWLEDGMENT_BYTES, RESULT_BATCH_BYTES, ResultAcknowledgments, ResultManifest,
         SeedAck, SeedEligibility, TerminalClass, execution_attempt_key, result_batch_key,
         result_payload_digest, result_set_key,
     },
+    canonical_results::ResultRead,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -2524,7 +2524,8 @@ struct SeedCapsule {
 pub struct AdmittedSeed {
     solution: SolutionId,
     header: pse_model::generated::runtime::canonical_result_seeds::Row,
-    assessment: Arc<pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>>,
+    assessment:
+        Arc<pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>>,
     pub(crate) start: Arc<pse_columnar::Leased<WarmStart>>,
     pub(crate) prediction:
         Option<Arc<pse_columnar::Leased<super::modeling::results::PortablePrediction>>>,
@@ -2551,21 +2552,35 @@ fn decode_admitted_seed(
     solution: SolutionId,
     row: pse_model::generated::runtime::canonical_result_seeds::Row,
     payload: SeedDocument,
-    assessment: Arc<pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>>,
+    assessment: Arc<
+        pse_columnar::Leased<pse_model::generated::runtime::candidate_assessments::Row>,
+    >,
     owner: Arc<pse_columnar::AllocationLease>,
 ) -> Result<AdmittedSeed, WorkflowError> {
-    let backend=NativeBackend::try_from(row.backend.as_str()).map_err(|error|contract(error.to_string()))?;
-    let start=WarmStart {
+    let backend = NativeBackend::try_from(row.backend.as_str())
+        .map_err(|error| contract(error.to_string()))?;
+    let start = WarmStart {
         origin: None,
         compatibility: Compatibility {
-            layout: ContentHash::parse_hex(&row.layout).map_err(|error|contract(format!("seed layout: {error}")))?,
-            profile: ContentHash::parse_hex(&row.profile).map_err(|error|contract(format!("seed profile: {error}")))?,
-            data: ContentHash::parse_hex(&row.data).map_err(|error|contract(format!("seed data: {error}")))?,
+            layout: ContentHash::parse_hex(&row.layout)
+                .map_err(|error| contract(format!("seed layout: {error}")))?,
+            profile: ContentHash::parse_hex(&row.profile)
+                .map_err(|error| contract(format!("seed profile: {error}")))?,
+            data: ContentHash::parse_hex(&row.data)
+                .map_err(|error| contract(format!("seed data: {error}")))?,
             backend,
         },
-        payload:warm_payload(payload.warm),
+        payload: warm_payload(payload.warm),
     };
-    Ok(AdmittedSeed { solution,header:row,assessment,start:Arc::new(pse_columnar::Leased::new(Arc::new(start),owner.clone())),prediction:payload.prediction.map(|point|Arc::new(pse_columnar::Leased::new(Arc::new(point),owner.clone()))) })
+    Ok(AdmittedSeed {
+        solution,
+        header: row,
+        assessment,
+        start: Arc::new(pse_columnar::Leased::new(Arc::new(start), owner.clone())),
+        prediction: payload
+            .prediction
+            .map(|point| Arc::new(pse_columnar::Leased::new(Arc::new(point), owner.clone()))),
+    })
 }
 fn bits(values: &[f64]) -> Vec<u64> {
     values.iter().map(|v| v.to_bits()).collect()
@@ -2906,8 +2921,17 @@ impl Operations {
             ));
         }
         use pse_model::HeapUsage;
-        let assessment_owner = reserve(&self.pool, assessment.heap_bytes().checked_add(size_of_val(assessment)).ok_or_else(|| contract("seed assessment extent"))?)?;
-        let assessment = Arc::new(pse_columnar::Leased::new(Arc::new(assessment.clone()), assessment_owner));
+        let assessment_owner = reserve(
+            &self.pool,
+            assessment
+                .heap_bytes()
+                .checked_add(size_of_val(assessment))
+                .ok_or_else(|| contract("seed assessment extent"))?,
+        )?;
+        let assessment = Arc::new(pse_columnar::Leased::new(
+            Arc::new(assessment.clone()),
+            assessment_owner,
+        ));
         let capsule = SeedCapsule {
             version: 1,
             header: row.clone(),
@@ -2919,37 +2943,120 @@ impl Operations {
         Ok((seed, read, capsule))
     }
     /// Promote one freshly qualified original seed to an independent copied capsule.
-    pub async fn promote_seed(&self, solution: SolutionId, owner_kind: &str, owner: &str) -> Result<pse_operations::canonical_artifacts::Artifact, WorkflowError> {
+    pub async fn promote_seed(
+        &self,
+        solution: SolutionId,
+        owner_kind: &str,
+        owner: &str,
+    ) -> Result<pse_operations::canonical_artifacts::Artifact, WorkflowError> {
         let activity = self.store.admit_activity()?;
-        activity.scope(async {
-            let row = self.store.result_seed(&solution.to_string()).await?.ok_or(SeedReadError::Missing { solution })?;
-            let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
-            let sources = self.store.analysis_run_sources(&capsule.header.run).await?;
-            let revision = sources.iter().find(|source|source.key==read.run().revision).ok_or_else(||contract("seed artifact primary source absent"))?;
-            let payload = serde_json::to_vec(&capsule).map_err(|error|contract(error.to_string()))?;
-            let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest)).map_err(|error|contract(error.to_string()))?;
-            let mut artifact = self.store.new_artifact(revision,"seed",provenance,1,payload.len() as u64).await?;
-            let block = pse_operations::canonical_artifacts::artifact_block(&artifact.key,0,"seed-capsule:v1",payload,&capsule.header.digest,1);
-            pse_operations::canonical_artifacts::seal_artifact_request(&mut artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block),owner_kind,owner);
-            Ok(self.store.persist_artifact(&artifact,&sources,std::slice::from_ref(&read),std::slice::from_ref(&block),owner_kind,owner).await?)
-        }).await
+        activity
+            .scope(async {
+                let row = self
+                    .store
+                    .result_seed(&solution.to_string())
+                    .await?
+                    .ok_or(SeedReadError::Missing { solution })?;
+                let (_admitted, read, capsule) = self.load_seed(solution, row).await?;
+                let sources = self.store.analysis_run_sources(&capsule.header.run).await?;
+                let revision = sources
+                    .iter()
+                    .find(|source| source.key == read.run().revision)
+                    .ok_or_else(|| contract("seed artifact primary source absent"))?;
+                let payload =
+                    serde_json::to_vec(&capsule).map_err(|error| contract(error.to_string()))?;
+                let provenance = serde_json::to_vec(&(1_u8, &capsule.header, &capsule.manifest))
+                    .map_err(|error| contract(error.to_string()))?;
+                let mut artifact = self
+                    .store
+                    .new_artifact(revision, "seed", provenance, 1, payload.len() as u64)
+                    .await?;
+                let block = pse_operations::canonical_artifacts::artifact_block(
+                    &artifact.key,
+                    0,
+                    "seed-capsule:v1",
+                    payload,
+                    &capsule.header.digest,
+                    1,
+                );
+                pse_operations::canonical_artifacts::seal_artifact_request(
+                    &mut artifact,
+                    &sources,
+                    std::slice::from_ref(&read),
+                    std::slice::from_ref(&block),
+                    owner_kind,
+                    owner,
+                );
+                Ok(self
+                    .store
+                    .persist_artifact(
+                        &artifact,
+                        &sources,
+                        std::slice::from_ref(&read),
+                        std::slice::from_ref(&block),
+                        owner_kind,
+                        owner,
+                    )
+                    .await?)
+            })
+            .await
     }
     /// Acquire a retained independent seed. Producer result metadata is never consulted.
     pub async fn artifact_seed(&self, artifact: &str) -> Result<AdmittedSeed, WorkflowError> {
         let activity = self.store.admit_activity()?;
-        activity.scope(async {
-            let read = self.store.read_artifact(artifact,Duration::from_secs(60)).await?;
-            if read.header().kind!="seed" || read.header().block_count!=1 { return Err(contract("artifact is not a seed capsule")); }
-            let block = read.block(0).await?;
-            let owner = reserve(&self.pool, block.payload.len().checked_mul(4).ok_or_else(||contract("seed capsule decode extent"))?)?;
-            let capsule:SeedCapsule=serde_json::from_slice(&block.payload).map_err(|error|contract(error.to_string()))?;
-            if capsule.version!=1 || capsule.document.version!=1 || !capsule.assessment.permits_seed || capsule.header.digest!=block.original_digest || capsule.manifest.attempt!=capsule.header.attempt || capsule.manifest.generation!=capsule.header.attempt_generation { return Err(contract("retained seed scientific witness differs")); }
-            if let Some(point)=&capsule.document.prediction && (!capsule.assessment.permits_result || point.permission.usability!=capsule.assessment.usability || !point.permission.permits_use()) { return Err(contract("retained prediction permission differs")); }
-            let solution=SemanticId::parse_hex(&capsule.header.key).map(SolutionId::from_id).map_err(|error|contract(error.to_string()))?;
-            let assessment=Arc::new(pse_columnar::Leased::new(Arc::new(capsule.assessment),owner.clone()));
-            read.release().await?;
-            decode_admitted_seed(solution,capsule.header,capsule.document,assessment,owner)
-        }).await
+        activity
+            .scope(async {
+                let read = self
+                    .store
+                    .read_artifact(artifact, Duration::from_secs(60))
+                    .await?;
+                if read.header().kind != "seed" || read.header().block_count != 1 {
+                    return Err(contract("artifact is not a seed capsule"));
+                }
+                let block = read.block(0).await?;
+                let owner = reserve(
+                    &self.pool,
+                    block
+                        .payload
+                        .len()
+                        .checked_mul(4)
+                        .ok_or_else(|| contract("seed capsule decode extent"))?,
+                )?;
+                let capsule: SeedCapsule = serde_json::from_slice(&block.payload)
+                    .map_err(|error| contract(error.to_string()))?;
+                if capsule.version != 1
+                    || capsule.document.version != 1
+                    || !capsule.assessment.permits_seed
+                    || capsule.header.digest != block.original_digest
+                    || capsule.manifest.attempt != capsule.header.attempt
+                    || capsule.manifest.generation != capsule.header.attempt_generation
+                {
+                    return Err(contract("retained seed scientific witness differs"));
+                }
+                if let Some(point) = &capsule.document.prediction
+                    && (!capsule.assessment.permits_result
+                        || point.permission.usability != capsule.assessment.usability
+                        || !point.permission.permits_use())
+                {
+                    return Err(contract("retained prediction permission differs"));
+                }
+                let solution = SemanticId::parse_hex(&capsule.header.key)
+                    .map(SolutionId::from_id)
+                    .map_err(|error| contract(error.to_string()))?;
+                let assessment = Arc::new(pse_columnar::Leased::new(
+                    Arc::new(capsule.assessment),
+                    owner.clone(),
+                ));
+                read.release().await?;
+                decode_admitted_seed(
+                    solution,
+                    capsule.header,
+                    capsule.document,
+                    assessment,
+                    owner,
+                )
+            })
+            .await
     }
     /// Acquire one explicitly selected original seed and its optional prediction once.
     pub async fn seed(&self, solution: SolutionId) -> Result<AdmittedSeed, WorkflowError> {
@@ -4352,10 +4459,7 @@ mod canonical_durable_codec {
         unsafe_code,
         reason = "native mechanism fixture records truthful failed observations only"
     )]
-    async fn admit(
-        operations: &Operations,
-        fence: &AttemptFence,
-    ) -> ResultRead {
+    async fn admit(operations: &Operations, fence: &AttemptFence) -> ResultRead {
         let closed = operations
             .store
             .close_result_ingestion(fence, "codec-close")

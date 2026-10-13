@@ -439,7 +439,10 @@ impl Runtime {
                 let key = study_id.to_string();
                 let mut admitted_seeds = BTreeMap::new();
                 let mut seed_lane = super::study_operations::StudyPreparationLane::new();
-                let mut seed_preparation: Option<((pse_ids::ContentHash, Vec<String>, Vec<SemanticId>), super::ModelingSolvePreparation)> = None;
+                let mut seed_preparation: Option<(
+                    (pse_ids::ContentHash, Vec<String>, Vec<SemanticId>),
+                    super::ModelingSolvePreparation,
+                )> = None;
                 let mut admission = None;
                 for point in &definition.points {
                     creation_checkpoint(cancel)?;
@@ -462,19 +465,48 @@ impl Runtime {
                             "study seed consumption differs from its scientific owner",
                         ));
                     }
-                    if let pse_model::study::StartPolicy::Explicit { seed, .. } = &point.policy.start {
+                    if let pse_model::study::StartPolicy::Explicit { seed, .. } =
+                        &point.policy.start
+                    {
                         if !admitted_seeds.contains_key(seed) {
                             let selected = creation_input(cancel, operations.seed(*seed)).await?;
                             admitted_seeds.insert(*seed, selected);
                         }
-                        let target_key=super::study_operations::DeclaredStudyAdmission::binding_key(&point.operation,&point.binding)?;
-                        if !seed_preparation.as_ref().is_some_and(|(key,_)|key==&target_key) {
-                            let target=creation_effect(cancel,seed_lane.prepare(&package,&point.operation,&point.binding,cancel)).await?;
-                            let super::PreparedStudyOperation::DeclaredCase(target)=target else { return Err(contract("explicit study seed requires a declared scientific case")); };
-                            seed_preparation=Some((target_key,*target));
+                        let target_key =
+                            super::study_operations::DeclaredStudyAdmission::binding_key(
+                                &point.operation,
+                                &point.binding,
+                            )?;
+                        if !seed_preparation
+                            .as_ref()
+                            .is_some_and(|(key, _)| key == &target_key)
+                        {
+                            let target = creation_effect(
+                                cancel,
+                                seed_lane.prepare(
+                                    &package,
+                                    &point.operation,
+                                    &point.binding,
+                                    cancel,
+                                ),
+                            )
+                            .await?;
+                            let super::PreparedStudyOperation::DeclaredCase(target) = target else {
+                                return Err(contract(
+                                    "explicit study seed requires a declared scientific case",
+                                ));
+                            };
+                            seed_preparation = Some((target_key, *target));
                         }
-                        let target=&seed_preparation.as_ref().ok_or_else(||contract("study seed target absent"))?.1;
-                        target.clone().with_admitted_start(admitted_seeds.get(seed).ok_or_else(||contract("study explicit seed absent"))?)?;
+                        let target = &seed_preparation
+                            .as_ref()
+                            .ok_or_else(|| contract("study seed target absent"))?
+                            .1;
+                        target.clone().with_admitted_start(
+                            admitted_seeds
+                                .get(seed)
+                                .ok_or_else(|| contract("study explicit seed absent"))?,
+                        )?;
                     }
                 }
                 drop(seed_preparation);
@@ -541,32 +573,51 @@ impl Runtime {
                     })
                     .collect::<Result<Vec<_>, WorkflowError>>()?;
                 let creation = async {
-                for solution in admitted_seeds.keys() {
-                    creation_checkpoint(cancel)?;
-                    let artifact=creation_effect(cancel,operations.promote_seed(*solution,"study",&key)).await?;
-                    creation_effect(cancel,self.canonical_store().retain_study_input(&key,&solution.to_string(),&artifact.key)).await?;
+                    for solution in admitted_seeds.keys() {
+                        creation_checkpoint(cancel)?;
+                        let artifact = creation_effect(
+                            cancel,
+                            operations.promote_seed(*solution, "study", &key),
+                        )
+                        .await?;
+                        creation_effect(
+                            cancel,
+                            self.canonical_store().retain_study_input(
+                                &key,
+                                &solution.to_string(),
+                                &artifact.key,
+                            ),
+                        )
+                        .await?;
+                    }
+                    let activated = self
+                        .canonical_store()
+                        .create_study(&key, &request, &metadata, &points, &|| {
+                            cancel.token().is_cancelled()
+                        })
+                        .await?;
+                    if activated.is_none() {
+                        creation_checkpoint(cancel)?;
+                        return Err(contract("inactive study creation was interrupted"));
+                    }
+                    Ok::<(), WorkflowError>(())
                 }
-                let activated = self
-                    .canonical_store()
-                    .create_study(&key, &request, &metadata, &points, &|| {
-                        cancel.token().is_cancelled()
-                    })
-                    .await?;
-                if activated.is_none() {
-                    creation_checkpoint(cancel)?;
-                    return Err(contract("inactive study creation was interrupted"));
-                }
-                Ok::<(),WorkflowError>(())
-                }.await;
-                if let Err(source)=creation {
+                .await;
+                if let Err(source) = creation {
                     // Issued effects are awaited. Absence is proved under the same
                     // study guard before permanent abandonment; a header is never
                     // inferred inactive or fabricated terminal by this route.
                     loop {
                         match self.canonical_store().abandon_study_inputs(&key).await {
-                            Ok(true)=>return Err(source),
-                            Ok(false)=>continue,
-                            Err(cleanup)=>return Err(WorkflowError::StudyCreationUnsettled {study:study_id,source:Box::new(source),cleanup:Box::new(cleanup)}),
+                            Ok(true) => return Err(source),
+                            Ok(false) => continue,
+                            Err(cleanup) => {
+                                return Err(WorkflowError::StudyCreationUnsettled {
+                                    study: study_id,
+                                    source: Box::new(source),
+                                    cleanup: Box::new(cleanup),
+                                });
+                            }
                         }
                     }
                 }
@@ -684,14 +735,18 @@ impl Runtime {
                     start => {
                         let (role, selected) = match start {
                             StartPolicy::Explicit { role, seed } => {
-                                let retained=self.canonical_store().study_input(&point.study,&seed.to_string()).await?;
-                                let selected = match self.operations()?.artifact_seed(&retained).await {
-                                    Ok(admitted) => Some(admitted),
-                                    Err(WorkflowError::SeedRead(
-                                        super::durable::SeedReadError::Missing { .. },
-                                    )) => None,
-                                    Err(error) => return Err(error),
-                                };
+                                let retained = self
+                                    .canonical_store()
+                                    .study_input(&point.study, &seed.to_string())
+                                    .await?;
+                                let selected =
+                                    match self.operations()?.artifact_seed(&retained).await {
+                                        Ok(admitted) => Some(admitted),
+                                        Err(WorkflowError::SeedRead(
+                                            super::durable::SeedReadError::Missing { .. },
+                                        )) => None,
+                                        Err(error) => return Err(error),
+                                    };
                                 (*role, selected)
                             }
                             StartPolicy::Continuation(edge) => {

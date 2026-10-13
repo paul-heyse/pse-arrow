@@ -37,12 +37,17 @@ PRIMITIVES = (
 
 def input_inventory(source: Path) -> dict[str, str]:
     """Bind this fixture's explicit scientific sources without modifying them."""
-    if any(path.is_symlink() for path in (source, *source.parents)) or not source.is_dir():
+    if (
+        any(path.is_symlink() for path in (source, *source.parents))
+        or not source.is_dir()
+    ):
         raise server.SupervisorError("Scientific inputs must be external real files")
     files = {}
     for path in sorted(source.rglob("*")):
         if path.is_symlink() or (not path.is_file() and not path.is_dir()):
-            raise server.SupervisorError("Scientific inputs must be external real files")
+            raise server.SupervisorError(
+                "Scientific inputs must be external real files"
+            )
         if path.is_file():
             files[str(path.relative_to(source))] = server.file_digest(path)
     if not files:

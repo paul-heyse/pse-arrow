@@ -171,7 +171,10 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         source: nodes[0].key.clone(),
         target: nodes[1].key.clone(),
         kind: "incidence".into(),
-        evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
+        evidence_artifact: None,
+        evidence_block: None,
+        evidence_row: None,
+        evidence_field: None,
     };
     seal_analysis_request(
         &mut analysis,
@@ -190,10 +193,37 @@ async fn selected_enforced_relations_refuse_each_missing_endpoint_and_accept_sam
         )
         .await
         .unwrap();
-    let mut artifact=store.new_artifact(&revision,"endpoint-fixture",vec![],1,1).await.unwrap();
-    let block=crate::canonical_artifacts::artifact_block(&artifact.key,0,"fixture",vec![1],"original",1);
-    crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture");
-    store.persist_artifact(&artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture").await.unwrap();
+    let mut artifact = store
+        .new_artifact(&revision, "endpoint-fixture", vec![], 1, 1)
+        .await
+        .unwrap();
+    let block = crate::canonical_artifacts::artifact_block(
+        &artifact.key,
+        0,
+        "fixture",
+        vec![1],
+        "original",
+        1,
+    );
+    crate::canonical_artifacts::seal_artifact_request(
+        &mut artifact,
+        std::slice::from_ref(&revision),
+        &[],
+        std::slice::from_ref(&block),
+        "user",
+        "fixture",
+    );
+    store
+        .persist_artifact(
+            &artifact,
+            std::slice::from_ref(&revision),
+            &[],
+            std::slice::from_ref(&block),
+            "user",
+            "fixture",
+        )
+        .await
+        .unwrap();
     let cases = [
         RelationCase {
             table: "canonical_memberships",
@@ -566,10 +596,37 @@ async fn native_canonical_interval_dereference_and_supplier_plans_report_access_
         )
         .await
         .unwrap();
-    let mut artifact=store.new_artifact(&revision,"endpoint-fixture",vec![],1,1).await.unwrap();
-    let block=crate::canonical_artifacts::artifact_block(&artifact.key,0,"fixture",vec![1],"original",1);
-    crate::canonical_artifacts::seal_artifact_request(&mut artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture");
-    store.persist_artifact(&artifact,std::slice::from_ref(&revision),&[],std::slice::from_ref(&block),"user","fixture").await.unwrap();
+    let mut artifact = store
+        .new_artifact(&revision, "endpoint-fixture", vec![], 1, 1)
+        .await
+        .unwrap();
+    let block = crate::canonical_artifacts::artifact_block(
+        &artifact.key,
+        0,
+        "fixture",
+        vec![1],
+        "original",
+        1,
+    );
+    crate::canonical_artifacts::seal_artifact_request(
+        &mut artifact,
+        std::slice::from_ref(&revision),
+        &[],
+        std::slice::from_ref(&block),
+        "user",
+        "fixture",
+    );
+    store
+        .persist_artifact(
+            &artifact,
+            std::slice::from_ref(&revision),
+            &[],
+            std::slice::from_ref(&block),
+            "user",
+            "fixture",
+        )
+        .await
+        .unwrap();
     let cases = [
         (
             "membership-interval",

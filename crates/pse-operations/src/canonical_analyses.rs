@@ -6,8 +6,8 @@
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, Revision, bounded_query, protected_query},
-    canonical_codec as codec,
     canonical_artifacts::ArtifactRead,
+    canonical_codec as codec,
     generated::surreal as wire,
 };
 use pse_ids::{Frame, FramedHasher};
@@ -506,7 +506,10 @@ mod canonical_analysis_publication_unit {
             source: format!("node-{source}"),
             target: format!("node-{target}"),
             kind: "incidence".into(),
-            evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
+            evidence_artifact: None,
+            evidence_block: None,
+            evidence_row: None,
+            evidence_field: None,
         }
     }
 
@@ -632,7 +635,10 @@ mod canonical_analyses_server_unit {
             source: first.key.clone(),
             target: second.key.clone(),
             kind: "incidence".into(),
-            evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
+            evidence_artifact: None,
+            evidence_block: None,
+            evidence_row: None,
+            evidence_field: None,
         };
         seal_analysis_request(
             &mut header,
@@ -857,7 +863,10 @@ mod canonical_analyses_server_unit {
                 source: nodes[0].key.clone(),
                 target: nodes[1 + n % 127].key.clone(),
                 kind: "incidence".into(),
-                evidence_artifact: None, evidence_block: None, evidence_row: None, evidence_field: None,
+                evidence_artifact: None,
+                evidence_block: None,
+                evidence_row: None,
+                evidence_field: None,
             })
             .collect::<Vec<_>>();
         seal_analysis_request(

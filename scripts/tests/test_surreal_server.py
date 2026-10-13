@@ -5882,8 +5882,16 @@ class SurrealSupervisorTests(unittest.TestCase):
             patch.object(server, "rotate_database_accounts"),
             patch.object(server, "start"),
             patch.object(server, "stop") as stop,
-            patch.object(server.subprocess, "run", return_value=subprocess.CompletedProcess([], 0)),
-            patch.object(server, "validate_interpretation", side_effect=server.SupervisorError("current marker differs")),
+            patch.object(
+                server.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess([], 0),
+            ),
+            patch.object(
+                server,
+                "validate_interpretation",
+                side_effect=server.SupervisorError("current marker differs"),
+            ),
             patch.object(server, "discard_database") as discard,
             self.assertRaisesRegex(server.SupervisorError, "current marker differs"),
         ):

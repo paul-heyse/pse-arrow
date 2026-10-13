@@ -3,11 +3,18 @@
 
 //! Explicit maintenance validation and activation. Ordinary open never calls this.
 
-use super::{CanonicalError, CanonicalStore, WriteAdmission, bounded_query, original_deadline, within_clock, ACTIVATION_REQUEST_TIMEOUT, wire};
-use std::{collections::BTreeMap, path::Path};
+use super::{
+    ACTIVATION_REQUEST_TIMEOUT, CanonicalError, CanonicalStore, WriteAdmission, bounded_query,
+    original_deadline, wire, within_clock,
+};
 use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, path::Path};
 use surrealdb::types::{Object, ToSql, Value};
-use surrealdb_sql::{Expr, ast::TopLevelExpr, statements::{define::DefineKind, DefineStatement}};
+use surrealdb_sql::{
+    Expr,
+    ast::TopLevelExpr,
+    statements::{DefineStatement, define::DefineKind},
+};
 
 /// Exact predecessor, distinct from the generated target and beta schema hash.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -50,27 +57,47 @@ type Definitions = BTreeMap<DefinitionKey, DefineStatement>;
 
 fn sha256(bytes: &[u8]) -> String {
     use sha2::Digest as _;
-    sha2::Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    sha2::Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn invalid(reason: impl Into<String>) -> CanonicalError {
     CanonicalError::Configuration(reason.into())
 }
 
-fn connection_matches(options: &super::CanonicalOptions, config: &serde_json::Value, credentials: &serde_json::Value) -> bool {
+fn connection_matches(
+    options: &super::CanonicalOptions,
+    config: &serde_json::Value,
+    credentials: &serde_json::Value,
+) -> bool {
     config.get("endpoint").and_then(serde_json::Value::as_str) == Some(options.endpoint.as_str())
-        && config.get("namespace").and_then(serde_json::Value::as_str) == Some(options.namespace.as_str())
-        && config.get("database").and_then(serde_json::Value::as_str) == Some(options.database.as_str())
-        && [("username", &options.username), ("password", &options.password), ("selection_username", &options.selection_username), ("selection_password", &options.selection_password)]
-            .iter().all(|(key, value)| credentials.get(*key).and_then(serde_json::Value::as_str) == Some(value.as_str()))
+        && config.get("namespace").and_then(serde_json::Value::as_str)
+            == Some(options.namespace.as_str())
+        && config.get("database").and_then(serde_json::Value::as_str)
+            == Some(options.database.as_str())
+        && [
+            ("username", &options.username),
+            ("password", &options.password),
+            ("selection_username", &options.selection_username),
+            ("selection_password", &options.selection_password),
+        ]
+        .iter()
+        .all(|(key, value)| {
+            credentials.get(*key).and_then(serde_json::Value::as_str) == Some(value.as_str())
+        })
 }
 
 fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
-    let ast = surrealdb_syn::parse(input).map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
+    let ast = surrealdb_syn::parse(input)
+        .map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
     let mut definitions = BTreeMap::new();
     for expression in ast.expressions {
         let TopLevelExpr::Expr(Expr::Define(statement)) = expression else {
-            return Err(invalid("only generated schema declarations may be validated"));
+            return Err(invalid(
+                "only generated schema declarations may be validated",
+            ));
         };
         let mut statement = *statement;
         // These flags affect installation, not the installed definition. Every
@@ -91,7 +118,11 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
             }
             DefineStatement::Function(function) => {
                 function.kind = DefineKind::Default;
-                ("function".into(), String::new(), function.name.as_str().into())
+                (
+                    "function".into(),
+                    String::new(),
+                    function.name.as_str().into(),
+                )
             }
             _ => return Err(invalid("unsupported generated declaration family")),
         };
@@ -104,17 +135,25 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
 fn catalog_map(info: &Object, category: &str) -> Result<Object, CanonicalError> {
     match info.get(category) {
         Some(Value::Object(values)) => Ok(values.clone()),
-        _ => Err(invalid(format!("catalog {category} is absent or malformed"))),
+        _ => Err(invalid(format!(
+            "catalog {category} is absent or malformed"
+        ))),
     }
 }
 
 fn append_catalog(definitions: &mut Definitions, values: &Object) -> Result<(), CanonicalError> {
     for (_, value) in values.iter() {
-        let Value::String(sql) = value else { return Err(invalid("catalog definition is not a string")); };
+        let Value::String(sql) = value else {
+            return Err(invalid("catalog definition is not a string"));
+        };
         let parsed = parse_definitions(sql.as_str())?;
-        if parsed.len() != 1 { return Err(invalid("catalog entry must contain one declaration")); }
+        if parsed.len() != 1 {
+            return Err(invalid("catalog entry must contain one declaration"));
+        }
         for (key, definition) in parsed {
-            if definitions.insert(key, definition).is_some() { return Err(invalid("duplicate installed declaration")); }
+            if definitions.insert(key, definition).is_some() {
+                return Err(invalid("duplicate installed declaration"));
+            }
         }
     }
     Ok(())
@@ -123,11 +162,17 @@ fn append_catalog(definitions: &mut Definitions, values: &Object) -> Result<(), 
 fn compare(expected: &Definitions, observed: &Definitions) -> Result<(), CanonicalError> {
     for (key, definition) in expected {
         if observed.get(key) != Some(definition) {
-            return Err(invalid(format!("installed generated definition differs: {} {} {}", key.0, key.1, key.2)));
+            return Err(invalid(format!(
+                "installed generated definition differs: {} {} {}",
+                key.0, key.1, key.2
+            )));
         }
     }
     if let Some(key) = observed.keys().find(|key| !expected.contains_key(*key)) {
-        return Err(invalid(format!("unexpected managed definition: {} {} {}", key.0, key.1, key.2)));
+        return Err(invalid(format!(
+            "unexpected managed definition: {} {} {}",
+            key.0, key.1, key.2
+        )));
     }
     Ok(())
 }
@@ -135,28 +180,68 @@ fn compare(expected: &Definitions, observed: &Definitions) -> Result<(), Canonic
 impl CanonicalStore {
     fn maintenance_config(&self) -> Result<serde_json::Value, CanonicalError> {
         let admission = WriteAdmission::read(&self.state_path)?;
-        admission.require_initializer(&self.state_path, &self.namespace, &self.database, self.connection_options.initializer_nonce.as_deref())?;
-        let config: serde_json::Value = serde_json::from_slice(&std::fs::read(self.state_path.join("config.json")).map_err(|error| invalid(error.to_string()))?).map_err(|error| invalid(error.to_string()))?;
-        let listener: serde_json::Value = serde_json::from_slice(&std::fs::read(self.state_path.join(".maintenance-listener.json")).map_err(|_| CanonicalError::Quiesced)?).map_err(|_| CanonicalError::Quiesced)?;
-        let owner: serde_json::Value = serde_json::from_slice(&std::fs::read(self.state_path.join("lifecycle-owner.json")).map_err(|_| CanonicalError::Quiesced)?).map_err(|_| CanonicalError::Quiesced)?;
-        if listener.get("owner") != Some(&owner) || listener.get("instance_id") != config.get("instance_id") || listener.get("supervisor") != config.get("service_supervisor") || listener.get("server") != config.get("server") || listener.get("resources") != config.get("resources") {
+        admission.require_initializer(
+            &self.state_path,
+            &self.namespace,
+            &self.database,
+            self.connection_options.initializer_nonce.as_deref(),
+        )?;
+        let config: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(self.state_path.join("config.json"))
+                .map_err(|error| invalid(error.to_string()))?,
+        )
+        .map_err(|error| invalid(error.to_string()))?;
+        let listener: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(self.state_path.join(".maintenance-listener.json"))
+                .map_err(|_| CanonicalError::Quiesced)?,
+        )
+        .map_err(|_| CanonicalError::Quiesced)?;
+        let owner: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(self.state_path.join("lifecycle-owner.json"))
+                .map_err(|_| CanonicalError::Quiesced)?,
+        )
+        .map_err(|_| CanonicalError::Quiesced)?;
+        if listener.get("owner") != Some(&owner)
+            || listener.get("instance_id") != config.get("instance_id")
+            || listener.get("supervisor") != config.get("service_supervisor")
+            || listener.get("server") != config.get("server")
+            || listener.get("resources") != config.get("resources")
+        {
             return Err(CanonicalError::Quiesced);
         }
-        let credentials = std::fs::read(self.state_path.join("credentials.json")).map_err(|_| CanonicalError::Quiesced)?;
-        let credential_document: serde_json::Value = serde_json::from_slice(&credentials).map_err(|_| CanonicalError::Quiesced)?;
-        if !connection_matches(&self.connection_options, &config, &credential_document) { return Err(CanonicalError::Quiesced); }
+        let credentials = std::fs::read(self.state_path.join("credentials.json"))
+            .map_err(|_| CanonicalError::Quiesced)?;
+        let credential_document: serde_json::Value =
+            serde_json::from_slice(&credentials).map_err(|_| CanonicalError::Quiesced)?;
+        if !connection_matches(&self.connection_options, &config, &credential_document) {
+            return Err(CanonicalError::Quiesced);
+        }
         let digest = sha256(&credentials);
-        if listener.get("credentials_sha256").and_then(serde_json::Value::as_str) != Some(digest.as_str()) { return Err(CanonicalError::Quiesced); }
+        if listener
+            .get("credentials_sha256")
+            .and_then(serde_json::Value::as_str)
+            != Some(digest.as_str())
+        {
+            return Err(CanonicalError::Quiesced);
+        }
         Ok(config)
     }
 
     async fn maintenance_marker(&self) -> Result<Option<Marker>, CanonicalError> {
-        let mut response = bounded_query(self.db.query("SELECT * FROM ONLY canonical_interpretations:current;")).await?;
+        let mut response = bounded_query(
+            self.db
+                .query("SELECT * FROM ONLY canonical_interpretations:current;"),
+        )
+        .await?;
         match response.take::<Value>(0)? {
             Value::None | Value::Null => Ok(None),
             Value::Object(object) => {
                 let marker = wire::decode_canonical_interpretations(object)?;
-                Ok(Some(Marker { interpretation: marker.interpretation, schema_digest: marker.schema_digest, issuing_store: marker.issuing_store }))
+                Ok(Some(Marker {
+                    interpretation: marker.interpretation,
+                    schema_digest: marker.schema_digest,
+                    issuing_store: marker.issuing_store,
+                }))
             }
             _ => Err(CanonicalError::IncompleteResponse),
         }
@@ -165,62 +250,132 @@ impl CanonicalStore {
     /// Check every managed installed definition with the exact server's parse-only AST.
     /// This never installs schema, changes a marker or opens write admission.
     pub async fn validate_definitions(&self) -> Result<DefinitionWitness, CanonicalError> {
-        self.validate_definition_inputs(&[wire::SCHEMA.to_owned()], "generated-target").await
+        self.validate_definition_inputs(&[wire::SCHEMA.to_owned()], "generated-target")
+            .await
     }
 
     /// Observe a producer-selected phase postcondition. This read-only result is
     /// explicitly distinct from the fixed generated target required for activation.
-    pub async fn validate_definition_files(&self, files: &[std::path::PathBuf]) -> Result<DefinitionWitness, CanonicalError> {
-        if files.is_empty() || files.len()>2 { return Err(invalid("one target or ordered source/target inputs required")); }
-        let mut inputs=Vec::new();
+    pub async fn validate_definition_files(
+        &self,
+        files: &[std::path::PathBuf],
+    ) -> Result<DefinitionWitness, CanonicalError> {
+        if files.is_empty() || files.len() > 2 {
+            return Err(invalid(
+                "one target or ordered source/target inputs required",
+            ));
+        }
+        let mut inputs = Vec::new();
         for file in files {
-            let bytes=std::fs::read(file).map_err(|error| invalid(error.to_string()))?;
-            if bytes.len()>super::PAYLOAD_BYTES { return Err(CanonicalError::PayloadLimit); }
+            let bytes = std::fs::read(file).map_err(|error| invalid(error.to_string()))?;
+            if bytes.len() > super::PAYLOAD_BYTES {
+                return Err(CanonicalError::PayloadLimit);
+            }
             inputs.push(String::from_utf8(bytes).map_err(|error| invalid(error.to_string()))?);
         }
-        self.validate_definition_inputs(&inputs,"rollout-phase").await
+        self.validate_definition_inputs(&inputs, "rollout-phase")
+            .await
     }
 
-    async fn validate_definition_inputs(&self, inputs: &[String], scope: &str) -> Result<DefinitionWitness, CanonicalError> {
+    async fn validate_definition_inputs(
+        &self,
+        inputs: &[String],
+        scope: &str,
+    ) -> Result<DefinitionWitness, CanonicalError> {
         let activity = self.admit_activity()?;
-        activity.scope(async {
-            within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
-                let config = self.maintenance_config()?;
-                let mut expected = BTreeMap::new();
-                for input in inputs { expected.extend(parse_definitions(input)?); }
-                let info = self.database_inventory().await?.ok_or_else(|| invalid("selected database absent"))?;
-                let tables = catalog_map(&info, "tables")?;
-                let functions = catalog_map(&info, "functions")?;
-                let mut observed = BTreeMap::new();
-                let managed_tables: Object = tables.iter().filter(|(name,_)| name.starts_with("canonical_")).map(|(name,value)| (name.clone(),value.clone())).collect();
-                append_catalog(&mut observed, &managed_tables)?;
-                let managed_functions: Object = functions.iter().filter(|(name,_)| name.trim_start_matches("fn::").starts_with("pse_")).map(|(name,value)| (name.clone(),value.clone())).collect();
-                append_catalog(&mut observed, &managed_functions)?;
-                for (name, _) in managed_tables.iter() {
-                    if !name.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_') { return Err(invalid("managed table identifier differs")); }
-                    self.maintenance_config()?;
-                    let mut response = bounded_query(self.db.query(format!("INFO FOR TABLE {name};"))).await?;
-                    let Value::Object(table_info) = response.take::<Value>(0)? else { return Err(CanonicalError::IncompleteResponse); };
-                    append_catalog(&mut observed, &catalog_map(&table_info, "fields")?)?;
-                    append_catalog(&mut observed, &catalog_map(&table_info, "indexes")?)?;
-                    for category in ["events", "lives"] {
-                        if let Some(Value::Object(entries)) = table_info.get(category) {
-                            if !entries.is_empty() { return Err(invalid(format!("unowned {category} on managed table {name}"))); }
+        activity
+            .scope(async {
+                within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
+                    let config = self.maintenance_config()?;
+                    let mut expected = BTreeMap::new();
+                    for input in inputs {
+                        expected.extend(parse_definitions(input)?);
+                    }
+                    let info = self
+                        .database_inventory()
+                        .await?
+                        .ok_or_else(|| invalid("selected database absent"))?;
+                    let tables = catalog_map(&info, "tables")?;
+                    let functions = catalog_map(&info, "functions")?;
+                    let mut observed = BTreeMap::new();
+                    let managed_tables: Object = tables
+                        .iter()
+                        .filter(|(name, _)| name.starts_with("canonical_"))
+                        .map(|(name, value)| (name.clone(), value.clone()))
+                        .collect();
+                    append_catalog(&mut observed, &managed_tables)?;
+                    let managed_functions: Object = functions
+                        .iter()
+                        .filter(|(name, _)| name.trim_start_matches("fn::").starts_with("pse_"))
+                        .map(|(name, value)| (name.clone(), value.clone()))
+                        .collect();
+                    append_catalog(&mut observed, &managed_functions)?;
+                    for (name, _) in managed_tables.iter() {
+                        if !name
+                            .bytes()
+                            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                        {
+                            return Err(invalid("managed table identifier differs"));
+                        }
+                        self.maintenance_config()?;
+                        let mut response =
+                            bounded_query(self.db.query(format!("INFO FOR TABLE {name};"))).await?;
+                        let Value::Object(table_info) = response.take::<Value>(0)? else {
+                            return Err(CanonicalError::IncompleteResponse);
+                        };
+                        append_catalog(&mut observed, &catalog_map(&table_info, "fields")?)?;
+                        append_catalog(&mut observed, &catalog_map(&table_info, "indexes")?)?;
+                        for category in ["events", "lives"] {
+                            if let Some(Value::Object(entries)) = table_info.get(category) {
+                                if !entries.is_empty() {
+                                    return Err(invalid(format!(
+                                        "unowned {category} on managed table {name}"
+                                    )));
+                                }
+                            }
                         }
                     }
-                }
-                compare(&expected, &observed)?;
-                let previous_marker = self.maintenance_marker().await?;
-                if self.maintenance_config()? != config { return Err(CanonicalError::Quiesced); }
-                Ok(DefinitionWitness { scope: scope.into(), definition_inputs: inputs.iter().map(|input|sha256(input.as_bytes())).collect(), interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), namespace: self.namespace.clone(), database: self.database.clone(), instance_id: config.get("instance_id").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("instance identity absent"))?.into(), initializer_nonce: self.connection_options.initializer_nonce.clone().ok_or(CanonicalError::Quiesced)?, catalog_definition_count: expected.len(), previous_marker })
-            }).await
-        }).await
+                    compare(&expected, &observed)?;
+                    let previous_marker = self.maintenance_marker().await?;
+                    if self.maintenance_config()? != config {
+                        return Err(CanonicalError::Quiesced);
+                    }
+                    Ok(DefinitionWitness {
+                        scope: scope.into(),
+                        definition_inputs: inputs
+                            .iter()
+                            .map(|input| sha256(input.as_bytes()))
+                            .collect(),
+                        interpretation: wire::INTERPRETATION.into(),
+                        schema_digest: wire::SCHEMA_DIGEST.into(),
+                        namespace: self.namespace.clone(),
+                        database: self.database.clone(),
+                        instance_id: config
+                            .get("instance_id")
+                            .and_then(serde_json::Value::as_str)
+                            .ok_or_else(|| invalid("instance identity absent"))?
+                            .into(),
+                        initializer_nonce: self
+                            .connection_options
+                            .initializer_nonce
+                            .clone()
+                            .ok_or(CanonicalError::Quiesced)?,
+                        catalog_definition_count: expected.len(),
+                        previous_marker,
+                    })
+                })
+                .await
+            })
+            .await
     }
 
     /// Publish the generated target only after the exact production owner settled it.
     /// A fresh installation receives fresh issuing authority. Forward activation
     /// preserves authority only under the same scientific interpretation.
-    pub async fn activate_definitions(&self, settlement_path: &Path) -> Result<DefinitionWitness, CanonicalError> {
+    pub async fn activate_definitions(
+        &self,
+        settlement_path: &Path,
+    ) -> Result<DefinitionWitness, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
             within_clock(original_deadline(ACTIVATION_REQUEST_TIMEOUT), async {
@@ -296,37 +451,55 @@ mod tests {
     #[test]
     fn maintenance_authority_binds_original_connection_and_credentials() {
         let options = super::super::CanonicalOptions {
-            endpoint: "ws://127.0.0.1:12345".into(), namespace: "selected".into(), database: "selected".into(),
-            username: "owner".into(), password: "private".into(), selection_username: "reader".into(), selection_password: "private-reader".into(),
-            state_path: std::path::PathBuf::new(), initializer_nonce: Some("nonce".into()),
+            endpoint: "ws://127.0.0.1:12345".into(),
+            namespace: "selected".into(),
+            database: "selected".into(),
+            username: "owner".into(),
+            password: "private".into(),
+            selection_username: "reader".into(),
+            selection_password: "private-reader".into(),
+            state_path: std::path::PathBuf::new(),
+            initializer_nonce: Some("nonce".into()),
         };
         let config = serde_json::json!({"endpoint":options.endpoint,"namespace":options.namespace,"database":options.database});
         let credentials = serde_json::json!({"username":options.username,"password":options.password,"selection_username":options.selection_username,"selection_password":options.selection_password});
         assert!(connection_matches(&options, &config, &credentials));
         for key in ["endpoint", "namespace", "database"] {
-            let mut changed=config.clone(); changed[key]=serde_json::json!("foreign");
-            assert!(!connection_matches(&options,&changed,&credentials));
+            let mut changed = config.clone();
+            changed[key] = serde_json::json!("foreign");
+            assert!(!connection_matches(&options, &changed, &credentials));
         }
-        for key in ["username", "password", "selection_username", "selection_password"] {
-            let mut changed=credentials.clone(); changed[key]=serde_json::json!("foreign");
-            assert!(!connection_matches(&options,&config,&changed));
+        for key in [
+            "username",
+            "password",
+            "selection_username",
+            "selection_password",
+        ] {
+            let mut changed = credentials.clone();
+            changed[key] = serde_json::json!("foreign");
+            assert!(!connection_matches(&options, &config, &changed));
         }
     }
     #[test]
     fn catalog_comparison_preserves_assertions_permissions_and_numeric_meaning() {
         let expected = parse_definitions("DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;").unwrap();
         let equivalent = parse_definitions("DEFINE TABLE OVERWRITE canonical_probe TYPE NORMAL SCHEMAFULL PERMISSIONS NONE; DEFINE FIELD OVERWRITE value ON canonical_probe TYPE int ASSERT $value > 1 PERMISSIONS FULL;").unwrap();
-        compare(&expected,&equivalent).unwrap();
-        for changed in ["DEFINE TABLE canonical_probe TYPE ANY SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;", "DEFINE TABLE canonical_probe SCHEMALESS; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;", "DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 0;", "DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1 PERMISSIONS NONE;"] {
-            assert!(compare(&expected,&parse_definitions(changed).unwrap()).is_err());
+        compare(&expected, &equivalent).unwrap();
+        for changed in [
+            "DEFINE TABLE canonical_probe TYPE ANY SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;",
+            "DEFINE TABLE canonical_probe SCHEMALESS; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1;",
+            "DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 0;",
+            "DEFINE TABLE canonical_probe SCHEMAFULL; DEFINE FIELD value ON canonical_probe TYPE int ASSERT $value > 1 PERMISSIONS NONE;",
+        ] {
+            assert!(compare(&expected, &parse_definitions(changed).unwrap()).is_err());
         }
     }
     #[test]
     fn catalog_parser_refuses_data_effects_and_retains_function_semantics() {
         assert!(parse_definitions("CREATE canonical_probe:one;").is_err());
-        let original=parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 1; };").unwrap();
-        let changed=parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 2; };").unwrap();
-        assert!(compare(&original,&changed).is_err());
+        let original = parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 1; };").unwrap();
+        let changed = parse_definitions("DEFINE FUNCTION fn::pse_probe() { RETURN 2; };").unwrap();
+        assert!(compare(&original, &changed).is_err());
         assert!(!parse_definitions(wire::SCHEMA).unwrap().is_empty());
     }
 }

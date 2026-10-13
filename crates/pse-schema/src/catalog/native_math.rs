@@ -49,10 +49,14 @@ fn fit_id(doc: &'static str) -> T {
         .optional()
 }
 pub(super) fn declare(b: &mut RegistryBuilder) {
-    let coordinate=record(vec![
-        ("id",T::id()),("quantity_id",T::id()),("unit_id",T::id()),
-        ("scale",real()),("offset",real()),
-    ]).named("ScientificArtifactCoordinate");
+    let coordinate = record(vec![
+        ("id", T::id()),
+        ("quantity_id", T::id()),
+        ("unit_id", T::id()),
+        ("scale", real()),
+        ("offset", real()),
+    ])
+    .named("ScientificArtifactCoordinate");
     relation(b,N::Runtime,"scientific_contexts",S::Derived,&["run_id","step"],vec![
         run_id(),column("step",ordinal()),
         model_id("Original specialized model interpreted by the producer; absent for a fit spanning different definitions.").optional(),
@@ -1507,8 +1511,8 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
             column("event_id", T::id()).optional(),
             column("time", real()),
             column("mode", ordinal()),
-            column("mode_name",text()),
-            column("mode_identity",T::hash()),
+            column("mode_name", text()),
+            column("mode_identity", T::hash()),
             column("state_ids", T::list(T::id())),
             column("input_ids", T::list(T::id())),
             column("output_ids", T::list(T::id())),

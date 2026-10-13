@@ -24,7 +24,7 @@ impl RunResult {
         let RunRequest::Fit(p) = &self.request else {
             return Err(contract("fit request mismatch"));
         };
-        let prepared=p;
+        let prepared = p;
         let p = &prepared.problem;
         let report = match &self.report {
             Ok(RunReport::Fit(r)) => Some(r),
@@ -35,11 +35,24 @@ impl RunResult {
         let validation = self.runtime.validation_context();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let mut context=crate::workflow::result_export::Rows::<pse_model::generated::runtime::scientific_contexts::Row>::new(request,registry,&pool,&cancel,&validation).map_err(relation)?;
-        if request.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID) && !context.skip_next() {
+        let mut context = crate::workflow::result_export::Rows::<
+            pse_model::generated::runtime::scientific_contexts::Row,
+        >::new(request, registry, &pool, &cancel, &validation)
+        .map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID)
+            && !context.skip_next()
+        {
             use pse_model::HeapUsage;
-            let _copy=context.working(&[(p.parameter_ports.len(),96),(p.measurements.len(),256),(p.declaration.heap_bytes(),2),(1,65536)])?;
-            context.push(prepared.scientific_context(self.run_id)?).await.map_err(relation)?;
+            let _copy = context.working(&[
+                (p.parameter_ports.len(), 96),
+                (p.measurements.len(), 256),
+                (p.declaration.heap_bytes(), 2),
+                (1, 65536),
+            ])?;
+            context
+                .push(prepared.scientific_context(self.run_id)?)
+                .await
+                .map_err(relation)?;
         }
         context.finish().await.map_err(relation)?;
         let mut header = crate::workflow::result_export::Rows::<computation_runs::Row>::new(

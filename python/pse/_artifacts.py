@@ -6,7 +6,7 @@ from typing import Literal
 
 import attrs
 
-from pse._build import _NativeScientificArtifact, _NativeArtifactSettlement
+from pse._build import _NativeArtifactSettlement, _NativeScientificArtifact
 from pse._inspection import TableStream
 
 ScientificArtifactKind = Literal["final-state", "trajectory", "local-analysis"]

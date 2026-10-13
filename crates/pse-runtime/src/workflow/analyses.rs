@@ -306,7 +306,7 @@ impl Runtime {
                 .str(source)
                 .str(target)
                 .str(kind)
-                .part(&serde_json::to_vec(evidence).map_err(|error|contract(error.to_string()))?);
+                .part(&serde_json::to_vec(evidence).map_err(|error| contract(error.to_string()))?);
         }
         let input_digest = input_hash.finish_hash().to_hex();
         let mut header = self
@@ -347,7 +347,8 @@ impl Runtime {
                 .get(&target)
                 .ok_or_else(|| contract("analysis target absent"))?
                 .clone();
-            let evidence_bytes=serde_json::to_vec(&evidence).map_err(|error|contract(error.to_string()))?;
+            let evidence_bytes =
+                serde_json::to_vec(&evidence).map_err(|error| contract(error.to_string()))?;
             let edge_key = analysis_key(
                 "pse.analysis.edge.v1",
                 &[
@@ -364,10 +365,10 @@ impl Runtime {
                 source,
                 target,
                 kind,
-                evidence_artifact:evidence.as_ref().map(|locator|locator.artifact.clone()),
-                evidence_block:evidence.as_ref().map(|locator|locator.block),
-                evidence_row:evidence.as_ref().and_then(|locator|locator.row),
-                evidence_field:evidence.and_then(|locator|locator.field),
+                evidence_artifact: evidence.as_ref().map(|locator| locator.artifact.clone()),
+                evidence_block: evidence.as_ref().map(|locator| locator.block),
+                evidence_row: evidence.as_ref().and_then(|locator| locator.row),
+                evidence_field: evidence.and_then(|locator| locator.field),
             });
         }
         pse_operations::canonical_analyses::seal_analysis_request(
@@ -721,7 +722,17 @@ mod canonical_analyses_server_unit {
         assert!(quantified[0].dual.is_none());
         let run = result.canonical_run_key().unwrap();
         let attempt = result.canonical_attempt_key().unwrap();
-        let final_state=runtime.promote_scientific_artifact(run,attempt,super::super::artifacts::ScientificArtifactKind::FinalState,"user","retained-final-state",CancellationToken::new()).await.unwrap();
+        let final_state = runtime
+            .promote_scientific_artifact(
+                run,
+                attempt,
+                super::super::artifacts::ScientificArtifactKind::FinalState,
+                "user",
+                "retained-final-state",
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
         let post = runtime
             .result_analysis(
                 run,
@@ -752,11 +763,10 @@ mod canonical_analyses_server_unit {
         let evidence = edges
             .iter()
             .find(|edge| edge.kind == "retained_parametric_primal")
-            .unwrap()
-            ;
+            .unwrap();
         assert!(evidence.evidence_artifact.is_some());
-        assert_eq!(evidence.evidence_row,Some(0));
-        assert_eq!(evidence.evidence_field.as_deref(),Some("primal"));
+        assert_eq!(evidence.evidence_row, Some(0));
+        assert_eq!(evidence.evidence_field.as_deref(), Some("primal"));
         assert!(
             !edges
                 .iter()
@@ -776,24 +786,64 @@ mod canonical_analyses_server_unit {
                 .await
                 .is_err()
         );
-        let mut retired=false;
+        let mut retired = false;
         for _ in 0..32 {
-            if runtime.canonical_store().forget_run_results(run).await.is_ok() {retired=true;break;}
+            if runtime
+                .canonical_store()
+                .forget_run_results(run)
+                .await
+                .is_ok()
+            {
+                retired = true;
+                break;
+            }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        assert!(retired,"independent graph evidence does not retain the producer run");
-        let final_read=runtime.canonical_store().read_artifact(&final_state.header().key,Duration::from_secs(10)).await.unwrap();
-        let mut preserved_variables=false;
+        assert!(
+            retired,
+            "independent graph evidence does not retain the producer run"
+        );
+        let final_read = runtime
+            .canonical_store()
+            .read_artifact(&final_state.header().key, Duration::from_secs(10))
+            .await
+            .unwrap();
+        let mut preserved_variables = false;
         for ordinal in 0..final_state.header().block_count {
-            let block=final_read.block(ordinal).await.unwrap();
-            if block.relation=="runtime.solve_variables" {preserved_variables|=block.rows>0;assert!(final_state.block(ordinal,CancellationToken::new()).await.is_ok());}
+            let block = final_read.block(ordinal).await.unwrap();
+            if block.relation == "runtime.solve_variables" {
+                preserved_variables |= block.rows > 0;
+                assert!(
+                    final_state
+                        .block(ordinal, CancellationToken::new())
+                        .await
+                        .is_ok()
+                );
+            }
         }
         final_read.release().await.unwrap();
         assert!(preserved_variables);
-        let evidence_artifact=runtime.scientific_artifact(evidence.evidence_artifact.as_deref().unwrap()).await.unwrap();
-        let retained=evidence_artifact.evidence(&ArtifactLocator {artifact:evidence.evidence_artifact.clone().unwrap(),block:evidence.evidence_block.unwrap(),row:evidence.evidence_row,field:evidence.evidence_field.clone()},CancellationToken::new()).await.unwrap();
-        let retained=parametric_sensitivities::Row::rows(&retained).unwrap();
-        assert_eq!(retained,quantified,"actual quantitative evidence remains identical after producer retirement");
+        let evidence_artifact = runtime
+            .scientific_artifact(evidence.evidence_artifact.as_deref().unwrap())
+            .await
+            .unwrap();
+        let retained = evidence_artifact
+            .evidence(
+                &ArtifactLocator {
+                    artifact: evidence.evidence_artifact.clone().unwrap(),
+                    block: evidence.evidence_block.unwrap(),
+                    row: evidence.evidence_row,
+                    field: evidence.evidence_field.clone(),
+                },
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let retained = parametric_sensitivities::Row::rows(&retained).unwrap();
+        assert_eq!(
+            retained, quantified,
+            "actual quantitative evidence remains identical after producer retirement"
+        );
         let mut declarations = pse_authoring::language::parse(
             super::super::durable_tests::LINEAR,
             pse_ids::SemanticId::NIL,

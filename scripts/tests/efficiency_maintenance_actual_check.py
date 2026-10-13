@@ -121,7 +121,9 @@ def main() -> int:
         root / "packages/reference/process/models/heat-exchanger.pse",
         authored / "heat-exchanger.pse",
     )
-    input_hashes = {"heat-exchanger.pse": server.file_digest(authored / "heat-exchanger.pse")}
+    input_hashes = {
+        "heat-exchanger.pse": server.file_digest(authored / "heat-exchanger.pse")
+    }
     profiles = [source, restored]
     old_authority = "eff33-original-creation-authority"
 
@@ -353,7 +355,8 @@ def main() -> int:
             "failed initializer leaves durable closed initializing phase",
         )
         checked(
-            server.file_digest(authored / "heat-exchanger.pse") == input_hashes["heat-exchanger.pse"],
+            server.file_digest(authored / "heat-exchanger.pse")
+            == input_hashes["heat-exchanger.pse"],
             "external authored input untouched through initializer failure",
         )
         failed_target = (pending_config["namespace"], pending_config["database"])
@@ -411,7 +414,8 @@ def main() -> int:
                 "recovery disposes exact retired database " + str(database),
             )
         checked(
-            server.file_digest(authored / "heat-exchanger.pse") == input_hashes["heat-exchanger.pse"],
+            server.file_digest(authored / "heat-exchanger.pse")
+            == input_hashes["heat-exchanger.pse"],
             "external authored input unchanged after regeneration",
         )
 

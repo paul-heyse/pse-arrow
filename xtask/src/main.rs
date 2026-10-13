@@ -351,7 +351,11 @@ fn main() -> Result<()> {
 
 /// Resolve the runtime checkout, never the location baked into a cached executable.
 #[cfg(feature = "canonical-tools")]
-fn canonical_maintenance(state: &Path, settlement: Option<&Path>, schemas: &[PathBuf]) -> Result<()> {
+fn canonical_maintenance(
+    state: &Path,
+    settlement: Option<&Path>,
+    schemas: &[PathBuf],
+) -> Result<()> {
     let options = pse_operations::canonical::CanonicalOptions::from_state(state)?;
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

@@ -632,13 +632,9 @@ def journey(
                         check=True,
                     )
                     server.stop(restored, restored_config)
-                    initializer = science_command(
-                        restored, inputs, receipt, "rebuild"
-                    )
+                    initializer = science_command(restored, inputs, receipt, "rebuild")
                     server.rebuild(restored, initializer)
-                    if not (
-                        science.input_inventory(inputs) == input_hashes
-                    ):
+                    if not (science.input_inventory(inputs) == input_hashes):
                         raise server.SupervisorError(
                             "Scientific authored/physical inputs changed during rebuild"
                         )

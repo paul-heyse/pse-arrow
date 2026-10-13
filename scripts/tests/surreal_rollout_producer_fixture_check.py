@@ -16,10 +16,18 @@ from scripts import surreal_rollout_producer as producer
 def check(binary: Path, scratch: Path) -> None:
     folder = scratch / "chain"
     first_schema = b"DEFINE TABLE producer_fixture SCHEMAFULL;\nDEFINE FIELD old ON producer_fixture TYPE option<string>;\n"
-    second_schema = first_schema + b"DEFINE FIELD count ON producer_fixture TYPE option<int>;\n"
-    final_schema = second_schema.replace(b"DEFINE FIELD old ON producer_fixture TYPE option<string>;\n", b"")
+    second_schema = (
+        first_schema + b"DEFINE FIELD count ON producer_fixture TYPE option<int>;\n"
+    )
+    final_schema = second_schema.replace(
+        b"DEFINE FIELD old ON producer_fixture TYPE option<string>;\n", b""
+    )
     first = producer.publish(binary, folder, first_schema, "fixture.v1", "1" * 64)
-    frozen = {name: digest for name, digest in producer.inventory(folder).items() if name.startswith("rollouts/")}
+    frozen = {
+        name: digest
+        for name, digest in producer.inventory(folder).items()
+        if name.startswith("rollouts/")
+    }
     second = producer.publish(binary, folder, second_schema, "fixture.v1", "2" * 64)
     third = producer.publish(binary, folder, final_schema, "fixture.v1", "3" * 64)
     codec = producer.publish(binary, folder, final_schema, "fixture.v2", "4" * 64)
@@ -27,13 +35,22 @@ def check(binary: Path, scratch: Path) -> None:
     assert all(actual[name] == digest for name, digest in frozen.items())
     assert second["predecessor"] == first["id"] and third["predecessor"] == second["id"]
     assert codec["predecessor"] == third["id"] and codec["steps"] == []
-    assert [step["phase"] for step in third["steps"] if step["phase"] != "rollback"] == ["start", "complete"]
+    assert [
+        step["phase"] for step in third["steps"] if step["phase"] != "rollback"
+    ] == ["start", "complete"]
     assert len(producer.load(folder)["rollouts"]) == 4
-    assert producer.publish(binary, folder, final_schema, "fixture.v2", "4" * 64)["id"] == codec["id"]
+    assert (
+        producer.publish(binary, folder, final_schema, "fixture.v2", "4" * 64)["id"]
+        == codec["id"]
+    )
     assert actual == producer.inventory(folder)
-    with patch.object(producer, "declaration", return_value=(final_schema, "fixture.v2", "4" * 64)):
+    with patch.object(
+        producer, "declaration", return_value=(final_schema, "fixture.v2", "4" * 64)
+    ):
         producer.load(folder, current=True)
-    with patch.object(producer, "declaration", return_value=(second_schema, "fixture.v2", "4" * 64)):
+    with patch.object(
+        producer, "declaration", return_value=(second_schema, "fixture.v2", "4" * 64)
+    ):
         try:
             producer.load(folder, current=True)
         except producer.ProducerError:
@@ -53,7 +70,9 @@ def check(binary: Path, scratch: Path) -> None:
         except (producer.ProducerError, KeyError):
             pass
         else:
-            raise AssertionError("Falsified/missing frozen history was repaired or accepted")
+            raise AssertionError(
+                "Falsified/missing frozen history was repaired or accepted"
+            )
         assert before == producer.inventory(folder)
         target.write_bytes(original)
     extra = folder / "unowned.surql"
@@ -67,7 +86,12 @@ def check(binary: Path, scratch: Path) -> None:
     extra.unlink()
     producer.load(folder)
     # Keep concrete CLI outputs and producer bindings for recovery integration.
-    (scratch / "result.json").write_text(json.dumps({"rollouts": [first, second, third, codec], "result": "passed"}, indent=2) + "\n")
+    (scratch / "result.json").write_text(
+        json.dumps(
+            {"rollouts": [first, second, third, codec], "result": "passed"}, indent=2
+        )
+        + "\n"
+    )
 
 
 def main() -> None:
@@ -79,7 +103,9 @@ def main() -> None:
         args.scratch.mkdir(parents=True, exist_ok=False)
         check(args.binary, args.scratch)
     else:
-        with tempfile.TemporaryDirectory(prefix="canonical-producer-check-") as directory:
+        with tempfile.TemporaryDirectory(
+            prefix="canonical-producer-check-"
+        ) as directory:
             check(args.binary, Path(directory))
     print("immutable beta.6 producer fixture: passed")
 

@@ -23,9 +23,14 @@ import pytest
 from scripts import surreal_server as server
 
 import pse
-from pse._build import compiled_features
 from pse import codec
-from pse.contracts.documents import HistoryObligation, HistoryOwner, ObservationText, SensitivityRequest
+from pse._build import compiled_features
+from pse.contracts.documents import (
+    HistoryObligation,
+    HistoryOwner,
+    ObservationText,
+    SensitivityRequest,
+)
 from pse.contracts.enums import (
     DiagnosticCode,
     FailureClass,
@@ -280,7 +285,12 @@ def test_canonical_close_preserves_live_result_reader_and_independent_caller(
         # canonical block after its original logical caller has closed.
         batch = reader.read_next_batch()
         assert batch.to_pylist() == expected
-        assert pa.table(independent.results(run, attempt, "runtime.solve_variables")).to_pylist() == expected
+        assert (
+            pa.table(
+                independent.results(run, attempt, "runtime.solve_variables")
+            ).to_pylist()
+            == expected
+        )
     finally:
         reader.close()
         stream.close()
@@ -319,15 +329,20 @@ def test_canonical_result_selection_and_progress_reopen(
     runtime = canonical_substrate.runtime(inspection_settings)
     assert runtime.durable
     package, case = _package(
-        runtime, SOURCE.replace("annotation check", "annotation objective x(minimize); annotation check")
+        runtime,
+        SOURCE.replace(
+            "annotation check", "annotation objective x(minimize); annotation check"
+        ),
     )
     parameter = next(
-        member.id for member in package.inspect(case, _settings()).members
+        member.id
+        for member in package.inspect(case, _settings()).members
         if member.lineage.path == "a" or member.lineage.path.endswith(".a")
     )
     settings = msgspec.structs.replace(
-        _settings(), intent=NativeSolveIntent.OPTIMIZE,
-        sensitivity=SensitivityRequest(parameters=(parameter,))
+        _settings(),
+        intent=NativeSolveIntent.OPTIMIZE,
+        sensitivity=SensitivityRequest(parameters=(parameter,)),
     )
     prepared = package.prepare_solve(case, settings)
     controls = pse.AnalysisControls(roots=(), direction="downstream")
@@ -401,8 +416,14 @@ def test_canonical_result_selection_and_progress_reopen(
         json.dumps({"kind": "run", "key": run}).encode(), HistoryOwner
     )
     audit = codec.decode_json(
-        json.dumps({"key": "python-history-audit", "owner": {"kind": "run", "key": run},
-                    "purpose": "audit", "attribution": "installed Python boundary"}).encode(),
+        json.dumps(
+            {
+                "key": "python-history-audit",
+                "owner": {"kind": "run", "key": run},
+                "purpose": "audit",
+                "attribution": "installed Python boundary",
+            }
+        ).encode(),
         HistoryObligation,
     )
     reopened.retain_history_obligation(audit)
@@ -431,8 +452,11 @@ def test_canonical_result_selection_and_progress_reopen(
     # outstanding staging owner/read identity, without inventing an analysis.
     with pytest.raises(pse.InspectionError) as graph_transfer:
         reopened.result_analysis(
-            run, attempt,
-            pse.AnalysisControls(roots=("missing-scientific-object",), direction="downstream"),
+            run,
+            attempt,
+            pse.AnalysisControls(
+                roots=("missing-scientific-object",), direction="downstream"
+            ),
         )
     transfer_report = graph_transfer.value.report
     assert transfer_report.analysis_key is None
@@ -441,7 +465,9 @@ def test_canonical_result_selection_and_progress_reopen(
     assert transfer_report.artifact_owner_kind == "audit"
     assert transfer_report.artifact_owner is not None
     assert transfer_report.artifact_read_key is not None
-    transfer_settlement = reopened.recover_artifact_intent(transfer_report.artifact_intent)
+    transfer_settlement = reopened.recover_artifact_intent(
+        transfer_report.artifact_intent
+    )
     assert transfer_settlement.key == transfer_report.artifact_key
     transfer_settlement.release("audit", transfer_report.artifact_owner)
     assert not transfer_settlement.collect()
@@ -455,11 +481,15 @@ def test_canonical_result_selection_and_progress_reopen(
     inactive_report = inactive_transfer.value.report
     assert inactive_report.artifact_key is not None
     assert isinstance(inactive_report.artifact_intent, bytes)
-    inactive_settlement = reopened.recover_artifact_intent(inactive_report.artifact_intent)
+    inactive_settlement = reopened.recover_artifact_intent(
+        inactive_report.artifact_intent
+    )
     assert inactive_settlement.key == inactive_report.artifact_key
     with pytest.raises(pse.InspectionError):
         reopened.scientific_artifact(inactive_settlement.key)
-    assert not inactive_settlement.collect(), "original finite creation window stays pending"
+    assert not inactive_settlement.collect(), (
+        "original finite creation window stays pending"
+    )
 
     artifact = reopened.promote_scientific_artifact(
         run, attempt, "final-state", owner_kind="user", owner="python-final-state"
@@ -470,7 +500,9 @@ def test_canonical_result_selection_and_progress_reopen(
     assert not hasattr(settlement, "block")
     altered_intent = json.loads(artifact.original_intent)
     altered_intent["creation_request_digest"] = "f" * 64
-    altered_settlement = reopened.recover_artifact_intent(json.dumps(altered_intent).encode())
+    altered_settlement = reopened.recover_artifact_intent(
+        json.dumps(altered_intent).encode()
+    )
     with pytest.raises(pse.InspectionError):
         altered_settlement.release("user", "python-final-state")
     with pytest.raises(pse.InspectionError):
@@ -480,7 +512,9 @@ def test_canonical_result_selection_and_progress_reopen(
     artifact.retain("audit", "python-independent-audit")
     (artifact_header,) = pa.table(artifact.metadata()).to_pylist()
     assert artifact_header["kind"] == "final-state"
-    copied = [pa.table(artifact.block(i)) for i in range(artifact_header["block_count"])]
+    copied = [
+        pa.table(artifact.block(i)) for i in range(artifact_header["block_count"])
+    ]
     assert any(table.num_rows and "value" in table.column_names for table in copied)
     artifact.release("user", "python-final-state")
     with pytest.raises(pse.InspectionError):

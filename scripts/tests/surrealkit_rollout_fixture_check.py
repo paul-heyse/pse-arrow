@@ -660,12 +660,22 @@ def owner_revocation(
         if recovered["sql_outcome"] != "unknown" or recovered["phase"] != "unknown":
             raise tool.ToolError("Status erased the original uncertain phase")
         try:
-            maintenance.execute(binary, state, folder, "repair", rollout_id=spec["id"], pending_nonce=value["nonce"], timeout=15)
+            maintenance.execute(
+                binary,
+                state,
+                folder,
+                "repair",
+                rollout_id=spec["id"],
+                pending_nonce=value["nonce"],
+                timeout=15,
+            )
         except maintenance.MaintenanceError as error:
             proof["repair_refusal"] = str(error)
         else:
             raise tool.ToolError("Metadata repair admitted unsettled SQL")
-        proof["supported_repair_semantics"] = "metadata repair requires independent SQL settlement first"
+        proof["supported_repair_semantics"] = (
+            "metadata repair requires independent SQL settlement first"
+        )
 
         # A killed beta process normally retains its still-valid global lock.
         # One exact repair may therefore refuse; never manipulate its TTL.

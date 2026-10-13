@@ -149,7 +149,9 @@ def validated_rollout_order(output: str, inventory: list[str]) -> list[str]:
         or len(set(ordered)) != len(ordered)
         or sorted(ordered) != sorted(inventory)
     ):
-        raise MaintenanceError("Validated beta rollout order differs from frozen inventory")
+        raise MaintenanceError(
+            "Validated beta rollout order differs from frozen inventory"
+        )
     return ordered
 
 
@@ -242,10 +244,14 @@ def predecessor_marker(state: Path, config: dict[str, object]) -> object:
     """Capture the immutable predecessor before any selected rollout SQL."""
     credentials = surreal_server.read_json(state / "credentials.json")
     catalog = surreal_server.maintenance_catalog(state, config, credentials, "DB")
-    if "canonical_interpretations" not in surreal_server.object_mapping(catalog["tables"]):
+    if "canonical_interpretations" not in surreal_server.object_mapping(
+        catalog["tables"]
+    ):
         return None
     result = surreal_server.maintenance_query(
-        state, config, credentials,
+        state,
+        config,
+        credentials,
         "LET $value=(SELECT interpretation,schema_digest,issuing_store FROM ONLY canonical_interpretations:current);",
     )
     marker = result.get("value")
@@ -300,7 +306,9 @@ def execute(
                 if rollout_id not in value["rollouts"]:
                     raise MaintenanceError("Repair does not name a submitted rollout")
                 if value.get("sql_outcome") != "settled":
-                    raise MaintenanceError("Repair requires exact SQL settlement before metadata repair")
+                    raise MaintenanceError(
+                        "Repair requires exact SQL settlement before metadata repair"
+                    )
             if continuing:
                 if (
                     value.get("phase") != "start_settled"
@@ -308,12 +316,18 @@ def execute(
                     or value.get("rollouts") != [rollout_id]
                     or value.get("settlement", {}).get("phase") != "start"
                 ):
-                    raise MaintenanceError("Completion requires the exact settled start phase")
-                value.setdefault("phase_history", []).append({
-                    "command": value["command"],
-                    "settlement": value.pop("settlement"),
-                })
-                value.update(command=args, phase="prepared", sql_outcome="not_submitted")
+                    raise MaintenanceError(
+                        "Completion requires the exact settled start phase"
+                    )
+                value.setdefault("phase_history", []).append(
+                    {
+                        "command": value["command"],
+                        "settlement": value.pop("settlement"),
+                    }
+                )
+                value.update(
+                    command=args, phase="prepared", sql_outcome="not_submitted"
+                )
         else:
             if config.get(PENDING) is not None or pending_nonce is not None:
                 raise MaintenanceError(
@@ -397,7 +411,9 @@ def execute(
             )
             if "previous_marker" not in value and mode not in {"status", "repair"}:
                 if continuing:
-                    raise MaintenanceError("Original predecessor marker unavailable; activation refused")
+                    raise MaintenanceError(
+                        "Original predecessor marker unavailable; activation refused"
+                    )
                 value["previous_marker"] = predecessor_marker(state, config)
             value["initializer"] = owner
             update(state, value)
@@ -534,7 +550,8 @@ def settle(
                     for key in ("owner", "identity")
                 )
                 or not isinstance(evidence.get("phase"), str)
-                or evidence["phase"] != ("start" if value["command"][1] == "start" else "complete")
+                or evidence["phase"]
+                != ("start" if value["command"][1] == "start" else "complete")
                 or not isinstance(evidence.get("steps"), list)
                 or any(
                     not isinstance(step, Mapping)
@@ -552,7 +569,10 @@ def settle(
                 state, surreal_server.config_for(state)
             )
             current = pending(state, nonce)
-            if current["command"] != value["command"] or current["input_sha256"] != value["input_sha256"]:
+            if (
+                current["command"] != value["command"]
+                or current["input_sha256"] != value["input_sha256"]
+            ):
                 raise MaintenanceError("Pending phase changed during domain settlement")
             value["canonical_attempts"] = current.get("canonical_attempts", [])
             value["settlement"] = dict(evidence)
@@ -566,8 +586,11 @@ def settle(
             if not isinstance(current, dict) or current.get("nonce") != nonce:
                 raise MaintenanceError("Pending selection changed during settlement")
             value["phase"] = (
-                "sql_settled" if evidence.get("phase_complete") is False
-                else "start_settled" if value["command"][1] == "start" else "settled"
+                "sql_settled"
+                if evidence.get("phase_complete") is False
+                else "start_settled"
+                if value["command"][1] == "start"
+                else "settled"
             )
             value["sql_outcome"] = "settled"
             surreal_server.write_json(
@@ -582,91 +605,184 @@ def settle(
 def publication(folder: Path) -> dict[str, object]:
     # The publication producer owns interpretation of its immutable files.
     from scripts import surreal_rollout_producer as producer  # noqa: PLC0415
+
     try:
         return producer.load(folder, current=True)
     except producer.ProducerError as error:
         raise MaintenanceError(str(error)) from error
 
 
-def generated_settler(folder: Path, binary: Path) -> Callable[[Path, str, Mapping[str, object]], Mapping[str, object]]:
+def generated_settler(
+    folder: Path, binary: Path
+) -> Callable[[Path, str, Mapping[str, object]], Mapping[str, object]]:
     """Fixed schema-only settlement; data SQL needs a separate domain owner."""
-    def operation(state: Path, endpoint: str, selected: Mapping[str, object]) -> Mapping[str, object]:
+
+    def operation(
+        state: Path, endpoint: str, selected: Mapping[str, object]
+    ) -> Mapping[str, object]:
         declarations = publication(folder)
         if inputs(folder)[1] != selected["input_sha256"]:
-            raise MaintenanceError("Selected frozen publication changed before settlement")
+            raise MaintenanceError(
+                "Selected frozen publication changed before settlement"
+            )
         ordered = declarations["rollouts"]
         if selected["command"][1] == "up" and list(selected["rollouts"]) != [
             item["id"] for item in ordered
         ]:
-            raise MaintenanceError("Whole-chain submission differs from full producer publication")
+            raise MaintenanceError(
+                "Whole-chain submission differs from full producer publication"
+            )
         chosen = [item for item in ordered if item["id"] in selected["rollouts"]]
         if not chosen or [item["id"] for item in chosen] != list(selected["rollouts"]):
-            raise MaintenanceError("Submitted rollout identities differ from producer publication")
+            raise MaintenanceError(
+                "Submitted rollout identities differ from producer publication"
+            )
         phase = "start" if selected["command"][1] == "start" else "complete"
         config = surreal_server.config_for(state)
         credentials = surreal_server.read_json(state / "credentials.json")
-        response = surreal_server.maintenance_query(state, config, credentials,
-            "LET $value=(SELECT record::id(id) AS rollout_id,manifest_checksum,source_schema_hash,target_schema_hash,status,steps,last_error FROM __rollout);")
+        response = surreal_server.maintenance_query(
+            state,
+            config,
+            credentials,
+            "LET $value=(SELECT record::id(id) AS rollout_id,manifest_checksum,source_schema_hash,target_schema_hash,status,steps,last_error FROM __rollout);",
+        )
         rows = response.get("value")
         if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
             raise MaintenanceError("Actual beta rollout records are unavailable")
         if any(not isinstance(row.get("rollout_id"), str) for row in rows):
             raise MaintenanceError("Malformed beta rollout identity")
         by_id = {row["rollout_id"]: row for row in rows}
-        if not set(by_id).issubset({item["id"] for item in ordered}) or len(by_id) != len(rows):
+        if not set(by_id).issubset({item["id"] for item in ordered}) or len(
+            by_id
+        ) != len(rows):
             raise MaintenanceError("Ambiguous beta rollout identities")
         steps = []
         phase_complete = True
         for index, item in enumerate(chosen):
             row = by_id.get(item["id"])
-            if not isinstance(row, dict) or any(row.get(name) != item[name] for name in ("manifest_checksum", "source_schema_hash", "target_schema_hash")):
-                raise MaintenanceError("Actual beta manifest identity differs from frozen producer")
+            if not isinstance(row, dict) or any(
+                row.get(name) != item[name]
+                for name in (
+                    "manifest_checksum",
+                    "source_schema_hash",
+                    "target_schema_hash",
+                )
+            ):
+                raise MaintenanceError(
+                    "Actual beta manifest identity differs from frozen producer"
+                )
             expected_status = "ready_to_complete" if phase == "start" else "completed"
             if row.get("status") != expected_status:
-                if index != len(chosen) - 1 or row.get("status") not in {"running_start", "running_complete", "failed"}:
-                    raise MaintenanceError("Beta phase cannot be reconciled against its exact postcondition")
+                if index != len(chosen) - 1 or row.get("status") not in {
+                    "running_start",
+                    "running_complete",
+                    "failed",
+                }:
+                    raise MaintenanceError(
+                        "Beta phase cannot be reconciled against its exact postcondition"
+                    )
                 phase_complete = False
             recorded = row.get("steps")
             if not isinstance(recorded, list):
-                raise MaintenanceError("Actual beta step acknowledgements are unavailable")
+                raise MaintenanceError(
+                    "Actual beta step acknowledgements are unavailable"
+                )
             expected = {step["id"]: step for step in item["steps"]}
             if len(expected) != len(item["steps"]):
                 raise MaintenanceError("Producer step identities are ambiguous")
             observed = {}
             for step in recorded:
-                if not isinstance(step, dict) or step.get("step_id") not in expected or step["step_id"] in observed:
+                if (
+                    not isinstance(step, dict)
+                    or step.get("step_id") not in expected
+                    or step["step_id"] in observed
+                ):
                     raise MaintenanceError("Unexpected or duplicated beta step record")
                 target = expected[step["step_id"]]
-                if any(step.get(name) != target[name] for name in ("phase", "kind", "checksum")):
-                    raise MaintenanceError("Actual beta step identity differs from frozen producer")
+                if any(
+                    step.get(name) != target[name]
+                    for name in ("phase", "kind", "checksum")
+                ):
+                    raise MaintenanceError(
+                        "Actual beta step identity differs from frozen producer"
+                    )
                 observed[step["step_id"]] = step
             for step in item["steps"]:
-                if step["phase"] == "rollback" or (phase == "start" and step["phase"] != "start"):
+                if step["phase"] == "rollback" or (
+                    phase == "start" and step["phase"] != "start"
+                ):
                     continue
-                if step["kind"] not in {"apply_files", "remove_entities", "restore_definitions"}:
-                    raise MaintenanceError("Data SQL requires its own exact domain settlement")
+                if step["kind"] not in {
+                    "apply_files",
+                    "remove_entities",
+                    "restore_definitions",
+                }:
+                    raise MaintenanceError(
+                        "Data SQL requires its own exact domain settlement"
+                    )
                 actual = observed.get(step["id"], {})
-                acknowledged = actual.get("status") == "completed" and actual.get("error") is None
+                acknowledged = (
+                    actual.get("status") == "completed" and actual.get("error") is None
+                )
                 if index != len(chosen) - 1 and not acknowledged:
-                    raise MaintenanceError("Earlier phase lacks its original SQL acknowledgement")
-                steps.append({"id": step["id"], "rollout": item["id"], "phase": step["phase"], "kind": step["kind"], "checksum": step["checksum"], "outcome": "acknowledged" if acknowledged else "reconciled", "recorded_status": actual.get("status"), "recorded_error": actual.get("error")})
+                    raise MaintenanceError(
+                        "Earlier phase lacks its original SQL acknowledgement"
+                    )
+                steps.append(
+                    {
+                        "id": step["id"],
+                        "rollout": item["id"],
+                        "phase": step["phase"],
+                        "kind": step["kind"],
+                        "checksum": step["checksum"],
+                        "outcome": "acknowledged" if acknowledged else "reconciled",
+                        "recorded_status": actual.get("status"),
+                        "recorded_error": actual.get("error"),
+                    }
+                )
         target = chosen[-1]
         # Intermediate/expansion witnesses can settle SQL but never activate.
         final = phase == "complete" and target["id"] == ordered[-1]["id"]
-        schemas = () if final else tuple(folder / name for name in ([target["source_sql"], target["target_sql"]] if phase == "start" else [target["target_sql"]]))
+        schemas = (
+            ()
+            if final
+            else tuple(
+                folder / name
+                for name in (
+                    [target["source_sql"], target["target_sql"]]
+                    if phase == "start"
+                    else [target["target_sql"]]
+                )
+            )
+        )
         value = pending(state, str(selected["nonce"]))
-        witness = canonical_tool(state, endpoint, value, binary, expected_schemas=schemas)
+        witness = canonical_tool(
+            state, endpoint, value, binary, expected_schemas=schemas
+        )
         if witness.get("previous_marker") != selected.get("previous_marker"):
-            raise MaintenanceError("Canonical predecessor changed during rollout settlement")
+            raise MaintenanceError(
+                "Canonical predecessor changed during rollout settlement"
+            )
         return {
-            "outcome": "settled", "nonce": selected["nonce"], "input_sha256": selected["input_sha256"],
-            "operation": {"owner": "canonical-frozen-rollout-v1", "identity": str(selected["nonce"]) + ":" + phase},
-            "phase": phase, "phase_complete": phase_complete, "steps": steps, "canonical": witness,
+            "outcome": "settled",
+            "nonce": selected["nonce"],
+            "input_sha256": selected["input_sha256"],
+            "operation": {
+                "owner": "canonical-frozen-rollout-v1",
+                "identity": str(selected["nonce"]) + ":" + phase,
+            },
+            "phase": phase,
+            "phase_complete": phase_complete,
+            "steps": steps,
+            "canonical": witness,
         }
+
     return operation
 
 
-def settle_generated(state: Path, nonce: str, folder: Path, binary: Path) -> dict[str, object]:
+def settle_generated(
+    state: Path, nonce: str, folder: Path, binary: Path
+) -> dict[str, object]:
     return settle(state, nonce, generated_settler(folder, binary))
 
 
@@ -684,45 +800,102 @@ def canonical_tool(
     exact_owner(state, owner)
     surreal_server.require_maintenance_owner(state, surreal_server.config_for(state))
     if value.get("initializer") != owner:
-        raise MaintenanceError("Canonical tool requires this reservation's initializer authority")
-    directory = surreal_server.checked_directory(state / ".surrealkit" / str(value["nonce"]))
+        raise MaintenanceError(
+            "Canonical tool requires this reservation's initializer authority"
+        )
+    directory = surreal_server.checked_directory(
+        state / ".surrealkit" / str(value["nonce"])
+    )
     attempt = directory / uuid.uuid4().hex
     attempt.mkdir(mode=0o700)
-    surreal_server.write_json(attempt / "authority.json", {
-        "owner": owner,
-        "listener": surreal_server.read_json(state / ".maintenance-listener.json"),
-        "endpoint": endpoint,
-        "definition_inputs": [{"path": str(path), "sha256": surrealkit.digest(path)} for path in expected_schemas],
-    })
-    record: dict[str, object] = {"directory": str(attempt), "phase": "prepared", "child_scope_requested": True}
+    surreal_server.write_json(
+        attempt / "authority.json",
+        {
+            "owner": owner,
+            "listener": surreal_server.read_json(state / ".maintenance-listener.json"),
+            "endpoint": endpoint,
+            "definition_inputs": [
+                {"path": str(path), "sha256": surrealkit.digest(path)}
+                for path in expected_schemas
+            ],
+        },
+    )
+    record: dict[str, object] = {
+        "directory": str(attempt),
+        "phase": "prepared",
+        "child_scope_requested": True,
+    }
     value.setdefault("canonical_attempts", []).append(record)
     update(state, value)
     observation: dict[str, object] = {}
     try:
         status = native_operation.run_child_scope(
-            [sys.executable, "-m", "scripts.surrealkit_maintenance", "_canonical-child",
-             "--state", str(state), "--binary", str(binary), "--folder", str(surrealkit.ROOT),
-             "--attempt", str(attempt), "--mode", "canonical-activate" if activate else "canonical-validate", "--timeout", "120"],
-            {**os.environ, "SURREALDB_HOST": endpoint, "PSE_CANONICAL_INITIALIZER": str(owner["nonce"])},
-            cwd=surrealkit.ROOT, observation=observation,
+            [
+                sys.executable,
+                "-m",
+                "scripts.surrealkit_maintenance",
+                "_canonical-child",
+                "--state",
+                str(state),
+                "--binary",
+                str(binary),
+                "--folder",
+                str(surrealkit.ROOT),
+                "--attempt",
+                str(attempt),
+                "--mode",
+                "canonical-activate" if activate else "canonical-validate",
+                "--timeout",
+                "120",
+            ],
+            {
+                **os.environ,
+                "SURREALDB_HOST": endpoint,
+                "PSE_CANONICAL_INITIALIZER": str(owner["nonce"]),
+            },
+            cwd=surrealkit.ROOT,
+            observation=observation,
         )
         record.update(exit_code=status, child=observation)
         result = surreal_server.read_json(attempt / "child.json")
         exact_owner(state, owner)
-        surreal_server.require_maintenance_owner(state, surreal_server.config_for(state))
-        if status or result.get("reason") != "exited" or observation.get("owned_drain") != "complete":
-            raise MaintenanceError("Canonical operation lacks acknowledged success and owned drain; pending retained")
-        witness = json.loads((attempt / "stdout").read_text())
-        if not isinstance(witness, dict) or any(
-            witness.get(name) != value.get(name)
-            for name in ("namespace", "database", "instance_id")
-        ) or witness.get("initializer_nonce") != owner["nonce"]:
-            raise MaintenanceError("Canonical witness differs from selected maintenance authority")
-        if not activate and (
-            witness.get("scope") != ("rollout-phase" if expected_schemas else "generated-target")
-            or witness.get("definition_inputs") != [surrealkit.digest(path) for path in (expected_schemas or (surrealkit.ROOT / surrealkit.GENERATED_SCHEMA,))]
+        surreal_server.require_maintenance_owner(
+            state, surreal_server.config_for(state)
+        )
+        if (
+            status
+            or result.get("reason") != "exited"
+            or observation.get("owned_drain") != "complete"
         ):
-            raise MaintenanceError("Canonical witness differs from exact definition inputs")
+            raise MaintenanceError(
+                "Canonical operation lacks acknowledged success and owned drain; pending retained"
+            )
+        witness = json.loads((attempt / "stdout").read_text())
+        if (
+            not isinstance(witness, dict)
+            or any(
+                witness.get(name) != value.get(name)
+                for name in ("namespace", "database", "instance_id")
+            )
+            or witness.get("initializer_nonce") != owner["nonce"]
+        ):
+            raise MaintenanceError(
+                "Canonical witness differs from selected maintenance authority"
+            )
+        if not activate and (
+            witness.get("scope")
+            != ("rollout-phase" if expected_schemas else "generated-target")
+            or witness.get("definition_inputs")
+            != [
+                surrealkit.digest(path)
+                for path in (
+                    expected_schemas or (surrealkit.ROOT / surrealkit.GENERATED_SCHEMA,)
+                )
+            ]
+        ):
+            raise MaintenanceError(
+                "Canonical witness differs from exact definition inputs"
+            )
         record["phase"] = "acknowledged"
         return witness
     except BaseException:
@@ -736,8 +909,16 @@ def activate(state: Path, nonce: str, binary: Path) -> dict[str, object]:
     """Publish only the exact settled operation, then drain before releasing its fence."""
     with surreal_server.lifecycle_reservation(state):
         value = pending(state, nonce)
-        if value.get("phase") != "settled" or value.get("sql_outcome") != "settled" or value.get("settlement", {}).get("phase_complete") is False or value.get("settlement", {}).get("canonical", {}).get("scope") != "generated-target":
-            raise MaintenanceError("Activation requires final canonical operation settlement")
+        if (
+            value.get("phase") != "settled"
+            or value.get("sql_outcome") != "settled"
+            or value.get("settlement", {}).get("phase_complete") is False
+            or value.get("settlement", {}).get("canonical", {}).get("scope")
+            != "generated-target"
+        ):
+            raise MaintenanceError(
+                "Activation requires final canonical operation settlement"
+            )
         require_child_drains(state, value)
         owner = surreal_server.read_json(state / "lifecycle-owner.json")
         value["initializer"] = owner
@@ -757,9 +938,17 @@ def activate(state: Path, nonce: str, binary: Path) -> dict[str, object]:
         with surreal_server.state_lock(state, cleanup=True):
             config = surreal_server.config_for(state)
             current = config.get(PENDING)
-            if not isinstance(current, dict) or current.get("nonce") != nonce or current.get("settlement") != value["settlement"]:
-                raise MaintenanceError("Pending selection changed after activation; fence retained")
-            surreal_server.write_json(state / ".surrealkit" / nonce / "activated.json", value)
+            if (
+                not isinstance(current, dict)
+                or current.get("nonce") != nonce
+                or current.get("settlement") != value["settlement"]
+            ):
+                raise MaintenanceError(
+                    "Pending selection changed after activation; fence retained"
+                )
+            surreal_server.write_json(
+                state / ".surrealkit" / nonce / "activated.json", value
+            )
             config.pop(PENDING)
             config["accepting_writes"] = False
             surreal_server.write_json(state / "config.json", config)
@@ -831,8 +1020,16 @@ def owned_child(
                 raise MaintenanceError("Exact phase definition input changed")
             arguments.extend(["--schema", str(path)])
     elif mode == "canonical-activate":
-        current = pending(state, str(surreal_server.config_for(state)[PENDING]["nonce"]))
-        arguments = ["canonical-activate", "--state", str(state), "--settlement", str(state / ".surrealkit" / str(current["nonce"]) / "settled.json")]
+        current = pending(
+            state, str(surreal_server.config_for(state)[PENDING]["nonce"])
+        )
+        arguments = [
+            "canonical-activate",
+            "--state",
+            str(state),
+            "--settlement",
+            str(state / ".surrealkit" / str(current["nonce"]) / "settled.json"),
+        ]
     else:
         arguments = command(mode, rollout_id)
     child: subprocess.Popen[bytes] | None = None
@@ -928,7 +1125,18 @@ def owned_child(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "mode", choices=["up", "start", "complete", "status", "repair", "settle", "activate", "_child", "_canonical-child"]
+        "mode",
+        choices=[
+            "up",
+            "start",
+            "complete",
+            "status",
+            "repair",
+            "settle",
+            "activate",
+            "_child",
+            "_canonical-child",
+        ],
     )
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--binary", type=Path, required=True)
@@ -955,12 +1163,23 @@ def main() -> int:
         if args.mode == "settle":
             if args.pending_nonce is None:
                 raise MaintenanceError("Settlement requires the exact pending nonce")
-            print(json.dumps(settle_generated(args.state, args.pending_nonce, args.folder, args.binary), indent=2))
+            print(
+                json.dumps(
+                    settle_generated(
+                        args.state, args.pending_nonce, args.folder, args.binary
+                    ),
+                    indent=2,
+                )
+            )
             return 0
         if args.mode == "activate":
             if args.pending_nonce is None:
                 raise MaintenanceError("Activation requires the exact pending nonce")
-            print(json.dumps(activate(args.state, args.pending_nonce, args.binary), indent=2))
+            print(
+                json.dumps(
+                    activate(args.state, args.pending_nonce, args.binary), indent=2
+                )
+            )
             return 0
         result = execute(
             args.binary,

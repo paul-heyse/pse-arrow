@@ -70,13 +70,13 @@ pub(crate) struct DiagnosticReport {
     /// Original scientific artifact occurrence after uncertain delivery.
     #[pyo3(get)]
     artifact_key: Option<String>,
-    artifact_intent:Option<pse_operations::canonical_artifacts::Artifact>,
+    artifact_intent: Option<pse_operations::canonical_artifacts::Artifact>,
     #[pyo3(get)]
-    artifact_owner_kind:Option<String>,
+    artifact_owner_kind: Option<String>,
     #[pyo3(get)]
-    artifact_owner:Option<String>,
+    artifact_owner: Option<String>,
     #[pyo3(get)]
-    artifact_read_key:Option<String>,
+    artifact_read_key: Option<String>,
     /// Original unsettled study occurrence requiring explicit recovery.
     #[pyo3(get)]
     study_key: Option<String>,
@@ -90,10 +90,18 @@ pub(crate) trait ReportSource: TypedDiagnostic {
     fn report_analysis_key(&self) -> Option<String> {
         None
     }
-    fn report_artifact_key(&self)->Option<String> {None}
-    fn report_artifact_intent(&self)->Option<pse_operations::canonical_artifacts::Artifact> {None}
-    fn report_artifact_cleanup(&self)->Option<(String,String,Option<String>)> {None}
-    fn report_study_key(&self)->Option<String> {None}
+    fn report_artifact_key(&self) -> Option<String> {
+        None
+    }
+    fn report_artifact_intent(&self) -> Option<pse_operations::canonical_artifacts::Artifact> {
+        None
+    }
+    fn report_artifact_cleanup(&self) -> Option<(String, String, Option<String>)> {
+        None
+    }
+    fn report_study_key(&self) -> Option<String> {
+        None
+    }
     fn report_contexts(&self) -> Vec<DiagnosticContextDocument> {
         Vec::new()
     }
@@ -124,24 +132,51 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
         match self {
             Self::Canonical(error) => error.report_analysis_key(),
             Self::Shared(error) => error.report_analysis_key(),
-            Self::ArtifactTransferUnsettled{analysis,source,..}=>analysis.clone().or_else(||source.report_analysis_key()),
-            Self::StudyCreationUnsettled{source,..}=>source.report_analysis_key(),
+            Self::ArtifactTransferUnsettled {
+                analysis, source, ..
+            } => analysis.clone().or_else(|| source.report_analysis_key()),
+            Self::StudyCreationUnsettled { source, .. } => source.report_analysis_key(),
             _ => None,
         }
     }
-    fn report_artifact_key(&self)->Option<String> {
-        match self {Self::Canonical(error)=>error.report_artifact_key(),Self::Shared(error)=>error.report_artifact_key(),Self::StudyCreationUnsettled{source,..}=>source.report_artifact_key(),Self::ArtifactTransferUnsettled{artifact,..}=>Some(artifact.key.clone()),_=>None}
+    fn report_artifact_key(&self) -> Option<String> {
+        match self {
+            Self::Canonical(error) => error.report_artifact_key(),
+            Self::Shared(error) => error.report_artifact_key(),
+            Self::StudyCreationUnsettled { source, .. } => source.report_artifact_key(),
+            Self::ArtifactTransferUnsettled { artifact, .. } => Some(artifact.key.clone()),
+            _ => None,
+        }
     }
-    fn report_artifact_intent(&self)->Option<pse_operations::canonical_artifacts::Artifact> {
-        match self {Self::Canonical(error)=>error.report_artifact_intent(),Self::Shared(error)=>error.report_artifact_intent(),Self::StudyCreationUnsettled{source,..}=>source.report_artifact_intent(),Self::ArtifactTransferUnsettled{artifact,..}=>Some((**artifact).clone()),_=>None}
+    fn report_artifact_intent(&self) -> Option<pse_operations::canonical_artifacts::Artifact> {
+        match self {
+            Self::Canonical(error) => error.report_artifact_intent(),
+            Self::Shared(error) => error.report_artifact_intent(),
+            Self::StudyCreationUnsettled { source, .. } => source.report_artifact_intent(),
+            Self::ArtifactTransferUnsettled { artifact, .. } => Some((**artifact).clone()),
+            _ => None,
+        }
     }
-    fn report_artifact_cleanup(&self)->Option<(String,String,Option<String>)> {
-        match self {Self::ArtifactTransferUnsettled{owner_kind,owner,read,..}=>Some((owner_kind.clone(),owner.clone(),read.clone())),Self::Shared(error)=>error.report_artifact_cleanup(),Self::StudyCreationUnsettled{source,..}=>source.report_artifact_cleanup(),_=>None}
+    fn report_artifact_cleanup(&self) -> Option<(String, String, Option<String>)> {
+        match self {
+            Self::ArtifactTransferUnsettled {
+                owner_kind,
+                owner,
+                read,
+                ..
+            } => Some((owner_kind.clone(), owner.clone(), read.clone())),
+            Self::Shared(error) => error.report_artifact_cleanup(),
+            Self::StudyCreationUnsettled { source, .. } => source.report_artifact_cleanup(),
+            _ => None,
+        }
     }
-    fn report_study_key(&self)->Option<String> {
-        match self {Self::StudyCreationUnsettled{study,..}=>Some(study.to_string()),Self::Shared(error)=>error.report_study_key(),_=>None}
+    fn report_study_key(&self) -> Option<String> {
+        match self {
+            Self::StudyCreationUnsettled { study, .. } => Some(study.to_string()),
+            Self::Shared(error) => error.report_study_key(),
+            _ => None,
+        }
     }
-
 }
 impl ReportSource for pse_runtime::RuntimeError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
@@ -163,9 +198,18 @@ impl ReportSource for pse_operations::canonical::CanonicalError {
             _ => None,
         }
     }
-    fn report_artifact_key(&self)->Option<String> {match self {Self::ArtifactUnsettled{intent,..}=>Some(intent.key.clone()),_=>None}}
-    fn report_artifact_intent(&self)->Option<pse_operations::canonical_artifacts::Artifact> {match self {Self::ArtifactUnsettled{intent,..}=>Some((**intent).clone()),_=>None}}
-
+    fn report_artifact_key(&self) -> Option<String> {
+        match self {
+            Self::ArtifactUnsettled { intent, .. } => Some(intent.key.clone()),
+            _ => None,
+        }
+    }
+    fn report_artifact_intent(&self) -> Option<pse_operations::canonical_artifacts::Artifact> {
+        match self {
+            Self::ArtifactUnsettled { intent, .. } => Some((**intent).clone()),
+            _ => None,
+        }
+    }
 }
 impl ReportSource for pse_runtime::math::portable::PortableError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
@@ -210,10 +254,14 @@ impl DiagnosticReport {
         report.help = error.help().map(|help| help.to_string());
         report.contexts = error.report_contexts();
         report.analysis_key = error.report_analysis_key();
-        report.artifact_key=error.report_artifact_key();
-        report.artifact_intent=error.report_artifact_intent();
-        if let Some((kind,owner,read))=error.report_artifact_cleanup() {report.artifact_owner_kind=Some(kind); report.artifact_owner=Some(owner); report.artifact_read_key=read;}
-        report.study_key=error.report_study_key();
+        report.artifact_key = error.report_artifact_key();
+        report.artifact_intent = error.report_artifact_intent();
+        if let Some((kind, owner, read)) = error.report_artifact_cleanup() {
+            report.artifact_owner_kind = Some(kind);
+            report.artifact_owner = Some(owner);
+            report.artifact_read_key = read;
+        }
+        report.study_key = error.report_study_key();
         if let Some(related) = error.report_related() {
             report.related = related;
         }
@@ -251,12 +299,12 @@ impl DiagnosticReport {
         Self {
             boundary: None,
             analysis_key: None,
-            artifact_key:None,
-            artifact_intent:None,
-            artifact_owner_kind:None,
-            artifact_owner:None,
-            artifact_read_key:None,
-            study_key:None,
+            artifact_key: None,
+            artifact_intent: None,
+            artifact_owner_kind: None,
+            artifact_owner: None,
+            artifact_read_key: None,
+            study_key: None,
             code: error.code().map(|code| code.to_string()),
             message: error.to_string(),
             help: error.help().map(|help| help.to_string()),
@@ -275,7 +323,12 @@ impl DiagnosticReport {
 impl DiagnosticReport {
     /// Exact original settlement bytes; inactive content remains inaccessible.
     #[getter]
-    fn artifact_intent(&self,py:Python<'_>)->PyResult<Option<Vec<u8>>> {self.artifact_intent.as_ref().map(|intent|crate::documents::encode(py,intent)).transpose()}
+    fn artifact_intent(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
+        self.artifact_intent
+            .as_ref()
+            .map(|intent| crate::documents::encode(py, intent))
+            .transpose()
+    }
     #[getter]
     fn code(&self) -> Option<EnumValue<DiagnosticCode>> {
         self.boundary.as_ref().map(|boundary| boundary.code.into())

@@ -149,7 +149,14 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
     let declarations = [
         (
             "canonical_maintenance_activations",
-            vec![column("key", text()),column("input_sha256", text()),column("predecessor", bytes()),column("interpretation", text()),column("schema_digest", text()),column("issuing_store", text())],
+            vec![
+                column("key", text()),
+                column("input_sha256", text()),
+                column("predecessor", bytes()),
+                column("interpretation", text()),
+                column("schema_digest", text()),
+                column("issuing_store", text()),
+            ],
             "Exact immutable schema activation effect receipt under the original rollout nonce; marker and issuing identity publication are atomic with this acknowledgement.",
         ),
         (
@@ -506,27 +513,55 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         (
             "canonical_history_retirements",
-            vec![column("key", text()),column("owner_kind", text()),column("owner", text()),column("issuing_store", text()),column("outcome", text()),column("complete", flag()),column("after_locator", text()).optional()],
+            vec![
+                column("key", text()),
+                column("owner_kind", text()),
+                column("owner", text()),
+                column("issuing_store", text()),
+                column("outcome", text()),
+                column("complete", flag()),
+                column("after_locator", text()).optional(),
+            ],
             "Permanent explicit detailed-history release and truthful minimal outcome; bounded collection cursor never grants replay or resurrection.",
         ),
         (
             "canonical_history_locators",
-            vec![column("key", text()),column("study", text()),column("run", text()),column("point", text()).optional(),column("issuing_store", text())],
+            vec![
+                column("key", text()),
+                column("study", text()),
+                column("run", text()),
+                column("point", text()).optional(),
+                column("issuing_store", text()),
+            ],
             "Permanent exact point and summary owner attribution created atomically with study membership; opaque identities remain fenced after detail deletion.",
         ),
         (
             "canonical_history_identities",
-            vec![column("key", text()),column("category", text()),column("identity", text()),column("run", text()),column("issuing_store", text())],
+            vec![
+                column("key", text()),
+                column("category", text()),
+                column("identity", text()),
+                column("run", text()),
+                column("issuing_store", text()),
+            ],
             "Permanent original attempt, manifest, seed and effect-free run owner attribution; no successful numerical result is invented for absent effects.",
         ),
         (
             "canonical_history_obligations",
-            vec![column("key", text()),column("owner_kind", text()),column("owner", text()),column("purpose", text()),column("attribution", text()),column("issuing_store", text()),column("released", flag())],
+            vec![
+                column("key", text()),
+                column("owner_kind", text()),
+                column("owner", text()),
+                column("purpose", text()),
+                column("attribution", text()),
+                column("issuing_store", text()),
+                column("released", flag()),
+            ],
             "Independent attributed audit or unsettled-effect history obligation; exact released tombstones reject delayed re-acquisition and identity reuse.",
         ),
         (
             "canonical_history_obligation_counts",
-            vec![column("key", text()),column("count", uint())],
+            vec![column("key", text()), column("count", uint())],
             "Transactionally maintained bounded owner-obligation lookup; counts cannot substitute for immutable obligation attribution.",
         ),
         (
@@ -633,19 +668,36 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         (
             "canonical_artifact_blocks",
-            vec![column("key", text()), column("artifact", text()), column("ordinal", uint()),
-                column("relation", text()), column("payload", bytes()), column("digest", text()),
-                column("original_digest", text()), column("rows", uint())],
+            vec![
+                column("key", text()),
+                column("artifact", text()),
+                column("ordinal", uint()),
+                column("relation", text()),
+                column("payload", bytes()),
+                column("digest", text()),
+                column("original_digest", text()),
+                column("rows", uint()),
+            ],
             "One bounded artifact-owned capsule or standalone IPC block; original and copied encoding digests are distinct provenance.",
         ),
         (
             "canonical_artifact_obligations",
-            vec![column("key", text()), column("artifact", text()), column("owner_kind", text()), column("owner", text())],
+            vec![
+                column("key", text()),
+                column("artifact", text()),
+                column("owner_kind", text()),
+                column("owner", text()),
+            ],
             "Independent attributed study, user, project, analysis or audit obligation; only the matching owner releases it.",
         ),
         (
             "canonical_artifact_releases",
-            vec![column("key", text()), column("artifact", text()), column("owner_kind", text()), column("owner", text())],
+            vec![
+                column("key", text()),
+                column("artifact", text()),
+                column("owner_kind", text()),
+                column("owner", text()),
+            ],
             "Permanent exact obligation release; a delayed attach cannot recreate a released owner lifetime.",
         ),
         (
@@ -655,12 +707,23 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         (
             "canonical_artifact_staging_inputs",
-            vec![column("key", text()), column("artifact", text()), column("run", text()), column("attempt", text()), column("manifest", text())],
+            vec![
+                column("key", text()),
+                column("artifact", text()),
+                column("run", text()),
+                column("attempt", text()),
+                column("manifest", text()),
+            ],
             "Protective exact producer selection during staged or uncertain scientific transfer; removed only after activation or exact creation settlement.",
         ),
         (
             "canonical_study_inputs",
-            vec![column("key", text()), column("study", text()), column("solution", text()), column("artifact", text())],
+            vec![
+                column("key", text()),
+                column("study", text()),
+                column("solution", text()),
+                column("artifact", text()),
+            ],
             "Exact external seed selection admitted before study activation; one obligation per distinct selected solution preserves original occurrence policy.",
         ),
         (

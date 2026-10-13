@@ -164,10 +164,39 @@ impl ModelingTrajectory {
             &cancel,
             &validation,
         );
-        columns.ensure::<pse_model::generated::runtime::scientific_contexts::Row>().map_err(relation)?;
-        if request.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID) && !columns.skip_next::<pse_model::generated::runtime::scientific_contexts::Row>() {
-            let _copy=crate::workflow::result_export::working(&pool,"result:trajectory-context-copy",&[(p.coordinates.state.len()+p.coordinates.parameters.len()+p.contract.outputs.len()+p.contract.quadratures.len()+1,96),(p.parameters.len()+p.profile.samples.len()+p.profile.atol.len()+p.profile.out_atol.len(),32),(p.modes.len(),256),(1,65536)])?;
-            columns.push(p.scientific_context(self.inner.run_id,self.inner.header.profile_identity)?).await.map_err(relation)?;
+        columns
+            .ensure::<pse_model::generated::runtime::scientific_contexts::Row>()
+            .map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::scientific_contexts::RELATION_ID)
+            && !columns.skip_next::<pse_model::generated::runtime::scientific_contexts::Row>()
+        {
+            let _copy = crate::workflow::result_export::working(
+                &pool,
+                "result:trajectory-context-copy",
+                &[
+                    (
+                        p.coordinates.state.len()
+                            + p.coordinates.parameters.len()
+                            + p.contract.outputs.len()
+                            + p.contract.quadratures.len()
+                            + 1,
+                        96,
+                    ),
+                    (
+                        p.parameters.len()
+                            + p.profile.samples.len()
+                            + p.profile.atol.len()
+                            + p.profile.out_atol.len(),
+                        32,
+                    ),
+                    (p.modes.len(), 256),
+                    (1, 65536),
+                ],
+            )?;
+            columns
+                .push(p.scientific_context(self.inner.run_id, self.inner.header.profile_identity)?)
+                .await
+                .map_err(relation)?;
         }
         columns
             .ensure::<computation_runs::Row>()
@@ -267,7 +296,12 @@ impl ModelingTrajectory {
                     (end.point.integrals.len(), 8),
                     (end.input_columns.len(), 8),
                     (coverage.missing_observations.len(), 8),
-                    (p.modes.get(end.point.mode).map_or(0,|mode|mode.name.len()),1),
+                    (
+                        p.modes
+                            .get(end.point.mode)
+                            .map_or(0, |mode| mode.name.len()),
+                        1,
+                    ),
                 ],
             )?;
             columns
@@ -278,8 +312,21 @@ impl ModelingTrajectory {
                     event_id: end.event,
                     time: end.point.time,
                     mode: end.point.mode as i64,
-                    mode_name: p.modes.get(end.point.mode).ok_or_else(||contract("endpoint mode absent"))?.name.clone(),
-                    mode_identity:p.modes.get(end.point.mode).ok_or_else(||contract("endpoint mode absent"))?.model.compiled().admitted.case().key(),
+                    mode_name: p
+                        .modes
+                        .get(end.point.mode)
+                        .ok_or_else(|| contract("endpoint mode absent"))?
+                        .name
+                        .clone(),
+                    mode_identity: p
+                        .modes
+                        .get(end.point.mode)
+                        .ok_or_else(|| contract("endpoint mode absent"))?
+                        .model
+                        .compiled()
+                        .admitted
+                        .case()
+                        .key(),
                     state_ids: p.coordinates.state.iter().map(|c| c.id).collect(),
                     input_ids: p.coordinates.parameters.iter().map(|c| c.id).collect(),
                     output_ids: p.contract.outputs.clone(),

@@ -73,16 +73,17 @@ mod _native {
         },
         registry_fingerprint,
         workflow::{
-            ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeScientificArtifact, NativeArtifactSettlement, NativeAttempt,
-            NativeModelingConformance, NativeModelingDiagnosticSamples, NativeModelingDiagnostics,
-            NativeModelingElasticAttempt, NativeModelingInitialization,
+            ModelingDiagnosticSettings, ModelingLimits, NativeAnalysis, NativeArtifactSettlement,
+            NativeAttempt, NativeModelingConformance, NativeModelingDiagnosticSamples,
+            NativeModelingDiagnostics, NativeModelingElasticAttempt, NativeModelingInitialization,
             NativeModelingInitializationAttempt, NativeModelingKnowledge,
             NativeModelingNativeAnalysis, NativeModelingNonlinearExplanation,
             NativeModelingPackage, NativeModelingResult, NativeModelingTrajectory,
             NativePhysicalContext, NativePreparedFlow, NativePreparedOperation,
             NativePreparedStrategy, NativeProgressStream, NativeRunHandle, NativeRunResult,
-            NativeRuntime, NativeStart, NativeStoredResult, NativeStrategyAttempt,
-            NativeStrategyResult, NativeStudyHandle, NativeStudyReport, SimulationSettings,
+            NativeRuntime, NativeScientificArtifact, NativeStart, NativeStoredResult,
+            NativeStrategyAttempt, NativeStrategyResult, NativeStudyHandle, NativeStudyReport,
+            SimulationSettings,
         },
     };
 
