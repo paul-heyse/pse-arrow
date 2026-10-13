@@ -1022,7 +1022,22 @@ mod tests {
         let seed = WarmStart { origin: None, compatibility: prepared.solve.compatibility().unwrap().clone(),
             payload: WarmPayload::primal(vec![1.25]) };
         let identity = seed.content_key();
-        let prepared = prepared.with_start(seed).unwrap();
+        let mut prepared = prepared.with_start(seed).unwrap();
+        let mut alternate_input = prepared.original_inputs.document(0).unwrap();
+        alternate_input.settings.controls.iterations = 17;
+        let alternate = alternate_input.reconstruct(&package, &crate::CancelSource::new()).await.unwrap()
+            .with_start(prepared.solve.requested_start().unwrap().clone()).unwrap();
+        let rungs = vec![prepared.solve.clone().into(), alternate.solve.into()];
+        let mut declaration = prepared.solve.numerical_strategy();
+        declaration.limits.attempts = 2;
+        declaration.mechanisms = rungs.iter().map(|rung: &crate::math::solves::PreparedRung| {
+            let mut mechanism = declaration.mechanisms[0].clone();
+            mechanism.limits = declaration.limits;
+            mechanism.operation = rung.operation_contract().unwrap();
+            mechanism.profile = Some(pse_model::strategy::ProfileRef { backend: rung.backend().unwrap(), key: rung.strategy_profile().unwrap() });
+            mechanism
+        }).collect();
+        prepared.solve = prepared.solve.with_strategy(declaration.clone(), rungs).unwrap();
         let permits = runtime.shared.compiler_cpu();
         let width = permits.available_permits();
         assert!(width > 0);
@@ -1037,11 +1052,17 @@ mod tests {
         assert!(document.continue_independent);
         assert!(document.native_attempts.is_empty(), "no native report was dispatched while all CPU permits were held");
         let constructor = &document.case_constructors[0];
+        let graph = constructor.prepared_graph.as_ref().unwrap();
+        assert_eq!(graph.nodes.len(), 3);
+        assert_eq!(graph.nodes[graph.root].declaration.as_ref(), Some(&declaration));
+        assert_eq!(graph.nodes[1].settings.controls.iterations, 17);
         assert_eq!(constructor.requested_start.as_ref().unwrap().restore().unwrap().content_key(), identity);
         drop(held);
         let sources = replay.reconstruct_sources(&runtime).unwrap();
         let restored = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
         assert_eq!(restored.solve.requested_start().unwrap().content_key(), identity);
+        assert_eq!(restored.solve.replay_declaration(), Some(&declaration));
+        assert_eq!(restored.solve.replay_rungs().unwrap()[1].strategy_profile().unwrap(), graph.nodes[1].profile);
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, stopped.run_id);
         assert!(fresh.report().is_ok(), "{:?}", fresh.report());
