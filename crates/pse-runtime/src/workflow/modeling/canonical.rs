@@ -634,7 +634,7 @@ async fn admit_revision(
             let problem = old.map_or_else(||pse_operations::mint_id::<SemanticId>().to_string(), |old|old.problem.clone());
             let operation = pse_operations::mint_id::<SemanticId>().to_string();
             let recorded = store.edit(&problem,old.map(|old|old.key.as_str()),&operation,edits).await
-                .map_err(|source|pse_operations::canonical::CanonicalError::SourceEditUnsettled {problem,operation,source:Box::new(source)})?;
+                .map_err(|source|crate::workflow::source_settlement::source_edit_error(problem,operation,source))?;
             Some(recorded)
         }
     };
@@ -1512,7 +1512,8 @@ mod tests {
         let imported=runtime.modeling_revision(origin.clone(),package.physical.clone(),BTreeMap::new()).await.unwrap();
         assert_ne!(imported.revision_id(),package.revision_id());assert_eq!(imported.revision.identity,package.revision.identity);
         let changed=package.with_declarations(parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}")).await.unwrap();
-        assert!(imported.with_declarations(parse("package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}")).await.is_err());
+        let conflict=imported.with_declarations(parse("package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}")).await.unwrap_err();
+        assert!(matches!(conflict,WorkflowError::Canonical(pse_operations::canonical::CanonicalError::SourceEditRefused {..})),"head conflict is proved refusal: {conflict}");
         assert_eq!(imported.canonical_revision().unwrap(),&origin);
         runtime.canonical_store().unwrap().close();
         assert!(changed.checked_selection(&[root],&crate::CancelSource::new()).await.is_ok());

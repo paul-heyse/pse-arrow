@@ -113,6 +113,19 @@ pub enum CanonicalError {
         #[source]
         source: Box<CanonicalError>,
     },
+    /// The actual source transaction refused this occurrence and an exact receipt
+    /// read afterwards observed no acknowledgement. This is never minted from a
+    /// post-commit acknowledgement-read failure.
+    #[error("source edit {operation} for {problem} was refused: {source}")]
+    SourceEditRefused {
+        /// Original problem selected by the publication intent.
+        problem: String,
+        /// Original immutable source operation identity.
+        operation: String,
+        /// Actual native transaction refusal proof.
+        #[source]
+        source: Box<CanonicalError>,
+    },
     /// Source publication may have reached the server; recover only this issue.
     #[error("source edit {operation} for {problem} did not settle: {source}")]
     SourceEditUnsettled {
@@ -143,6 +156,16 @@ pub enum CanonicalError {
         #[source]
         source: Arc<CanonicalError>,
     },
+}
+impl CanonicalError {
+    /// Whether the source-effect owner established refusal in its actual
+    /// transaction phase, rather than merely observing no receipt.
+    pub fn proves_source_refusal(&self) -> bool { matches!(self,Self::SourceEditRefused {..}) }
+    // Used only at the exact source transaction response, before interpreting a
+    // later receipt read. The same error types at that later read prove nothing.
+    pub(crate) fn source_transaction_refused(&self) -> bool {
+        matches!(self,Self::Driver(error) if error.is_thrown() || matches!(error.query_details(),Some(surrealdb::types::QueryError::NotExecuted|surrealdb::types::QueryError::TransactionConflict)))
+    }
 }
 impl pse_diagnostics::TypedDiagnostic for CanonicalError {
     fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
@@ -1249,13 +1272,13 @@ impl CanonicalStore {
             if let Err(error) = result {
                 // A lost acknowledgment or concurrent identical activation is settled
                 // exclusively by the immutable operation receipt, never by the head.
-                if let Ok(Some(revision)) = self.revision(&stage.operation).await {
-                    return if revision.request.as_slice() == stage.request.as_slice() {
-                        Ok(revision)
-                    } else {
-                        Err(CanonicalError::OperationReused)
-                    };
+                let acknowledgement=self.revision(&stage.operation).await;
+                if let Ok(Some(revision))=&acknowledgement {
+                    return if revision.request.as_slice()==stage.request.as_slice() {
+                        Ok(revision.clone())
+                    }else{Err(CanonicalError::OperationReused)};
                 }
+                let refused=matches!(acknowledgement,Ok(None)) && error.source_transaction_refused();
                 if matches!(&error, CanonicalError::Driver(error) if matches!(error.query_details(), Some(surrealdb::types::QueryError::TransactionConflict)))
                     && attempt + 1 < GUARDED_ATTEMPTS
                 {
@@ -1263,7 +1286,8 @@ impl CanonicalStore {
                     continue;
                 }
                 operation_failed("canonical::activate_source_stage", &error);
-                return Err(error);
+                return Err(if refused {CanonicalError::SourceEditRefused {problem:stage.problem.clone(),operation:stage.operation.clone(),source:Box::new(error)}}else{error});
+
             }
             let revision = self.revision(&stage.operation).await?;
             return revision
@@ -4667,3 +4691,23 @@ pub(crate) const RELEASE_PROTECTION: &str = r#"BEGIN;
             IF !$grant.closed OR $pin!=NONE { UPSERT type::record('canonical_protections', $protection) SET key = $protection, problem = $problem, revision = $revision, sequence = $sequence, expires_at = 0, released = true, grant_deadline=$grant.grant_deadline, grant_nonce=$grant.grant_nonce, authority_incarnation=$grant.authority_incarnation; };
             fn::pse_execution_v1::deadline($pse_rpc_expires_at);
             COMMIT;"#;
+
+#[cfg(test)]
+mod source_refusal_tests {
+    use super::*;
+    #[test]
+    fn native_refusal_type_is_not_proof_without_the_source_effect_phase() {
+        let raw=CanonicalError::Driver(surrealdb::Error::thrown("explicit transaction refusal".into()));
+        assert!(raw.source_transaction_refused());
+        assert!(!raw.proves_source_refusal(),"an arbitrary receipt-read failure cannot prove source refusal");
+        let proved=CanonicalError::SourceEditRefused {problem:"original".into(),operation:"same-operation".into(),source:Box::new(raw)};
+        assert!(proved.proves_source_refusal());
+        for raw in [
+            CanonicalError::Timeout,
+            CanonicalError::IncompleteResponse,
+            CanonicalError::Driver(surrealdb::Error::connection("lost acknowledgement".into(),surrealdb::types::ConnectionError::ConnectionFailed)),
+        ] {
+            assert!(!raw.source_transaction_refused());assert!(!raw.proves_source_refusal());
+        }
+    }
+}

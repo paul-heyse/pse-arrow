@@ -177,6 +177,8 @@ use pse_engine::{
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 use std::sync::Arc;
 mod canonical;
+mod source_settlement;
+pub use source_settlement::{SourceAcknowledgement, SourceSettlement};
 pub use canonical::{CanonicalDeployment, OuterAttestation};
 
 /// Errors retain the native/physical/authoring cause; no string matching or fallback.
@@ -304,6 +306,7 @@ pub struct Runtime {
     outer_attestation: Option<OuterAttestation>,
     /// Application runs retain scientific outcomes; ephemerality is an explicit choice.
     pub(crate) durability: Durability,
+    recording_operations: Option<Box<Operations>>,
     physical_cache: Arc<physical_cache::PhysicalCache>,
 }
 /// Select execution durability within this runtime's canonical deployment and pool.
@@ -375,6 +378,7 @@ impl Runtime {
             caller,
             outer_attestation:Some(canonical.attestation()),
             canonical: Some(canonical),
+            recording_operations: match &durability {Durability::Durable(operations)=>Some(operations.clone()),Durability::Ephemeral=>None},
             durability,
             physical_cache,
         })
@@ -397,18 +401,21 @@ impl Runtime {
             caller,
             outer_attestation:None,
             durability: Durability::Ephemeral,
+            recording_operations:None,
             physical_cache,
         })
     }
     /// Attach an explicitly opened import/recording boundary to this same caller.
     /// This creates no executor, model binding, budget or independent close authority.
     pub fn with_canonical(&self, canonical: CanonicalDeployment) -> Result<Self, WorkflowError> {
+        if self.canonical.is_some() {return Err(contract("runtime recording sink is already configured"));}
         let canonical=canonical.independent_caller()?;
         let mut state=self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let continuing=RUNTIME_CONTINUATION.try_with(|activity|Arc::ptr_eq(&activity.0.caller,&self.caller)).unwrap_or(false);
         if state.closed && !continuing {canonical.store().close();return Err(WorkflowError::CallerClosed);}
+        let recording_operations=Some(Box::new(Operations::from_store(canonical.store().clone(),Operations::process_worker("runtime"),LeasePolicy::default(),self.shared.pool())));
         state.stores.push(canonical.store().clone());
-        Ok(Self {outer_attestation:self.outer_attestation.or(Some(canonical.attestation())),canonical:Some(canonical),..self.clone()})
+        Ok(Self {outer_attestation:self.outer_attestation.or(Some(canonical.attestation())),canonical:Some(canonical),recording_operations,..self.clone()})
     }
     /// Actual supplied outer provenance is separate from storage configuration and trust.
     pub fn outer_attestation(&self) -> Option<OuterAttestation> { self.outer_attestation }
@@ -514,6 +521,7 @@ impl Runtime {
                 )))
             }
         };
+        if let Durability::Durable(operations)=&self.durability { self.recording_operations=Some(operations.clone()); }
         Ok(self)
     }
     /// The durability class of this runtime's runs.

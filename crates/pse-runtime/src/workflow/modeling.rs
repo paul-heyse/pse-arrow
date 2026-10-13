@@ -460,7 +460,8 @@ impl Runtime {
                     )
                     .await?;
                 let _ = canonical::reload::retain_initial(&package, documents);
-                token.checkpoint().map_err(pse_engine::EngineError::from)?;
+                // An acknowledged source effect is the outcome even if cancellation
+                // arrived during publication. The Python recovery callback retains it.
                 Ok(package)
             })
             .await

@@ -358,14 +358,9 @@ fn stored_diagnostic(
 }
 
 impl Runtime {
-    /// The canonical execution owner; ephemerality is an explicit kernel adapter.
+    /// Actual recording/read owner, independent of default scientific execution durability.
     pub(crate) fn operations(&self) -> Result<&Operations, WorkflowError> {
-        match &self.durability {
-            super::Durability::Durable(operations) => Ok(operations),
-            super::Durability::Ephemeral => {
-                Err(contract("canonical execution requires durable runtime"))
-            }
-        }
+        self.recording_operations.as_deref().ok_or(WorkflowError::RecordingUnavailable)
     }
 
     /// Admit authored ingress once and retain one canonical study before preparing ready occurrences.

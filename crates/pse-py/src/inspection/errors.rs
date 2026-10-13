@@ -80,6 +80,16 @@ pub(crate) struct DiagnosticReport {
     /// Original unsettled study occurrence requiring explicit recovery.
     #[pyo3(get)]
     study_key: Option<String>,
+    /// Original source problem, retained for explicit read-only settlement.
+    #[pyo3(get)]
+    source_problem: Option<String>,
+    /// Original source operation; absence of its receipt never proves non-issuance.
+    #[pyo3(get)]
+    source_operation: Option<String>,
+    /// True only when the actual source transaction owner proved refusal. False
+    /// means refusal is unproved; it does not assert acknowledgement or success.
+    #[pyo3(get)]
+    source_refusal_proved: bool,
     causes: Vec<DiagnosticCauseDocument>,
     contexts: Vec<DiagnosticContextDocument>,
     related: Vec<DiagnosticReport>,
@@ -102,6 +112,9 @@ pub(crate) trait ReportSource: TypedDiagnostic {
     fn report_study_key(&self) -> Option<String> {
         None
     }
+    fn report_source_problem(&self) -> Option<String> { None }
+    fn report_source_operation(&self) -> Option<String> { None }
+    fn report_source_refusal_proved(&self) -> bool { false }
     fn report_contexts(&self) -> Vec<DiagnosticContextDocument> {
         Vec::new()
     }
@@ -177,6 +190,32 @@ impl ReportSource for pse_runtime::workflow::WorkflowError {
             _ => None,
         }
     }
+    fn report_source_problem(&self) -> Option<String> {
+        match self {
+            Self::Canonical(error)=>error.report_source_problem(),
+            Self::Shared(error)=>error.report_source_problem(),
+            Self::StudyCreationUnsettled {source,..}|Self::ArtifactTransferUnsettled {source,..}=>source.report_source_problem(),
+            _=>None,
+        }
+    }
+    fn report_source_operation(&self) -> Option<String> {
+        match self {
+            Self::Canonical(error)=>error.report_source_operation(),
+            Self::Shared(error)=>error.report_source_operation(),
+            Self::StudyCreationUnsettled {source,..}|Self::ArtifactTransferUnsettled {source,..}=>source.report_source_operation(),
+            _=>None,
+        }
+    }
+
+    fn report_source_refusal_proved(&self) -> bool {
+        match self {
+            Self::Canonical(error)=>error.report_source_refusal_proved(),
+            Self::Shared(error)=>error.report_source_refusal_proved(),
+            Self::StudyCreationUnsettled {source,..}|Self::ArtifactTransferUnsettled {source,..}=>source.report_source_refusal_proved(),
+            _=>false,
+        }
+    }
+
 }
 impl ReportSource for pse_runtime::RuntimeError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
@@ -210,6 +249,15 @@ impl ReportSource for pse_operations::canonical::CanonicalError {
             _ => None,
         }
     }
+    fn report_source_problem(&self) -> Option<String> {
+        match self {Self::SourceEditUnsettled {problem,..}|Self::SourceEditRefused {problem,..}=>Some(problem.clone()),_=>None}
+    }
+    fn report_source_operation(&self) -> Option<String> {
+        match self {Self::SourceEditUnsettled {operation,..}|Self::SourceEditRefused {operation,..}=>Some(operation.clone()),_=>None}
+    }
+
+    fn report_source_refusal_proved(&self) -> bool { self.proves_source_refusal() }
+
 }
 impl ReportSource for pse_runtime::math::portable::PortableError {
     fn report_boundary(&self) -> BoundaryDiagnostic {
@@ -262,6 +310,9 @@ impl DiagnosticReport {
             report.artifact_read_key = read;
         }
         report.study_key = error.report_study_key();
+        report.source_problem=error.report_source_problem();
+        report.source_operation=error.report_source_operation();
+        report.source_refusal_proved=error.report_source_refusal_proved();
         if let Some(related) = error.report_related() {
             report.related = related;
         }
@@ -305,6 +356,9 @@ impl DiagnosticReport {
             artifact_owner: None,
             artifact_read_key: None,
             study_key: None,
+            source_problem:None,
+            source_operation:None,
+            source_refusal_proved:false,
             code: error.code().map(|code| code.to_string()),
             message: error.to_string(),
             help: error.help().map(|help| help.to_string()),
