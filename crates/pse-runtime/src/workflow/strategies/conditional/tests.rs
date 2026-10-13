@@ -2023,16 +2023,26 @@ async fn small_block_override_validation_fits_without_all_block_construction() {
     profile.block_overrides.insert(id, crate::math::settings::BlockSolveOverride {
         backend: Some(Backend::Kinsol), settings: None, controls: None,
     });
+    // Admission may reclaim idle compiler/cache generations before refusing.
+    // Release them before fixing the pressure boundary; prepared source products
+    // remain live through their own owners and cannot be reclaimed by the probe.
+    runtime.native().clear_program_cache();
     let pool = runtime.shared.pool();
+    let capacity = match pool.memory_limit() {
+        datafusion::execution::memory_pool::MemoryLimit::Finite(limit) => limit,
+        other => panic!("pressure control requires a finite actual pool, got {other:?}"),
+    };
     let policy = &runtime.shared.budget().math;
     let fixed = policy.stack_bytes + policy.foreign_bytes + policy.inner_session_bytes;
     // Selected oracle boxes, retained boundary descriptors and contextual routing
     // fit in the margin. No matching stack or evaluator bundle is admitted here.
     let free = fixed + discovery.max(selected) + (1 << 20);
     assert!(free < replaced, "selected validation must fit below replaced all-block demand");
-    let pressure = runtime.native().reserve("test:selected-block-validation-pressure",
-        runtime.shared.budget().memory_limit_bytes.get() - pool.reserved() - free).unwrap();
+    let pressure_bytes = capacity.checked_sub(pool.reserved()).and_then(|n| n.checked_sub(free))
+        .expect("selected validation demand fits the actual remaining pool");
+    let pressure = runtime.native().reserve("test:selected-block-validation-pressure", pressure_bytes).unwrap();
     let baseline = pool.reserved();
+    assert_eq!(capacity - baseline, free, "pressure fixes the actual admission headroom");
     assert!(runtime.native().reserve("test:replaced-all-block-demand", replaced).is_err(),
         "the control leaves insufficient capacity for the removed construction demand");
     let before = runtime.native().preparation_effects();
