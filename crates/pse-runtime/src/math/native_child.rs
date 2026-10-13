@@ -101,7 +101,7 @@ pub struct NativeChild {
     /// Separately charged allowance for SUNDIALS/KLU/private allocator, registry and
     /// compiled-program populations and startup/main/foreign stack unknowns. This is
     /// admission accounting, not an allocator-enforced complete process/RSS maximum.
-    pub opaque_bytes: usize,
+    opaque_bytes: usize,
     /// Explicit strict whole-child memory selection; currently refused before launch.
     pub require_complete_memory_bound: bool,
     #[cfg(test)]
@@ -193,7 +193,7 @@ impl MathService {
             .and_then(|n| n.checked_add(NATIVE_CHILD_STACK_BYTES))
             .ok_or_else(|| contract("native child construction extent"))?;
         let service = self.clone();
-        self.submit_with(1, bytes, submission, move |flag, _| {
+        self.submit_source_timed(1, bytes, submission, move |flag, _| {
             let scope = ExecutionScope::new(flag, Some(deadline));
             checkpoint(&scope)?;
             // Immediate pool refusal cannot create admission hold-and-wait. This lease
@@ -256,9 +256,10 @@ impl Drop for OwnedChild {
 }
 fn launch(child: &NativeChild, payload: Vec<u8>, scope: &ExecutionScope) -> Result<PortableRootResult, MathRuntimeError> {
     checkpoint(scope)?;
-    let actual = pse_buildinfo::FileObservation::capture_scoped(&child.executable,
-        &|| scope.check().map_err(|e| io::Error::other(e.to_string()))).map_err(infrastructure)?;
+    let observed = pse_buildinfo::FileObservation::capture_scoped(&child.executable,
+        &|| scope.check().map_err(|e| io::Error::other(e.to_string())));
     checkpoint(scope)?;
+    let actual = observed.map_err(infrastructure)?;
     if actual.sha256 != child.observation.sha256 || actual.canonical != child.observation.canonical {
         return Err(contract("native child executable changed after qualification"));
     }

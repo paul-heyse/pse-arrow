@@ -698,6 +698,31 @@ impl MathService {
         + 'static,
     ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
     {
+        self.submit_construction_mode(cores, construction, submission, false, work)
+    }
+    /// Trusted closed child driver enforces its absolute deadline, kills and reaps.
+    /// Expiry must not mutate the public user-cancellation source to wake it.
+    pub(super) fn submit_source_timed<T: Send + 'static>(
+        self: &Arc<Self>, cores: usize, bytes: usize, submission: Submission,
+        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>, Arc<pse_backend_native::solve::Progress>)
+            -> Result<(T, usize), MathRuntimeError> + Send + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError> {
+        self.submit_construction_mode(cores, ConstructionEstimate::Opaque(bytes), submission, true, work)
+    }
+    fn submit_construction_mode<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        construction: ConstructionEstimate,
+        submission: Submission,
+        source_owns_deadline: bool,
+        work: impl FnOnce(
+            Arc<std::sync::atomic::AtomicBool>,
+            Arc<pse_backend_native::solve::Progress>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
         let bytes = construction.bytes();
         if matches!(construction, ConstructionEstimate::Opaque(_))
             && bytes > self.policy.worker_bytes
@@ -723,7 +748,7 @@ impl MathService {
                     cores,
                     bytes,
                     flag,
-                    (admitted, deadline),
+                    (admitted, deadline, source_owns_deadline),
                     Some(entry),
                     move |flag| work(flag, events),
                 )
@@ -778,7 +803,7 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, None), None, work)
+        self.admitted(cores, bytes, cancel, (None, None, false), None, work)
             .await
     }
     /// Prepare/advance a product under the caller's original task clock. Waiting for
@@ -793,7 +818,7 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, deadline), None, work)
+        self.admitted(cores, bytes, cancel, (None, deadline, false), None, work)
             .await
     }
     /// Construct under a source-issued bound or its explicitly prepaid opaque
@@ -864,7 +889,7 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, deadline), Some(entry), work)
+        self.admitted(cores, bytes, cancel, (None, deadline, false), Some(entry), work)
             .await
     }
     /// Refuse a synchronous burst before its handle/task joins the bounded population.
@@ -1012,9 +1037,10 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: FlightCancellation,
-        (admitted, deadline): (
+        (admitted, deadline, source_owns_deadline): (
             Option<tokio::sync::oneshot::Sender<()>>,
             Option<std::time::Instant>,
+            bool,
         ),
         entry: Option<AdmissionEntry>,
         work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>) -> Result<(T, usize), MathRuntimeError>
@@ -1099,7 +1125,7 @@ impl MathService {
                         () = tokio::time::sleep_until(deadline.into()) => {
                             // Signal checkpoints immediately, but retain every native owner
                             // until the actual thread and its foreign destructors have joined.
-                            cancel.cancel();
+                            if !source_owns_deadline { cancel.cancel(); }
                             let _ = joining.await;
                             Err(Self::admission_timeout())
                         },
