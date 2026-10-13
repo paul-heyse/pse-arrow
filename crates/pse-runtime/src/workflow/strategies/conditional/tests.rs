@@ -1885,3 +1885,37 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
     assert_eq!(unit.program.values.identity(), original);
     assert_eq!(unit.budget.used(), charged);
 }
+
+#[tokio::test]
+async fn ready_initialization_profiles_match_serial_and_refuse_stale_block_ids() {
+    let runtime = construction_runtime();
+    let declarations = pse_authoring::language::parse(
+        "package ready {def Root {var a:Scalar; var b:Scalar; var c:Scalar; eq first:a==1; eq second:b==2; eq downstream:c==a+b; annotation start a(0); annotation start b(0); annotation start c(0);}}",
+        id(94), pse_authoring::language::IdentityPolicy::Named, Default::default(),
+    ).unwrap();
+    let root = declarations.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+    let package = runtime.modeling_package(declarations, physical()).await.unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut analysis = package.declared_execution(root, compiler_profile(), super::super::tests::profile(SolveIntent::Initialize), Default::default(), Default::default(), &cancel).await.unwrap().analysis;
+    let serial = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();
+    let stable: Vec<_> = serial.blocks().boundaries().map(|block| block.id).collect();
+    assert!(stable.len() >= 3);
+    let expected = serial.start().unwrap().finish().await.unwrap();
+    assert_eq!(expected.completed_stages, 1);
+    analysis.solver.block_workers = 2;
+    analysis.solver.block_overrides.insert(stable[0], crate::math::settings::BlockSolveOverride {
+        backend: Some(Backend::Kinsol),
+        settings: Some(native::execution::BackendSettings::Kinsol(kinsol::Method { linear: kinsol::Linear::Dense, ..Default::default() })),
+        controls: None,
+    });
+    let ready = package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.unwrap();
+    assert_eq!(ready.blocks().boundaries().map(|block| block.id).collect::<Vec<_>>(), stable);
+    let actual = ready.start().unwrap().finish().await.unwrap();
+    assert_eq!(actual.completed_stages, 1);
+    assert_eq!(actual.original.identity(), expected.original.identity());
+    assert_eq!(actual.values.scalars.len(), expected.values.scalars.len());
+    for (id, expected) in &expected.values.scalars { assert!((actual.values.scalars[id] - expected).abs() < 1e-8); }
+    assert!(actual.attempts.iter().all(|attempt| attempt.committed));
+    analysis.solver.block_overrides.insert(pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([93; 32])), crate::math::settings::BlockSolveOverride { backend: None, settings: None, controls: None });
+    assert!(package.prepare_block_initialization(&analysis, vec![BTreeMap::new()], &cancel).await.is_err());
+}
