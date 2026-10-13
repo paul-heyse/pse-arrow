@@ -69,31 +69,9 @@ use pse_math::binding::ObjectiveSense;
 use std::{
     cell::RefCell,
     rc::Rc,
+    num::NonZeroUsize,
     sync::{Arc, Mutex},
 };
-/// Worker count of FERAL's own factorization pool, by the rule feral 0.18 applies when it
-/// builds that pool (`Solver::pool_num_threads`): `RAYON_NUM_THREADS` when it parses as a
-/// positive count, else the available parallelism, else one. The pool cannot be injected,
-/// so it is sized independently of the admitted local pool.
-fn feral_pool_threads() -> usize {
-    std::env::var("RAYON_NUM_THREADS")
-        .ok()
-        .and_then(|s| s.trim().parse::<usize>().ok())
-        .filter(|n| *n > 0)
-        .or_else(|| std::thread::available_parallelism().ok().map(|n| n.get()))
-        .unwrap_or(1)
-        .max(1)
-}
-/// FERAL's effective factorization thread count for an admitted count (F01). FERAL
-/// factorizes on its own pool, outside the admitted scoped pool, so it runs parallel only
-/// when admission covers every core that pool would use; otherwise it runs serial.
-fn feral_threads(admitted: usize, pool: usize) -> usize {
-    if admitted > 1 && admitted >= pool {
-        pool
-    } else {
-        1
-    }
-}
 /// Hidden second solves are pinned off, and the ℓ1 options are reserved: only the typed
 /// [`Method::L1ExactPenalty`] sets the exact-penalty switch, and the automatic ℓ1 retry after
 /// restoration failure stays off. A result never comes from an undeclared attempt beyond
@@ -224,6 +202,32 @@ impl Session {
     pub fn new() -> Self {
         Self::default()
     }
+    /// End an independent application while preserving only reset-safe neutral
+    /// FERAL owners and their charged allocation. Application-owned numerical history,
+    /// options, callbacks and oracle owners are released. Explicit seeds remain inputs
+    /// to the next solve; this reset never creates a continuation edge.
+    pub fn reset_for_new_application(&mut self) -> Result<(), ProblemError> {
+        self.app = None;
+        let retains_backends = if let Some(pool) = self.factors.as_ref() {
+            let pool = pool.try_borrow().map_err(|_| ProblemError::Contract(
+                "POUNCE reset requires exclusive factor-pool ownership".into()))?;
+            if !pool.is_quiescent() {
+                return Err(ProblemError::Contract(
+                    "POUNCE reset requires all factor leases to finish".into()));
+            }
+            pool.retains_backends()
+        } else {
+            false
+        };
+        if !retains_backends {
+            self.factors = None;
+            self.stamp = None;
+            self.foreign_allowance = None;
+            self.storage_owner = None;
+        }
+        Ok(())
+    }
+
     /// Observable pattern/owner buffers. This is not the extent of opaque FERAL
     /// allocations; the execution owner must retain its admitted foreign allowance.
     pub fn retained_layout_bytes(&self) -> usize {
@@ -528,27 +532,26 @@ impl Session {
             options.extend(restart_options);
             applied
         });
-        let linear_threads = feral_threads(controls.threads, feral_pool_threads());
+        let pool_width = NonZeroUsize::new(controls.threads)
+            .ok_or_else(|| ProblemError::Contract("POUNCE factor pool width must be positive".into()))?;
+        let linear_threads = pool_width.get();
         feral.parallel = Some(linear_threads > 1);
         feral.fma = false;
         let factor_identity = serde_json::json!({"feral":crate::settings::pounce::record(&feral).map_err(|e|ProblemError::Internal(format!("FERAL identity: {e}")))?,"hessian_supplied":supplied,"method":serde_json::to_value(method).map_err(|e|ProblemError::Internal(format!("POUNCE method identity: {e}")))?});
-        let reused = self.app.is_some()
-            && self
-                .stamp
-                .as_ref()
-                .is_some_and(|s| s.same_session(&compatibility))
+        let compatible = self.stamp.as_ref().is_some_and(|s| s.same_session(&compatibility))
             && controls.reuse != ReusePolicy::Fresh;
+        let reused = self.app.is_some() && compatible;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
             return Err(ProblemError::Reuse {
                 backend: Backend::Pounce,
                 refusal: crate::ReuseRefusal::Structure,
             });
         }
-        let factor_reused = reused
+        let factor_reused = compatible
             && self
                 .factors
                 .as_ref()
-                .is_some_and(|pool| pool.borrow().matches(&factor_identity));
+                .is_some_and(|pool| pool.borrow().matches(&factor_identity, pool_width));
         if self.factors.is_some() && !factor_reused && controls.reuse == ReusePolicy::RequireReuse {
             return Err(ProblemError::Reuse {
                 backend: Backend::Pounce,
@@ -589,7 +592,7 @@ impl Session {
                 .ok_or_else(|| ProblemError::Internal("missing retained FERAL pool".into()))?
                 .clone()
         } else {
-            retained::Pool::new(feral.clone(), factor_identity)
+            retained::Pool::new(feral.clone(), factor_identity, pool_width)
         };
         self.factors = Some(pool.clone());
         // Both replaced native owners have now dropped; earlier leases may be released.
@@ -657,6 +660,7 @@ impl Session {
             .work_admission
             .as_ref()
             .and_then(|owner| owner.retain_storage());
+        pool.borrow_mut().retain_storage(self.storage_owner.clone());
         let mut a = adapter.borrow_mut();
         let status = match status {
             Ok(status) => status,
@@ -712,9 +716,14 @@ impl Session {
         report
             .metrics
             .insert("reuse.native_application".into(), Metric::Bool(reused));
-        report.evidence.reused_native_state = reused;
         let after_factors = pool.borrow().counts();
+        report.evidence.reused_native_state = reused || after_factors.reused > before_factors.reused;
         for (name, count) in [
+            ("linear.application_reset.completed", after_factors.resets.saturating_sub(before_factors.resets)),
+            ("linear.application_reset.symbolic_retained", after_factors.symbolic_retained.saturating_sub(before_factors.symbolic_retained)),
+            ("linear.application_reset.symbolic_not_retained", after_factors.symbolic_not_retained.saturating_sub(before_factors.symbolic_not_retained)),
+            ("linear.application_reset.refused", after_factors.reset_refused.saturating_sub(before_factors.reset_refused)),
+            ("linear.backend_objects.discarded", after_factors.discarded.saturating_sub(before_factors.discarded)),
             (
                 "linear.backend_objects.created",
                 after_factors.created.saturating_sub(before_factors.created),
@@ -1320,22 +1329,14 @@ mod tests {
         )
     }
     #[test]
-    fn feral_threads_bounded_by_admission() {
-        // FERAL's own pool runs only when admission covers every core it would use.
-        assert_eq!(feral_threads(1, 8), 1);
-        assert_eq!(feral_threads(2, 8), 1);
-        assert_eq!(feral_threads(8, 8), 8);
-        assert_eq!(feral_threads(16, 8), 8);
-        assert_eq!(feral_threads(1, 1), 1);
-        let pool = feral_pool_threads();
+    fn feral_owned_pool_width_matches_admission() {
         let report =
             with_threads(2, 8 << 20, || run(&mut Session::new(), Options::new(), 2)).unwrap();
         assert!(matches!(report.termination.category, Termination::Success));
-        let expected = i64::try_from(feral_threads(2, pool)).unwrap();
-        assert_eq!(report.metrics["linear.threads"], Metric::Integer(expected));
+        assert_eq!(report.metrics["linear.threads"], Metric::Integer(2));
         let effective: serde_json::Value =
             serde_json::from_str(&report.provenance["feral.effective"]).unwrap();
-        assert_eq!(effective["parallel"], serde_json::json!(expected > 1));
+        assert_eq!(effective["parallel"], serde_json::json!(true));
     }
     #[test]
     fn reused_session_does_not_inherit_options() {
@@ -1446,6 +1447,44 @@ mod tests {
         assert_eq!(counted(&fresh, "linear.backend_objects.reused"), 0);
         assert!(counted(&fresh, "linear.backend_objects.created") > 0);
     }
+    #[test]
+    fn independent_application_reset_recreates_app_and_preserves_neutral_factor_owners() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct Allocation(Arc<AtomicUsize>);
+        impl Drop for Allocation {
+            fn drop(&mut self) { self.0.fetch_add(1, Ordering::SeqCst); }
+        }
+        let mut session = Session::new();
+        let stamp = crate::solver_tests::stamp(Backend::Pounce);
+        let first = reuse_run(&mut session, &Settings::default(), ReusePolicy::AllowRebuild, stamp.clone()).unwrap();
+        assert_eq!(first.termination.category, Termination::Success);
+        assert!(counted(&first, "linear.application_reset.completed") > 0);
+        let pool = session.factors.as_ref().unwrap().clone();
+        let released = Arc::new(AtomicUsize::new(0));
+        let allocation: Arc<dyn std::any::Any + Send + Sync> = Arc::new(Allocation(released.clone()));
+        session.storage_owner = Some(allocation.clone());
+        pool.borrow_mut().retain_storage(Some(allocation));
+        session.reset_for_new_application().unwrap();
+        assert!(session.app.is_none());
+        assert!(session.stamp.as_ref().unwrap().same_session(&stamp));
+        assert!(Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
+        assert!(session.storage_owner.is_some());
+        assert_eq!(session.retained_foreign_allowance(), Some(64 << 20));
+        assert_eq!(released.load(Ordering::SeqCst), 0);
+        let second = reuse_run(&mut session, &Settings::default(), ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+        assert_eq!(second.termination.category, Termination::Success);
+        assert_eq!(second.metrics["reuse.native_application"], Metric::Bool(false));
+        assert!(second.evidence.reused_native_state);
+        assert_eq!(counted(&second, "linear.backend_objects.created"), 0);
+        assert!(counted(&second, "linear.backend_objects.reused") > 0);
+        assert!(counted(&second, "linear.pattern_reuse") > 0);
+        assert!(counted(&second, "linear.application_reset.symbolic_retained") > 0);
+        assert_eq!(released.load(Ordering::SeqCst), 1, "new source admission replaced the old allocation owner");
+        let fresh = reuse_run(&mut Session::new(), &Settings::default(), ReusePolicy::Fresh, stamp).unwrap();
+        assert_eq!(second.candidate.as_ref().unwrap().primal, fresh.candidate.as_ref().unwrap().primal);
+        assert_eq!(second.options, fresh.options);
+    }
+
     #[test]
     fn native_layout_and_effective_factor_profile_invalidate_retained_backends_and_require_reuse_refuses()
      {

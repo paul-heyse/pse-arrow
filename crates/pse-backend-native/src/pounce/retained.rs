@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Exclusive, worker-owned leases of actual FERAL backends. Returning a lease keeps
-//! library symbolic state; every new application must refill/refactor its numeric matrix.
+//! reset-safe baseline symbolics; every new application initializes wrapper geometry and
+//! refills/refactors its numeric matrix.
 use pounce_common::types::{Index, Number};
 use pounce_feral::{FeralConfig, FeralSolverInterface};
 use pounce_linsol::{
@@ -13,6 +14,7 @@ use std::{
     cell::RefCell,
     collections::BTreeMap,
     rc::Rc,
+    num::NonZeroUsize,
     sync::{Arc, Mutex},
 };
 
@@ -32,6 +34,11 @@ pub(super) struct Counts {
     pub reused: u64,
     pub pattern_kept: u64,
     pub structure_refreshes: u64,
+    pub resets: u64,
+    pub symbolic_retained: u64,
+    pub symbolic_not_retained: u64,
+    pub reset_refused: u64,
+    pub discarded: u64,
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Pattern {
@@ -47,23 +54,38 @@ struct Held {
 }
 pub(super) struct Pool {
     config: FeralConfig,
+    pool_width: NonZeroUsize,
     identity: serde_json::Value,
     idle: BTreeMap<Role, Vec<Held>>,
     counts: Counts,
     active: usize,
+    // A lease owns this pool even if the Session is invalidated during reset.
+    // The resident allocation stays charged until the last backend owner drains.
+    storage_owner: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 impl Pool {
-    pub(super) fn new(config: FeralConfig, identity: serde_json::Value) -> Rc<RefCell<Self>> {
+    pub(super) fn new(config: FeralConfig, identity: serde_json::Value, pool_width: NonZeroUsize) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             config,
+            pool_width,
             identity,
             idle: BTreeMap::new(),
             counts: Counts::default(),
             active: 0,
+            storage_owner: None,
         }))
     }
-    pub(super) fn matches(&self, identity: &serde_json::Value) -> bool {
-        &self.identity == identity
+    pub(super) fn matches(&self, identity: &serde_json::Value, pool_width: NonZeroUsize) -> bool {
+        &self.identity == identity && self.pool_width == pool_width
+    }
+    pub(super) fn is_quiescent(&self) -> bool {
+        self.active == 0
+    }
+    pub(super) fn retains_backends(&self) -> bool {
+        self.idle.values().any(|held| !held.is_empty())
+    }
+    pub(super) fn retain_storage(&mut self, owner: Option<Arc<dyn std::any::Any + Send + Sync>>) {
+        self.storage_owner = owner;
     }
     pub(super) fn counts(&self) -> Counts {
         self.counts
@@ -98,7 +120,7 @@ impl Pool {
                 Held {
                     #[cfg(test)]
                     id: owner.counts.created,
-                    backend: FeralSolverInterface::with_config(owner.config.clone()),
+                    backend: FeralSolverInterface::with_config_and_pool_width(owner.config.clone(), owner.pool_width),
                     pattern: None,
                 }
             };
@@ -112,7 +134,6 @@ impl Pool {
             sink,
             new_application: true,
             healthy: true,
-            quality_changed: false,
         }
     }
 }
@@ -139,7 +160,6 @@ struct Lease {
     sink: Arc<Mutex<LinearSolverSummary>>,
     new_application: bool,
     healthy: bool,
-    quality_changed: bool,
 }
 impl Lease {
     #[allow(
@@ -180,14 +200,27 @@ impl Drop for Lease {
     fn drop(&mut self) {
         let mut owner = self.pool.borrow_mut();
         owner.active -= 1;
-        // The pinned interface has no operation to restore construction-time pivot
-        // settings after quality escalation. Do not carry that altered profile into
-        // a later attempt claiming the originally requested effective settings.
-        if self.healthy
-            && !self.quality_changed
-            && let Some(held) = self.held.take()
-        {
-            owner.idle.entry(self.role).or_default().push(held);
+        if let Some(mut held) = self.held.take() {
+            // Fatal project-level validation and unwind cannot be cured by resetting
+            // the library object. Only a completed healthy lease may become neutral.
+            let reset_attempted = self.healthy && !std::thread::panicking();
+            let reset = if reset_attempted {
+                held.backend.reset_for_new_application()
+            } else {
+                None
+            };
+            if let Some(reset) = reset {
+                owner.counts.resets += 1;
+                if reset.symbolic_retained {
+                    owner.counts.symbolic_retained += 1;
+                } else {
+                    owner.counts.symbolic_not_retained += 1;
+                }
+                owner.idle.entry(self.role).or_default().push(held);
+            } else {
+                if reset_attempted { owner.counts.reset_refused += 1; }
+                owner.counts.discarded += 1;
+            }
         }
     }
 }
@@ -212,10 +245,13 @@ impl SparseSymLinearSolverInterface for Lease {
         self.new_application = true;
         if unchanged {
             self.pool.borrow_mut().counts.pattern_kept += 1;
-            self.held_mut().backend.values_array_mut().fill(0.0);
-            return ESymSolverStatus::Success;
+        } else {
+            self.pool.borrow_mut().counts.structure_refreshes += 1;
         }
-        self.pool.borrow_mut().counts.structure_refreshes += 1;
+        // Reset clears the library wrapper's initialization and numeric buffers.
+        // Identical project triplets do not authorize skipping this initialization;
+        // baseline symbolic retention is separately reported by the actual reset.
+
         let status = self
             .held_mut()
             .backend
@@ -268,9 +304,7 @@ impl SparseSymLinearSolverInterface for Lease {
         self.held().backend.number_of_neg_evals()
     }
     fn increase_quality(&mut self) -> bool {
-        let changed = self.held_mut().backend.increase_quality();
-        self.quality_changed |= changed;
-        changed
+        self.held_mut().backend.increase_quality()
     }
     fn provides_inertia(&self) -> bool {
         self.held().backend.provides_inertia()
@@ -330,6 +364,7 @@ mod tests {
                 ..FeralConfig::default()
             },
             serde_json::Value::Null,
+            NonZeroUsize::new(1).unwrap(),
         );
         let role = Role {
             phase: Phase::Main,
@@ -355,8 +390,73 @@ mod tests {
         assert_eq!(pool.borrow().counts().created, 1);
         assert_eq!(pool.borrow().counts().reused, 1);
         assert_eq!(pool.borrow().counts().pattern_kept, 1);
+        assert_eq!(pool.borrow().counts().resets, 2);
+        assert_eq!(pool.borrow().counts().symbolic_retained, 2);
+        assert_eq!(pool.borrow().counts().symbolic_not_retained, 0);
+        assert_eq!(pool.borrow().counts().reset_refused, 0);
+        assert_eq!(pool.borrow().counts().discarded, 0);
         assert!(pool.borrow().layout_bytes() > size_of::<Pool>());
     }
+    #[test]
+    fn independent_reset_restores_quality_and_discards_unhealthy_lease() {
+        let pool = Pool::new(FeralConfig {
+            parallel: Some(false), increase_quality: true,
+            ordering: pounce_feral::OrderingMethod::Amd,
+            scaling: pounce_feral::ScalingStrategy::Identity,
+            ..FeralConfig::default()
+        }, serde_json::Value::Null, NonZeroUsize::new(1).unwrap());
+        let sink = Arc::new(Mutex::new(LinearSolverSummary::default()));
+        let role = Role { phase: Phase::Main, ordinal: 0 };
+        let mut first = Pool::checkout(&pool, role, sink.clone());
+        let id = first.held().id;
+        factor(&mut first, [4.0, 1.0, 3.0]);
+        assert!(first.increase_quality());
+        drop(first);
+        assert_eq!(pool.borrow().counts().symbolic_retained, 1);
+        let mut second = Pool::checkout(&pool, role, sink.clone());
+        assert_eq!(second.held().id, id);
+        factor(&mut second, [5.0, 1.0, 4.0]);
+        assert_eq!(second.initialize_structure(-1, 0, &[], &[]), ESymSolverStatus::FatalError);
+        drop(second);
+        assert_eq!(pool.borrow().counts().discarded, 1);
+        assert_eq!(pool.borrow().counts().reset_refused, 0, "project refusal did not attempt a library reset");
+        let replacement = Pool::checkout(&pool, role, sink);
+        assert_ne!(replacement.held().id, id);
+    }
+
+    #[test]
+    fn owned_pool_width_is_part_of_compatibility() {
+        let identity = serde_json::json!({"profile": "same"});
+        let pool = Pool::new(FeralConfig::default(), identity.clone(), NonZeroUsize::new(2).unwrap());
+        assert!(pool.borrow().matches(&identity, NonZeroUsize::new(2).unwrap()));
+        assert!(!pool.borrow().matches(&identity, NonZeroUsize::new(1).unwrap()));
+    }
+
+    #[test]
+    fn outstanding_lease_keeps_allocation_charged_after_session_reset_refusal() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        struct Allocation(Arc<AtomicUsize>);
+        impl Drop for Allocation {
+            fn drop(&mut self) { self.0.fetch_add(1, Ordering::SeqCst); }
+        }
+        let released = Arc::new(AtomicUsize::new(0));
+        let allocation: Arc<dyn std::any::Any + Send + Sync> = Arc::new(Allocation(released.clone()));
+        let pool = Pool::new(FeralConfig { parallel: Some(false), ..Default::default() },
+            serde_json::Value::Null, NonZeroUsize::new(1).unwrap());
+        pool.borrow_mut().retain_storage(Some(allocation.clone()));
+        let lease = Pool::checkout(&pool, Role { phase: Phase::Main, ordinal: 0 },
+            Arc::new(Mutex::new(LinearSolverSummary::default())));
+        let mut session = super::super::Session::new();
+        session.factors = Some(pool.clone());
+        session.storage_owner = Some(allocation);
+        drop(pool);
+        assert!(session.reset_for_new_application().is_err());
+        drop(session);
+        assert_eq!(released.load(Ordering::SeqCst), 0, "active native lease still owns allocation");
+        drop(lease);
+        assert_eq!(released.load(Ordering::SeqCst), 1, "last native owner drained");
+    }
+
     #[test]
     fn main_restoration_bypass_and_simultaneous_same_role_get_distinct_mutable_factors() {
         let pool = Pool::new(
@@ -365,6 +465,7 @@ mod tests {
                 ..FeralConfig::default()
             },
             serde_json::Value::Null,
+            NonZeroUsize::new(1).unwrap(),
         );
         let sink = Arc::new(Mutex::new(LinearSolverSummary::default()));
         let mut main = Pool::checkout(
@@ -418,6 +519,7 @@ mod tests {
                 ..FeralConfig::default()
             },
             serde_json::Value::Null,
+            NonZeroUsize::new(1).unwrap(),
         );
         let sink = Arc::new(Mutex::new(LinearSolverSummary::default()));
         let role = Role {
