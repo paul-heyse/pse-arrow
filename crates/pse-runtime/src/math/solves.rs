@@ -1358,6 +1358,18 @@ impl PreparedSolve {
     pub fn replay_declaration(&self) -> Option<&pse_model::strategy::NumericalStrategy> {
         self.composition.as_ref().map(|composition| &composition.declaration)
     }
+    /// Borrow the full effective profile for immutable scientific replay.
+    pub(crate) fn replay_profile(&self) -> &SolverProfile { &self.profile }
+    /// Borrow the actual ordered declared products without cloning prepared capabilities.
+    pub(crate) fn replay_rungs(&self) -> Option<&[PreparedRung]> {
+        self.composition.as_ref().map(|composition| composition.rungs.as_slice())
+    }
+    /// Borrow the actual ordered caller/compiler automatic inventory.
+    pub(crate) fn replay_automatic_products(&self) -> &[PreparedRung] { &self.automatic_products }
+    /// The immutable admission observation, without reobserving today's environment.
+    pub(crate) fn execution_snapshot(&self) -> &execution::Snapshot {
+        &self.snapshot
+    }
     /// Copy immutable original preparations into a new execution, preserving the exact
     /// declaration, requested settings and explicit input starts. Every original rung
     /// loses its prior task clocks, ledger and pending point sink recursively. The

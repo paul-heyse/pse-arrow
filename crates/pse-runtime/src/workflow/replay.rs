@@ -353,6 +353,7 @@ impl ScientificReplay {
                 runtime_premises.push(step.solve.execution_snapshot().clone());
                 solver_settings.push(ReplaySolverSettings::from_profile(&step.profile));
                 let mut constructor = step.original_inputs.document(index)?;
+                constructor.prepared_graph = Some(ReplayPreparedGraph::new(&step.solve)?);
                 constructor.requested_start = step.solve.requested_start().map(pse_backend_native::solve::WarmStart::snapshot);
                 constructor.requested_screened_start = step.solve.requested_screened_start().map(ReplayScreenedStart::new);
                 case_constructors.push(constructor);
@@ -420,7 +421,8 @@ impl ScientificReplay {
                     let mut prepared = step.original_inputs.reconstruct_in_process(&source, cancel).await?;
                     // Postconstructor declarations are scientific input. Original-only graphs
                     // can detach recursively; scoped opaque products require their producer.
-                    if step.solve.replay_declaration() != prepared.solve.replay_declaration() {
+                    if step.solve.replay_declaration() != prepared.solve.replay_declaration()
+                        || !same_inventory(step.solve.replay_automatic_products(), prepared.solve.replay_automatic_products())? {
                         prepared.solve = step.solve.fresh_replay_copy().map_err(crate::math::MathRuntimeError::from)?;
                     }
                     if step.solve.requested_screened_start().is_some() {
@@ -573,7 +575,7 @@ impl OriginalCaseInputs {
             case: ReplayCaseInputs::new(&self.case), order: derivative_order(self.order),
             settings: ReplaySolverSettings::from_profile(&self.solver), declarations: self.numerical.declarations.clone(),
             targets: self.numerical.targets.clone(), seed: bits(&self.overrides.seed),
-            parameters: bits(&self.overrides.parameters), fixes: bits(&self.overrides.fixes), requested_start: None, requested_screened_start: None })
+            parameters: bits(&self.overrides.parameters), fixes: bits(&self.overrides.fixes), requested_start: None, requested_screened_start: None, prepared_graph: None })
     }
 }
 fn warm_start_extent(seed: &pse_backend_native::solve::WarmStart) -> usize {
@@ -657,6 +659,135 @@ impl ReplayCaseInputs {
                 fixed: value.fixed, lower: value.lower.restore(), upper: value.upper.restore() })).collect() }
     }
 }
+/// Exact producer required to recreate an opaque compiled product in another runtime.
+#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ReplayProducerPremise {
+    /// Original structural block schedule preparation.
+    Blocks,
+    /// Authored causal/recycle supplier preparation.
+    Causal,
+    /// Multistart specification proposal and fresh screening.
+    Multistart,
+    /// Exact derived request and original correspondence preparation.
+    Derived,
+    /// Fidelity/evaluator input and fresh model-management actor.
+    Surrogate,
+    /// Exact flow/block request and mass/domain supplier.
+    Petsc,
+    /// Exact path request, oriented origin and curvature premises.
+    Path,
+}
+/// One ordered reference in the original immutable prepared graph.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReplayPreparedProduct {
+    /// Postorder node for an original-only reusable scientific preparation.
+    pub node: Option<usize>,
+    /// Required fresh producer when the product is an opaque compiled capability.
+    pub required_producer: Option<ReplayProducerPremise>,
+    /// Exact original scientific binding identity, retained separately from capability.
+    pub original: ContentHash,
+    /// Exact effective product profile identity; a digest does not recreate the capability.
+    pub profile: ContentHash,
+}
+/// One original input and its exact full requested policy, before any native dispatch.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReplayPreparedNode {
+    /// Exact original scientific binding identity.
+    pub original: ContentHash,
+    /// Actual build/runtime observation of this profile's admission.
+    pub runtime: pse_backend_native::execution::Snapshot,
+    /// Full actual immutable scientific/native profile body.
+    pub settings: ReplaySolverSettings,
+    /// Exact effective profile identity, verified again after reconstruction.
+    pub profile: ContentHash,
+    /// Full requested explicit start before dispatch.
+    pub requested_start: Option<pse_backend_native::solve::WarmStartSnapshot>,
+    /// Full requested screened proposal; fresh screening is an independent premise.
+    pub requested_screened_start: Option<ReplayScreenedStart>,
+    /// Exact actual postconstructor ordering, starts, branch and limits.
+    pub declaration: Option<NumericalStrategy>,
+    /// Exact ordered preprepared automatic inventory, including every Original profile.
+    pub automatic: Vec<ReplayPreparedProduct>,
+    /// Exact ordered declared product inventory.
+    pub rungs: Vec<ReplayPreparedProduct>,
+}
+/// Full bounded postorder inventory. Opaque capabilities are explicit producer premises.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReplayPreparedGraph {
+    /// Actual original nodes, children before parents; no mutable preparation history lookup.
+    pub nodes: Vec<ReplayPreparedNode>,
+    /// Exact root original node.
+    pub root: usize,
+}
+impl ReplayPreparedGraph {
+    fn extent(input: &crate::math::solves::PreparedSolve, depth: usize, count: &mut usize) -> Result<usize, WorkflowError> {
+        *count += 1;
+        if depth > 64 || *count > 4096 { return Err(contract("replay prepared graph exceeds finite depth/node allowance")); }
+        let mut bytes = profile_extent(input.replay_profile())?
+            .saturating_add(encoded_extent(input.execution_snapshot(), EXPORT_MAX)?.saturating_mul(8))
+            .saturating_add(input.requested_start().map_or(0, warm_start_extent))
+            .saturating_add(input.requested_screened_start().map_or(0, |start| start.point().len().saturating_mul(256).saturating_add(2048)))
+            .saturating_add(encoded_extent(&input.replay_declaration(), EXPORT_MAX)?.saturating_mul(8));
+        for product in input.replay_automatic_products().iter().chain(input.replay_rungs().unwrap_or_default()) {
+            bytes = bytes.saturating_add(512);
+            if let crate::math::solves::PreparedRung::Original(input) = product {
+                bytes = bytes.saturating_add(Self::extent(input, depth + 1, count)?);
+            }
+        }
+        Ok(bytes)
+    }
+    fn new(input: &crate::math::solves::PreparedSolve) -> Result<Self, WorkflowError> {
+        let mut graph = Self { nodes: Vec::new(), root: 0 };
+        graph.root = graph.push(input)?;
+        Ok(graph)
+    }
+    fn product(&mut self, product: &crate::math::solves::PreparedRung) -> Result<ReplayPreparedProduct, WorkflowError> {
+        use crate::math::solves::PreparedRung as R;
+        let (node, required_producer) = match product {
+            R::Original(input) => (Some(self.push(input)?), None),
+            #[cfg(feature = "solver-kinsol")]
+            R::Blocks(_) => (None, Some(ReplayProducerPremise::Blocks)),
+            #[cfg(feature = "solver-kinsol")]
+            R::Causal(_) => (None, Some(ReplayProducerPremise::Causal)),
+            R::Multistart(_) => (None, Some(ReplayProducerPremise::Multistart)),
+            R::Derived(_) => (None, Some(ReplayProducerPremise::Derived)),
+            R::Surrogate(_) => (None, Some(ReplayProducerPremise::Surrogate)),
+            #[cfg(feature = "solver-petsc")]
+            R::Petsc(_) => (None, Some(ReplayProducerPremise::Petsc)),
+            R::Path { .. } => (None, Some(ReplayProducerPremise::Path)),
+        };
+        Ok(ReplayPreparedProduct { node, required_producer,
+            original: product.original_identity().map_err(crate::math::MathRuntimeError::from)?,
+            profile: product.strategy_profile().map_err(crate::math::MathRuntimeError::from)? })
+    }
+    fn push(&mut self, input: &crate::math::solves::PreparedSolve) -> Result<usize, WorkflowError> {
+        let automatic = input.replay_automatic_products().iter().map(|product| self.product(product)).collect::<Result<Vec<_>, _>>()?;
+        let rungs = input.replay_rungs().unwrap_or_default().iter().map(|product| self.product(product)).collect::<Result<Vec<_>, _>>()?;
+        let node = self.nodes.len();
+        self.nodes.push(ReplayPreparedNode { original: input.original_identity().map_err(crate::math::MathRuntimeError::from)?,
+            runtime: input.execution_snapshot().clone(), settings: ReplaySolverSettings::from_profile(input.replay_profile()),
+            profile: input.strategy_profile().map_err(crate::math::MathRuntimeError::from)?,
+            requested_start: input.requested_start().map(pse_backend_native::solve::WarmStart::snapshot),
+            requested_screened_start: input.requested_screened_start().map(ReplayScreenedStart::new),
+            declaration: input.replay_declaration().cloned(), automatic, rungs });
+        Ok(node)
+    }
+}
+fn same_inventory(left: &[crate::math::solves::PreparedRung], right: &[crate::math::solves::PreparedRung]) -> Result<bool, WorkflowError> {
+    if left.len() != right.len() { return Ok(false); }
+    for (left, right) in left.iter().zip(right) {
+        if std::mem::discriminant(left) != std::mem::discriminant(right)
+            || left.original_identity().map_err(crate::math::MathRuntimeError::from)? != right.original_identity().map_err(crate::math::MathRuntimeError::from)?
+            || left.strategy_profile().map_err(crate::math::MathRuntimeError::from)? != right.strategy_profile().map_err(crate::math::MathRuntimeError::from)? {
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
 /// Complete original proposal input; historical screening is not renewed permission.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -713,26 +844,88 @@ pub struct ReplayCaseConstructor {
     pub requested_start: Option<pse_backend_native::solve::WarmStartSnapshot>,
     /// Exact requested screened input; restoring requires fresh producer screening.
     pub requested_screened_start: Option<ReplayScreenedStart>,
+    /// Full original-only profile graph; opaque products explicitly require producer rebind.
+    pub prepared_graph: Option<ReplayPreparedGraph>,
 }
 impl ReplayCaseConstructor {
     /// Prepare the original typed request through its actual source/numerical admission pipeline.
     pub async fn reconstruct(&self, package: &ModelingPackage, cancel: &crate::CancelSource)
         -> Result<super::ModelingSolvePreparation, WorkflowError> {
+        let Some(graph) = &self.prepared_graph else {
+            return self.reconstruct_body(package, &self.settings, self.requested_start.as_ref(),
+                self.requested_screened_start.as_ref(), cancel).await;
+        };
+        if graph.nodes.is_empty() || graph.nodes.len() > 4096 || graph.root != graph.nodes.len() - 1 {
+            return Err(contract("replay original graph has an invalid root/node allowance"));
+        }
+        for (index, node) in graph.nodes.iter().enumerate() {
+            for product in node.automatic.iter().chain(&node.rungs) {
+                if product.required_producer.is_some() {
+                    return Err(contract(format!("portable prepared product requires fresh {:?} producer rebind; a profile/hash cannot reconstruct its opaque compiled capability", product.required_producer)));
+                }
+                if product.node.is_none_or(|child| child >= index) {
+                    return Err(contract("replay original graph has a missing, cyclic or nonpostorder product"));
+                }
+            }
+            if node.declaration.as_ref().is_none_or(|declaration| declaration.mechanisms.len() != node.rungs.len())
+                && !node.rungs.is_empty() {
+                return Err(contract("replay declaration does not bind its complete ordered products"));
+            }
+        }
+        let owner = package.runtime.shared.math().reserve("replay:original-graph-reconstruction",
+            encoded_extent(graph, EXPORT_MAX)?.saturating_mul(8).saturating_add(65536))?;
+        let mut built: Vec<super::ModelingSolvePreparation> = Vec::with_capacity(graph.nodes.len());
+        for node in &graph.nodes {
+            let mut prepared = self.reconstruct_body(package, &node.settings, node.requested_start.as_ref(),
+                node.requested_screened_start.as_ref(), cancel).await?;
+            let products = |references: &[ReplayPreparedProduct]| -> Result<Vec<crate::math::solves::PreparedRung>, WorkflowError> {
+                references.iter().map(|product| {
+                    let input = &built[product.node.ok_or_else(|| contract("missing replay original node"))?].solve;
+                    if input.original_identity().map_err(crate::math::MathRuntimeError::from)? != product.original
+                        || input.strategy_profile().map_err(crate::math::MathRuntimeError::from)? != product.profile {
+                        return Err(contract("reconstructed original product identity/profile differs from its exact retained input"));
+                    }
+                    Ok(input.clone().into())
+                }).collect()
+            };
+            if !node.automatic.is_empty() {
+                prepared.solve = prepared.solve.with_automatic_products(products(&node.automatic)?)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+            }
+            if let Some(declaration) = &node.declaration {
+                prepared.solve = prepared.solve.with_strategy(declaration.clone(), products(&node.rungs)?)
+                    .map_err(crate::math::MathRuntimeError::from)?;
+            }
+            if prepared.solve.original_identity().map_err(crate::math::MathRuntimeError::from)? != node.original
+                || prepared.solve.strategy_profile().map_err(crate::math::MathRuntimeError::from)? != node.profile {
+                return Err(contract("reconstructed exact original profile differs; effective operational precision requires its producer rebind"));
+            }
+            built.push(prepared);
+        }
+        // All node bodies own their admitted preparation. The scratch lease covers only
+        // this temporary postorder table and its bounded reconstruction copies.
+        let result = built.pop().ok_or_else(|| contract("replay original root absent"))?;
+        drop(owner);
+        Ok(result)
+    }
+    async fn reconstruct_body(&self, package: &ModelingPackage, settings: &ReplaySolverSettings,
+        start: Option<&pse_backend_native::solve::WarmStartSnapshot>, screened: Option<&ReplayScreenedStart>,
+        cancel: &crate::CancelSource) -> Result<super::ModelingSolvePreparation, WorkflowError> {
         let order = match self.order { 0 => pse_kernels::DerivativeOrder::Value,
             1 => pse_kernels::DerivativeOrder::First, 2 => pse_kernels::DerivativeOrder::Second,
             _ => return Err(contract("replay derivative order outside actual library contract")) };
-        if self.requested_screened_start.is_some() {
+        if screened.is_some() {
             return Err(contract("portable requested screened input requires fresh original-owner screening; historical screening is not reusable permission"));
         }
-        let start_owner = self.requested_start.as_ref().map(|start| {
+        let start_owner = start.map(|start| {
             let bytes = start.restore_extent().map_err(crate::math::MathRuntimeError::from)?;
             package.runtime.shared.math().reserve("replay:restored-requested-start", bytes).map_err(WorkflowError::from)
         }).transpose()?;
         let mut prepared = package.prepare_solve_seed(self.root, self.instance, self.bindings.clone(), self.preparation.limits,
-            self.case.restore(), order, self.preparation.compiler, self.settings.profile()?,
+            self.case.restore(), order, self.preparation.compiler, settings.profile()?,
             crate::math::solves::NumericalInputs { declarations: self.declarations.clone(), targets: self.targets.clone(), implicit: BTreeMap::new() },
             super::modeling::cases::CaseOverrides { seed: unbits(&self.seed), parameters: unbits(&self.parameters), fixes: unbits(&self.fixes) }, cancel).await?;
-        if let (Some(start), Some(owner)) = (&self.requested_start, start_owner) {
+        if let (Some(start), Some(owner)) = (start, start_owner) {
             prepared.solve = prepared.solve.with_start_owned(start.restore().map_err(crate::math::MathRuntimeError::from)?, owner)
                 .map_err(crate::math::MathRuntimeError::from)?;
             prepared.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
@@ -740,6 +933,7 @@ impl ReplayCaseConstructor {
         Ok(prepared)
     }
 }
+
 impl ReplaySolverSettings {
     /// Re-admit the frozen original settings using their existing production contract.
     pub fn profile(&self) -> Result<crate::math::solves::SolverProfile, WorkflowError> {
@@ -833,8 +1027,10 @@ mod tests {
         let width = permits.available_permits();
         assert!(width > 0);
         let held = permits.acquire_many(width as u32).await.unwrap();
-        let handle = runtime.start_modeling(vec![prepared], true, &crate::CancelSource::new()).await.unwrap();
-        handle.cancel();
+        let parent = crate::CancelSource::new();
+        let handle = runtime.start_modeling(vec![prepared], true, &parent).await.unwrap();
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(20), handle.wait()).await.is_err());
+        parent.cancel();
         let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), handle.wait()).await.unwrap().unwrap();
         let replay = stopped.replay();
         let document = replay.document().unwrap();
@@ -849,7 +1045,17 @@ mod tests {
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, stopped.run_id);
         assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-        assert!(fresh.replay().document().unwrap().continue_independent);
+        let exported = fresh.replay().document().unwrap();
+        assert!(exported.continue_independent);
+        let summary = fresh.attempt_summary().unwrap();
+        assert_eq!(summary.native_attempts.len(), exported.native_attempts.len());
+        for (summary, replay) in summary.native_attempts.iter().zip(&exported.native_attempts) {
+            assert!(Arc::ptr_eq(&summary.record, &replay.record));
+        }
+        let omitted = fresh.attempt_summary_with_limits(crate::workflow::attempt_documents::AttemptSummaryLimits {
+            steps: 1, events: 0, findings: 0 }).unwrap();
+        assert!(omitted.native_attempts.is_empty());
+        assert_eq!(omitted.omitted_native_attempts, exported.native_attempts.len());
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
@@ -1118,7 +1324,7 @@ impl ReplayCaseConstructor {
             preparation: super::PreparationSettings { compiler: analysis.compiler, limits: analysis.limits },
             case: ReplayCaseInputs::new(&analysis.case), order: derivative_order(analysis.order),
             settings: ReplaySolverSettings::from_profile(&analysis.solver), declarations: analysis.numerical.declarations.clone(),
-            targets: analysis.numerical.targets.clone(), seed: BTreeMap::new(), parameters: BTreeMap::new(), fixes: BTreeMap::new(), requested_start: None, requested_screened_start: None })
+            targets: analysis.numerical.targets.clone(), seed: BTreeMap::new(), parameters: BTreeMap::new(), fixes: BTreeMap::new(), requested_start: None, requested_screened_start: None, prepared_graph: None })
     }
     fn analysis(&self) -> Result<super::ModelingAnalysis, WorkflowError> {
         let order = match self.order { 0 => pse_kernels::DerivativeOrder::Value, 1 => pse_kernels::DerivativeOrder::First,
@@ -1300,7 +1506,8 @@ impl ScientificReplay {
             RunRequest::Modeling(steps) => steps.iter().try_fold(1024usize, |bytes, step| {
                 let inputs = &step.original_inputs;
                 let specialization = inputs.specialization.as_ref().map_or(0, |original| original.retained_bytes());
-                let requested_start = step.solve.requested_start().map_or(0, warm_start_extent);
+                let requested_start = step.solve.requested_start().map_or(0, warm_start_extent)
+                    .saturating_add(ReplayPreparedGraph::extent(&step.solve, 0, &mut 0)?);
                 let screened = step.solve.requested_screened_start().map_or(0, |start| start.point().len().saturating_mul(256).saturating_add(2048));
                 bytes.checked_add(inputs._owner.size()).and_then(|bytes| bytes.checked_add(specialization))
                     .and_then(|bytes| bytes.checked_add(requested_start.saturating_mul(8).saturating_add(screened)))
