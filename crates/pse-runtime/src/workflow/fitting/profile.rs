@@ -797,6 +797,14 @@ impl FitProblem {
                 )))
             })?;
         let constructor = pse_math::construction::current();
+        // Profile chains run on owner-affine standard threads. Nested experiment
+        // teams must inherit this actual executor, just as they inherit the native
+        // environment, construction owner and already admitted capacity envelope.
+        let runtime = tokio::runtime::Handle::try_current().map_err(|error| {
+            FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                ProblemError::internal(format!("fit profile runtime: {error}")),
+            )))
+        })?;
         let (mut result, started, scheduling) = self
             .runtime
             .native()
@@ -808,6 +816,7 @@ impl FitProblem {
                     |index| chains.run(tasks[index]),
                     |index, failure| chains.failed(tasks[index], failure),
                     |work| {
+                        let _runtime = runtime.enter();
                         native::execution::scoped(
                             &[native::execution::adapter(backend)],
                             threads,
