@@ -2,9 +2,17 @@
 // Copyright (c) 2026 Paul Heyse
 //! Library-neutral execution controls and faithful result envelopes.
 mod exact_objective;
+mod observations;
 mod retention;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
+pub use observations::{NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
+    ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
+    RawMapSample, StopFidelity};
+#[cfg(any(feature = "kinsol", test))]
+pub(crate) use observations::RawMapCapture;
+#[cfg(feature = "ipopt")]
+pub(crate) use observations::SNAPSHOT_COORDINATES;
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
     scalar,
@@ -1844,7 +1852,7 @@ pub struct OriginalObjectiveBound {
 pub struct WorkEvidence {
     /// Actual callback evaluations, including rejected trials; absent when unobserved.
     pub evaluations: Option<u64>,
-    /// Actual native completed iterations; absent when the native API supplies none.
+    /// Actual native iterations, with method-specific semantics; absent when unobserved.
     pub iterations: Option<u64>,
     /// Actual factor invocations, including failed attempts; absent when unobserved.
     pub factorizations: Option<u64>,
@@ -1857,6 +1865,10 @@ pub struct WorkEvidence {
 pub struct Evidence {
     /// Actual observed work, with unknown counters kept absent rather than zero.
     pub work: WorkEvidence,
+    /// Synchronous native getters and latest submitted-coordinate callback snapshot.
+    pub native_observations: Option<Arc<NativeObservations>>,
+    /// Synchronous bounded causal-map history, independent of dropped progress events.
+    pub raw_map: Option<Arc<RawMapHistory>>,
     /// Exact numerical abandonment reason, independent of task cancellation.
     pub abandoned: Option<pse_model::generated::enums::NumericalAttemptObservation>,
     /// Callback trial history.

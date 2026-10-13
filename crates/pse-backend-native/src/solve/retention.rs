@@ -271,6 +271,8 @@ impl SolveReport {
         } = self;
         let Evidence {
             work: _,
+            native_observations: _,
+            raw_map: _,
             abandoned: _,
             callback: _,
             start_submitted: _,
@@ -291,6 +293,33 @@ impl SolveReport {
             contradiction: _,
         } = &self.evidence;
         let mut extent = Extent(size_of::<Self>());
+        if let Some(native) = &self.evidence.native_observations {
+            extent.add(size_of::<NativeObservations>() + 2 * size_of::<usize>())?;
+            if let Some(current) = &native.current {
+                extent.add(size_of::<NativeSnapshot>() + 2 * size_of::<usize>())?;
+                extent.vector(&current.values)?;
+            }
+        }
+        if let Some(history) = &self.evidence.raw_map {
+            extent.add(size_of::<RawMapHistory>() + 2 * size_of::<usize>())?;
+            extent.vector(&history.samples)?;
+            for sample in &history.samples {
+                extent.add(size_of::<RawMapSample>() + 2 * size_of::<usize>())?;
+                extent.vector(&sample.values)?;
+            }
+            for (last, already) in [
+                (history.last_successful.as_ref(), None),
+                (history.last_evaluation.as_ref(), history.last_successful.as_ref()),
+            ] {
+                if let Some(last) = last
+                    && !already.is_some_and(|held| Arc::ptr_eq(held, last))
+                    && !history.samples.iter().any(|sample| Arc::ptr_eq(sample, last))
+                {
+                    extent.add(size_of::<RawMapSample>() + 2 * size_of::<usize>())?;
+                    extent.vector(&last.values)?;
+                }
+            }
+        }
         extent.add(self.failure_bytes())?;
         extent.vector(&self.variables)?;
         extent.vector(&self.rows)?;

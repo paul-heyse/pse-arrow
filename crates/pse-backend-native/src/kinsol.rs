@@ -31,6 +31,9 @@ pub trait FixedPointOracle: std::fmt::Debug {
     fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize>;
     /// Compute the complete causal map, including admitted library-owned unit solves.
     fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError>;
+    /// Whether the scientific producer supplies physical tear coordinates and row budgets.
+    /// Opaque maps remain submitted-oracle coordinates unless their owner establishes this.
+    fn physical_tear_coordinates(&self) -> bool { false }
     /// Original physical process residuals, independent of the fixed-point iteration.
     fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError>;
 }
@@ -369,6 +372,7 @@ struct Context {
     first_setup_iteration: Option<i64>,
     data: pse_ids::ContentHash,
     native_mem: *mut c_void,
+    raw_map: Option<RawMapCapture>,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
 pub struct Session {
@@ -498,6 +502,13 @@ fn result<T>(value: Option<T>, state: &CallbackState) -> i32 {
         1
     }
 }
+fn raw_map_failure(error: &ProblemError) -> RawMapFailure {
+    match crate::callback::classify(error) {
+        crate::callback::Failure::Trial => RawMapFailure::Trial,
+        crate::callback::Failure::Fatal => RawMapFailure::Fatal,
+        crate::callback::Failure::Stopped(stop) => RawMapFailure::Stopped(stop),
+    }
+}
 unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c_void) -> i32 {
     // SAFETY: `data` is null or this session's registered boxed `Context`, live and not
     // otherwise borrowed while KINSOL calls back on the owning thread.
@@ -513,7 +524,19 @@ unsafe extern "C" fn residual(x: ffi::N_Vector, out: ffi::N_Vector, data: *mut c
         match &mut c.function {
             Function::Equations(o) => o.residual(&x, &mut v)?,
             Function::Picard { oracle, .. } => oracle.residual(&x, &mut v)?,
-            Function::FixedPoint(o) => o.map(&x, &mut v)?,
+            Function::FixedPoint(o) => {
+                let result = crate::quality::contained(|| o.map(&x, &mut v));
+                let result = result.and_then(|()| {
+                    if v.iter().all(|value| value.is_finite()) { Ok(()) }
+                    else { Err(ProblemError::numerical("nonfinite fixed-point map")) }
+                });
+                if let Some(history) = &mut c.raw_map {
+                    let failure = result.as_ref().err().map(raw_map_failure);
+                    history.record(o.contract(), &x, result.is_ok().then_some(v.as_slice()),
+                        RawMapRole::FixedPointEvaluation, failure);
+                }
+                result?;
+            },
         }
         // SAFETY: as above.
         unsafe { publish(out, &v) }
@@ -1069,6 +1092,7 @@ impl Session {
             first_setup_iteration: None,
             data: compatibility.data,
             native_mem: std::ptr::null_mut(),
+            raw_map: None,
         });
         let mut s = Self {
             ctx: std::ptr::null_mut(),
@@ -1277,6 +1301,12 @@ impl Session {
             )?);
         }
         self.callback.state = CallbackState::new(execution.clone());
+        self.callback.raw_map = match &self.callback.function {
+            Function::FixedPoint(oracle) => Some(RawMapCapture::new(
+                oracle.contract(), self.compatibility.profile, controls.history,
+                oracle.physical_tear_coordinates(), &tolerances.rows)?),
+            _ => None,
+        };
         self.callback.setup_calls = 0;
         if let Some(blocks) = &mut self.callback.blocks {
             blocks.reset_counts();
@@ -1386,6 +1416,36 @@ impl Session {
             KINGetNumBetaCondFails,
             KINGetNumBacktrackOps
         );
+        // Native nonlinear iterations are not callback work and have family-specific
+        // semantics: KINFP increments before G, including a failed map attempt.
+        let native_count = |get: unsafe extern "C" fn(*mut c_void, *mut c_long) -> i32| {
+            let mut count = 0;
+            // SAFETY: read-only getter on this session's live KINSOL memory.
+            (unsafe { get(self.mem, &mut count) } == 0)
+                .then(|| u64::try_from(count).ok()).flatten()
+        };
+        let iterations = native_count(ffi::KINGetNumNonlinSolvIters);
+        report.evidence.work.iterations = iterations;
+        let linear_count = |get| {
+            if method.strategy == Strategy::FixedPoint { None }
+            else if code == ffi::KIN_INITIAL_GUESS_OK { Some(0) }
+            else { native_count(get) }
+        };
+        report.evidence.native_observations = Some(std::sync::Arc::new(NativeObservations {
+            backend: Backend::Kinsol, problem: self.callback.function.contract().identity,
+            profile: self.compatibility.profile,
+            coordinates: ObservationCoordinates::SubmittedOracle,
+            stop_fidelity: StopFidelity::EvaluationCheckpoints,
+            counters: NativeCounters::Kinsol {
+                fixed_point_iterations: method.strategy == Strategy::FixedPoint,
+                iterations, function_evaluations: native_count(ffi::KINGetNumFuncEvals),
+                jacobian_evaluations: linear_count(ffi::KINGetNumJacEvals),
+                linear_iterations: linear_count(ffi::KINGetNumLinIters),
+                preconditioner_evaluations: linear_count(ffi::KINGetNumPrecEvals),
+                preconditioner_solves: linear_count(ffi::KINGetNumPrecSolves),
+                jacobian_products: linear_count(ffi::KINGetNumJtimesEvals),
+            }, current: None,
+        }));
         if method.strategy != Strategy::FixedPoint {
             count!(
                 KINGetNumJacEvals,
@@ -1451,7 +1511,16 @@ impl Session {
                         match &mut self.callback.function {
                             Function::Equations(o) => o.residual(&x, &mut f),
                             Function::Picard { oracle, .. } => oracle.residual(&x, &mut f),
-                            Function::FixedPoint(o) => o.original_residual(&x, &mut f),
+                            Function::FixedPoint(o) => {
+                                let result = crate::quality::contained(|| o.original_residual(&x, &mut f));
+                                if let Some(history) = &mut self.callback.raw_map {
+                                    history.record(o.contract(), &x,
+                                        result.is_ok().then_some(f.as_slice()),
+                                        RawMapRole::OriginalAssessment,
+                                        result.as_ref().err().map(raw_map_failure));
+                                }
+                                result
+                            },
                         }
                     });
                 match evaluation {
@@ -1547,6 +1616,7 @@ impl Session {
         }
         // Final original residual validation belongs to this same inclusive owner.
         self.callback.state.finish(&mut report);
+        report.evidence.raw_map = self.callback.raw_map.take().map(RawMapCapture::finish);
         let iterations = report
             .metrics
             .get("KINGetNumNonlinSolvIters")
@@ -2212,6 +2282,32 @@ mod tests {
                 None,
             )
             .unwrap()
+    }
+    #[test]
+    fn raw_map_failed_evaluation_retains_previous_success_despite_dropped_telemetry() {
+        let oracle = FaultOracle::new(2);
+        let mut session = fault_session(Strategy::FixedPoint, oracle);
+        let controls = Controls { history: 2, ..Controls::default() };
+        let mut execution = execution();
+        execution.progress = std::sync::Arc::new(Progress::new(0));
+        let report = session.solve(&[0.], &controls, &ResolvedAccuracy::verification(), execution,
+            &Tolerances { variables: vec![0.25], rows: vec![0.25], integrality: 0.25 }, None).unwrap();
+        assert_eq!(report.termination.category, Termination::Evaluation);
+        assert!(report.events.is_empty());
+        let raw = report.evidence.raw_map.as_ref().unwrap();
+        assert_eq!(raw.samples.len(), 2);
+        assert!(matches!(raw.samples[1].failure, Some(RawMapFailure::Trial)));
+        assert_eq!(raw.samples[1].values[0].mapped, None);
+        assert_eq!(raw.last_successful.as_ref().unwrap().values[0].input, 0.);
+        assert_eq!(raw.last_successful.as_ref().unwrap().values[0].mapped, Some(1.));
+        let NativeCounters::Kinsol { fixed_point_iterations, iterations,
+            function_evaluations, linear_iterations, .. } =
+            &report.evidence.native_observations.as_ref().unwrap().counters else { panic!("KINSOL facts"); };
+        assert!(*fixed_point_iterations);
+        assert_eq!(*iterations, Some(2));
+        assert_eq!(*function_evaluations, Some(2));
+        assert_eq!(*linear_iterations, None);
+        assert_eq!(report.evidence.work.iterations, Some(2));
     }
     #[derive(Debug)]
     struct EvaluationAdmission {

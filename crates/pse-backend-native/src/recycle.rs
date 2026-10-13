@@ -366,6 +366,7 @@ impl CausalMap {
     }
 }
 impl FixedPointOracle for CausalMap {
+    fn physical_tear_coordinates(&self) -> bool { true }
     fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
         self.original.as_ref()
     }
@@ -498,6 +499,7 @@ mod tests {
         }));
         let mut out = [0.0];
         map.map(&[0.0], &mut out).unwrap();
+        assert!(map.physical_tear_coordinates());
         assert_eq!(out, [1.0]);
         assert!(observed.borrow().is_none());
         map.original_residual(&[2.0], &mut out).unwrap();

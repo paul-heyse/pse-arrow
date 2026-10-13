@@ -44,7 +44,12 @@ typedef struct {
 typedef struct pse_ipopt_sequence_handle pse_ipopt_sequence_handle;
 typedef struct { int32_t application_status; int32_t solver_status;
     int32_t iterations; int32_t reoptimized; int32_t iterations_available; int32_t barrier_available; int32_t candidate_available;
-    double objective; double barrier; } pse_ipopt_sequence_result;
+    double objective; double barrier;
+    int32_t statistics_available;
+    int32_t objective_evaluations; int32_t constraint_evaluations;
+    int32_t gradient_evaluations; int32_t jacobian_evaluations; int32_t hessian_evaluations;
+    double cpu_seconds; double system_seconds; double wall_seconds;
+    } pse_ipopt_sequence_result;
 /* Structure, bounds and callbacks are copied and immutable. Rust context must
  * outlive destroy. COO is unique, zero-based; Hessian uses the lower triangle.
  * Caller owns exclusive access and admits semantic/profile/structure compatibility

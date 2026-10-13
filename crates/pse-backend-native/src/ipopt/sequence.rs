@@ -577,6 +577,24 @@ impl Sequence {
             if native_known && result.iterations_available == 1 {
                 report.evidence.work.iterations = u64::try_from(result.iterations).ok();
             }
+            let stats = native_known && result.statistics_available == 1;
+            let count = |value| stats.then(|| u64::try_from(value).ok()).flatten();
+            let seconds = |value: f64| (stats && value.is_finite() && value >= 0.).then_some(value);
+            report.evidence.native_observations = Some(Arc::new(NativeObservations {
+                backend: Backend::Ipopt, problem: context.oracle.contract().identity,
+                profile: compatibility.profile, coordinates: ObservationCoordinates::SubmittedOracle,
+                stop_fidelity: StopFidelity::EvaluationAndIterationCheckpoints,
+                counters: NativeCounters::Ipopt {
+                    iterations: report.evidence.work.iterations,
+                    objective_evaluations: count(result.objective_evaluations),
+                    constraint_evaluations: count(result.constraint_evaluations),
+                    gradient_evaluations: count(result.gradient_evaluations),
+                    jacobian_evaluations: count(result.jacobian_evaluations),
+                    hessian_evaluations: count(result.hessian_evaluations),
+                    cpu_seconds: seconds(result.cpu_seconds), system_seconds: seconds(result.system_seconds),
+                    wall_seconds: seconds(result.wall_seconds),
+                }, current: context.current.take(),
+            }));
             let build = super::build();
             report
                 .provenance
@@ -770,6 +788,34 @@ mod tests {
             rows: vec![1e-7],
             integrality: 1e-7,
         }
+    }
+    #[test]
+    fn native_observations_survive_zero_telemetry_and_use_structured_ipopt_statistics() {
+        let controls = Controls { history: 0, ..Controls::default() };
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        let report = Sequence::new().solve(&mut oracle, &[1.5], ObjectiveSense::Minimize,
+            &controls, &ResolvedAccuracy::verification(), &Settings::default(),
+            Execution::new(Arc::default(), &controls), &tolerance(), None,
+            crate::solver_tests::stamp(Backend::Ipopt)).unwrap();
+        assert_eq!(report.termination.category, Termination::Success);
+        assert!(report.events.is_empty());
+        let native = report.evidence.native_observations.as_ref().unwrap();
+        assert_eq!(native.coordinates, ObservationCoordinates::SubmittedOracle);
+        let NativeCounters::Ipopt { iterations, objective_evaluations, constraint_evaluations,
+            gradient_evaluations, jacobian_evaluations, cpu_seconds, wall_seconds, .. } = &native.counters
+            else { panic!("Ipopt facts"); };
+        assert!(iterations.is_some_and(|n| n > 0));
+        assert!(objective_evaluations.is_some_and(|n| n > 0));
+        assert!(constraint_evaluations.is_some_and(|n| n > 0));
+        assert!(gradient_evaluations.is_some_and(|n| n > 0));
+        assert!(jacobian_evaluations.is_some_and(|n| n > 0));
+        assert!(cpu_seconds.is_some_and(|t| t >= 0.));
+        assert!(wall_seconds.is_some_and(|t| t >= 0.));
+        let current = native.current.as_ref().unwrap();
+        assert_eq!(current.total_coordinates, 1);
+        assert!(!current.partial);
+        assert_eq!(current.values[0].0, report.variables[0]);
+        assert!(report.completed_report_allowance().unwrap().is_some());
     }
     #[test]
     fn persistent_tnlp_reuses_real_application_with_fresh_borrowed_numeric_oracle() {

@@ -3,6 +3,7 @@
 #include "pse_ipopt_sequence.h"
 #include "IpIpoptApplication.hpp"
 #include "IpTNLP.hpp"
+#include "IpSolveStatistics.hpp"
 #include "IpOptionsList.hpp"
 #include <algorithm>
 #include <cmath>
@@ -247,6 +248,20 @@ extern "C" int32_t pse_ipopt_sequence_solve(pse_ipopt_sequence_handle* h, int32_
         Ipopt::SmartPtr<Ipopt::TNLP> problem = h->problem;
         auto status = reuse ? h->application->ReOptimizeTNLP(problem) : h->application->OptimizeTNLP(problem);
         p.result.application_status = static_cast<int32_t>(status); p.result.reoptimized = reuse; p.returned = true;
+        // Structured statistics belong to this native run. Serious returns do not
+        // promise a statistics object, and must not expose preceding-run totals.
+        if (status >= Ipopt::Maximum_WallTime_Exceeded) {
+            auto statistics = h->application->Statistics();
+            if (Ipopt::IsValid(statistics)) {
+                p.result.iterations = statistics->IterationCount(); p.result.iterations_available = 1;
+                statistics->NumberOfEvaluations(p.result.objective_evaluations, p.result.constraint_evaluations,
+                    p.result.gradient_evaluations, p.result.jacobian_evaluations, p.result.hessian_evaluations);
+                p.result.cpu_seconds = statistics->TotalCpuTime();
+                p.result.system_seconds = statistics->TotalSysTime();
+                p.result.wall_seconds = statistics->TotalWallclockTime();
+                p.result.statistics_available = 1;
+            }
+        }
         p.poll(); // Preserve known native return even when the terminal latch vetoes its candidate.
         p.reusable = p.finalized && (status == Ipopt::Solve_Succeeded || status == Ipopt::Solved_To_Acceptable_Level);
     });

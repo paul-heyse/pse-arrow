@@ -27,6 +27,8 @@ pub(crate) struct Context<'a> {
     pub jac: Pattern,
     #[cfg(feature = "ipopt")]
     pub hess: Pattern,
+    #[cfg(feature = "ipopt")]
+    pub current: Option<std::sync::Arc<crate::solve::NativeSnapshot>>,
 }
 impl<'a> Context<'a> {
     pub(crate) fn new(
@@ -45,6 +47,8 @@ impl<'a> Context<'a> {
             jac,
             #[cfg(feature = "ipopt")]
             hess,
+            #[cfg(feature = "ipopt")]
+            current: None,
         }
     }
     fn dimensions(&self, n: i32, m: Option<i32>) -> Result<(), ProblemError> {
@@ -341,6 +345,27 @@ pub(crate) unsafe extern "C" fn iteration(
     let work = |c: &mut Context<'_>| {
         let valid = c.dimensions(n, None);
         let extent = c.n;
+        // Capture before lossy telemetry. Only the bounded submitted-coordinate
+        // prefix is owned here; unscaled TNLP coordinates are not necessarily
+        // authored original coordinates after an outer formulation transport.
+        if valid.is_ok() && !current.is_null() {
+            // SAFETY: the bridge supplies this callback's immutable checked extent.
+            let point = unsafe { input(current, extent) };
+            if let Ok(point) = point
+                && point.iter().all(|value| value.is_finite())
+            {
+                let length = extent.min(crate::solve::SNAPSHOT_COORDINATES);
+                let values = c.oracle.contract().variables.iter().zip(point)
+                    .take(length).map(|(variable, value)| (variable.id, *value)).collect();
+                c.current = Some(std::sync::Arc::new(crate::solve::NativeSnapshot {
+                    iteration: u64::try_from(number).ok(),
+                    phase: match mode { 0 => crate::solve::NativePhase::Main,
+                        1 => crate::solve::NativePhase::Restoration,
+                        _ => crate::solve::NativePhase::Unknown },
+                    values, total_coordinates: extent, partial: length < extent,
+                }));
+            }
+        }
         let crossings = c.state.complete_iteration();
         let execution = c.state.execution.clone();
         c.evaluate("intermediate", |_| {

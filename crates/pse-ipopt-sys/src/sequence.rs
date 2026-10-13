@@ -73,6 +73,15 @@ pub struct Result {
     pub candidate_available: i32,
     pub objective: f64,
     pub barrier: f64,
+    pub statistics_available: i32,
+    pub objective_evaluations: i32,
+    pub constraint_evaluations: i32,
+    pub gradient_evaluations: i32,
+    pub jacobian_evaluations: i32,
+    pub hessian_evaluations: i32,
+    pub cpu_seconds: f64,
+    pub system_seconds: f64,
+    pub wall_seconds: f64,
 }
 unsafe extern "C" {
     pub fn pse_ipopt_sequence_create(
