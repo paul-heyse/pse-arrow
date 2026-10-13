@@ -1180,7 +1180,12 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
             assert_eq!(facts.attempt_count, 0, "source/overlay admission consumes no native attempt");
             assert!(!selected.assigned && selected.attempt.is_none());
             let scope = store.study_scope(&key).await.unwrap();
-            assert!(matches!(scope.action(None).unwrap().kind, ActionKind::Wait(WaitReason::SeedResolution { role: SeedRole::PrimalSolution })));
+            let unresolved = Some(SeedFact {
+                role: SeedRole::PrimalSolution,
+                availability: SeedAvailability::Unresolved,
+            });
+            assert!(matches!(scope.action(unresolved.clone()).unwrap().kind, ActionKind::Wait(WaitReason::SeedResolution { role: SeedRole::PrimalSolution })));
+            assert!(store.claim_study_point(&scope, unresolved, "unresolved-explicit-seed", "replacement", Duration::from_secs(60)).await.is_err());
             let prepared = replacement.prepare_study_candidate_in_lane(&scope, &mut selection_lane, &cancel).await.unwrap();
             assert!(matches!(prepared.seed.as_ref(), Some(SeedFact { role: SeedRole::PrimalSolution,
                 availability: SeedAvailability::Compatible { seed } }) if *seed == solution));
