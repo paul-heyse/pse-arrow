@@ -3226,9 +3226,8 @@ mod tests {
     async fn compact_retention_admits_below_full_trajectory_cell_capacity() {
         use crate::workflow::{LiveSimulationEvent, LiveSimulationOptions};
         async fn prepare(runtime: Runtime, max_cells: usize) -> ModelingSimulation {
-            let parameters = (0..128).map(|i| format!("param p{i}:Scalar=0;")).collect::<String>();
-            let forcing = (0..128).map(|i| format!("p{i}")).collect::<Vec<_>>().join("+");
-            let text = format!("package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); {parameters} var x[i in t]:Time; eq rate[i in t]:d(x[i])/di == -x[i]/1{{s}} + ({forcing}); eq initial:x[0{{s}}]==1{{s}}; annotation check x(x[i]>0{{s}}); }} }}");
+            let outputs = (0..64).map(|j| format!("let y{j}[i in t]:Time=x[i]*{};", j+1)).collect::<String>();
+            let text = format!("package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di == -x[i]/1{{s}}; eq initial:x[0{{s}}]==1{{s}}; annotation check x(x[i]>0{{s}}); {outputs} }} }}");
             let rows = pse_authoring::language::parse(&text, SemanticId::NIL,
                 pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
             let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
@@ -3238,8 +3237,8 @@ mod tests {
                 super::super::super::tests::compiler_profile(), native::Profile {
                     method: native::Method::Diffsol, end: 1.,
                     samples: (0..=1024).map(|i| f64::from(i)/1024.).collect(),
-                    sensitivity: native::DynamicSensitivity::Forward,
-                    atol: vec![1e-8], parameter_scales: vec![1.;128], rtol: 1e-8,
+                    sensitivity: native::DynamicSensitivity::None,
+                    atol: vec![1e-8], rtol: 1e-8,
                     max_cells, ..Default::default()
                 }, DerivativeOrder::First, &crate::CancelSource::new()).await.unwrap()
         }

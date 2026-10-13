@@ -354,9 +354,9 @@ impl ModelingPackage {
                         "dynamic modes require identical state, sign, parameter, output, quadrature and coordinate layouts",
                     ));
                 }
-                result.retained_check_cells = result.retained_check_cells
-                    .checked_add(next.retained_check_cells)
-                    .ok_or_else(|| contract("dynamic mode check cell extent"))?;
+                // One active mode owns each grid/endpoint assessment. The worst
+                // mode bounds their retained checks; it is not one trajectory per mode.
+                result.retained_check_cells = result.retained_check_cells.max(next.retained_check_cells);
                 result.full_sample_payload_bytes = result.full_sample_payload_bytes
                     .checked_add(next.full_sample_payload_bytes)
                     .ok_or_else(|| contract("dynamic mode sample payload extent"))?;
