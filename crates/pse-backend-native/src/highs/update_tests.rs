@@ -260,7 +260,20 @@ fn highs_diagnostic_options_restore_and_failed_restore_invalidates() {
 fn highs_lexicographic_restore_and_early_solve_failure_invalidate() {
     for fail in [None, Some("restore costs"), Some("restore linear objectives"), Some("full model readback")] {
         let mut p = problem();
-        p.objectives = vec![crate::LinearObjective { coefficients: p.objective.clone(), constant: p.objective_constant, sense: p.sense, degradation: None }];
+        p.objectives = vec![
+            crate::LinearObjective {
+                coefficients: p.objective.clone(),
+                constant: p.objective_constant,
+                sense: p.sense,
+                degradation: Some(pse_math::binding::Degradation { absolute: 0., relative: 0. }),
+            },
+            crate::LinearObjective {
+                coefficients: vec![1., 0.],
+                constant: 11.,
+                sense: ObjectiveSense::Maximize,
+                degradation: None,
+            },
+        ];
         let mut s = new(&p, &execution());
         test_mutations::reset(fail);
         let result = solve(&mut s, &p, &Controls::default());
@@ -268,7 +281,11 @@ fn highs_lexicographic_restore_and_early_solve_failure_invalidate() {
             assert!(result.unwrap_err().to_string().contains(operation));
             assert!(s.model.is_none());
         } else {
-            result.unwrap();
+            let report = result.unwrap();
+            assert_eq!(report.metrics["lexicographic.objectives"], Metric::Integer(2));
+            let candidate = report.candidate.unwrap();
+            assert!((candidate.primal[0] - 1.).abs() < 1e-8);
+            assert!((candidate.primal[1] - 3.).abs() < 1e-8);
             verify_upload(s.model().unwrap(), &p).unwrap();
             assert_eq!(test_mutations::count("restore linear objectives"), 1);
             let controls = Controls { options: BTreeMap::from([("unknown_c5_option".into(), OptionValue::Bool(true))]), ..Controls::default() };
