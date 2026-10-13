@@ -65,6 +65,7 @@ impl CacheValue for Value {
 impl MathService {
     /// Clear retained programs without cancelling live owners or permitting late reinsertion.
     pub fn clear_program_cache(&self) {
+        self.retire_idle_native_lanes();
         self.trim_compiler_lanes();
         self.pressure.clear();
     }

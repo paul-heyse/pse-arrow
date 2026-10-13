@@ -13,7 +13,7 @@ pub(crate) use observations::RawMapCapture;
 #[cfg(feature = "ipopt")]
 pub(crate) use observations::SNAPSHOT_COORDINATES;
 pub use observations::{
-    NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
+    NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot, NativeStepObservation,
     ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
     RawMapSample, StopFidelity,
 };

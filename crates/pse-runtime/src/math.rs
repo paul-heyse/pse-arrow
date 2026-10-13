@@ -324,6 +324,7 @@ pub struct MathService {
     entries: Arc<DefaultCache<Key, Value>>,
     pub(crate) modeling_cache: retention::ModelingCache,
     compiler_lanes: Mutex<Vec<modeling::CompilerLane>>,
+    native_lanes: Mutex<Vec<staged::ParkedSession>>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     scalar_flights: Flights<Key, pse_math::library::ScalarProducts, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
@@ -575,6 +576,7 @@ impl MathService {
             entries: pressure.artifacts(),
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
             compiler_lanes: Mutex::default(),
+            native_lanes: Mutex::default(),
             flights: Flights::new(policy.flights),
             scalar_flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
@@ -603,6 +605,7 @@ impl MathService {
         let r = MemoryConsumer::new(name).register(&self.pool);
         if self.pressure.try_grow(&r, bytes).is_err() {
             self.trim_compiler_lanes();
+            self.retire_idle_native_lanes();
             self.pressure.try_grow(&r, bytes)?;
         }
         Ok(pse_columnar::AllocationLease::new(r))

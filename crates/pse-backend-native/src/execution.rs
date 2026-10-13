@@ -832,6 +832,38 @@ impl Retained {
         self.session_charge = None;
         self.scheduler_discard = None;
     }
+    /// End an independent request without carrying numeric history or request owners.
+    /// Only profiles with an accepted neutral reset may park a native object. Others
+    /// take the fresh-object fallback; immutable external programs are unaffected.
+    pub fn reset_independent(&mut self) -> Result<(), ProblemError> {
+        self.release();
+        #[cfg(feature = "highs")]
+        if let Some((Backend::Highs, state)) = &mut self.session {
+            if let Some(session) = state.downcast_mut::<crate::highs::Session>() {
+                if let Err(cause) = session.reset_for_new_application() {
+                    self.clear();
+                    return Err(cause);
+                }
+                return Ok(());
+            }
+        }
+        #[cfg(feature = "pounce")]
+        if let Some((Backend::Pounce, state)) = &mut self.session {
+            if let Some(session) = state.downcast_mut::<crate::pounce::Session>() {
+                if let Err(cause) = session.reset_for_new_application() {
+                    self.clear();
+                    return Err(cause);
+                }
+                return Ok(());
+            }
+        }
+        let discarded = self.backend();
+        self.clear();
+        // A subsequent RequireReuse must see the actual fresh fallback, even though
+        // no native object remains. Initial construction of a new sequence is distinct.
+        self.scheduler_discard = discarded;
+        Ok(())
+    }
     /// Relinquish idle direct HiGHS state on its owning thread for a waiting Uno
     /// scheduler reset. Immutable starts and independent response factors survive.
     pub fn relinquish_scheduler(&mut self) {
@@ -894,6 +926,7 @@ impl Retained {
         reuse: impl FnOnce(&mut S) -> Result<SessionUpdate, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
+        if policy == crate::solve::ReusePolicy::Fresh { self.clear(); }
         if self.session.is_none()
             && self.scheduler_discard == Some(backend)
             && policy == crate::solve::ReusePolicy::RequireReuse

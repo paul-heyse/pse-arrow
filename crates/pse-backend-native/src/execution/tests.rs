@@ -1259,3 +1259,17 @@ fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
     assert!(reused);
     assert_eq!(*value, 5);
 }
+
+#[test]
+fn independent_fresh_fallback_is_visible_to_required_reuse() {
+    let mut retained = Retained::default();
+    retained.session(Backend::Kinsol, ReusePolicy::AllowRebuild,
+        |_: &mut u64| Ok(SessionUpdate::Compatible), || Ok(1u64)).unwrap();
+    retained.reset_independent().unwrap();
+    assert!(matches!(retained.session(Backend::Kinsol, ReusePolicy::RequireReuse,
+        |_: &mut u64| Ok(SessionUpdate::Compatible), || panic!("fresh fallback cannot satisfy required reuse")),
+        Err(ProblemError::Reuse { .. })));
+    let (value, reused) = retained.session(Backend::Kinsol, ReusePolicy::Fresh,
+        |_: &mut u64| panic!("Fresh must not visit previous state"), || Ok(2u64)).unwrap();
+    assert_eq!(*value, 2); assert!(!reused);
+}

@@ -2859,7 +2859,8 @@ impl<T> SolveHandle<T> {
     pub fn progress(&self) -> (Vec<Event>, u64) {
         self.progress.snapshot()
     }
-    /// Completion occurs after native teardown, thread-local destruction and join.
+    /// Completion waits for request work/borrowers and reset or teardown. Accepted
+    /// neutral service residency may survive; retiring lanes also await TLS and join.
     pub async fn finish(mut self) -> Result<T, MathRuntimeError> {
         let receiver = self
             .receiver
@@ -4242,9 +4243,9 @@ impl MathService {
             _owner: owner,
         })
     }
-    /// Start one prepared step on its own native session: the job lifecycle every single
-    /// solve shares with staged sequences (A6). Dropping the handle requests cancellation;
-    /// finishing witnesses native teardown and join.
+    /// Start one prepared step on an exclusively leased native lane. Successful
+    /// independent requests reset before neutral residency can park; unsafe requests
+    /// close and join. Dropping the handle requests cancellation and waits for drain.
     ///
     /// # Errors
     /// An explicit start policy without a seed, or no admission capacity.
@@ -4272,9 +4273,11 @@ impl MathService {
         let owner = self.reserve("math:solve-results", step.result_bytes()?)?;
         let run_id = pse_operations::mint_id();
         let progress = Arc::new(Progress::new(step.profile.controls.history));
-        let session = self.open_session()?;
+        let affinity = step.strategy_profile()?;
+        let session = self.independent_session(affinity)?;
         let events = progress.clone();
         let numerical_policy = step.numerics.policy.clone();
+        let finish_policy = numerical_policy.clone();
         Ok(SolveHandle::supervise(progress, move |cancel| async move {
             let result = session
                 .step(
@@ -4289,14 +4292,17 @@ impl MathService {
                             (),
                             super::StepRetention {
                                 candidate: outcome.candidate_use(&numerical_policy),
-                                session: super::SessionDisposition::Discard,
+                                session: super::SessionDisposition::RetainCompatible,
                             },
                             outcome,
                         )
                     },
                 )
                 .await;
-            session.close().await;
+            let healthy = !cancel.token().is_cancelled() && result.as_ref().is_ok_and(|(outcome, (), _)|
+                outcome.candidate_use(&finish_policy).permits_use());
+            if healthy { session.park_independent(affinity).await?; }
+            else { session.close().await; }
             result.map(|(outcome, (), strategy)| StepReport {
                 run_id,
                 outcome,
