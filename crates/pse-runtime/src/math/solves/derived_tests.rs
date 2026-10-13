@@ -3936,7 +3936,7 @@ async fn native_component_records_survive_success_and_failed_block_before_report
         let scope = ExecutionScope::new(flag.clone(), Some(Instant::now() + std::time::Duration::from_secs(30)));
         let prepared = service.prepare_blocks(original.clone(), scope.clone(), &crate::CancelSource::new()).await.unwrap();
         let budget = WorkerBudget::drawing(service.policy.worker_bytes, &service.pool);
-        let mut records = super::super::strategy::NativeComponentCapture::new(service, prepared.block_count()).unwrap();
+        let mut records = crate::math::strategy::NativeComponentCapture::new(service, prepared.block_count()).unwrap();
         let outcome = execution::scoped(&[execution::adapter(Backend::Kinsol)], 1, service.policy.stack_bytes, || {
             let execution = Execution::within(flag, original.controls(), scope).unwrap();
             Ok::<_, ProblemError>(service.blocks_step(&prepared, execution, &mut Retained::default(), &budget,
@@ -3945,11 +3945,11 @@ async fn native_component_records_survive_success_and_failed_block_before_report
         assert_eq!(outcome.is_ok(), succeeds);
         let records = records.finish();
         assert_eq!(records.len(), prepared.block_count());
-        assert!(matches!(records[0].termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable));
+        assert!(matches!(records[0].termination.category, Termination::Success | Termination::Acceptable));
         if succeeds {
-            assert!(records.iter().all(|record| matches!(record.termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable)));
+            assert!(records.iter().all(|record| matches!(record.termination.category, Termination::Success | Termination::Acceptable)));
         } else {
-            assert!(!matches!(records.last().unwrap().termination.category, native::solve::Termination::Success | native::solve::Termination::Acceptable));
+            assert!(!matches!(records.last().unwrap().termination.category, Termination::Success | Termination::Acceptable));
         }
         let status = records.last().unwrap().termination.code;
         let names = records.last().unwrap().variables.clone();

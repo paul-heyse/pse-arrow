@@ -761,9 +761,7 @@ impl ReplayPreparedGraph {
         let mut bytes = self.nodes.len().checked_mul(size_of::<super::ModelingSolvePreparation>())
             .ok_or_else(|| contract("replay original graph table extent overflow"))?;
         for (index, node) in self.nodes.iter().enumerate() {
-            let mut bound = ReplayGraphBound { depth: 1, occurrences: 1,
-                bytes: encoded_extent(node, EXPORT_MAX)?.checked_mul(8).and_then(|bytes| bytes.checked_add(65536))
-                    .ok_or_else(|| contract("replay original node copy extent overflow"))? };
+            let mut bound = ReplayGraphBound { depth: 1, occurrences: 1, bytes: 0 };
             for product in node.automatic.iter().chain(&node.rungs) {
                 if product.required_producer.is_some() {
                     return Err(contract(format!("portable prepared product requires fresh {:?} producer rebind", product.required_producer)));
@@ -774,14 +772,23 @@ impl ReplayPreparedGraph {
                 bound.depth = bound.depth.max(child.depth.checked_add(1).ok_or_else(|| contract("replay original graph depth overflow"))?);
                 bound.occurrences = bound.occurrences.checked_add(child.occurrences)
                     .ok_or_else(|| contract("replay original graph occurrence expansion overflow"))?;
-                bound.bytes = bound.bytes.checked_add(child.bytes).ok_or_else(|| contract("replay original graph copy expansion overflow"))?;
             }
             occurrences = occurrences.checked_add(bound.occurrences).filter(|total| *total <= 4096)
                 .ok_or_else(|| contract("replay original graph exceeds 4096 expanded preparation occurrences"))?;
             if bound.depth > 64 { return Err(contract("replay original graph exceeds depth 64")); }
-            bytes = bytes.checked_add(bound.bytes).filter(|bytes| *bytes <= EXPORT_MAX)
-                .ok_or_else(|| contract("replay original graph expanded copy allowance exceeds finite capacity"))?;
             bounds.push(bound);
+        }
+        // Reject structurally excessive input before traversing any owned profile body.
+        for (index, node) in self.nodes.iter().enumerate() {
+            let mut copied = encoded_extent(node, EXPORT_MAX)?.checked_mul(8).and_then(|bytes| bytes.checked_add(65536))
+                .ok_or_else(|| contract("replay original node copy extent overflow"))?;
+            for product in node.automatic.iter().chain(&node.rungs) {
+                let child = product.node.ok_or_else(|| contract("replay original child absent"))?;
+                copied = copied.checked_add(bounds[child].bytes).ok_or_else(|| contract("replay original graph copy expansion overflow"))?;
+            }
+            bounds[index].bytes = copied;
+            bytes = bytes.checked_add(copied).filter(|bytes| *bytes <= EXPORT_MAX)
+                .ok_or_else(|| contract("replay original graph expanded copy allowance exceeds finite capacity"))?;
         }
         Ok(bytes)
     }

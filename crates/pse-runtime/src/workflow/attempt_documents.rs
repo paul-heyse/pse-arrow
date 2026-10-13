@@ -229,7 +229,7 @@ impl AttemptStepSummary {
         if let Some(quality) = &native.quality {
             self.normalized_physical_violation = Some(NumberObservation::number(quality.normalized_max));
             let findings = quality.rows.iter().chain(&quality.bounds).chain(&quality.integrality)
-                .filter(|finding| finding.physical > finding.tolerance);
+                .filter(|finding| !finding.physical.is_finite() || finding.physical > finding.tolerance);
             for finding in findings {
                 if *remaining > 0 {
                     self.findings.push(AttemptFinding { source: finding.id, violation: NumberObservation::number(finding.physical),
@@ -404,15 +404,17 @@ mod tests {
             code: -1, name: "retained_failure".into(), message: None,
             category: Termination::Numerical, assurance: Assurance::None,
         }, &execution);
-        report.quality = Some(pse_backend_native::quality::Quality {
-            rows: vec![pse_backend_native::quality::Violation { id: SemanticId::NIL,
-                physical: f64::INFINITY, tolerance: 1.0 }], bounds: vec![], integrality: vec![], normalized_max: f64::INFINITY,
-        });
-        let mut step = AttemptStepSummary::empty(0);
-        step.native(&report, &mut 1);
-        let json = serde_json::to_value(step).unwrap();
-        assert_eq!(json["normalized_physical_violation"]["kind"], "nonfinite");
-        assert_eq!(json["findings"][0]["violation"]["value"], "positive_infinity");
+        for (value, tag) in [(f64::INFINITY, "positive_infinity"), (f64::NAN, "nan")] {
+            report.quality = Some(pse_backend_native::quality::Quality {
+                rows: vec![pse_backend_native::quality::Violation { id: SemanticId::NIL,
+                    physical: value, tolerance: 1.0 }], bounds: vec![], integrality: vec![], normalized_max: value,
+            });
+            let mut step = AttemptStepSummary::empty(0);
+            step.native(&report, &mut 1);
+            let json = serde_json::to_value(step).unwrap();
+            assert_eq!(json["normalized_physical_violation"]["kind"], "nonfinite");
+            assert_eq!(json["findings"][0]["violation"]["value"], tag);
+        }
     }
     #[test]
     fn explanation_admission_is_finite_and_zero_is_explicit() {

@@ -16,17 +16,13 @@ pub struct BuildObservation {
     /// The adapter's additional native build contract, when one exists.
     pub identity: Option<ContentHash>,
 }
-/// Named schema for the native owner's finite-key observation map. This wrapper
-/// names the existing map representation; it introduces no second runtime product.
-#[derive(schemars::JsonSchema)]
-#[allow(dead_code, reason = "schema-only name for the exact Snapshot adapter map")]
-struct NativeBuildInventory(BTreeMap<Backend, BuildObservation>);
 /// One immutable build/runtime observation supplied by the composition boundary.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
     /// Registered adapter observations, including absent native implementations.
-    #[schemars(with = "NativeBuildInventory")]
+    #[serde(with = "build_inventory")]
+    #[schemars(with = "Vec<(Backend, BuildObservation)>")]
     pub adapters: BTreeMap<Backend, BuildObservation>,
     /// Actual process/thread state consumed by Ipopt linear-solver admission.
     pub ipopt: Option<Runtime>,
@@ -111,5 +107,43 @@ impl Snapshot {
             ));
         }
         Ok(())
+    }
+}
+
+/// An ordered map body avoids inventing optional nullable adapter facts at the boundary.
+mod build_inventory {
+    use super::*;
+    use serde::{Deserialize as _, ser::SerializeSeq as _};
+    pub(super) fn serialize<S: serde::Serializer>(value: &BTreeMap<Backend, BuildObservation>, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut sequence = serializer.serialize_seq(Some(value.len()))?;
+        for entry in value { sequence.serialize_element(&entry)?; }
+        sequence.end()
+    }
+    pub(super) fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<BTreeMap<Backend, BuildObservation>, D::Error> {
+        let entries = Vec::<(Backend, BuildObservation)>::deserialize(deserializer)?;
+        let mut result = BTreeMap::new();
+        for (backend, observation) in entries {
+            if result.insert(backend, observation).is_some() {
+                return Err(serde::de::Error::custom("duplicate native build observation"));
+            }
+        }
+        Ok(result)
+    }
+}
+#[cfg(test)]
+mod transport_tests {
+    use super::*;
+    #[test]
+    fn native_snapshot_inventory_transport_preserves_absence_and_refuses_duplicates() {
+        let original = Snapshot { adapters: BTreeMap::from([(Backend::Ipopt, BuildObservation { linked: false, identity: None })]),
+            ipopt: None, scip_omp_cancellation: false };
+        let bytes = serde_json::to_vec(&original).unwrap();
+        let restored: Snapshot = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored, original);
+        assert!(!restored.adapters.contains_key(&Backend::Kinsol));
+        let mut document = serde_json::to_value(original).unwrap();
+        let duplicate = document["adapters"][0].clone();
+        document["adapters"].as_array_mut().unwrap().push(duplicate);
+        assert!(serde_json::from_value::<Snapshot>(document).is_err());
     }
 }

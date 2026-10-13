@@ -16,7 +16,13 @@ import msgspec
 from pse.contracts import enums
 from pse.contracts import values as v
 
+AdviceMetric = Literal["native_execution_nanoseconds", "original_normalized_residual"]
+
+AdviceOutcome = Literal["complete", "budget_exhausted", "policy_preempted", "cancelled", "infrastructure_interrupted", "numerical_failure", "partial"]
+
 AnalysisDirection = Literal["upstream", "downstream"]
+
+AttemptOriginalConclusion = Literal["satisfied", "refused", "unavailable"]
 
 Bytes = tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
 
@@ -26,11 +32,23 @@ Fraction = Annotated[float, msgspec.Meta(le=1.0, gt=0.0)]
 
 HistoryPurpose = Literal["audit", "unsettled"]
 
+NativePhase = Literal["Main", "Restoration", "Unknown"]
+
+ObservationCoordinates = Literal["SubmittedOracle", "PhysicalTears"]
+
 OccurrenceKey = Annotated[int, msgspec.Meta(ge=0)]
 
 OptionValue = bool | int | float | str
 
 PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
+
+RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown"]
+
+ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
+
+ReplayProducerPremise = Literal["blocks", "causal", "multistart", "derived", "surrogate", "petsc", "path"]
+
+StopFidelity = Literal["EvaluationAndIterationCheckpoints", "EvaluationCheckpoints"]
 
 Tolerance = Annotated[float, msgspec.Meta(gt=0.0)]
 
@@ -134,6 +152,61 @@ class AdmittedHorizonValues(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.arrival), v.sequence_key(v.record_key)(self.inputs), v.mapping_key(v.scalar_key, v.sequence_key(v.record_key))(self.trajectories),))
+
+
+class AdviceCohort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact comparison premises chosen before observing outcomes."""
+
+    #: Original accuracy and assurance requirements.
+    accuracy: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Original branch permission and actual start policy.
+    branch_start: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Declared exposure/allocation design, including placement and interval meaning.
+    exposure: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Original problem and physical/provider interpretation.
+    original: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Equivalent permitted profile family; explicit settings remain constraints.
+    profiles: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.accuracy), v.scalar_key(self.branch_start), v.scalar_key(self.exposure), v.scalar_key(self.original), v.scalar_key(self.profiles),))
+
+
+class AdviceObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One actual observation in a declared matched exposure."""
+
+    #: Original execution identity.
+    attempt: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact immutable candidate identity.
+    candidate: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact admitted comparison premises.
+    cohort: AdviceCohort
+    #: Declared matched exposure identity.
+    matched: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual observation disposition.
+    outcome: AdviceOutcome
+    #: Missing is unknown, never zero. Censored values cannot rank candidates.
+    value: float | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempt), v.scalar_key(self.candidate), v.record_key(self.cohort), v.scalar_key(self.matched), v.scalar_key(self.outcome), v.optional_key(v.scalar_key)(self.value),))
+
+
+class AdviceSupportBaselineTie(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="baseline_tie"):
+    """Incomplete support preserves the original order."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class AdviceSupportCompleteMatched(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="complete_matched"):
+    """Every declared candidate has a complete metric for every matched exposure."""
+
+    #: Number of complete matched exposures.
+    pairs: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.pairs),))
 
 
 class AnalysisControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -257,6 +330,18 @@ class ApplicabilityPermission(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.scalar_key(self.allow_extrapolation), v.scalar_key(self.allow_unknown), v.scalar_key(self.id), v.scalar_key(self.scope), v.scalar_key(self.target_kind), v.sequence_key(v.scalar_key)(self.targets),))
 
 
+class AppliedRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The interior-point restart an adapter applied to a submitted primal-dual seed."""
+
+    #: Initial barrier parameter set, in native coordinates; `None` left the native default.
+    mu_init: float | None = None
+    #: The restart profile that produced it.
+    profile: WarmRestart
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.mu_init), v.record_key(self.profile),))
+
+
 class ArrivalDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Existing arrival cost intent with a checked finite initial prior."""
 
@@ -283,6 +368,172 @@ class AssemblyLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.contributions), v.scalar_key(self.native_index), v.scalar_key(self.worker_bytes),))
+
+
+class AttemptDecision(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact synchronous decision record. Charging identity preserves inclusive work meaning."""
+
+    #: Recorded governing decision identity.
+    decision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Actual decision event kind.
+    kind: enums.NumericalEventKind
+    #: Declared mechanism ordinal.
+    mechanism: Annotated[int, msgspec.Meta(ge=0)]
+    #: Typed native or boundary observation.
+    observation: enums.NumericalAttemptObservation | None = None
+    #: Independent original scientific conclusion.
+    original: AttemptOriginalConclusion | None = None
+    #: Original candidate-use permission.
+    permission: enums.CandidateUse | None = None
+    #: Actual executing or assessing phase.
+    phase: enums.NumericalPhase
+    #: Recorded governing transition.
+    transition: enums.NumericalTransition | None = None
+    #: Actual owner-issued work; unknown counters remain absent.
+    work: WorkCharge | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.decision), v.scalar_key(self.kind), v.scalar_key(self.mechanism), v.optional_key(v.scalar_key)(self.observation), v.optional_key(v.scalar_key)(self.original), v.optional_key(v.scalar_key)(self.permission), v.scalar_key(self.phase), v.optional_key(v.scalar_key)(self.transition), v.optional_key(v.record_key)(self.work),))
+
+
+class AttemptFailureSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Compact failure explanation over final accepted evidence only."""
+
+    #: Source-owned boundary disposition.
+    class_: enums.NativeBoundaryClass = msgspec.field(name="class")
+    #: Detailed source-owned diagnostic code.
+    code: enums.DiagnosticCode
+    #: Typed native or boundary observation.
+    observation: enums.NumericalAttemptObservation
+    #: No diagnostic model/native work was admitted or performed by this projection.
+    retained_only: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.class_), v.scalar_key(self.code), v.scalar_key(self.observation), v.scalar_key(self.retained_only),))
+
+
+class AttemptFinding(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A retained original-coordinate violation. IDs and physical tolerance belong to the producer."""
+
+    #: Original authored row or variable identity.
+    source: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Explicit tolerance in the same original units.
+    tolerance: Observation
+    #: Physical violation in original declared units.
+    violation: Observation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.source), v.record_key(self.tolerance), v.record_key(self.violation),))
+
+
+class AttemptIntervals(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Disjoint phase observations are absent until their actual owner measures them."""
+
+    #: Independent original assessment wall seconds; unavailable unless separately observed.
+    assessment_seconds: Observation | None = None
+    #: Native algorithm wall seconds, including callbacks; overlaps callback work.
+    native_including_callbacks_seconds: Observation | None = None
+    #: Preparation wall seconds; unavailable at this reporting boundary.
+    preparation_seconds: Observation | None = None
+    #: Publication wall seconds; unavailable at this reporting boundary.
+    publication_seconds: Observation | None = None
+    #: Admission queue wall seconds; unavailable at this reporting boundary.
+    queue_seconds: Observation | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.assessment_seconds), v.optional_key(v.record_key)(self.native_including_callbacks_seconds), v.optional_key(v.record_key)(self.preparation_seconds), v.optional_key(v.record_key)(self.publication_seconds), v.optional_key(v.record_key)(self.queue_seconds),))
+
+
+class AttemptStartSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual submitted-start provenance. Full portable coordinates belong to replay."""
+
+    #: Actual seed numeric data identity, distinct from native session compatibility.
+    data: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Actual compatible source layout, when a complete seed was supplied.
+    layout: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Prior attempt selected by the original start owner.
+    previous_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Number of explicitly supplied sparse start variables.
+    sparse_variables: Annotated[int, msgspec.Meta(ge=0)]
+    #: Whether the adapter submitted a seed to the native API.
+    submitted: bool
+    #: Transformations actually traversed before native submission.
+    transformations: tuple[SeedTransformation, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.data), v.optional_key(v.scalar_key)(self.layout), v.optional_key(v.scalar_key)(self.previous_attempt), v.scalar_key(self.sparse_variables), v.scalar_key(self.submitted), v.sequence_key(v.record_key)(self.transformations),))
+
+
+class AttemptStepSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original requested step; missing native facts remain absent."""
+
+    #: Independent original permission, when assessed.
+    accepted: bool | None = None
+    #: Actual executed native backend, when available.
+    backend: enums.NativeBackend | None = None
+    #: Retained synchronous decision prefix.
+    decisions: tuple[AttemptDecision, ...]
+    #: Actual lossy progress count, independent of synchronous decisions.
+    dropped_progress: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual options submitted by the adapter, separate from queried native defaults.
+    effective_options: dict[str, OptionValue]
+    #: Retained original-coordinate violations.
+    findings: tuple[AttemptFinding, ...]
+    #: Available interval observations; overlapping native/callback costs are never added.
+    intervals: AttemptIntervals
+    #: Defaults only when the native library supplies a readback API.
+    native_defaults: dict[str, OptionValue]
+    #: Actual family-specific counters, phase and cooperative stop coverage.
+    native_observations: NativeObservations | None = None
+    #: Maximum original physical violation divided by its declared tolerance.
+    normalized_physical_violation: Observation | None = None
+    #: Typed native or boundary observation.
+    observation: enums.NumericalAttemptObservation | None = None
+    #: Decisions outside the requested prefix.
+    omitted_decisions: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original violations outside the requested bound.
+    omitted_findings: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded raw physical map samples, independently of progress loss.
+    raw_map: RawMapHistory | None = None
+    #: Whether actual native state was reused.
+    reused_native_state: bool | None = None
+    #: Actual submitted seed transformations and source identity.
+    start: AttemptStartSummary | None = None
+    #: Whether the native owner submitted a start.
+    start_submitted: bool | None = None
+    #: Original zero-based step ordinal.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual owner-issued work; unknown counters remain absent.
+    work: WorkObservation | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.accepted), v.optional_key(v.scalar_key)(self.backend), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.scalar_key)(self.dropped_progress), v.mapping_key(v.scalar_key, v.scalar_key)(self.effective_options), v.sequence_key(v.record_key)(self.findings), v.record_key(self.intervals), v.mapping_key(v.scalar_key, v.scalar_key)(self.native_defaults), v.optional_key(v.record_key)(self.native_observations), v.optional_key(v.record_key)(self.normalized_physical_violation), v.optional_key(v.scalar_key)(self.observation), v.scalar_key(self.omitted_decisions), v.scalar_key(self.omitted_findings), v.optional_key(v.record_key)(self.raw_map), v.optional_key(v.scalar_key)(self.reused_native_state), v.optional_key(v.record_key)(self.start), v.optional_key(v.scalar_key)(self.start_submitted), v.scalar_key(self.step), v.optional_key(v.record_key)(self.work),))
+
+
+class AttemptSummary(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Bounded automatic summary. Partial evidence and truncation are explicit."""
+
+    #: Actual terminal failure when retained.
+    failure: AttemptFailureSummary | None = None
+    #: Shared compact native records, bounded by the requested event capacity.
+    native_attempts: tuple[ReplayNativeAttempt, ...]
+    #: Actual producer availability; integration does not invent adapter records.
+    native_record_coverage: ReplayNativeRecordCoverage
+    #: Compact native records omitted by the requested bound.
+    omitted_native_attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Steps omitted by the requested bound.
+    omitted_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Full original requested step count.
+    requested_steps: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original execution identity.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Retained bounded original steps.
+    steps: tuple[AttemptStepSummary, ...]
+    #: These are original recorded reports; a partial trajectory is never a full horizon.
+    usable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.failure), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_record_coverage), v.scalar_key(self.omitted_native_attempts), v.scalar_key(self.omitted_steps), v.scalar_key(self.requested_steps), v.scalar_key(self.run_id), v.sequence_key(v.record_key)(self.steps), v.scalar_key(self.usable),))
 
 
 class AuthoredAccuracyGoalsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -2471,6 +2722,18 @@ class BuildInfo(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
         return (type(self), (v.scalar_key(self.version), v.scalar_key(self.cargo_lock_sha256), v.scalar_key(self.git_sha), v.scalar_key(self.lockfile_hash), v.scalar_key(self.profile), v.scalar_key(self.rustc_version), v.scalar_key(self.uv_lock_sha256),))
 
 
+class BuildObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """The build/linkage fact for one registered adapter."""
+
+    #: The adapter's additional native build contract, when one exists.
+    identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: This binary links the native implementation.
+    linked: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.identity), v.scalar_key(self.linked),))
+
+
 class CacheReport(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Cheap aggregate observations without cloning the cached inventory."""
 
@@ -2670,6 +2933,8 @@ class Completion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Hard caller constraints retained by automatic and explicitly declared composition."""
 
+    #: Full frozen descriptive body; absent leaves the complete baseline policy.
+    advice: FrozenAdvice | None = None
     #: Original root-selection contract.
     branch: BranchPolicy
     #: Additional finite counters; absent retains the admitted caller controls.
@@ -2680,7 +2945,7 @@ class CompositionRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     recovery: tuple[enums.NumericalStartOrigin, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
+        return (type(self), (v.optional_key(v.record_key)(self.advice), v.record_key(self.branch), v.optional_key(v.record_key)(self.limits), v.scalar_key(self.policy), v.sequence_key(v.scalar_key)(self.recovery),))
 
 
 class Conclusion(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3367,6 +3632,28 @@ class FlowSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.sequence_key(v.record_key)(self.connections), v.sequence_key(v.scalar_key)(self.nodes),))
+
+
+class FrozenAdvice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full immutable body retained with effective settings, including all excluded outcomes."""
+
+    #: Complete original candidate order.
+    baseline: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Exact admitted comparison premises.
+    cohort: AdviceCohort
+    #: Original allowances for applicability checking; advice never widens them.
+    limits: WorkLimits
+    #: One declared descriptive metric.
+    metric: AdviceMetric
+    #: Actual retained observations, including exclusions.
+    observations: tuple[AdviceObservation, ...]
+    #: Actual frozen candidate order.
+    ordered: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Support established by the retained comparison.
+    support: AdviceSupport
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.baseline), v.record_key(self.cohort), v.record_key(self.limits), v.scalar_key(self.metric), v.sequence_key(v.record_key)(self.observations), v.sequence_key(v.scalar_key)(self.ordered), v.record_key(self.support),))
 
 
 class HighsDiagnostics(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4537,6 +4824,165 @@ class ModelingUnitFactor(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.scalar_key(self.den), v.scalar_key(self.num), v.scalar_key(self.symbol),))
 
 
+class NativeAttemptRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native-owned compact attempt record; scientific workflow position belongs to its caller.
+    No factor, actor, oracle, candidate or complete SolveReport is retained here.
+    """
+
+    #: Exact attempt-local abandonment, distinct from task cancellation.
+    abandoned: enums.NumericalAttemptObservation | None = None
+    #: Actual executed adapter.
+    backend: enums.NativeBackend
+    #: Native defaults only when supplied by a getter.
+    native_defaults: dict[str, OptionValue]
+    #: Shared bounded native counters, phase, submitted snapshots and stop fidelity.
+    observations: NativeObservations | None = None
+    #: Complete actual adapter options, separate from queried defaults.
+    options: dict[str, OptionValue]
+    #: Actual owner-emitted build/runtime/numerical provenance, without parsing.
+    provenance: dict[str, str]
+    #: Shared bounded raw map history, preserving omissions, failures and sample roles.
+    raw_map: RawMapHistory | None = None
+    #: Actual compatible native state reuse, not merely a requested reuse policy.
+    reused_native_state: bool
+    #: Complete original row correspondence recorded by the adapter's report.
+    rows: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Actual submitted source-coordinate start and transformations.
+    start: SubmittedStartRecord | None = None
+    #: Whether the adapter submitted a start, even if no complete source receipt exists.
+    start_submitted: bool
+    #: Actual native status and the adapter's conservative interpretation.
+    termination: NativeTerminationRecord
+    #: Complete original variable correspondence recorded by the adapter's report.
+    variables: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Executing-owner work counters; absent values remain unknown.
+    work: WorkEvidence
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.abandoned), v.scalar_key(self.backend), v.mapping_key(v.scalar_key, v.scalar_key)(self.native_defaults), v.optional_key(v.record_key)(self.observations), v.mapping_key(v.scalar_key, v.scalar_key)(self.options), v.mapping_key(v.scalar_key, v.scalar_key)(self.provenance), v.optional_key(v.record_key)(self.raw_map), v.scalar_key(self.reused_native_state), v.sequence_key(v.scalar_key)(self.rows), v.optional_key(v.record_key)(self.start), v.scalar_key(self.start_submitted), v.record_key(self.termination), v.sequence_key(v.scalar_key)(self.variables), v.record_key(self.work),))
+
+
+class NativeCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One submitted-oracle coordinate with lossless numeric observation encoding."""
+
+    #: Observed IEEE value; nonfinite values retain their explicit tag.
+    value: Observation
+    #: Submitted variable identity.
+    variable: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value), v.scalar_key(self.variable),))
+
+
+class NativeCountersIpopt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="ipopt"):
+    """Ipopt's structured SolveStatistics, absent after unsupported/serious exits."""
+
+    #: Native constraint evaluations.
+    constraint_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: CPU time including callbacks; overlaps wall and system time.
+    cpu_seconds: Observation | None = None
+    #: Native objective gradient evaluations.
+    gradient_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native Lagrangian Hessian evaluations.
+    hessian_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native iteration count.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native constraint Jacobian evaluations.
+    jacobian_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native objective evaluations, distinct from adapter-inclusive callback work.
+    objective_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: System time including callbacks; never summed with wall time.
+    system_seconds: Observation | None = None
+    #: Native algorithm wall time including callbacks.
+    wall_seconds: Observation | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.constraint_evaluations), v.optional_key(v.record_key)(self.cpu_seconds), v.optional_key(v.scalar_key)(self.gradient_evaluations), v.optional_key(v.scalar_key)(self.hessian_evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.jacobian_evaluations), v.optional_key(v.scalar_key)(self.objective_evaluations), v.optional_key(v.record_key)(self.system_seconds), v.optional_key(v.record_key)(self.wall_seconds),))
+
+
+class NativeCountersKinsol(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="kinsol"):
+    """KINSOL getters for this attempt, excluding independent original assessment."""
+
+    #: Fixed-point mode increments before G, so a failed map counts an attempted iteration.
+    fixed_point_iterations: bool
+    #: Native function evaluations; fixed-point mode means G evaluations.
+    function_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native nonlinear iteration count; not accepted outer-state count.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native Jacobian evaluations, unavailable for fixed-point mode.
+    jacobian_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native J*v evaluations.
+    jacobian_products: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native linear iterations, unavailable for fixed-point mode.
+    linear_iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native preconditioner setup evaluations.
+    preconditioner_evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Native preconditioner solves.
+    preconditioner_solves: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.fixed_point_iterations), v.optional_key(v.scalar_key)(self.function_evaluations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.jacobian_evaluations), v.optional_key(v.scalar_key)(self.jacobian_products), v.optional_key(v.scalar_key)(self.linear_iterations), v.optional_key(v.scalar_key)(self.preconditioner_evaluations), v.optional_key(v.scalar_key)(self.preconditioner_solves),))
+
+
+class NativeObservations(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact profile and problem witness for native facts; unknown counters remain absent."""
+
+    #: Actual native adapter.
+    backend: enums.NativeBackend
+    #: Point coordinates still require verified outer transport for authored diagnostics.
+    coordinates: ObservationCoordinates
+    #: Native family-specific getters.
+    counters: NativeCounters
+    #: Latest available point, shared with consumers instead of copied into every record.
+    current: NativeSnapshot | None = None
+    #: Submitted oracle contract identity.
+    problem: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Executed profile identity.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual cooperative checkpoint coverage.
+    stop_fidelity: StopFidelity
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.backend), v.scalar_key(self.coordinates), v.record_key(self.counters), v.optional_key(v.record_key)(self.current), v.scalar_key(self.problem), v.scalar_key(self.profile), v.scalar_key(self.stop_fidelity),))
+
+
+class NativeSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Latest callback point in its submitted coordinate authority, not a resumable state."""
+
+    #: Actual native iteration ordinal.
+    iteration: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: A suffix was omitted by the fixed capture allocation.
+    partial: bool
+    #: Actual callback phase.
+    phase: NativePhase
+    #: Full submitted coordinate count, including any omitted suffix.
+    total_coordinates: Annotated[int, msgspec.Meta(ge=0)]
+    #: Captured coordinate prefix, with source IDs.
+    values: tuple[NativeCoordinate, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.iteration), v.scalar_key(self.partial), v.scalar_key(self.phase), v.scalar_key(self.total_coordinates), v.sequence_key(v.record_key)(self.values),))
+
+
+class NativeTerminationRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Raw native termination and the adapter's conservative interpretation."""
+
+    #: Native assurance, subsequently constrained by original-model validation.
+    assurance: enums.NativeAssurance
+    #: Cross-backend category.
+    category: enums.NativeTermination
+    #: Unmodified native numeric status, or `i64::MIN` when a contained Rust
+    #: unwind prevented the native algorithm from returning any status.
+    code: int
+    #: Native diagnostic, when available.
+    message: str | None = None
+    #: Native symbolic status name, or `rust.unwind` when no native status returned.
+    name: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.assurance), v.scalar_key(self.category), v.scalar_key(self.code), v.optional_key(v.scalar_key)(self.message), v.scalar_key(self.name),))
+
+
 class NumericObservationNonfinite(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="nonfinite"):
     """The `NumericObservationNonfinite` document type."""
 
@@ -5032,6 +5478,18 @@ class PreparationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
         return (type(self), (v.record_key(self.compiler), v.record_key(self.limits),))
 
 
+class PresolveSeedTransformation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual presolve coordinate transform submitted with a seed."""
+
+    #: Passes the library actually installed.
+    passes: tuple[enums.PresolvePass, ...]
+    #: Native coordinate identity of the projection.
+    transformation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.passes), v.scalar_key(self.transformation),))
+
+
 class ProductDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """The consumer's exact dependency contract. No field is inferred from capabilities."""
 
@@ -5497,6 +5955,99 @@ class PureConformanceControls(msgspec.Struct, frozen=True, forbid_unknown_fields
         return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.fixtures), v.scalar_key(self.maximum_checks), v.scalar_key(self.maximum_fixtures),))
 
 
+class RawMapCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One physical tear quantity, or an explicitly submitted-oracle quantity."""
+
+    #: Actual map input.
+    input: Observation
+    #: Actual G output; absent for failed calls and residual-only assessments.
+    mapped: float | None = None
+    #: Physical abs(residual)/tolerance; never native scaling or accelerated step norm.
+    physical_error_ratio: Observation | None = None
+    #: Original physical tolerance, present only with physical coordinate authority.
+    physical_tolerance: float | None = None
+    #: Raw G(x)-x, or fresh original residual for OriginalAssessment.
+    residual: Observation | None = None
+    #: Original connection residual ID.
+    row: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Tear destination variable ID.
+    variable: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.input), v.optional_key(v.scalar_key)(self.mapped), v.optional_key(v.record_key)(self.physical_error_ratio), v.optional_key(v.scalar_key)(self.physical_tolerance), v.optional_key(v.record_key)(self.residual), v.scalar_key(self.row), v.scalar_key(self.variable),))
+
+
+class RawMapFailureFatal(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="fatal"):
+    """Fatal map failure or nonfinite map output."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class RawMapFailureStopped(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="stopped"):
+    """Actual cooperative stop."""
+
+    value: enums.NativeTermination
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class RawMapFailureTrial(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trial"):
+    """Recoverable trial refusal in the scientific producer."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class RawMapHistory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Shared bounded history, independent of lossy progress events."""
+
+    #: Latest actual evaluation, including a failed point omitted from the prefix.
+    last_evaluation: RawMapSample | None = None
+    #: Most recent successful G evaluation, preserved when the next map fails.
+    last_successful: RawMapSample | None = None
+    #: Evaluations omitted from the history prefix (latest successful capture may remain).
+    omitted: Annotated[int, msgspec.Meta(ge=0)]
+    #: Submitted map contract.
+    problem: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Executed native profile.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Retained prefix of actual evaluations, shared with last_successful when possible.
+    samples: tuple[RawMapSample, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.last_evaluation), v.optional_key(v.record_key)(self.last_successful), v.scalar_key(self.omitted), v.scalar_key(self.problem), v.scalar_key(self.profile), v.sequence_key(v.record_key)(self.samples),))
+
+
+class RawMapSample(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A bounded diagnostic map sample; missing fields are unknown, never zero."""
+
+    #: Coordinate authority supplied by the scientific producer.
+    coordinates: ObservationCoordinates
+    #: Failure of this evaluation; partial native outputs are never captured as G.
+    failure: RawMapFailure | None = None
+    #: Observed inner branch identity, when supplied by the scientific producer.
+    inner_branch: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Observed inner start identity, when supplied by the scientific producer.
+    inner_start: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Inner tolerance is absent when a compound map has no single observed value.
+    inner_tolerance: float | None = None
+    #: Evaluation ordinal within this attempt, including failures.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Coordinate suffix was not retained.
+    partial: bool
+    #: Actual callback role.
+    role: RawMapRole
+    #: Full map dimension.
+    total_coordinates: Annotated[int, msgspec.Meta(ge=0)]
+    #: Bounded coordinate prefix.
+    values: tuple[RawMapCoordinate, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.coordinates), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.inner_branch), v.optional_key(v.scalar_key)(self.inner_start), v.optional_key(v.scalar_key)(self.inner_tolerance), v.scalar_key(self.ordinal), v.scalar_key(self.partial), v.scalar_key(self.role), v.scalar_key(self.total_coordinates), v.sequence_key(v.record_key)(self.values),))
+
+
 class ReconstructionAccuracy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Consumer-issued normalized allowances. Each actual point/action creates its own
     fully scoped demand; no default tolerance or default certificate is supplied.
@@ -5546,6 +6097,578 @@ class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.proof_cells), v.scalar_key(self.rounds),))
+
+
+class ReplayBoundOverrideKeep(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="keep"):
+    """Preserve the authored bound."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ReplayBoundOverrideRemove(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="remove"):
+    """Explicitly remove the authored endpoint."""
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), ())
+
+
+class ReplayBoundOverrideValue(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="value"):
+    """Exact original endpoint, including an explicit infinity."""
+
+    bits: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.bits),))
+
+
+class ReplayCaseConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable original case constructor, independent of mutable history or compiled native products."""
+
+    #: Full immutable structural arguments/facts/omissions/elastic declarations.
+    bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Exact supplied numeric values and structural variable specifications.
+    case: ReplayCaseInputs
+    #: Original user-supplied numerical declarations, before derived resolution.
+    declarations: tuple[SourcedRequirement, ...]
+    #: Explicit temporary fixes in exact original bits.
+    fixes: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+    #: Original instance identity.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Requested derivative order.
+    order: Annotated[int, msgspec.Meta(ge=0, le=255)]
+    #: Explicit continuation parameters in exact original bits.
+    parameters: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+    #: Actual compiler controls and original expansion limits.
+    preparation: PreparationSettings
+    #: Full original-only profile graph; opaque products explicitly require producer rebind.
+    prepared_graph: ReplayPreparedGraph | None = None
+    #: Exact requested screened input; restoring requires fresh producer screening.
+    requested_screened_start: ReplayScreenedStart | None = None
+    #: Exact explicit input requested after constructor admission, even before dispatch.
+    requested_start: WarmStartSnapshot | None = None
+    #: Original selected authored definition.
+    root: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Explicit predecessor starts in exact original bits.
+    seed: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+    #: Exact original requested scientific/native settings.
+    settings: ReplaySolverSettings
+    #: Index of the immutable source closure in ReplayDocument.sources.
+    source: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original user-supplied target definitions, before derived resolution.
+    targets: tuple[TargetSpec, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.record_key)(self.declarations), v.mapping_key(v.scalar_key, v.scalar_key)(self.fixes), v.scalar_key(self.instance), v.scalar_key(self.order), v.mapping_key(v.scalar_key, v.scalar_key)(self.parameters), v.record_key(self.preparation), v.optional_key(v.record_key)(self.prepared_graph), v.optional_key(v.record_key)(self.requested_screened_start), v.optional_key(v.record_key)(self.requested_start), v.scalar_key(self.root), v.mapping_key(v.scalar_key, v.scalar_key)(self.seed), v.record_key(self.settings), v.scalar_key(self.source), v.sequence_key(v.record_key)(self.targets),))
+
+
+class ReplayCaseInputs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact original case input bits. These are constructor values, not observations or checkpoints."""
+
+    #: Values supplied by admitted semantic member identity.
+    members: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+    #: Values supplied by authored path.
+    values: dict[str, Annotated[int, msgspec.Meta(ge=0)]]
+    #: All structural fixed/free and bound overrides.
+    variables: dict[str, ReplayVariableState]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.mapping_key(v.scalar_key, v.scalar_key)(self.members), v.mapping_key(v.scalar_key, v.scalar_key)(self.values), v.mapping_key(v.scalar_key, v.record_key)(self.variables),))
+
+
+class ReplayCoverage(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Recorded coverage, without promoting an interrupted prefix into a full trajectory."""
+
+    #: Actual last completed physical time when available.
+    completed_time: Observation | None = None
+    #: Actual retained completed steps/samples/periods.
+    observed: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original requested modeling steps or dynamic samples/horizon periods.
+    requested: Annotated[int, msgspec.Meta(ge=0)]
+    #: Actual terminal cause projection, when retained.
+    terminal: enums.NumericalAttemptObservation | None = None
+    #: Original completion permits the requested scientific result.
+    usable: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.completed_time), v.scalar_key(self.observed), v.scalar_key(self.requested), v.optional_key(v.scalar_key)(self.terminal), v.scalar_key(self.usable),))
+
+
+class ReplayDecisions(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full retained governing declaration and synchronous decisions for one original step."""
+
+    #: Every retained synchronous decision, independent of ordinary progress drops.
+    decisions: tuple[AttemptDecision, ...]
+    #: Full effective numerical declaration, including ordering and all limits.
+    declaration: NumericalStrategy
+    #: Original scientific problem identity.
+    original: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual effective profile identity.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual original start provenance.
+    start: enums.NumericalStartOrigin
+    #: Actual per-rung starts in their consumed order.
+    starts: tuple[enums.NumericalStartOrigin, ...]
+    #: Original step ordinal.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.decisions), v.record_key(self.declaration), v.scalar_key(self.original), v.scalar_key(self.profile), v.scalar_key(self.start), v.sequence_key(v.scalar_key)(self.starts), v.scalar_key(self.step),))
+
+
+class ReplayDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete export of available scientific premises. Compiled products/factories remain in-process capabilities."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Explicit current document version.
+    version: Literal[1] = 1
+    #: Exact required binary build.
+    build: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Original portable case constructors, retaining all supplied structural and numerical inputs.
+    case_constructors: tuple[ReplayCaseConstructor, ...]
+    #: Original physical mappings and full constructor configurations, using existing producer documents.
+    contexts: tuple[RuntimeScientificContextsRow, ...]
+    #: Exact original independent-sequence failure policy.
+    continue_independent: bool
+    #: Explicit actual scientific observation coverage.
+    coverage: ReplayCoverage
+    #: Full retained decisions with their actual effective declaration.
+    decisions: tuple[ReplayDecisions, ...]
+    #: Complete original fit and experiment constructor.
+    fit_constructor: ReplayFitConstructor | None = None
+    #: Full original horizon provenance, including output demand, period, stages and mappings.
+    horizon: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...] | None = None
+    #: Complete original closed-loop plant and stage constructors.
+    horizon_constructor: ReplayHorizonConstructor | None = None
+    #: Full actual retained adapter settings, submitted starts and original coordinate witnesses.
+    native_attempts: tuple[ReplayNativeAttempt, ...]
+    #: Native continuation has no library checkpoint in the current source owner.
+    native_continuation: bool
+    #: Native record coverage is explicit for integrated trajectories.
+    native_record_coverage: ReplayNativeRecordCoverage
+    #: Actual immutable build/runtime observations used by constructor admission.
+    runtime_premises: tuple[Snapshot, ...]
+    #: Complete original simulation constructors across all linked methods.
+    simulation_constructors: tuple[ReplaySimulationConstructor, ...]
+    #: Full actual solver settings for all original solver owners.
+    solver_settings: tuple[ReplaySolverSettings, ...]
+    #: Historical source execution; a numerical rerun always gets another identity.
+    source_run: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Full immutable authored/provider/physical source closures.
+    sources: tuple[ReplaySourceDocument, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.build), v.sequence_key(v.record_key)(self.case_constructors), v.sequence_key(v.record_key)(self.contexts), v.scalar_key(self.continue_independent), v.record_key(self.coverage), v.sequence_key(v.record_key)(self.decisions), v.optional_key(v.record_key)(self.fit_constructor), v.optional_key(v.sequence_key(v.scalar_key))(self.horizon), v.optional_key(v.record_key)(self.horizon_constructor), v.sequence_key(v.record_key)(self.native_attempts), v.scalar_key(self.native_continuation), v.scalar_key(self.native_record_coverage), v.sequence_key(v.record_key)(self.runtime_premises), v.sequence_key(v.record_key)(self.simulation_constructors), v.sequence_key(v.record_key)(self.solver_settings), v.scalar_key(self.source_run), v.sequence_key(v.record_key)(self.sources),))
+
+
+class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable fit constructor. Exact fit/experiment declarations are in its source objects."""
+
+    #: Original derivative evidence policy.
+    derivatives: enums.FitDerivatives
+    #: Exact authored fit declaration.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original finite derivative/rank allowance.
+    max_cells: Annotated[int, msgspec.Meta(ge=0)]
+    #: Original compiler and expansion controls.
+    preparation: PreparationSettings
+    #: Original response rank cutoff.
+    rank_tolerance: float
+    #: Complete original integration controls by experiment identity.
+    simulations: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Profile]
+    #: Complete original native/scientific policy.
+    solver: ReplaySolverSettings
+    #: Source closure index.
+    source: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete requested uncertainty/propagation controls.
+    uncertainty: FitUncertainty | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
+
+
+class ReplayHorizonConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full original horizon constructor; an interrupted observation never replaces its requested horizon."""
+
+    #: Full optional original controller.
+    controller: ReplayHorizonController | None = None
+    #: Full optional original estimator.
+    estimator: ReplayHorizonEstimator | None = None
+    #: Exact driven plant identities and initial input bits.
+    inputs: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]], ...]
+    #: Original output demand, separate from observed coverage.
+    output: StudyOutputDemand
+    #: Original period in exact IEEE bits.
+    period: Annotated[int, msgspec.Meta(ge=0)]
+    #: Complete original plant constructor and source index.
+    plant: ReplaySimulationConstructor
+    #: Original requested finite periods.
+    steps: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.record_key)(self.controller), v.optional_key(v.record_key)(self.estimator), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.inputs), v.record_key(self.output), v.scalar_key(self.period), v.record_key(self.plant), v.scalar_key(self.steps),))
+
+
+class ReplayHorizonController(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original NMPC stage, including its complete source, analysis and mapping."""
+
+    #: Full source-qualified original analysis.
+    analysis: ReplayCaseConstructor
+    #: Exact original case-signal bindings.
+    bindings: tuple[tuple[str, ReplayHorizonSignal], ...]
+    #: Original first-move mappings.
+    moves: tuple[tuple[str, Annotated[int, msgspec.Meta(ge=0)]], ...]
+    #: Original optional advanced-step predictions.
+    predictions: tuple[tuple[str, str], ...] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.analysis), v.sequence_key(v.tuple_key((v.scalar_key, v.record_key,)))(self.bindings), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.moves), v.optional_key(v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,))))(self.predictions),))
+
+
+class ReplayHorizonEstimator(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Original MHE stage, including exact window and prior meaning."""
+
+    #: Full source-qualified original analysis.
+    analysis: ReplayCaseConstructor
+    #: Full prior/next-state mapping and exact original prior bits.
+    arrival: tuple[tuple[str, str, Annotated[int, msgspec.Meta(ge=0)]], ...]
+    #: Original driven-input window bindings; false is Constant, true is Periods.
+    inputs: tuple[tuple[Annotated[int, msgspec.Meta(ge=0)], bool, tuple[str, ...]], ...]
+    #: Exact ordered measured-output mappings.
+    measurements: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], tuple[str, ...]], ...]
+    #: Original finite estimation window.
+    window: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.analysis), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key, v.scalar_key,)))(self.arrival), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key, v.sequence_key(v.scalar_key),)))(self.inputs), v.sequence_key(v.tuple_key((v.scalar_key, v.sequence_key(v.scalar_key),)))(self.measurements), v.scalar_key(self.window),))
+
+
+class ReplayHorizonSignalApplied(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="applied"):
+    """Driven input ordinal."""
+
+    value: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ReplayHorizonSignalEstimated(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="estimated"):
+    """Named estimator output."""
+
+    value: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ReplayHorizonSignalMeasured(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="measured"):
+    """Plant contract output."""
+
+    value: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class ReplayHorizonSignalTrajectory(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="trajectory"):
+    """Complete declared trajectory in exact original bits."""
+
+    value: tuple[Annotated[int, msgspec.Meta(ge=0)], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.value),))
+
+
+class ReplayNativeAttempt(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Workflow attribution over the native owner's immutable compact attempt facts."""
+
+    #: Actual ordered block/causal component ordinal; absent for a whole-problem native report.
+    component: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual operation ordinal in the retained governing declaration.
+    mechanism: Annotated[int, msgspec.Meta(ge=0)]
+    #: Full actual native options, termination, counters, start receipt and raw evidence.
+    record: NativeAttemptRecord
+    #: Original modeling step, or zero for fit/shooting.
+    step: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.component), v.scalar_key(self.mechanism), v.record_key(self.record), v.scalar_key(self.step),))
+
+
+class ReplayPhysicalSource(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual admitted physical source bytes, retaining empty membership distinctly from omission."""
+
+    #: Complete Arrow IPC stream, including schema and actual admitted rows.
+    ipc: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Registry relation identity.
+    relation: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.ipc), v.scalar_key(self.relation),))
+
+
+class ReplayPreparedGraph(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full bounded postorder inventory. Opaque capabilities are explicit producer premises."""
+
+    #: Actual original nodes, children before parents; no mutable preparation history lookup.
+    nodes: tuple[ReplayPreparedNode, ...]
+    #: Exact root original node.
+    root: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.nodes), v.scalar_key(self.root),))
+
+
+class ReplayPreparedNode(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One original input and its exact full requested policy, before any native dispatch."""
+
+    #: Exact ordered preprepared automatic inventory, including every Original profile.
+    automatic: tuple[ReplayPreparedProduct, ...]
+    #: Exact actual postconstructor ordering, starts, branch and limits.
+    declaration: NumericalStrategy | None = None
+    #: Exact original scientific binding identity.
+    original: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact compiler artifacts, evaluator admission and composed preparation identity.
+    preparation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact effective profile identity, verified again after reconstruction.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Full requested screened proposal; fresh screening is an independent premise.
+    requested_screened_start: ReplayScreenedStart | None = None
+    #: Full requested explicit start before dispatch.
+    requested_start: WarmStartSnapshot | None = None
+    #: Exact ordered declared product inventory.
+    rungs: tuple[ReplayPreparedProduct, ...]
+    #: Actual build/runtime observation of this profile's admission.
+    runtime: Snapshot
+    #: Full actual immutable scientific/native profile body.
+    settings: ReplaySolverSettings
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.automatic), v.optional_key(v.record_key)(self.declaration), v.scalar_key(self.original), v.scalar_key(self.preparation), v.scalar_key(self.profile), v.optional_key(v.record_key)(self.requested_screened_start), v.optional_key(v.record_key)(self.requested_start), v.sequence_key(v.record_key)(self.rungs), v.record_key(self.runtime), v.record_key(self.settings),))
+
+
+class ReplayPreparedProduct(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One ordered reference in the original immutable prepared graph."""
+
+    #: Postorder node for an original-only reusable scientific preparation.
+    node: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Exact original scientific binding identity, retained separately from capability.
+    original: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact effective product profile identity; a digest does not recreate the capability.
+    profile: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Required fresh producer when the product is an opaque compiled capability.
+    required_producer: ReplayProducerPremise | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.node), v.scalar_key(self.original), v.scalar_key(self.profile), v.optional_key(v.scalar_key)(self.required_producer),))
+
+
+class ReplayProvider(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Required real executable registration; a descriptor alone cannot supply its factory."""
+
+    #: Actual factory settings, envelope and starts identity.
+    configuration: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual parameter-data identity.
+    data: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Provenance of actual partials.
+    derivative_source: enums.ExternalDerivativeSource
+    #: Actual derivative order: 0 values, 1 first, 2 second.
+    derivatives: Annotated[int, msgspec.Meta(ge=0, le=255)]
+    #: Implementation identity.
+    implementation: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Full logical input shape.
+    input_shapes: tuple[ReplayProviderShape, ...]
+    #: Ordered full input ABI.
+    inputs: tuple[ReplayProviderPort, ...]
+    #: Authored callable name.
+    name: str
+    #: Full logical output shape.
+    output_shapes: tuple[ReplayProviderShape, ...]
+    #: Ordered full output ABI.
+    outputs: tuple[ReplayProviderPort, ...]
+    #: Algorithm and physical revision.
+    revision: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Established smoothness order, separately from implemented derivatives.
+    smoothness: Annotated[int, msgspec.Meta(ge=0, le=255)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.configuration), v.scalar_key(self.data), v.scalar_key(self.derivative_source), v.scalar_key(self.derivatives), v.scalar_key(self.implementation), v.sequence_key(v.record_key)(self.input_shapes), v.sequence_key(v.record_key)(self.inputs), v.scalar_key(self.name), v.sequence_key(v.record_key)(self.output_shapes), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.revision), v.scalar_key(self.smoothness),))
+
+
+class ReplayProviderPort(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete ordered scalar ABI coordinate of a required executable provider."""
+
+    #: Exact scalar port identity.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Physical quantity, including basis and reference.
+    quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Actual representation unit.
+    unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
+
+
+class ReplayProviderShape(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Explicit logical array layout over a provider's scalar ABI."""
+
+    #: Ordered index axes.
+    axes: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Ordered scalar ABI identities.
+    cells: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Exact sparse/ragged coordinates.
+    coordinates: tuple[tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...], ...]
+    #: Logical argument/result identity.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.axes), v.sequence_key(v.scalar_key)(self.cells), v.sequence_key(v.sequence_key(v.scalar_key))(self.coordinates), v.scalar_key(self.id),))
+
+
+class ReplayScreenedStart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete original proposal input; historical screening is not renewed permission."""
+
+    #: Original scientific branch requirement.
+    branch: BranchPolicy
+    #: Actual input producer provenance.
+    origin: enums.NumericalStartOrigin
+    #: Full original source dependencies.
+    source: SemanticProductKey
+    #: Original bound target.
+    target: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: All physical source coordinates in exact IEEE bits.
+    values: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.branch), v.scalar_key(self.origin), v.record_key(self.source), v.scalar_key(self.target), v.mapping_key(v.scalar_key, v.scalar_key)(self.values),))
+
+
+class ReplaySimulationConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Portable original integrated constructor; all methods still enter the existing supervisor."""
+
+    #: Full structural arguments, facts and demand.
+    bindings: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Full original case values/fixed-state overrides.
+    case: ReplayCaseInputs
+    #: Explicit exact derivative parameter demand.
+    exact_parameters: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Original instance identity.
+    instance: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Original requested partial order.
+    order: Annotated[int, msgspec.Meta(ge=0, le=255)]
+    #: Original compiler and specialization allowances.
+    preparation: PreparationSettings
+    #: Full native dynamic settings, horizon, start, sensitivities and allowance.
+    profile: Profile
+    #: Explicit provisional quadrature demands.
+    provisional_quadratures: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
+    #: Original authored root.
+    root: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Source closure index.
+    source: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.bindings), v.record_key(self.case), v.sequence_key(v.scalar_key)(self.exact_parameters), v.scalar_key(self.instance), v.scalar_key(self.order), v.record_key(self.preparation), v.record_key(self.profile), v.sequence_key(v.scalar_key)(self.provisional_quadratures), v.scalar_key(self.root), v.scalar_key(self.source),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.exact_parameters)
+        v.unique(v.scalar_key)(self, None, self.provisional_quadratures)
+
+
+class ReplaySolverSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Full actual requested solver controls; native settings remain their original typed authority."""
+
+    #: Explicit native selection; absent means Auto.
+    backend: enums.NativeBackend | None = None
+    #: Complete original composition, frozen advice, branch and finite work limits.
+    composition: CompositionRequest
+    #: Original finite controls, including wall allowance, options, starts and reuse.
+    controls: SolveControls
+    #: Optional absolute convexity assessment budget.
+    convexity_absolute: float | None = None
+    #: Optional relative convexity assessment budget.
+    convexity_relative: float | None = None
+    #: Original scientific analysis goal.
+    intent: enums.NativeSolveIntent
+    #: Full ID-keyed scientific numerical requirements.
+    numerics: NumericalPolicy
+    #: Requested preprocessing mode.
+    presolve: enums.PresolvePolicyKind
+    #: Actual materialized library options, including explicit native defaults.
+    presolve_options: dict[str, OptionValue]
+    #: Original optional reconstruction accuracy class and finite allowances.
+    reconstruction: ReconstructionAccuracy | None = None
+    #: Passes which cannot silently disappear.
+    required_passes: tuple[enums.PresolvePass, ...]
+    #: Original requested physical sensitivities and propagation inputs.
+    sensitivity: SensitivityRequest | None = None
+    #: Full materialized backend settings.
+    settings: BackendSettings | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
+
+    def __post_init__(self) -> None:
+        v.unique(v.scalar_key)(self, None, self.required_passes)
+
+
+class ReplaySourceDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exportable source closure. Reconstruction requires matching actual admitted physical/provider premises."""
+
+    #: Required linked native build.
+    build: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Source identity, checked against the complete context object.
+    identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Exact generated registry interpretation.
+    interpretation: str
+    #: Complete authored/data/reference object inventory.
+    objects: tuple[ReplaySourceObject, ...]
+    #: Required admitted physical interpretation.
+    physical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Complete original physical source streams.
+    physical_sources: tuple[ReplayPhysicalSource, ...]
+    #: Full required callable descriptor bodies; actual executable factories are supplied separately.
+    providers: tuple[ReplayProvider, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.build), v.scalar_key(self.identity), v.scalar_key(self.interpretation), v.sequence_key(v.record_key)(self.objects), v.scalar_key(self.physical_identity), v.sequence_key(v.record_key)(self.physical_sources), v.sequence_key(v.record_key)(self.providers),))
+
+
+class ReplaySourceObject(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One complete canonical source object, including actual payload and lexical references."""
+
+    #: Checked content/reference version.
+    version: str
+    #: Exact producer interpretation.
+    kind: str
+    #: Original logical identity.
+    logical: str
+    #: Original lexical name.
+    name: str
+    #: Complete immutable input bytes.
+    payload: tuple[Annotated[int, msgspec.Meta(ge=0, le=255)], ...]
+    #: Complete declared lexical dependencies.
+    references: tuple[tuple[str, str], ...]
+    #: Original lexical scope.
+    scope: str
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.kind), v.scalar_key(self.logical), v.scalar_key(self.name), v.sequence_key(v.scalar_key)(self.payload), v.sequence_key(v.tuple_key((v.scalar_key, v.scalar_key,)))(self.references), v.scalar_key(self.scope),))
+
+
+class ReplayVariableState(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Complete original fixed/free and endpoint specification for one authored path."""
+
+    #: Original fixed/free override.
+    fixed: bool | None = None
+    #: Original lower endpoint override.
+    lower: ReplayBoundOverride
+    #: Original upper endpoint override.
+    upper: ReplayBoundOverride
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.fixed), v.record_key(self.lower), v.record_key(self.upper),))
 
 
 class ResourceConsumer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5636,6 +6759,25 @@ class RunControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.continue_independent),))
+
+
+class Runtime(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Process state that linear-solver admission depends on, observed on the calling thread."""
+
+    #: OpenMP cancellation (`OMP_CANCELLATION`), fixed when the OpenMP runtime started.
+    cancellation: bool
+    #: oneMKL conditional-numerical-reproducibility branch in force.
+    cbwr: int
+    #: Linear solvers the linked Ipopt was built with (`IpoptGetAvailableLinearSolvers`);
+    #: the runtime library loader is excluded.
+    linked: Annotated[int, msgspec.Meta(ge=0)]
+    #: oneMKL dynamic thread adjustment (`MKL_DYNAMIC`).
+    mkl_dynamic: bool
+    #: OpenMP thread-binding policy (`OMP_PROC_BIND`); `0` is unbound.
+    proc_bind: int
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.cancellation), v.scalar_key(self.cbwr), v.scalar_key(self.linked), v.scalar_key(self.mkl_dynamic), v.scalar_key(self.proc_bind),))
 
 
 class RuntimeAccuracyGoalAssessmentsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -5856,6 +6998,52 @@ class RuntimeRunLineageRow(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
         return (type(self), (v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.environment_identity), v.optional_key(v.scalar_key)(self.fit_id), v.optional_key(v.scalar_key)(self.instance_id), v.optional_key(v.scalar_key)(self.model_id), v.scalar_key(self.numerical_identity), v.scalar_key(self.physical_identity), v.scalar_key(self.preparation_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.request_identity), v.scalar_key(self.revision), v.scalar_key(self.run_id), v.scalar_key(self.step),))
 
 
+class RuntimeScientificContextsRow(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: binding
+    binding: Bytes | None = None
+    #: Original authored case, when present.
+    case_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: configuration
+    configuration: Bytes
+    #: Original fit when this context interprets a statistical product.
+    fit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: inputs
+    inputs: tuple[ScientificArtifactCoordinate, ...]
+    #: Original specialized instance.
+    instance_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: integrals
+    integrals: tuple[ScientificArtifactCoordinate, ...]
+    #: mode_identities
+    mode_identities: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: mode_names
+    mode_names: tuple[str, ...]
+    #: Original specialized model interpreted by the producer; absent for a fit spanning different definitions.
+    model_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")] | None = None
+    #: outputs
+    outputs: tuple[ScientificArtifactCoordinate, ...]
+    #: physical_identity
+    physical_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: preparation_identity
+    preparation_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: profile_identity
+    profile_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: The run that produced the row: minted once when a run starts or a job is enqueued, and shared by the job's retried attempts. It names the execution, not the request's content.
+    run_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: source_identity
+    source_identity: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: state
+    state: tuple[ScientificArtifactCoordinate, ...]
+    #: step
+    step: int
+    #: time
+    time: ScientificArtifactCoordinate | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.sequence_key(v.scalar_key))(self.binding), v.optional_key(v.scalar_key)(self.case_id), v.sequence_key(v.scalar_key)(self.configuration), v.optional_key(v.scalar_key)(self.fit_id), v.sequence_key(v.record_key)(self.inputs), v.optional_key(v.scalar_key)(self.instance_id), v.sequence_key(v.record_key)(self.integrals), v.sequence_key(v.scalar_key)(self.mode_identities), v.sequence_key(v.scalar_key)(self.mode_names), v.optional_key(v.scalar_key)(self.model_id), v.sequence_key(v.record_key)(self.outputs), v.scalar_key(self.physical_identity), v.scalar_key(self.preparation_identity), v.scalar_key(self.profile_identity), v.scalar_key(self.run_id), v.scalar_key(self.source_identity), v.sequence_key(v.record_key)(self.state), v.scalar_key(self.step), v.optional_key(v.record_key)(self.time),))
+
+
 class RuntimeSolveRunsFieldCommitmentItem(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A row or nested value projected from the registry declaration."""
 
@@ -5967,6 +7155,24 @@ class Schwarz(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=T
         return (type(self), (v.scalar_key(self.damping), v.scalar_key(self.restricted),))
 
 
+class ScientificArtifactCoordinate(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A row or nested value projected from the registry declaration."""
+
+    #: id
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: offset
+    offset: float
+    #: quantity_id
+    quantity_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: scale
+    scale: float
+    #: unit_id
+    unit_id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.id), v.scalar_key(self.offset), v.scalar_key(self.quantity_id), v.scalar_key(self.scale), v.scalar_key(self.unit_id),))
+
+
 class ScientificFacts(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """E supplies aggregate decisions; the study never counts result tables to infer these."""
 
@@ -6019,6 +7225,42 @@ class SeedOrigin(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.attempt), v.optional_key(v.scalar_key)(self.run),))
+
+
+class SeedTransformationInteriorRestart(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="interior_restart"):
+    """The interior-point restart the adapter applied to a primal-dual seed."""
+
+    value: AppliedRestart
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class SeedTransformationNormalization(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="normalization"):
+    """Model coordinate normalization, by its identity."""
+
+    value: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.value),))
+
+
+class SeedTransformationPresolve(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="presolve"):
+    """Library presolve: its transformation identity and the passes it applied."""
+
+    value: PresolveSeedTransformation
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
+
+
+class SeedTransformationWorkingSet(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="working_set"):
+    """An active-set working set checked against the native transformation."""
+
+    value: WorkingSetTransfer
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
 
 
 class SemanticProductKey(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6080,6 +7322,20 @@ class SimulationOperation(msgspec.Struct, frozen=True, forbid_unknown_fields=Tru
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.case), v.optional_key(v.record_key)(self.profile),))
+
+
+class Snapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One immutable build/runtime observation supplied by the composition boundary."""
+
+    #: Registered adapter observations, including absent native implementations.
+    adapters: tuple[tuple[enums.NativeBackend, BuildObservation], ...]
+    #: Actual process/thread state consumed by Ipopt linear-solver admission.
+    ipopt: Runtime | None = None
+    #: The declared OpenMP cancellation setting consumed by SCIP's nested Ipopt.
+    scip_omp_cancellation: bool
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.tuple_key((v.scalar_key, v.record_key,)))(self.adapters), v.optional_key(v.record_key)(self.ipopt), v.scalar_key(self.scip_omp_cancellation),))
 
 
 class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6159,6 +7415,20 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.required_passes)
+
+
+class SolverAdviceInputs(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual owner-issued premises for optional descriptive advice over equivalent convex choices."""
+
+    #: Advice-independent operation identities in baseline order.
+    candidates: tuple[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], ...]
+    #: Complete problem/profile/branch/accuracy/exposure comparison premises.
+    cohort: AdviceCohort
+    #: Original finite allowances; advice cannot replace these.
+    limits: WorkLimits
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.scalar_key)(self.candidates), v.record_key(self.cohort), v.record_key(self.limits),))
 
 
 class SourceAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6258,6 +7528,18 @@ class SourceSettlement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.record_key)(self.acknowledgement), v.scalar_key(self.operation), v.scalar_key(self.problem),))
+
+
+class SourcedRequirement(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Selection supplies precedence; declarations cannot promote themselves to analysis overrides."""
+
+    #: Registry-owned declaration.
+    declaration: AuthoredNumericalRequirementsRow
+    #: Selected source category.
+    source: enums.NumericalSource
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.declaration), v.scalar_key(self.source),))
 
 
 class SparseMatrix(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6663,6 +7945,24 @@ class StudyWaitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.poll_seconds), v.optional_key(v.scalar_key)(self.timeout_seconds),))
 
 
+class SubmittedStartRecord(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual submitted source-coordinate seed, distinct from an output or native checkpoint."""
+
+    #: Original predecessor attempt selection.
+    previous_attempt: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Full actual source-coordinate seed with explicit nonfinite observations.
+    seed: WarmStartSnapshot | None = None
+    #: Full partial coordinate start, retaining exact IEEE bits including signed zero.
+    sparse_seed: dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], Annotated[int, msgspec.Meta(ge=0)]] | None = None
+    #: Actual API submission; native internal use remains separately observed.
+    submitted: bool
+    #: Complete transformations actually applied before API submission.
+    transformations: tuple[SeedTransformation, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.previous_attempt), v.optional_key(v.record_key)(self.seed), v.optional_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.sparse_seed), v.scalar_key(self.submitted), v.sequence_key(v.record_key)(self.transformations),))
+
+
 class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """A literal native table reference, without SQL normalization."""
 
@@ -6675,6 +7975,26 @@ class TableName(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.catalog), v.scalar_key(self.schema), v.scalar_key(self.table),))
+
+
+class TargetSpec(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Exact admitted coordinate; declared representation is retained through normalization."""
+
+    #: Explicit physical acceptance budget already owned by a balance/output declaration.
+    declared_tolerance: float | None = None
+    #: Source identity, NIL only for the single objective.
+    id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Coordinate substitution must preserve the integer lattice.
+    integer: bool
+    #: Variable, row, objective, observable or closure.
+    kind: enums.NumericalTarget
+    #: Complete physical type.
+    quantity: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+    #: Representation of values crossing the original oracle.
+    unit: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.declared_tolerance), v.scalar_key(self.id), v.scalar_key(self.integer), v.scalar_key(self.kind), v.scalar_key(self.quantity), v.scalar_key(self.unit),))
 
 
 class TearSelectionDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6952,6 +8272,38 @@ class WindowInputPeriods(msgspec.Struct, frozen=True, forbid_unknown_fields=True
         return (type(self), (v.sequence_key(v.scalar_key)(self.value),))
 
 
+class WorkCharge(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A work event with one owner; the effectful ledger prevents duplicate charging."""
+
+    #: Stable identity of the actual operation owning these inclusive counters.
+    charging_owner: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+    #: Actual observations, retaining unknown counters.
+    observed: WorkObservation
+    #: Preparation/native/assessment work remains distinguishable.
+    phase: enums.NumericalPhase
+    #: Task, durable occurrence, mechanism or attempt allowance being charged.
+    scope: enums.NumericalScope
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.charging_owner), v.record_key(self.observed), v.scalar_key(self.phase), v.scalar_key(self.scope),))
+
+
+class WorkEvidence(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Work observed by its executing owner; unavailable counters remain absent."""
+
+    #: Actual callback evaluations, including rejected trials; absent when unobserved.
+    evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual factor invocations, including failed attempts; absent when unobserved.
+    factorizations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual native iterations, with method-specific semantics; absent when unobserved.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Actual proof steps; absent when unobserved.
+    proof_steps: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.evaluations), v.optional_key(v.scalar_key)(self.factorizations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.proof_steps),))
+
+
 class WorkLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Additional finite work allowances. None imposes no additional counter cap under the
     enclosing finite ExecutionScope; it never denotes an observed zero or a new deadline.
@@ -6973,6 +8325,26 @@ class WorkLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_onl
         return (type(self), (v.scalar_key(self.attempts), v.optional_key(v.scalar_key)(self.evaluations), v.optional_key(v.scalar_key)(self.factorizations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.proof_steps),))
 
 
+class WorkObservation(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Actual observations. Unknown counters remain None; these are neither allowances nor
+    reservations. Inclusive nested callback work is reported by its one charging owner.
+    """
+
+    #: Executions actually started.
+    attempts: Annotated[int, msgspec.Meta(ge=0)]
+    #: Observed total evaluations, or unavailable measurement.
+    evaluations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Observed numerical factor constructions, or unavailable measurement.
+    factorizations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Observed iterations, or unavailable measurement.
+    iterations: Annotated[int, msgspec.Meta(ge=0)] | None = None
+    #: Observed proof operations, or unavailable measurement.
+    proof_steps: Annotated[int, msgspec.Meta(ge=0)] | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.attempts), v.optional_key(v.scalar_key)(self.evaluations), v.optional_key(v.scalar_key)(self.factorizations), v.optional_key(v.scalar_key)(self.iterations), v.optional_key(v.scalar_key)(self.proof_steps),))
+
+
 class WorkingSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Typed active set with the transformation under which its indices are meaningful."""
 
@@ -6984,6 +8356,22 @@ class WorkingSetSnapshot(msgspec.Struct, frozen=True, forbid_unknown_fields=True
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.record_key)(self.active), v.scalar_key(self.transformation),))
 
+
+class WorkingSetTransfer(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """What became of a submitted working set at the presolve boundary: it reaches the native
+    solver only under the transformation that produced it.
+    """
+
+    #: It equals this attempt's transformation and was passed through.
+    retained: bool
+    #: The transformation the working set was produced under.
+    transformation: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.retained), v.scalar_key(self.transformation),))
+
+
+AdviceSupport = AdviceSupportCompleteMatched | AdviceSupportBaselineTie
 
 BackendSettings = IpoptSettings | PounceSettings | KinsolSettings | HighsSettings | ClarabelSettings | ScipSettings | PounceConvexSettings | UnoSettings | PetscSettings
 
@@ -7011,6 +8399,8 @@ KinsolEta = KinsolEtaChoice1 | KinsolEtaChoice2 | KinsolEtaConstant
 
 KinsolLinear = KinsolLinearKlu | KinsolLinearDense | KinsolLinearSpgmr | KinsolLinearSpfgmr | KinsolLinearSpbcgs | KinsolLinearSptfqmr
 
+NativeCounters = NativeCountersIpopt | NativeCountersKinsol
+
 NumericObservation = NumericObservationReal | NumericObservationNonfinite
 
 Observation = ObservationMissing | ObservationReal | ObservationNonfinite | ObservationPhysical | ObservationInteger | ObservationBoolean | ObservationText | ObservationContracts
@@ -7027,7 +8417,15 @@ ProgressWriteStage = ProgressWriteStageClaim | ProgressWriteStageAllocation | Pr
 
 ProgressWriterOutcome = ProgressWriterOutcomeComplete | ProgressWriterOutcomeMemoryRefused | ProgressWriterOutcomeFailed | ProgressWriterOutcomeJoinFailed
 
+RawMapFailure = RawMapFailureTrial | RawMapFailureFatal | RawMapFailureStopped
+
+ReplayBoundOverride = ReplayBoundOverrideKeep | ReplayBoundOverrideRemove | ReplayBoundOverrideValue
+
+ReplayHorizonSignal = ReplayHorizonSignalMeasured | ReplayHorizonSignalEstimated | ReplayHorizonSignalApplied | ReplayHorizonSignalTrajectory
+
 RestartBarrier = RestartBarrierSeed | RestartBarrierValue
+
+SeedTransformation = SeedTransformationNormalization | SeedTransformationPresolve | SeedTransformationWorkingSet | SeedTransformationInteriorRestart
 
 StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
@@ -7050,6 +8448,13 @@ __all__ = [
     "AdmittedBinding",
     "AdmittedBindingEntry",
     "AdmittedHorizonValues",
+    "AdviceCohort",
+    "AdviceMetric",
+    "AdviceObservation",
+    "AdviceOutcome",
+    "AdviceSupport",
+    "AdviceSupportBaselineTie",
+    "AdviceSupportCompleteMatched",
     "AnalysisControls",
     "AnalysisDirection",
     "AnalysisPort",
@@ -7057,8 +8462,17 @@ __all__ = [
     "ApplicabilityInput",
     "ApplicabilityObservation",
     "ApplicabilityPermission",
+    "AppliedRestart",
     "ArrivalDocument",
     "AssemblyLimits",
+    "AttemptDecision",
+    "AttemptFailureSummary",
+    "AttemptFinding",
+    "AttemptIntervals",
+    "AttemptOriginalConclusion",
+    "AttemptStartSummary",
+    "AttemptStepSummary",
+    "AttemptSummary",
     "AuthoredAccuracyGoalsRow",
     "AuthoredDocumentsRow",
     "AuthoredEngineeringDefaultRulesRow",
@@ -7191,6 +8605,7 @@ __all__ = [
     "BoundaryDiagnostic",
     "BranchPolicy",
     "BuildInfo",
+    "BuildObservation",
     "Bytes",
     "CacheReport",
     "CaseOperation",
@@ -7258,6 +8673,7 @@ __all__ = [
     "FlowPortDocument",
     "FlowSelectionDocument",
     "Fraction",
+    "FrozenAdvice",
     "HighsDiagnostics",
     "HighsPenalties",
     "HighsSettings",
@@ -7343,6 +8759,15 @@ __all__ = [
     "ModelingTypeArenaNode",
     "ModelingTypeArenaNodeExponent",
     "ModelingUnitFactor",
+    "NativeAttemptRecord",
+    "NativeCoordinate",
+    "NativeCounters",
+    "NativeCountersIpopt",
+    "NativeCountersKinsol",
+    "NativeObservations",
+    "NativePhase",
+    "NativeSnapshot",
+    "NativeTerminationRecord",
     "NumericObservation",
     "NumericObservationNonfinite",
     "NumericObservationReal",
@@ -7352,6 +8777,7 @@ __all__ = [
     "Observation",
     "ObservationBoolean",
     "ObservationContracts",
+    "ObservationCoordinates",
     "ObservationInteger",
     "ObservationMissing",
     "ObservationNonfinite",
@@ -7384,6 +8810,7 @@ __all__ = [
     "PounceSettings",
     "PreparationCounts",
     "PreparationSettings",
+    "PresolveSeedTransformation",
     "ProductDemand",
     "ProductionDemand",
     "Profile",
@@ -7422,9 +8849,51 @@ __all__ = [
     "Propagation",
     "PseudoTime",
     "PureConformanceControls",
+    "RawMapCoordinate",
+    "RawMapFailure",
+    "RawMapFailureFatal",
+    "RawMapFailureStopped",
+    "RawMapFailureTrial",
+    "RawMapHistory",
+    "RawMapRole",
+    "RawMapSample",
     "ReconstructionAccuracy",
     "RecycleRequest",
     "RefinementLimits",
+    "ReplayBoundOverride",
+    "ReplayBoundOverrideKeep",
+    "ReplayBoundOverrideRemove",
+    "ReplayBoundOverrideValue",
+    "ReplayCaseConstructor",
+    "ReplayCaseInputs",
+    "ReplayCoverage",
+    "ReplayDecisions",
+    "ReplayDocument",
+    "ReplayFitConstructor",
+    "ReplayHorizonConstructor",
+    "ReplayHorizonController",
+    "ReplayHorizonEstimator",
+    "ReplayHorizonSignal",
+    "ReplayHorizonSignalApplied",
+    "ReplayHorizonSignalEstimated",
+    "ReplayHorizonSignalMeasured",
+    "ReplayHorizonSignalTrajectory",
+    "ReplayNativeAttempt",
+    "ReplayNativeRecordCoverage",
+    "ReplayPhysicalSource",
+    "ReplayPreparedGraph",
+    "ReplayPreparedNode",
+    "ReplayPreparedProduct",
+    "ReplayProducerPremise",
+    "ReplayProvider",
+    "ReplayProviderPort",
+    "ReplayProviderShape",
+    "ReplayScreenedStart",
+    "ReplaySimulationConstructor",
+    "ReplaySolverSettings",
+    "ReplaySourceDocument",
+    "ReplaySourceObject",
+    "ReplayVariableState",
     "ResourceConsumer",
     "ResourceReport",
     "RestartBarrier",
@@ -7433,28 +8902,39 @@ __all__ = [
     "ResultReclamationPage",
     "RouteDocument",
     "RunControls",
+    "Runtime",
     "RuntimeAccuracyGoalAssessmentsRow",
     "RuntimeCandidateAssessmentsRow",
     "RuntimeComputationRunsRow",
     "RuntimeRunLineageRow",
+    "RuntimeScientificContextsRow",
     "RuntimeSolveRunsFieldCommitmentItem",
     "RuntimeSolveRunsRow",
     "ScheduledInput",
     "Schwarz",
+    "ScientificArtifactCoordinate",
     "ScientificFacts",
     "ScipSettings",
     "SeedOrigin",
+    "SeedTransformation",
+    "SeedTransformationInteriorRestart",
+    "SeedTransformationNormalization",
+    "SeedTransformationPresolve",
+    "SeedTransformationWorkingSet",
     "SemanticProductKey",
     "SensitivityRequest",
     "SimulationOperation",
+    "Snapshot",
     "SolveControls",
     "SolveSettings",
+    "SolverAdviceInputs",
     "SourceAcknowledgement",
     "SourceDelta",
     "SourceDocumentDelta",
     "SourceFitDelta",
     "SourceLocation",
     "SourceSettlement",
+    "SourcedRequirement",
     "SparseMatrix",
     "StartPolicy",
     "StartPolicyContinuation",
@@ -7467,6 +8947,7 @@ __all__ = [
     "StartProvenanceFreshFallback",
     "StartProvenanceNotNeeded",
     "StartRules",
+    "StopFidelity",
     "StudyCancel",
     "StudyCompilerProfile",
     "StudyDefinition",
@@ -7489,7 +8970,9 @@ __all__ = [
     "StudyRunControls",
     "StudyStatus",
     "StudyWaitControls",
+    "SubmittedStartRecord",
     "TableName",
+    "TargetSpec",
     "TearSelectionDocument",
     "TermPolicy",
     "TerminationCause",
@@ -7511,6 +8994,10 @@ __all__ = [
     "WindowInput",
     "WindowInputConstant",
     "WindowInputPeriods",
+    "WorkCharge",
+    "WorkEvidence",
     "WorkLimits",
+    "WorkObservation",
     "WorkingSetSnapshot",
+    "WorkingSetTransfer",
 ]

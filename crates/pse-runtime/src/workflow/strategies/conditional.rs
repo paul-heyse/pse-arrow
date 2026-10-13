@@ -613,7 +613,7 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
         mut execution: Execution,
         budget: &Arc<crate::math::WorkerBudget>,
         original_start: &[f64],
-        capture_component: &mut dyn FnMut(&native::solve::SolveReport) -> Result<(), MathRuntimeError>,
+        capture_component: &mut dyn FnMut(&SolveReport) -> Result<(), MathRuntimeError>,
     ) -> Result<crate::math::solves::causal::CausalResult, MathRuntimeError> {
         let columns = self._source.case.compiled().plan.columns();
         if original_start.len() != columns.len()
