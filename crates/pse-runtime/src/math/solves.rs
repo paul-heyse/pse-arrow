@@ -258,6 +258,7 @@ pub struct PreparedSolve {
     /// Already available source-bound mathematical products eligible for automatic use.
     automatic_products: Vec<PreparedRung>,
     automatic_owner: Option<Arc<pse_columnar::AllocationLease>>,
+    replay_metadata_owner: Option<Arc<pse_columnar::AllocationLease>>,
     route_decision: Option<routing::Decision>,
     /// Finite original-problem profiles resolved before entering the effectful driver.
     composition: Option<Arc<PreparedComposition>>,
@@ -1366,6 +1367,42 @@ impl PreparedSolve {
     }
     /// Borrow the actual ordered caller/compiler automatic inventory.
     pub(crate) fn replay_automatic_products(&self) -> &[PreparedRung] { &self.automatic_products }
+    /// Actual borrowed deep-copy metadata bound; immutable compiler products stay shared.
+    pub(crate) fn replay_metadata_extent(&self) -> Result<usize, ProblemError> {
+        fn extent(input: &PreparedSolve, depth: usize, count: &mut usize) -> Result<usize, ProblemError> {
+            *count += 1;
+            if depth >= 64 || *count > 4096 { return Err(ProblemError::memory("replay metadata graph allowance")); }
+            let mut bytes = input._owner.size().checked_add(size_of::<PreparedSolve>() + 1024)
+                .and_then(|bytes| bytes.checked_add(input.route_decision.as_ref().map_or(0, routing::Decision::retained_bytes)))
+                .ok_or_else(|| ProblemError::memory("replay metadata extent"))?;
+            if let Representation::Algebraic(case) = &input.representation {
+                let entries = case.values.scalars.len().checked_add(case.providers.len())
+                    .ok_or_else(|| ProblemError::memory("replay scalar/provider metadata extent"))?;
+                bytes = bytes.checked_add(entries.checked_mul(1024).ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?)
+                    .ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?;
+            }
+            for product in &input.automatic_products {
+                let PreparedRung::Original(child) = product else {
+                    return Err(ProblemError::Unsupported("opaque replay metadata requires its original product producer".into()));
+                };
+                bytes = bytes.checked_add(size_of::<PreparedRung>()).and_then(|bytes| bytes.checked_add(extent(child, depth + 1, count).ok()?))
+                    .ok_or_else(|| ProblemError::memory("replay nested original metadata extent"))?;
+            }
+            Ok(bytes)
+        }
+        extent(self, 0, &mut 0)
+    }
+    /// Keep the caller's pre-copy metadata grant on every newly cloned original node.
+    pub(crate) fn retaining_replay_metadata(mut self, owner: Arc<pse_columnar::AllocationLease>) -> Self {
+        fn retain(input: &mut PreparedSolve, owner: &Arc<pse_columnar::AllocationLease>) {
+            input.replay_metadata_owner = Some(owner.clone());
+            for product in &mut input.automatic_products {
+                if let PreparedRung::Original(child) = product { retain(child, owner); }
+            }
+        }
+        retain(&mut self, &owner);
+        self
+    }
     /// Copy immutable original preparations into a new execution, preserving the exact
     /// declaration, requested settings and explicit input starts. Every original rung
     /// loses its prior task clocks, ledger and pending point sink recursively. The
@@ -1427,6 +1464,7 @@ impl PreparedSolve {
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
+            replay_metadata_owner: None,
             composition: None,
             route_decision: self.route_decision.clone(),
             task_scope: None,
@@ -3410,6 +3448,7 @@ impl MathService {
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
+            replay_metadata_owner: None,
             route_decision: Some(decision),
             composition: None,
             task_scope: None,
@@ -3658,6 +3697,7 @@ impl MathService {
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
+            replay_metadata_owner: None,
             route_decision: Some(decision),
             composition: None,
             task_scope: None,
@@ -3903,6 +3943,7 @@ impl MathService {
             proposal_start: None,
             automatic_products: Vec::new(),
             automatic_owner: None,
+            replay_metadata_owner: None,
             route_decision: Some(decision),
             composition: None,
             task_scope: None,

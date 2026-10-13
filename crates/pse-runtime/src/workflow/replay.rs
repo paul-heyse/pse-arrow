@@ -928,7 +928,11 @@ impl ReplayCaseConstructor {
                         || input.strategy_profile().map_err(crate::math::MathRuntimeError::from)? != product.profile {
                         return Err(contract("reconstructed original product identity/profile differs from its exact retained input"));
                     }
-                    Ok(input.clone().into())
+                    let extent = input.replay_metadata_extent().map_err(crate::math::MathRuntimeError::from)?
+                        .checked_add(ReplayPreparedGraph::extent(input, 0, &mut 0)?)
+                        .filter(|bytes| *bytes <= EXPORT_MAX).ok_or_else(|| contract("replay original metadata copy exceeds finite capacity"))?;
+                    let owner = package.runtime.shared.math().reserve("replay:retained-original-metadata-copy", extent)?;
+                    Ok(input.clone().retaining_replay_metadata(owner).into())
                 }).collect()
             };
             if !node.automatic.is_empty() {
@@ -1603,7 +1607,8 @@ pub(in crate::workflow) fn profile_extent(profile: &crate::math::solves::SolverP
     let required = match &profile.presolve { pse_backend_native::presolve::Policy::Explicit { required, .. } => Some(required), _ => None };
     encoded_extent(&(&profile.controls, &profile.composition, &profile.numerics,
         profile.backend.document(), &profile.sensitivity, &profile.reconstruction, options, required), EXPORT_MAX)
-        .map(|bytes| bytes.saturating_mul(8).saturating_add(size_of::<ReplaySolverSettings>() + 1024))
+        .map(|bytes| bytes.saturating_mul(8).saturating_add(profile.controls.options.len().saturating_mul(512))
+            .saturating_add(size_of::<ReplaySolverSettings>() + 1024))
 }
 
 fn trajectory_observation(report: &pse_backend_native::dynamics::Report) -> pse_model::generated::enums::NumericalAttemptObservation {
