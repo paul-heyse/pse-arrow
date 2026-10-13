@@ -144,6 +144,23 @@ impl ReplaySourceDocument {
         runtime.admit_replay_source(self, physical, providers)
     }
 }
+/// Stream the modeling owner's exact JSON codec as bytes without an unadmitted
+/// intermediate string/vector. Bindings retain their native typed owner in Rust;
+/// the external closure carries its lossless body rather than a second value taxonomy.
+fn serialize_bindings<S: serde::Serializer>(value: &pse_modeling::Bindings, serializer: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::{Error as _, SerializeSeq as _};
+    struct JsonBytes<Q>(Q);
+    impl<Q: serde::ser::SerializeSeq> std::io::Write for JsonBytes<Q> {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            for byte in bytes { self.0.serialize_element(byte).map_err(|error| std::io::Error::other(error.to_string()))?; }
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    let mut bytes = JsonBytes(serializer.serialize_seq(None)?);
+    serde_json::to_writer(&mut bytes, value).map_err(S::Error::custom)?;
+    bytes.0.end()
+}
 /// Full actual requested solver controls; native settings remain their original typed authority.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -423,7 +440,12 @@ impl ScientificReplay {
                     // can detach recursively; scoped opaque products require their producer.
                     if step.solve.replay_declaration() != prepared.solve.replay_declaration()
                         || !same_inventory(step.solve.replay_automatic_products(), prepared.solve.replay_automatic_products())? {
-                        prepared.solve = step.solve.fresh_replay_copy().map_err(crate::math::MathRuntimeError::from)?;
+                        let bytes = step.solve.replay_metadata_extent().map_err(crate::math::MathRuntimeError::from)?
+                            .checked_add(ReplayPreparedGraph::extent(&step.solve, 0, &mut 0)?)
+                            .ok_or_else(|| contract("fresh replay original graph copy extent"))?;
+                        let owner = self.result.runtime.shared.math().reserve("replay:fresh-original-graph", bytes)?;
+                        prepared.solve = step.solve.fresh_replay_copy().map_err(crate::math::MathRuntimeError::from)?
+                            .retaining_replay_metadata(owner);
                     }
                     if step.solve.requested_screened_start().is_some() {
                         return Err(contract("replay of a requested screened start requires producer re-screening under the fresh task; historical screening does not grant new permission"));
@@ -860,6 +882,8 @@ pub struct ReplayCaseConstructor {
     /// Original instance identity.
     pub instance: pse_modeling::InstanceId,
     /// Full immutable structural arguments/facts/omissions/elastic declarations.
+    #[serde(serialize_with = "serialize_bindings")]
+    #[schemars(with = "Vec<u8>")]
     pub bindings: pse_modeling::Bindings,
     /// Actual compiler controls and original expansion limits.
     pub preparation: super::PreparationSettings,
@@ -1010,6 +1034,23 @@ impl ReplaySolverSettings {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn replay_bindings_transport_preserves_modeling_owner_codec() {
+        #[derive(serde::Serialize)]
+        struct Body<'a> {
+            #[serde(serialize_with = "super::serialize_bindings")]
+            bindings: &'a pse_modeling::Bindings,
+        }
+        let mut bindings = pse_modeling::Bindings::default();
+        bindings.arguments.insert("enabled".into(), pse_modeling::specialize::Value::Boolean(true));
+        bindings.arguments.insert("count".into(), pse_modeling::specialize::Value::Integer(7));
+        bindings.demand.push("actual.path".into());
+        let exported = serde_json::to_value(Body { bindings: &bindings }).unwrap();
+        let bytes: Vec<u8> = serde_json::from_value(exported["bindings"].clone()).unwrap();
+        assert_eq!(bytes, serde_json::to_vec(&bindings).unwrap());
+        let restored: pse_modeling::Bindings = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(restored, bindings);
+    }
     use super::*;
     fn rows() -> Vec<pse_authoring::language::Declaration> {
         pse_authoring::language::parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}",
@@ -1312,6 +1353,8 @@ pub struct ReplaySimulationConstructor {
     /// Original instance identity.
     pub instance: pse_modeling::InstanceId,
     /// Full structural arguments, facts and demand.
+    #[serde(serialize_with = "serialize_bindings")]
+    #[schemars(with = "Vec<u8>")]
     pub bindings: pse_modeling::Bindings,
     /// Original compiler and specialization allowances.
     pub preparation: super::PreparationSettings,

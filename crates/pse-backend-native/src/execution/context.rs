@@ -16,11 +16,17 @@ pub struct BuildObservation {
     /// The adapter's additional native build contract, when one exists.
     pub identity: Option<ContentHash>,
 }
+/// Named schema for the native owner's finite-key observation map. This wrapper
+/// names the existing map representation; it introduces no second runtime product.
+#[derive(schemars::JsonSchema)]
+#[allow(dead_code, reason = "schema-only name for the exact Snapshot adapter map")]
+struct NativeBuildInventory(BTreeMap<Backend, BuildObservation>);
 /// One immutable build/runtime observation supplied by the composition boundary.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Snapshot {
     /// Registered adapter observations, including absent native implementations.
+    #[schemars(with = "NativeBuildInventory")]
     pub adapters: BTreeMap<Backend, BuildObservation>,
     /// Actual process/thread state consumed by Ipopt linear-solver admission.
     pub ipopt: Option<Runtime>,
