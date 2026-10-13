@@ -90,10 +90,15 @@ impl std::ops::Deref for LiveSampleAttempt {
 #[derive(Debug)]
 pub struct LiveSimulationCursor {
     receiver: tokio::sync::Mutex<tokio::sync::mpsc::Receiver<LiveSimulationEvent>>,
+    completion: Option<tokio::sync::watch::Receiver<Option<Arc<RunResult>>>>,
+    joined: std::sync::atomic::AtomicBool,
     closed: pse_columnar::flight::FlightCancellation,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl LiveSimulationCursor {
+    pub(super) fn bind_completion(&mut self, completion: tokio::sync::watch::Receiver<Option<Arc<RunResult>>>) {
+        self.completion = Some(completion);
+    }
     /// Read the next event; None means this subscription drained, not scientific success.
     pub async fn next(&self) -> Option<LiveSimulationEvent> {
         let mut receiver = self.receiver.lock().await;
@@ -104,7 +109,23 @@ impl LiveSimulationCursor {
                 while receiver.try_recv().is_ok() {}
                 None
             }
-            event = receiver.recv() => event,
+            event = receiver.recv() => {
+                if event.is_some() { return event; }
+                // Settlement never waits for a terminal queue slot. The run's existing
+                // watch owns both early refusals and cancellation after native drain.
+                if self.joined.swap(true, std::sync::atomic::Ordering::AcqRel) { return None; }
+                let mut completion = self.completion.clone()?;
+                loop {
+                    if let Some(result) = completion.borrow().clone() {
+                        return Some(LiveSimulationEvent::Joined(result));
+                    }
+                    tokio::select! {
+                        biased;
+                        _ = self.closed.cancelled() => return None,
+                        changed = completion.changed() => { if changed.is_err() { return None; } }
+                    }
+                }
+            },
         }
     }
     /// Detach this subscription, releasing unread buffers without cancelling science.
@@ -138,7 +159,7 @@ impl LiveDispatch {
         Ok(Self {
             observer: Box::new(Observer { prepared, sender, run_id, canonical_attempt, _owner: owner.clone() }),
             receiver, subscriber, retention: options.retention,
-            cursor: LiveSimulationCursor { receiver: tokio::sync::Mutex::new(public), closed: Default::default(), _owner: owner },
+            cursor: LiveSimulationCursor { receiver: tokio::sync::Mutex::new(public), completion: None, joined: Default::default(), closed: Default::default(), _owner: owner },
         })
     }
 }
@@ -259,6 +280,9 @@ mod tests {
         prepared_on(crate::workflow::tests::runtime_with_workspace(32 << 20)).await
     }
     async fn prepared_on(runtime: Runtime) -> ModelingSimulation {
+        prepared_with_time_limit(runtime, Duration::from_secs(300)).await
+    }
+    async fn prepared_with_time_limit(runtime: Runtime, time_limit: Duration) -> ModelingSimulation {
         let rows = pse_authoring::language::parse(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); } }",
             pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
@@ -272,7 +296,7 @@ mod tests {
             crate::workflow::tests::compiler_profile(),
             pse_backend_native::dynamics::Profile {
                 method: Method::Diffsol, end: 1., samples: vec![0., 0.25, 0.5, 0.75, 1.],
-                atol: vec![1e-7], rtol: 1e-7, ..Default::default()
+                atol: vec![1e-7], rtol: 1e-7, time_limit, ..Default::default()
             }, pse_kernels::DerivativeOrder::First, &crate::CancelSource::new(),
         ).await.unwrap()
     }
@@ -341,9 +365,34 @@ mod tests {
         let (handle, cursor) = prepared.start_live(options).unwrap();
         tokio::time::sleep(Duration::from_millis(20)).await;
         handle.cancel();
-        let _ = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
-        cursor.close();
+        let settled = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
         assert!(handle.result().is_some(), "cancelled native owner joined before publication");
+        loop {
+            match tokio::time::timeout(Duration::from_secs(10), cursor.next()).await.unwrap().unwrap() {
+                LiveSimulationEvent::Joined(result) => { assert!(Arc::ptr_eq(&result, &settled)); break; }
+                _ => {}
+            }
+        }
+        assert!(cursor.next().await.is_none(), "one terminal result after a full cancelled queue");
+        cursor.close();
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn canonical_live_expired_admission_yields_one_joined_refusal() {
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let prepared = prepared_with_time_limit(runtime.clone(), Duration::from_nanos(1)).await;
+        let (handle, cursor) = prepared.start_live(LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact }).unwrap();
+        let settled = tokio::time::timeout(Duration::from_secs(30), handle.wait()).await.unwrap().unwrap();
+        assert!(!settled.usable());
+        let event = tokio::time::timeout(Duration::from_secs(30), cursor.next()).await.unwrap().unwrap();
+        let LiveSimulationEvent::Joined(result) = event else { panic!("expired admission must settle before native samples") };
+        assert!(Arc::ptr_eq(&result, &settled));
+        assert!(cursor.next().await.is_none());
+        cursor.close();
+        drop(cursor); drop(result); drop(settled); drop(handle); drop(prepared);
+        runtime.clear_program_cache();
+        runtime.canonical().unwrap().store().remove_isolated_fixture().await.unwrap();
     }
 
     #[cfg(feature = "canonical-tests")]

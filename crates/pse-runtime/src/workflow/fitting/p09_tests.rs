@@ -2433,7 +2433,7 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
         Default::default(), &crate::CancelSource::new()).await.unwrap();
     assert_eq!(prepared.problem.profile_workers(4), 2);
     let result = prepared.start().unwrap().wait().await.unwrap();
-    let report = super::super::regression::report(&result);
+    let report = regression::report(&result);
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
     assert_eq!(chains.len(), 2);
     assert!(chains.iter().all(|chain| chain.actual_parallelism == 2

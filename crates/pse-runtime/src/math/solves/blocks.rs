@@ -208,7 +208,7 @@ impl MathService {
             let overflow = || MathRuntimeError::Limit("selected block oracle extent");
             let oracle_bytes = boundary.members.columns.len().checked_mul(2 * (size_of::<native::Variable>() + size_of::<pse_ids::SemanticId>()))
                 .and_then(|n| boundary.members.rows.len().checked_mul(2 * (size_of::<pse_ids::SemanticId>() + size_of::<pse_structural::incidence::Constraint>())).and_then(|rows| n.checked_add(rows)))
-                .and_then(|n| n.checked_add(size_of::<native::OracleContract>() + size_of::<native::routing::Structure>() + 128)).ok_or_else(overflow)?;
+                .and_then(|n| n.checked_add(size_of::<native::OracleContract>() + size_of::<routing::Structure>() + 128)).ok_or_else(overflow)?;
             let bound = source.block_admission_allocation_bound(&boundary)?
                 .map(|n| n.checked_add(oracle_bytes).ok_or_else(overflow)).transpose()?;
             let construction = super::super::jobs::ConstructionEstimate::from_bound(bound, self.policy.workspace_bytes);
@@ -225,7 +225,7 @@ impl MathService {
                 };
                 let witness = source.structure.conditional_witness(&boundary)
                     .map_err(|error| ProblemError::Contract(error.to_string()))?;
-                let structure = native::routing::Structure {
+                let structure = routing::Structure {
                     variables: boundary.members.columns.clone(),
                     equations: source.plan.structure().rows().iter().filter(|row| rows.contains(&row.id)).map(|row| pse_structural::incidence::Constraint {
                         id: row.id, lower: row.lower.is_finite().then_some(row.lower), upper: row.upper.is_finite().then_some(row.upper),

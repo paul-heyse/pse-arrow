@@ -570,7 +570,7 @@ impl super::ModelingSimulation {
             let live = live.map(|options| super::live_simulation::LiveDispatch::new(
                 self.clone(), options, run_id, canonical_attempt,
             )).transpose()?;
-            let (observer, mut live_receiver, subscriber, cursor) = match live {
+            let (observer, mut live_receiver, subscriber, mut cursor) = match live {
                 Some(live) => (Some((live.retention, live.observer)), Some(live.receiver), Some(live.subscriber), Some(live.cursor)),
                 None => (None, None, None, None),
             };
@@ -593,6 +593,7 @@ impl super::ModelingSimulation {
                 .as_ref()
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
+            if let Some(cursor) = cursor.as_mut() { cursor.bind_completion(receiver.clone()); }
             let prepared = self.clone();
             tokio::spawn(crate::workflow::inherit_runtime_activity(
                 supervised_with_cancel(
@@ -731,10 +732,7 @@ impl super::ModelingSimulation {
                             .finished(durable, cancelled)
                             .await;
                         let result = Arc::new(result);
-                        sender.send_replace(Some(result.clone()));
-                        if let Some(subscriber) = &subscriber {
-                            super::live_simulation::deliver(subscriber, super::LiveSimulationEvent::Joined(result), &cancel, deadline).await;
-                        }
+                        sender.send_replace(Some(result));
                     },
                     move || forwarding.cancel(),
                     parent,

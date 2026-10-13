@@ -3226,7 +3226,7 @@ mod tests {
     async fn compact_retention_admits_below_full_trajectory_cell_capacity() {
         use crate::workflow::{LiveSimulationEvent, LiveSimulationOptions};
         async fn prepare(runtime: Runtime, max_cells: usize) -> ModelingSimulation {
-            let outputs = (0..64).map(|j| format!("let y{j}[i in t]:Time=x[i]*{};", j+1)).collect::<String>();
+            let outputs = (0..64).map(|j| format!("let y{j}[i in t]:Time=x[i]*{}; annotation report y{j}(\"budget output\");", j+1)).collect::<String>();
             let text = format!("package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]:Time; eq rate[i in t]:d(x[i])/di == -x[i]/1{{s}}; eq initial:x[0{{s}}]==1{{s}}; annotation check x(x[i]>0{{s}}); {outputs} }} }}");
             let rows = pse_authoring::language::parse(&text, SemanticId::NIL,
                 pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
@@ -3243,6 +3243,7 @@ mod tests {
                 }, DerivativeOrder::First, &crate::CancelSource::new()).await.unwrap()
         }
         let wide = prepare(super::super::super::tests::runtime(),10_000_000).await;
+        assert!(wide.contract.outputs.len() >= 64);
         let full_bytes = wide.admission_bytes(native::SampleRetention::Full).unwrap();
         let compact_bytes = wide.admission_bytes(native::SampleRetention::Compact).unwrap();
         assert!(compact_bytes < full_bytes);
@@ -3262,7 +3263,7 @@ mod tests {
         let compact = prepare(super::super::super::tests::runtime(),compact_cells).await;
         assert!(compact.admission_bytes(native::SampleRetention::Full).is_err());
         assert!(compact.admission_bytes(native::SampleRetention::Compact).is_ok());
-        let refused = compact.submit(RunId::from_bytes([41;16]), Default::default()).unwrap_err();
+        let refused = compact.submit(RunId::from_bytes([41;16]), crate::math::Submission::ephemeral()).unwrap_err();
         assert_eq!(refused.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::ResourceLimit);
         let (handle, cursor) = compact.start_live(LiveSimulationOptions {
             capacity: 1, retention: native::SampleRetention::Compact }).unwrap();
