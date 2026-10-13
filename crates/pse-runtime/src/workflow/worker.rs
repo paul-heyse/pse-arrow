@@ -1354,6 +1354,12 @@ impl Runtime {
                         };
                         let preliminary = scope.action(unresolved)?;
                         match &preliminary.kind {
+                            ActionKind::Wait(WaitReason::ScientificAdmission) => {
+                                if self.admit_study_candidate(&scope, cancel).await? {
+                                    return Ok((Processed::Maintenance { study: scope.point().study.clone(), examined: 1 }, None));
+                                }
+                                continue;
+                            }
                             ActionKind::Wait(WaitReason::SeedResolution { .. })
                             | ActionKind::Start(_) => {}
                             ActionKind::Refuse(_) | ActionKind::Cancel => {

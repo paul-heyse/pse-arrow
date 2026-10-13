@@ -73,6 +73,8 @@ mod study_demand;
 pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
 };
+mod study_variants;
+pub use study_variants::{LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants};
 mod study;
 mod study_execution;
 mod study_tables;

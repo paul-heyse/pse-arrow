@@ -8,7 +8,7 @@ import msgspec
 
 import pse
 from pse import codec
-from pse.contracts.documents import StudyOutputDemandFull, StudyPoint, StudyRequest
+from pse.contracts.documents import StudyInputsExplicit, StudyOutputDemandFull, StudyPoint, StudyRequest
 from pse.contracts.identities import DeclarationId
 from pse.contracts.reference import ReferenceQuantityTypesRow
 
@@ -131,4 +131,4 @@ def point(
 
 
 def request(*points: StudyPoint) -> StudyRequest:
-    return StudyRequest(version=5, output=StudyOutputDemandFull(), points=points)
+    return StudyRequest(version=6, output=StudyOutputDemandFull(), inputs=StudyInputsExplicit(value=points))

@@ -49,20 +49,20 @@ macro_rules! start_row {
 /// Project existing facts without inferring scientific success or artifact presence.
 pub(in crate::workflow) fn outcome_row(
     study_id: StudyId,
-    point: &StudyPointDefinition,
+    point: Option<&StudyPointDefinition>,
     outcome: &PointOutcome,
 ) -> RuntimeStudyOutcomesRow {
     let latest = outcome.attempts.last();
     RuntimeStudyOutcomesRow {
         study_id,
         point_index: i64::from(outcome.key.0),
-        case_id: match &point.operation.operation {
-            OperationRequest::DeclaredCase(case) => Some(case.case),
-            OperationRequest::Simulation(simulation) => Some(simulation.case),
-            OperationRequest::Fit(_) => None,
-            OperationRequest::Horizon(horizon) => Some(horizon.plant.case),
+        case_id: match point.map(|point| &point.operation.operation) {
+            Some(OperationRequest::DeclaredCase(case)) => Some(case.case),
+            Some(OperationRequest::Simulation(simulation)) => Some(simulation.case),
+            Some(OperationRequest::Fit(_)) | None => None,
+            Some(OperationRequest::Horizon(horizon)) => Some(horizon.plant.case),
         },
-        binding_hash: point.binding_hash.as_id(),
+        binding_hash: point.map(|point| point.binding_hash.as_id()),
         state: outcome.lifecycle,
         attempt_id: latest.and_then(|attempt| attempt.attempt_id),
         attempt_state: latest.and_then(|attempt| attempt.lifecycle),
@@ -106,25 +106,19 @@ impl StudyReport {
     /// The same occurrence relation used by durable finalization, including unattempted points.
     pub fn table(&self) -> Result<FieldCheckedBatch, WorkflowError> {
         let study_id = StudyId::from_id(self.run_id.as_id());
-        if self.outcomes.len() != self.definition.points.len()
+        if self.outcomes.len() != self.definition.point_count()
             || self.results.len() != self.outcomes.len()
         {
             return Err(WorkflowError::Internal(
                 "study occurrence extent changed after execution".into(),
             ));
         }
-        let rows = self
-            .definition
-            .points
-            .iter()
-            .zip(&self.outcomes)
-            .zip(&self.results)
-            .map(|((point, outcome), result)| {
-                let mut row = outcome_row(study_id, point, outcome);
-                row.result_id = result.as_ref().map(|result| result.run_id());
-                row
-            })
-            .collect();
+        let rows = self.outcomes.iter().zip(&self.results).enumerate().map(|(index, (outcome, result))| {
+            let point = self.admitted_points.get(&index).or_else(|| self.definition.points.get(index));
+            let mut row = outcome_row(study_id, point, outcome);
+            row.result_id = result.as_ref().map(|result| result.run_id());
+            row
+        }).collect();
         export::<RuntimeStudyOutcomesRow>(&self.runtime, rows)
     }
     /// Detailed diagnostics are projected independently of scientific member availability.

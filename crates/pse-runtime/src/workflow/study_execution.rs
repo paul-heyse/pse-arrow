@@ -102,6 +102,7 @@ pub struct StudyReport {
     /// count work performed by the managed primary. These are observations, not
     /// cross-process execution or reuse evidence.
     pub preparations: crate::math::PreparationCounts,
+    pub(in crate::workflow) admitted_points: BTreeMap<usize, super::StudyPointDefinition>,
     pub(in crate::workflow) runtime: super::Runtime,
     pub(in crate::workflow) _owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
@@ -149,7 +150,7 @@ impl ModelingPackage {
         if definition.modeling_revision != self.source_attribution()
             || maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
-            || definition.points.len() > maximum_points
+            || definition.point_count() > maximum_points
         {
             return Err(super::contract(
                 "bounded study extent and exact modeling revision",
@@ -238,6 +239,7 @@ impl ModelingPackage {
             results,
             decision,
             preparations: Default::default(),
+            admitted_points: self.runtime.retained_study_admissions(&handle.study_id().to_string()).await?,
             runtime: self.runtime.clone(),
             _owner: Arc::new(owners),
         })
@@ -255,7 +257,7 @@ impl ModelingPackage {
         }
         if maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
-            || definition.points.len() > maximum_points
+            || definition.point_count() > maximum_points
         {
             return Err(super::contract("bounded study extent"));
         }
@@ -267,9 +269,8 @@ impl ModelingPackage {
             .enumerate()
             .map(|(i, p)| (p.key, i))
             .collect();
-        let bytes = definition
-            .points
-            .len()
+        definition.validate_roles()?;
+        let bytes = definition.point_count()
             .checked_mul(size_of::<PointOutcome>() + 4096)
             .ok_or_else(|| super::contract("study outcome extent"))?;
         let owner = self
@@ -293,6 +294,8 @@ impl ModelingPackage {
                 point.operation.admit_seed_role(role)?;
             }
         }
+        let mut resolved = BTreeMap::<usize, super::StudyPointDefinition>::new();
+        let mut admission_owners = BTreeMap::<usize, Arc<pse_columnar::AllocationLease>>::new();
         let mut dependents = BTreeMap::<OccurrenceKey, BTreeSet<usize>>::new();
         for (index, point) in graph.points.iter().enumerate() {
             for predecessor in admitted.predecessors(point.key).map_err(policy_error)? {
@@ -392,8 +395,15 @@ impl ModelingPackage {
                         LaneCompletion::Prepared { index, operation, mut staged, lane } => {
                             inflight.remove(&index);
                             match operation {
-                                Ok(operation) => {
-                                    ready.insert(index, ReadyOperation { operation, staged, lane });
+                                Ok((operation, requested, source)) => {
+                                    facts[index].admitted_seed_need = Some(requested.policy.seed_need);
+                                    if definition.variants.is_some() {
+                                        let extent = serde_json::to_vec(&requested).map_err(|e| super::contract(e.to_string()))?.len()
+                                            .checked_mul(4).and_then(|n| n.checked_add(1024)).ok_or_else(|| super::contract("selected admission extent"))?;
+                                        admission_owners.insert(index, self.runtime.shared.math().reserve("study:selected-admission", extent)?);
+                                        resolved.insert(index, requested);
+                                    }
+                                    ready.insert(index, ReadyOperation { operation, staged, lane, source });
                                     frontier.insert(index);
                                 }
                                 Err(error) => {
@@ -419,7 +429,8 @@ impl ModelingPackage {
                             for point in points {
                                 let index = point.index;
                                 inflight.remove(&index);
-                                if let Some(error) = record_execution(point, definition,
+                                let requested = resolved.get(&index).or_else(|| definition.points.get(index)).ok_or_else(|| super::contract("executed occurrence admission absent"))?;
+                                if let Some(error) = record_execution(point, requested,
                                     &work_cancel, &mut facts, &mut outcomes, &mut results, &mut continuation, &owner).await {
                                     if let Some(staged) = staged.take() { staged.close().await; }
                                     return Err(error);
@@ -483,7 +494,7 @@ impl ModelingPackage {
                             frontier.remove(&index);
                             starts.push((index, start));
                         }
-                        ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. }) => {
+                        ActionKind::Start(_) | ActionKind::Wait(WaitReason::SeedResolution { .. } | WaitReason::ScientificAdmission) => {
                             let parent = match &point.start {
                                 StartPolicy::Continuation(edge) => Some(positions[&edge.predecessor]),
                                 _ => None,
@@ -494,21 +505,28 @@ impl ModelingPackage {
                             }
                             let Some(mut lane) = available.pop() else { continue; };
                             let mut staged = parent.and_then(|parent| retained.remove(&parent));
-                            let requested = &definition.points[index];
+                            let explicit = definition.points.get(index).cloned();
                             let child_cancel = &work_cancel;
                             inflight.insert(index);
                             frontier.remove(&index);
                             pending.push(async move {
-                                let prepare = lane.prepare(self, &requested.operation,
-                                    &requested.binding, child_cancel);
+                                let prepare = async {
+                                    let (source, requested) = match explicit {
+                                        Some(requested) => (self.clone(), requested),
+                                        None => definition.variants.as_ref().ok_or_else(|| super::contract("lazy input absent"))?
+                                            .admit_selected(self, index, None, child_cancel).await?,
+                                    };
+                                    let operation = lane.prepare(&source, &requested.operation, &requested.binding, child_cancel).await?;
+                                    if operation.seed_need() != requested.policy.seed_need {
+                                        return Err(study_error(DiagnosticRule::StudySeedIncompatible,
+                                            "declared seed need differs from operation-owned admission"));
+                                    }
+                                    Ok((operation, requested, source))
+                                };
                                 let operation = match staged.as_mut() {
                                     Some(staged) => staged.prepare(prepare).await.and_then(|result| result),
                                     None => prepare.await,
-                                }.and_then(|operation| {
-                                    if operation.seed_need() == point.seed_need { Ok(operation) }
-                                    else { Err(study_error(DiagnosticRule::StudySeedIncompatible,
-                                        "declared seed need differs from operation-owned admission")) }
-                                });
+                                };
                                 LaneCompletion::Prepared { index, operation, staged, lane }
                             }.boxed());
                         }
@@ -648,13 +666,15 @@ impl ModelingPackage {
             results,
             decision: decision?,
             preparations,
+            admitted_points: resolved,
             runtime: self.runtime.clone(),
-            _owner: owner,
+            _owner: Arc::new((owner, admission_owners)),
         })
     }
 }
 
 struct ReadyOperation {
+    source: ModelingPackage,
     lane: super::study_operations::StudyPreparationLane,
     operation: PreparedStudyOperation,
     staged: Option<Staged>,
@@ -680,7 +700,7 @@ enum LaneCompletion {
     Prepared {
         lane: super::study_operations::StudyPreparationLane,
         index: usize,
-        operation: Result<PreparedStudyOperation, WorkflowError>,
+        operation: Result<(PreparedStudyOperation, super::StudyPointDefinition, ModelingPackage), WorkflowError>,
         staged: Option<Staged>,
     },
     Executed {
@@ -795,6 +815,7 @@ async fn execute_lane_inner(
 ) -> LaneCompletion {
     if members.len() == 1 {
         let mut member = members.remove(0);
+        let package = &member.preparation.source;
         let mut staged = member.preparation.staged.take();
         let result = async {
             if let (
@@ -928,9 +949,10 @@ fn record_preparation_failure(
     facts: &mut [PointFacts],
     outcomes: &mut [PointOutcome],
 ) {
-    let diagnostic = error
-        .boundary_diagnostic()
-        .with_revision(definition.points[index].operation.source.revision.as_id());
+    let source = definition.points.get(index).map(|point| point.operation.source.revision)
+        .or_else(|| definition.variants.as_ref().map(|lazy| lazy.variants.source.revision));
+    let mut diagnostic = error.boundary_diagnostic();
+    if let Some(source) = source { diagnostic = diagnostic.with_revision(source.as_id()); }
     let cancelled = diagnostic.class == BoundaryClass::Cancelled;
     facts[index].revision += 1;
     facts[index].lifecycle = if cancelled {
@@ -959,7 +981,7 @@ fn record_preparation_failure(
 )]
 async fn record_execution(
     point: ExecutedPoint,
-    definition: &StudyDefinition,
+    requested: &super::StudyPointDefinition,
     cancel: &crate::CancelSource,
     facts: &mut [PointFacts],
     outcomes: &mut [PointOutcome],
@@ -976,7 +998,7 @@ async fn record_execution(
         Ok(result) => (
             super::study_operations::scientific_facts(result),
             result_diagnostic(result).map(|diagnostic| {
-                diagnostic.with_revision(definition.points[index].operation.source.revision.as_id())
+                diagnostic.with_revision(requested.operation.source.revision.as_id())
             }),
         ),
         Err(error) => (
@@ -984,7 +1006,7 @@ async fn record_execution(
             Some(
                 error
                     .boundary_diagnostic()
-                    .with_revision(definition.points[index].operation.source.revision.as_id()),
+                    .with_revision(requested.operation.source.revision.as_id()),
             ),
         ),
     };
@@ -1044,7 +1066,7 @@ async fn record_execution(
             }
             results[index] = match retain_occurrence(
                 result,
-                &definition.points[index].operation.output,
+                &requested.operation.output,
                 facts[index].scientific.usable,
             )
             .await
@@ -1066,7 +1088,7 @@ async fn record_execution(
     };
     continuation.terminal(
         index,
-        &definition.points[index].policy,
+        &requested.policy,
         &facts[index],
         cancel.token().is_cancelled(),
     );
@@ -2443,6 +2465,7 @@ mod occurrence_execution_tests {
                 start: StartProvenance::Fresh,
                 attempt: 0,
                 preparation: ReadyOperation {
+                    source: package.clone(),
                     lane: super::super::study_operations::StudyPreparationLane::new(),
                     operation,
                     staged: None,

@@ -441,7 +441,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             column("study_id", T::id()).with_identity("study"),
             column("point_index", count()),
             column("case_id", T::id().with_identity("declaration")).optional(),
-            column("binding_hash", T::hash()),
+            column("binding_hash", T::hash()).optional(),
             column("state", T::enumeration("StudyPointState")),
             column("attempt_id", T::id().with_identity("attempt")).optional(),
             column("attempt_state", T::enumeration("AttemptState")).optional(),

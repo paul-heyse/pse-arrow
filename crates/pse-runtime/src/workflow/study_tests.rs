@@ -104,11 +104,11 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     let request = StudyRequest {
         output: StudyOutputDemand::Full {},
         version: pse_model::document::Version,
-        points: vec![point(case, 7, vec![], StartPolicy::Fresh)],
+        inputs: crate::workflow::StudyInputs::Explicit(vec![point(case, 7, vec![], StartPolicy::Fresh)]),
     };
     let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 5);
-    assert!(encoded["points"][0]["policy"].get("seed_need").is_none());
+    assert_eq!(encoded["version"], 6);
+    assert!(encoded["inputs"]["value"][0]["policy"].get("seed_need").is_none());
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
     for version in [1, 3] {
@@ -117,7 +117,7 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
         assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
     }
     let mut bare = encoded;
-    bare["points"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
+    bare["inputs"]["value"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
     assert!(serde_json::from_value::<StudyRequest>(bare).is_err());
 }
 
@@ -136,6 +136,7 @@ fn study_definition_historical_readmission_codec_unit() {
         StartPolicy::Fresh,
     );
     let definition = StudyDefinition {
+        variants: None,
         version: pse_model::document::Version,
         physical: PhysicalSource {
             revision: "fixture-physical".into(),
@@ -166,7 +167,7 @@ fn study_definition_historical_readmission_codec_unit() {
         }],
     };
     let current = serde_json::to_string(&definition).unwrap();
-    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 9);
+    assert_eq!(serde_json::to_value(&definition).unwrap()["version"], 10);
     let decoded = StudyDefinition::readmission(&current).unwrap();
     assert_eq!(serde_json::to_string(&decoded).unwrap(), current);
 
@@ -429,7 +430,7 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
             StudyPlan {
                 output: StudyOutputDemand::Full {},
                 sources,
-                points: authored.unwrap(),
+                inputs: crate::workflow::StudyInputs::Explicit(authored.unwrap()),
             },
             &crate::CancelSource::new(),
         )
@@ -3763,4 +3764,87 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     );
     drop(filler);
     assert_eq!(pool.reserved(), before);
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head() {
+    let runtime = durable_runtime();
+    let (package, _) = related_definition(&runtime).await;
+    let fixed = package.declarations().await.unwrap().iter().find(|row| row.name == "Fixed").unwrap().declaration_id;
+    let base = package.canonical_revision().unwrap().clone();
+    let mut requested = point(fixed, 9, vec![], StartPolicy::Fresh);
+    if let OperationRequest::DeclaredCase(case) = &mut requested.operation { case.settings.backend = None; }
+    let mut invalid = requested.clone(); invalid.policy.key = OccurrenceKey(3);
+    let alternatives = vec![
+        SourceDelta { parent: package.revision_id().into(), ..Default::default() },
+        SourceDelta { parent: package.revision_id().into(), removals: vec![pse_model::generated::identities::DeclarationId::from_bytes([0;16])], ..Default::default() },
+    ];
+    let variants = StudyVariants { version: pse_model::document::Version,
+        source: OperationSource::of(&package), choices: vec![SourceChoice { alternatives }],
+        selected: vec![SelectedStudyVariant { ordinal: 0, point: requested }, SelectedStudyVariant { ordinal: 1, point: invalid }],
+    };
+    let (physical, _) = sources(CASES);
+    let cancel = crate::CancelSource::new();
+    let before = runtime.shared.math().preparations().views;
+    let definition = package.admit_study_input_sources(&physical, &StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    assert!(definition.points.is_empty());
+    assert_eq!(definition.point_count(), 2);
+    assert!(definition.graph().points.iter().all(|point| point.seed_need == SeedNeed::Pending));
+    let handle = runtime.start_defined_study(physical, definition, &cancel).await.unwrap();
+    assert_eq!(runtime.shared.math().preparations().views, before, "descriptor admission and activation construct no selected science");
+    let study = handle.study_id().to_string();
+    let valid_key = pse_operations::canonical_studies::point_key(&study, OccurrenceKey(9));
+    let invalid_key = pse_operations::canonical_studies::point_key(&study, OccurrenceKey(3));
+    let scope = runtime.canonical_store().unwrap().study_scope(&valid_key).await.unwrap();
+    assert!(runtime.canonical_store().unwrap().claim_study_point(&scope, None, "pending-native", "worker", Duration::from_secs(60)).await.is_err());
+    assert!(runtime.admit_study_candidate(&scope, &cancel).await.unwrap());
+    let selected = runtime.canonical_store().unwrap().canonical_study_point(&valid_key).await.unwrap().unwrap();
+    assert_eq!(selected.ordinal, 0, "visible order is selection order, not Cartesian ordinal or key order");
+    assert_eq!(pse_operations::canonical_studies::point_facts(&selected).unwrap().attempt_count, 0);
+    let science = runtime.canonical_store().unwrap().canonical_run(&selected.run).await.unwrap().unwrap();
+    assert_eq!(science.revision, format!("study-variant-source:{valid_key}"));
+    assert_eq!(package.canonical_revision().unwrap(), &base);
+    // A second publication acknowledges precisely the first selected source effect.
+    let constructor = package.construct_study_variant(&OperationSource::of(&package), SourceDelta::default(), &cancel).await.unwrap();
+    let recorded = constructor.record_study_variant(&valid_key, &cancel).await.unwrap();
+    assert_eq!(recorded.canonical_revision().unwrap().key, science.revision);
+    let scope = runtime.canonical_store().unwrap().study_scope(&invalid_key).await.unwrap();
+    assert!(runtime.admit_study_candidate(&scope, &cancel).await.unwrap());
+    let invalid = runtime.canonical_store().unwrap().canonical_study_point(&invalid_key).await.unwrap().unwrap();
+    assert!(invalid.settled);
+    assert!(invalid.attempt.is_none());
+    assert_eq!(pse_operations::canonical_studies::point_facts(&invalid).unwrap().attempt_count, 0);
+    assert!(runtime.canonical_store().unwrap().canonical_run(&invalid.run).await.unwrap().is_none());
+    assert_eq!(package.canonical_revision().unwrap(), &base);
+    runtime.canonical_store().unwrap().edit(&base.problem, Some(&base.key), "base-head-control-after-variants", &[]).await.unwrap();
+    handle.cancel().await.unwrap();
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_science() {
+    let runtime = durable_runtime();
+    let (package, explicit) = related_definition(&runtime).await;
+    let requested = StudyPoint { operation: explicit.points[0].operation.operation.clone(),
+        preparation: explicit.points[0].operation.preparation.clone(), overlay: PointOverlay::default(),
+        policy: StudyPointPolicy { key: OccurrenceKey(77), dependencies: vec![], start: StartPolicy::Fresh, attempt_limit: 1 } };
+    let variants = StudyVariants { version: pse_model::document::Version, source: OperationSource::of(&package),
+        choices: vec![SourceChoice { alternatives: vec![SourceDelta { parent: package.revision_id().into(),
+            removals: vec![pse_model::generated::identities::DeclarationId::from_bytes([0;16])], ..Default::default() }] }],
+        selected: vec![SelectedStudyVariant { ordinal: 0, point: requested }] };
+    let (physical, _) = sources(CASES);
+    let cancel = crate::CancelSource::new();
+    let definition = package.admit_study_input_sources(&physical, &StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let handle = runtime.start_defined_study(physical, definition, &cancel).await.unwrap();
+    let before = runtime.shared.math().preparations().views;
+    handle.cancel().await.unwrap();
+    let key = pse_operations::canonical_studies::point_key(&handle.study_id().to_string(), OccurrenceKey(77));
+    let scope = runtime.canonical_store().unwrap().study_scope(&key).await.unwrap();
+    let action = scope.action(None).unwrap();
+    assert!(matches!(action.kind, ActionKind::Cancel));
+    runtime.settle_study_candidate(&scope, &action, None).await.unwrap();
+    assert!(runtime.finalize_canonical_study(&handle.study_id().to_string()).await.unwrap());
+    assert!(runtime.retained_study_admissions(&handle.study_id().to_string()).await.unwrap().is_empty());
+    assert_eq!(runtime.shared.math().preparations().views, before);
 }

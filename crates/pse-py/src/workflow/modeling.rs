@@ -708,7 +708,7 @@ impl NativeModelingPackage {
     }
     /// Admit the generated request once under this immutable selected revision.
     fn admit_study(&self, py: Python<'_>, request: &[u8]) -> PyResult<Vec<u8>> {
-        let request = documents::decode_versioned::<native::StudyRequest, 5>(
+        let request = documents::decode_versioned::<native::StudyRequest, 6>(
             py,
             "operation",
             request,
@@ -725,7 +725,7 @@ impl NativeModelingPackage {
             py,
             &self.owner,
             self.inner
-                .admit_study_sources(physical, &request.points, &request.output, &cancel),
+                .admit_study_input_sources(physical, &request.inputs, &request.output, &cancel),
             || cancel.cancel(),
         )?;
         documents::encode(py, &definition)

@@ -785,12 +785,14 @@ def test_study_request_excludes_owner_seed_capability(
     _package_owner, case = _package(runtime)
     document = codec.encode_json(study_request(point(case, pse.SolveSettings(), 0)))
     wire = msgspec.json.decode(document, type=dict[str, object])
-    points = msgspec.convert(wire["points"], type=list[dict[str, object]])
+    inputs = msgspec.convert(wire["inputs"], type=dict[str, object])
+    points = msgspec.convert(inputs["value"], type=list[dict[str, object]])
     policy = msgspec.convert(points[0]["policy"], type=dict[str, object])
     assert "seed_need" not in policy
     policy["seed_need"] = "not_needed"
     points[0]["policy"] = policy
-    wire["points"] = points
+    inputs["value"] = points
+    wire["inputs"] = inputs
     with pytest.raises(msgspec.ValidationError, match="seed_need"):
         codec.decode_json(msgspec.json.encode(wire), StudyRequest)
 

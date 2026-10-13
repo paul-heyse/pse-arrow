@@ -2349,6 +2349,35 @@ impl ModelingPackage {
             .saturating_add(providers)
             .saturating_add(65536)
     }
+    /// Publish one selected immutable variant in its own occurrence-qualified source
+    /// problem. The admitted base's durable and local heads are never advanced.
+    pub(in crate::workflow) async fn record_study_variant(
+        &self,
+        point: &str,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        if point.is_empty() { return Err(contract("variant publication requires its occurrence")); }
+        let problem = format!("study-variant:{point}");
+        let operation = format!("study-variant-source:{point}");
+        let extent = self.revision.admitted.retained_bytes();
+        let _owner = self.runtime.shared.math().reserve("study:variant-source-publication", extent)?;
+        let edits = self.revision.admitted.objects.values().map(|object| ObjectEdit {
+            logical: object.logical.clone(), scope: object.scope.clone(), name: object.name.clone(),
+            version: Some(pse_model::generated::runtime::canonical_versions::Row {
+                key: object.version.clone(), logical: object.logical.clone(), kind: object.kind.clone(),
+                payload: object.payload.clone().into(),
+                interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
+            }),
+            references: object.references.clone(),
+        }).collect::<Vec<_>>();
+        let receipt = crate::workflow::study::creation_effect(cancel, async {
+            self.runtime.canonical_store()?.edit(&problem, None, &operation, &edits).await
+                .map_err(|source| crate::workflow::source_settlement::source_edit_error(problem.clone(), operation.clone(), source))
+        }).await?;
+        let revision = SourceRevision::admitted(self.revision.admitted.clone(), self.revision.identity, Some(receipt), None)?;
+        Ok(Self { revision, held_preparation: None, ..self.clone() })
+    }
+
     /// Export owned immutable inputs; physical sources are actual admitted bytes.
     pub(in crate::workflow) fn replay_source(
         &self,

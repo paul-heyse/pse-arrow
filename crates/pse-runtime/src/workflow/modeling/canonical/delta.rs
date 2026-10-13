@@ -218,13 +218,41 @@ impl ModelingPackage {
         self.apply_delta_parent_ordered(delta, parent, cancel, parsed, None)
             .await
     }
+    pub(in crate::workflow) async fn construct_study_variant(
+        &self,
+        source: &crate::workflow::OperationSource,
+        mut delta: SourceDelta,
+        cancel: &crate::CancelSource,
+    ) -> Result<Self, WorkflowError> {
+        source.check(self)?;
+        // The descriptor already checked its original local parent token. Reconstruction
+        // rebinds only after the complete immutable source/context identity agrees.
+        delta.parent = self.revision_id().into();
+        let deadline = super::super::preparation_deadline(cancel)?;
+        let scoped = cancel.with_deadline(Some(deadline));
+        let parent = self.delta_parent(&scoped).await?;
+        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false).await
+    }
+
     pub(in crate::workflow::modeling) async fn apply_delta_parent_ordered(
+        &self,
+        delta: SourceDelta,
+        parent: Parent,
+        cancel: &crate::CancelSource,
+        parsed: Option<reload::ParsedEdit>,
+        order: Option<Vec<DeclarationId>>,
+    ) -> Result<Self, WorkflowError> {
+        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true).await
+    }
+
+    async fn apply_delta_parent_ordered_mode(
         &self,
         delta: SourceDelta,
         mut parent: Parent,
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
+        record: bool,
     ) -> Result<Self, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.scope(async {
@@ -811,7 +839,12 @@ impl ModelingPackage {
             return Ok(self.clone());
         }
         checkpoint(cancel)?;
-        let revision=admit_revision(&self.runtime,Some(&self.revision),identity,&edits).await?;
+        let revision = if record {
+            admit_revision(&self.runtime, Some(&self.revision), identity, &edits).await?
+        } else {
+            let admitted = AdmittedModelRevision::apply(&self.runtime, Some(&self.revision.admitted), &edits)?;
+            SourceRevision::admitted(admitted, identity, None, None)?
+        };
         Ok(Self {revision,held_preparation:None,..self.clone()})
 
         }).await
