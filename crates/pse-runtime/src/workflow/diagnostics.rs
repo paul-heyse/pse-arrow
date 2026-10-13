@@ -84,10 +84,10 @@ impl DiagnosticProjection for super::WorkflowError {
             Self::SeedRead(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::Canonical(e) => pse_model::diagnostic::project_typed(e, stage),
             Self::ResultBlock(e) => pse_model::diagnostic::project_typed(e, stage),
-            Self::Input(_) | Self::Internal(_) => {
+            Self::Input(_) | Self::RecordingUnavailable | Self::CallerClosed | Self::Internal(_) => {
                 let mut diagnostic =
                     project_facts(self.diagnostic_code(), self.diagnostic_facts(), stage);
-                diagnostic.rule = if matches!(self, Self::Input(_)) {
+                diagnostic.rule = if matches!(self, Self::Input(_) | Self::RecordingUnavailable | Self::CallerClosed) {
                     DiagnosticRule::WorkflowInput
                 } else {
                     DiagnosticRule::WorkflowInternal

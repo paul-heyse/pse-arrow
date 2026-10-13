@@ -253,6 +253,12 @@ pub enum WorkflowError {
     /// Shared immutable encoding failure with its full diagnostic cause.
     #[error(transparent)]
     Shared(Arc<WorkflowError>),
+    /// Explicitly requested recording/import has no configured sink.
+    #[error("runtime has no canonical recording sink")]
+    RecordingUnavailable,
+    /// This logical runtime and its aliases no longer admit new work.
+    #[error("runtime caller is closed")]
+    CallerClosed,
     /// A complete diagnostic for invalid API input.
     #[error("native workflow contract: {0}")]
     Input(String),
@@ -270,7 +276,7 @@ impl From<BoundaryDiagnostic> for WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(this) {match this {Self::Input(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
+    code(this) {match this {Self::Input(_)|Self::RecordingUnavailable|Self::CallerClosed=>Some(pse_diagnostics::DiagnosticCode::WorkflowInput),Self::Internal(_)=>Some(pse_diagnostics::DiagnosticCode::WorkflowInternal),Self::Typed(_)=>None,_=>None}},
     forward(this) {match this {Self::SeedRead(e)=>Some(e),Self::ResultBlock(e)=>Some(e),Self::Canonical(e)=>Some(e),Self::Boundary(e)=>Some(e.as_ref()),Self::Typed(e)=>Some(e.as_ref()),Self::ConditionalAdmission{diagnostic,..}|Self::ModelingAdmission{diagnostic,..}=>Some(diagnostic.as_ref()),Self::Math(e)=>Some(e),Self::Engine(e)=>Some(e),Self::Authoring(e)=>Some(e),Self::Shared(e)=>Some(e.as_ref()),Self::StudyCreationUnsettled{source,..}|Self::ArtifactTransferUnsettled{source,..}=>Some(source.as_ref()),_=>None}},
     help(_this){None},related(_this){None},source(_this){None}
 }
@@ -293,7 +299,8 @@ fn relation(error: pse_relations::RelationError) -> WorkflowError {
 pub struct Runtime {
     pub(crate) shared: Arc<SharedRuntime>,
     pub(crate) model: BoundModel,
-    pub(crate) canonical: CanonicalDeployment,
+    pub(crate) canonical: Option<CanonicalDeployment>,
+    caller: Arc<RuntimeCaller>,
     /// Application runs retain scientific outcomes; ephemerality is an explicit choice.
     pub(crate) durability: Durability,
     physical_cache: Arc<physical_cache::PhysicalCache>,
@@ -327,7 +334,7 @@ impl Runtime {
     /// Release this logical caller and all of its aliases. Already admitted work
     /// retains its continuation authority; physical drivers belong to the deployment.
     pub fn close(&self) {
-        self.canonical_store().close();
+        self.caller.close();
     }
 
     /// Actual immutable native admission owner retained by this runtime's bound model.
@@ -363,10 +370,34 @@ impl Runtime {
         Ok(Self {
             shared,
             model,
-            canonical,
+            caller: Arc::new(RuntimeCaller::new(Some(canonical.store().clone()))),
+            canonical: Some(canonical),
             durability,
             physical_cache,
         })
+    }
+    /// Construct an explicitly ephemeral caller over the existing deployment. No
+    /// canonical client, producer observation, executor or independent budget is made.
+    pub fn from_shared_local(
+        shared: Arc<SharedRuntime>,
+        model: BoundModel,
+    ) -> Result<Self, WorkflowError> {
+        Self::check_deployment(&shared, model.factory())?;
+        let physical_cache = Arc::new(physical_cache::PhysicalCache::default());
+        let component: Arc<dyn pse_engine::cache_service::CacheComponent> = physical_cache.clone();
+        shared.caches().register_component(&component);
+        Ok(Self {
+            shared,
+            model,
+            canonical: None,
+            caller: Arc::new(RuntimeCaller::new(None)),
+            durability: Durability::Ephemeral,
+            physical_cache,
+        })
+    }
+    /// Local caller admission is independent of recording-service liveness.
+    pub(crate) fn admit_activity(&self) -> Result<RuntimeActivity, WorkflowError> {
+        self.caller.admit()
     }
     fn check_deployment(
         shared: &SharedRuntime,
@@ -425,9 +456,9 @@ impl Runtime {
         )?;
         Ok(())
     }
-    /// Configured canonical scientific deployment.
-    pub fn canonical(&self) -> &CanonicalDeployment {
-        &self.canonical
+    /// Actual configured recording/import boundary, when explicitly requested.
+    pub fn canonical(&self) -> Result<&CanonicalDeployment, WorkflowError> {
+        self.canonical.as_ref().ok_or(WorkflowError::RecordingUnavailable)
     }
     /// The same deployment under an explicit durability class (ADR-0114 Outcome 16).
     /// Packages and preparations made from the returned runtime run under it.
@@ -442,7 +473,7 @@ impl Runtime {
             DurabilitySelection::Ephemeral => Durability::Ephemeral,
             DurabilitySelection::Durable { worker, policy } => {
                 Durability::Durable(Box::new(Operations::from_store(
-                    self.canonical.store().clone(),
+                    self.canonical()?.store().clone(),
                     worker,
                     policy,
                     self.shared.pool(),
@@ -481,4 +512,63 @@ impl Runtime {
     pub fn sessions(&self) -> &Arc<EngineFactory> {
         self.model.factory()
     }
+}
+
+#[derive(Debug)]
+struct RuntimeCaller {
+    state: std::sync::Mutex<RuntimeCallerState>,
+    store: Option<pse_operations::canonical::CanonicalStore>,
+}
+#[derive(Debug, Default)]
+struct RuntimeCallerState {
+    closed: bool,
+    active: usize,
+}
+impl RuntimeCaller {
+    fn new(store: Option<pse_operations::canonical::CanonicalStore>) -> Self {
+        Self { state: std::sync::Mutex::new(RuntimeCallerState::default()), store }
+    }
+    fn admit(self: &Arc<Self>) -> Result<RuntimeActivity, WorkflowError> {
+        if let Ok(activity) = RUNTIME_CONTINUATION.try_with(Clone::clone)
+            && Arc::ptr_eq(&activity.0, self) {
+            return Ok(activity);
+        }
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.closed { return Err(WorkflowError::CallerClosed); }
+        state.active = state.active.checked_add(1).ok_or_else(|| contract("runtime activity extent"))?;
+        Ok(RuntimeActivity(self.clone()))
+    }
+    fn close(&self) {
+        let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.closed = true;
+        if state.active == 0 && let Some(store) = &self.store { store.close(); }
+    }
+}
+/// An admitted local continuation. Required children inherit it explicitly;
+/// idle Runtime aliases cannot use it to bypass close.
+#[derive(Debug)]
+pub(crate) struct RuntimeActivity(Arc<RuntimeCaller>);
+impl Clone for RuntimeActivity {
+    fn clone(&self) -> Self {
+        let mut state = self.0.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.active += 1;
+        Self(self.0.clone())
+    }
+}
+impl Drop for RuntimeActivity {
+    fn drop(&mut self) {
+        let mut state = self.0.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        state.active -= 1;
+        if state.closed && state.active == 0 && let Some(store) = &self.0.store { store.close(); }
+    }
+}
+tokio::task_local! { static RUNTIME_CONTINUATION: RuntimeActivity; }
+impl RuntimeActivity {
+    pub(crate) fn scope<F: Future>(&self, future: F) -> impl Future<Output = F::Output> + use<F> {
+        RUNTIME_CONTINUATION.scope(self.clone(), future)
+    }
+}
+pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
+    let activity = RUNTIME_CONTINUATION.try_with(Clone::clone).ok();
+    async move { match activity { Some(activity) => activity.scope(future).await, None => future.await } }
 }

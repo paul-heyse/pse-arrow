@@ -21,6 +21,7 @@ fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Insta
 mod bound;
 mod canonical;
 pub(crate) use canonical::reload::RetainedIngress;
+pub(crate) use canonical::{AdmittedModelRevision, LocalSourcePremises};
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
@@ -166,8 +167,7 @@ impl SelectedRequest {
 pub(crate) struct SelectedAdmission {
     pub(crate) request: Arc<SelectedRequest>,
     pub(crate) revision: crate::math::modeling::ModelingRevision,
-    pub(crate) dependencies: Arc<pse_operations::canonical_selection::SelectedDependencies>,
-    pub(crate) qualification: Arc<pse_operations::canonical_selection::SelectionDependencyReceipt>,
+    pub(crate) dependencies: Arc<LocalSourcePremises>,
     pub(crate) versions: Arc<BTreeMap<String, String>>,
     pub(crate) metadata: Arc<pse_columnar::AllocationLease>,
     pub(crate) _validation_owner: pse_engine::session::BoundModel,
@@ -175,7 +175,7 @@ pub(crate) struct SelectedAdmission {
 impl SelectedAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
         self.revision.retained_bytes()
-            + self.qualification.retained_bytes()
+            + self.dependencies.retained_bytes()
             + self.request.retained_bytes()
             + size_of::<Self>()
             + 256
@@ -212,8 +212,8 @@ pub(crate) struct PackageAdmission {
 impl PackageAdmission {
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
-            + self.revision.canonical.problem.capacity()
-            + self.revision.canonical.key.capacity()
+            + self.revision.revision_id().len()
+            + self.revision.admitted.retained_bytes()
             + 256
     }
 }
@@ -676,9 +676,11 @@ impl ModelingPackage {
             .await
     }
     /// Exact immutable canonical revision, independent of semantic compiler source hashes.
-    pub fn canonical_revision(&self) -> &pse_model::generated::runtime::canonical_revisions::Row {
-        &self.revision.canonical
+    pub fn canonical_revision(&self) -> Option<&pse_model::generated::runtime::canonical_revisions::Row> {
+        self.revision.origin()
     }
+    /// Opaque exact parent token, distinct from semantic content and durable origin.
+    pub fn revision_id(&self) -> &str { self.revision.revision_id() }
     /// Generate full source tables only for an explicit export/publication request.
     pub async fn source_tables(
         &self,

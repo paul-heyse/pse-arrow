@@ -26,6 +26,9 @@ use std::{
     sync::Arc,
 };
 mod delta;
+mod local;
+pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
+use local::{LocalInventory, LocalSourceObject, SourceMember};
 pub(crate) mod reload;
 
 // Only the newest bounded window survives the qualification turn. Its scratch
@@ -130,44 +133,44 @@ pub(super) fn kind(row: &Declaration) -> String {
     format!("modeling:{}", row.value.kind.as_str())
 }
 
-/// Canonical revision identity and the original semantic source identity have
-/// different meanings. Neither retains declarations or admitted package state.
+/// Owned local scientific authority; optional canonical origin is effect attribution.
 #[derive(Clone, Debug)]
 pub(in crate::workflow) struct SourceRevision {
-    pub(in crate::workflow) canonical: Revision,
+    pub(in crate::workflow) origin: Option<Revision>,
+    pub(crate) admitted: Arc<AdmittedModelRevision>,
     identity: SourceRevisionHash,
+    revision_id: String,
+    lineage_id: String,
+    generation: i64,
+    head: Arc<std::sync::Mutex<local::LocalHead>>,
 }
 impl SourceRevision {
-    pub(in crate::workflow) fn identity(&self) -> SourceRevisionHash {
-        self.identity
+    pub(in crate::workflow) fn identity(&self) -> SourceRevisionHash { self.identity }
+    pub(crate) fn revision_id(&self) -> &str { &self.revision_id }
+    pub(crate) fn lineage_id(&self) -> &str { &self.lineage_id }
+    pub(crate) fn generation(&self) -> i64 { self.generation }
+    pub(crate) fn origin(&self) -> Option<&Revision> { self.origin.as_ref() }
+    pub(super) fn require_origin(&self) -> Result<&Revision, WorkflowError> {
+        self.origin().ok_or(WorkflowError::RecordingUnavailable)
     }
-    pub(super) async fn open(
-        runtime: &Runtime,
-        canonical: Revision,
+    fn admitted(
+        admitted: Arc<AdmittedModelRevision>, identity: SourceRevisionHash,
+        origin: Option<Revision>, previous: Option<&Self>,
     ) -> Result<Self, WorkflowError> {
-        let store = runtime.canonical.store();
-        let protection = store
-            .protect(canonical.clone(), std::time::Duration::from_secs(3600))
-            .await
-            .map_err(|error| {
-                super::super::diagnostics::operation_context(
-                    error.into(),
-                    "modeling_revision.protect",
-                )
-            })?;
-        let mut read = SelectedRead::new(protection);
-        let result = context(runtime, &mut read).await.map_err(|error| {
-            super::super::diagnostics::operation_context(error, "modeling_revision.context")
-        });
-        let release = read.finish().await.map_err(|error| {
-            super::super::diagnostics::operation_context(error.into(), "modeling_revision.release")
-        });
-        let identity = result?;
-        release?;
-        Ok(Self {
-            canonical,
-            identity,
-        })
+        let revision_id = pse_operations::mint_id::<SemanticId>().to_string();
+        if let Some(previous) = previous {
+            // This is committed only after durable acknowledgement. Concurrent siblings
+            // serialize here; the loser branches instead of rewinding the live lane.
+            let mut head = previous.head.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if head.revision == previous.revision_id {
+                let generation = head.generation.checked_add(1).ok_or_else(||contract("local source generation extent"))?;
+                head.revision = revision_id.clone(); head.generation = generation;
+                return Ok(Self { origin, admitted, identity, revision_id, lineage_id: previous.lineage_id.clone(), generation, head: previous.head.clone() });
+            }
+        }
+        let lineage_id = pse_operations::mint_id::<SemanticId>().to_string();
+        let head = Arc::new(std::sync::Mutex::new(local::LocalHead { revision: revision_id.clone(), generation: 0 }));
+        Ok(Self { origin, admitted, identity, revision_id, lineage_id, generation: 0, head })
     }
 }
 

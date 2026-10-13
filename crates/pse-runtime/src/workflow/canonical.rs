@@ -59,7 +59,7 @@ impl CanonicalDeployment {
 }
 impl super::Runtime {
     /// Canonical scientific storage shared by authoring, preparation and retained queries.
-    pub fn canonical_store(&self) -> &CanonicalStore {
-        self.canonical.store()
+    pub fn canonical_store(&self) -> Result<&CanonicalStore, super::WorkflowError> {
+        Ok(self.canonical()?.store())
     }
 }
