@@ -22,6 +22,7 @@ gmp-mpfr-sys.workspace = true
 pse-model.workspace = true
 symbolica.workspace = true
 faer.workspace = true
+root1d.workspace = true
 pounce-nlp.workspace = true
 pounce-presolve.workspace = true
 pse-ids.workspace = true

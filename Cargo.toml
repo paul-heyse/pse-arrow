@@ -220,6 +220,7 @@ symbolica = { version = "=3.0.1", default-features = false, features = [
   "integer-gmp",
   "float-mpfr",
 ] }
+root1d = { version = "=0.4.1", default-features = false }
 faer = { version = "=0.24.4", default-features = false, features = [
   "std",
   "sparse-linalg",
