@@ -31,6 +31,12 @@ pub fn scoped<T>(owner: Arc<dyn ConstructionAdmission>, work: impl FnOnce() -> T
     drop(restore);
     result
 }
+/// Clone the enclosing allocation admission for an explicitly owned execution lane.
+/// Install it with [`scoped`] on that lane; retaining this handle does not grant compute
+/// capacity or change the admission's original lifetime and cancellation owner.
+pub fn current() -> Option<Arc<dyn ConstructionAdmission>> {
+    OWNER.with(|owner| owner.borrow().clone())
+}
 pub(crate) fn additional(bytes: usize) -> Result<(), MathError> {
     if bytes == 0 {
         return Ok(());

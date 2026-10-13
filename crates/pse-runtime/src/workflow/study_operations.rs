@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Reconstructable study operations dispatch through their existing operation owners.
+use pse_model::scalars::PositiveCount;
 use super::Runtime;
 use super::{
     AdvancedStep, Arrival, DeclaredProcedure, FitProfile, FitUncertainty, Horizon,

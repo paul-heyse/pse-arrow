@@ -569,7 +569,10 @@ impl ModelingSimulation {
             let row = rows.get(id).ok_or_else(|| contract("trajectory physical row absent"))?;
             let unit = self.quantities.quantity_type(row.quantity).map_err(math)?.canonical_unit;
             Ok(pse_model::generated::runtime::live_simulation_samples::Row {
-                run_id, accuracy_attempt, sample: ordinal as u64, time: sample.time,
+                run_id,
+                accuracy_attempt: i64::try_from(accuracy_attempt).map_err(|_| contract("live accuracy attempt ordinal extent"))?,
+                sample: i64::try_from(ordinal).map_err(|_| contract("live sample ordinal extent"))?,
+                time: sample.time,
                 symbol_id: *symbol, quantity_id: row.quantity.as_id(), unit_id: unit.as_id(),
                 value: sample.outputs[column],
             })
