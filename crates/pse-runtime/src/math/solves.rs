@@ -30,7 +30,7 @@ use pse_backend_native::{
     solve::*,
 };
 use pse_columnar::flight::FlightCancellation;
-use pse_ids::FramedHasher;
+use pse_ids::{ContentHash, FramedHasher};
 use pse_kernels::ProviderFactory;
 pub use pse_math::convexity::ConvexityPolicy;
 /// Shared immutable driver history; cloning retains one admitted allocation.
@@ -277,6 +277,16 @@ pub(crate) struct PreparedComposition {
     pub(crate) declaration: pse_model::strategy::NumericalStrategy,
     pub(crate) rungs: Vec<PreparedRung>,
     _owner: Arc<pse_columnar::AllocationLease>,
+}
+/// Actual owner-issued premises for optional descriptive advice over equivalent convex choices.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SolverAdviceInputs {
+    /// Complete problem/profile/branch/accuracy/exposure comparison premises.
+    pub cohort: pse_model::strategy::advice::AdviceCohort,
+    /// Advice-independent operation identities in baseline order.
+    pub candidates: Vec<ContentHash>,
+    /// Original finite allowances; advice cannot replace these.
+    pub limits: pse_model::strategy::WorkLimits,
 }
 /// An immutable owner-issued operation beside the resolver's cheap applicability facts.
 /// The index selected by the resolver is consumed from this inventory, never rebound.
@@ -655,6 +665,68 @@ impl PreparedSolve {
         };
         u64::try_from(count).map_err(|_| ProblemError::memory("automatic catalog extent"))
     }
+    /// Exclude only optional advice from comparison identities, avoiding a recursive
+    /// order/body identity. Effective request/profile/decision keys retain the full body.
+    fn automatic_comparison_identity(&self) -> Result<ContentHash, ProblemError> {
+        let mut baseline = self.clone();
+        baseline.profile.composition.advice = None;
+        Ok(baseline.request_identity()?.as_id())
+    }
+    pub(crate) fn advice_cohort(
+        &self,
+        start: pse_model::strategy::StartOrigin,
+        inherited: bool,
+    ) -> Result<Option<pse_model::strategy::advice::AdviceCohort>, ProblemError> {
+        use pse_math::convexity::ConvexityClass;
+        use pse_model::generated::enums::ModelingVariableDomain;
+        let Representation::Algebraic(source) = &self.representation else { return Ok(None); };
+        // A hash match alone cannot establish equivalent nonconvex branches. Tasks
+        // without the original owner's equivalence grant retain their baseline.
+        if self.profile.intent != SolveIntent::Optimize
+            || !matches!(source.prepared.prepared.facts.convexity.class,
+                ConvexityClass::Affine | ConvexityClass::ConvexQuadratic(_) | ConvexityClass::Cone(_))
+            || source.prepared.prepared.facts.domains.iter().any(|domain| *domain != ModelingVariableDomain::Continuous)
+            || self.profile.selection != SolverSelection::Auto
+            || !matches!(self.profile.backend, BackendSettings::Default)
+            || self.profile.composition.policy != pse_model::strategy::CompositionPolicy::Auto
+            || self.profile.composition.branch != pse_model::strategy::BranchPolicy::any_qualified()
+            || self.profile.controls.start != StartPolicy::NoPriorStart
+            || inherited || start != pse_model::strategy::StartOrigin::Specification
+            || self.proposal_start.is_some() || self.explicit_start.is_some()
+            || self.composition.is_some() || !self.automatic_products.is_empty()
+        { return Ok(None); }
+        let Some(limits) = self.profile.composition.limits else { return Ok(None); };
+        let branch_start = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
+            &("advice-branch-start", self.profile.composition.branch, self.profile.controls.start,
+                &self.profile.composition.recovery, start))
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let accuracy = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
+            &("advice-accuracy", self.numerics.key, self.normalization.key(), self.work_precision))
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        let exposure = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
+            &("declared-task-exposure", self.snapshot.identity(), self.profile.controls.identity()?, limits))
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+        Ok(Some(pse_model::strategy::advice::AdviceCohort {
+            original: self.original_identity()?, profiles: comparison_profile_key(&self.profile)?,
+            branch_start, accuracy, exposure,
+        }))
+    }
+    /// Actual comparison inputs, without starting a native attempt. Unsupported branch
+    /// equivalence returns None. Baseline IDs include offered native recovery alternatives;
+    /// incomplete current inventories retain the normal deterministic order.
+    pub fn advice_inputs(
+        &self,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Option<SolverAdviceInputs>, MathRuntimeError> {
+        let Some(cohort) = self.advice_cohort(self.entry_origin(false), false)? else { return Ok(None); };
+        let Some(limits) = self.profile.composition.limits else { return Ok(None); };
+        let mut operations = self.automatic_operations(None, cancel)?;
+        operations.extend(self.automatic_native_route_operations()?);
+        let mut seen = std::collections::BTreeSet::new();
+        let candidates = operations.into_iter().map(|operation| operation.candidate.identity)
+            .filter(|identity| seen.insert(*identity)).collect();
+        Ok(Some(SolverAdviceInputs { cohort, candidates, limits }))
+    }
     /// Produce descriptions only. Optional artifacts are prepared after one decision.
     pub(crate) fn automatic_operations(
         &self,
@@ -666,7 +738,7 @@ impl PreparedSolve {
             return Err(MathRuntimeError::Cancelled);
         }
         let start = self.entry_origin(false);
-        let original_request = self.request_identity()?.as_id();
+        let original_request = self.automatic_comparison_identity()?;
         let candidate = |kind: MechanismKind,
                          replacement,
                          profile: &SolverProfile|
@@ -674,7 +746,7 @@ impl PreparedSolve {
             let mut binding = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
             binding
                 .hash(&original_request)
-                .hash(&profile_key(profile)?.as_id())
+                .hash(&comparison_profile_key(profile)?)
                 .str(kind.as_str());
             Ok(super::strategy::AutoCandidate {
                 identity: binding.finish_hash(),
@@ -847,7 +919,7 @@ impl PreparedSolve {
     fn automatic_native_route_operations(&self) -> Result<Vec<AutomaticOperation>, ProblemError> {
         use pse_model::strategy::MechanismKind;
         let start = self.entry_origin(false);
-        let original_request = self.request_identity()?.as_id();
+        let original_request = self.automatic_comparison_identity()?;
         self.automatic_backend_alternatives()
             .into_iter()
             .map(|backend| {
@@ -855,7 +927,7 @@ impl PreparedSolve {
                 let mut binding = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
                 binding
                     .hash(&original_request)
-                    .hash(&profile_key(&profile)?.as_id())
+                    .hash(&comparison_profile_key(&profile)?)
                     .str(MechanismKind::NativeGlobalization.as_str());
                 Ok(AutomaticOperation {
                     candidate: super::strategy::AutoCandidate {
@@ -5370,6 +5442,13 @@ impl execution::OriginalModel for OriginalCase<'_> {
         })()
         .map_err(MathRuntimeError::into_problem)
     }
+}
+
+/// Advice comparison projection; actual effective keys retain the complete body.
+pub(crate) fn comparison_profile_key(profile: &SolverProfile) -> Result<ContentHash, ProblemError> {
+    let mut baseline = profile.clone();
+    baseline.composition.advice = None;
+    Ok(profile_key(&baseline)?.as_id())
 }
 
 /// Complete effective request identity, distinct from native session compatibility: the

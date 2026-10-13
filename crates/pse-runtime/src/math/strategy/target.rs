@@ -169,7 +169,8 @@ pub(crate) fn callable<T>(
             last.as_ref(),
             admission.observation()?,
             false,
-        );
+         None,
+     );
         let index = match decision {
             strategy::AutoDecision::Dispatch { candidate } => candidate,
             _ => {

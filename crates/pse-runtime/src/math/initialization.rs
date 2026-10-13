@@ -2893,13 +2893,13 @@ mod tests {
                 pse_model::strategy::WorkObservation {
                     attempts: 1, evaluations: Some(0), iterations: Some(0),
                     factorizations: Some(0), proof_steps: Some(0),
-                }, false), strategy::AutoDecision::Stop { .. }),
+                }, false, None), strategy::AutoDecision::Stop { .. }),
                 "the default single execution cannot silently admit recovery");
             assert!(matches!(strategy::next_automatic(&request, &starts, &[recovery],
                 &BTreeSet::new(), Some(&last), pse_model::strategy::WorkObservation {
                     attempts: 1, evaluations: Some(0), iterations: Some(0),
                     factorizations: Some(0), proof_steps: Some(0),
-                }, false),
+                }, false, None),
                 strategy::AutoDecision::Dispatch { candidate: 0 }));
             assert!(matches!(outcome, super::super::solves::Outcome::Native(_)),
                 "the forged native observation must retain its original report");

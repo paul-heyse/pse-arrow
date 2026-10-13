@@ -489,6 +489,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                 operation.candidate.start = initial;
             }
         }
+        let advice_cohort = step.advice_cohort(initial, inherited)?;
         let mut operations = original_operations;
         let mut bound_operations = std::collections::BTreeMap::new();
         let mut attempted = std::collections::BTreeSet::new();
@@ -531,6 +532,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
                 last_observation.as_ref(),
                 ledger.observation()?,
                 inherited,
+                advice_cohort.as_ref(),
             );
             let resolved = math::strategy::automatic_decision_key(
                 &request,

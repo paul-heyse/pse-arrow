@@ -81,6 +81,7 @@ pub(crate) fn next_automatic(
     last: Option<&AutoObservation>,
     work: WorkObservation,
     inherited: bool,
+    advice_cohort: Option<&pse_model::strategy::advice::AdviceCohort>,
 ) -> AutoDecision {
     if let Err(error) = request.validate() {
         return AutoDecision::Stop {
@@ -129,6 +130,11 @@ pub(crate) fn next_automatic(
         factorizations: None,
         proof_steps: None,
     });
+    let baseline = candidates.iter().map(|candidate| candidate.identity).collect::<Vec<_>>();
+    let advice = request.advice.as_ref().filter(|advice| {
+        request.policy == pse_model::strategy::CompositionPolicy::Auto
+            && advice_cohort.is_some_and(|cohort| advice.applies(cohort, &baseline, limits))
+    });
     let inventory = candidates.iter().enumerate().map(|(index, candidate)| {
         pse_model::strategy::PolicyCandidate {
             state: if candidate.prepared {
@@ -138,6 +144,8 @@ pub(crate) fn next_automatic(
             },
             preference: pse_model::strategy::CandidatePreference {
                 baseline_rank: u32::try_from(index).unwrap_or(u32::MAX),
+                advisory: advice.and_then(|advice| advice.rank(candidate.identity))
+                    .and_then(|rank| u32::try_from(rank).ok()),
                 ..Default::default()
             },
         }
@@ -1584,6 +1592,7 @@ fn run_inner<T>(
             branch: strategy.branch,
             limits: Some(strategy.limits),
             recovery: strategy.start.recovery.clone(),
+            advice: None,
         };
         let work = match ledger.observation() {
             Ok(work) => work,
@@ -1600,7 +1609,8 @@ fn run_inner<T>(
             Some(&pending),
             work,
             actual_facts.inherited,
-        );
+         None,
+     );
         if !matches!(decision, AutoDecision::Assess) {
             result.terminal = Some(Arc::new(ProblemError::Internal(
                 "original assessment was not selected".into(),

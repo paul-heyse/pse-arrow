@@ -799,3 +799,28 @@ async fn auto_recognized_cone_retains_representation_and_paired_proof() {
     assert!(recognized.problem.validate(proof.as_ref()).is_ok());
     assert_eq!(prepared.solve.required_order(), DerivativeOrder::First);
 }
+
+#[cfg(feature = "solver-highs")]
+#[tokio::test]
+async fn actual_convex_advice_inputs_are_nonrecursive_and_refuse_unestablished_branch_equivalence() {
+    use pse_model::strategy::advice::{AdviceMetric, FrozenAdvice};
+    let mut prepared=prepare(LINEAR,SolveIntent::Optimize,SolverSelection::Auto).await;
+    let mut limits=prepared.solve.numerical_strategy().limits;
+    limits.attempts=4;
+    prepared.solve.profile.composition.limits=Some(limits);
+    let cancel=Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let baseline=prepared.solve.advice_inputs(&cancel).unwrap().unwrap();
+    assert!(!baseline.candidates.is_empty());
+    let before=prepared.solve.request_identity().unwrap();
+    let advice=FrozenAdvice::freeze(baseline.cohort.clone(),AdviceMetric::NativeExecutionNanoseconds,
+        baseline.candidates.clone(),vec![],baseline.limits).unwrap();
+    prepared.solve.profile.composition.advice=Some(advice);
+    assert_eq!(prepared.solve.advice_inputs(&cancel).unwrap().unwrap(),baseline);
+    assert_ne!(prepared.solve.request_identity().unwrap(),before);
+    assert!(prepared.solve.advice_cohort(pse_model::strategy::StartOrigin::Accepted,true).unwrap().is_none());
+    prepared.solve.profile.selection=SolverSelection::Explicit(Backend::Highs);
+    assert!(prepared.solve.advice_inputs(&cancel).unwrap().is_none());
+    prepared.solve.profile.selection=SolverSelection::Auto;
+    prepared.solve.profile.intent=SolveIntent::Root;
+    assert!(prepared.solve.advice_inputs(&cancel).unwrap().is_none());
+}
