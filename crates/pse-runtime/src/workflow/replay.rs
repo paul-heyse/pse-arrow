@@ -805,6 +805,46 @@ mod tests {
     }
     #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
+    async fn plan38b_requested_seed_survives_cancellation_before_dispatch_and_portable_reconstruction() {
+        use pse_backend_native::solve::{WarmStart, WarmPayload, HessianMode};
+        let runtime = crate::workflow::tests::runtime();
+        let rows = pse_authoring::language::parse("package p {def Root {var x:Scalar; annotation bounds x(0,2); annotation start x(1); let f:Scalar=x; annotation objective f(minimize); eq floor:x>=0.5;}}",
+            SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named, Default::default()).unwrap();
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
+        let prepared = package.prepare_solve(root, pse_modeling::specialize::root_instance(root), Default::default(), Default::default(),
+            Default::default(), pse_kernels::DerivativeOrder::First, crate::workflow::tests::compiler_profile(),
+            crate::math::solves::SolverProfile { intent: SolveIntent::Optimize, selection: SolverSelection::Explicit(Backend::Ipopt),
+                controls: Controls { hessian: HessianMode::LimitedMemory, ..Default::default() }, ..Default::default() },
+            Default::default(), &crate::CancelSource::new()).await.unwrap();
+        let seed = WarmStart { origin: None, compatibility: prepared.solve.compatibility().unwrap().clone(),
+            payload: WarmPayload::primal(vec![1.25]) };
+        let identity = seed.content_key();
+        let prepared = prepared.with_start(seed).unwrap();
+        let permits = runtime.shared.compiler_cpu();
+        let width = permits.available_permits();
+        assert!(width > 0);
+        let held = permits.acquire_many(width as u32).await.unwrap();
+        let handle = runtime.start_modeling(vec![prepared], true, &crate::CancelSource::new()).await.unwrap();
+        handle.cancel();
+        let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), handle.wait()).await.unwrap().unwrap();
+        let replay = stopped.replay();
+        let document = replay.document().unwrap();
+        assert!(document.continue_independent);
+        assert!(document.native_attempts.is_empty(), "no native report was dispatched while all CPU permits were held");
+        let constructor = &document.case_constructors[0];
+        assert_eq!(constructor.requested_start.as_ref().unwrap().restore().unwrap().content_key(), identity);
+        drop(held);
+        let sources = replay.reconstruct_sources(&runtime).unwrap();
+        let restored = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
+        assert_eq!(restored.solve.requested_start().unwrap().content_key(), identity);
+        let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
+        assert_ne!(fresh.run_id, stopped.run_id);
+        assert!(fresh.report().is_ok(), "{:?}", fresh.report());
+        assert!(fresh.replay().document().unwrap().continue_independent);
+    }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
     async fn plan38b_fit_replay_reconstructs_original_constructor_and_new_allowance() {
         use crate::workflow::fitting::regression;
         let package = regression::package(regression::declared(), [1.; 4]).await;
