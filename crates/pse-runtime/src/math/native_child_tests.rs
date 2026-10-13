@@ -38,8 +38,8 @@ fn source() -> PortableRootSource {
     let length = match registry.physical_name("Length").unwrap() {
         pse_quantity::PhysicalName::QuantityType(id) => id, other => panic!("{other:?}"),
     };
-    let expressions = [pse_authoring::dsl::parse_expr("x - 2{m}").unwrap()];
-    let formals = [Formal { path: "x".into(), quantity: length }];
+    let expressions = [pse_authoring::dsl::parse_expr("x - p").unwrap()];
+    let formals = [Formal { path: "x".into(), quantity: length }, Formal { path: "p".into(), quantity: length }];
     let empty = std::collections::BTreeMap::new();
     let body = Request { definition: SemanticId::from_bytes([188;16]), expressions: &expressions,
         formals: &formals, domains: &empty, groups: &Default::default(), providers: &Default::default(),
@@ -49,7 +49,7 @@ fn source() -> PortableRootSource {
             &Arc::default(), &Default::default(), &[length], &Default::default(), &Default::default()).unwrap();
     PortableRootSource::new(Arc::new(body), context,
         vec![Unknown { id: SemanticId::from_bytes([190;16]), lower: 0.0, upper: 10.0 }],
-        vec![SemanticId::from_bytes([191;16])], vec![],
+        vec![SemanticId::from_bytes([191;16])], vec![2.0],
         Options { start: vec![5.0], variable_nominals: vec![1.0], variable_tolerance: vec![1e-8],
             residual_tolerance: vec![1e-8], iterations: 50, time_limit: Duration::from_secs(20), derivative_tolerance: 1e-10 },
         EvaluationLimits { scratch_bytes: 1<<20, ..Default::default() }, 4096).unwrap()
@@ -63,6 +63,24 @@ fn native_child_source_requires_actual_physical_registry_before_launch() {
         source.parameters, source.options, source.evaluation, source.max_entries).is_err());
 }
 
+#[test]
+fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
+    let mut source = source();
+    let quantity = source.body.quantities()[0];
+    let unit = source.context.quantities.quantity_type(quantity).unwrap().canonical_unit;
+    let descriptor = pse_kernels::AdmittedProvider::new(pse_kernels::ProviderSpec {
+        shapes: Default::default(), derivative_source: pse_kernels::DerivativeSource::Analytic,
+        id: SemanticId::from_bytes([192;16]), revision: ContentHash::from_bytes([193;32]),
+        data: ContentHash::from_bytes([194;32]), inputs: vec![],
+        outputs: vec![pse_kernels::Port { id: SemanticId::from_bytes([195;16]), quantity, unit }],
+        derivatives: DerivativeOrder::First, smoothness: DerivativeOrder::First,
+    }, &source.context.quantities).unwrap();
+    source.context.providers.insert("opaque".into(), pse_compiler::typed_math::ProviderCall { descriptor, output: 0 });
+    assert!(matches!(PortableRootSource::new(source.body, source.context, source.unknowns, source.rows,
+        source.parameters, source.options, source.evaluation, source.max_entries),
+        Err(MathRuntimeError::Solve(pse_backend_native::ProblemError::Contract(_)))));
+}
+
 // The actual private binary is an explicit executable prerequisite supplied by the
 // integrated selector. Never discover a stale PATH binary or build one within a test.
 #[tokio::test]
@@ -72,14 +90,18 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
         super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
     let baseline = service.pool.reserved();
     let child = NativeChild::qualify(executable, 128<<20).unwrap();
-    let handle = service.solve_portable_root(source(), child, FlightCancellation::default(), None).unwrap();
-    let (result, lease) = handle.finish().await.unwrap();
-    assert_ne!(result.child_pid, std::process::id());
-    assert!(result.refusal.is_none(), "{:?}", result.refusal);
-    assert!((result.proposal.as_ref().unwrap()[0]-2.0).abs() < 1e-8);
-    assert!(!Path::new(&format!("/proc/{}", result.child_pid)).exists(), "result cannot precede actual child reap");
-    drop((result, lease));
-    assert_eq!(service.pool.reserved(), baseline);
+    for target in [2.0, 4.0, 2.0] {
+        let mut input = source();
+        input.parameters[0] = target;
+        let handle = service.solve_portable_root(input, child.clone(), FlightCancellation::default(), None).unwrap();
+        let (result, lease) = handle.finish().await.unwrap();
+        assert_ne!(result.child_pid, std::process::id());
+        assert!(result.refusal.is_none(), "{:?}", result.refusal);
+        assert!((result.proposal.as_ref().unwrap()[0]-target).abs() < 1e-8);
+        assert!(!Path::new(&format!("/proc/{}", result.child_pid)).exists(), "result cannot precede actual child reap");
+        drop((result, lease));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
 }
 
 #[test]
