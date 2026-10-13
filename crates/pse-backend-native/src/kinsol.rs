@@ -2309,6 +2309,115 @@ mod tests {
         assert_eq!(*linear_iterations, None);
         assert_eq!(report.evidence.work.iterations, Some(2));
     }
+    #[derive(Clone, Copy, Debug)]
+    enum RevealingMap {
+        Affine(f64),
+        NoisyBranch,
+        DomainLeaving,
+    }
+    impl RevealingMap {
+        fn value(self, x: f64, call: usize) -> Result<f64, ProblemError> {
+            match self {
+                Self::Affine(coefficient) => Ok(1. + coefficient * x),
+                Self::NoisyBranch => Ok(0.5 * x + if x < 1. { 1.2 } else { 0.8 }
+                    + if call % 2 == 0 { 0.05 } else { -0.05 }),
+                Self::DomainLeaving if x > 1. => Err(pse_math::MathError::Domain {
+                    source_id: pse_ids::SemanticId::NIL, requirement: "map input <= 1",
+                }.into()),
+                Self::DomainLeaving => Ok(x + 2.),
+            }
+        }
+    }
+    #[derive(Debug)]
+    struct ObservedMap {
+        inner: crate::solver_tests::Polynomial,
+        shape: RevealingMap,
+        calls: usize,
+        cancel_at: Option<usize>,
+        cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl FixedPointOracle for ObservedMap {
+        fn contract(&self) -> &OracleContract { &self.inner.c }
+        fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.inner.matrix.symbolic()
+        }
+        fn physical_tear_coordinates(&self) -> bool { true }
+        fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            self.calls += 1;
+            out[0] = self.shape.value(x[0], self.calls)?;
+            if self.cancel_at == Some(self.calls) {
+                self.cancel.store(true, std::sync::atomic::Ordering::Release);
+            }
+            Ok(())
+        }
+        fn original_residual(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = self.shape.value(x[0], self.calls)? - x[0];
+            Ok(())
+        }
+    }
+    fn observed_map_report(shape: RevealingMap, anderson: usize, cancel_at: Option<usize>) -> SolveReport {
+        let controls = Controls { iterations: 8, history: 2, ..Controls::default() };
+        let mut execution = execution();
+        execution.progress = std::sync::Arc::new(Progress::new(0));
+        let method = Method { strategy: Strategy::FixedPoint, anderson, ..Method::default() };
+        if anderson > 0 { execution.memory = Some(anderson_storage(1, method).unwrap().0); }
+        let oracle = ObservedMap { inner: crate::solver_tests::Polynomial::new(), shape,
+            calls: 0, cancel_at, cancel: execution.cancel.clone() };
+        let mut session = Session::new(Function::FixedPoint(Box::new(oracle)), Settings {
+            method, ..settings()
+        }, execution.clone(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
+        session.solve(&[0.], &controls, &ResolvedAccuracy::verification(), execution,
+            &Tolerances { variables: vec![0.25], rows: vec![0.25], integrality: 0.25 }, None).unwrap()
+    }
+    #[test]
+    fn raw_map_scientific_shapes_retain_actual_physical_error_despite_acceleration_and_truncation() {
+        for (shape, anderson) in [(RevealingMap::Affine(0.5), 0),
+            (RevealingMap::Affine(-0.5), 0), (RevealingMap::Affine(-1.2), 1),
+            (RevealingMap::NoisyBranch, 0)]
+        {
+            let report = observed_map_report(shape, anderson, None);
+            assert!(report.events.is_empty());
+            let history = report.evidence.raw_map.as_ref().unwrap();
+            assert_eq!(history.samples.len(), 2);
+            assert!(history.omitted > 0);
+            for sample in history.samples.iter().chain(history.last_successful.iter()) {
+                assert_eq!(sample.role, RawMapRole::FixedPointEvaluation);
+                assert_eq!(sample.coordinates, ObservationCoordinates::PhysicalTears);
+                assert!(sample.failure.is_none());
+                let coordinate = &sample.values[0];
+                let mapped = shape.value(coordinate.input, sample.ordinal as usize).unwrap();
+                assert_eq!(coordinate.mapped, Some(mapped));
+                assert_eq!(coordinate.residual, Some(mapped - coordinate.input));
+                assert_eq!(coordinate.physical_tolerance, Some(0.25));
+                assert_eq!(coordinate.physical_error_ratio, Some((mapped-coordinate.input).abs()/0.25));
+                assert_eq!(sample.inner_start, None);
+                assert_eq!(sample.inner_branch, None);
+            }
+            if anderson > 0 {
+                // A larger second raw residual is retained even though the native
+                // Anderson successor subsequently converges. No restart law is added.
+                assert!(history.samples[1].values[0].residual.unwrap().abs()
+                    > history.samples[0].values[0].residual.unwrap().abs());
+            }
+        }
+    }
+    #[test]
+    fn raw_map_domain_failure_and_cancellation_preserve_last_success_without_successor_work() {
+        let failed = observed_map_report(RevealingMap::DomainLeaving, 0, None);
+        assert_eq!(failed.termination.category, Termination::Evaluation);
+        let history = failed.evidence.raw_map.as_ref().unwrap();
+        assert_eq!(failed.evidence.work.iterations, Some(2));
+        assert_eq!(history.last_successful.as_ref().unwrap().values[0].input, 0.);
+        let last = history.last_evaluation.as_ref().unwrap();
+        assert_eq!(last.values[0].input, 2.);
+        assert!(matches!(last.failure, Some(RawMapFailure::Trial)));
+        assert_eq!(last.values[0].mapped, None);
+        let cancelled = observed_map_report(RevealingMap::Affine(0.5), 0, Some(2));
+        assert_eq!(cancelled.termination.category, Termination::Cancelled);
+        assert_eq!(cancelled.evidence.work.evaluations, Some(2));
+        assert_eq!(cancelled.evidence.work.iterations, Some(2));
+        assert_eq!(cancelled.evidence.raw_map.as_ref().unwrap().last_successful.as_ref().unwrap().ordinal, 2);
+    }
     #[derive(Debug)]
     struct EvaluationAdmission {
         cap: u64,

@@ -37,7 +37,7 @@ static CAPABILITY: Capability = Capability {
     sensitivities: true,
     reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
     cancellation: "evaluation checkpoints; native factorization completes before teardown",
-    diagnostics: "native nonlinear/linear iterations, setups, failures, norms, Krylov and preconditioner counters and callback timing",
+    diagnostics: "typed native nonlinear/function/linear/JVP/preconditioner counters; bounded raw fixed-point G(x)-x and producer-qualified physical Err/Tol; native norms remain separate",
 };
 /// Policy-derived native settings of this request's method controls.
 #[cfg(feature = "kinsol")]

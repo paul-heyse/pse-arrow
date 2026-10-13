@@ -36,7 +36,7 @@ static CAPABILITY: Capability = Capability {
     sensitivities: true,
     reuse: "same sparse layout and bounds: retained C problem",
     cancellation: "intermediate/evaluation checkpoints",
-    diagnostics: "native current iterate, violations, callback counts and timing",
+    diagnostics: "typed structured native evaluation/iteration/time statistics; bounded submitted-coordinate current/restoration snapshots; independent callback counts",
 };
 impl BackendExecution for Ipopt {
     fn backend(&self) -> Backend {
