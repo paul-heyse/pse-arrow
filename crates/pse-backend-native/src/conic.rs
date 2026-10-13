@@ -610,7 +610,7 @@ impl Session {
         certificate: &dyn pse_math::convexity::QuadraticEvidence,
         pse: &Settings,
         compatibility: Compatibility,
-    ) -> Result<(), ProblemError> {
+    ) -> Result<crate::execution::SessionUpdate, ProblemError> {
         p.validate(certificate)?;
         let d = data(p)?;
         let quadratic = p.quadratic.to_clarabel();
@@ -624,15 +624,13 @@ impl Session {
             || self.a_pattern != (d.a.colptr.clone(), d.a.rowval.clone())
             || self.p_pattern != (quadratic.colptr.clone(), quadratic.rowval.clone())
         {
-            return Err(ProblemError::Unsupported(
-                "Clarabel update changes layout or requires disabled preprocessing".into(),
-            ));
+            return Ok(crate::execution::SessionUpdate::Incompatible);
         }
         self.solver
             .update_data(&quadratic, &p.objective, &d.a, &d.rhs)
             .map_err(|e| ProblemError::Contract(format!("Clarabel update: {e}")))?;
         self.compatibility = compatibility;
-        Ok(())
+        Ok(crate::execution::SessionUpdate::Compatible)
     }
     /// Solve using native preprocessing/postprocessing. No external iterate warm start is claimed.
     pub fn solve(
@@ -1158,13 +1156,12 @@ mod tests {
             .update(&p, &certificate, &reusable, stamp.clone())
             .unwrap();
         // A different mode never updates a retained session.
-        assert!(
-            session
-                .update(&p, &certificate, &Settings::default(), stamp.clone())
-                .is_err()
+        assert_eq!(
+            session.update(&p, &certificate, &Settings::default(), stamp.clone()).unwrap(),
+            crate::execution::SessionUpdate::Incompatible,
         );
         p.contract.variables[0].upper = f64::INFINITY;
-        assert!(session.update(&p, &certificate, &reusable, stamp).is_err());
+        assert_eq!(session.update(&p, &certificate, &reusable, stamp).unwrap(), crate::execution::SessionUpdate::Incompatible);
     }
     /// The conic boundary vocabulary is pse-owned (F09): its encoding is pinned here, the
     /// layout and request identities derive from it alone, and Clarabel sees only the

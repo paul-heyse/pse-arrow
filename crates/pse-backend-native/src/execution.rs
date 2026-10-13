@@ -786,6 +786,16 @@ impl BackendSettings {
     }
 }
 
+/// Result of a checked native refresh. Incompatibility is decided before mutation;
+/// a failed or uncertain mutation is an error and invalidates the retained owner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SessionUpdate {
+    /// The complete refresh succeeded.
+    Compatible,
+    /// No mutation was attempted because the retained layout/profile does not fit.
+    Incompatible,
+}
+
 /// Worker-owned native state retained from the previous step of a finite sequence.
 /// Opaque to workflows: each adapter recognizes only its own session. It never crosses a
 /// worker boundary and is dropped on the owning thread.
@@ -881,7 +891,7 @@ impl Retained {
         &mut self,
         backend: Backend,
         policy: crate::solve::ReusePolicy,
-        reuse: impl FnOnce(&mut S) -> Result<bool, ProblemError>,
+        reuse: impl FnOnce(&mut S) -> Result<SessionUpdate, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
         if self.session.is_none()
@@ -895,7 +905,16 @@ impl Retained {
         }
         let refusal = match &mut self.session {
             Some((held, state)) if *held == backend => match state.downcast_mut::<S>() {
-                Some(session) => (!reuse(session)?).then_some(crate::ReuseRefusal::Structure),
+                Some(session) => match reuse(session) {
+                    Ok(SessionUpdate::Compatible) => None,
+                    Ok(SessionUpdate::Incompatible) => Some(crate::ReuseRefusal::Structure),
+                    Err(cause) => {
+                        // A partial update is neither a layout refusal nor healthy state.
+                        // Destruction and charge release precede returning the original cause.
+                        self.clear();
+                        return Err(cause);
+                    }
+                },
                 None => Some(crate::ReuseRefusal::Structure),
             },
             Some((held, _)) => Some(crate::ReuseRefusal::Foreign(*held)),

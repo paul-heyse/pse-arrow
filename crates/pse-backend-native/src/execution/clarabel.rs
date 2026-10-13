@@ -123,9 +123,7 @@ impl BackendExecution for Clarabel {
             Backend::Clarabel,
             input.controls.reuse,
             |session: &mut conic::Session| {
-                Ok(session
-                    .update(problem, certificate, settings, stamp.clone())
-                    .is_ok())
+                session.update(problem, certificate, settings, stamp.clone())
             },
             || {
                 conic::Session::new(

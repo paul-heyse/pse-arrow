@@ -325,11 +325,11 @@ impl BackendExecution for Kinsol {
                 input.controls.reuse,
                 |(session, held): &mut (Session, Option<Box<dyn Any>>)| {
                     if !(session.matches_layout(&stamp) && session.matches_settings(&settings)) {
-                        return Ok(false);
+                        return Ok(super::SessionUpdate::Incompatible);
                     }
                     session.replace(take()?, settings.clone(), stamp.clone())?;
                     *held = owner.take();
-                    Ok(true)
+                    Ok(super::SessionUpdate::Compatible)
                 },
                 || {
                     let session = Session::new(

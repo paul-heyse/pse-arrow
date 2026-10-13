@@ -162,7 +162,7 @@ impl BackendExecution for Ipopt {
             let (session, _) = retained.session(
                 Backend::Ipopt,
                 input.controls.reuse,
-                |_: &mut crate::ipopt::Session| Ok(true),
+                |_: &mut crate::ipopt::Session| Ok(super::SessionUpdate::Compatible),
                 || Ok(crate::ipopt::Session::new()),
             )?;
             session.solve(

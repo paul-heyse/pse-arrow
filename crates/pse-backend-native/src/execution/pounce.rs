@@ -184,7 +184,7 @@ impl BackendExecution for Pounce {
             let (session, _) = retained.session(
                 Backend::Pounce,
                 input.controls.reuse,
-                |_: &mut crate::pounce::Session| Ok(true),
+                |_: &mut crate::pounce::Session| Ok(super::SessionUpdate::Compatible),
                 || Ok(crate::pounce::Session::new()),
             )?;
             session.solve(

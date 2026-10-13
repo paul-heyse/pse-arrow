@@ -729,6 +729,16 @@ pub trait WorkAdmission: std::fmt::Debug + Send + Sync {
     fn retain_storage(&self) -> Option<Arc<dyn std::any::Any + Send + Sync>> {
         None
     }
+    /// Reserve optional known retained storage independently of this request ledger.
+    /// Absence means use the allocation-free fallback. The token owns only the actual
+    /// allocation lease and must not retain controls, oracles or completed work counters.
+    fn reserve_retained_storage(
+        &self,
+        _owner: &str,
+        _known_bytes: usize,
+    ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, ProblemError> {
+        Ok(None)
+    }
     /// Reserve the next operation before it starts, including failed operations.
     fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError>;
     /// Reconcile work that actually ran; the enclosing driver must not charge it again.

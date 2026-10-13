@@ -87,7 +87,7 @@ fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
         .session(
             Backend::Highs,
             ReusePolicy::AllowRebuild,
-            |_: &mut u64| Ok(true),
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(1u64),
         )
         .unwrap();
@@ -97,7 +97,7 @@ fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
         retained.session(
             Backend::Highs,
             ReusePolicy::RequireReuse,
-            |_: &mut u64| Ok(true),
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(2u64)
         ),
         Err(ProblemError::Reuse {
@@ -109,7 +109,7 @@ fn idle_scheduler_relinquishment_refuses_only_required_discarded_cache() {
         .session(
             Backend::Kinsol,
             ReusePolicy::RequireReuse,
-            |_: &mut u64| Ok(true),
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
             || Ok(3u64),
         )
         .unwrap();
@@ -156,7 +156,7 @@ impl BackendExecution for Stub {
             input.controls.reuse,
             |n: &mut i64| {
                 *n += 1;
-                Ok(true)
+                Ok(SessionUpdate::Compatible)
             },
             || Ok(1_i64),
         )?;
@@ -326,14 +326,14 @@ fn stub_backend_routes_through_adapter_table() {
         .session(
             Backend::Kinsol,
             ReusePolicy::AllowRebuild,
-            |_: &mut u8| Ok(true),
+            |_: &mut u8| Ok(SessionUpdate::Compatible),
             || Ok(0_u8),
         )
         .unwrap();
     let refused = foreign_state.session(
         Backend::Idas,
         ReusePolicy::RequireReuse,
-        |_: &mut i64| Ok(true),
+        |_: &mut i64| Ok(SessionUpdate::Compatible),
         || Ok(0_i64),
     );
     assert!(matches!(
@@ -347,7 +347,7 @@ fn stub_backend_routes_through_adapter_table() {
     let refused = foreign_state.session(
         Backend::Kinsol,
         ReusePolicy::RequireReuse,
-        |_: &mut u8| Ok(false),
+        |_: &mut u8| Ok(SessionUpdate::Incompatible),
         || Ok(0_u8),
     );
     assert!(matches!(
@@ -1218,4 +1218,44 @@ fn declared_lexicographic_capability_native_staged_and_no_fallback() {
     );
     assert!(!retained.classes.is_empty());
     assert_eq!(retained.eligibility.len(), 1);
+}
+
+#[test]
+fn failed_mutation_destroys_retained_state_and_charge_before_returning_cause() {
+    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    #[derive(Debug)]
+    struct Owner(Arc<AtomicBool>);
+    impl Drop for Owner {
+        fn drop(&mut self) { self.0.store(true, Ordering::Release); }
+    }
+    for policy in [ReusePolicy::AllowRebuild, ReusePolicy::RequireReuse] {
+        let destroyed = Arc::new(AtomicBool::new(false));
+        let uncharged = Arc::new(AtomicBool::new(false));
+        let mut retained = Retained::default();
+        retained.session(Backend::Highs, ReusePolicy::AllowRebuild,
+            |_: &mut Owner| Ok(SessionUpdate::Compatible),
+            || Ok(Owner(destroyed.clone()))).unwrap();
+        retained.charge_session(Box::new(Owner(uncharged.clone())));
+        let result = retained.session(Backend::Highs, policy,
+            |_: &mut Owner| Err(ProblemError::Contract("partial native mutation".into())),
+            || panic!("failed mutation must not rebuild or replace its cause"));
+        assert!(matches!(result, Err(ProblemError::Contract(ref detail)) if detail == "partial native mutation"));
+        assert!(destroyed.load(Ordering::Acquire));
+        assert!(uncharged.load(Ordering::Acquire));
+        assert!(retained.is_empty());
+    }
+}
+
+#[test]
+fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
+    let mut retained = Retained::default();
+    retained.session(Backend::Highs, ReusePolicy::AllowRebuild,
+        |_: &mut u64| Ok(SessionUpdate::Compatible), || Ok(5u64)).unwrap();
+    let refusal = retained.session(Backend::Highs, ReusePolicy::RequireReuse,
+        |_: &mut u64| Ok(SessionUpdate::Incompatible), || panic!("forbidden rebuild"));
+    assert!(matches!(refusal, Err(ProblemError::Reuse { .. })));
+    let (value, reused) = retained.session(Backend::Highs, ReusePolicy::RequireReuse,
+        |_: &mut u64| Ok(SessionUpdate::Compatible), || panic!("healthy state retained")).unwrap();
+    assert!(reused);
+    assert_eq!(*value, 5);
 }
