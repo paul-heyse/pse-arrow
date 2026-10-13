@@ -30,6 +30,66 @@ use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
 use std::{collections::BTreeSet, sync::Arc};
 
+/// Completed attempt metadata is independent of output persistence and final selection.
+#[derive(Clone, Debug)]
+pub struct SimulationSampleAttempt {
+    /// Accuracy pass: 0 is production, 1 contrast, 2 optional refinement.
+    pub attempt: u64,
+    /// Actual native completion, never recording status.
+    pub termination: native::Termination,
+    /// Achieved physical time.
+    pub completed_time: f64,
+    /// Original requested sample ordinals and active modes.
+    pub coverage: native::SampleCoverage,
+    /// Whether all original requested checks and endpoint obligations completed.
+    pub checks_complete: bool,
+    /// Whether every actually evaluated original check passed.
+    pub checks_satisfied: bool,
+    /// Actual evaluated original check count.
+    pub original_checks: usize,
+}
+/// Bound before launch to the existing run owner. Subscriber release and recording ACK
+/// have their own meaning; sample and attempt events remain provisional science.
+pub trait SimulationSampleObserver: Send {
+    /// Borrow one completed sample. The owner lends active compute while this may wait;
+    /// the sink checks the supplied original execution while applying backpressure.
+    fn sample(&mut self, accuracy_attempt: u64, ordinal: usize, sample: &native::Sample,
+        execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError>;
+    /// Native work and original checks for one actual accuracy attempt have joined.
+    fn attempt_finished(&mut self, summary: &SimulationSampleAttempt,
+        execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError>;
+    /// Identify the final selected attempt after the accuracy policy settles. This is
+    /// neither a recording ACK nor permission to use an unaccepted scientific result.
+    fn finished(&mut self, selected_attempt: u64,
+        execution: &pse_backend_native::solve::Execution) -> Result<(), ProblemError>;
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+struct LiveSampleAdapter<'a> {
+    attempt: u64,
+    observer: &'a mut dyn SimulationSampleObserver,
+    execution: &'a pse_backend_native::solve::Execution,
+    original: Option<checks::SampleCheckWorker<'a>>,
+    checks: checks::SampleChecks,
+    diagnostic_times: Vec<f64>,
+    diagnostics: Vec<native::Sample>,
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+impl native::SampleObserver for LiveSampleAdapter<'_> {
+    fn sample(&mut self, ordinal: usize, sample: &native::Sample) -> Result<(), ProblemError> {
+        self.execution.check()?;
+        if let Some(worker) = &mut self.original {
+            if let Err(error) = worker.check(ordinal, sample, None, false, &mut self.checks) {
+                self.checks.error = Some(error.boundary_diagnostic());
+                return Err(ProblemError::Contract(format!("original live sample assessment: {error}")));
+            }
+            if self.diagnostic_times.contains(&sample.time) { self.diagnostics.push(sample.clone()); }
+        }
+        pse_backend_native::execution::pause_compute();
+        let delivered = self.observer.sample(self.attempt, ordinal, sample, self.execution);
+        let resumed = pse_backend_native::execution::resume_compute(self.execution);
+        delivered.and(resumed)
+    }
+}
 /// Authored integration controls retain the factory's provisional physical slots until
 /// bound engineering context is frozen. Explicit profiles never acquire these slots.
 pub(in crate::workflow) struct AuthoredIntegrationControls {
@@ -265,6 +325,9 @@ impl ModelingTrajectory {
         ),
         WorkflowError,
     > {
+        if self.inner.report.coverage.retention == native::SampleRetention::Compact {
+            return Err(contract("compact trajectory does not retain derivative diagnostic samples"));
+        }
         let trajectory = self.clone();
         let prepared = &self.inner.prepared;
         let signature = &prepared.contract;
@@ -732,11 +795,80 @@ impl ModelingSimulation {
             solver,
         })
     }
+    #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+    pub(super) fn integrate_sample_attempt(
+        &self, run_id: RunId, profile: &native::Profile, attempt: u64,
+        scope: &pse_kernels::ExecutionScope, progress: Arc<pse_backend_native::solve::Progress>,
+        retention: native::SampleRetention, observer: &mut Option<Box<dyn SimulationSampleObserver>>,
+    ) -> Result<(native::Report, checks::SampleChecks), ProblemError> {
+        let controls = pse_backend_native::solve::Controls { time_limit: profile.time_limit, ..Default::default() };
+        let mut execution = pse_backend_native::solve::Execution::within(
+            scope.cancellation().clone(), &controls, scope.clone())?;
+        execution.progress = progress.clone();
+        let mut worker = self.worker(scope.clone())?;
+        let Some(observer) = observer.as_deref_mut() else {
+            let report = native::integrate_with_progress_observed(&mut worker, profile,
+                &self.parameters, scope.cancellation().clone(), progress, &self.snapshot)?;
+            drop(worker);
+            let checks = self.check_samples(run_id, &report, &self.parameters, scope);
+            return Ok((report, checks));
+        };
+        let compact = retention == native::SampleRetention::Compact;
+        let original = if compact { Some(self.sample_check_worker(run_id, &self.parameters, scope)
+            .map_err(|error| ProblemError::Contract(error.to_string()))?) } else { None };
+        let mut adapter = LiveSampleAdapter {
+            attempt, observer, execution: &execution, original,
+            checks: checks::SampleChecks { rows: Vec::new(), reports: Vec::new(), complete: false, error: None },
+            diagnostic_times: self.numerics().policy.goals.iter().filter_map(|goal|
+                (goal.observation == pse_model::generated::enums::AccuracyObservation::Sample)
+                    .then_some(goal.time).flatten()).collect(),
+            diagnostics: Vec::new(),
+        };
+        let mut report = native::integrate_with_samples_observed(&mut worker, profile,
+            &self.parameters, scope.cancellation().clone(), progress, &self.snapshot,
+            retention, &mut adapter)?;
+        drop(worker);
+        if compact { report.samples = std::mem::take(&mut adapter.diagnostics); }
+        let mut checks = if compact { self.finish_live_checks(run_id, &report, &self.parameters, scope) }
+            else { self.check_samples(run_id, &report, &self.parameters, scope) };
+        checks.rows.append(&mut adapter.checks.rows);
+        checks.reports.append(&mut adapter.checks.reports);
+        if let Some(error) = adapter.checks.error.take() { checks.error = Some(error); checks.complete = false; }
+        let summary = SimulationSampleAttempt { attempt, termination: report.termination,
+            completed_time: report.completed_time, coverage: report.coverage.clone(),
+            checks_complete: checks.complete && checks.error.is_none(),
+            checks_satisfied: checks.error.is_none() && checks.rows.iter().all(|c| c.satisfied),
+            original_checks: checks.rows.len() };
+        pse_backend_native::execution::pause_compute();
+        let delivered = adapter.observer.attempt_finished(&summary, &execution);
+        let resumed = pse_backend_native::execution::resume_compute(&execution);
+        if let Err(error) = delivered.and(resumed) {
+            report.termination = match execution.stopped() {
+                Some(pse_backend_native::solve::Termination::Cancelled) => native::Termination::Cancelled,
+                Some(pse_backend_native::solve::Termination::TimeLimit) => native::Termination::TimeLimit,
+                _ => native::Termination::Failed,
+            };
+            report.error = Some(error);
+            checks.complete = false;
+        }
+        Ok((report, checks))
+    }
+    /// Submit prebound live sample ownership before any native effect.
+    pub(in crate::workflow) fn submit_with_samples(&self, run_id: RunId,
+        submission: crate::math::Submission, retention: native::SampleRetention,
+        observer: Box<dyn SimulationSampleObserver>) -> Result<DynamicsHandle, WorkflowError> {
+        self.submit_inner(run_id, submission, retention, Some(observer))
+    }
     pub(in crate::workflow) fn submit(
         &self,
         run_id: RunId,
-        mut submission: crate::math::Submission,
+        submission: crate::math::Submission,
     ) -> Result<DynamicsHandle, WorkflowError> {
+        self.submit_inner(run_id, submission, native::SampleRetention::Full, None)
+    }
+    fn submit_inner(&self, run_id: RunId, mut submission: crate::math::Submission,
+        retention: native::SampleRetention, mut observer: Option<Box<dyn SimulationSampleObserver>>)
+        -> Result<DynamicsHandle, WorkflowError> {
         let local = std::time::Instant::now()
             .checked_add(self.profile.time_limit)
             .ok_or_else(|| contract("simulation submission deadline extent"))?;
@@ -753,16 +885,10 @@ impl ModelingSimulation {
                 if let Some(admission) = &accuracy_admission {
                     admission.reserve_attempt()?;
                 }
-                let mut worker = prepared.worker(scope.clone())?;
-                let native_result = native::integrate_with_progress_observed(
-                    &mut worker,
-                    &prepared.profile,
-                    &prepared.parameters,
-                    flag.clone(),
-                    progress.clone(),
-                    &prepared.snapshot,
-                );
-                drop(worker);
+                let controls = pse_backend_native::solve::Controls { time_limit: prepared.profile.time_limit, ..Default::default() };
+                let sample_execution = pse_backend_native::solve::Execution::within(flag.clone(), &controls, scope.clone())?;
+                let native_result = prepared.integrate_sample_attempt(run_id, &prepared.profile, 0,
+                    &scope, progress.clone(), retention, &mut observer);
                 let mut accuracy_charges = Vec::new();
                 if let Some(admission) = &accuracy_admission {
                     accuracy_charges.push(accuracy::complete_dynamic_attempt(
@@ -771,20 +897,31 @@ impl ModelingSimulation {
                         0,
                     )?);
                 }
-                let report = native_result?;
-                let checks = prepared.check_samples(run_id, &report, &prepared.parameters, &scope);
-                let (mut report, checks, accuracy) = prepared.assess_dynamic_accuracy(
+                let (report, checks) = native_result?;
+                let mut selected_attempt = 0;
+                let (mut report, mut checks, accuracy) = prepared.assess_dynamic_accuracy(
                     report,
                     checks,
                     accuracy::DynamicAttemptContext {
                         run_id,
                         scope: &scope,
-                        flag,
                         progress: progress.clone(),
                         admission: accuracy_admission,
                         charges: &mut accuracy_charges,
+                        retention,
+                        observer: &mut observer,
+                        selected_attempt: &mut selected_attempt,
                     },
                 )?;
+                if let Some(observer) = observer.as_deref_mut() {
+                    pse_backend_native::execution::pause_compute();
+                    let delivered = observer.finished(selected_attempt, &sample_execution);
+                    let resumed = pse_backend_native::execution::resume_compute(&sample_execution);
+                    if let Err(error) = delivered.and(resumed) {
+                        if report.error.is_none() { report.error = Some(error); }
+                        checks.complete = false;
+                    }
+                }
                 if !prepared.numerics().policy.goals.is_empty() {
                     (report.progress, report.dropped_progress) = progress.snapshot();
                 }
@@ -820,7 +957,7 @@ impl ModelingSimulation {
             }
             #[cfg(not(any(feature = "solver-diffsol", feature = "solver-idas")))]
             {
-                let _ = (prepared, flag, progress, run_id);
+                let _ = (prepared, flag, progress, run_id, retention, observer);
                 Err(crate::math::MathRuntimeError::Solve(
                     ProblemError::unsupported("dynamic backend is not linked"),
                 ))

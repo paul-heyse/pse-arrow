@@ -242,7 +242,7 @@ impl ModelingTrajectory {
             .map_err(relation)?;
         if request.wants(pse_relations::generated::runtime::modeling_trajectory_modes::RELATION_ID)
         {
-            for (sample, point) in self.inner.report.samples.iter().enumerate() {
+            for (sample, &(time, mode_index)) in self.inner.report.coverage.points.iter().enumerate() {
                 if columns
                     .skip_next::<pse_model::generated::runtime::modeling_trajectory_modes::Row>()
                 {
@@ -250,7 +250,7 @@ impl ModelingTrajectory {
                 }
                 let mode = p
                     .modes
-                    .get(point.mode)
+                    .get(mode_index)
                     .ok_or_else(|| contract("trajectory mode absent"))?;
                 let _copy = crate::workflow::result_export::working(
                     &pool,
@@ -262,7 +262,7 @@ impl ModelingTrajectory {
                         pse_model::generated::runtime::modeling_trajectory_modes::Row {
                             run_id: self.inner.run_id,
                             sample: sample as i64,
-                            time: point.time,
+                            time,
                             mode: mode.name.clone(),
                         },
                     )
@@ -447,10 +447,11 @@ impl ModelingTrajectory {
             {
                 outputs.sort_unstable_by_key(|(symbol, _, _, _)| *symbol);
             }
+            let samples = if r.coverage.retention == native::SampleRetention::Full {
+                r.samples.as_slice()
+            } else { &[] };
             let width = outputs.len();
-            let total = r
-                .samples
-                .len()
+            let total = samples.len()
                 .checked_mul(width)
                 .ok_or_else(|| contract("trajectory projection extent"))?;
             let start = request.range.start.min(total);
@@ -468,8 +469,8 @@ impl ModelingTrajectory {
                 } else {
                     crate::workflow::ResultOrder::Public
                 };
-                let (sample, i) = order.trajectory_coordinate(index, width, r.samples.len())?;
-                let point = &r.samples[sample];
+                let (sample, i) = order.trajectory_coordinate(index, width, samples.len())?;
+                let point = &samples[sample];
                 let (symbol, quantity, unit, column) = outputs[i];
                 if request.wants(simulation_samples::RELATION_ID) {
                     if point.outputs.len() != width {
@@ -546,5 +547,32 @@ impl ModelingTrajectory {
             }
         }
         columns.finish().await.map_err(relation)
+    }
+}
+
+impl ModelingSimulation {
+    /// Project provisional output rows with the same authored member/quantity/canonical
+    /// unit meaning as terminal simulation_samples. Attempt identity stays explicit.
+    pub(in crate::workflow) fn live_sample_rows(&self, run_id: RunId, accuracy_attempt: u64,
+        ordinal: usize, sample: &native::Sample)
+        -> Result<Vec<pse_model::generated::runtime::live_simulation_samples::Row>, WorkflowError> {
+        let product = self.model().compiled();
+        let outputs = pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id()).map_err(math)?;
+        let rows = pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id).map_err(math)?;
+        if sample.outputs.len() != self.contract.outputs.len() {
+            return Err(contract("live trajectory output extent"));
+        }
+        self.contract.outputs.iter().enumerate().map(|(column, id)| {
+            let ModelingOutput::Member(symbol) = outputs.get(id)
+                .ok_or_else(|| contract("trajectory output lineage absent"))? else {
+                    return Err(contract("trajectory output is not an authored member")); };
+            let row = rows.get(id).ok_or_else(|| contract("trajectory physical row absent"))?;
+            let unit = self.quantities.quantity_type(row.quantity).map_err(math)?.canonical_unit;
+            Ok(pse_model::generated::runtime::live_simulation_samples::Row {
+                run_id, accuracy_attempt, sample: ordinal as u64, time: sample.time,
+                symbol_id: *symbol, quantity_id: row.quantity.as_id(), unit_id: unit.as_id(),
+                value: sample.outputs[column],
+            })
+        }).collect()
     }
 }

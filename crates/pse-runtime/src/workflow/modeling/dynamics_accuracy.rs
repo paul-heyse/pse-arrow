@@ -737,11 +737,9 @@ fn trajectory_shape(report: &native::Report) -> TrajectoryShape {
             .map(|event| (event.event, event.time, event.after.is_some()))
             .collect(),
         endpoint_event: report.endpoint.as_ref().and_then(|endpoint| endpoint.event),
-        samples: report
-            .samples
-            .iter()
-            .map(|sample| (sample.time, sample.mode))
-            .collect(),
+        samples: if report.coverage.retention == native::SampleRetention::Compact {
+            report.coverage.points.clone()
+        } else { report.samples.iter().map(|sample| (sample.time, sample.mode)).collect() },
     }
 }
 #[cfg(all(
@@ -1144,10 +1142,12 @@ struct PointUncertaintyRequest<'a> {
 pub(super) struct DynamicAttemptContext<'a> {
     pub(super) run_id: RunId,
     pub(super) scope: &'a pse_kernels::ExecutionScope,
-    pub(super) flag: native::Cancellation,
     pub(super) progress: Arc<pse_backend_native::solve::Progress>,
     pub(super) admission: Option<Arc<crate::math::strategy::admission::TaskAdmission>>,
     pub(super) charges: &'a mut Vec<pse_model::strategy::WorkCharge>,
+    pub(super) retention: native::SampleRetention,
+    pub(super) observer: &'a mut Option<Box<dyn SimulationSampleObserver>>,
+    pub(super) selected_attempt: &'a mut u64,
 }
 
 #[cfg(all(
@@ -2000,10 +2000,12 @@ impl ModelingSimulation {
         let DynamicAttemptContext {
             run_id,
             scope,
-            flag,
             progress,
             admission,
             charges,
+            retention,
+            observer,
+            selected_attempt,
         } = context;
         let run_id = *run_id;
         let admission = admission.clone();
@@ -2065,12 +2067,12 @@ impl ModelingSimulation {
             .math()
             .reserve("math:dynamic-goal-comparator", self.bytes)?;
         let started = std::time::Instant::now();
-        let integrate = |profile: &native::Profile,
+        let mut integrate = |profile: &native::Profile,
                          occurrence: i64,
                          ratio: f64|
          -> Result<
             (
-                Result<native::Report, ProblemError>,
+                Result<(native::Report, checks::SampleChecks), ProblemError>,
                 pse_model::strategy::WorkCharge,
             ),
             ProblemError,
@@ -2091,16 +2093,8 @@ impl ModelingSimulation {
                 incumbent: None,
             });
             admission.reserve_attempt()?;
-            let mut worker = self.worker(scope.clone())?;
-            let outcome = native::integrate_with_progress_observed(
-                &mut worker,
-                profile,
-                &self.parameters,
-                flag.clone(),
-                progress.clone(),
-                &self.snapshot,
-            );
-            drop(worker);
+            let outcome = self.integrate_sample_attempt(run_id, profile, occurrence as u64,
+                scope, progress.clone(), *retention, observer);
             let charge = complete_dynamic_attempt(&admission, self.key, occurrence as u64)?;
             Ok((outcome, charge))
         };
@@ -2112,14 +2106,13 @@ impl ModelingSimulation {
             }
         };
         charges.push(other_charge);
-        let mut other = match other_outcome {
-            Ok(report) => report,
+        let (mut other, other_checks) = match other_outcome {
+            Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;
                 return Ok((report, checks, rows));
             }
         };
-        let other_checks = self.check_samples(run_id, &other, &self.parameters, scope);
         let comparator_result = Self::comparator_failure(&mut other, &other_checks, scope);
         let comparator_reason = match comparator_result {
             Ok(reason) => reason,
@@ -2191,14 +2184,13 @@ impl ModelingSimulation {
             }
         };
         charges.push(refined_charge);
-        let mut refined = match refined_outcome {
-            Ok(report) => report,
+        let (mut refined, refined_checks) = match refined_outcome {
+            Ok(result) => result,
             Err(error) => {
                 let rows = self.optional_accuracy_failure(error)?;
                 return Ok((report, checks, rows));
             }
         };
-        let refined_checks = self.check_samples(run_id, &refined, &self.parameters, scope);
         let comparator_result = Self::comparator_failure(&mut refined, &refined_checks, scope);
         let comparator_reason = match comparator_result {
             Ok(reason) => reason,
@@ -2270,6 +2262,7 @@ impl ModelingSimulation {
         }
         let prior_statistics = std::mem::take(&mut report.statistics);
         report = refined;
+        **selected_attempt = 2;
         report.statistics.push(serde_json::json!({ "accuracy_original_run": true,
             "controls": native::profile_json(&self.profile), "native_statistics": prior_statistics }));
         report

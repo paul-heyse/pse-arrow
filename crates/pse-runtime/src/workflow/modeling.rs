@@ -40,7 +40,7 @@ pub use pure::conform_pure_documents;
 pub(super) mod dynamics;
 #[cfg(feature = "solver-idas")]
 pub use dynamics::consistent::ConsistentInitializationResult;
-pub use dynamics::{ModelingSimulation, ModelingTrajectory};
+pub use dynamics::{ModelingSimulation, ModelingTrajectory, SimulationSampleAttempt, SimulationSampleObserver};
 #[cfg(test)]
 mod certificate_tests;
 #[cfg(test)]

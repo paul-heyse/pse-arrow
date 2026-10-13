@@ -11,6 +11,36 @@ pub(in crate::workflow) struct SampleChecks {
     pub error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
 }
 impl ModelingSimulation {
+    pub(super) fn sample_check_worker<'a>(&'a self, run_id: RunId, parameters: &'a [f64],
+        scope: &'a pse_kernels::ExecutionScope) -> Result<SampleCheckWorker<'a>, WorkflowError> {
+            let create_worker =
+                |mode: &SimulationMode, program: &Option<Arc<crate::math::ExecutableCase>>| {
+                    program
+                        .as_ref()
+                        .map(|p| {
+                            let providers =
+                                crate::math::attempt_providers(&mode.context.providers, scope)
+                                    .map_err(|e| contract(e.to_string()))?;
+                            Ok::<_, WorkflowError>(
+                                p.assembly.worker_scoped(providers, scope.clone()),
+                            )
+                        })
+                        .transpose()
+                };
+            let workers = self
+                .modes
+                .iter()
+                .map(|mode| {
+                    Ok::<_, WorkflowError>((
+                        create_worker(mode, &mode.check_program)?,
+                        create_worker(mode, &mode.terminal_check_program)?,
+                        mode.context.values.clone(),
+                    ))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+        Ok(SampleCheckWorker { simulation: self, run_id, parameters, scope, workers })
+    }
+
     pub(in crate::workflow) fn update_sample_values(
         &self,
         sample: &native::Sample,
@@ -54,6 +84,21 @@ impl ModelingSimulation {
         report: &native::Report,
         parameters: &[f64],
         scope: &pse_kernels::ExecutionScope,
+    ) -> SampleChecks {
+        self.check_samples_impl(run_id, report, parameters, scope, true)
+    }
+    /// Initial, closure and endpoint checks complement the already checked live samples.
+    pub(super) fn finish_live_checks(&self, run_id: RunId, report: &native::Report,
+        parameters: &[f64], scope: &pse_kernels::ExecutionScope) -> SampleChecks {
+        self.check_samples_impl(run_id, report, parameters, scope, false)
+    }
+    fn check_samples_impl(
+        &self,
+        run_id: RunId,
+        report: &native::Report,
+        parameters: &[f64],
+        scope: &pse_kernels::ExecutionScope,
+        include_samples: bool,
     ) -> SampleChecks {
         let mut result = SampleChecks {
             rows: Vec::new(),
@@ -121,33 +166,11 @@ impl ModelingSimulation {
                     ));
                 }
             }
-            let create_worker =
-                |mode: &SimulationMode, program: &Option<Arc<crate::math::ExecutableCase>>| {
-                    program
-                        .as_ref()
-                        .map(|p| {
-                            let providers =
-                                crate::math::attempt_providers(&mode.context.providers, scope)
-                                    .map_err(|e| contract(e.to_string()))?;
-                            Ok::<_, WorkflowError>(
-                                p.assembly.worker_scoped(providers, scope.clone()),
-                            )
-                        })
-                        .transpose()
-                };
-            let mut workers = self
-                .modes
-                .iter()
-                .map(|mode| {
-                    Ok::<_, WorkflowError>((
-                        create_worker(mode, &mode.check_program)?,
-                        create_worker(mode, &mode.terminal_check_program)?,
-                        mode.context.values.clone(),
-                    ))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+            let mut workers = self.sample_check_worker(run_id, parameters, scope)?;
             let endpoint = report.endpoint.as_ref();
-            let mut points = report.samples.iter().map(|s| (s, None)).collect::<Vec<_>>();
+            let mut points = if include_samples {
+                report.samples.iter().map(|s| (s, None)).collect::<Vec<_>>()
+            } else { Vec::new() };
             if let Some(end) = endpoint {
                 // Replace a coincident grid point's inputs; otherwise evaluate the separate endpoint.
                 if let Some(point) = points.iter_mut().find(|(s, _)| s.time == end.point.time) {
@@ -156,29 +179,83 @@ impl ModelingSimulation {
                     points.push((&end.point, Some(end.inputs.as_slice())));
                 }
             }
-            for (index, (sample, endpoint_inputs)) in points.into_iter().enumerate() {
-                let mode = self
+            for (sample, endpoint_inputs) in points {
+                let index = report.coverage.points.iter().position(|p| p.0 == sample.time)
+                    .unwrap_or(report.coverage.produced());
+                let terminal = sample.time == self.profile.end
+                    && report.termination == native::Termination::Completed;
+                workers.check(index, sample, endpoint_inputs, terminal, &mut result)?;
+            }
+            checkpoint()?;
+            Ok(())
+        };
+        match run() {
+            Ok(()) => {
+                let coverage = report.assess_endpoint(&self.profile);
+                let fixed_integrals_complete = self.modes.iter().all(|m| {
+                    let model = &m.model.compiled().model;
+                    model
+                        .integrals
+                        .keys()
+                        .all(|id| model.inventory_balances.values().any(|b| b.flux_id == *id))
+                }) || report.completed_time == self.profile.end
+                    && report.termination == native::Termination::Completed;
+                result.complete = coverage.satisfied
+                    && coverage.prefix_complete
+                    && fixed_integrals_complete
+                    && (self.contract.balances.is_empty()
+                        || report
+                            .conservation
+                            .first()
+                            .is_some_and(|p| p.time == self.profile.start)
+                            && report
+                                .conservation
+                                .last()
+                                .is_some_and(|p| p.time == report.completed_time));
+            }
+            Err(error) => result.error = Some(error.boundary_diagnostic()),
+        }
+        result
+    }
+}
+
+/// Original-space check scratch stays on the live native owner's thread.
+pub(super) struct SampleCheckWorker<'a> {
+    simulation: &'a ModelingSimulation,
+    run_id: RunId,
+    parameters: &'a [f64],
+    scope: &'a pse_kernels::ExecutionScope,
+    workers: Vec<(Option<pse_math::assembly::CaseWorker>, Option<pse_math::assembly::CaseWorker>, CaseValues)>,
+}
+impl SampleCheckWorker<'_> {
+    pub(super) fn check(&mut self, index: usize, sample: &native::Sample,
+        endpoint_inputs: Option<&[f64]>, terminal: bool, result: &mut SampleChecks)
+        -> Result<(), WorkflowError> {
+        let simulation = self.simulation;
+        let run_id = self.run_id;
+        let parameters = self.parameters;
+        let checkpoint = || self.scope.check().map_err(|error| WorkflowError::from(
+            crate::math::MathRuntimeError::from(ProblemError::Provider(error))));
+                let mode = simulation
                     .modes
                     .get(sample.mode)
                     .ok_or_else(|| contract("trajectory sample mode absent"))?;
                 let product = mode.model.compiled();
-                let (worker, terminal_worker, point) = workers
+                let terminal = terminal && !product.model.integrals.is_empty();
+                let (worker, terminal_worker, point) = self.workers
                     .get_mut(sample.mode)
                     .ok_or_else(|| contract("trajectory check mode absent"))?;
                 checkpoint()?;
                 if let Some(inputs) = endpoint_inputs {
-                    self.update_point_values(sample, inputs, point)?;
+                    simulation.update_point_values(sample, inputs, point)?;
                 } else {
-                    self.update_sample_values(sample, parameters, point)?;
+                    simulation.update_sample_values(sample, parameters, point)?;
                 }
-                let terminal = !product.model.integrals.is_empty()
-                    && sample.time == self.profile.end
-                    && report.termination == native::Termination::Completed;
                 if terminal {
-                    if sample.integrals.len() != self.contract.quadratures.len() {
+                    if sample.integrals.len() != simulation.contract.quadratures.len() {
                         return Err(contract("terminal quadrature extent"));
                     }
-                    for (id, value) in self.contract.quadratures.iter().zip(&sample.integrals) {
+                    for (id, value) in simulation.contract.quadratures.iter().zip(&sample.integrals) {
                         point.scalars.insert(*id, *value);
                     }
                 }
@@ -210,7 +287,7 @@ impl ModelingSimulation {
                     &observed,
                     &applicability,
                     &mode.numerics,
-                    &self.quantities,
+                    &simulation.quantities,
                     terminal,
                     if terminal {
                         None
@@ -277,36 +354,6 @@ impl ModelingSimulation {
                     check.time = Some(sample.time);
                 }
                 result.rows.extend(sample_checks);
-            }
-            checkpoint()?;
-            Ok(())
-        };
-        match run() {
-            Ok(()) => {
-                let coverage = report.assess_endpoint(&self.profile);
-                let fixed_integrals_complete = self.modes.iter().all(|m| {
-                    let model = &m.model.compiled().model;
-                    model
-                        .integrals
-                        .keys()
-                        .all(|id| model.inventory_balances.values().any(|b| b.flux_id == *id))
-                }) || report.completed_time == self.profile.end
-                    && report.termination == native::Termination::Completed;
-                result.complete = coverage.satisfied
-                    && coverage.prefix_complete
-                    && fixed_integrals_complete
-                    && (self.contract.balances.is_empty()
-                        || report
-                            .conservation
-                            .first()
-                            .is_some_and(|p| p.time == self.profile.start)
-                            && report
-                                .conservation
-                                .last()
-                                .is_some_and(|p| p.time == report.completed_time));
-            }
-            Err(error) => result.error = Some(error.boundary_diagnostic()),
-        }
-        result
+        Ok(())
     }
 }

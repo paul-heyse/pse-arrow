@@ -1383,6 +1383,8 @@ mod tests {
                 backend: native::execution::BackendSettings::Default,
                 sensitivity: None,
                 composition: Default::default(),
+            block_overrides: std::collections::BTreeMap::new(),
+            block_workers: 1,
                 reconstruction: None,
             },
             simulations: BTreeMap::new(),
@@ -2256,6 +2258,8 @@ mod tests {
             backend: native::execution::BackendSettings::Default,
             sensitivity: None,
             composition: Default::default(),
+            block_overrides: std::collections::BTreeMap::new(),
+            block_workers: 1,
             reconstruction: None,
         };
         // A solve sequence step.

@@ -164,7 +164,7 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingTrajectory, OwnedDeclarations, StartSource, conform_pure_documents,
+    ModelingTrajectory, SimulationSampleAttempt, SimulationSampleObserver, OwnedDeclarations, StartSource, conform_pure_documents,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
