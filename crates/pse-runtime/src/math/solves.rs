@@ -4274,6 +4274,7 @@ impl MathService {
         let run_id = pse_operations::mint_id();
         let progress = Arc::new(Progress::new(step.profile.controls.history));
         let affinity = step.strategy_profile()?;
+        let original_scope = step.task_scope();
         let session = self.independent_session(affinity)?;
         let events = progress.clone();
         let numerical_policy = step.numerics.policy.clone();
@@ -4301,7 +4302,7 @@ impl MathService {
                 .await;
             let healthy = !cancel.token().is_cancelled() && result.as_ref().is_ok_and(|(outcome, (), _)|
                 outcome.candidate_use(&finish_policy).permits_use());
-            if healthy { session.park_independent(affinity).await?; }
+            if healthy { session.park_independent(affinity, original_scope, &cancel).await?; }
             else { session.close().await; }
             result.map(|(outcome, (), strategy)| StepReport {
                 run_id,

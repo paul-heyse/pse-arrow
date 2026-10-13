@@ -526,6 +526,7 @@ fn serve(
     pool: &Arc<dyn datafusion::execution::memory_pool::MemoryPool>,
     pressure: &super::retention::Pressure,
     stack: usize,
+    population: &super::jobs::PopulationLane,
     current: &std::sync::Mutex<Scope>,
 ) {
     let mut pending: Option<Request> = None;
@@ -568,7 +569,16 @@ fn serve(
                 let _scratch_lane = ScratchLaneGuard::install();
                 let mut retained = Retained::default();
                 loop {
-                    if pending.is_none() && pressure.active() {
+                    let trim_idle = if pending.is_none() && pressure.active() {
+                        let mut live = current.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                        if population.idle() {
+                            // Publish departure while synchronized with the admitted
+                            // request's snapshot. A new claimant reserves full overlap.
+                            *live = Scope { backends: Vec::new(), threads: 1 };
+                            true
+                        } else { false }
+                    } else { false };
+                    if trim_idle {
                         SCRATCH_LANE.with(|slot| {
                             if let Some(lane) = slot.borrow_mut().as_mut() {
                                 lane.clear();
@@ -788,6 +798,8 @@ impl MathService {
             threads: 1,
         }));
         let native_scope = scope.clone();
+        let population = super::jobs::PopulationLane::new(self.jobs.clone(), slot.clone());
+        let native_population = population.clone();
         let thread = std::thread::Builder::new()
             .name("pse-math".into())
             .stack_size(stack)
@@ -796,11 +808,10 @@ impl MathService {
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let _ = sessions;
-                serve(&std::sync::Mutex::new(receiver), &pool, &pressure, stack, &native_scope)
+                serve(&std::sync::Mutex::new(receiver), &pool, &pressure, stack, &native_population, &native_scope)
             })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         let (joined, receiver) = tokio::sync::oneshot::channel();
-        let population = super::jobs::PopulationLane::new(self.jobs.clone(), slot.clone());
         let joined_population = population.clone();
         tokio::spawn(pse_operations::canonical::inherit_activity(async move {
             // Joining, not the last reply, witnesses thread-local destruction.
@@ -827,8 +838,8 @@ impl MathService {
     fn take_native_lane(self: &Arc<Self>, affinity: Option<pse_ids::ContentHash>) -> Option<NativeSession> {
         if self.jobs.is_closed() { return None }
         let mut lanes = self.native_lanes.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        let index = affinity.and_then(|key| lanes.iter().position(|lane| lane.affinity == key))
-            .or_else(|| (!lanes.is_empty()).then_some(0))?;
+        let index = affinity.and_then(|key| lanes.iter().position(|lane| lane.affinity == key && lane.population.idle()))
+            .or_else(|| lanes.iter().position(|lane| lane.population.idle()))?;
         let mut lane = lanes.remove(index);
         Some(NativeSession {
             population: lane.population.clone(), dispatch: lane.dispatch.clone(), scope: lane.scope.clone(),
@@ -839,6 +850,10 @@ impl MathService {
     }
     pub(crate) fn independent_session(self: &Arc<Self>, affinity: pse_ids::ContentHash) -> Result<NativeSession, MathRuntimeError> {
         self.take_native_lane(Some(affinity)).map_or_else(|| self.open_session(), Ok)
+    }
+    pub(super) fn borrow_idle_native_population(&self) -> Option<super::jobs::PopulationUse> {
+        let lanes = self.native_lanes.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        lanes.iter().filter(|lane| lane.population.idle()).find_map(|lane| lane.population.claim().ok())
     }
     pub(crate) fn retire_idle_native_lanes(&self) {
         let lanes = std::mem::take(&mut *self.native_lanes.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
@@ -1019,8 +1034,14 @@ impl NativeSession {
             .iter()
             .map(|backend| execution::adapter(*backend))
             .collect::<Vec<_>>();
-        let stacks =
-            execution::scope_stack_bytes(&adapters, next.threads, self.service.policy.stack_bytes)?;
+        let stacks = {
+            // Population use prevents an idle pressure departure after this snapshot;
+            // the owner publishes a preceding departure under this same mutex.
+            let entered = self.scope.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            if *entered == next { 0 } else {
+                execution::scope_stack_bytes(&adapters, next.threads, self.service.policy.stack_bytes)?
+            }
+        };
         let control = pse_columnar::flight::FlightCancellation::default();
         let (reservation, permits) = tokio::select! {
             permits = self.service.reserve_active("math:native-scope-stacks", cores as u32, stacks, &control, admission_deadline) => permits?,
@@ -1396,12 +1417,19 @@ impl NativeSession {
     }
     /// Reset on the owning thread before parking. This request has exclusive dispatch;
     /// no request ledger, callback borrower or numerical response factor may survive.
-    pub(crate) async fn park_independent(mut self, affinity: pse_ids::ContentHash) -> Result<(), MathRuntimeError> {
+    pub(crate) async fn park_independent(mut self, affinity: pse_ids::ContentHash,
+        original: Option<pse_kernels::ExecutionScope>, cancel: &crate::CancelSource,
+    ) -> Result<(), MathRuntimeError> {
         let scope = self.scope.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone();
-        let cancel = crate::CancelSource::new();
+        if cancel.checkpoint().is_err() || original.as_ref().is_some_and(|scope| scope.check().is_err()) {
+            self.close().await; return Ok(());
+        }
         #[cfg(feature = "solver-kinsol")]
         let inner_bytes = self.service.policy.inner_session_bytes;
-        let reset = self.run_scoped(scope.threads, scope.backends, None, &cancel, move |retained, _, _| {
+        let attempted = Arc::new(AtomicBool::new(false));
+        let entered = attempted.clone();
+        let reset = self.run_task(scope.threads, scope.backends, original.as_ref().and_then(pse_kernels::ExecutionScope::deadline), original.clone(), cancel, move |retained, _, _| {
+            entered.store(true, Ordering::Release);
             retained.reset_independent()?;
             #[cfg(feature = "solver-kinsol")]
             { // Cached inner sessions still own their submitted functions and controls.
@@ -1411,12 +1439,17 @@ impl NativeSession {
             SCRATCH_LANE.with(|slot| { if let Some(lane) = slot.borrow_mut().as_mut() { lane.clear(); } });
             Ok(())
         }).await;
-        if let Err(cause) = reset { self.close().await; return Err(cause) }
+        if let Err(cause) = reset {
+            self.close().await;
+            // Optional residency refusal cannot replace an already assessed result.
+            return if attempted.load(Ordering::Acquire) { Err(cause) } else { Ok(()) };
+        }
         let service = self.service.clone();
         if service.jobs.is_closed() || service.pressure.active() { self.close().await; return Ok(()) }
         let closing = {
             let mut lanes = service.native_lanes.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            if service.jobs.is_closed() { true } else {
+            if service.jobs.is_closed() || cancel.checkpoint().is_err()
+                || original.as_ref().is_some_and(|scope| scope.check().is_err()) { true } else {
                 let lane = ParkedSession { affinity, population: self.population.clone(), dispatch: self.dispatch.clone(),
                     scope: self.scope.clone(), sender: self.sender.take(), joined: self.joined.take(), budget: self.budget.clone() };
                 self.parked = true;
@@ -1465,7 +1498,7 @@ mod admission_tests {
                 |_: &mut u64| Ok(execution::SessionUpdate::Compatible), || Ok(3u64))?;
             Ok(())
         }).await.unwrap();
-        lane.park_independent(affinity).await.unwrap();
+        lane.park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap();
         assert_eq!(service.native_lanes.lock().unwrap().len(), 1);
         assert_eq!(service.cpu.available_permits(), service.cores);
         assert_eq!(service.active_jobs.available_permits(), service.policy.jobs);
@@ -1473,7 +1506,7 @@ mod admission_tests {
         let reused = service.independent_session(affinity).unwrap();
         assert!(Arc::ptr_eq(&scope_owner, &reused.scope));
         reused.run(1, None, &cancel, |retained, _, _| { assert!(retained.is_empty()); assert!(retained.advance().is_none()); Ok(()) }).await.unwrap();
-        reused.park_independent(affinity).await.unwrap();
+        reused.park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap();
         drop(budget); drop(scope_owner);
         let pool = service.pool.clone();
         let weak = Arc::downgrade(&service);
@@ -1490,7 +1523,7 @@ mod admission_tests {
         let baseline = pool.reserved();
         let weak = Arc::downgrade(&service);
         let affinity = pse_ids::ContentHash::from_bytes([8; 32]);
-        service.open_session().unwrap().park_independent(affinity).await.unwrap();
+        service.open_session().unwrap().park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap();
         assert!(pool.reserved() > baseline);
         drop(service);
         assert!(weak.upgrade().is_none());
@@ -1506,12 +1539,77 @@ mod admission_tests {
         let mut sessions = Vec::new();
         for _ in 0..service.policy.jobs { sessions.push(service.open_session().unwrap()); }
         let affinity = pse_ids::ContentHash::from_bytes([7; 32]);
-        for session in sessions { session.park_independent(affinity).await.unwrap(); }
+        for session in sessions { session.park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap(); }
         assert_eq!(service.jobs.available_permits(), 0);
         let session = service.open_session().unwrap();
         assert_eq!(service.native_lanes.lock().unwrap().len(), service.policy.jobs - 1);
         session.close().await;
         service.shutdown_native_lanes().await;
+    }
+    #[tokio::test]
+    async fn generic_preparation_borrows_parked_population_and_blocks_lane_checkout() {
+        let (service, _) = super::super::tests::service_with_policy(256 << 20,
+            super::super::MathPolicy { jobs: 1, foreign_bytes: 1 << 20, ..Default::default() });
+        let affinity = pse_ids::ContentHash::from_bytes([6; 32]);
+        service.open_session().unwrap().park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap();
+        assert_eq!(service.jobs.available_permits(), 0);
+        let native = service.clone();
+        service.job_scoped(1, 0, Default::default(), None, move |_| {
+            assert!(matches!(native.open_session(), Err(MathRuntimeError::Limit("native jobs"))));
+            Ok(())
+        }).await.unwrap();
+        let session = service.independent_session(affinity).unwrap();
+        session.close().await;
+        service.shutdown_native_lanes().await;
+    }
+    #[tokio::test]
+    async fn pressure_retires_parked_base_residency_before_memory_wait() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let affinity = pse_ids::ContentHash::from_bytes([5; 32]);
+        service.open_session().unwrap().park_independent(affinity, None, &crate::CancelSource::new()).await.unwrap();
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) = service.pool.memory_limit() else { panic!("bounded fixture") };
+        let owner = service.reserve_entry("test:retire-native-base", limit - baseline,
+            &Default::default(), Some(std::time::Instant::now() + std::time::Duration::from_secs(5))).await.unwrap();
+        assert!(service.native_lanes.lock().unwrap().is_empty());
+        drop(owner);
+        service.shutdown_native_lanes().await;
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test]
+    async fn optional_parking_preserves_original_deadline_and_cancellation() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let affinity = pse_ids::ContentHash::from_bytes([4; 32]);
+        for cancelled in [false, true] {
+            let session = service.open_session().unwrap();
+            let held = service.cpu.clone().acquire_many_owned(service.cores as u32).await.unwrap();
+            let cancel = crate::CancelSource::new();
+            let scope = pse_kernels::ExecutionScope::new(Arc::default(),
+                Some(std::time::Instant::now() + std::time::Duration::from_millis(30)));
+            if cancelled { cancel.cancel(); }
+            tokio::time::timeout(std::time::Duration::from_secs(2),
+                session.park_independent(affinity, Some(scope), &cancel)).await.unwrap().unwrap();
+            assert!(service.native_lanes.lock().unwrap().is_empty());
+            assert_eq!(service.pool.reserved(), baseline);
+            drop(held);
+        }
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn compatible_native_scope_reuses_its_existing_stack_charge() {
+        let service = super::super::tests::service();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        session.run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(())).await.unwrap();
+        let datafusion::execution::memory_pool::MemoryLimit::Finite(limit) = service.pool.memory_limit() else { panic!("bounded fixture") };
+        let held = datafusion::execution::memory_pool::MemoryConsumer::new("test:no-new-stacks").register(&service.pool);
+        held.try_grow(limit - service.pool.reserved()).unwrap();
+        session.run_task(2, vec![Backend::Pounce],
+            Some(std::time::Instant::now() + std::time::Duration::from_secs(2)), None, &cancel,
+            |_, _, _| Ok(())).await.unwrap();
+        drop(held);
+        session.close().await;
     }
     #[test]
     fn native_scope_affinity_replaces_old_profile_pools() {

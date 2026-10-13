@@ -169,6 +169,7 @@ impl MathService {
                     Ok(()) => true,
                     Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                         pressure.get_or_insert_with(|| self.pressure.demand());
+                        self.retire_idle_native_lanes();
                         match self.pressure.retry_growth(&lease, bytes) {
                             Ok(()) => true,
                             Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
@@ -259,6 +260,7 @@ impl MathService {
                 Ok(()) => true,
                 Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                     pressure.get_or_insert_with(|| self.pressure.demand());
+                    self.retire_idle_native_lanes();
                     match self.pressure.retry_growth(&lease, bytes) {
                         Ok(()) => true,
                         Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => false,
@@ -911,17 +913,12 @@ impl MathService {
                 Some(lane) => PopulationEntry::Borrowed {
                     _usage: lane.claim()?,
                 },
-                None => PopulationEntry::Owned {
-                    _ticket: self.jobs.clone().try_acquire_owned().map_err(
-                        |error| match error {
-                            tokio::sync::TryAcquireError::Closed => {
-                                MathRuntimeError::Limit("native population closed")
-                            }
-                            tokio::sync::TryAcquireError::NoPermits => {
-                                MathRuntimeError::Limit("native jobs")
-                            }
-                        },
-                    )?,
+                None => match self.jobs.clone().try_acquire_owned() {
+                    Ok(ticket) => PopulationEntry::Owned { _ticket: ticket },
+                    Err(tokio::sync::TryAcquireError::Closed) => return Err(MathRuntimeError::Limit("native population closed")),
+                    Err(tokio::sync::TryAcquireError::NoPermits) => PopulationEntry::Borrowed {
+                        _usage: self.borrow_idle_native_population().ok_or(MathRuntimeError::Limit("native jobs"))?,
+                    },
                 },
             };
         Ok(AdmissionEntry {
@@ -991,6 +988,7 @@ impl MathService {
                 Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),
                 Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {
                     pressure.get_or_insert_with(|| self.pressure.demand());
+                    self.retire_idle_native_lanes();
                     match self.pressure.retry_growth(&reservation, bytes) {
                         Ok(()) => return Ok(pse_columnar::AllocationLease::new(reservation)),
                         Err(datafusion::common::DataFusionError::ResourcesExhausted(_)) => {}
