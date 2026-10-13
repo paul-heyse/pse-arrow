@@ -630,6 +630,10 @@ policy; libraries own every iteration.
 
 ### 17.1 Structural initialization model
 
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+
+**Proposed target:** stable compiler block-ID native solver/control overrides resolve through the shared contextual policy, preserving original physical acceptance, intent, branch/start permissions and aggregate caps. Only complete independent ready blocks execute together; successful overlays commit in canonical order and full original assessment remains mandatory. Unknown/incompatible overrides refuse. Coupled tear decisions are not split by SCC.
+
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md) —
 > restates D13: initialization stages, including discrete fixing, are immutable overlays;
 > [ADR-0093](../../adr/0093-qualified-native-strategies.md) — transactional stages. Plan 22
@@ -705,6 +709,10 @@ staged-sequence primitive and retains original-specification acceptance
 ([§17.5](#section-17-5)).
 
 ### 17.4 Flowsheet recycles and dynamic starts
+
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+
+**Proposed target:** a supported causal map freezes inner authored starts, branch context and accuracy while retaining neutral allocations. Bounded raw-map evidence records available actual context and explicit unavailable/inapplicable meanings. Repeatability/noise claims are envelope-scoped. Native damping/delayed Anderson and opt-in finite restarts preserve original caps and terminal vetoes; stateful inner continuation is not selected.
 
 > Proposed amendment: [ADR-0155](../../adr/0155-numerical-derived-families.md), Plan 25n N1/N4.
 
@@ -782,6 +790,10 @@ endpoint, when its source is `Annotation`; every other source supplies the resol
 constant. An annotation source whose model output is missing is refused, not frozen.
 
 ### 17.5 Continuation
+
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+
+**Proposed target:** optional effort adaptation extends the existing bounded StepControl and is off by default. Only qualified endpoints adapt displacement from comparable profile-scoped work; missing/zero/foreign evidence falls back to the declared baseline. Displacement/growth/rejection/work/deadline, branch and connected-path/original endpoint constraints remain unchanged.
 
 > Decision: [ADR-0093](../../adr/0093-qualified-native-strategies.md) — transactional stages
 > and explicit starts; [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —

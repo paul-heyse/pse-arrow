@@ -1,8 +1,8 @@
 ---
 title: Studies, recycles, dynamics and fitting
-status: draft
+status: in-progress
 date: 2026-10-13
-adrs: []
+adrs: [ADR-0186]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, preparation, validation]
@@ -101,3 +101,26 @@ I-D2 identifies any remaining objective/gradient/preparation work mismatched to 
 I-D3/C3 records available comparable effort counters and selects optional bounded StepControl adaptation. Existing finite displacement/rejection budget, growth only after qualified endpoints and terminal vetoes remain. Missing counters fall back to the declared rule; no budget reset, unauthorized branch jump or replacement of connected-path/original endpoint checks. This is independent of durable history.
 
 I-D1 repeatable-map, I-D2 demanded fitting products and I-D3 effort policy each end with source/scenario/probe evidence, chosen baseline/alternative, affected consumers and support limits. Native optional families are explicitly dispositioned in I-C2; physical-provider/FeOS or event-model expansion is not inferred from capability availability. Targeted compile/scientific unit controls accompany changes; 38g owns assembled current-source acceptance and reference conditions. No historical component pass qualifies this complete workflow scope.
+
+## Execution checkpoint — 2026-10-13
+
+The maintainer authorized all D1–D5 and I-D1–I-D3, selecting bounded lazy structural variants,
+public stable-block solver overrides, frozen inner recycle context and opt-in live samples
+through the current cursor/storage realization. Proposed ADR-0186 and architecture revision
+163 install the concrete shared contracts before dependent production work.
+
+The root owns shared contract/registry declarations, generated output, minimum 38e occurrence
+and prefix integration, I-D3 and combined acceptance. Independent work groups own studies;
+recycles/block profiles and execution; dynamics/fitting. Context, ordinal, budget, seed and
+recording semantics are shared prerequisites; per-owner source details remain local.
+
+Existing refill/eligible seed search/coupled tears/partial simulation reports/cache/surrogate
+state are preserved rather than replaced by default. D1 gains lazy constructor inputs and
+joined controls. D2 establishes composed repeatability/context before optional native restarts.
+D3 profiles precede wave scheduling. D4 live/reset/demand contracts precede prefix production;
+D5 demand and sequential retained contexts precede independent ordered parallel experiments.
+I-D3 extends StepControl with opt-in comparable-counter adaptation and baseline fallback.
+
+Only required E2/E3 interface slices are included; no topology/backup/GC cutover or unqualified
+native-history serialization is selected. Broader 38e/38f and assembled 38g acceptance remain
+open. The deliberately quiesced canonical profile and shared test directories are preserved.
