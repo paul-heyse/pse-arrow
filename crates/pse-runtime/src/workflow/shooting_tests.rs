@@ -1323,7 +1323,7 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let original = simulation.start().unwrap().wait().await.unwrap();
     assert!(original.report().is_ok());
     let replay = original.replay();
-    let document = replay.document().unwrap();
+    let document = replay.document_with_limit(128 << 20).unwrap();
     assert_eq!(document.simulation_constructors.len(), 1);
     let constructor = &document.simulation_constructors[0];
     assert_eq!(constructor.profile.samples, simulation.profile().samples);
@@ -1349,7 +1349,7 @@ async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pend
     let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
     assert_ne!(fresh.run_id, original.run_id);
     assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-    let coverage = fresh.replay().document().unwrap().coverage;
+    let coverage = fresh.replay().document_with_limit(128 << 20).unwrap().coverage;
     assert_eq!(coverage.observed, simulation.profile().samples.len());
 }
 
@@ -1371,7 +1371,7 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
     assert!(stopped.report().is_err());
     drop(held);
     let replay = stopped.replay();
-    let document = replay.document().unwrap();
+    let document = replay.document_with_limit(128 << 20).unwrap();
     let constructor = document.shooting_constructor.as_ref().unwrap();
     assert_eq!(constructor.initial, Some(initial.iter().map(|x| x.to_bits()).collect()));
     assert_eq!(constructor.controls.len(), requested.controls.len());
@@ -1383,5 +1383,5 @@ async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowan
     let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
     assert_ne!(fresh.run_id, stopped.run_id);
     assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-    assert_eq!(fresh.replay().document().unwrap().shooting_constructor.unwrap().initial, constructor.initial);
+    assert_eq!(fresh.replay().document_with_limit(128 << 20).unwrap().shooting_constructor.unwrap().initial, constructor.initial);
 }

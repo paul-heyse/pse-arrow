@@ -2307,9 +2307,8 @@ async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_p
     assert_eq!(restored.controller.as_ref().unwrap().bindings, original.controller.as_ref().unwrap().bindings);
     assert_eq!(restored.controller.as_ref().unwrap().analysis.bindings, original.controller.as_ref().unwrap().analysis.bindings);
 
-    // Keep the supervisor control small: an open-loop plant uses two periods.
+    // Keep the actual closed-loop supervisor control small: two periods.
     let mut open = restored;
-    open.controller = None;
     open.steps = 2;
     let handle = runtime.start_horizon(open, &crate::CancelSource::new()).await.unwrap();
     handle.cancel();

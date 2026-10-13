@@ -1057,7 +1057,7 @@ mod tests {
         parent.cancel();
         let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), handle.wait()).await.unwrap().unwrap();
         let replay = stopped.replay();
-        let document = replay.document().unwrap();
+        let document = replay.document_with_limit(128 << 20).unwrap();
         assert!(document.continue_independent);
         assert!(document.native_attempts.is_empty(), "no native report was dispatched while all CPU permits were held");
         let constructor = &document.case_constructors[0];
@@ -1082,7 +1082,7 @@ mod tests {
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, stopped.run_id);
         assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-        let exported = fresh.replay().document().unwrap();
+        let exported = fresh.replay().document_with_limit(128 << 20).unwrap();
         assert!(exported.continue_independent);
         let summary = fresh.attempt_summary().unwrap();
         assert_eq!(summary.native_attempts.len(), exported.native_attempts.len());
@@ -1103,7 +1103,7 @@ mod tests {
         let original = regression::fit(&package, profile.clone()).await;
         assert!(original.report().is_ok());
         let replay = original.replay();
-        let document = replay.document().unwrap();
+        let document = replay.document_with_limit(128 << 20).unwrap();
         let permits = package.runtime.shared.compiler_cpu();
         let width = permits.available_permits();
         assert!(width > 0);
@@ -1114,7 +1114,7 @@ mod tests {
         parent.cancel();
         let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), pending.wait()).await.unwrap().unwrap();
         assert!(stopped.report().is_err());
-        assert_eq!(stopped.replay().document().unwrap().fit_constructor.as_ref().unwrap().max_cells, profile.max_cells);
+        assert_eq!(stopped.replay().document_with_limit(128 << 20).unwrap().fit_constructor.as_ref().unwrap().max_cells, profile.max_cells);
         drop(held);
         let constructor = document.fit_constructor.as_ref().unwrap();
         assert_eq!(constructor.max_cells, profile.max_cells);
@@ -1129,7 +1129,7 @@ mod tests {
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, original.run_id);
         assert!(fresh.report().is_ok(), "{:?}", fresh.report());
-        assert!(!fresh.replay().document().unwrap().native_attempts.is_empty());
+        assert!(!fresh.replay().document_with_limit(128 << 20).unwrap().native_attempts.is_empty());
     }
     #[tokio::test]
     async fn original_simulation_capture_refuses_long_paths_and_large_sets_before_copy() {
