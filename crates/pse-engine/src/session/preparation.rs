@@ -33,7 +33,7 @@ struct Preparation {
     observation: PlanObservation,
     origin: PlanOrigin,
     volatile: bool,
-    started: std::sync::atomic::AtomicBool,
+    started: Arc<std::sync::atomic::AtomicBool>,
     effects: std::collections::BTreeSet<pse_schema::model::provider::OperationEffect>,
     terminal: TerminalDemand,
 }
@@ -342,7 +342,7 @@ impl EngineSession {
             observation,
             origin,
             volatile,
-            started: std::sync::atomic::AtomicBool::new(false),
+            started: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             effects,
             terminal,
         })))
@@ -597,38 +597,38 @@ impl PreparedComputation {
     ) -> Result<OwnedComputationStream, EngineError> {
         let mut operation =
             OperationObservation::start(ObservationPolicy::from_state(&self.0.state), "query");
-        // Stable/ambient calls may already have become literals. Fresh task
-        // properties cannot refresh those literals; replay the retained original.
-        if self.0.volatile
-            && self.0.effects.iter().all(|effect| {
-                matches!(
-                    effect,
-                    pse_schema::model::provider::OperationEffect::Read
-                        | pse_schema::model::provider::OperationEffect::Observe
-                        | pse_schema::model::provider::OperationEffect::Nondeterministic
-                )
-            })
-            && self
-                .0
-                .started
-                .swap(true, std::sync::atomic::Ordering::AcqRel)
-        {
-            self = self
-                .0
-                .session
-                .prepare_terminal_with_origin(
-                    self.0.original.clone(),
-                    self.0.terminal,
-                    cancel,
-                    self.0.origin,
-                )
-                .inspect_err(|_| {
-                    operation.finish(if cancel.is_cancelled() {
-                        TerminalStatus::Cancelled
-                    } else {
-                        TerminalStatus::Failed
-                    });
-                })?;
+        // Every actual operation owns one scope, including its optimizer and
+        // output admission. A Stable expression may already be a literal in the
+        // inspection preparation, so the first execution must refresh it too.
+        let caches = caches.or_else(|| self.0.session.invocation.clone()).unwrap_or_default();
+        let effectful = self.0.effects.iter().any(|effect| matches!(effect,
+            pse_schema::model::provider::OperationEffect::Write
+                | pse_schema::model::provider::OperationEffect::Namespace
+                | pse_schema::model::provider::OperationEffect::Publish));
+        if effectful && self.0.started.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(EngineError::Admission {
+                path: "operation.attempt".into(),
+                reason: "an effectful preparation can execute only once".into(),
+            });
+        }
+        if self.0.volatile {
+            let started = self.0.started.clone();
+            let inherited = self.0.session.invocation.clone();
+            let mut session = self.0.session.clone();
+            session.invocation = Some(caches.clone());
+            let mut prepared = session.prepare_scoped(
+                self.0.original.clone(), cancel, self.0.origin, None, self.0.terminal,
+            ).inspect_err(|_| {
+                operation.finish(if cancel.is_cancelled() { TerminalStatus::Cancelled } else { TerminalStatus::Failed });
+            })?;
+            let preparation = Arc::get_mut(&mut prepared.0).ok_or_else(|| EngineError::Internal {
+                message: "new operation preparation unexpectedly shared".into(),
+            })?;
+            // Re-preparation cannot mint another permission to dispatch effects,
+            // or turn a top-level preparation into a permanently nested invocation.
+            preparation.started = started;
+            preparation.session.invocation = inherited;
+            self = prepared;
         }
         let query_permit = query_admission(&self.0.state, cancel)
             .await
@@ -640,7 +640,7 @@ impl PreparedComputation {
                 });
             })?;
         let result = self
-            .plan_execution(cancel, false, caches)
+            .plan_execution(cancel, false, Some(caches))
             .instrument(operation.span())
             .await;
         let (physical, execution_state, observation) = match result {
@@ -1112,6 +1112,14 @@ impl std::fmt::Debug for OwnedComputationStream {
     }
 }
 impl OwnedComputationStream {
+    /// Actual operation admission context, including the timestamp used to
+    /// optimize Stable expressions and execute this stream.
+    /// # Errors
+    /// The actual execution state has no installed native services.
+    pub fn validation_context(&self) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+        let services = super::execution::NativeExecutionContext::from_session(&self.state).map_err(engine)?;
+        Ok(Arc::new(services.validation_context().clone()))
+    }
     /// Whether the actual physical source promises a finite result.
     pub fn is_bounded(&self) -> bool {
         matches!(
