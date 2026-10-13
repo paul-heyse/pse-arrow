@@ -28,6 +28,9 @@ struct Preparation {
     session: EngineSession,
     state: datafusion::execution::session_state::SessionState,
     original: LogicalPlan,
+    // Native derivation can discard relation-level metadata. Keep the admitted
+    // declaration reference under session.registry's actual immutable owner.
+    output_relation: Option<pse_ids::SemanticId>,
     analyzed: LogicalPlan,
     optimized: LogicalPlan,
     observation: PlanObservation,
@@ -337,6 +340,7 @@ impl EngineSession {
             session: self.clone(),
             state,
             original,
+            output_relation: output_relation.map(|spec| spec.id),
             analyzed: visible_analyzed,
             optimized,
             observation,
@@ -617,8 +621,20 @@ impl PreparedComputation {
             let inherited = self.0.session.invocation.clone();
             let mut session = self.0.session.clone();
             session.invocation = Some(caches.clone());
+            let original = match self.0.output_relation {
+                Some(id) => {
+                    let spec = session.registry.relation_by_id(id).ok_or_else(|| EngineError::Internal {
+                        message: "admitted output declaration absent from retained registry".into(),
+                    })?;
+                    // Verify/redeclare the actual target before derivation can
+                    // erase metadata again; do not relabel executed output later.
+                    super::output::declare_relation_output(self.0.original.clone(), &session.registry, spec)
+                        .map_err(|error| session.execution_error(error, self.0.origin))?
+                }
+                None => self.0.original.clone(),
+            };
             let mut prepared = session.prepare_scoped(
-                self.0.original.clone(), cancel, self.0.origin, None, self.0.terminal,
+                original, cancel, self.0.origin, None, self.0.terminal,
             ).inspect_err(|_| {
                 operation.finish(if cancel.is_cancelled() { TerminalStatus::Cancelled } else { TerminalStatus::Failed });
             })?;
