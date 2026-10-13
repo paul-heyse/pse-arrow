@@ -23,7 +23,7 @@ pub struct QuantityTypeKey {
     pub subject_kind: Option<EntityKindId>,
 }
 /// A registered physical type and its canonical storage unit.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct QuantityType {
     /// Registry identity.
     pub id: QuantityTypeId,

@@ -32,7 +32,7 @@ pub struct UnitFactor {
 
 /// A defined unit as authored: its composition only. Its dimension and scale are
 /// derived when the registry admits it, so they have one authority (ADR-0124).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DefinedUnit {
     /// Registry identity; it must equal [`unit_product_id`] over the canonical factors.
     pub id: UnitId,
@@ -152,7 +152,7 @@ pub struct UnitConvertSpec {
 }
 
 /// A unit anchored to the canonical SI dimension basis (blueprint §6.2).
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct Unit {
     /// Registry identity.
     pub id: UnitId,

@@ -8,7 +8,7 @@ use crate::{
     QuantityKindId, Ratio, ReferenceStateId, ScaleKind, UnitId,
 };
 /// What is measured, independent of basis and datum.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct QuantityKind {
     /// Registry identity.
     pub id: QuantityKindId,
@@ -40,7 +40,7 @@ pub struct KindFactor {
 /// What a derived kind is (ADR-0124): a monomial of other kinds, its declared canonical
 /// unit, and the complete result a multiplicative chain resolving to it takes. Kinds are
 /// declared, never synthesized.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct KindDefinition {
     /// Factors over declared kinds; admission expands derived factors, so the admitted
     /// monomial is over base kinds in identity order.
@@ -58,7 +58,7 @@ pub struct KindDefinition {
 }
 
 /// A derived kind as authored: no dimension, which admission derives from the monomial.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct DerivedKind {
     /// Registry identity.
     pub id: QuantityKindId,

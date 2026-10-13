@@ -7,7 +7,7 @@ use pse_ids::SemanticId;
 /// A typed reference condition (ADR-0123 Outcome 6): a value in a declared unit of a
 /// declared quantity type. Admission checks the type's dimension against the condition it
 /// states and the unit against the type.
-#[derive(Clone, Copy, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Copy, Debug)]
 pub struct ReferenceCondition {
     /// The value in `unit`.
     pub value: f64,
@@ -26,7 +26,7 @@ impl PartialEq for ReferenceCondition {
 }
 impl Eq for ReferenceCondition {}
 /// The datum carried by origin-sensitive quantities.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ReferenceState {
     /// Registry identity.
     pub id: ReferenceStateId,

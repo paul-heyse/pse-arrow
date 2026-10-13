@@ -14,7 +14,7 @@ use symbolica::{
 };
 
 /// Explicit resource allowance for one compiled body and its worker.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EvaluationLimits {
     /// Maximum Taylor components per scalar.
     pub derivative_components: usize,

@@ -57,7 +57,7 @@ use std::{
 };
 
 /// One original implicit unknown, with an arbitrary closed physical interval.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Unknown {
     /// Semantic identity of the unknown.
     pub id: SemanticId,
@@ -67,7 +67,7 @@ pub struct Unknown {
     pub upper: f64,
 }
 /// Explicit bounded native solve and derivative verification controls.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Options {
     /// Deterministic start; no previous trial is used implicitly.
     pub start: Vec<f64>,

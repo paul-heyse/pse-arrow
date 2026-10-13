@@ -8,7 +8,7 @@ use crate::{
 };
 use pse_ids::SemanticId;
 /// One explicit conversion; applying it is separate from declaring it.
-#[derive(Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct ConversionRule {
     /// Registry identity.
     pub id: ConversionId,

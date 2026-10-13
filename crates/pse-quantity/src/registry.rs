@@ -24,7 +24,10 @@ use pse_ids::SemanticId;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Unadmitted declarations. Duplicate identities are retained until `build` rejects them.
-#[derive(Clone, Debug, Default)]
+/// Serializable declaration inventory. Decoding does not admit a physical registry;
+/// [`Self::build`] still validates every declaration and reference.
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug, Default)]
+#[serde(deny_unknown_fields)]
 pub struct QuantityRegistryBuilder {
     entity_kinds: Vec<EntityKind>,
     units: Vec<Unit>,
