@@ -98,7 +98,7 @@ async fn canonical_cancelled_dependent_refreshes_rejected_predecessor_premise() 
         canonical_studies::{NewOccurrence, point_key},
     };
     let runtime = durable_tests::durable_runtime();
-    let store = runtime.canonical_store()?;
+    let store = runtime.canonical_store().unwrap();
     let revision = store
         .edit(
             "cancel-premise",

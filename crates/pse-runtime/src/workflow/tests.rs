@@ -316,38 +316,19 @@ fn deployment_check_refuses_foreign_consumed_owners_and_width() {
 }
 
 #[test]
-fn workflow_composition_binds_same_owner_factory_to_canonical_deployment() {
-    let runtime = runtime();
-    let sessions = runtime.sessions().clone();
-    let checked = Runtime::from_shared(
-        runtime.shared.clone(),
-        sessions.bind_model(runtime.registry().clone()).unwrap(),
-        runtime.canonical.clone(),
-    )
-    .unwrap();
-    assert!(Arc::ptr_eq(checked.sessions(), &sessions));
-    assert!(Arc::ptr_eq(&checked.shared, &runtime.shared));
-    assert!(Arc::ptr_eq(
-        &checked.validation_context(),
-        &runtime.validation_context()
-    ));
-    assert_eq!(
-        checked.canonical.store().endpoint(),
-        runtime.canonical_store()?.endpoint()
-    );
-    assert_eq!(
-        checked.canonical.store().namespace(),
-        runtime.canonical_store()?.namespace()
-    );
-    assert_eq!(
-        checked.canonical.store().database(),
-        runtime.canonical_store()?.database()
-    );
+fn workflow_composition_binds_same_owner_factory_without_a_store() {
+    let runtime=runtime();let sessions=runtime.sessions().clone();
+    let checked=Runtime::from_shared_local(runtime.shared.clone(),sessions.bind_model(runtime.registry().clone()).unwrap()).unwrap();
+    assert!(Arc::ptr_eq(checked.sessions(),&sessions));assert!(Arc::ptr_eq(&checked.shared,&runtime.shared));
+    assert!(Arc::ptr_eq(&checked.validation_context(),&runtime.validation_context()));
+    assert!(matches!(checked.canonical(),Err(WorkflowError::RecordingUnavailable)));
+    assert!(matches!(checked.with_durability(DurabilitySelection::Durable {worker:"no-sink".into(),policy:LeasePolicy::default()}),Err(WorkflowError::RecordingUnavailable)));
 }
 
+#[cfg(feature="canonical-tests")]
 #[test]
 fn workflow_durability_selection_uses_this_deployment() {
-    let runtime = runtime();
+    let runtime = durable_runtime();
     let policy = LeasePolicy {
         lease: std::time::Duration::from_secs(17),
         heartbeat: std::time::Duration::from_secs(3),
@@ -367,15 +348,15 @@ fn workflow_durability_selection_uses_this_deployment() {
     assert!(Arc::ptr_eq(&operations.pool, &runtime.shared.pool()));
     assert_eq!(
         operations.store().endpoint(),
-        runtime.canonical_store()?.endpoint()
+        runtime.canonical_store().unwrap().endpoint()
     );
     assert_eq!(
         operations.store().namespace(),
-        runtime.canonical_store()?.namespace()
+        runtime.canonical_store().unwrap().namespace()
     );
     assert_eq!(
         operations.store().database(),
-        runtime.canonical_store()?.database()
+        runtime.canonical_store().unwrap().database()
     );
     assert_eq!(operations.worker(), "checked-owner");
     assert_eq!(operations.policy(), policy);
@@ -386,8 +367,8 @@ fn workflow_durability_selection_uses_this_deployment() {
     assert!(Arc::ptr_eq(ephemeral.sessions(), runtime.sessions()));
     assert!(Arc::ptr_eq(&ephemeral.shared, &runtime.shared));
     assert_eq!(
-        ephemeral.canonical.store().database(),
-        runtime.canonical_store()?.database()
+        ephemeral.canonical().unwrap().store().database(),
+        runtime.canonical_store().unwrap().database()
     );
 }
 

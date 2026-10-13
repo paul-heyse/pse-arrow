@@ -8,7 +8,7 @@ use crate::workflow::SourceDelta;
 use pse_model::generated::authored::documents as document_wire;
 
 pub(in crate::workflow::modeling) struct Parent {
-    pub(super) rows: Vec<Declaration>,
+    pub(in crate::workflow::modeling) rows: Vec<Declaration>,
     pub(super) frame: IngressFrame,
     pub(super) physical: PhysicalScope,
     pub(super) documents: BTreeMap<SemanticId, document_wire::Row>,

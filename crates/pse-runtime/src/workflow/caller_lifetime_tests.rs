@@ -10,7 +10,7 @@ use std::time::Duration;
 #[tokio::test]
 async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runtime_remains_open() {
     let runtime = durable_tests::durable_runtime();
-    let escaped = runtime.canonical_store()?.clone();
+    let escaped = runtime.canonical_store().unwrap().clone();
     let operations = runtime.operations().unwrap().clone();
     let alias = runtime.clone();
     let independent = Runtime::from_shared(
@@ -30,12 +30,12 @@ async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runt
         Err(WorkflowError::Canonical(CanonicalError::CallerClosed))
     ));
     assert!(matches!(
-        alias.canonical_store()?.admit_activity(),
+        alias.canonical_store().unwrap().admit_activity(),
         Err(CanonicalError::CallerClosed)
     ));
     assert!(
         independent
-            .canonical_store()?
+            .canonical_store().unwrap()
             .revision("absent")
             .await
             .unwrap()
@@ -46,7 +46,7 @@ async fn escaped_store_operations_and_runtime_aliases_close_but_independent_runt
 #[tokio::test]
 async fn abandoned_native_waiter_keeps_activity_until_worker_thread_is_joined() {
     let runtime = tests::runtime();
-    let activity = runtime.canonical_store()?.admit_activity().unwrap();
+    let activity = runtime.canonical_store().unwrap().admit_activity().unwrap();
     let (started, start) = tokio::sync::oneshot::channel();
     let (release, gate) = std::sync::mpsc::channel();
     let handle = activity
@@ -63,13 +63,13 @@ async fn abandoned_native_waiter_keeps_activity_until_worker_thread_is_joined() 
     runtime.close();
     drop(handle);
     assert!(matches!(
-        runtime.canonical_store()?.disconnect().await,
+        runtime.canonical_store().unwrap().disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     release.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            match runtime.canonical_store()?.disconnect().await {
+            match runtime.canonical_store().unwrap().disconnect().await {
                 Err(CanonicalError::ConnectionBusy { .. }) => tokio::task::yield_now().await,
                 result => {
                     result.unwrap();
@@ -88,13 +88,13 @@ async fn durable_attempt_and_progress_writer_hold_activity_through_sender_drain(
     let attempt = durable::DurableAttempt::new(runtime.operations().unwrap()).unwrap();
     runtime.close();
     assert!(matches!(
-        runtime.canonical_store()?.disconnect().await,
+        runtime.canonical_store().unwrap().disconnect().await,
         Err(CanonicalError::ConnectionBusy { .. })
     ));
     drop(attempt);
     tokio::time::timeout(Duration::from_secs(10), async {
         loop {
-            match runtime.canonical_store()?.disconnect().await {
+            match runtime.canonical_store().unwrap().disconnect().await {
                 Err(CanonicalError::ConnectionBusy { .. }) => tokio::task::yield_now().await,
                 result => {
                     result.unwrap();
@@ -160,5 +160,5 @@ async fn prepared_native_request_is_idle_and_cannot_start_after_caller_close() {
         prepared.start(),
         Err(WorkflowError::Canonical(CanonicalError::CallerClosed))
     ));
-    runtime.canonical_store()?.disconnect().await.unwrap();
+    runtime.canonical_store().unwrap().disconnect().await.unwrap();
 }

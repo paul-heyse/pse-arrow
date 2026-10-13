@@ -416,7 +416,7 @@ mod lane_tests {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
         use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let store = runtime.canonical_store()?;
+        let store = runtime.canonical_store().unwrap();
         let revision = store
             .edit("recovery-rotation", None, "source", &[])
             .await
@@ -487,7 +487,7 @@ mod lane_tests {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
         use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let store = runtime.canonical_store()?;
+        let store = runtime.canonical_store().unwrap();
         let revision = store
             .edit("local-recovery", None, "source", &[])
             .await

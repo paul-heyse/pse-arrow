@@ -594,6 +594,7 @@ impl Drop for RuntimeActivityOwner {
 }
 tokio::task_local! { static RUNTIME_CONTINUATION: RuntimeActivity; }
 impl RuntimeActivity {
+    pub(crate) fn sync_scope<T>(&self,action:impl FnOnce()->T)->T { RUNTIME_CONTINUATION.sync_scope(self.clone(),action) }
     pub(crate) fn scope<F: Future>(&self, future: F) -> impl Future<Output = F::Output> + use<F> {
         RUNTIME_CONTINUATION.scope(self.clone(), future)
     }
@@ -607,12 +608,13 @@ mod local_caller_tests {
     use super::*;
     #[tokio::test]
     async fn local_close_refuses_idle_alias_and_keeps_admitted_children() {
-        let runtime=super::tests::runtime();let alias=runtime.clone();
+        let runtime=tests::runtime();let alias=runtime.clone();
         let activity=runtime.admit_activity().unwrap();
         activity.scope(async {
-            let inherited=inherit_runtime_activity(async {
-                let nested=alias.admit_activity().unwrap();
-                nested.scope(async {assert!(alias.canonical().is_err());}).await;
+            let child=alias.clone();
+            let inherited=inherit_runtime_activity(async move {
+                let nested=child.admit_activity().unwrap();
+                nested.scope(async {assert!(child.canonical().is_err());}).await;
             });
             runtime.close();
             tokio::spawn(inherited).await.unwrap();
@@ -625,7 +627,7 @@ mod local_caller_tests {
     }
     #[tokio::test]
     async fn local_admission_scope_is_shared_only_by_its_operation() {
-        let runtime=super::tests::runtime();
+        let runtime=tests::runtime();
         let activity=runtime.admit_activity().unwrap();
         activity.scope(async {
             let first=runtime.admission_context();let second=runtime.admission_context();
