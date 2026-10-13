@@ -3642,6 +3642,7 @@ fn attempt<T>(
         abandonment: Arc::default(),
     };
     let mut r = Report::new(p.start);
+    r.coverage.retention = output.retention;
     let n = oracle.contract().states.len();
     let failure = |mut report: Report, error: ProblemError| {
         report.termination = stopped(&error, &execution);
@@ -3678,7 +3679,9 @@ fn attempt<T>(
         Ok(())
     });
     if let Err(e) = result {
-        r.termination = stopped(&e, &s.callback.callback.execution);
+        if r.termination != Termination::Panic {
+            r.termination = stopped(&e, &s.callback.callback.execution);
+        }
         r.error = Some(e);
         outcome = None;
     }

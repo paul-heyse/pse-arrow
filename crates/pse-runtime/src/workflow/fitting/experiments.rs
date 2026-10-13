@@ -208,3 +208,19 @@ impl ExperimentTeam {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn borrowed_profile_envelope_restores_after_nested_scope_and_panic() {
+        assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), None);
+        borrowed_capacity(4, || {
+            assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), Some(4));
+            let failed = std::panic::catch_unwind(|| borrowed_capacity(2, || panic!("injected phase panic")));
+            assert!(failed.is_err());
+            assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), Some(4));
+        });
+        assert_eq!(BORROWED_CAPACITY.with(std::cell::Cell::get), None);
+    }
+}

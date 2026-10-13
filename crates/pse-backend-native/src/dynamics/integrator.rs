@@ -741,6 +741,7 @@ pub(super) fn integrate_with_samples(
     profile.validate(oracle.contract(), parameters)?;
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile.start);
+    report.coverage.retention = output.retention;
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report, output),
         DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report, output),
@@ -789,7 +790,13 @@ impl<'o> Shared<'o> {
         match result {
             Ok(Ok(())) => {}
             Ok(Err(e)) => {
-                report.termination = Termination::Failed;
+                if report.termination != Termination::Panic {
+                    report.termination = match &e {
+                        ProblemError::Cancelled => Termination::Cancelled,
+                        ProblemError::Limit { kind: crate::LimitKind::Time, .. } => Termination::TimeLimit,
+                        _ => Termination::Failed,
+                    };
+                }
                 report.error = Some(e);
             }
             Err(payload) => {

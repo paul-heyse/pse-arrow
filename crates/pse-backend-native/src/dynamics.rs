@@ -2137,9 +2137,14 @@ impl SampleOutput<'_> {
         report.coverage.retention = self.retention;
         report.coverage.points.push((sample.time, sample.mode));
         report.completed_time = report.completed_time.max(sample.time);
-        self.observer.sample(ordinal, &sample)?;
+        let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
+            self.observer.sample(ordinal, &sample))).unwrap_or_else(|_| {
+                report.termination = Termination::Panic;
+                Err(ProblemError::internal("completed sample observer panicked"))
+            });
+        // Delivery/recording failure cannot erase physically completed Full data.
         if self.retention == SampleRetention::Full { report.samples.push(sample); }
-        Ok(())
+        delivered
     }
 }
 /// Successfully completed output point; no preallocated placeholder is observable.

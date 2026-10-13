@@ -741,12 +741,37 @@ impl FitProblem {
         report: &mut FitReport,
         execution: Execution,
     ) -> Result<(), crate::math::MathRuntimeError> {
-        if let Some(x) = report.candidate.as_ref() {
+        if let Some(x) = report.candidate.clone() {
+            let x = x.as_slice();
             // Fresh final evaluation is independent of native callback cache and candidate status.
             let mut final_oracle = FitOracle::new(self.clone(), execution)?;
-            match final_oracle.evaluate(x) {
+            match final_oracle.evaluate_demand(x, Demand::default()) {
                 Err(e) => report.diagnostic = Some(FitDiagnostic::new(FitRule::FinalEvaluation, e)),
                 Ok(point) => {
+                    if !self.install_final_point(report, x, point)? { return Ok(()); }
+                    match final_oracle.response_rank(x) {
+                        Ok(diagnostic) => {
+                            if let Some(point) = final_oracle.point.as_ref()
+                                && !self.install_final_point(report, x, point)? { return Ok(()); }
+
+                            report.responses = Some(diagnostic.responses);
+                            report.singular_values = diagnostic.singular_values;
+                            report.directions = Some(diagnostic.directions);
+                            report.rank = Some(diagnostic.rank);
+                        }
+                        Err(e) => {
+                            report.diagnostic = Some(FitDiagnostic::new(FitRule::ResponseRank, e));
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    /// Values and derivative products refer to the same physically compared trial.
+    /// Preserve a completed value observation when rank/derivatives are unavailable.
+    fn install_final_point(&self, report: &mut FitReport, x: &[f64], point: &Point)
+        -> Result<bool, crate::math::MathRuntimeError> {
                     report.trajectories = point.trajectories.clone();
                     report.constraint_values = point.constraints.clone();
                     let residuals = self
@@ -763,7 +788,7 @@ impl FitProblem {
                             FitRule::ObjectiveOverflow,
                             ProblemError::numerical("fresh fitting objective overflow"),
                         ));
-                        return Ok(());
+                        return Ok(false);
                     }
                     report.objective = Some(objective);
                     report.quality = Some(native::quality::observed(
@@ -779,22 +804,10 @@ impl FitProblem {
                         .zip(&self.measurements)
                         .map(|(v, o)| o.included.then_some(*v))
                         .collect();
-                    match final_oracle.response_rank(x) {
-                        Ok(diagnostic) => {
-                            report.responses = Some(diagnostic.responses);
-                            report.singular_values = diagnostic.singular_values;
-                            report.directions = Some(diagnostic.directions);
-                            report.rank = Some(diagnostic.rank);
-                        }
-                        Err(e) => {
-                            report.diagnostic = Some(FitDiagnostic::new(FitRule::ResponseRank, e));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
+
+        Ok(true)
     }
+
 }
 /// The singular values of `a`, decreasing, and on request its full right singular basis:
 /// column `k` belongs to singular value `k`, and the columns beyond `min(rows, cols)` span
@@ -861,9 +874,8 @@ impl FitOracle {
         // forward sensitivities once, at the candidate (PS-12).
         if self.derivatives != FitDerivatives::Responses {
             self.derivatives = FitDerivatives::Responses;
-            self.point = None;
         }
-        self.evaluate(x)?;
+        self.evaluate_demand(x, Demand::responses())?;
         let p = &self.prepared;
         let point = self
             .point

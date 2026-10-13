@@ -1122,3 +1122,30 @@ fn completed_samples_full_and_compact_preserve_values_and_prefix() {
         assert_eq!(full_report.statistics, compact_report.statistics);
     }
 }
+
+#[test]
+fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
+    struct Stop;
+    impl SampleObserver for Stop {
+        fn sample(&mut self, ordinal: usize, _: &Sample) -> Result<(), ProblemError> {
+            if ordinal == 1 { Err(ProblemError::Cancelled) } else { Ok(()) }
+        }
+    }
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Diffsol && !cfg!(feature = "diffsol")
+            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let profile = Profile { method, start: 0., end: 1., samples: vec![0., 0.2, 0.7, 1.],
+            atol: vec![1e-8], parameter_scales: vec![1.], ..Default::default() };
+        let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
+        let report = integrate_with_samples_observed(&mut Toy::new(false, false), &profile,
+            &[1.], Arc::new(AtomicBool::new(false)), Arc::new(crate::solve::Progress::new(16)),
+            &snapshot, SampleRetention::Full, &mut Stop).unwrap();
+        assert_eq!(report.termination, Termination::Cancelled);
+        assert!(matches!(report.error, Some(ProblemError::Cancelled)));
+        assert_eq!(report.samples.len(), 2);
+        assert_eq!(report.coverage.produced(), 2);
+        assert_eq!(report.coverage.last_time(), Some(0.2));
+        assert!(report.assess_endpoint(&profile).prefix_complete);
+        assert!(!report.assess_endpoint(&profile).satisfied);
+    }
+}
