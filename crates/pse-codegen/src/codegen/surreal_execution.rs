@@ -167,7 +167,7 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
     RETURN $writer.attempt;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>, $admission: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $row.interpretation!=__INTERPRETATION__ OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!=__INTERPRETATION__ { THROW 'stale execution publication interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
@@ -179,6 +179,8 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
     };
+    LET $admission_owner=IF $admission=NONE {NONE} ELSE {fn::pse_study_v1::admission_authority($rpc_expiry,$admission)};
+    IF $admission!=NONE AND $row.key!=(SELECT run FROM ONLY type::record('canonical_study_points',$admission.point)).run { THROW 'selected scientific run identity differs from its occurrence'; };
     fn::pse_execution_v1::source_creator($rpc_expiry,$row.problem,'run:'+$row.key);
     LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $row.revision);
     IF $revision = NONE OR $revision.problem != $row.problem OR $revision.sequence != $row.source_sequence OR $revision.interpretation != $row.interpretation { THROW 'execution revision unavailable'; };
@@ -203,6 +205,7 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
+    IF $admission_owner!=NONE { fn::pse_execution_v1::lease($rpc_expiry,$admission_owner.expires_at); };
     RETURN $rpc_result;
 };
 

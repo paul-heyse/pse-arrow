@@ -742,7 +742,7 @@ impl Runtime {
         if !lane.input.as_ref().is_some_and(|input| input.study == point.study) {
             let study = store.canonical_study(&point.study).await?.ok_or_else(|| contract("lazy study absent"))?;
             let extent = study.metadata.len().checked_mul(4).and_then(|n| n.checked_add(4096))
-                .filter(|_| study.metadata.len() <= 16 * 1024 * 1024).ok_or_else(|| contract("lazy descriptor extent"))?;
+                .filter(|_| study.metadata.len() <= pse_operations::canonical::PAYLOAD_BYTES).ok_or_else(|| contract("lazy descriptor extent"))?;
             let owner = self.shared.math().reserve("study:lazy-input-owner", extent)?;
             let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
             let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
@@ -758,7 +758,8 @@ impl Runtime {
         if input.lazy.variants.selected_policy(selected.variant)? != point_policy(&point)? {
             return Err(contract("lazy selected policy differs from the immutable occurrence"));
         }
-        let admitted = input.lazy.admit_selected(&input.package, selected.variant, Some(&point.key), cancel).await;
+        let authority = pse_operations::canonical_studies::StudyAdmissionAuthority::new(scope, fence)?;
+        let admitted = input.lazy.admit_selected(&input.package, selected.variant, Some(&authority), cancel).await;
         let (admission, seed_need, diagnostic) = match admitted {
             Ok((package, definition)) => {
                 let revision = package.recorded_revision()?.clone();
@@ -771,7 +772,7 @@ impl Runtime {
                     source_selection: document(&(2_u8, &admitted.revision, &input.physical))?,
                     attestation: input_run.attestation.as_slice().to_vec(),
                 };
-                creation_effect(cancel, store.begin_run(&request)).await?;
+                creation_effect(cancel, store.begin_run_with_study_admission(&request, &authority)).await?;
                 (admitted, Some(definition.policy.seed_need), None)
             }
             Err(error) => {

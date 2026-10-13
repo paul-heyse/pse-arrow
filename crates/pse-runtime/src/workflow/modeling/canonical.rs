@@ -2353,9 +2353,10 @@ impl ModelingPackage {
     /// problem. The admitted base's durable and local heads are never advanced.
     pub(in crate::workflow) async fn record_study_variant(
         &self,
-        point: &str,
+        authority: &pse_operations::canonical_studies::StudyAdmissionAuthority,
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
+        let point = authority.point_key();
         if point.is_empty() { return Err(contract("variant publication requires its occurrence")); }
         let problem = format!("study-variant:{point}");
         let operation = format!("study-variant-source:{point}");
@@ -2371,7 +2372,7 @@ impl ModelingPackage {
             references: object.references.clone(),
         }).collect::<Vec<_>>();
         let receipt = crate::workflow::study::creation_effect(cancel, async {
-            self.runtime.canonical_store()?.edit(&problem, None, &operation, &edits).await
+            self.runtime.canonical_store()?.edit_with_study_admission(&problem, None, &operation, &edits, authority).await
                 .map_err(|source| crate::workflow::source_settlement::source_edit_error(problem.clone(), operation.clone(), source))
         }).await?;
         let revision = SourceRevision::admitted(self.revision.admitted.clone(), self.revision.identity, Some(receipt), None)?;

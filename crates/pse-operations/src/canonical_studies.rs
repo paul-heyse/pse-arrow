@@ -290,6 +290,34 @@ impl StudyScope {
     }
 }
 
+/// Exact input-phase capability for new source activation and scientific run publication.
+/// Mutation owners recheck its complete scope and actual lease inside their transaction.
+#[derive(Clone, Debug)]
+pub struct StudyAdmissionAuthority { scope: StudyScope, fence: AttemptFence }
+impl StudyAdmissionAuthority {
+    /// Capture the already-claimed input phase, without granting a new scientific start.
+    pub fn new(scope: &StudyScope, fence: &AttemptFence) -> Result<Self, CanonicalError> {
+        if fence.run() != study_admission_run(&scope.point.key)
+            || !matches!(scope.action(None)?.kind, ActionKind::Wait(pse_model::study::WaitReason::ScientificAdmission)) {
+            return Err(CanonicalError::Configuration("source publication requires its pending admission owner".into()));
+        }
+        Ok(Self { scope: scope.clone(), fence: fence.clone() })
+    }
+    /// Original occurrence, independent of preparation and owner replacement.
+    pub fn point_key(&self) -> &str { &self.scope.point.key }
+    pub(crate) fn encode(&self) -> Result<Value, CanonicalError> {
+        let mut value = Object::new();
+        value.insert("study", Value::String(self.scope.study.clone()));
+        value.insert("generation", codec::encode_uint(self.scope.generation)?);
+        value.insert("point", Value::String(self.scope.point.key.clone()));
+        value.insert("expected", Value::Array(scope_expected(&self.scope)?.into_iter().map(Value::Object).collect::<Vec<_>>().into()));
+        value.insert("run", Value::String(self.fence.run().into()));
+        value.insert("attempt", Value::String(self.fence.attempt().into()));
+        value.insert("authority", codec::encode_uint(self.fence.generation())?);
+        Ok(Value::Object(value))
+    }
+}
+
 /// Canonical claim and the actual start that the scientific owner must consume.
 #[derive(Clone, Debug)]
 pub struct StudyClaim {
@@ -529,7 +557,7 @@ impl CanonicalStore {
                         if key.is_empty() || points.is_empty() || points.len() > 100_000 {
                             return Err(CanonicalError::PayloadLimit);
                         }
-                        bounded(metadata, 16 * 1024 * 1024)?;
+                        bounded(metadata, crate::canonical::PAYLOAD_BYTES)?;
                         let graph = OccurrenceGraph {
                             points: points.iter().map(|point| point.policy.clone()).collect(),
                         };
@@ -2110,6 +2138,45 @@ mod canonical_studies_server_unit {
         assert_eq!(point_facts(&native.point).unwrap().attempt_count, 1);
         let _ = database;
         store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_lazy_publication_fences_new_effects_and_recovers_exact_receipts() {
+        for cancellation in [false, true] {
+            let (store, _database, revision) = fixture().await;
+            let mut points = vec![occurrence(&revision, 0, vec![]), occurrence(&revision, 1, vec![])];
+            for point in &mut points { point.policy.seed_need = SeedNeed::Pending; }
+            store.create_study("publication-fence", &request(&revision, "parent"), b"metadata", &points, &|| false).await.unwrap();
+            let first_key = point_key("publication-fence", OccurrenceKey(0));
+            let second_key = point_key("publication-fence", OccurrenceKey(1));
+            let first_scope = store.study_scope(&first_key).await.unwrap();
+            let second_scope = store.study_scope(&second_key).await.unwrap();
+            let first = store.claim_study_admission(&first_scope, "first", Duration::from_secs(60)).await.unwrap().unwrap();
+            let second = store.claim_study_admission(&second_scope, "second", Duration::from_secs(60)).await.unwrap().unwrap();
+            let first_authority = StudyAdmissionAuthority::new(&first_scope, &first).unwrap();
+            let second_authority = StudyAdmissionAuthority::new(&second_scope, &second).unwrap();
+            let first_problem = format!("study-variant:{first_key}");
+            let first_operation = format!("study-variant-source:{first_key}");
+            let receipt = store.edit_with_study_admission(&first_problem, None, &first_operation, &[], &first_authority).await.unwrap();
+            let mut science = points[0].run.clone(); science.revision = receipt.clone();
+            let published = store.begin_run_with_study_admission(&science, &first_authority).await.unwrap();
+            let second_problem = format!("study-variant:{second_key}");
+            let second_operation = format!("study-variant-source:{second_key}");
+            let crate::canonical_staging::StageOutcome::Closed(stage) = store.stage_edits(&second_problem, None, &second_operation, &[]).await.unwrap() else { panic!("fresh stage"); };
+            if cancellation { store.cancel_study("publication-fence").await.unwrap(); }
+            else {
+                store.db.query("UPDATE canonical_attempts SET expires_at=0 WHERE key IN [$first,$second];")
+                    .bind(("first", first.attempt().to_owned())).bind(("second", second.attempt().to_owned())).await.unwrap().check().unwrap();
+            }
+            assert!(store.activate_source_stage_authorized(&stage, Some(&second_authority)).await.is_err());
+            assert!(store.revision(&second_operation).await.unwrap().is_none());
+            assert!(store.begin_run_with_study_admission(&points[1].run, &second_authority).await.is_err());
+            assert!(store.canonical_run(&points[1].run.key).await.unwrap().is_none());
+            assert_eq!(store.edit_with_study_admission(&first_problem, None, &first_operation, &[], &first_authority).await.unwrap(), receipt);
+            assert_eq!(store.begin_run_with_study_admission(&science, &first_authority).await.unwrap().key, published.key);
+            store.abandon_source_stage(&stage).await.unwrap();
+            store.remove_isolated_fixture().await.unwrap();
+        }
     }
 
     fn request(revision: &crate::canonical::Revision, key: &str) -> RunRequest {

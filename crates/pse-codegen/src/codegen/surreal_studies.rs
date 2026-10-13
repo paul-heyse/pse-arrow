@@ -314,6 +314,15 @@ DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: s
     RETURN $rpc_result;
 };
 
+// Shared mutation admission: exact original point/premises, cancellation, owner and lease.
+DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority:object) -> object {
+    IF $authority.run!='study-admission:'+$authority.point { THROW 'scientific admission capability belongs elsewhere'; };
+    LET $p=fn::pse_study_v1::guard($rpc_expiry,$authority.study,$authority.generation,false,$authority.point,$authority.expected);
+    IF $p.admission!=NONE { THROW 'scientific admission already settled'; };
+    fn::pse_execution_v1::current_writer($rpc_expiry,$authority.run);
+    RETURN fn::pse_execution_v1::fence($rpc_expiry,$authority.run,$authority.attempt,$authority.authority);
+};
+
 // Input admission uses a separate run. Its lease never increments native point attempts.
 DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);

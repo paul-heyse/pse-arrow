@@ -3189,6 +3189,18 @@ impl CanonicalStore {
     }
     /// Retain selected inputs and provenance atomically before native execution.
     pub async fn begin_run(&self, request: &RunRequest) -> Result<CanonicalRun, CanonicalError> {
+        self.begin_run_authorized(request, None).await
+    }
+    /// Publish actual selected scientific inputs under the original lazy admission capability.
+    pub async fn begin_run_with_study_admission(
+        &self, request: &RunRequest, authority: &crate::canonical_studies::StudyAdmissionAuthority,
+    ) -> Result<CanonicalRun, CanonicalError> {
+        self.begin_run_authorized(request, Some(authority)).await
+    }
+    async fn begin_run_authorized(
+        &self, request: &RunRequest, authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+    ) -> Result<CanonicalRun, CanonicalError> {
+        let admission = authority.map(|authority| authority.encode()).transpose()?.unwrap_or(Value::None);
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -3199,7 +3211,8 @@ impl CanonicalStore {
                 .protected_query(&row.problem, crate::canonical::QueryEffect::Mutation, "canonical_execution::begin_run", || {
                     Ok(self
                         .db
-                        .query("RETURN fn::pse_execution_v1::begin_run($pse_rpc_expires_at, $row,$sources);")
+                        .query("RETURN fn::pse_execution_v1::begin_run($pse_rpc_expires_at, $row,$sources,$admission);")
+                        .bind(("admission", admission.clone()))
                         .bind(("row", encoded.clone()))
                         .bind(("sources", sources.clone())))
                 })

@@ -72,7 +72,7 @@ pub struct LazyStudyDefinition {
 impl StudyVariants {
     /// Validate finite descriptor/cardinality and ordinals without constructing a variant.
     pub(in crate::workflow) fn validate(&self) -> Result<(), WorkflowError> {
-        document_extent(self, 16 * 1024 * 1024)?;
+        document_extent(self, pse_operations::canonical::PAYLOAD_BYTES / 2)?;
         if self.choices.is_empty() || self.choices.len() > 64 || self.selected.is_empty()
             || self.selected.len() > super::MAXIMUM_STUDY_POINTS {
             return Err(contract("bounded lazy study dimensions and selected occurrences"));
@@ -181,7 +181,7 @@ fn policy(requested: &StudyPointPolicy) -> PointPolicy {
 }
 impl LazyStudyDefinition {
     pub(in crate::workflow) async fn admit_selected(
-        &self, base: &ModelingPackage, selection: usize, occurrence: Option<&str>,
+        &self, base: &ModelingPackage, selection: usize, occurrence: Option<&pse_operations::canonical_studies::StudyAdmissionAuthority>,
         cancel: &crate::CancelSource,
     ) -> Result<(ModelingPackage, StudyPointDefinition), WorkflowError> {
         self.variants.source.check(base)?;

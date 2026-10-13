@@ -593,6 +593,17 @@ impl CanonicalStore {
             .await
     }
 
+    /// Abandon only the still-owned source stage after a proved activation refusal.
+    pub(crate) async fn abandon_source_stage(&self, stage: &ClosedStage) -> Result<(), CanonicalError> {
+        self.ensure_writes()?;
+        self.protected_query(&stage.problem, crate::canonical::QueryEffect::Mutation, "canonical_staging::abandon_source_stage", || Ok(
+            self.db.query("BEGIN; LET $retention=type::record('canonical_guards','retention:'+$problem); SELECT * FROM $retention FOR UPDATE; LET $guard=type::record('canonical_guards','stage:'+$operation); SELECT * FROM $guard FOR UPDATE; LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation); IF $stage!=NONE AND $stage.problem=$problem AND $stage.generation=$generation AND !$stage.activated { UPDATE ONLY type::record('canonical_stages',$operation) SET abandoned=true,closed=false,generation+=1dec; UPSERT $guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec; }; fn::pse_execution_v1::deadline($pse_rpc_expires_at); RETURN true; COMMIT;")
+                .bind(("problem", stage.problem.clone())).bind(("operation", stage.operation.clone()))
+                .bind(("generation", canonical_codec::encode_uint(stage.generation)?))
+        )).await?.check()?;
+        Ok(())
+    }
+
     async fn source_edit_receipt(
         &self,
         operation: &str,

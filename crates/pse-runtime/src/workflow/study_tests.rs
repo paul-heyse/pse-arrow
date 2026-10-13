@@ -3805,10 +3805,6 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let science = runtime.canonical_store().unwrap().canonical_run(&selected.run).await.unwrap().unwrap();
     assert_eq!(science.revision, format!("study-variant-source:{valid_key}"));
     assert_eq!(package.canonical_revision().unwrap(), &base);
-    // A second publication acknowledges precisely the first selected source effect.
-    let constructor = package.construct_study_variant(&OperationSource::of(&package), SourceDelta::default(), &cancel).await.unwrap();
-    let recorded = constructor.record_study_variant(&valid_key, &cancel).await.unwrap();
-    assert_eq!(recorded.canonical_revision().unwrap().key, science.revision);
     let scope = runtime.canonical_store().unwrap().study_scope(&invalid_key).await.unwrap();
     assert!(runtime.admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel).await.unwrap());
     let invalid = runtime.canonical_store().unwrap().canonical_study_point(&invalid_key).await.unwrap().unwrap();

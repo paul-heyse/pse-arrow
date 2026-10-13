@@ -1219,6 +1219,23 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
+        self.edit_authorized(problem, expected, operation, edits, None).await
+    }
+    /// Publish a selected variant under its original source-admission capability.
+    pub async fn edit_with_study_admission(
+        &self, problem: &str, expected: Option<&str>, operation: &str, edits: &[ObjectEdit],
+        authority: &crate::canonical_studies::StudyAdmissionAuthority,
+    ) -> Result<Revision, CanonicalError> {
+        if expected.is_some() || problem != format!("study-variant:{}", authority.point_key())
+            || operation != format!("study-variant-source:{}", authority.point_key()) {
+            return Err(CanonicalError::Configuration("selected source effect must use its original independent occurrence identity".into()));
+        }
+        self.edit_authorized(problem, expected, operation, edits, Some(authority)).await
+    }
+    async fn edit_authorized(
+        &self, problem: &str, expected: Option<&str>, operation: &str, edits: &[ObjectEdit],
+        authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+    ) -> Result<Revision, CanonicalError> {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
@@ -1233,7 +1250,14 @@ impl CanonicalStore {
                         }
                         crate::canonical_staging::StageOutcome::Closed(stage) => stage,
                     };
-                    self.activate_source_stage(&stage).await
+                    let result = match authority {
+                        Some(authority) => self.activate_source_stage_authorized(&stage, Some(authority)).await,
+                        None => self.activate_source_stage(&stage).await,
+                    };
+                    if authority.is_some() && result.as_ref().is_err_and(CanonicalError::proves_source_refusal) {
+                        self.abandon_source_stage(&stage).await?;
+                    }
+                    result
                 })
                 .await
             })
@@ -1244,6 +1268,13 @@ impl CanonicalStore {
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
+        self.activate_source_stage_authorized(stage, None).await
+    }
+    pub(crate) async fn activate_source_stage_authorized(
+        &self, stage: &crate::canonical_staging::ClosedStage,
+        authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+    ) -> Result<Revision, CanonicalError> {
+        let admission = authority.map(|authority| authority.encode()).transpose()?.unwrap_or(Value::None);
         let activity = self.admit_activity()?;
         activity.scope(async {
         let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);
@@ -1253,6 +1284,7 @@ impl CanonicalStore {
             let query = self
                 .activation_db
                 .query(crate::canonical_staging::bounded_edit_sql(EDIT))
+                .bind(("admission", admission.clone()))
                 .bind(("problem", stage.problem.clone()))
                 .bind(("expected", stage.expected.clone()))
                 .bind(("operation", stage.operation.clone()))
@@ -2174,6 +2206,7 @@ LET $head_guard = type::record('canonical_guards', 'head:' + $problem);
 SELECT * FROM $head_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $ack = SELECT * FROM ONLY type::record('canonical_revisions', $operation);
 IF $ack != NONE { THROW 'operation identity already committed; settle immutable revision'; };
+LET $admission_owner=IF $admission=NONE {NONE} ELSE {fn::pse_study_v1::admission_authority($pse_rpc_expires_at,$admission)};
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
 IF $stage = NONE OR $stage.problem != $problem OR ($stage.expected_head ?? NONE) != $expected OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.abandoned OR $stage.activated OR $stage.expires_at <= time::micros() { THROW 'closed staging manifest fenced or unavailable'; };
 LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
@@ -2267,6 +2300,7 @@ UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ??
 IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET key='retention:'+$problem,generation=0dec,incarnation=<string>rand::uuid::v4(); };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $stage.expires_at <= time::micros() { THROW 'activation staging lease expired before commit'; };
+IF $admission_owner!=NONE { fn::pse_execution_v1::lease($pse_rpc_expires_at,$admission_owner.expires_at); };
 COMMIT;
 "#;
 
