@@ -138,6 +138,7 @@ impl CausalMap {
         self.inner_context = context;
         self
     }
+    /// Attach independent complete-model validation after final tear reconstruction.
     pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {
         self.original_observer = Some(OriginalObserverWrapper(observer));
         self

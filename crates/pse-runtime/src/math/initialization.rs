@@ -18,6 +18,8 @@ use std::{
     sync::Arc,
 };
 
+mod ready;
+
 /// Compiled predecessor-ordered blocks, with explicit conditional input coordinates.
 #[derive(Clone, Debug)]
 pub struct PreparedInitialization {
@@ -1231,6 +1233,9 @@ impl MathService {
         profile: InitializationProfile,
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
         let (strategies, numerics) = prepared.validate_profile(&values, &profile)?;
+        if profile.solver.block_workers > 1 {
+            return self.initialize_ready(prepared, values, providers, profile, strategies, numerics);
+        }
         let controls = &profile.solver.controls;
         let size = prepared.blocks.iter().try_fold(
             values.scalars.len().saturating_mul(64),
