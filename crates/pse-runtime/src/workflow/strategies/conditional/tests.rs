@@ -1216,14 +1216,21 @@ async fn conditional_retention_control(ambiguous: bool) {
     let same_input = BTreeMap::from([(inlet, 4.0), (auxiliary, 2.0)]);
     let first = unit.evaluate(&same_input, &execution).unwrap();
     let second = independent.evaluate(&same_input, &execution).unwrap();
-    for port in [outlet, auxiliary_outlet] {
-        assert!((first[&port] - second[&port]).abs() < 1e-7);
-    }
+    let lane_noise = [outlet, auxiliary_outlet].into_iter()
+        .map(|port| (first[&port] - second[&port]).abs()).fold(0.0_f64, f64::max);
+    assert!(lane_noise < 1e-7, "named authored branch/lane noise floor {lane_noise}");
+    // The named smooth branch remains stable under a small boundary perturbation.
+    // This local window is not a claim about other branches or opaque providers.
+    let perturbed_input = BTreeMap::from([(inlet, 4.0 + 1e-5), (auxiliary, 2.0)]);
+    let perturbed = unit.evaluate(&perturbed_input, &execution).unwrap();
+    assert!((perturbed[&outlet] - first[&outlet]).abs() < 2e-5);
+    let repeated = unit.evaluate(&same_input, &execution).unwrap();
+    assert!((repeated[&outlet] - first[&outlet]).abs() < 1e-7);
     let after = prepared.inner_context().unwrap();
     assert_eq!(context.start, after.start);
     assert_eq!(context.branch, after.branch);
     assert_eq!(context.accuracy, after.accuracy);
-    assert_eq!(unit.conditional.as_ref().unwrap().calls, 4);
+    assert_eq!(unit.conditional.as_ref().unwrap().calls, 6);
     drop(independent);
     assert_eq!(independent_budget.used(), 0);
     assert!(unit.evaluate(&BTreeMap::new(), &execution).is_err());

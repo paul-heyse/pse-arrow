@@ -481,6 +481,7 @@ mod tests {
         assert_eq!(history.omitted, 2);
         for sample in [&history.last_successful, &history.last_evaluation] {
             let sample = sample.as_ref().unwrap();
+            assert_eq!(sample.inner_context, RawMapContextKind::Frozen);
             assert_eq!(sample.inner_start, context.start);
             assert_eq!(sample.inner_branch, context.branch);
             assert_eq!(sample.inner_accuracy, context.accuracy);

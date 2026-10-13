@@ -2904,7 +2904,10 @@ mod tests {
         assert_eq!(history.last_evaluation.as_ref().unwrap().role, RawMapRole::RestartScreening);
         assert!(history.last_evaluation.as_ref().unwrap().failure.is_some());
         assert!(history.last_successful.is_some());
-        assert!(run(vec![vec![2.0]], 3, Some(1), RevealingMap::Affine(0.5)).is_err());
+        let cancelled = run(vec![vec![2.0]], 3, Some(1), RevealingMap::Affine(0.5)).unwrap();
+        assert_eq!(cancelled.termination.category, Termination::Cancelled);
+        assert_eq!(cancelled.metrics["recycle.native_attempts"], Metric::Integer(1));
+        assert!(cancelled.evidence.raw_map.is_some());
     }
     #[test]
     fn raw_map_domain_failure_and_cancellation_preserve_last_success_without_successor_work() {

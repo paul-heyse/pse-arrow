@@ -69,15 +69,31 @@ impl Session {
         let mut attempt = 0u64;
         let mut report: Option<SolveReport> = None;
         while let Some(start) = starts.next() {
-            execution.check()?;
+            if let Err(cause) = execution.check() {
+                if let Some(report) = &mut report {
+                    report.termination.category = execution.stopped().unwrap_or(Termination::Cancelled);
+                    report.record_validation_failure(cause);
+                    break;
+                }
+                return Err(cause);
+            }
             if remaining == 0 { break; }
             if attempt > 0 {
                 let Function::FixedPoint(oracle) = &mut self.callback.function else { return Err(ProblemError::Internal("recycle representation changed".into())); };
                 let mut mapped = vec![0.0; start.len()];
+                let entered = std::cell::Cell::new(false);
                 let screened = execution.counted(WorkEvidence { evaluations: Some(1), iterations: Some(0), factorizations: Some(0), proof_steps: Some(0) }, || {
+                    entered.set(true);
                     crate::quality::contained(|| oracle.map(start, &mut mapped))?;
                     if mapped.iter().all(|value| value.is_finite()) { Ok(()) } else { Err(ProblemError::numerical("nonfinite screened recycle restart")) }
                 });
+                if !entered.get() {
+                    if let Some(report) = &mut report {
+                        if let Some(stop) = execution.stopped() { report.termination.category = stop; }
+                        if let Err(cause) = screened { report.record_validation_failure(cause); }
+                    }
+                    break;
+                }
                 let retained = history.as_ref().map_or(0, |history: &RawMapHistory| history.samples.len());
                 let mut capture = RawMapCapture::new(oracle.contract(), self.compatibility.profile, controls.history.saturating_sub(retained), oracle.physical_tear_coordinates(), &tolerances.rows)?.with_inner_context(oracle.inner_context());
                 capture.record(oracle.contract(), start, screened.is_ok().then_some(mapped.as_slice()), RawMapRole::RestartScreening, screened.as_ref().err().map(raw_map_failure));
@@ -110,7 +126,10 @@ impl Session {
         report.evidence.raw_map = history.map(std::sync::Arc::new);
         report.metrics.insert("recycle.native_attempts".into(), Metric::Integer(i64::try_from(attempt).unwrap_or(i64::MAX)));
         report.metrics.insert("recycle.iteration_allowance_remaining".into(), Metric::Integer(i64::from(remaining)));
-        execution.check()?;
+        if let Some(stop) = execution.stopped() {
+            report.termination.category = stop;
+            if let Err(cause) = execution.check() { report.record_validation_failure(cause); }
+        }
         Ok(report)
     }
 }

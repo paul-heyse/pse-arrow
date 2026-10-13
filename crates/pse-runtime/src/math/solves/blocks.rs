@@ -435,9 +435,9 @@ impl MathService {
                 let stack_bytes = if ready.len() > 1 { ready.len().checked_mul(self.policy.stack_bytes) } else { Some(0) }
                     .ok_or(MathRuntimeError::Limit("ready block stack extent"))?;
                 let _stacks = self.reserve("math:block-wave-stacks", stack_bytes)?;
-                let outcomes = if ready.len() == 1 {
+                let (outcomes, spawn_failure) = if ready.len() == 1 {
                     let (index, step) = ready.remove(0);
-                    vec![(index, self.run_step(step, execution.clone(), None, retained, budget))]
+                    (vec![(index, self.run_step(step, execution.clone(), None, retained, budget))], None)
                 } else { std::thread::scope(|scope| {
                     let mut children = Vec::with_capacity(ready.len());
                     let mut spawn_error = None;
@@ -466,47 +466,38 @@ impl MathService {
                         let result = child.join().unwrap_or_else(|_| Err(MathRuntimeError::Panic("ready block worker panicked".into())));
                         outcomes.push((index, result));
                     }
-                    if let Some(error) = spawn_error { return Err(error); }
-                    Ok::<_, MathRuntimeError>(outcomes)
+                    Ok::<_, MathRuntimeError>((outcomes, spawn_error))
                 })? };
                 retained.clear();
                 retained.release();
-                // Join/drain the complete wave before any error or overlay escapes.
+                // Reconcile every joined child even when a sibling failed. No executed
+                // native work disappears behind the first canonical error.
+                let mut wave_error = spawn_failure;
                 for (index, outcome) in outcomes {
-                    let outcome = match outcome {
-                        Ok(outcome) => outcome,
-                        Err(error) => { work = sum_work(work, WorkEvidence::default()); return Err(error); }
+                    let report = match outcome {
+                        Ok(Outcome::Native(report)) => report,
+                        Ok(Outcome::Rejected(error)) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(MathRuntimeError::Shared(error)); } continue; }
+                        Ok(_) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(ProblemError::Internal("conditional native report unavailable".into()).into()); } continue; }
+                        Err(error) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(error); } continue; }
                     };
-                    let Outcome::Native(report) = outcome else {
-                        work = sum_work(work, WorkEvidence::default());
-                        return Err(match outcome {
-                            Outcome::Rejected(error) => MathRuntimeError::Shared(error),
-                            _ => ProblemError::Internal("conditional native report unavailable".into()).into(),
-                        });
-                    };
-                    let block = &prepared.boundaries[index];
-                let consumed = report.evidence.work.iterations.and_then(|count| u32::try_from(count).ok())
-                    .ok_or_else(|| ProblemError::Unsupported("block aggregate iteration coverage unavailable".into()))?;
-                remaining_iterations = remaining_iterations.checked_sub(consumed)
-                    .ok_or_else(|| ProblemError::Limit { kind: native::LimitKind::Work, detail: "aggregate block iteration allowance exceeded".into() })?;
-                work = sum_work(work, report.evidence.work);
-                capture_component(&report)?;
-                if let Err(cause) = super::super::initialization::commit_block(
-                    &mut values,
-                    &block.boundary,
-                    Some(&report),
-                    &prepared.original.numerics.policy,
-                ) {
-                    component_observation = Some(super::super::strategy::observe_native(&report));
-                    failure_cause = Some(cause);
-                    return Err(ProblemError::Unsupported(
-                        "conditional block candidate refused".into(),
-                    )
-                    .into());
-                }
-                components.push(report);
+                    work = sum_work(work, report.evidence.work);
+                    match report.evidence.work.iterations.and_then(|count| u32::try_from(count).ok()).and_then(|count| remaining_iterations.checked_sub(count)) {
+                        Some(remaining) => remaining_iterations = remaining,
+                        None if wave_error.is_none() => wave_error = Some(ProblemError::Unsupported("block aggregate iteration coverage unavailable or exceeded".into()).into()),
+                        None => {}
+                    }
+                    if let Err(error) = capture_component(&report) && wave_error.is_none() { wave_error = Some(error); }
+                    if let Err(cause) = super::super::initialization::commit_block(&mut values, &prepared.boundaries[index].boundary, Some(&report), &prepared.original.numerics.policy) {
+                        if wave_error.is_none() {
+                            component_observation = Some(super::super::strategy::observe_native(&report));
+                            failure_cause = Some(cause);
+                            wave_error = Some(ProblemError::Unsupported("conditional block candidate refused".into()).into());
+                        }
+                    }
+                    components.push((index, report));
                     completed[index] = true;
                 }
+                if let Some(error) = wave_error { return Err(error); }
             }
             execution.check()?;
             let mut original = source.clone();
@@ -551,7 +542,8 @@ impl MathService {
             report.coordinates = columns.iter().map(|id| (*id, values.scalars[id])).collect();
             work = sum_work(work, report.work);
             report.work = work;
-            report.components = components;
+            components.sort_unstable_by_key(|(index, _)| *index);
+            report.components = components.into_iter().map(|(_, report)| report).collect();
             // Until every component and the original evaluation are complete, retain the
             // entire pre-admitted construction grant. Partition once while it is unique;
             // surplus drops without releasing/reacquiring any live report capacity.

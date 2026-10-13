@@ -109,6 +109,7 @@ impl Default for SolverProfile {
     }
 }
 impl SolverProfile {
+    #[cfg(any(feature = "solver-kinsol", test))]
     pub(crate) fn block_profile(&self, id: pse_structural::incidence::BlockId) -> Result<Self, ProblemError> {
         let mut profile = match self.block_overrides.get(&id) {
             Some(settings) => settings.apply(self)?,
@@ -118,6 +119,7 @@ impl SolverProfile {
         profile.block_workers = 1;
         Ok(profile)
     }
+    #[cfg(any(feature = "solver-kinsol", test))]
     pub(crate) fn validate_block_ids(&self, blocks: impl Iterator<Item = pse_structural::incidence::BlockId>) -> Result<(), ProblemError> {
         let actual: std::collections::BTreeSet<_> = blocks.collect();
         if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {

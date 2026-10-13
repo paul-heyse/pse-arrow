@@ -204,6 +204,7 @@ pub struct BlockSolveOverride {
     pub controls: Option<Controls>,
 }
 impl BlockSolveOverride {
+    #[cfg(any(feature = "solver-kinsol", test))]
     pub(crate) fn apply(&self, original: &SolverProfile) -> Result<SolverProfile, ProblemError> {
         let mut profile = original.clone();
         profile.block_overrides.clear();
