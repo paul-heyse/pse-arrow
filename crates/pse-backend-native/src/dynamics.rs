@@ -443,6 +443,25 @@ pub fn integrate_with_progress_observed(
     progress: Arc<crate::solve::Progress>,
     snapshot: &crate::execution::Snapshot,
 ) -> Result<Report, ProblemError> {
+    let mut observer = IgnoreSamples;
+    integrate_with_samples_observed(oracle, profile, parameters, cancel, progress,
+        snapshot, SampleRetention::Full, &mut observer)
+}
+/// Execute with owner-affine completed-sample delivery. Delivery occurs between native
+/// calls; waiting never reinitializes native multistep history.
+#[cfg(any(feature = "diffsol", feature = "idas"))]
+#[allow(clippy::too_many_arguments, reason = "scientific input, original execution and output ownership have independent authorities")]
+pub fn integrate_with_samples_observed(
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    snapshot: &crate::execution::Snapshot,
+    retention: SampleRetention,
+    observer: &mut dyn SampleObserver,
+) -> Result<Report, ProblemError> {
+    let mut output = SampleOutput { retention, observer };
     let resolved = profile.resolve_for(
         oracle.contract(),
         parameters,
@@ -463,11 +482,11 @@ pub fn integrate_with_progress_observed(
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
         Method::Diffsol => {
-            integrator::integrate_with_progress(oracle, profile, parameters, cancel, progress)
+            integrator::integrate_with_samples(oracle, profile, parameters, cancel, progress, &mut output)
         }
         #[cfg(feature = "idas")]
         Method::Idas => {
-            idas::integrate_with_progress(oracle, profile, parameters, cancel, progress)
+            idas::integrate_with_samples(oracle, profile, parameters, cancel, progress, &mut output)
         }
         _ => Err(ProblemError::unsupported(
             "requested dynamic backend is not linked",
@@ -2068,6 +2087,57 @@ pub(crate) fn symmetric_product(
     }
     Ok(out)
 }
+/// Terminal payload demand, independent of completed scientific sample coverage.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SampleRetention {
+    /// Retain every completed sample for terminal consumers and reverse methods.
+    #[default]
+    Full,
+    /// Deliver each sample and release its vectors after the observer returns.
+    Compact,
+}
+/// Ordered physical coverage survives compact sample delivery and failed recording.
+#[derive(Clone, Debug, Default)]
+pub struct SampleCoverage {
+    /// Actual completed grid points, with branch/mode meaning and original order.
+    pub points: Vec<(f64, usize)>,
+    /// Whether the native owner delivered a compact terminal payload.
+    pub retention: SampleRetention,
+}
+impl SampleCoverage {
+    /// Number of physically completed requested samples, independent of recording ACK.
+    pub fn produced(&self) -> usize { self.points.len() }
+    /// Last completed requested sample time, absent before the first sample.
+    pub fn last_time(&self) -> Option<f64> { self.points.last().map(|p| p.0) }
+}
+/// Borrowed delivery prevents a second full trajectory merely for streaming. An observer
+/// that retains payload must acquire its own finite ownership before copying it.
+pub trait SampleObserver {
+    /// One completed sample, outside every active native callback.
+    fn sample(&mut self, ordinal: usize, sample: &Sample) -> Result<(), ProblemError>;
+}
+struct IgnoreSamples;
+impl SampleObserver for IgnoreSamples {
+    fn sample(&mut self, _: usize, _: &Sample) -> Result<(), ProblemError> { Ok(()) }
+}
+pub(super) struct SampleOutput<'a> {
+    retention: SampleRetention,
+    observer: &'a mut dyn SampleObserver,
+}
+impl SampleOutput<'_> {
+    fn push(&mut self, report: &mut Report, profile: &Profile, sample: Sample) -> Result<(), ProblemError> {
+        let ordinal = report.coverage.produced();
+        if profile.samples.get(ordinal) != Some(&sample.time) {
+            return Err(ProblemError::internal("native sample ordinal or time differs from requested grid"));
+        }
+        report.coverage.retention = self.retention;
+        report.coverage.points.push((sample.time, sample.mode));
+        report.completed_time = report.completed_time.max(sample.time);
+        self.observer.sample(ordinal, &sample)?;
+        if self.retention == SampleRetention::Full { report.samples.push(sample); }
+        Ok(())
+    }
+}
 /// Successfully completed output point; no preallocated placeholder is observable.
 #[derive(Clone, Debug)]
 pub struct Sample {
@@ -2145,7 +2215,9 @@ pub struct Report {
     pub requested_initial: Vec<f64>,
     /// Native consistent initial state.
     pub consistent_initial: Vec<f64>,
-    /// Completed samples only.
+    /// Physical sample coverage, independent of terminal payload and recording.
+    pub coverage: SampleCoverage,
+    /// Completed retained samples only. Compact demand may retain selected diagnostic points.
     pub samples: Vec<Sample>,
     /// Actual event transitions only.
     pub events: Vec<EventRecord>,
@@ -2186,12 +2258,8 @@ impl Report {
             .filter(|t| **t <= self.completed_time)
             .copied()
             .collect::<Vec<_>>();
-        let prefix_complete = self.samples.len() == expected.len()
-            && self
-                .samples
-                .iter()
-                .zip(expected)
-                .all(|(sample, time)| sample.time == time);
+        let prefix_complete = self.coverage.points.len() == expected.len()
+            && self.coverage.points.iter().zip(expected).all(|(point, time)| point.0 == time);
         EndpointAssessment {
             satisfied,
             prefix_complete,
@@ -2221,6 +2289,7 @@ impl Report {
                         + e.point.output_sensitivities.capacity())
                         * size_of::<f64>()
             })
+            + self.coverage.points.capacity() * size_of::<(f64, usize)>()
             + self.samples.capacity() * size_of::<Sample>()
             + self
                 .samples
@@ -2264,6 +2333,7 @@ impl Report {
             endpoint: None,
             requested_initial: vec![],
             consistent_initial: vec![],
+            coverage: SampleCoverage::default(),
             samples: vec![],
             events: vec![],
             conservation: vec![],

@@ -734,19 +734,16 @@ fn native(error: diffsol::DiffsolError) -> ProblemError {
 }
 
 /// Same owned integration using the caller's bounded progress source.
-pub(super) fn integrate_with_progress(
-    oracle: &mut dyn Oracle,
-    profile: &Profile,
-    parameters: &[f64],
-    cancel: Cancellation,
-    progress: Arc<crate::solve::Progress>,
+pub(super) fn integrate_with_samples(
+    oracle: &mut dyn Oracle, profile: &Profile, parameters: &[f64], cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>, output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     profile.validate(oracle.contract(), parameters)?;
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile.start);
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
-        DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report),
-        DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report),
+        DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report, output),
+        DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report, output),
     }));
     shared.contain(result, &mut report);
     Ok(report)
@@ -905,6 +902,7 @@ fn run<LS: LinearSolver<M>>(
     shared: Rc<Shared<'_>>,
     p: &Profile,
     r: &mut Report,
+    output: &mut SampleOutput<'_>,
 ) -> Result<(), ProblemError> {
     let mut time = p.start;
     // Scheduled-input changes split the horizon into segments; every segment integrates
@@ -932,7 +930,7 @@ fn run<LS: LinearSolver<M>>(
             ($solver:expr, sensitivities) => {{
                 let mut solver = $solver.map_err(native)?;
                 let mut observation = step_observation(&solver, None);
-                record_start(&shared, &solver, p, r, time)?;
+                record_start(&shared, &solver, p, r, time, output)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
                     capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
                     r.termination = Termination::Completed;
@@ -942,7 +940,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation, output)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -970,7 +968,7 @@ fn run<LS: LinearSolver<M>>(
             ($solver:expr) => {{
                 let mut solver = $solver.map_err(native)?;
                 let mut observation = step_observation(&solver, None);
-                record_start(&shared, &solver, p, r, time)?;
+                record_start(&shared, &solver, p, r, time, output)?;
                 if time >= p.end && boundaries.get(segment) != Some(&time) {
                     capture_endpoint(&shared, r, time, solver.state().y.as_slice(), None)?;
                     r.termination = Termination::Completed;
@@ -980,7 +978,7 @@ fn run<LS: LinearSolver<M>>(
                     if stop == time {
                         return Ok((None, solver.state().y.as_slice().to_vec()));
                     }
-                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation)
+                    drive(&shared, &mut solver, p, r, (stop, &boundaries), &mut steps, &mut observation, output)
                 }));
                 r.statistics
                     .push(segment_statistics(solver.get_statistics(), &p.diffsol, &observation)?);
@@ -1044,11 +1042,11 @@ fn run<LS: LinearSolver<M>>(
             });
             if e.terminal {
                 capture_endpoint(&shared, r, time, &state, Some(e.id))?;
-                if p.samples.get(r.samples.len()).is_some_and(|t| *t == time) {
+                if p.samples.get(r.coverage.produced()).is_some_and(|t| *t == time) {
                     let outputs = shared
                         .evaluate(Function::Output, time, &state, false)
                         .values;
-                    r.samples.push(Sample {
+                    output.push(r, p, Sample {
                         mode: shared.mode.get(),
                         integrals: shared.integrals.borrow().clone(),
                         time,
@@ -1056,7 +1054,7 @@ fn run<LS: LinearSolver<M>>(
                         outputs,
                         state_sensitivities: vec![],
                         output_sensitivities: vec![],
-                    });
+                    })?;
                 }
                 r.termination = Termination::Event;
                 return Ok(());
@@ -1192,6 +1190,7 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     p: &Profile,
     r: &mut Report,
     time: f64,
+    output: &mut SampleOutput<'_>,
 ) -> Result<(), ProblemError> {
     let state = s.state().y.as_slice().to_vec();
     if r.consistent_initial.is_empty() {
@@ -1232,10 +1231,10 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Err(contract("initial or post-reset root is ambiguous"));
         }
     }
-    if p.samples.get(r.samples.len()).is_some_and(|t| *t == time)
+    if p.samples.get(r.coverage.produced()).is_some_and(|t| *t == time)
         && *shared.columns.borrow() == p.columns_at(shared.contract.parameters.len(), time)
     {
-        r.samples.push(sample(shared, s, time, p.forward())?);
+        output.push(r, p, sample(shared, s, time, p.forward())?)?;
     }
     r.completed_time = time;
     Ok(())
@@ -1248,6 +1247,7 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
     (stop, boundaries): (f64, &[f64]),
     steps: &mut usize,
     observation: &mut crate::solve::NativeStepObservation,
+    output: &mut SampleOutput<'_>,
 ) -> Result<(Option<usize>, Vec<f64>), ProblemError> {
     s.set_stop_time(stop).map_err(native)?;
     loop {
@@ -1269,14 +1269,14 @@ fn drive<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             OdeSolverStopReason::RootFound(t, i) => (t, Some(i)),
             _ => (s.state().t, None),
         };
-        while let Some(&t) = p.samples.get(r.samples.len()) {
+        while let Some(&t) = p.samples.get(r.coverage.produced()) {
             // A sample at a root or a scheduled change observes the post-transition state.
             if t > time || (t == time && (root.is_some() || boundaries.contains(&t))) {
                 break;
             }
             let point = sample(shared, s, t, p.forward())?;
             shared.conserve(r, t, &point.state, point.integrals.clone())?;
-            r.samples.push(point);
+            output.push(r, p, point)?;
         }
         r.completed_time = time;
         shared.progress.push(crate::solve::Event {

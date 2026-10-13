@@ -2241,13 +2241,14 @@ impl<'a> Session<'a> {
         stop: f64,
         changing: bool,
         budget: c_long,
+        output: &mut SampleOutput<'_>,
     ) -> Result<(Option<usize>, c_long), ProblemError> {
         let mut steps: c_long = 0;
         r.statistics.push(self.statistics(0, p, None));
         loop {
             let target = p
                 .samples
-                .get(r.samples.len())
+                .get(r.coverage.produced())
                 .copied()
                 .filter(|t| *t < stop)
                 .unwrap_or(stop);
@@ -2303,7 +2304,7 @@ impl<'a> Session<'a> {
             }
             // A sample at a scheduled change observes the post-change state.
             let deferred = target >= stop && changing;
-            if !deferred && p.samples.get(r.samples.len()) == Some(&time) {
+            if !deferred && p.samples.get(r.coverage.produced()) == Some(&time) {
                 let point = self.sample(time, true)?;
                 let inventories = self.inventories(time, &point.state)?;
                 let transfers = cumulative_transfers(&self.callback.contract, r);
@@ -2316,7 +2317,7 @@ impl<'a> Session<'a> {
                     point.integrals.clone(),
                     transfers,
                 )?;
-                r.samples.push(point);
+                output.push(r, p, point)?;
             }
             if target >= stop {
                 return Ok((None, steps));
@@ -2325,7 +2326,7 @@ impl<'a> Session<'a> {
     }
     /// The segment loop: roots, resets and scheduled changes restart the same native
     /// memory; every transition is recorded with its settled post-transition state.
-    fn run(&mut self, p: &Profile, r: &mut Report) -> Result<(), ProblemError> {
+    fn run(&mut self, p: &Profile, r: &mut Report, output: &mut SampleOutput<'_>) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
         let max_steps: c_long = p
             .max_steps
@@ -2404,8 +2405,8 @@ impl<'a> Session<'a> {
                 }
             }
             // A sample at a transition time observes the restarted state.
-            if p.samples.get(r.samples.len()) == Some(&time) {
-                r.samples.push(self.sample(time, false)?);
+            if p.samples.get(r.coverage.produced()) == Some(&time) {
+                output.push(r, p, self.sample(time, false)?)?;
             }
             r.completed_time = time;
             if time >= p.end {
@@ -2437,7 +2438,7 @@ impl<'a> Session<'a> {
             }
             let stop = boundaries.get(segment).copied().unwrap_or(p.end);
             let changing = segment < boundaries.len();
-            let (root, steps) = self.segment(p, r, stop, changing, max_steps - used)?;
+            let (root, steps) = self.segment(p, r, stop, changing, max_steps - used, output)?;
             used += steps;
             if r.termination == Termination::StepLimit {
                 return Ok(());
@@ -2469,7 +2470,7 @@ impl<'a> Session<'a> {
                 });
                 if event.terminal {
                     self.capture_endpoint(r, time, true, Some(event.id))?;
-                    if p.samples.get(r.samples.len()) == Some(&time) {
+                    if p.samples.get(r.coverage.produced()) == Some(&time) {
                         let point = self.sample(time, true)?;
                         let inventories = self.inventories(time, &point.state)?;
                         let transfers = cumulative_transfers(&self.callback.contract, r);
@@ -2482,7 +2483,7 @@ impl<'a> Session<'a> {
                             point.integrals.clone(),
                             transfers,
                         )?;
-                        r.samples.push(point);
+                        output.push(r, p, point)?;
                     }
                     r.termination = Termination::Event;
                     return Ok(());
@@ -3234,14 +3235,11 @@ fn corrector(method: SensitivityCorrector) -> i32 {
 }
 
 /// Execute the IDAS profile on its owning worker. The caller validated the profile.
-pub(super) fn integrate_with_progress(
-    oracle: &mut dyn Oracle,
-    p: &Profile,
-    integration: &[f64],
-    cancel: Cancellation,
-    progress: Arc<Progress>,
+pub(super) fn integrate_with_samples(
+    oracle: &mut dyn Oracle, p: &Profile, integration: &[f64], cancel: Cancellation,
+    progress: Arc<Progress>, output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
-    let (report, _, _) = attempt(oracle, p, integration, &[], cancel, progress, |_, _| Ok(()));
+    let (report, _, _) = attempt(oracle, p, integration, &[], cancel, progress, output, |_, _| Ok(()));
     Ok(report)
 }
 /// One IDACalcIC call, with no physical step, sensitivity, quadrature or event setup.
@@ -3571,6 +3569,8 @@ fn backward_route(
     cancel: Cancellation,
     progress: Arc<Progress>,
 ) -> Result<Gradient, ProblemError> {
+    let mut observer = IgnoreSamples;
+    let mut output = SampleOutput { retention: SampleRetention::Full, observer: &mut observer };
     let (mut report, outcome, checkpoints) = attempt(
         oracle,
         p,
@@ -3578,6 +3578,7 @@ fn backward_route(
         directions,
         cancel,
         progress,
+        &mut output,
         |s, r| {
             let weights = cotangent(r)?;
             if weights.len()
@@ -3626,6 +3627,7 @@ fn attempt<T>(
     directions: &[usize],
     cancel: Cancellation,
     progress: Arc<Progress>,
+    output: &mut SampleOutput<'_>,
     after: impl FnOnce(&mut Session<'_>, &Report) -> Result<T, ProblemError>,
 ) -> (Report, Option<T>, usize) {
     let execution = Execution {
@@ -3669,7 +3671,7 @@ fn attempt<T>(
     // SAFETY: the new session's state vector holds the `n` states.
     r.consistent_initial = unsafe { read(s.y, n) };
     let mut outcome = None;
-    let result = s.run(p, &mut r).and_then(|()| {
+    let result = s.run(p, &mut r, output).and_then(|()| {
         if r.termination == Termination::Completed {
             outcome = Some(after(&mut s, &r)?);
         }

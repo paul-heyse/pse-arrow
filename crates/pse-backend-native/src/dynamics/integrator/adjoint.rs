@@ -295,7 +295,9 @@ impl<'o> Passes<'_, 'o> {
                     .as_slice()
                     .to_vec();
             }
-            record_start(shared, &solver, p, r, start)?;
+            let mut observer = IgnoreSamples;
+            let mut output = SampleOutput { retention: SampleRetention::Full, observer: &mut observer };
+            record_start(shared, &solver, p, r, start, &mut output)?;
             // The segment's own unwind catch records its statistics before an abort
             // continues to the outer boundary.
             let mut observation = step_observation(&solver, None);
@@ -573,12 +575,14 @@ impl<'o> Passes<'_, 'o> {
                 points.ydots[0] = rate;
             }
             let time = s.state().t;
-            while let Some(&t) = p.samples.get(r.samples.len()) {
+            while let Some(&t) = p.samples.get(r.coverage.produced()) {
                 // A sample at a scheduled change observes the post-transition state.
                 if t > time || (t == time && self.segments.boundaries.contains(&t)) {
                     break;
                 }
-                r.samples.push(sample(shared, s, t, false)?);
+                let mut observer = IgnoreSamples;
+                SampleOutput { retention: SampleRetention::Full, observer: &mut observer }
+                    .push(r, p, sample(shared, s, t, false)?)?;
             }
             r.completed_time = time;
             shared.progress.push(crate::solve::Event {

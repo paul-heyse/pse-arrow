@@ -1541,6 +1541,7 @@ impl ShootingProblem {
                 completed_time: self.experiment.profile.end,
                 requested_initial: point.reports[0].requested_initial.clone(),
                 consistent_initial: point.reports[0].consistent_initial.clone(),
+                coverage: native::dynamics::SampleCoverage::default(),
                 samples: Vec::with_capacity(self.samples.len()),
                 endpoint: point.reports.last().and_then(|r| r.endpoint.clone()),
                 conservation: Vec::new(),
@@ -1622,6 +1623,7 @@ impl ShootingProblem {
                 }
                 stitched.samples.push(sample);
             }
+            stitched.coverage.points = stitched.samples.iter().map(|s| (s.time, s.mode)).collect();
             let checks =
                 self.simulation
                     .check_samples(run_id, &stitched, &integration, &execution.scope()?);
@@ -1948,6 +1950,7 @@ mod conservation_tests {
             completed_time: start + 1.,
             requested_initial: vec![],
             consistent_initial: vec![],
+            coverage: native::dynamics::SampleCoverage::default(),
             samples: vec![],
             endpoint: None,
             conservation: vec![

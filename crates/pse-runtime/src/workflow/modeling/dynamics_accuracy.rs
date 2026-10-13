@@ -160,6 +160,7 @@ mod tests {
             }),
             requested_initial: vec![1.],
             consistent_initial: vec![1.],
+            coverage: native::SampleCoverage { points: vec![(0.5, 0)], retention: native::SampleRetention::Full },
             samples: vec![sample(0.5, 0)],
             events: Vec::new(),
             conservation: Vec::new(),

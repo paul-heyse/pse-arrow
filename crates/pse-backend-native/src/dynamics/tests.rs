@@ -1087,3 +1087,38 @@ fn terminal_endpoint_is_off_grid_and_keeps_pre_change_inputs() {
         assert!(profile.validate(oracle.contract(), &[1.0, 3.0]).is_err());
     }
 }
+
+/// Streaming samples preserve native history and physical coverage while releasing vectors.
+#[test]
+fn completed_samples_full_and_compact_preserve_values_and_prefix() {
+    struct Sink(Vec<(usize, f64, Vec<f64>)>);
+    impl SampleObserver for Sink {
+        fn sample(&mut self, ordinal: usize, sample: &Sample) -> Result<(), ProblemError> {
+            self.0.push((ordinal, sample.time, sample.outputs.clone()));
+            Ok(())
+        }
+    }
+    for method in [Method::Diffsol, Method::Idas] {
+        if method == Method::Diffsol && !cfg!(feature = "diffsol")
+            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
+        let profile = Profile { method, start: 0., end: 1., samples: vec![0., 0.2, 0.7, 1.],
+            atol: vec![1e-8], parameter_scales: vec![1.], ..Default::default() };
+        let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
+        let mut full = Sink(Vec::new());
+        let mut compact = Sink(Vec::new());
+        let run = |retention, sink: &mut Sink| integrate_with_samples_observed(
+            &mut Toy::new(false, false), &profile, &[1.], Arc::new(AtomicBool::new(false)),
+            Arc::new(crate::solve::Progress::new(16)), &snapshot, retention, sink).unwrap();
+        let full_report = run(SampleRetention::Full, &mut full);
+        let compact_report = run(SampleRetention::Compact, &mut compact);
+        assert_eq!(full_report.termination, Termination::Completed);
+        assert_eq!(compact_report.termination, Termination::Completed);
+        assert_eq!(full.0, compact.0);
+        assert_eq!(full_report.samples.len(), 4);
+        assert!(compact_report.samples.is_empty());
+        assert_eq!(compact_report.coverage.produced(), 4);
+        assert!(compact_report.assess_endpoint(&profile).prefix_complete);
+        assert!(compact_report.assess_endpoint(&profile).satisfied);
+        assert_eq!(full_report.statistics, compact_report.statistics);
+    }
+}
