@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit registrations of form-recognizing inner-solver capabilities.
-use super::{BracketedRoot, CubicRoots, InnerSolver};
+use super::{Affine as AffineSolver, BracketedRoot, CubicRoots, InnerSolver};
 use crate::{MathError, guarded::PreparedBody, jets::EvaluationLimits};
 use std::{
     collections::BTreeMap,
@@ -36,10 +36,12 @@ impl Accelerators {
     pub fn standard() -> Self {
         let cubic: Arc<dyn Accelerator> = Arc::new(Cubic);
         let bracketed: Arc<dyn Accelerator> = Arc::new(Bracketed);
+        let affine: Arc<dyn Accelerator> = Arc::new(Affine);
         Self {
             entries: BTreeMap::from([
                 ("cubic_roots".into(), cubic),
                 ("toms748".into(), bracketed),
+                ("affine".into(), affine),
             ]),
         }
     }
@@ -79,6 +81,22 @@ impl Accelerators {
                 MathError::Contract(format!("unregistered implicit accelerator: {reference}"))
             })?
             .admit(body, unknowns, limits, cancel)
+    }
+}
+/// Proven affine square residuals in the authored unknown coordinates. The
+/// existing faer factor/solve and original residual check remain authoritative.
+#[derive(Debug)]
+pub struct Affine;
+impl Accelerator for Affine {
+    fn admit(
+        &self,
+        body: &PreparedBody,
+        unknowns: usize,
+        limits: EvaluationLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Arc<dyn InnerSolver>, MathError> {
+        limits.check()?;
+        Ok(Arc::new(AffineSolver::with_cancel(body, unknowns, cancel)?))
     }
 }
 /// A continuous scalar polynomial on the caller's explicit finite branch interval.
@@ -146,6 +164,10 @@ mod tests {
         };
         let cancel = Arc::new(AtomicBool::new(false));
         let limits = EvaluationLimits::default();
+        let standard = Accelerators::standard();
+        assert!(standard.admit("affine", &body(1), 1, limits, &cancel).is_ok());
+        assert!(standard.admit("affine", &body(2), 1, limits, &cancel).is_err());
+        assert!(standard.admit("affine", &body(1), 2, limits, &cancel).is_err());
         let mut registry = Accelerators::default();
         assert!(
             registry

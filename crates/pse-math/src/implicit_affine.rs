@@ -13,6 +13,14 @@ pub struct Affine {
 impl Affine {
     /// Admit `body` when it is affine in its first `unknowns` inputs, one output per unknown.
     pub fn new(body: &crate::guarded::PreparedBody, unknowns: usize) -> Result<Self, MathError> {
+        Self::with_cancel(body, unknowns, &Arc::new(AtomicBool::new(false)))
+    }
+    pub(super) fn with_cancel(
+        body: &crate::guarded::PreparedBody,
+        unknowns: usize,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
         if unknowns == 0 || body.output_count() != unknowns || body.input_count() < unknowns {
             return Err(MathError::Contract("affine residual extent".into()));
         }
@@ -21,7 +29,7 @@ impl Affine {
             &(0..body.output_count()).collect::<Vec<_>>(),
             &coordinates,
             DerivativeOrder::Second,
-            &Arc::new(AtomicBool::new(false)),
+            cancel,
         )?;
         if body.available_order_for_outputs(support.outputs(), &coordinates)?
             != DerivativeOrder::Second
@@ -32,10 +40,10 @@ impl Affine {
                 .any(|row| row.iter().any(|(i, j)| *i < unknowns && *j < unknowns))
         {
             return Err(MathError::Contract(
-                "coupled time derivatives require a proven affine residual in the rate coordinates"
-                    .into(),
+                "direct elimination requires a proven affine residual in the unknown coordinates".into(),
             ));
         }
+        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
         Ok(Self {
             unknowns,
             inputs: body.input_count() - unknowns,
@@ -84,7 +92,7 @@ impl InnerWorker for Affine {
             .map(|(i, j)| jet.jacobian[i * width + j])
             .collect();
         let matrix = SparseColMat::new(problem.pattern.clone(), values);
-        let mut factor = problem.factorize_matrix(&matrix, "dynamic rate matrix is singular")?;
+        let mut factor = problem.factorize_matrix(&matrix, "affine residual matrix is singular")?;
         let mut delta = Mat::from_fn(n, 1, |i, _| -jet.values[i]);
         let rhs = delta.clone();
         problem.solve_factor(&mut factor, delta.as_mut());
@@ -114,6 +122,45 @@ impl InnerWorker for Affine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn registered_affine_square_system_refactors_parameters_and_refuses_singular_or_out_of_bounds_roots() {
+        use crate::guarded::{PreparedBody, Stage};
+        use crate::implicit::accelerators::Accelerators;
+        use symbolica::atom::{Atom, AtomCore};
+        crate::initialize().unwrap();
+        let id = SemanticId::from_bytes([148; 16]);
+        let x = crate::library::formal(0).unwrap();
+        let y = crate::library::formal(1).unwrap();
+        let p = crate::library::formal(2).unwrap();
+        let body = PreparedBody::new(3, 5, vec![3, 4], vec![Stage::Block {
+            expressions: vec![p * x.clone() + y.clone() - Atom::num(1), x - y],
+            outputs: vec![3, 4], source: id,
+        }], DerivativeOrder::Second).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let solver = Accelerators::standard().admit("affine", &body, 2,
+            crate::jets::EvaluationLimits::default(), &cancel).unwrap();
+        let mut worker = solver.worker();
+        let compiled = Arc::new(body.compile(&[0, 1], &[0, 1, 2], DerivativeOrder::Second,
+            crate::library::Optimization::default(), crate::jets::EvaluationLimits::default(), &cancel).unwrap());
+        let problem = Arc::new(Problem::new(id, ContentHash::from_bytes([0; 32]),
+            vec![Unknown { id, lower: 0.0, upper: 2.0 }, Unknown {
+                id: pse_ids::named_id(id, "y"), lower: 0.0, upper: 2.0 }],
+            vec![pse_ids::named_id(id, "first"), pse_ids::named_id(id, "second")], 1, compiled, 100).unwrap());
+        let options = Options { start: vec![0.0, 0.0], variable_nominals: vec![1.0; 2],
+            variable_tolerance: vec![1e-10; 2], residual_tolerance: vec![1e-10; 2],
+            iterations: 1, time_limit: Duration::from_secs(1), derivative_tolerance: 1e-12 };
+        for (parameter, value, first, second) in [(1.0, 0.5, -0.25, 0.25), (3.0, 0.25, -0.0625, 0.03125)] {
+            let root = worker.solve(problem.clone(), &[parameter], &options, &cancel).unwrap();
+            let jet = problem.derivatives(&[parameter], &root, DerivativeOrder::Second, &options, &cancel).unwrap();
+            for actual in jet.values { assert!((actual - value).abs() < 1e-12); }
+            for actual in jet.jacobian { assert!((actual - first).abs() < 1e-12); }
+            for actual in jet.hessians { assert!((actual - second).abs() < 1e-12); }
+        }
+        assert!(worker.solve(problem.clone(), &[-1.0], &options, &cancel).is_err(), "singular original matrix");
+        assert!(worker.solve(problem.clone(), &[-2.0], &options, &cancel).is_err(), "original bound violation");
+        cancel.store(true, Ordering::Release);
+        assert!(matches!(worker.solve(problem, &[1.0], &options, &cancel), Err(MathError::Cancelled)));
+    }
     #[test]
     fn affine_rate_elimination_preserves_second_implicit_jets_and_guards() {
         use crate::typed::{Binary, BodyBuilder, BodyLimits};
