@@ -325,6 +325,7 @@ pub struct MathService {
     pub(crate) modeling_cache: retention::ModelingCache,
     compiler_lanes: Mutex<Vec<modeling::CompilerLane>>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
+    scalar_flights: Flights<Key, pse_math::library::ScalarProducts, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
         (
             Arc<crate::workflow::modeling::SelectedRequest>,
@@ -658,6 +659,7 @@ impl MathService {
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
             compiler_lanes: Mutex::default(),
             flights: Flights::new(policy.flights),
+            scalar_flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
             selected_qualifications: Default::default(),
             frontier_flights: Flights::new(policy.flights),

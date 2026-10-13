@@ -639,7 +639,7 @@ mod pressure_tests {
     use crate::math::{artifacts::Key as ArtifactKey, tests};
     use datafusion::execution::memory_pool::MemoryConsumer;
     fn key(value: u8) -> ArtifactKey {
-        ArtifactKey(pse_ids::ContentHash::from_bytes([value; 32]))
+        ArtifactKey(pse_ids::ContentHash::from_bytes([value; 32]), false)
     }
     fn retained_artifact(service: &Arc<MathService>, value: u8) -> Arc<Artifact> {
         let (preparation, _, _) = tests::component_fixture(service);
@@ -664,7 +664,7 @@ mod pressure_tests {
         service.pressure.publish_artifact(
             service.retention.generation(),
             &key(value),
-            Value(artifact.clone()),
+            Value::Artifact(artifact.clone()),
         );
         artifact
     }
@@ -735,7 +735,7 @@ mod pressure_tests {
         let artifact_epoch = service.retention.generation();
         service
             .pressure
-            .publish_artifact(artifact_epoch, &key(4), Value(artifact.clone()));
+            .publish_artifact(artifact_epoch, &key(4), Value::Artifact(artifact.clone()));
         assert_eq!(service.entries.len(), 0);
         service.modeling_cache.retain_solver(
             service.modeling_cache.generation(),
@@ -749,7 +749,7 @@ mod pressure_tests {
         assert_eq!(service.entries.cache_limit(), 0);
         service
             .pressure
-            .publish_artifact(artifact_epoch, &key(5), Value(artifact.clone()));
+            .publish_artifact(artifact_epoch, &key(5), Value::Artifact(artifact.clone()));
         assert_eq!(service.entries.len(), 0);
         // Broadcasting without freeing anything must not count as capacity.
         service.released.notify_waiters();

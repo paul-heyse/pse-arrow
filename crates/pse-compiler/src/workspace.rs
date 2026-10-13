@@ -381,6 +381,7 @@ fn analyze_partition(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArtifactRequest {
     key: ContentHash,
+    scalar_key: ContentHash,
     environment: ContentHash,
     demand: LocalDemand,
     support: Arc<pse_math::guarded::PreparedSupport>,
@@ -404,6 +405,21 @@ impl ArtifactRequest {
     /// additionally require their selected relevant producer interpretation.
     pub fn key(&self) -> ContentHash {
         self.key
+    }
+    /// Exact scalar-family identity, independent of requested Taylor order/action.
+    pub fn scalar_key(&self) -> ContentHash { self.scalar_key }
+    /// Prepare original demanded scalar blocks without constructing derivative templates.
+    pub fn build_scalars(&self, cancel: &Arc<AtomicBool>) -> std::result::Result<pse_math::library::ScalarProducts, MathError> {
+        self.support.prepare_scalars(self.optimization, self.evaluation, cancel)
+    }
+    /// Build the actual requested product from retained exact scalar preparations.
+    pub fn build_reusing(&self, cancel: &Arc<AtomicBool>, scalars: &pse_math::library::ScalarProducts) -> std::result::Result<CompiledBody, MathError> {
+        let compiled = if self.demand.directional {
+            self.support.compile_directional_reusing(self.optimization, self.evaluation, cancel, scalars)
+        } else {
+            self.support.compile_reusing(self.optimization, self.evaluation, cancel, scalars)
+        };
+        compiled.map_err(|error| error.with_derivative_body(None, self.demand.body))
     }
     /// Requested native optimizer concurrency.
     pub fn cores(&self) -> usize {
@@ -451,7 +467,13 @@ fn artifact_requests(
         if d.directional { h.str("directional-first;one-taylor-axis;runtime-formal-seeds-v1"); }
         h.u64(p.supports()[index].remaining_occurrences() as u64);
         for x in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls]{h.u64(x as u64);}
-        ArtifactRequest{key:h.finish_hash(),environment:*environment,demand:d.clone(),support:p.supports()[index].clone(),optimization:profile.optimization,evaluation:profile.evaluation}
+        let mut scalar = FramedHasher::new(pse_ids::Frame::MathArtifactV5);
+        scalar.str("pse-math-exact-scalar-family-v1").hash(&d.body).hash(environment).u64(d.outputs.len() as u64);
+        for &output in &d.outputs { scalar.u64(output as u64); }
+        scalar.u64(d.coordinates.len() as u64);
+        for &coordinate in &d.coordinates { scalar.u64(coordinate as u64); }
+        for value in [profile.optimization.cores,profile.optimization.horner_iterations,profile.optimization.cpe_iterations,profile.evaluation.derivative_components,profile.evaluation.operations,profile.evaluation.scratch_bytes,profile.evaluation.provider_calls] { scalar.u64(value as u64); }
+        ArtifactRequest{key:h.finish_hash(),scalar_key:scalar.finish_hash(),environment:*environment,demand:d.clone(),support:p.supports()[index].clone(),optimization:profile.optimization,evaluation:profile.evaluation}
     }).collect())
 }
 /// Pure general function projection; roles are supplied by the consuming physical workflow.

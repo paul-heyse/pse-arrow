@@ -194,19 +194,75 @@ fn reserve_export<T>(
 
 type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization);
 
-/// Compilation-local exact scalar products. Options and ordered parameter symbols
-/// are part of identity; no mutable evaluator or control owner escapes compilation.
+/// Immutable exact scalar products. Every entry retains the allocation owner that
+/// first published it; borrowing a bundle never transfers that charge to a worker.
+#[derive(Clone, Default)]
+pub struct ScalarProducts {
+    evaluators: Arc<std::collections::HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>>>,
+    owner: Option<Arc<dyn crate::AllocationOwner>>,
+}
+struct ScalarProduct {
+    evaluator: ExpressionEvaluator<Complex<Rational>>,
+    bytes: usize,
+    owner: std::sync::OnceLock<Arc<dyn crate::AllocationOwner>>,
+}
+impl std::fmt::Debug for ScalarProducts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ScalarProducts").field("entries", &self.len()).finish()
+    }
+}
+impl ScalarProducts {
+    /// Number of exact preparations, excluding derivative conversions and workers.
+    pub fn len(&self) -> usize { self.evaluators.len() }
+    /// Whether this bundle contains no scalar preparation.
+    pub fn is_empty(&self) -> bool { self.evaluators.is_empty() }
+    /// Complete reachable scalar storage, including exact keys and descriptors.
+    pub fn retained_bytes(&self) -> usize {
+        self.evaluators.values().fold(self.descriptor_bytes(), |bytes, product| bytes.saturating_add(product.bytes))
+    }
+    pub(crate) fn descriptor_bytes(&self) -> usize {
+        size_of::<Self>() + self.evaluators.capacity() * (size_of::<Arc<ScalarProductKey>>() + size_of::<Arc<ScalarProduct>>() + 1)
+    }
+    pub(crate) fn unowned_bytes(&self) -> usize {
+        self.evaluators.values().filter(|product| product.owner.get().is_none()).fold(0usize, |bytes, product| bytes.saturating_add(product.bytes))
+    }
+    /// Anchor only newly constructed entries. Inherited entries keep their original owner.
+    pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+        for product in self.evaluators.values() {
+            let _ = product.owner.set(owner.clone());
+        }
+        self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
+        self
+    }
+}
+
+/// Construction-local index borrowing immutable retained exact products. Neither
+/// mutable evaluator state nor cancellation controls enter the retained bundle.
 #[derive(Default)]
 pub(crate) struct ScalarCache {
-    evaluators: std::collections::HashMap<ScalarProductKey, ExpressionEvaluator<Complex<Rational>>>,
+    evaluators: std::collections::HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>>,
+    builds: usize,
 }
 impl ScalarCache {
-    #[cfg(test)]
-    pub(crate) fn len(&self) -> usize {
-        self.evaluators.len()
+    pub(crate) fn from_products(products: &ScalarProducts) -> Self {
+        Self { evaluators: products.evaluators.as_ref().clone(), builds: 0 }
     }
+    pub(crate) fn freeze(self) -> ScalarProducts {
+        ScalarProducts { evaluators: Arc::new(self.evaluators), owner: None }
+    }
+    #[cfg(test)]
+    pub(crate) fn len(&self) -> usize { self.evaluators.len() }
+    #[cfg(test)]
+    pub(crate) fn builds(&self) -> usize { self.builds }
 
-    fn prepare(
+    pub(crate) fn admit_prepare(&mut self, expressions: &[Atom], parameters: &[Atom], options: Optimization, cancelled: &Arc<AtomicBool>, limits: EvaluationLimits) -> Result<(), MathError> {
+        if source_operations(expressions)? > limits.operations { return Err(MathError::Limit("scalar construction operations")); }
+        let evaluator = self.prepare(expressions, parameters, options, cancelled)?;
+        if total(evaluator.count_operations())? > limits.operations { return Err(MathError::Limit("scalar evaluator operations")); }
+        let export = evaluator.export_instructions();
+        limits.allocation(add(add(export.input_count, export.constants.len())?, export.temporary_count)?)
+    }
+    pub(crate) fn prepare(
         &mut self,
         expressions: &[Atom],
         parameters: &[Atom],
@@ -218,29 +274,21 @@ impl ScalarCache {
         }
         let key = (expressions.to_vec(), parameters.to_vec(), options);
         if !self.evaluators.contains_key(&key) {
-            let initial = evaluator_construction(
-                expressions,
-                parameters.len(),
-                0,
-                pse_kernels::DerivativeOrder::Value,
-            )?;
-            // The exact preparation coexists with every order-specific conversion.
-            crate::construction::additional(add(
-                mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                add(
-                    initial.instructions,
-                    expressions
-                        .iter()
-                        .chain(parameters)
-                        .try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?,
-                )?,
-            )?)?;
+            let initial = evaluator_construction(expressions, parameters.len(), 0, pse_kernels::DerivativeOrder::Value)?;
+            let atoms = expressions.iter().chain(parameters).try_fold(0, |bytes, atom| add(bytes, atom.as_view().get_byte_size()))?;
+            crate::construction::additional(add(mul(initial.entries, 2 * size_of::<Complex<Rational>>())?, add(initial.instructions, atoms)?)?)?;
             let evaluator = exact_evaluator(expressions, parameters, options, cancelled)?;
-            reserve_export(&evaluator.export_instructions(), initial)?;
-            self.evaluators.insert(key.clone(), evaluator);
+            let export = evaluator.export_instructions();
+            reserve_export(&export, initial)?;
+            let bytes = add(size_of::<ScalarProduct>(), add(atoms, add(
+                mul(add(add(export.input_count, export.constants.len())?, export.temporary_count)?, 2 * size_of::<Complex<Rational>>())?,
+                instruction_bytes(&export).ok_or(MathError::Limit("scalar instruction extent"))?,
+            )?)?)?;
+            if cancelled.load(std::sync::atomic::Ordering::Acquire) { return Err(MathError::Cancelled); }
+            self.evaluators.insert(Arc::new(key.clone()), Arc::new(ScalarProduct { evaluator, bytes, owner: std::sync::OnceLock::new() }));
+            self.builds += 1;
         }
-        self.evaluators
-            .get(&key)
+        self.evaluators.get(&key).map(|product| &product.evaluator)
             .ok_or_else(|| MathError::Contract("missing prepared scalar evaluator".into()))
     }
 }

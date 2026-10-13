@@ -656,6 +656,53 @@ impl PreparedSupport {
                 .ok_or(MathError::Limit("selected support construction extent"))?,
         ))
     }
+    /// Prepare the selected original scalar blocks once, before any Taylor conversion.
+    /// Actual expression/parameter/optimizer identity is checked inside the bundle.
+    pub fn prepare_scalars(&self, options: Optimization, limits: EvaluationLimits, cancel: &Arc<AtomicBool>) -> Result<library::ScalarProducts, MathError> {
+        limits.check()?;
+        fn collect(stages: &[Stage], parameters: &[Atom], symbols: &HashMap<Symbol, usize>, options: Optimization, limits: EvaluationLimits, cancel: &Arc<AtomicBool>, cache: &mut library::ScalarCache) -> Result<(), MathError> {
+            for stage in stages {
+                match stage {
+                    Stage::Block { expressions, .. } => {
+                        let params = reads(expressions, symbols)?.into_iter().map(|i| parameters[i].clone()).collect::<Vec<_>>();
+                        cache.admit_prepare(expressions, &params, options, cancel, limits)?;
+                    }
+                    Stage::Applicability { stages, predicates, inputs, .. } => {
+                        let captures = predicates.iter().chain(inputs).copied().collect::<Vec<_>>();
+                        let scope = value_scope(stages, &captures, parameters, symbols)?;
+                        collect(&scope.stages, &scope.parameters, &scope.symbols, options, limits, cancel, cache)?;
+                    }
+                    Stage::Domain { stages, argument, .. } => {
+                        let scope = value_scope(stages, &[*argument], parameters, symbols)?;
+                        collect(&scope.stages, &scope.parameters, &scope.symbols, options, limits, cancel, cache)?;
+                    }
+                    Stage::Branch { then, otherwise, .. } => {
+                        collect(then, parameters, symbols, options, limits, cancel, cache)?;
+                        collect(otherwise, parameters, symbols, options, limits, cancel, cache)?;
+                    }
+                    Stage::Provider { .. } | Stage::Require { .. } => {}
+                }
+            }
+            Ok(())
+        }
+        let body = self.body();
+        let parameters = body.parameters()?;
+        let symbols = symbol_map(&parameters);
+        let stages = body.demand(&(0..self.outputs().len()).collect::<Vec<_>>(), &symbols);
+        let mut cache = library::ScalarCache::default();
+        collect(&stages, &parameters, &symbols, options, limits, cancel, &mut cache)?;
+        if cancel.load(Ordering::Acquire) { return Err(MathError::Cancelled); }
+        Ok(cache.freeze())
+    }
+    /// Compile from retained exact scalar products, checking the current limits anew.
+    pub fn compile_reusing(&self, options: Optimization, limits: EvaluationLimits, cancel: &Arc<AtomicBool>, scalars: &library::ScalarProducts) -> Result<CompiledBody, MathError> {
+        self.body().compile_scope(&(0..self.outputs().len()).collect::<Vec<_>>(), &self.dense_coordinates()?, self.order(), options, limits, cancel, false, false, self, Some(scalars))
+    }
+    /// Compile only a first directional action; no Value template is constructed.
+    pub fn compile_directional_reusing(&self, options: Optimization, limits: EvaluationLimits, cancel: &Arc<AtomicBool>, scalars: &library::ScalarProducts) -> Result<CompiledBody, MathError> {
+        if self.order() != DerivativeOrder::First { return Err(MathError::Contract("directional support must admit exactly First".into())); }
+        self.body().compile_scope(&(0..self.outputs().len()).collect::<Vec<_>>(), &self.dense_coordinates()?, self.order(), options, limits, cancel, false, true, self, Some(scalars))
+    }
     /// Compile numerical products after independent selected-closure capability admission.
     pub fn compile(
         &self,
@@ -673,6 +720,7 @@ impl PreparedSupport {
             false,
             false,
             self,
+            None,
         )
     }
     /// Compile a first directional action using one Taylor axis. Structural support
@@ -698,6 +746,7 @@ impl PreparedSupport {
             false,
             true,
             self,
+            None,
         )
     }
     /// Compile strict-interior derivatives; every trial retains boundary admission.
@@ -717,6 +766,7 @@ impl PreparedSupport {
             true,
             false,
             self,
+            None,
         )
     }
 }
@@ -1757,6 +1807,7 @@ impl PreparedBody {
         local_branches: bool,
         directional: bool,
         prepared_support: &PreparedSupport,
+        retained_scalars: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
         let construction = tracing::info_span!(
             "pse.case.compiled_body_construction",
@@ -1805,7 +1856,8 @@ impl PreparedBody {
             }
             coordinate_reachability(&stages, &symbols, &mut coordinate_support)?;
         }
-        // One layout and program per compiled order, `Value` through `order`.
+        // Ordinary artifacts retain their ceiling contract. Directional consumers
+        // request only First and never construct an unused Value template.
         let mut layouts = EnumMap::<DerivativeOrder, Option<JetLayout>>::default();
         let mut programs = EnumMap::<DerivativeOrder, Option<Vec<CompiledStage>>>::default();
         let mut used = 0usize;
@@ -1814,14 +1866,14 @@ impl PreparedBody {
         let mut order_worker_bytes = EnumMap::<DerivativeOrder, usize>::default();
         let mut remaining_operations = limits.operations;
         let mut remaining_providers = limits.provider_calls;
-        let mut scalars = library::ScalarCache::default();
+        let mut scalars = retained_scalars.map(library::ScalarCache::from_products).unwrap_or_default();
         for requested in [
             DerivativeOrder::Value,
             DerivativeOrder::First,
             DerivativeOrder::Second,
         ]
         .into_iter()
-        .filter(|requested| *requested <= order)
+        .filter(|requested| *requested <= order && (!directional || *requested == DerivativeOrder::First))
         {
             let order_construction = tracing::info_span!(
                 "pse.case.compiled_order_construction",
@@ -1957,8 +2009,13 @@ impl PreparedBody {
             .checked_add(retained_instructions)
             .and_then(|n| n.checked_add(descriptor_bytes))
             .ok_or(MathError::Limit("worker owned storage"))?;
+        #[cfg(test)]
+        let scalar_builds = scalars.builds();
+        let scalars = scalars.freeze();
+        let scalar_new_bytes = scalars.unowned_bytes();
         let compiled = CompiledBody {
             owner: None,
+            scalar_products: scalars.clone(),
             directional,
             inputs: self.inputs,
             input_formals: Arc::new(self.formal_slots[..self.inputs].to_vec()),
@@ -1980,6 +2037,8 @@ impl PreparedBody {
                 .and_then(|n| n.checked_add(descriptor_bytes))
                 .and_then(|n| n.checked_add(evidence_bytes))
                 .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
+                .and_then(|n| n.checked_add(scalar_new_bytes))
+                .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
                 .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
@@ -1987,7 +2046,7 @@ impl PreparedBody {
             limits,
             support: prepared_support.clone(),
             #[cfg(test)]
-            scalar_builds: scalars.len(),
+            scalar_builds,
         };
         construction.record("success", true);
         Ok(compiled)
@@ -2058,6 +2117,7 @@ enum CompiledStage {
 /// Immutable library artifact. Clone workers to obtain independent evaluator scratch.
 #[derive(Clone)]
 pub struct CompiledBody {
+    scalar_products: library::ScalarProducts,
     directional: bool,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
@@ -2087,6 +2147,8 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Exact immutable scalar preparations borrowed by this artifact.
+    pub fn scalar_products(&self) -> &library::ScalarProducts { &self.scalar_products }
     /// Authored formal IDs in numerical input order. Evaluate accepts this compact signature.
     pub fn input_formals(&self) -> &[usize] {
         &self.input_formals
@@ -2151,6 +2213,7 @@ impl CompiledBody {
     }
     /// Attach accounting to the allocation itself so evaluator/worker clones retain it.
     pub fn with_owner(mut self, owner: Arc<dyn crate::AllocationOwner>) -> Self {
+        self.scalar_products = self.scalar_products.with_owner(owner.clone());
         self.support = self.support.with_owner(owner.clone());
         self.owner = Some(crate::retain_allocation_owner(self.owner.take(), owner));
         self
@@ -5062,6 +5125,65 @@ mod compact_tests {
         assert_eq!(result.values, escaped.values);
         assert!(result.jacobian.is_empty() && result.second.is_empty());
         assert_eq!(storage.0, result.values.as_ptr());
+    }
+
+    #[test]
+    fn retained_scalar_products_survive_order_upgrades_and_keep_their_first_owner() {
+        #[derive(Debug)]
+        struct Owner;
+        impl crate::AllocationOwner for Owner {}
+        let cancel = Arc::new(AtomicBool::new(false));
+        let body = analytic_body(4096);
+        let value = body.prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &cancel).unwrap();
+        let owner = Arc::new(Owner);
+        let weak = Arc::downgrade(&owner);
+        let scalars = value.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &cancel).unwrap().with_owner(owner.clone());
+        assert_eq!(scalars.len(), 1);
+        drop(owner);
+        let mut programs = Vec::new();
+        for order in [DerivativeOrder::Value, DerivativeOrder::First, DerivativeOrder::Second] {
+            let support = value.upgrade(order, &cancel).unwrap();
+            let program = support.compile_reusing(Optimization::default(), EvaluationLimits::default(), &cancel, &scalars).unwrap();
+            assert_eq!(program.scalar_builds, 0, "upgrade must not repeat scalar optimization");
+            assert_eq!(program.layouts.values().flatten().count(), order as usize + 1);
+            let expected = compiled(&body, &[Y, X], order);
+            assert_eq!(eval(&mut program.worker(), &[2., 3., 1.], order).unwrap(), eval(&mut expected.worker(), &[2., 3., 1.], order).unwrap());
+            programs.push(program);
+        }
+        let changed = value.compile_reusing(Optimization { horner_iterations: 0, ..Optimization::default() }, EvaluationLimits::default(), &cancel, &scalars).unwrap();
+        assert_eq!(changed.scalar_builds, 1, "optimizer settings are exact scalar identity");
+        drop(changed);
+        let mut worker = programs[2].worker();
+        drop(programs);
+        drop(scalars);
+        assert!(weak.upgrade().is_some(), "borrowed scalar lease survives cache/artifact removal");
+        let mut result = TrialEvaluation::default();
+        worker.evaluate_trial_into(&[2., 3., 1.], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel, &mut result).unwrap();
+        assert!(!result.values.is_empty());
+        assert!(worker.evaluate_trial_into(&[2., 3., 0.], DerivativeOrder::Second, &mut BTreeMap::new(), &cancel, &mut result).is_err());
+        assert!(result.values.is_empty() && result.jacobian.is_empty() && result.second.is_empty());
+        drop(worker);
+        assert!(weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn directional_compilation_constructs_only_the_consumed_first_template() {
+        let cancel = Arc::new(AtomicBool::new(false));
+        let support = analytic_body(4096).prepare_support(&[0], &[Y, X], DerivativeOrder::First, &cancel).unwrap();
+        let scalars = support.prepare_scalars(Optimization::default(), EvaluationLimits::default(), &cancel).unwrap();
+        let program = support.compile_directional_reusing(Optimization::default(), EvaluationLimits::default(), &cancel, &scalars).unwrap();
+        assert_eq!(program.scalar_builds, 0);
+        assert!(program.layouts[DerivativeOrder::Value].is_none());
+        assert!(program.layouts[DerivativeOrder::Second].is_none());
+        assert!(program.programs[DerivativeOrder::Value].is_none());
+        assert_eq!(program.layouts.values().flatten().count(), 1);
+        let mut worker = program.worker();
+        let mut result = TrialEvaluation::default();
+        worker.evaluate_directional_trial_into(&[2., 3., 1.], &[1., 0.], &mut BTreeMap::new(), &cancel, &mut result).unwrap();
+        assert_eq!(result.jacobian.len(), 1);
+        assert!(worker.programs[DerivativeOrder::Value].is_none());
+        assert!(worker.programs[DerivativeOrder::First].is_some());
+        assert!(worker.clone().programs.values().all(Option::is_none));
     }
 
     #[test]
