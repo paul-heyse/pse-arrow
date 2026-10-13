@@ -21,192 +21,243 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-/// One successful expression compilation, shared without holding the map lock.
-struct PreparedCell(Result<Arc<PreparedLocalContract>, Arc<RelationError>>);
+/// An invocation's owned identity and captured timestamp. Equal clock values do
+/// not confer permission to reuse scope-sensitive successful evidence.
+#[derive(Clone, Debug)]
+pub struct AdmissionScope {
+    identity: Arc<()>,
+    properties: datafusion_expr::execution_props::ExecutionProps,
+}
+impl Default for AdmissionScope {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl AdmissionScope {
+    /// Capture one timestamp without constructing an engine or substitute configuration.
+    pub fn new() -> Self {
+        let mut properties = datafusion_expr::execution_props::ExecutionProps::new();
+        properties.query_execution_start_time = Some(std::time::SystemTime::now().into());
+        Self { identity: Arc::new(()), properties }
+    }
+    /// Create an independent scope using an already selected native query timestamp.
+    /// An absent timestamp is captured now; other execution properties are not imported.
+    pub fn from_execution_props(properties: &datafusion_expr::execution_props::ExecutionProps) -> Self {
+        let mut scope = Self::new();
+        if properties.query_execution_start_time.is_some() {
+            scope.properties.query_execution_start_time = properties.query_execution_start_time;
+        }
+        scope
+    }
+    /// The captured native timestamp, to install into a clone of the actual engine state.
+    pub fn execution_props(&self) -> &datafusion_expr::execution_props::ExecutionProps {
+        &self.properties
+    }
+    /// Compare owned invocation identities, independently of timestamp equality.
+    pub fn same_invocation(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.identity, &other.identity)
+    }
+}
 
-/// An immutable native implementation owner. Changing state requires a new context.
+/// One SQL binding and immutable expression preparation per actual owner/schema.
+struct TemplateCell(Result<Arc<ContractTemplate>, Arc<RelationError>>);
+struct PreparedCell(Result<Arc<PreparedLocalContract>, Arc<RelationError>>);
 #[derive(Debug)]
-pub struct ValidationContext {
+struct ContractTemplate {
+    immutable: Arc<PreparedLocalContract>,
+    scoped: Vec<(String, Expr)>,
+}
+#[derive(Debug)]
+struct ValidationOwner {
     owner: Arc<()>,
     native_owner: Arc<()>,
     state: Arc<dyn super::planner::ValidationPlanner>,
     prepared: Mutex<HashMap<SchemaRef, u64>>,
     implementations: pse_schema::ImplementationCache,
     successful: std::sync::atomic::AtomicUsize,
+}
+#[derive(Debug, Default)]
+struct ScopedContracts {
+    implementations: pse_schema::ImplementationCache,
     columns: Mutex<HashMap<Field, Arc<PreparedLocalContract>>>,
     relations: Mutex<BTreeMap<pse_ids::SemanticId, Arc<PreparedLocalContract>>>,
 }
+/// A scoped admission view over an immutable actual native implementation owner.
+/// Historical scope caches are owned by their views, never accumulated on the owner.
+#[derive(Clone, Debug)]
+pub struct ValidationContext {
+    shared: Arc<ValidationOwner>,
+    scope: AdmissionScope,
+    scoped: Arc<ScopedContracts>,
+}
 impl ValidationContext {
-    /// Capture the actual function, rewrite and configuration bindings for preparation.
+    /// Capture actual function/configuration bindings and one initial admission scope.
     pub fn new(
         registry: &Registry,
         state: impl super::planner::ValidationPlanner + 'static,
     ) -> Self {
         Self {
-            owner: registry.implementation_owner(),
-            native_owner: Arc::new(()),
-            state: Arc::new(state),
-            prepared: Mutex::new(HashMap::new()),
-            implementations: Default::default(),
-            successful: std::sync::atomic::AtomicUsize::new(0),
-            columns: Mutex::new(HashMap::new()),
-            relations: Mutex::new(BTreeMap::new()),
+            shared: Arc::new(ValidationOwner {
+                owner: registry.implementation_owner(),
+                native_owner: Arc::new(()),
+                state: Arc::new(state),
+                prepared: Mutex::new(HashMap::new()),
+                implementations: Default::default(),
+                successful: std::sync::atomic::AtomicUsize::new(0),
+            }),
+            scope: AdmissionScope::new(),
+            scoped: Arc::new(ScopedContracts::default()),
         }
     }
-    /// Deliberately local validation: SQL/native obligations require an explicit engine context.
+    /// Begin another operation while retaining exact bindings and immutable templates.
+    pub fn new_scope(&self) -> Self {
+        self.for_scope(AdmissionScope::new())
+    }
+    /// Retain an explicit enclosing operation's admission scope.
+    pub fn for_scope(&self, scope: AdmissionScope) -> Self {
+        if self.scope.same_invocation(&scope) {
+            return self.clone();
+        }
+        Self { shared: self.shared.clone(), scope, scoped: Arc::new(ScopedContracts::default()) }
+    }
+    /// The operation identity and timestamp carried by child admissions.
+    pub fn admission_scope(&self) -> &AdmissionScope {
+        &self.scope
+    }
+    /// Deliberately local validation: SQL obligations require an actual engine context.
     /// # Errors
     /// Registry memo construction fails.
     pub fn local(registry: &Registry) -> Result<Arc<Self>, RelationError> {
         struct Local(Arc<ValidationContext>);
-        Ok(registry
-            .derived_implementation(|| {
-                Ok(Local(Arc::new(Self::new(
-                    registry,
-                    super::planner::LocalPlanner,
-                ))))
-            })?
-            .0
-            .clone())
+        Ok(registry.derived_implementation(|| {
+            Ok(Local(Arc::new(Self::new(registry, super::planner::LocalPlanner))))
+        })?.0.clone())
     }
-    /// Prepare the actual declared relation once inside this context.
+    fn require_registry(&self, registry: &Registry) -> Result<(), RelationError> {
+        if !Arc::ptr_eq(&self.shared.owner, &registry.implementation_owner()) {
+            return Err(super::mismatch("validation context", "context belongs to another registry"));
+        }
+        Ok(())
+    }
+    /// Prepare the actual declared relation once in this admission scope.
     /// # Errors
     /// Foreign registry, invalid declaration or native planning failure.
-    pub fn relation(
-        &self,
-        registry: &Registry,
-        spec: &RelationSpec,
-    ) -> Result<Arc<PreparedLocalContract>, RelationError> {
+    pub fn relation(&self, registry: &Registry, spec: &RelationSpec) -> Result<Arc<PreparedLocalContract>, RelationError> {
         let contract = registry.contract(spec)?;
-        if !Arc::ptr_eq(&self.owner, &registry.implementation_owner()) {
-            return Err(super::mismatch(
-                "validation context",
-                "context belongs to another registry",
-            ));
-        }
-        let relations = self
-            .relations
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "relation cache lock poisoned"))?;
-        if let Some(prepared) = relations.get(&contract.relation_id()) {
-            return Ok(prepared.clone());
-        }
+        self.require_registry(registry)?;
+        let relations = self.scoped.relations.lock().map_err(|_| super::mismatch("validation context", "relation cache lock poisoned"))?;
+        if let Some(prepared) = relations.get(&contract.relation_id()) { return Ok(prepared.clone()); }
         drop(relations);
         let prepared = self.prepare(registry, contract.schema().clone())?;
-        self.relations
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "relation cache lock poisoned"))?
-            .insert(contract.relation_id(), prepared.clone());
+        self.scoped.relations.lock().map_err(|_| super::mismatch("validation context", "relation cache lock poisoned"))?.insert(contract.relation_id(), prepared.clone());
         Ok(prepared)
     }
-    /// Prepare a column contract in this same native context.
+    /// Prepare a column in this same actual native context and scope.
     /// # Errors
-    /// Invalid field declaration, foreign registry or native planning failure.
-    pub fn column(
-        &self,
-        registry: &Registry,
-        field: &Field,
-    ) -> Result<Arc<PreparedLocalContract>, RelationError> {
-        if !Arc::ptr_eq(&self.owner, &registry.implementation_owner()) {
-            return Err(super::mismatch(
-                "validation context",
-                "context belongs to another registry",
-            ));
-        }
-        let columns = self
-            .columns
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "column cache lock poisoned"))?;
-        if let Some(prepared) = columns.get(field) {
-            return Ok(prepared.clone());
-        }
+    /// Invalid declaration, foreign registry or native planning failure.
+    pub fn column(&self, registry: &Registry, field: &Field) -> Result<Arc<PreparedLocalContract>, RelationError> {
+        self.require_registry(registry)?;
+        let columns = self.scoped.columns.lock().map_err(|_| super::mismatch("validation context", "column cache lock poisoned"))?;
+        if let Some(prepared) = columns.get(field) { return Ok(prepared.clone()); }
         drop(columns);
         let prepared = self.prepare(registry, Arc::new(Schema::new(vec![field.clone()])))?;
-        self.columns
-            .lock()
-            .map_err(|_| super::mismatch("validation context", "column cache lock poisoned"))?
-            .insert(field.clone(), prepared.clone());
+        self.scoped.columns.lock().map_err(|_| super::mismatch("validation context", "column cache lock poisoned"))?.insert(field.clone(), prepared.clone());
         Ok(prepared)
     }
-    /// Prepare external native fields in this context's actual immutable session.
+    /// Bind SQL once under the actual owner; scope-sensitive lowering is invocation-relative.
     /// # Errors
-    /// A foreign registry, invalid fields, or a native expression binding failure.
-    pub fn prepare(
-        &self,
-        registry: &Registry,
-        schema: SchemaRef,
-    ) -> Result<Arc<PreparedLocalContract>, RelationError> {
-        if !Arc::ptr_eq(&self.owner, &registry.implementation_owner()) {
-            return Err(super::mismatch(
-                "validation context",
-                "context belongs to another registry",
-            ));
-        }
+    /// Foreign registry, invalid declaration, native failure or preparation cycle.
+    pub fn prepare(&self, registry: &Registry, schema: SchemaRef) -> Result<Arc<PreparedLocalContract>, RelationError> {
+        self.require_registry(registry)?;
         let key = {
-            let mut slots = self.prepared.lock().map_err(|_| {
-                super::mismatch("validation context", "prepared cache lock poisoned")
-            })?;
-            let next = u64::try_from(slots.len()).map_err(|_| {
-                super::mismatch("validation context", "preparation slot extent overflows")
-            })?;
+            let mut slots = self.shared.prepared.lock().map_err(|_| super::mismatch("validation context", "prepared cache lock poisoned"))?;
+            let next = u64::try_from(slots.len()).map_err(|_| super::mismatch("validation context", "preparation slot extent overflows"))?;
             *slots.entry(schema.clone()).or_insert(next)
         };
-        let prepared = self.implementations.get_at(key, || {
+        let template = self.shared.implementations.get_at(key, || {
             let result = self.construct(registry, schema);
-            if result.is_ok() {
-                self.successful
-                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            }
-            Ok(PreparedCell(result.map_err(Arc::new)))
+            if result.is_ok() { self.shared.successful.fetch_add(1, std::sync::atomic::Ordering::Relaxed); }
+            Ok(TemplateCell(result.map_err(Arc::new)))
+        })?.0.clone().map_err(RelationError::Preparation)?;
+        if template.scoped.is_empty() { return Ok(template.immutable.clone()); }
+        let prepared = self.scoped.implementations.get_at(key, || {
+            Ok(PreparedCell(self.prepare_scoped(&template).map_err(Arc::new)))
         })?;
         prepared.0.clone().map_err(RelationError::Preparation)
     }
-    fn construct(
-        &self,
-        registry: &Registry,
-        schema: SchemaRef,
-    ) -> Result<Arc<PreparedLocalContract>, RelationError> {
+    fn construct(&self, registry: &Registry, schema: SchemaRef) -> Result<Arc<ContractTemplate>, RelationError> {
         for field in schema.fields() {
-            super::validate_field(registry, field)
-                .map_err(|errors| RelationError::Validation { errors })?;
+            super::validate_field(registry, field).map_err(|errors| RelationError::Validation { errors })?;
         }
         let native = DFSchema::try_from(schema.as_ref().clone()).map_err(engine)?;
+        let nodes = schema.fields().iter().map(|field| {
+            super::occurrences::Node::prepare(registry, &self.shared.state, Arc::clone(field))
+        }).collect::<Result<_, _>>()?;
         let mut predicates = Vec::new();
-        let nodes = schema
-            .fields()
-            .iter()
-            .map(|field| {
-                super::occurrences::Node::prepare(registry, &self.state, Arc::clone(field))
-            })
-            .collect::<Result<_, _>>()?;
-        for (name, expression) in super::row_checks::bind(&schema, &self.state).map_err(engine)? {
-            predicates.push(self.predicate(&native, format!("check:{name}"), expression)?);
+        let mut scoped = Vec::new();
+        for (name, expression) in super::row_checks::bind(&schema, &self.shared.state).map_err(engine)? {
+            let rule = format!("check:{name}");
+            // Classify the retained bound expression before simplification can fold Stable calls.
+            if scope_sensitive(&expression).map_err(engine)? {
+                scoped.push((rule, expression));
+            } else {
+                predicates.push(PreparedPredicate { scoped: false, rule, physical: prepare_expression(&self.shared.state, expression, &native)? });
+            }
         }
-        let contract = Arc::new(PreparedLocalContract {
-            native_owner: self.native_owner.clone(),
-            schema,
-            predicates,
-            nodes,
+        Ok(Arc::new(ContractTemplate {
+            immutable: Arc::new(PreparedLocalContract {
+                native_owner: self.shared.native_owner.clone(),
+                scope: None,
+                schema,
+                predicates: Arc::new(predicates),
+                nodes: Arc::new(nodes),
+                evaluations: std::sync::atomic::AtomicUsize::new(0),
+                #[cfg(test)]
+                structural_scans: std::sync::atomic::AtomicUsize::new(0),
+            }),
+            scoped,
+        }))
+    }
+    fn prepare_scoped(&self, template: &ContractTemplate) -> Result<Arc<PreparedLocalContract>, RelationError> {
+        let base = &template.immutable;
+        let native = DFSchema::try_from(base.schema.as_ref().clone()).map_err(engine)?;
+        let mut predicates = base.predicates.as_ref().clone();
+        for (rule, expression) in &template.scoped {
+            predicates.push(PreparedPredicate {
+                scoped: true,
+                rule: rule.clone(),
+                physical: self.shared.state.prepare_in_scope(expression.clone(), &native, &self.scope).map_err(engine)?,
+            });
+        }
+        Ok(Arc::new(PreparedLocalContract {
+            native_owner: base.native_owner.clone(),
+            scope: Some(self.scope.clone()),
+            schema: base.schema.clone(),
+            predicates: Arc::new(predicates),
+            nodes: base.nodes.clone(),
             evaluations: std::sync::atomic::AtomicUsize::new(0),
             #[cfg(test)]
             structural_scans: std::sync::atomic::AtomicUsize::new(0),
-        });
-        Ok(contract)
+        }))
     }
-    fn predicate(
-        &self,
-        schema: &DFSchema,
-        rule: String,
-        expression: Expr,
-    ) -> Result<PreparedPredicate, RelationError> {
-        let physical = prepare_expression(&self.state, expression, schema)?;
-        Ok(PreparedPredicate { rule, physical })
-    }
-    /// Number of exact schema preparations, useful for deterministic reuse assertions.
+    /// Exact schema binding/template preparations, independent of invocation lowering.
     /// # Errors
     /// A poisoned preparation lock.
     pub fn prepared_count(&self) -> Result<usize, RelationError> {
-        Ok(self.successful.load(std::sync::atomic::Ordering::Relaxed))
+        Ok(self.shared.successful.load(std::sync::atomic::Ordering::Relaxed))
     }
+}
+fn scope_sensitive(expression: &Expr) -> datafusion_common::Result<bool> {
+    use datafusion_common::tree_node::TreeNode;
+    use datafusion_expr::Volatility;
+    expression.exists(|expression| Ok(match expression {
+        Expr::ScalarFunction(value) => value.func.signature().volatility != Volatility::Immutable,
+        Expr::AggregateFunction(value) => value.func.signature().volatility != Volatility::Immutable,
+        Expr::WindowFunction(value) => value.fun.signature().volatility != Volatility::Immutable,
+        Expr::HigherOrderFunction(value) => value.func.signature().volatility != Volatility::Immutable,
+        Expr::ScalarVariable(..) => true,
+        _ => false,
+    }))
 }
 
 /// Direct expression planning needs the native simplifier as well as coercion.
@@ -220,8 +271,9 @@ pub fn prepare_expression(
 ) -> Result<Arc<dyn PhysicalExpr>, RelationError> {
     state.prepare(expression, schema).map_err(engine)
 }
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct PreparedPredicate {
+    scoped: bool,
     rule: String,
     physical: Arc<dyn PhysicalExpr>,
 }
@@ -230,16 +282,27 @@ struct PreparedPredicate {
 #[derive(Debug)]
 pub struct PreparedLocalContract {
     native_owner: Arc<()>,
+    scope: Option<AdmissionScope>,
     schema: SchemaRef,
-    predicates: Vec<PreparedPredicate>,
-    nodes: Vec<super::occurrences::Node>,
+    predicates: Arc<Vec<PreparedPredicate>>,
+    nodes: Arc<Vec<super::occurrences::Node>>,
     evaluations: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
     structural_scans: std::sync::atomic::AtomicUsize,
 }
 impl PreparedLocalContract {
     pub(crate) fn same_native_owner(&self, other: &Self) -> bool {
+        self.same_bindings(other) && match (&self.scope, &other.scope) {
+            (None, None) => true,
+            (Some(left), Some(right)) => left.same_invocation(right),
+            _ => false,
+        }
+    }
+    pub(crate) fn same_bindings(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.native_owner, &other.native_owner)
+    }
+    pub(crate) fn scope_checks(&self) -> std::collections::BTreeSet<String> {
+        self.predicates.iter().filter(|predicate| predicate.scoped).map(|predicate| predicate.rule.clone()).collect()
     }
     /// Bind this prepared implementation as a visible native logical-plan predicate.
     pub fn predicate(self: &Arc<Self>, arguments: Vec<Expr>) -> Expr {
@@ -366,7 +429,7 @@ impl PreparedLocalContract {
                         node.root(column, start, &mut findings)?;
                     }
                 }
-                for predicate in &self.predicates {
+                for predicate in self.predicates.iter() {
                     if missing.is_some_and(|names| !names.contains(&predicate.rule)) {
                         continue;
                     }

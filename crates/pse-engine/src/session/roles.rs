@@ -116,6 +116,7 @@ impl EngineSession {
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
         let mut result = self.clone();
+        let validation = self.admission_context()?;
         for (key, input) in rows {
             cancel.checkpoint()?;
             if result.bindings.relation(key).is_some() {
@@ -128,7 +129,7 @@ impl EngineSession {
             let input = input.readmit_context(
                 &result.registry,
                 spec,
-                result.validation_context()?.as_ref(),
+                validation.as_ref(),
                 cancel,
             )?;
             let input = input.retained(&result.pool, cancel)?;
@@ -158,6 +159,7 @@ impl EngineSession {
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
         let mut result = self.clone();
+        let validation = self.admission_context()?;
         for (role, input) in rows {
             cancel.checkpoint()?;
             if role.is_empty() || result.bindings.input(&role).is_some() {
@@ -172,7 +174,7 @@ impl EngineSession {
             let input = input.readmit_context(
                 &result.registry,
                 spec,
-                result.validation_context()?.as_ref(),
+                validation.as_ref(),
                 cancel,
             )?;
             let key = spec.key;
@@ -202,6 +204,7 @@ impl EngineSession {
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
         let mut result = self.clone();
+        let validation = self.admission_context()?;
         for (role, (key, batch)) in rows {
             cancel.checkpoint()?;
             if role.is_empty() || result.bindings.input(&role).is_some() {
@@ -218,7 +221,7 @@ impl EngineSession {
                 &result.registry,
                 spec,
                 batch,
-                result.validation_context()?.as_ref(),
+                validation.as_ref(),
                 cancel,
             )?;
             let table: Arc<dyn TableProvider> = Arc::new(ImmutableTable::candidate(input.clone()));

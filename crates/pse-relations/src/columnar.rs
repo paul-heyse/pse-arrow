@@ -791,9 +791,11 @@ impl FieldCheckedBatch {
             return Ok(self.clone());
         }
         let prepared = context.relation(registry, spec)?;
-        prepared
-            .evaluate_retained(self, 256, cancel)?
-            .require_valid()?;
+        if self.admission.as_ref().is_some_and(|admission| admission.prepared.same_bindings(&prepared)) {
+            prepared.evaluate_missing_checks(self, &prepared.scope_checks(), cancel)?.require_valid()?;
+        } else {
+            prepared.evaluate_retained(self, 256, cancel)?.require_valid()?;
+        }
         cancel.checkpoint()?;
         Ok(self.clone().with_admission(Some(LocalFieldAdmission {
             contract: self.contract.clone(),

@@ -103,7 +103,7 @@ impl EngineSession {
         let inputs = RoundInputs(
             Arc::new(Mutex::new(Epoch::default())),
             session.registry.clone(),
-            session.validation_context()?,
+            session.admission_context()?,
             cancel.clone(),
         );
         for (slot, name, reference, input) in relations

@@ -19,6 +19,20 @@ pub trait ValidationPlanner: std::fmt::Debug + Send + Sync {
     /// # Errors
     /// The declared expression cannot execute in this context.
     fn prepare(&self, expression: Expr, schema: &DFSchema) -> Result<Arc<dyn PhysicalExpr>>;
+    /// Prepare a scope-sensitive expression using this invocation's timestamp.
+    /// Typed-only planners do not silently inherit a stale native timestamp.
+    /// # Errors
+    /// The planner does not implement invocation-relative SQL preparation.
+    fn prepare_in_scope(
+        &self,
+        _expression: Expr,
+        _schema: &DFSchema,
+        _scope: &super::AdmissionScope,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        Err(DataFusionError::Plan(
+            "scope-sensitive CHECK requires invocation-relative native preparation".into(),
+        ))
+    }
 }
 impl ValidationPlanner for Arc<dyn ValidationPlanner> {
     fn snapshot(&self) -> Arc<dyn ValidationPlanner> {
@@ -29,6 +43,14 @@ impl ValidationPlanner for Arc<dyn ValidationPlanner> {
     }
     fn prepare(&self, expression: Expr, schema: &DFSchema) -> Result<Arc<dyn PhysicalExpr>> {
         self.as_ref().prepare(expression, schema)
+    }
+    fn prepare_in_scope(
+        &self,
+        expression: Expr,
+        schema: &DFSchema,
+        scope: &super::AdmissionScope,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        self.as_ref().prepare_in_scope(expression, schema, scope)
     }
 }
 /// Built-in typed field predicates need no SQL session. SQL-bearing row declarations
@@ -83,4 +105,16 @@ impl ValidationPlanner for datafusion::execution::session_state::SessionState {
             schema,
         )
     }
+    fn prepare_in_scope(
+        &self,
+        expression: Expr,
+        schema: &DFSchema,
+        scope: &super::AdmissionScope,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        let mut state = self.clone();
+        state.execution_props_mut().query_execution_start_time =
+            scope.execution_props().query_execution_start_time;
+        ValidationPlanner::prepare(&state, expression, schema)
+    }
+
 }

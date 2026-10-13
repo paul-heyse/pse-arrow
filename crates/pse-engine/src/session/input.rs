@@ -89,6 +89,7 @@ impl RelationPlan {
         if !stream.is_bounded() {
             return Err(invalid("bounded capture requires a finite stream"));
         }
+        let validation = session.admission_context()?;
         let mut parts = Vec::new();
         let mut row_count = 0usize;
         let mut byte_count = 0usize;
@@ -112,7 +113,7 @@ impl RelationPlan {
                 session.registry(),
                 spec,
                 super::output::restore_relation_metadata(batch, &schema)?,
-                session.validation_context()?.as_ref(),
+                validation.as_ref(),
                 cancel,
             )?);
         }

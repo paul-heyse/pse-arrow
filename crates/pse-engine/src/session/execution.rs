@@ -57,13 +57,15 @@ impl NativeExecutionContext {
         state: SessionState,
         cancel: &CancellationToken,
     ) -> Result<SessionState, EngineError> {
+        let caches = session.invocation.clone().unwrap_or_default();
+        let validation = Arc::new(pse_relations::validate::ValidationContext::new(
+            session.registry(),
+            crate::validation::NativeValidation(state.clone()),
+        ).for_scope(caches.4.validation_scope.clone()));
         let services = Arc::new(Self {
-            validation: Arc::new(pse_relations::validate::ValidationContext::new(
-                session.registry(),
-                crate::validation::NativeValidation(state.clone()),
-            )),
+            validation,
             template: session.empty_selection()?,
-            caches: session.invocation.clone().unwrap_or_default(),
+            caches,
             inherited: session.invocation.is_some(),
             parent_admission: session.query_admission.clone(),
             query_admission: std::sync::Mutex::default(),
@@ -123,6 +125,7 @@ impl NativeExecutionContext {
             state
         };
         *state.config_mut() = config;
+        install_scope_time(&mut state);
         Ok(state)
     }
 
@@ -258,7 +261,7 @@ impl NativeExecutionContext {
             .import_scope(source.ownership())
             .map_err(pse_columnar::external)?;
         let services = Arc::new(Self {
-            validation: source.validation.clone(),
+            validation: Arc::new(source.validation.for_scope(caches.4.validation_scope.clone())),
             caches,
             inherited: source.inherited,
             parent_admission: source.parent_admission.clone(),
@@ -278,6 +281,7 @@ impl NativeExecutionContext {
             .with_extension(Arc::new(services.attempt_scope()))
             .with_extension(services);
         state.mark_start_execution();
+        install_scope_time(&mut state);
         Ok(state)
     }
 
@@ -343,8 +347,9 @@ impl NativeExecutionContext {
             });
         }
         self.cancel.checkpoint()?;
-        let mut session = self
-            .template
+        let mut template = self.template.clone();
+        self.inherit_invocation(&mut template);
+        let mut session = template
             .with_checked_role_inputs(rows, &self.cancel)?
             .with_unique_relation_aliases(&self.cancel)?;
         // A store-bound runtime is an actual distinct resource/cache scope.
@@ -359,6 +364,13 @@ impl NativeExecutionContext {
         }
         self.inherit_invocation(&mut session);
         Ok(session)
+    }
+}
+
+fn install_scope_time(state: &mut SessionState) {
+    if let Some(services) = state.config().get_extension::<NativeExecutionContext>() {
+        state.execution_props_mut().query_execution_start_time =
+            services.validation.admission_scope().execution_props().query_execution_start_time;
     }
 }
 
@@ -392,6 +404,7 @@ type InvocationValue = (
 
 #[derive(Default)]
 pub(super) struct InvocationResources {
+    pub(super) validation_scope: pse_relations::validate::AdmissionScope,
     scope: AttemptScope,
     values: std::sync::Mutex<std::collections::HashMap<std::any::TypeId, InvocationValue>>,
 }

@@ -385,6 +385,10 @@ impl BoundModel {
     pub fn validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
         self.0.native.validation_context()
     }
+    /// Begin one local admission using the retained actual bindings.
+    pub fn admission_context(&self) -> pse_relations::validate::ValidationContext {
+        self.validation_context().new_scope()
+    }
     /// Admit an immutable registry reflection relation once for this actual native owner.
     /// Returned clones can be streamed independently; a changed binding admits its own rows.
     /// # Errors

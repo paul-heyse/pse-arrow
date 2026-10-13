@@ -53,7 +53,7 @@ pub(super) fn bind_candidates(
     cancel: &CancellationToken,
 ) -> Result<EngineSession, EngineError> {
     let native = factory.model_assembly(&registry)?;
-    let validation = native.validation_context();
+    let validation = native.validation_context().new_scope();
     let mut tables = BTreeMap::new();
     for (key, batch) in rows {
         cancel.checkpoint()?;
@@ -207,6 +207,18 @@ impl EngineSession {
         ));
         let _ = selected.validation.set(context.clone());
         Ok(selected.validation.get().cloned().unwrap_or(context))
+    }
+
+    /// Begin a top-level admission, or inherit the enclosing native invocation.
+    /// The returned view is shared by all batches and child checks of this call.
+    /// # Errors
+    /// Actual selected native configuration cannot be composed.
+    pub fn admission_context(&self) -> Result<Arc<pse_relations::validate::ValidationContext>, EngineError> {
+        let owner = self.validation_context()?;
+        Ok(Arc::new(match &self.invocation {
+            Some(invocation) => owner.for_scope(invocation.4.validation_scope.clone()),
+            None => owner.new_scope(),
+        }))
     }
 
     /// Share model capabilities while dropping the parent's selected providers.
@@ -466,7 +478,7 @@ impl EngineSession {
         rows: BTreeMap<RelationKey, RecordBatch>,
         cancel: &CancellationToken,
     ) -> Result<Self, EngineError> {
-        let validation = self.native.validation_context();
+        let validation = self.admission_context()?;
         let mut result = self.clone();
         for (key, batch) in rows {
             cancel.checkpoint()?;
