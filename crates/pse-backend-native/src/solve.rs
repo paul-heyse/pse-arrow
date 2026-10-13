@@ -4,6 +4,7 @@
 mod exact_objective;
 mod observations;
 mod record;
+mod snapshot;
 mod retention;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
@@ -925,7 +926,7 @@ impl Compatibility {
     }
 }
 /// Native basis values retain their original integer codes.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Basis {
     /// Native column basis statuses.
@@ -1115,7 +1116,7 @@ pub struct WarmStart {
     pub payload: WarmPayload,
 }
 /// Portable provenance of an output seed, distinct from its coordinate compatibility.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SeedOrigin {
     /// Public run identity when one exists.
@@ -1125,7 +1126,7 @@ pub struct SeedOrigin {
 }
 /// Typed semantic seed snapshot. Nonfinite numbers have explicit observations; zero's
 /// sign survives in real observations. Snapshot attribution is separate from content identity.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WarmStartSnapshot {
     /// Producing occurrence, when there is one.
@@ -1142,7 +1143,7 @@ pub struct WarmStartSnapshot {
     pub payload: WarmPayloadSnapshot,
 }
 /// Portable seed data with explicit numerical observations.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WarmPayloadSnapshot {
     /// Root-system source coordinates.
@@ -1182,7 +1183,7 @@ pub enum WarmPayloadSnapshot {
 /// Canonical named native bound and row activity vocabulary.
 pub use pse_model::generated::enums::{BoundActivity, RowActivity};
 /// Typed active set with the transformation under which its indices are meaningful.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WorkingSetSnapshot {
     /// Presolve coordinate transformation.
@@ -1191,7 +1192,7 @@ pub struct WorkingSetSnapshot {
     pub active: Option<ActiveSetSnapshot>,
 }
 /// Native activity vectors in source order.
-#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ActiveSetSnapshot {
     /// Native variable-bound statuses in source order.
