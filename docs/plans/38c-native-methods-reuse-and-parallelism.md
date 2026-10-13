@@ -1,8 +1,8 @@
 ---
 title: Native methods, reuse and parallelism
-status: draft
+status: in-progress
 date: 2026-10-13
-adrs: []
+adrs: [ADR-0185]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, libraries, preparation, validation]
@@ -114,3 +114,22 @@ scoped native controls; these are not full per-profile, reset/history or scienti
 C1/C3 remain Planned for their wider compatibility, callback, method-family, dynamics and
 scientific-consumer obligations. I-C1–I-C4 and C2/C4–C6 are not completed by this handoff.
 Consume the existing observation product rather than adding a second counter/attempt authority.
+
+## Execution checkpoint — 2026-10-13
+
+The maintainer authorized all C1–C6 and I-C1–I-C4. The approved approach selects narrow
+maintained POUNCE/FERAL reset and explicit-width enhancements and, after per-profile
+acceptance, AllowRebuild with neutral independent-request reset as the ordinary default.
+Explicit Fresh/RequireReuse and numerical start permission remain separate.
+
+Proposed ADR-0185 and architecture revision 162 install concrete governing contracts before
+dependent production changes. C1 and resource/reset/mutation contracts precede persistent
+lanes; C5 is independently ready after the mutation outcome seam. Fork controls and bounded
+lane ownership precede default activation. C3/C6 consumer work follows its actual selected
+prerequisites; all method families receive explicit outcomes. Broader 38d–38f and assembled
+38g acceptance remain open. Existing-plan/status/index reconciliation remains deferred.
+
+Current source corrects several historical leads: structured Ipopt statistics and gradient
+scaling, public PETSc trust-region execution and optional pooled POUNCE batch backends
+already exist. The batch pool's carried policy is part of I-C1. Existing cubic certified
+fallback and same-point factor reuse are preserved. Native algorithms are library-owned.

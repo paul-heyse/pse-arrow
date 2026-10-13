@@ -1071,6 +1071,12 @@ only, and robust optimization is not implemented.
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+Ordinary independent solve defaults select neutral compatible reuse only after profile
+acceptance; explicit Fresh/RequireReuse and start permissions remain distinct. Generated
+reports preserve actual reset/resource/stop facts and method-specific numerical evidence.
+
 Rust-owned generated documents expose bounded attempt/failure summaries, frozen optional advice and explicit replay levels. Python adds no policy, numerical estimator or counter inference. Required recording and optional ordinary telemetry retain separate outcomes; default local computation needs neither history nor a store.
 
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).

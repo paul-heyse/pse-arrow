@@ -80,6 +80,16 @@ edge limits before allocation. Cancellation is checked between library stages.
 
 ### 15.4 Numerical checks that require values
 
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+A separately selected sparse-rank method names its convention, threshold, ordering, original
+coordinates, build and memory support. It never substitutes for SVD singular values/modes or
+silently changes square-response rank meaning. SPQR is an investigation until its concrete
+binding and complete contracts qualify; unqualified large sparse rank remains explicitly
+unavailable. Authored scalar bracket execution requires actual continuity/domain/branch
+premises and original residual acceptance beyond library interval-width stopping.
+
+
 After any native attempt, the adapter re-evaluates the original model at the returned
 candidate through the original oracle (`pse-backend-native::quality`). The observation
 never reuses a solver's possibly stale row buffer. It records:
@@ -796,6 +806,16 @@ commit. This is local initialization evidence, not a convergence guarantee.
 
 ### 17.6 Explicit starts and allocation reuse
 
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+After per-profile reset/fresh-fallback and lifetime acceptance, ordinary independent solves
+default to AllowRebuild of compatible neutral allocation/structure. Explicit Fresh and
+RequireReuse remain authoritative. Allocation reuse does not grant a seed, numerical setup
+history or branch change. Independent boundaries reset value-sensitive heuristics and clear
+request-owned advanced products/expired controls; live within-request continuation retains
+its own scientific contract. Unresettable profiles rebuild or refuse RequireReuse.
+
+
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
 > completion records the submitted start. Plan 22 A4 (implemented) separates the
 > coordinate and profile stamps and types the seed transformations; Plan 22 A6
@@ -1112,6 +1132,14 @@ regularization is derived from the requested gap
 ([§18.10](#section-18-10)).
 
 ### 18.6 Truthful outcomes
+
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+Actual allocation/structure reuse, numeric transfer/reset, stop fidelity and unknown counters
+remain distinct observations. Native mutation failure invalidates retained state before its
+original typed cause returns, even under RequireReuse; it cannot be a boolean compatibility
+refusal. Available structured native statistics are consumed directly, never parsed from logs.
+
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 
@@ -1447,6 +1475,19 @@ step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
 
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+Bounded service-owned native lanes retain explicit profile affinity, resident memory/stacks
+and population through owner-thread destruction/join. Each request receives fresh controls
+and active/CPU admission; idle lanes hold no active capacity or obstructive exclusions and
+retire under pressure before population starvation. Unrelated adapter pools do not accumulate
+indefinitely. Actual transitive teams, loaded-interface exclusions and admitted widths govern
+placement. FERAL owns an explicitly sized pool and resets application policy at lease
+boundaries; affected SUNDIALS contexts remain thread-affine. Store-free child lanes admit only
+explicitly reconstructible portable requests under bounded authenticated IPC and the parent's
+original clock/envelope. They do not acquire canonical worker authority or distribute one solve.
+
+
 > Decision: [ADR-0176](../../adr/0176-quiescent-admission-and-exclusive-scratch-transfer.md) (proposed amendment; Plan 36 P-B3/P-C2/P-C8).
 
 Population, resident storage/native lifetime and active job/CPU are distinct owners. Reserve
@@ -1517,9 +1558,14 @@ native stack, live jobs and flights.
 - Mutable native state is constructed, used and destroyed on the owning `pse-math`
   thread. Only owned `Send` inputs and results cross; native objects may be `!Send`.
   Salsa never holds mutable solver state.
-- Dropping a `SolveHandle` requests cancellation; awaiting `finish` observes completion
-  only after native teardown, thread-local destruction and join. Permits and
-  reservations survive caller cancellation until that join. Retained results transfer a
+- Dropping a `SolveHandle` requests cancellation. Under the ADR-0185 persistent-lane
+  target, `finish` waits for request native work/callback borrowers to drain, unsafe request
+  state to reset or be destroyed, and request active/construction owners to release. Only
+  accepted neutral state and its resident charges may transfer to an idle service lane;
+  cancelled, fatal or uncertain requests transfer no healthy retained state. Lane retirement
+  and service shutdown wait for native/thread-local destruction and owner-thread join before
+  resident/population release. Existing ephemeral job paths retain full join before finish
+  until their consumers migrate. Retained results transfer a
   split of the job reservation to an `AllocationLease` that lives with the result; a
   product larger than the job's working allowance first grows the reservation to its
   extent, and one the pool cannot admit is refused as a pool limit.
@@ -1611,6 +1657,14 @@ process RSS ceiling. The workstation sizing rationale and measured behavior are
 qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 
 ### 18.9 Capability matrix
+
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+
+Capability claims follow the actual selected profile's reset, stopping, counters, memory and
+transitive-resource contracts. New methods enter through existing scientific builders and
+common policy with fresh original acceptance; optional families have explicit consumer or
+support-trigger outcomes. A library symbol or retained wrapper alone grants no capability.
+
 
 > Decision: [ADR-0102](../../adr/0102-discrete-and-global-design-target.md),
 > [ADR-0105](../../adr/0105-scip-factorable-backend.md),
