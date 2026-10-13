@@ -274,8 +274,8 @@ def collect(base: Path, kind: str, identity: Mapping[str, object]) -> list[Path]
     return removed
 
 
-def admit_external(prefix: Path, required: tuple[str, ...]) -> None:
-    """External mutable installations get full byte/interface admission each use."""
+def admit_external(prefix: Path, required: tuple[str, ...]) -> bool:
+    """Admit consumed files; return whether the qualifier owns an immutable generation."""
     if not all((prefix / name).is_file() for name in required):
         raise ValueError("explicit native prefix lacks required consumed interfaces")
     # A manager-issued generation may reuse its already admitted immutable owner.
@@ -288,7 +288,7 @@ def admit_external(prefix: Path, required: tuple[str, ...]) -> None:
         and prior.get("managed")
         and set(required).issubset(prior["required"])
     ):
-        return
+        return True
     receipt_path = prefix / ".complete.json"
     try:
         receipt = json.loads(receipt_path.read_text())
@@ -318,11 +318,13 @@ def admit_external(prefix: Path, required: tuple[str, ...]) -> None:
                 "identity": receipt["identity"],
             },
         )
+        return True
     else:
         observed = installation_files(prefix)
         operation.admit(
             key, {"managed": False, "required": list(required), "files": observed}
         )
+        return False
 
 
 def prepare(

@@ -425,7 +425,7 @@ class NativeOperationTests(unittest.TestCase):
             )
             (prefix / "include/a.h").chmod(0o644)
             with patch.dict(os.environ, {"PSE_NATIVE_CACHE": str(base)}):
-                cache.admit_external(prefix, ("lib/a",))
+                self.assertTrue(cache.admit_external(prefix, ("lib/a",)))
             self.assertFalse((prefix / "include/a.h").stat().st_mode & 0o222)
             self.assertEqual(cache.installation_files(prefix), original)
 
@@ -643,8 +643,8 @@ class NativeOperationTests(unittest.TestCase):
                     cache, "installation_files", wraps=cache.installation_files
                 ) as inventory,
             ):
-                cache.admit_external(prefix, ("lib/a",))
-                cache.admit_external(prefix, ("lib/a",))
+                self.assertFalse(cache.admit_external(prefix, ("lib/a",)))
+                self.assertFalse(cache.admit_external(prefix, ("lib/a",)))
                 self.assertEqual(inventory.call_count, 2)
                 (prefix / "include/a.h").write_bytes(b"changed")
                 with self.assertRaisesRegex(ValueError, "changed inside"):

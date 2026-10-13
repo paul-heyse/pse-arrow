@@ -51,11 +51,12 @@ AUTHORITATIVE = {
     "SCIPOPTDIR": "follows the admitted solver prefix",
     "SUITESPARSE_INCLUDE_DIR": "follows the prepared KLU prefix",
     "SUITESPARSE_LIBRARY_DIR": "follows the prepared KLU prefix",
+    "PSE_KLU_PROVIDER_RECEIPT": "follows the native qualifier's managed KLU generation",
 }
 CAPABILITY_PATHS = {
     "compiler": ("CLANG_PATH", "BINDGEN_EXTRA_CLANG_ARGS"),
     "solver": ("IPOPT_DIR", "SCIPOPTDIR"),
-    "klu": ("SUITESPARSE_INCLUDE_DIR", "SUITESPARSE_LIBRARY_DIR"),
+    "klu": ("SUITESPARSE_INCLUDE_DIR", "SUITESPARSE_LIBRARY_DIR", "PSE_KLU_PROVIDER_RECEIPT"),
     "isolation": ("PSE_ROOT_ISOLATION_DIR",),
     "uno": ("UNO_DIR", "IPOPT_DIR"),
     "petsc": ("PETSC_DIR", "IPOPT_DIR"),
@@ -1523,11 +1524,13 @@ def _environment(requested: list[str], env: dict[str, str]) -> dict[str, str]:
                 raise ValueError(
                     "explicit KLU paths must select one coherent native prefix"
                 )
-            cache.admit_external(prefix, cache.KLU_FILES)
+            managed = cache.admit_external(prefix, cache.KLU_FILES)
         else:
             prefix = cache.klu(base, result)
+            managed = True
         enforce(result, "SUITESPARSE_INCLUDE_DIR", str(prefix / "include/suitesparse"))
         enforce(result, "SUITESPARSE_LIBRARY_DIR", str(prefix / "lib"))
+        enforce(result, "PSE_KLU_PROVIDER_RECEIPT", str(prefix / ".complete.json") if managed else "")
     if "isolation" in requested:
         if result.get("PSE_ROOT_ISOLATION_DIR"):
             cache.admit_external(

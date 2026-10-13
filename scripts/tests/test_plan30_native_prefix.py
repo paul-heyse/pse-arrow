@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import io
 import json
 import tempfile
 import unittest
@@ -63,6 +64,7 @@ class PreparedKluTests(unittest.TestCase):
         prefix_record = record.call_args_list[0].args[1]
         assert not (prefix_record["managed"])
         assert (set(prefix_record["files"])) == (set(cache.KLU_FILES))
+        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], "")
 
     def test_missing_consumed_file_refuses_instead_of_preparing(self) -> None:
         (self.prefix / "lib/libklu.a").unlink()
@@ -90,6 +92,51 @@ class PreparedKluTests(unittest.TestCase):
         assert (
             (actual["SUITESPARSE_INCLUDE_DIR"]) == (self.env["SUITESPARSE_INCLUDE_DIR"])
         )
+        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], str(self.prefix / ".complete.json"))
+
+    def test_managed_generation_exports_only_its_qualified_receipt(self) -> None:
+        identity = {"fixture": "qualified-klu"}
+        owner = cache.identity_location(self.base, "klu", identity)
+        prefix = owner / "generations" / ("b" * 32)
+        self.populate(prefix)
+        receipt = {"version": cache.RECEIPT_VERSION, "identity": identity,
+            "files": cache.installation_files(prefix)}
+        (prefix / ".complete.json").write_text(json.dumps(receipt))
+        env = {"SUITESPARSE_INCLUDE_DIR": str(prefix / "include/suitesparse"),
+            "SUITESPARSE_LIBRARY_DIR": str(prefix / "lib")}
+        with patch.object(operation, "admit") as record:
+            actual = operation.environment(["klu"], env)
+        self.assertTrue(record.call_args_list[0].args[1]["managed"])
+        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], str(prefix / ".complete.json"))
+        self.assertEqual(record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"],
+            str(prefix / ".complete.json"))
+        self.prepare.assert_not_called()
+
+    def test_unmanaged_stale_receipt_never_exports_provider_authority(self) -> None:
+        receipt = {"version": cache.RECEIPT_VERSION, "identity": {"fixture": "external-klu"},
+            "files": cache.installation_files(self.prefix)}
+        receipt_path = self.prefix / ".complete.json"
+        receipt_path.write_text(json.dumps(receipt))
+        (self.prefix / "lib/libklu.a").write_bytes(b"external native bytes changed")
+        env = {**self.env, "PSE_KLU_PROVIDER_RECEIPT": str(receipt_path)}
+        refused = io.StringIO()
+        with patch.object(operation, "admit") as record, contextlib.redirect_stderr(refused):
+            actual = operation.environment(["klu"], env)
+        observed = record.call_args_list[0].args[1]
+        self.assertFalse(observed["managed"])
+        self.assertEqual(observed["files"]["lib/libklu.a"], cache.digest(self.prefix / "lib/libklu.a"))
+        self.assertNotEqual(observed["files"]["lib/libklu.a"], receipt["files"]["lib/libklu.a"])
+        self.assertEqual(actual["PSE_KLU_PROVIDER_RECEIPT"], "")
+        self.assertEqual(record.call_args_list[-1].args[1]["inputs"]["PSE_KLU_PROVIDER_RECEIPT"], "")
+        self.assertIn("refused PSE_KLU_PROVIDER_RECEIPT", refused.getvalue())
+        self.prepare.assert_not_called()
+
+    def test_prior_managed_admission_returns_truth_without_reobserving_bytes(self) -> None:
+        prior = {"managed": True, "required": list(cache.KLU_FILES)}
+        with patch.object(operation, "remembered", return_value=prior), patch.object(
+            cache, "installation_files", side_effect=AssertionError("qualified immutable bytes reobserved")
+        ):
+            self.assertTrue(cache.admit_external(self.prefix, cache.KLU_FILES))
 
     def test_corrupt_owned_completed_generation_refuses_without_preparation(
         self,
