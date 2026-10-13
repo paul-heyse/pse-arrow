@@ -53,10 +53,15 @@ pub enum AdviceOutcome {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AdviceObservation {
+    /// Exact admitted comparison premises.
     pub cohort: AdviceCohort,
+    /// Declared matched exposure identity.
     pub matched: ContentHash,
+    /// Exact immutable candidate identity.
     pub candidate: ContentHash,
+    /// Original execution identity.
     pub attempt: ContentHash,
+    /// Actual observation disposition.
     pub outcome: AdviceOutcome,
     /// Missing is unknown, never zero. Censored values cannot rank candidates.
     pub value: Option<f64>,
@@ -65,24 +70,37 @@ pub struct AdviceObservation {
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AdviceSupport {
-    CompleteMatched { pairs: usize },
+    /// Every declared candidate has a complete metric for every matched exposure.
+    CompleteMatched {
+        /// Number of complete matched exposures.
+        pairs: usize,
+    },
+    /// Incomplete support preserves the original order.
     BaselineTie,
 }
 /// Full immutable body retained with effective settings, including all excluded outcomes.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FrozenAdvice {
+    /// Exact admitted comparison premises.
     pub cohort: AdviceCohort,
+    /// One declared descriptive metric.
     pub metric: AdviceMetric,
+    /// Complete original candidate order.
     pub baseline: Vec<ContentHash>,
+    /// Actual frozen candidate order.
     pub ordered: Vec<ContentHash>,
+    /// Actual retained observations, including exclusions.
     pub observations: Vec<AdviceObservation>,
+    /// Support established by the retained comparison.
     pub support: AdviceSupport,
     /// Original allowances for applicability checking; advice never widens them.
     pub limits: WorkLimits,
 }
 impl FrozenAdvice {
+    /// Finite candidate inventory capacity.
     pub const MAX_CANDIDATES: usize = 64;
+    /// Finite retained comparison observation capacity.
     pub const MAX_OBSERVATIONS: usize = 4096;
 
     /// Freeze a complete descriptive comparison or preserve the full baseline tie.
