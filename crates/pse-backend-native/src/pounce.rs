@@ -185,6 +185,8 @@ pub struct Session {
     app: Option<IpoptApplication>,
     stamp: Option<Compatibility>,
     factors: Option<Rc<RefCell<retained::Pool>>>,
+    // A reset that discarded every native owner is not a new cold sequence.
+    discarded: bool,
     foreign_allowance: Option<usize>,
     // Allocation-only token, dropped after the app and factor pool. The completed
     // task ledger must not retain every historical attempt's foreign allowance.
@@ -207,6 +209,7 @@ impl Session {
     /// options, callbacks and oracle owners are released. Explicit seeds remain inputs
     /// to the next solve; this reset never creates a continuation edge.
     pub fn reset_for_new_application(&mut self) -> Result<(), ProblemError> {
+        let had_state = self.app.is_some() || self.stamp.is_some() || self.factors.is_some();
         self.app = None;
         let retains_backends = if let Some(pool) = self.factors.as_ref() {
             let pool = pool.try_borrow().map_err(|_| ProblemError::Contract(
@@ -220,12 +223,21 @@ impl Session {
             false
         };
         if !retains_backends {
+            self.discarded |= had_state;
             self.factors = None;
             self.stamp = None;
             self.foreign_allowance = None;
             self.storage_owner = None;
         }
         Ok(())
+    }
+
+    /// Whether an independent reset preserved actual quiescent neutral native owners.
+    /// An empty factor-pool wrapper is not retained native state.
+    pub(crate) fn has_neutral_state(&self) -> bool {
+        !self.discarded && self.stamp.is_some() && self.factors.as_ref().is_some_and(|pool| {
+            pool.try_borrow().is_ok_and(|pool| pool.is_quiescent() && pool.retains_backends())
+        })
     }
 
     /// Observable pattern/owner buffers. This is not the extent of opaque FERAL
@@ -263,6 +275,12 @@ impl Session {
     ) -> Result<SolveReport, ProblemError> {
         controls.validate()?;
         settings.restart.validate()?;
+        if self.discarded && controls.reuse == ReusePolicy::RequireReuse {
+            return Err(ProblemError::Reuse {
+                backend: Backend::Pounce,
+                refusal: crate::ReuseRefusal::Structure,
+            });
+        }
         let method = settings.method;
         let mut feral = settings.linear.clone();
         if oracle.normalization().is_some() {
@@ -973,7 +991,9 @@ impl Session {
         ) {
             self.app = Some(app);
             self.stamp = Some(compatibility);
+            self.discarded = false;
         } else {
+            self.discarded = true;
             self.factors = None;
             drop(app);
             drop(pool);
@@ -1465,6 +1485,7 @@ mod tests {
         session.storage_owner = Some(allocation.clone());
         pool.borrow_mut().retain_storage(Some(allocation));
         session.reset_for_new_application().unwrap();
+        assert!(session.has_neutral_state());
         assert!(session.app.is_none());
         assert!(session.stamp.as_ref().unwrap().same_session(&stamp));
         assert!(Rc::ptr_eq(&pool, session.factors.as_ref().unwrap()));
@@ -1483,6 +1504,50 @@ mod tests {
         let fresh = reuse_run(&mut Session::new(), &Settings::default(), ReusePolicy::Fresh, stamp).unwrap();
         assert_eq!(second.candidate.as_ref().unwrap().primal, fresh.candidate.as_ref().unwrap().primal);
         assert_eq!(second.options, fresh.options);
+    }
+
+    #[test]
+    fn empty_independent_reset_refuses_required_reuse_but_allows_explicit_reconstruction() {
+        let stamp = crate::solver_tests::stamp(Backend::Pounce);
+        for policy in [ReusePolicy::AllowRebuild, ReusePolicy::Fresh] {
+            let mut session = Session::new();
+            let first = reuse_run(&mut session, &Settings::default(),
+                ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+            assert_eq!(first.termination.category, Termination::Success);
+            assert!(counted(&first, "linear.backend_objects.created") > 0,
+                "a genuinely cold required-reuse sequence may bootstrap");
+            // Inject the quiescent empty pool produced when an application has no
+            // healthy backend to return (including acceptance before factor setup).
+            // Keep the actual completed application and stamp until the real reset.
+            session.factors = Some(retained::Pool::new(Settings::default().linear,
+                serde_json::json!({}), NonZeroUsize::new(1).unwrap()));
+            assert!(!session.has_neutral_state());
+            session.reset_for_new_application().unwrap();
+            assert!(session.app.is_none());
+            assert!(session.factors.is_none());
+            assert!(session.stamp.is_none());
+            assert!(session.retained_foreign_allowance().is_none());
+            assert!(!session.has_neutral_state());
+            assert!(session.discarded);
+            assert!(matches!(reuse_run(&mut session, &Settings::default(),
+                ReusePolicy::RequireReuse, stamp.clone()), Err(ProblemError::Reuse {
+                    backend: Backend::Pounce, refusal: crate::ReuseRefusal::Structure,
+                })));
+            session.reset_for_new_application().unwrap();
+            assert!(session.discarded, "a second empty reset preserves refusal provenance");
+            let rebuilt = reuse_run(&mut session, &Settings::default(), policy,
+                stamp.clone()).unwrap();
+            assert_eq!(rebuilt.termination.category, Termination::Success);
+            assert!(counted(&rebuilt, "linear.backend_objects.created") > 0);
+            assert!(!rebuilt.evidence.reused_native_state);
+            assert!(!session.discarded);
+            session.reset_for_new_application().unwrap();
+            assert!(session.has_neutral_state());
+            let required = reuse_run(&mut session, &Settings::default(),
+                ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+            assert_eq!(required.termination.category, Termination::Success);
+            assert!(required.evidence.reused_native_state);
+        }
     }
 
     #[test]
