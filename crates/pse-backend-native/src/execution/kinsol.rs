@@ -35,7 +35,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: false,
     sensitivities: true,
-    reuse: "same sparse layout: retained SUNDIALS/KLU allocations",
+    reuse: "retained SUNDIALS/native linear allocations; fresh initial setup requested for every KINSol call; native within-call monitoring retained",
     cancellation: "evaluation checkpoints; native factorization completes before teardown",
     diagnostics: "typed native nonlinear/function/linear/JVP/preconditioner counters; bounded raw fixed-point G(x)-x and producer-qualified physical Err/Tol; native norms remain separate",
 };

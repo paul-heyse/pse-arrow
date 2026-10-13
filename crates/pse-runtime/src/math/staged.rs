@@ -527,6 +527,7 @@ fn serve(
     pressure: &super::retention::Pressure,
     stack: usize,
     population: &super::jobs::PopulationLane,
+    #[cfg(test)] fail_scope_entry: &AtomicBool,
     current: &std::sync::Mutex<Scope>,
 ) {
     let mut pending: Option<Request> = None;
@@ -564,7 +565,12 @@ fn serve(
                     )),
                 }
             });
+        #[cfg(test)]
+        let injected_failure = !adapters.is_empty() && fail_scope_entry.swap(false, Ordering::AcqRel);
+        #[cfg(not(test))]
+        let injected_failure = false;
         let exit = match team_owner {
+            Ok(_) if injected_failure => Err(ProblemError::Contract("injected native scope entry failure".into())),
             Ok(_team_owner) => execution::scoped(&adapters, scope.threads, stack, || {
                 let _scratch_lane = ScratchLaneGuard::install();
                 let mut retained = Retained::default();
@@ -687,6 +693,8 @@ pub(crate) struct NativeSession {
     joined: Option<tokio::sync::oneshot::Receiver<()>>,
     budget: Arc<WorkerBudget>,
     parked: bool,
+    #[cfg(test)]
+    fail_scope_entry: Arc<AtomicBool>,
 }
 /// A resident native owner without a strong reference to its service or any request.
 /// Dropping it closes the channel; the existing supervisor releases residency after join.
@@ -699,6 +707,8 @@ pub(super) struct ParkedSession {
     sender: Option<mpsc::Sender<Request>>,
     joined: Option<tokio::sync::oneshot::Receiver<()>>,
     budget: Arc<WorkerBudget>,
+    #[cfg(test)]
+    fail_scope_entry: Arc<AtomicBool>,
 }
 impl Drop for ParkedSession {
     fn drop(&mut self) { if self.sender.is_some() { self.population.close(); self.sender.take(); } }
@@ -805,6 +815,10 @@ impl MathService {
         let native_scope = scope.clone();
         let population = super::jobs::PopulationLane::new(self.jobs.clone(), slot.clone());
         let native_population = population.clone();
+        #[cfg(test)]
+        let fail_scope_entry = Arc::new(AtomicBool::new(false));
+        #[cfg(test)]
+        let native_failure = fail_scope_entry.clone();
         let thread = std::thread::Builder::new()
             .name("pse-math".into())
             .stack_size(stack)
@@ -813,7 +827,9 @@ impl MathService {
                 pse_backend_native::implicit::budget_sessions(sessions);
                 #[cfg(not(feature = "solver-kinsol"))]
                 let _ = sessions;
-                serve(&std::sync::Mutex::new(receiver), &pool, &pressure, stack, &native_population, &native_scope)
+                serve(&std::sync::Mutex::new(receiver), &pool, &pressure, stack, &native_population,
+                    #[cfg(test)] &native_failure,
+                    &native_scope)
             })
             .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
         let (joined, receiver) = tokio::sync::oneshot::channel();
@@ -836,6 +852,7 @@ impl MathService {
             joined: Some(receiver),
             budget: WorkerBudget::drawing_for(self.policy.worker_bytes, self),
             parked: false,
+            #[cfg(test)] fail_scope_entry,
         })
     }
 }
@@ -850,6 +867,7 @@ impl MathService {
             population: lane.population.clone(), dispatch: lane.dispatch.clone(), scope: lane.scope.clone(),
             service: self.clone(), sender: lane.sender.take(), joined: lane.joined.take(),
             budget: lane.budget.clone(), parked: false,
+            #[cfg(test)] fail_scope_entry: lane.fail_scope_entry.clone(),
         })
         // Drop cannot close the transferred population; the channel is empty now.
     }
@@ -1456,7 +1474,9 @@ impl NativeSession {
             if service.jobs.is_closed() || cancel.checkpoint().is_err()
                 || original.as_ref().is_some_and(|scope| scope.check().is_err()) { true } else {
                 let lane = ParkedSession { affinity, population: self.population.clone(), dispatch: self.dispatch.clone(),
-                    scope: self.scope.clone(), sender: self.sender.take(), joined: self.joined.take(), budget: self.budget.clone() };
+                    scope: self.scope.clone(), sender: self.sender.take(), joined: self.joined.take(), budget: self.budget.clone(),
+                    #[cfg(test)] fail_scope_entry: self.fail_scope_entry.clone(),
+                };
                 self.parked = true;
                 lanes.push(lane);
                 false
@@ -1614,6 +1634,19 @@ mod admission_tests {
             Some(std::time::Instant::now() + std::time::Duration::from_secs(2)), None, &cancel,
             |_, _, _| Ok(())).await.unwrap();
         drop(held);
+        session.close().await;
+    }
+    #[cfg(feature = "solver-pounce")]
+    #[tokio::test]
+    async fn failed_native_scope_entry_cannot_poison_next_request_charge() {
+        let service = super::super::tests::service();
+        let session = service.open_session().unwrap();
+        let cancel = crate::CancelSource::new();
+        session.fail_scope_entry.store(true, Ordering::Release);
+        let failed = session.run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(())).await;
+        assert!(matches!(failed, Err(MathRuntimeError::Solve(ProblemError::Contract(ref detail))) if detail == "injected native scope entry failure"));
+        assert_eq!(*session.scope.lock().unwrap(), Scope { threads: 1, backends: Vec::new() });
+        session.run(2, Some(Backend::Pounce), &cancel, |_, _, _| Ok(())).await.unwrap();
         session.close().await;
     }
     #[test]
