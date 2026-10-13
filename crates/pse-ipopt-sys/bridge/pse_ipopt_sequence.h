@@ -80,7 +80,10 @@ int32_t pse_ipopt_sequence_update_bounds(pse_ipopt_sequence_handle*, int32_t n,
 /* Reset only the six per-attempt restart options to their registered defaults. */
 int32_t pse_ipopt_sequence_reset_restart(pse_ipopt_sequence_handle*, char*, size_t) PSE_IPOPT_NOEXCEPT;
 /* reoptimize=0 requires a fresh handle; 1 requires a prior successful OptimizeTNLP
- * on this exact TNLP/application. Initial primal is explicit and finite; Ipopt
+ * on this exact TNLP/application. Every call sets warm_start_same_structure=no:
+ * Ipopt owns fresh spaces, scaling, dependency maps and numerical initialization.
+ * This retains the TNLP/application, not an internal allocation/analysis guarantee.
+ * Initial primal is explicit and finite; Ipopt
  * owns its adjustment into the native bounds. Optional
  * duals must be supplied together; no hidden replacement iterate is synthesized. */
 int32_t pse_ipopt_sequence_solve(pse_ipopt_sequence_handle*, int32_t reoptimize, double remaining_seconds,

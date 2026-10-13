@@ -292,7 +292,10 @@ extern "C" int32_t pse_ipopt_sequence_solve(pse_ipopt_sequence_handle* h, int32_
             if (m) std::copy(lambda, lambda + m, p.initial_row.begin()); }
         p.has_duals = duals; p.poll();
         accepted(h->application->Options()->SetNumericValue("max_wall_time", seconds));
-        accepted(h->application->Options()->SetStringValue("warm_start_same_structure", reuse ? "yes" : "no"));
+        // Same-object ReOptimizeTNLP does not grant predecessor numeric policy.
+        // Ipopt 3.14.20 refreshes spaces, dependency maps, gradient scaling and
+        // numerical initialization through its own !warm_start_same_structure path.
+        accepted(h->application->Options()->SetStringValue("warm_start_same_structure", "no"));
         accepted(h->application->Options()->SetStringValue("warm_start_init_point", duals ? "yes" : "no"));
         p.started = true; p.reusable = false;
         if (!reuse) {

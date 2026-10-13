@@ -647,7 +647,7 @@ impl Sequence {
             report.provenance.insert("duals".into(),"minimization L=f+lambda*g-zL*x+zU*x; same TNLP/application; authored objective recovered once".into());
             report.options.insert(
                 "warm_start_same_structure".into(),
-                OptionValue::Bool(reused),
+                OptionValue::Bool(false),
             );
             report.options.insert(
                 "warm_start_init_point".into(),
@@ -1007,6 +1007,7 @@ mod tests {
             .unwrap();
         assert_eq!(second_report.termination.category, Termination::Success);
         assert!(second_report.evidence.reused_native_state);
+        assert_eq!(second_report.options["warm_start_same_structure"], OptionValue::Bool(false));
         assert!(matches!(
             second_report.metrics.get("reuse.reoptimize_tnlp"),
             Some(Metric::Bool(true))
@@ -1084,6 +1085,7 @@ mod tests {
                 "{report:?}"
             );
             assert_eq!(report.evidence.reused_native_state, attempt > 0);
+            assert_eq!(report.options["warm_start_same_structure"], OptionValue::Bool(false));
             assert_eq!(
                 report.options.get("warm_start_init_point"),
                 Some(&OptionValue::Bool(barrier.is_some()))
@@ -1111,6 +1113,81 @@ mod tests {
             assert!((report.candidate.as_ref().unwrap().primal[0] - 1.).abs() < 1e-6);
             seed = report.warm_start;
         }
+    }
+    #[derive(Debug)]
+    struct QuadraticScaling {
+        contract: crate::OracleContract,
+        jacobian: faer::sparse::SparseColMat<usize, f64>,
+        hessian: faer::sparse::SparseColMat<usize, f64>,
+        coefficient: f64,
+        target: f64,
+    }
+    impl QuadraticScaling {
+        fn new(coefficient: f64, target: f64) -> Self {
+            let mut contract = crate::solver_tests::contract();
+            contract.rows.clear();
+            Self {
+                contract,
+                jacobian: faer::sparse::SparseColMat::try_new_from_triplets(0, 1, &[]).unwrap(),
+                hessian: faer::sparse::SparseColMat::try_new_from_triplets(1, 1,
+                    &[faer::sparse::Triplet::new(0, 0, 1.0)]).unwrap(),
+                coefficient, target,
+            }
+        }
+    }
+    impl NlpOracle for QuadraticScaling {
+        fn contract(&self) -> &crate::OracleContract { &self.contract }
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> { self.jacobian.symbolic() }
+        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> { Some(self.hessian.symbolic()) }
+        fn constraint_bounds(&self) -> &[(f64, f64)] { &[] }
+        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> { Ok(self.coefficient * (x[0] - self.target).powi(2)) }
+        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = 2.0 * self.coefficient * (x[0] - self.target); Ok(())
+        }
+        fn constraints(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> { Ok(()) }
+        fn jacobian(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> { Ok(()) }
+        fn hessian(&mut self, _: &[f64], objective: f64, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = 2.0 * self.coefficient * objective; Ok(())
+        }
+    }
+    #[test]
+    fn retained_application_refreshes_gradient_scaling_from_current_coefficient_and_start() {
+        let controls = Controls { reuse: ReusePolicy::RequireReuse, iterations: 50,
+            time_limit: std::time::Duration::from_secs(5), ..Default::default() };
+        let mut accuracy = ResolvedAccuracy::verification();
+        accuracy.native_scaling = true;
+        let tolerance = Tolerances { variables: vec![1e-7], rows: vec![], integrality: 1e-7 };
+        let solve = |sequence: &mut Sequence, coefficient, target, initial| {
+            sequence.solve(&mut QuadraticScaling::new(coefficient, target), &[initial],
+                ObjectiveSense::Minimize, &controls, &accuracy, &Settings::default(),
+                Execution::new(Arc::default(), &controls), &tolerance, None,
+                crate::solver_tests::stamp(Backend::Ipopt)).unwrap()
+        };
+        let mut sequence = Sequence::new();
+        // The predecessor's starting gradient is 3e12, above Ipopt's default
+        // scaling threshold. The new request's gradient is 2. Its callback
+        // evaluation count must include the same fresh scaling work as a new app;
+        // candidate agreement alone does not establish a new scaling decision.
+        let predecessor = solve(&mut sequence, 1e12, 0.5, -1.0);
+        assert_eq!(predecessor.termination.category, Termination::Success, "{predecessor:?}");
+        let pointer = sequence.owned.as_ref().unwrap().handle.pointer;
+        let updated = solve(&mut sequence, 1.0, 1.0, 0.0);
+        let fresh = solve(&mut Sequence::new(), 1.0, 1.0, 0.0);
+        assert_eq!(updated.termination.category, Termination::Success, "{updated:?}");
+        assert_eq!(fresh.termination.category, Termination::Success);
+        assert_eq!(sequence.owned.as_ref().unwrap().handle.pointer, pointer);
+        assert_eq!(updated.metrics["reuse.native_model"], Metric::Bool(true));
+        assert_eq!(updated.metrics["reuse.reoptimize_tnlp"], Metric::Bool(true));
+        assert_eq!(updated.options["warm_start_same_structure"], OptionValue::Bool(false));
+        assert_eq!(updated.options["warm_start_init_point"], OptionValue::Bool(false));
+        assert_eq!(updated.options["nlp_scaling_method"], OptionValue::Text("gradient-based".into()));
+        let point = updated.candidate.as_ref().unwrap().primal[0];
+        let reference = fresh.candidate.as_ref().unwrap().primal[0];
+        assert!((point - 1.0).abs() < 1e-7, "current unscaled gradient must be stationary");
+        assert!((point - reference).abs() < 1e-10);
+        assert_eq!(updated.evidence.work.iterations, fresh.evidence.work.iterations);
+        assert_eq!(updated.metrics["callback.gradient.calls"], fresh.metrics["callback.gradient.calls"],
+            "retained application must evaluate current gradient scaling like a fresh application");
     }
     #[test]
     fn persistent_profile_change_refuses_required_reuse_and_discards_native_state() {
