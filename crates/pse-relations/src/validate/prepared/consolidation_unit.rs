@@ -609,6 +609,8 @@ fn stable_checks_bind_once_and_reprepare_for_distinct_admission_scopes() {
     assert!(!first.same_native_owner(&equal_prepared));
     checked.readmit_context(&registry, spec, &equal_clock, &cancel).unwrap();
     assert_eq!(equal_prepared.evaluation_count(), 1);
+    checked.project_exact(&registry, spec, &[0], &cancel, &equal_clock).unwrap();
+    assert_eq!(equal_prepared.evaluation_count(), 2, "projection rechecks scope-sensitive evidence");
     assert_eq!(immutable_evaluations.load(Ordering::Relaxed), immutable_count,
         "unchanged immutable predicates retain their evidence across scopes");
 

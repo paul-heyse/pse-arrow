@@ -1184,7 +1184,7 @@ impl FieldCheckedBatch {
             projected.columns().to_vec(),
             &RecordBatchOptions::new().with_row_count(Some(projected.num_rows())),
         )?;
-        let missing = spec
+        let mut missing = spec
             .checks
             .iter()
             .filter(|(_, sql)| {
@@ -1199,10 +1199,11 @@ impl FieldCheckedBatch {
             .map(|(name, _)| format!("check:{name}"))
             .collect::<std::collections::BTreeSet<_>>();
         let prepared = context.relation(registry, spec)?;
-        let same_owner = self
-            .admission
-            .as_ref()
-            .is_some_and(|admission| admission.prepared.same_native_owner(&prepared));
+        let same_bindings = self.admission.as_ref().is_some_and(|admission| admission.prepared.same_bindings(&prepared));
+        let same_scope = self.admission.as_ref().is_some_and(|admission| admission.prepared.same_native_owner(&prepared));
+        if same_bindings && !same_scope {
+            missing.extend(prepared.scope_checks());
+        }
         let owned = self
             .storage
             .owned
@@ -1216,7 +1217,7 @@ impl FieldCheckedBatch {
         let checked =
             Self::from_parts_with_metadata(spec.id, contract.clone(), batch, owned, metadata)
                 .with_sources(self.storage.sources.clone());
-        if !same_owner {
+        if !same_bindings {
             prepared
                 .evaluate_retained(&checked, 256, cancel)?
                 .require_valid()?;
