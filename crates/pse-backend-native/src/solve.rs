@@ -3,9 +3,11 @@
 //! Library-neutral execution controls and faithful result envelopes.
 mod exact_objective;
 mod observations;
+mod record;
 mod retention;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
+pub use record::{AttemptRecord, SubmittedStartRecord};
 pub use observations::{NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
     ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
     RawMapSample, StopFidelity};
