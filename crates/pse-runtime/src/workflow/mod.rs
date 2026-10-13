@@ -601,6 +601,7 @@ impl RuntimeActivity {
 }
 pub(crate) fn inherit_runtime_activity<F: Future>(future: F) -> impl Future<Output = F::Output> {
     let activity = RUNTIME_CONTINUATION.try_with(Clone::clone).ok();
+    let future=pse_operations::canonical::inherit_activity(future);
     async move { match activity { Some(activity) => activity.scope(future).await, None => future.await } }
 }
 #[cfg(test)]

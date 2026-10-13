@@ -1970,7 +1970,7 @@ impl Heartbeat {
         let operations = operations.clone();
         let failure = Arc::new(Mutex::new(None));
         let recorded = failure.clone();
-        let task = tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+        let task = tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
             let mut interval = tokio::time::interval(operations.policy.heartbeat);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
             loop {
@@ -2162,7 +2162,7 @@ impl Streamer {
         let writer_gate = export_gate.clone();
         let writer_acknowledgments = acknowledgments.clone();
         let writer_fence = fence.clone();
-        let task = tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+        let task = tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
             let fence = writer_fence;
             while fence.get().is_none() {
                 tokio::select! {_=signal.notified()=>{},event=receiver.recv()=>{if event.is_some(){return Err(super::ProgressWriteStage::Claim {});}return Ok(());}}

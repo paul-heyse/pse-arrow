@@ -484,7 +484,7 @@ impl super::ModelingSimulation {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let prepared = self.clone();
-            tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
                 let request = RunRequest::Simulation(Box::new(prepared.clone()));
                 let stop = cancel.clone();
                 let registered = async {
@@ -649,7 +649,7 @@ impl super::ShootingProblem {
                 problem: self.clone(),
                 initial,
             };
-            tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
                 let stop = cancel.clone();
                 let registered = async {
                     if let Some(attempt) = durable.as_mut() {
@@ -826,7 +826,7 @@ impl super::PreparedFit {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let request = RunRequest::Fit(Box::new(self.clone()));
-            tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
                 let stop = cancel.clone();
                 let registered = async {
                     if let Some(attempt) = durable.as_mut() {
@@ -1110,7 +1110,7 @@ impl Runtime {
             .as_ref()
             .map(|attempt| attempt.canonical_keys(run_id));
         let shared = progress.clone();
-        tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+        tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
             let request = RunRequest::Modeling(steps.clone());
             let stop = cancel.clone();
             let session = async {

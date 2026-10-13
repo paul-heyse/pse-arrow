@@ -152,7 +152,7 @@ impl Runtime {
                     .as_ref()
                     .map(|attempt| attempt.canonical_keys(run_id));
                 let stream = progress.clone();
-                tokio::spawn(pse_operations::canonical::inherit_activity(async move {
+                tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
                     use futures_util::FutureExt;
                     let source_owner = admitted.clone();
                     let scopes = admitted
