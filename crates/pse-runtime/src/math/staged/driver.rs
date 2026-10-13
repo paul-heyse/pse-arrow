@@ -1224,6 +1224,9 @@ impl<D: Dispatch> StepDriver<'_, D> {
                                     return Err(error.effect(&prepared,&enclosing));
                                 }
                             };
+                            if let math::solves::Outcome::Native(report)=&value.outcome {
+                                actual_products.borrow_mut()[index].native_attempt=Some(math::strategy::retain_native_attempt(&service,report).map_err(Arc::new)?);
+                            }
                             if let Some(failed)=prepared.local_attempt_failure(&value,&enclosing) {retained.clear();return Err(failed);}
                             if !original_completion && let Some(proposal)=&value.proposal {
                                     let mut evaluations=0;
@@ -1313,6 +1316,14 @@ impl<D: Dispatch> StepDriver<'_, D> {
                             (RungOutcome::Derived(Box::new(value)),observation,observed)
                         },
                     };
+                    let native=match &value {
+                        RungOutcome::Original(value)=>match &value.0 {math::solves::Outcome::Native(report)=>Some(report.as_ref()),_=>None},
+                        RungOutcome::Derived(value)=>match &value.outcome {math::solves::Outcome::Native(report)=>Some(report.as_ref()),_=>None},
+                        _=>None,
+                    };
+                    if actual_products.borrow()[index].native_attempt.is_none() && let Some(native)=native {
+                        actual_products.borrow_mut()[index].native_attempt=Some(math::strategy::retain_native_attempt(&service,native).map_err(Arc::new)?);
+                    }
                     let evidence=actual_products.borrow()[index].evidence.clone();
                     math::strategy::validate_outputs(&mechanism.operation,&evidence).map_err(|cause| {
                         let actual_cause=match &value {

@@ -115,12 +115,11 @@ pub(crate) fn callable<T>(
     let profiles = [source.solver.cloned()];
     #[cfg(feature = "solver-pounce")]
     let mut known_profiles = BTreeSet::from([source.profile]);
-    #[cfg(not(feature = "solver-pounce"))]
-    let _ = &native_report;
     let mut attempted = BTreeSet::new();
     let mut last = None;
     let mut events: Vec<strategy::Event> = Vec::new();
     let mut mechanism_count = 0;
+    let mut products = Vec::new();
     let mut latest_result = None;
     let mut outer_terminal = None;
     let mut operation_failure = None;
@@ -356,6 +355,9 @@ pub(crate) fn callable<T>(
             event.decision = Some(decision_key);
             event.mechanism = mechanism_count;
         }
+        let native_attempt = result.value.as_ref().and_then(|value| value.as_ref().ok())
+            .and_then(&native_report).map(|report| strategy::retain_native_attempt(service, report)).transpose()?;
+        products.push(strategy::RungProducts { start: source.start_identity, native_attempt, ..Default::default() });
         declaration.mechanisms.push(operation.mechanisms[0].clone());
         mechanism_count += 1;
         last = result
@@ -449,13 +451,7 @@ pub(crate) fn callable<T>(
         profile: source.profile,
         start: source.start,
         starts: vec![source.start; mechanism_count],
-        products: vec![
-            strategy::RungProducts {
-                start: source.start_identity,
-                ..Default::default()
-            };
-            mechanism_count
-        ],
+        products,
         events: result.events,
     };
     let bytes = trace
@@ -653,7 +649,8 @@ mod tests {
             Assurance, Execution, NativeTermination, SolveReport, Termination,
         };
         let service = crate::math::tests::service();
-        let solver = super::super::super::solves::SolverProfile::default();
+        let mut solver = super::super::super::solves::SolverProfile::default();
+        solver.controls.history = 0;
         let scope = pse_kernels::ExecutionScope::new(Arc::default(), None);
         let project = |profile: &super::super::super::solves::SolverProfile| {
             let ordinary = super::super::super::solves::profile_key(profile)?.as_id();
@@ -734,6 +731,11 @@ mod tests {
         assert_eq!(profiles.len(), 2);
         assert_ne!(profiles[0], profiles[1]);
         assert_eq!(trace.declaration.mechanisms.len(), 2);
+        let retained = trace.products.iter().filter_map(|product| product.native_attempt.as_ref()).collect::<Vec<_>>();
+        assert_eq!(retained.len(), 2);
+        assert_eq!(retained[0].termination.category, Termination::Infeasible);
+        assert_eq!(retained[1].termination.category, Termination::Success);
+
         for (mechanism, actual) in trace.declaration.mechanisms.iter().zip(&profiles) {
             assert_eq!(mechanism.profile.as_ref().unwrap().key, *actual);
         }

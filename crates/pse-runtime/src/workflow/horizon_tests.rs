@@ -2321,8 +2321,8 @@ async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_p
     assert!(!document.native_continuation);
     assert!(replay.native_continuation().is_err());
     let next = replay.rerun().await.unwrap();
-    assert_ne!(next.run_id(), stopped.run_id);
     let rerun = next.wait().await.unwrap();
+    assert_ne!(rerun.run_id, stopped.run_id);
     assert!(rerun.report().is_ok(), "{:?}", rerun.report());
     assert_eq!(rerun.horizon().unwrap().completed_steps, 2);
 }

@@ -847,6 +847,7 @@ pub struct Trace {
 /// Producer observations for the actual operation, separate from its declaration.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct RungProducts {
+    pub(crate) native_attempt: Option<Arc<pse_backend_native::solve::AttemptRecord>>,
     pub(crate) provider: Option<ProviderEvidence>,
     pub(crate) statistical: Option<Arc<crate::math::surrogate::SurrogateProposal>>,
     pub(crate) derived: Option<ContentHash>,
@@ -856,6 +857,14 @@ pub(crate) struct RungProducts {
     pub(crate) evidence: Vec<pse_model::strategy::ProductEvidence>,
     pub(crate) path_events:
         Option<pse_math::SharedAllocation<Vec<pse_backend_native::kkt::path::arclength::Event>>>,
+}
+/// Copy only compact native facts while the actual report still owns their admission.
+pub(crate) fn retain_native_attempt(service: &crate::math::MathService,
+    report: &pse_backend_native::solve::SolveReport)
+    -> Result<Arc<pse_backend_native::solve::AttemptRecord>, ProblemError> {
+    let bytes = pse_backend_native::solve::AttemptRecord::retained_extent(report)?;
+    let owner = service.reserve("math:native-attempt-record", bytes).map_err(crate::math::MathRuntimeError::into_problem)?;
+    pse_backend_native::solve::AttemptRecord::capture(report, owner)
 }
 /// The actual library phase has no native adapter; its retained options/task key is
 /// separate from the original corrector's native profile.
