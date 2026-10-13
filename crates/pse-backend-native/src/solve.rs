@@ -414,7 +414,8 @@ impl Controls {
     }
 }
 /// Raw native termination and the adapter's conservative interpretation.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NativeTermination {
     /// Unmodified native numeric status, or `i64::MIN` when a contained Rust
     /// unwind prevented the native algorithm from returning any status.
@@ -1850,7 +1851,8 @@ pub struct OriginalObjectiveBound {
     pub relative_tolerance: f64,
 }
 /// Work observed by its executing owner; unavailable counters remain absent.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct WorkEvidence {
     /// Actual callback evaluations, including rejected trials; absent when unobserved.
     pub evaluations: Option<u64>,
