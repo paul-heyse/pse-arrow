@@ -738,10 +738,9 @@ pub(super) fn integrate_with_samples(
     oracle: &mut dyn Oracle, profile: &Profile, parameters: &[f64], cancel: Cancellation,
     progress: Arc<crate::solve::Progress>, output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
-    profile.validate(oracle.contract(), parameters)?;
+    profile.validate_retention(oracle.contract(), parameters, output.retention, 0)?;
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
-    let mut report = Report::new(profile.start);
-    report.coverage.retention = output.retention;
+    let mut report = Report::new(profile, output.retention);
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report, output),
         DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report, output),

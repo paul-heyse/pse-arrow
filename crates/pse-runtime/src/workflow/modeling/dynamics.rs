@@ -26,6 +26,7 @@ use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput
 use pse_ids::{ContentHash, FramedHasher};
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 use pse_model::HeapUsage;
 use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
@@ -74,12 +75,14 @@ struct LiveSampleAdapter<'a> {
     checks: checks::SampleChecks,
     diagnostic_times: Vec<f64>,
     diagnostics: Vec<native::Sample>,
+    last_original_point: Option<(f64, usize, usize)>,
 }
 #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
 impl native::SampleObserver for LiveSampleAdapter<'_> {
     fn sample(&mut self, ordinal: usize, sample: &native::Sample) -> Result<(), ProblemError> {
         self.execution.check()?;
         if let Some(worker) = &mut self.original {
+            self.last_original_point = Some((sample.time, self.checks.rows.len(), self.checks.reports.len()));
             if let Err(error) = worker.check(ordinal, sample, None, false, &mut self.checks) {
                 self.checks.error = Some(error.boundary_diagnostic());
                 return Err(original_check_failure(error));
@@ -114,6 +117,15 @@ fn original_check_failure(error: WorkflowError) -> ProblemError {
                 cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic) })
         }
     }
+}
+/// One authority for retained sample scalar/header demand. The native owner supplies
+/// its selected-order scalar width; this runtime's existing allocation factor covers
+/// owned numeric buffers, while headers are reserved at their actual declared capacity.
+fn sample_payload_bytes(profile: &native::Profile, contract: &native::Contract, points: usize)
+    -> Result<usize, ProblemError> {
+    profile.sample_cells(contract, points)?.checked_mul(64)
+        .and_then(|bytes| points.checked_mul(size_of::<native::Sample>())?.checked_add(bytes))
+        .ok_or_else(|| ProblemError::memory("dynamic retained sample allocation extent"))
 }
 /// Authored integration controls retain the factory's provisional physical slots until
 /// bound engineering context is frozen. Explicit profiles never acquire these slots.
@@ -198,6 +210,10 @@ pub struct ModelingSimulation {
     pub(in crate::workflow) parameters: Vec<f64>,
     key: ContentHash,
     pub(in crate::workflow) bytes: usize,
+    /// Full-grid state/output/sensitivity vectors and their preallocated Sample headers.
+    /// Mode composition tracks each replaced component rather than subtracting a guessed size.
+    full_sample_payload_bytes: usize,
+    retained_check_cells: usize,
 }
 #[derive(Clone, Debug)]
 struct SimulationMode {
@@ -821,6 +837,34 @@ impl ModelingSimulation {
             solver,
         })
     }
+    /// Distinct requested accuracy grid points are the only private sample copies
+    /// retained by Compact. Missing observations remain unavailable; no nearest point.
+    fn accuracy_sample_count(&self) -> usize {
+        use pse_model::generated::enums::AccuracyObservation;
+        let goals = &self.numerics().policy.goals;
+        goals.iter().enumerate().filter(|(index, goal)| {
+            goal.observation == AccuracyObservation::Sample && goal.time.is_some_and(|time|
+                self.profile.samples.contains(&time) && !goals[..*index].iter().any(|prior|
+                    prior.observation == AccuracyObservation::Sample && prior.time == Some(time)))
+        }).count()
+    }
+    /// Pre-effect task/comparator demand. Compact removes complete grid payload, while
+    /// native state, original checks, conservation, endpoint and full coverage stay charged.
+    pub(in crate::workflow) fn admission_bytes(&self, retention: native::SampleRetention)
+        -> Result<usize, ProblemError> {
+        let cells = self.profile.validate_retention(&self.contract, &self.parameters, retention,
+            if retention == native::SampleRetention::Compact { self.accuracy_sample_count() } else { 0 })?;
+        if cells.checked_add(self.retained_check_cells).is_none_or(|n| n > self.profile.max_cells) {
+            return Err(ProblemError::memory("dynamic retained samples and original check cell allowance"));
+        }
+        if retention == native::SampleRetention::Full { return Ok(self.bytes); }
+        let points = self.accuracy_sample_count().checked_add(1)
+            .ok_or_else(|| ProblemError::memory("compact diagnostic sample extent"))?;
+        let payload = sample_payload_bytes(&self.profile, &self.contract, points)?;
+        self.bytes.checked_sub(self.full_sample_payload_bytes)
+            .and_then(|common| common.checked_add(payload))
+            .ok_or_else(|| ProblemError::memory("compact simulation admission extent"))
+    }
     #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
     pub(super) fn integrate_sample_attempt(
         &self, run_id: RunId, profile: &native::Profile, attempt: u64,
@@ -848,12 +892,23 @@ impl ModelingSimulation {
             diagnostic_times: self.numerics().policy.goals.iter().filter_map(|goal|
                 (goal.observation == pse_model::generated::enums::AccuracyObservation::Sample)
                     .then_some(goal.time).flatten()).collect(),
-            diagnostics: Vec::new(),
+            diagnostics: Vec::with_capacity(self.accuracy_sample_count()),
+            last_original_point: None,
         };
         let mut report = native::integrate_with_samples_observed(&mut worker, profile,
             &self.parameters, scope.cancellation().clone(), progress, &self.snapshot,
             retention, &mut adapter)?;
         drop(worker);
+        adapter.original.take();
+        // The endpoint owns its actual input columns, including a terminal event
+        // coincident with a scheduled change. Replace its grid check with that exact
+        // context, matching Full assessment rather than retaining duplicate premises.
+        if let Some(endpoint) = &report.endpoint
+            && let Some((time, rows, reports)) = adapter.last_original_point
+            && time == endpoint.point.time {
+                adapter.checks.rows.truncate(rows);
+                adapter.checks.reports.truncate(reports);
+            }
         if compact { report.samples = std::mem::take(&mut adapter.diagnostics); }
         let mut checks = if compact { self.finish_live_checks(run_id, &report, &self.parameters, scope) }
             else { self.check_samples(run_id, &report, &self.parameters, scope) };
@@ -902,7 +957,8 @@ impl ModelingSimulation {
         submission.deadline = Some(deadline);
         let service = self.runtime.shared.math();
         let prepared = self.clone();
-        let handle = service.submit_with(1, self.bytes, submission, move |flag, progress| {
+        let bytes = self.admission_bytes(retention).map_err(crate::math::MathRuntimeError::from)?;
+        let handle = service.submit_with(1, bytes, submission, move |flag, progress| {
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
                 let mut observer = observer;
@@ -2234,13 +2290,15 @@ impl ModelingPackage {
             consumer.sensitivity = native::DynamicSensitivity::Adjoint;
         }
         profile.method = consumer
-            .resolve_for(
+            .resolve_for_retained(
                 &dynamic_contract,
                 &parameter_values,
                 snapshot,
                 demand,
                 derivatives,
                 &directions,
+                native::SampleRetention::Compact,
+                0,
             )
             .map_err(crate::math::MathRuntimeError::from)?
             .method;
@@ -2567,12 +2625,31 @@ impl ModelingPackage {
         let key = hash.finish_hash();
         dynamic_contract.identity = key;
         let contract = dynamic_contract;
-        let cells = profile
-            .validate(&contract, &parameter_values)
-            .map_err(|e| WorkflowError::Math(e.into()))?;
+        // Preparation establishes minimum live capacity. Selected Full/Compact
+        // scalar demand is checked at execution, before native construction.
+        let minimum_cells = profile.validate_retention(&contract, &parameter_values,
+            native::SampleRetention::Compact, 0).map_err(crate::math::MathRuntimeError::from)?;
+        let full_grid_cells = profile.sample_cells(&contract, profile.samples.len())
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let current_sample_cells = profile.sample_cells(&contract, 1)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let cells = minimum_cells.checked_sub(current_sample_cells)
+            .and_then(|n| n.checked_add(full_grid_cells))
+            .ok_or_else(|| contract_error("dynamic full allocation extent"))?;
+        let full_sample_payload_bytes = sample_payload_bytes(&profile, &contract, profile.samples.len())
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let sample_headers = profile.samples.len().checked_mul(size_of::<native::Sample>())
+            .ok_or_else(|| contract_error("dynamic sample header extent"))?;
+        let coverage_bytes = profile.samples.len().checked_mul(size_of::<(f64, usize)>())
+            .ok_or_else(|| contract_error("dynamic sample coverage extent"))?;
         let bytes = programs.iter().try_fold(
             cells
                 .checked_mul(64)
+                .and_then(|n| n.checked_add(sample_headers))
+                .and_then(|n| n.checked_add(coverage_bytes))
+                // A distinct endpoint may retain a full sensitivity point independently
+                // of the requested grid. This charge also covers current-sample work.
+                .and_then(|n| n.checked_add(sample_payload_bytes(&profile, &contract, 1).ok()?))
                 .and_then(|n| n.checked_add(4 << 20))
                 .and_then(|n| {
                     n.checked_add(
@@ -2634,8 +2711,8 @@ impl ModelingPackage {
                     .checked_add(n)
             })
             .ok_or_else(|| contract_error("dynamic check extent"))?;
-        if maximum_checks > profile.max_cells {
-            return Err(contract_error("dynamic check cell budget"));
+        if minimum_cells.checked_add(maximum_checks).is_none_or(|n| n > profile.max_cells) {
+            return Err(contract_error("dynamic minimum live and check cell budget"));
         }
         let bytes = bytes
             .checked_add(
@@ -2766,6 +2843,8 @@ impl ModelingPackage {
             parameters: parameter_values,
             key,
             bytes,
+            full_sample_payload_bytes,
+            retained_check_cells: maximum_checks,
         })
     }
     /// The sign each state keeps during integration (ADR-0119 Outcome 4, review F03): a
@@ -3142,6 +3221,83 @@ mod tests {
         assert!(matches!(resumed, Err(ProblemError::Cancelled)));
         assert!(matches!(with_simulation_sample_wait::<()>(&execution, || panic!("stopped wait ran")),
             Err(ProblemError::Cancelled)));
+    }
+    #[tokio::test]
+    async fn compact_retention_admits_below_full_trajectory_cell_capacity() {
+        use crate::workflow::{LiveSimulationEvent, LiveSimulationOptions};
+        async fn prepare(runtime: Runtime, max_cells: usize) -> ModelingSimulation {
+            let parameters = (0..128).map(|i| format!("param p{i}:Scalar=0;")).collect::<String>();
+            let forcing = (0..128).map(|i| format!("p{i}")).collect::<Vec<_>>().join("+");
+            let text = format!("package p {{ def Root {{ domain t:Time from 0{{s}} to 1{{s}}; discretize grid on t using integrated(elements=1,order=1); {parameters} var x[i in t]:Time; eq rate[i in t]:d(x[i])/di == -x[i]/1{{s}} + ({forcing}); eq initial:x[0{{s}}]==1{{s}}; annotation check x(x[i]>0{{s}}); }} }}");
+            let rows = pse_authoring::language::parse(&text, SemanticId::NIL,
+                pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+            let root = rows.iter().find(|r| r.name == "Root").unwrap().declaration_id;
+            let package = runtime.modeling_package(rows, physical()).await.unwrap();
+            package.prepare_simulation(root, pse_modeling::specialize::root_instance(root),
+                Default::default(), Default::default(), Default::default(),
+                super::super::super::tests::compiler_profile(), native::Profile {
+                    method: native::Method::Diffsol, end: 1.,
+                    samples: (0..=1024).map(|i| f64::from(i)/1024.).collect(),
+                    sensitivity: native::DynamicSensitivity::Forward,
+                    atol: vec![1e-8], parameter_scales: vec![1.;128], rtol: 1e-8,
+                    max_cells, ..Default::default()
+                }, DerivativeOrder::First, &crate::CancelSource::new()).await.unwrap()
+        }
+        let wide = prepare(super::super::super::tests::runtime(),10_000_000).await;
+        let full_bytes = wide.admission_bytes(native::SampleRetention::Full).unwrap();
+        let compact_bytes = wide.admission_bytes(native::SampleRetention::Compact).unwrap();
+        assert!(compact_bytes < full_bytes);
+        let current = sample_payload_bytes(&wide.profile, &wide.contract, 1).unwrap();
+        assert_eq!(full_bytes - compact_bytes, wide.full_sample_payload_bytes - current);
+        let full = wide.run(&crate::CancelSource::new()).await.unwrap();
+        assert!(full.checks_complete());
+        assert!(full.checks().iter().all(|check| check.satisfied));
+        let expected_endpoint = full.report().endpoint.as_ref().unwrap().point.state.clone();
+        let expected_checks = full.checks().len();
+        let expected_accepted = full.accepted();
+        // The small budget is the profile's actual retained-scalar-cell cap. A new
+        // preparation validates the minimum live context, preserving that exact cap;
+        // ordinary Full execution must refuse before constructing its native worker.
+        let compact_cells = wide.profile.validate_retention(&wide.contract, &wide.parameters,
+            native::SampleRetention::Compact,0).unwrap() + wide.retained_check_cells;
+        let compact = prepare(super::super::super::tests::runtime(),compact_cells).await;
+        assert!(compact.admission_bytes(native::SampleRetention::Full).is_err());
+        assert!(compact.admission_bytes(native::SampleRetention::Compact).is_ok());
+        let refused = compact.submit(RunId::from_bytes([41;16]), Default::default()).unwrap_err();
+        assert_eq!(refused.boundary_diagnostic().class, pse_model::diagnostic::BoundaryClass::ResourceLimit);
+        let (handle, cursor) = compact.start_live(LiveSimulationOptions {
+            capacity: 1, retention: native::SampleRetention::Compact }).unwrap();
+        let mut count = 0;
+        let mut escaped = None;
+        loop {
+            match tokio::time::timeout(std::time::Duration::from_secs(30), cursor.next()).await.unwrap().unwrap() {
+                LiveSimulationEvent::Sample(batch) => {
+                    assert_eq!(batch.ordinal, count);
+                    if count == 0 { escaped = Some(batch.table); }
+                    count += 1;
+                }
+                LiveSimulationEvent::AttemptFinished(summary) => {
+                    assert!(summary.checks_complete && summary.checks_satisfied);
+                    assert_eq!(summary.original_checks, expected_checks);
+                }
+                LiveSimulationEvent::Selected { accuracy_attempt } => assert_eq!(accuracy_attempt,0),
+                LiveSimulationEvent::Joined(result) => {
+                    let crate::workflow::RunReport::Simulation(trajectory) = result.report().unwrap() else { panic!("simulation missing") };
+                    assert!(trajectory.checks_complete());
+                    assert_eq!(trajectory.accepted(), expected_accepted);
+                    assert_eq!(trajectory.checks().len(), expected_checks);
+                    assert!(trajectory.checks().iter().all(|check| check.satisfied));
+                    assert!(trajectory.report().samples.is_empty());
+                    assert_eq!(trajectory.report().coverage.produced(),1025);
+                    assert_eq!(trajectory.report().endpoint.as_ref().unwrap().point.state, expected_endpoint);
+                    break;
+                }
+                _ => panic!("ephemeral recording event"),
+            }
+        }
+        assert_eq!(count,1025);
+        cursor.close(); drop(cursor); drop(handle);
+        assert!(escaped.unwrap().batch().num_rows()>0);
     }
     #[tokio::test]
     async fn goal_accuracy_dynamic_shares_one_real_comparator_for_samples_endpoint_and_integral() {

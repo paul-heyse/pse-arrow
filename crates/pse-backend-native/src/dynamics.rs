@@ -462,13 +462,15 @@ pub fn integrate_with_samples_observed(
     observer: &mut dyn SampleObserver,
 ) -> Result<Report, ProblemError> {
     let mut output = SampleOutput { retention, observer };
-    let resolved = profile.resolve_for(
+    let resolved = profile.resolve_for_retained(
         oracle.contract(),
         parameters,
         snapshot,
         DynamicDemand::Base,
         oracle.contract().derivatives,
         &[],
+        retention,
+        0,
     )?;
     let profile = &resolved;
     snapshot.validate_for(crate::execution::adapter(
@@ -478,7 +480,7 @@ pub fn integrate_with_samples_observed(
             Method::Auto => return Err(ProblemError::internal("unresolved dynamic method")),
         },
     ))?;
-    profile.validate(oracle.contract(), parameters)?;
+    profile.validate_retention(oracle.contract(), parameters, retention, 0)?;
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
         Method::Diffsol => {
@@ -1383,6 +1385,23 @@ impl Profile {
         prepared_order: pse_kernels::DerivativeOrder,
         directions: &[usize],
     ) -> Result<DynamicDecision, ProblemError> {
+        self.assess_method_retained(c, parameters, snapshot, demand, prepared_order,
+            directions, SampleRetention::Full, 0)
+    }
+    /// Assess actual selected output retention, or the minimum live context during
+    /// preparation. Native capability and shape checks remain common to both modes.
+    #[allow(clippy::too_many_arguments, reason = "selected scientific, derivative and retained output demands have independent authorities")]
+    pub fn assess_method_retained(
+        &self,
+        c: &Contract,
+        parameters: &[f64],
+        snapshot: &crate::execution::Snapshot,
+        demand: DynamicDemand,
+        prepared_order: pse_kernels::DerivativeOrder,
+        directions: &[usize],
+        retention: SampleRetention,
+        diagnostic_samples: usize,
+    ) -> Result<DynamicDecision, ProblemError> {
         use crate::{
             routing::{ArtifactDemand, AssessmentState},
             solve::Backend,
@@ -1409,7 +1428,7 @@ impl Profile {
                 }));
             }
             causes.extend(profile.method_refusals(c).into_iter().map(Arc::new));
-            match profile.validate_common(c, parameters) {
+            match profile.validate_common(c, parameters, retention, diagnostic_samples) {
                 Ok(_) => {}
                 Err(
                     cause @ (ProblemError::Limit { .. }
@@ -1488,6 +1507,19 @@ impl Profile {
     ) -> Result<Self, ProblemError> {
         let decision =
             self.assess_method(c, parameters, snapshot, demand, prepared_order, directions)?;
+        let mut profile = self.clone();
+        profile.method = decision.candidate()?;
+        Ok(profile)
+    }
+    /// Resolve against selected retained output demand; preparation may request
+    /// Compact with no diagnostic points to establish only minimum live capability.
+    #[allow(clippy::too_many_arguments, reason = "retained output demand complements the existing native scientific and derivative inputs")]
+    pub fn resolve_for_retained(&self, c: &Contract, parameters: &[f64],
+        snapshot: &crate::execution::Snapshot, demand: DynamicDemand,
+        prepared_order: pse_kernels::DerivativeOrder, directions: &[usize],
+        retention: SampleRetention, diagnostic_samples: usize) -> Result<Self, ProblemError> {
+        let decision = self.assess_method_retained(c, parameters, snapshot, demand,
+            prepared_order, directions, retention, diagnostic_samples)?;
         let mut profile = self.clone();
         profile.method = decision.candidate()?;
         Ok(profile)
@@ -1773,14 +1805,32 @@ impl Profile {
         }
         causes
     }
+    /// Conservative scalar payload of `samples` native sample points, including
+    /// the selected forward sensitivities. Coverage locators and Sample headers
+    /// are separate allocations, not state/output scalar payload.
+    pub fn sample_cells(&self, contract: &Contract, samples: usize) -> Result<usize, ProblemError> {
+        let width = contract.states.len().checked_add(contract.outputs.len())
+            .and_then(|n| n.checked_add(contract.quadratures.len()))
+            .and_then(|n| n.checked_mul(if self.forward() {
+                self.integration_width(contract.parameters.len()).checked_add(1)?
+            } else { 1 }))
+            .ok_or_else(|| ProblemError::memory("dynamic sample payload extent"))?;
+        samples.checked_mul(width).ok_or_else(|| ProblemError::memory("dynamic sample payload extent"))
+    }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
-        if let Some(cause) = self.method_refusals(c).into_iter().next() {
-            return Err(cause);
-        }
-        self.validate_common(c, p)
+        self.validate_retention(c, p, SampleRetention::Full, 0)
     }
-    fn validate_common(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
+    /// Validate the actual retained scalar-cell demand before native effects. Compact
+    /// retains coverage, endpoint/events/closure, one current sample and explicitly
+    /// requested diagnostic samples; it does not retain the complete sample payload.
+    pub fn validate_retention(&self, c: &Contract, p: &[f64], retention: SampleRetention,
+        diagnostic_samples: usize) -> Result<usize, ProblemError> {
+        if let Some(cause) = self.method_refusals(c).into_iter().next() { return Err(cause); }
+        self.validate_common(c, p, retention, diagnostic_samples)
+    }
+    fn validate_common(&self, c: &Contract, p: &[f64], retention: SampleRetention,
+        diagnostic_samples: usize) -> Result<usize, ProblemError> {
         use pse_model::generated::enums::EndpointPolicy;
         match self.endpoint.kind {
             EndpointPolicy::FixedHorizon if self.endpoint.event.is_none() => {}
@@ -1857,7 +1907,6 @@ impl Profile {
         if self.sensitivity == DynamicSensitivity::Adjoint {
             self.admit_adjoint(c)?;
         }
-        let m = c.outputs.len();
         let np = self.integration_width(c.parameters.len());
         let scheduled = self
             .schedule
@@ -1907,21 +1956,16 @@ impl Profile {
                 "dynamic horizon, tolerances, budget or smooth sensitivity profile",
             ));
         }
-        let cells = self
-            .samples
-            .len()
-            .checked_mul(
-                m.checked_add(n)
-                    .and_then(|v| v.checked_add(c.quadratures.len()))
-                    .ok_or_else(|| contract("dynamic output extent"))?,
-            )
-            .and_then(|v| {
-                v.checked_mul(if self.forward() {
-                    np.checked_add(1)?
-                } else {
-                    1
-                })
-            })
+        if diagnostic_samples > self.samples.len() {
+            return Err(contract("diagnostic sample count exceeds requested grid"));
+        }
+        let retained_samples = match retention {
+            SampleRetention::Full => self.samples.len(),
+            SampleRetention::Compact => diagnostic_samples.checked_add(1)
+                .ok_or_else(|| ProblemError::memory("compact sample extent"))?,
+        };
+        let cells = Some(self.sample_cells(c, retained_samples)?)
+            .and_then(|v| self.samples.len().checked_mul(2)?.checked_add(v))
             .and_then(|v| {
                 self.max_events
                     .checked_mul(n)?
@@ -1944,13 +1988,9 @@ impl Profile {
                     .checked_add(c.quadratures.len())?;
                 points.checked_mul(width)?.checked_add(v)
             })
-            .and_then(|v| {
-                v.checked_add(
-                    n.checked_add(c.outputs.len())?
-                        .checked_add(c.quadratures.len())?
-                        .checked_add(c.parameters.len().checked_mul(2)?)?,
-                )
-            })
+            .and_then(|v| v.checked_add(self.sample_cells(c, 1).ok()?)?
+                .checked_add(n.checked_mul(2)?)?
+                .checked_add(c.parameters.len().checked_mul(2)?))
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(ProblemError::memory("dynamic result cell allowance"));
@@ -2335,15 +2375,15 @@ impl Report {
                 .sum::<usize>()
     }
     #[cfg(any(feature = "diffsol", feature = "idas"))]
-    pub(crate) fn new(start: f64) -> Self {
+    pub(crate) fn new(profile: &Profile, retention: SampleRetention) -> Self {
         Self {
             termination: Termination::Failed,
-            completed_time: start,
+            completed_time: profile.start,
             endpoint: None,
             requested_initial: vec![],
             consistent_initial: vec![],
-            coverage: SampleCoverage::default(),
-            samples: vec![],
+            coverage: SampleCoverage { points: Vec::with_capacity(profile.samples.len()), retention },
+            samples: if retention == SampleRetention::Full { Vec::with_capacity(profile.samples.len()) } else { Vec::new() },
             events: vec![],
             conservation: vec![],
             statistics: vec![],

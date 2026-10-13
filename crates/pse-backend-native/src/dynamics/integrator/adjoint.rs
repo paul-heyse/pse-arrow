@@ -93,7 +93,7 @@ pub(in crate::dynamics) fn gradient(
     progress: Arc<crate::solve::Progress>,
 ) -> Result<Gradient, ProblemError> {
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
-    let mut report = Report::new(profile.start);
+    let mut report = Report::new(profile, SampleRetention::Full);
     let mut outcome = Outcome::default();
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
         DiffsolLinear::FaerLu => {

@@ -1149,3 +1149,20 @@ fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
         assert!(!report.assess_endpoint(&profile).satisfied);
     }
 }
+
+#[test]
+fn compact_max_cells_checks_selected_retained_payload_and_diagnostics() {
+    let oracle = Toy::new(false, false);
+    let mut profile = Profile { method: Method::Diffsol, start:0., end:1.,
+        samples:(0..=100).map(|i| f64::from(i)/100.).collect(), atol:vec![1e-8],
+        parameter_scales:vec![1.], sensitivity:DynamicSensitivity::Forward,
+        max_events:2, max_cells:usize::MAX, ..Default::default() };
+    let full = profile.validate(oracle.contract(), &[1.]).unwrap();
+    let compact = profile.validate_retention(oracle.contract(), &[1.], SampleRetention::Compact,0).unwrap();
+    assert!(compact < full);
+    assert_eq!(full-compact,profile.sample_cells(oracle.contract(),100).unwrap());
+    profile.max_cells=compact;
+    assert!(profile.validate(oracle.contract(), &[1.]).is_err());
+    assert_eq!(profile.validate_retention(oracle.contract(), &[1.],SampleRetention::Compact,0).unwrap(),compact);
+    assert!(profile.validate_retention(oracle.contract(), &[1.],SampleRetention::Compact,1).is_err());
+}

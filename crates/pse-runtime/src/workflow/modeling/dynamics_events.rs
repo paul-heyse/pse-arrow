@@ -354,6 +354,12 @@ impl ModelingPackage {
                         "dynamic modes require identical state, sign, parameter, output, quadrature and coordinate layouts",
                     ));
                 }
+                result.retained_check_cells = result.retained_check_cells
+                    .checked_add(next.retained_check_cells)
+                    .ok_or_else(|| contract("dynamic mode check cell extent"))?;
+                result.full_sample_payload_bytes = result.full_sample_payload_bytes
+                    .checked_add(next.full_sample_payload_bytes)
+                    .ok_or_else(|| contract("dynamic mode sample payload extent"))?;
                 result.bytes = result
                     .bytes
                     .checked_add(next.bytes)
@@ -403,7 +409,7 @@ impl ModelingPackage {
         result.contract.identity = result.key;
         result
             .profile
-            .validate(&result.contract, &result.parameters)
+            .validate_retention(&result.contract, &result.parameters, native::SampleRetention::Compact, 0)
             .map_err(|e| WorkflowError::Math(e.into()))?;
         // Mode identities/support change when the admitted modes are composed.
         result.layout = Arc::new(

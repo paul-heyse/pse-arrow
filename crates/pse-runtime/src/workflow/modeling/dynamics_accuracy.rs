@@ -2026,7 +2026,8 @@ impl ModelingSimulation {
         if !self.original_accuracy_admission(&report, &checks) {
             return Ok((report, checks, unavailable(Unavailable::Failed)));
         }
-        let budget = crate::math::WorkerBudget::new(self.bytes).with_admission(admission.clone());
+        let attempt_bytes = self.admission_bytes(*retention)?;
+        let budget = crate::math::WorkerBudget::new(attempt_bytes).with_admission(admission.clone());
         let base_capture =
             match self.capture_dynamic_goals(&report, &self.profile, 0, scope, &budget, charges) {
                 Ok(captured) => captured,
@@ -2065,7 +2066,7 @@ impl ModelingSimulation {
             .runtime
             .shared
             .math()
-            .reserve("math:dynamic-goal-comparator", self.bytes)?;
+            .reserve("math:dynamic-goal-comparator", attempt_bytes)?;
         let started = std::time::Instant::now();
         let mut integrate = |profile: &native::Profile,
                          occurrence: i64,

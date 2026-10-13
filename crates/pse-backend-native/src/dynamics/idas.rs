@@ -3641,8 +3641,7 @@ fn attempt<T>(
         enclosing_scope: None,
         abandonment: Arc::default(),
     };
-    let mut r = Report::new(p.start);
-    r.coverage.retention = output.retention;
+    let mut r = Report::new(p, output.retention);
     let n = oracle.contract().states.len();
     let failure = |mut report: Report, error: ProblemError| {
         report.termination = stopped(&error, &execution);
