@@ -151,6 +151,7 @@ impl ProjectionRetention {
             if batch.batch().num_rows() == 0 && terminal.is_none() { return Ok(Some(start..request.range.end)); }
             start = start.checked_add(batch.batch().num_rows()).ok_or_else(|| Arc::new(contract("cached projection row extent")))?;
             request.send_checked(batch.clone()).await?;
+            yield_delivered_chunk().await;
             index = index.checked_add(1).ok_or_else(|| Arc::new(contract("cached projection chunk extent")))?;
         }
     }
@@ -234,6 +235,18 @@ impl Projection {
     pub(super) fn wants(&self, relation: SemanticId) -> bool {
         self.relation == relation
     }
+}
+// Cold encoding and retained replay honor the same pull boundary: after one
+// checked chunk is sent, do not construct its continuation in that same poll.
+async fn yield_delivered_chunk() {
+    let mut yielded = false;
+    futures_util::future::poll_fn(|cx| {
+        if yielded { Poll::Ready(()) } else {
+            yielded = true;
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }).await;
 }
 type ResultProducer<'a> = Pin<Box<dyn Future<Output = Result<(), Arc<WorkflowError>>> + Send + 'a>>;
 
@@ -665,17 +678,7 @@ impl<'a> SelectedCollection<'a> {
                     .send(batch)
                     .await
                     .map_err(|_| pse_columnar::CanonError::Cancelled)?;
-                let mut yielded = false;
-                futures_util::future::poll_fn(|cx| {
-                    if yielded {
-                        Poll::Ready(())
-                    } else {
-                        yielded = true;
-                        cx.waker().wake_by_ref();
-                        Poll::Pending
-                    }
-                })
-                .await;
+                yield_delivered_chunk().await;
             }
             self.count = 0;
         }
