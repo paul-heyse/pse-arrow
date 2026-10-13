@@ -674,6 +674,41 @@ impl PreparedSolve {
         baseline.profile.composition.advice = None;
         Ok(baseline.request_identity()?.as_id())
     }
+    /// Original profiles may differ numerically only after their owners establish the
+    /// same complete original contract and contextual scientific interpretation. Any
+    /// unresolved leaf keeps the whole ordinary inventory in baseline order.
+    fn equivalent_advice_original(&self, leaf: &Self) -> Result<bool, ProblemError> {
+        let Some(base) = &self.route_decision else { return Ok(false); };
+        let Some(candidate) = &leaf.route_decision else { return Ok(false); };
+        let selected_outputs = |solve: &Self| solve.selected_outputs.as_ref().map(|outputs| outputs.identity);
+        if base.state != routing::AssessmentState::Ready || base.refusal.is_some()
+            || !base.evidence.is_empty() || !base.artifacts.is_empty()
+            || candidate.state != routing::AssessmentState::Ready || candidate.refusal.is_some()
+            || !candidate.evidence.is_empty() || !candidate.artifacts.is_empty()
+            || candidate.classes != base.classes || candidate.representation != base.representation
+            || candidate.intent != base.intent || candidate.lexicographic != base.lexicographic
+            || candidate.selected != Some(leaf.route) || base.selected != Some(self.route)
+            || candidate.snapshot != base.snapshot || leaf.snapshot.identity() != self.snapshot.identity()
+            || leaf.original_identity()? != self.original_identity()?
+            || leaf.numerics.key != self.numerics.key || leaf.normalization != self.normalization
+            || leaf.tolerances.variables != self.tolerances.variables
+            || leaf.tolerances.rows != self.tolerances.rows
+            || leaf.tolerances.integrality != self.tolerances.integrality
+            || leaf.accuracy != self.accuracy || leaf.work_precision != self.work_precision
+            || selected_outputs(leaf) != selected_outputs(self)
+            || leaf.profile.intent != self.profile.intent || leaf.profile.convexity != self.profile.convexity
+            || leaf.profile.composition.branch != self.profile.composition.branch
+            || leaf.profile.controls.start != StartPolicy::NoPriorStart
+            || leaf.profile.composition.policy != pse_model::strategy::CompositionPolicy::Auto
+            || leaf.profile.composition.advice.is_some() || leaf.profile.sensitivity.is_some()
+            || leaf.explicit_start.is_some() || leaf.proposal_start.is_some()
+            || leaf.task_scope.is_some() || leaf.task_admission.is_some() || leaf.point_accuracy.is_some()
+            || leaf.composition.is_some() || !leaf.automatic_products.is_empty()
+        { return Ok(false); }
+        #[cfg(feature = "solver-kinsol")]
+        if leaf.causal_supplier.is_some() { return Ok(false); }
+        Ok(true)
+    }
     pub(crate) fn advice_cohort(
         &self,
         start: pse_model::strategy::StartOrigin,
@@ -695,8 +730,21 @@ impl PreparedSolve {
             || self.profile.controls.start != StartPolicy::NoPriorStart
             || inherited || start != pse_model::strategy::StartOrigin::Specification
             || self.proposal_start.is_some() || self.explicit_start.is_some()
-            || self.composition.is_some() || !self.automatic_products.is_empty()
+            || self.composition.is_some() || self.profile.sensitivity.is_some()
         { return Ok(None); }
+        let Some(root_decision) = &self.route_decision else { return Ok(None); };
+        if root_decision.state != routing::AssessmentState::Ready || root_decision.refusal.is_some()
+            || !root_decision.evidence.is_empty() || !root_decision.artifacts.is_empty()
+        { return Ok(None); }
+        let mut profiles = Vec::with_capacity(self.automatic_products.len());
+        for rung in &self.automatic_products {
+            let PreparedRung::Original(leaf) = rung else { return Ok(None); };
+            if !self.equivalent_advice_original(leaf)? { return Ok(None); }
+            profiles.push((leaf.automatic_comparison_identity()?, comparison_profile_key(&leaf.profile)?));
+        }
+        let profiles = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
+            &("advice-ordered-original-profiles", profiles, comparison_profile_key(&self.profile)?))
+            .map_err(|error| ProblemError::Contract(error.to_string()))?;
         let Some(limits) = self.profile.composition.limits else { return Ok(None); };
         let branch_start = pse_ids::document::of(pse_ids::Frame::NumericalDecisionV2,
             &("advice-branch-start", self.profile.composition.branch, self.profile.controls.start,
@@ -709,7 +757,7 @@ impl PreparedSolve {
             &("declared-task-exposure", self.snapshot.identity(), self.profile.controls.identity()?, limits))
             .map_err(|error| ProblemError::Contract(error.to_string()))?;
         Ok(Some(pse_model::strategy::advice::AdviceCohort {
-            original: self.original_identity()?, profiles: comparison_profile_key(&self.profile)?,
+            original: self.original_identity()?, profiles,
             branch_start, accuracy, exposure,
         }))
     }

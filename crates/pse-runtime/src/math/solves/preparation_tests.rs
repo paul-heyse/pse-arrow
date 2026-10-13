@@ -841,80 +841,111 @@ async fn actual_convex_advice_inputs_are_nonrecursive_and_refuse_unestablished_b
     assert!(prepared.solve.advice_inputs(&cancel).unwrap().is_none());
 }
 
-#[cfg(all(feature = "solver-pounce", feature = "solver-scip"))]
+#[cfg(feature = "solver-highs")]
 #[tokio::test]
-async fn actual_convex_advice_selects_nonbaseline_backend_before_first_success() {
+async fn actual_convex_advice_selects_equivalent_original_profile_before_first_success() {
     use pse_model::strategy::advice::{AdviceMetric, AdviceObservation, AdviceOutcome, FrozenAdvice};
-    let (package, root, _) = package_and_runtime(
-        "package p { def Root { var x:Scalar; annotation bounds x(-1,2); annotation start x(0.5); let f:Scalar=exp(x); annotation objective f(minimize); eq floor:x>=0; } }",
-    ).await;
+    use native::settings::highs::{Method, Settings};
+    let (package, root, _) = package_and_runtime(LINEAR).await;
     async fn bound(package: &ModelingPackage, root: DeclarationId, profile: SolverProfile) -> ModelingSolvePreparation {
         package.prepare_solve(root, pse_modeling::specialize::root_instance(root), Bindings::default(),
-            Limits::default(), ModelingCaseBindings::default(), DerivativeOrder::Second,
+            Limits::default(), ModelingCaseBindings::default(), DerivativeOrder::First,
             fixture::compiler_profile(), profile, NumericalInputs::default(), &crate::CancelSource::new()).await.unwrap()
     }
     let mut profile = SolverProfile { intent: SolveIntent::Optimize, ..Default::default() };
-    profile.controls.threads = 2;
+    profile.composition.recovery = vec![pse_model::strategy::StartOrigin::Specification];
     profile.composition.limits = Some(pse_model::strategy::WorkLimits {
-        attempts: 4, evaluations: None, iterations: None, factorizations: None, proof_steps: None,
+        attempts:4,evaluations:None,iterations:None,factorizations:None,proof_steps:None,
     });
-    let prepared = bound(&package, root, profile.clone()).await;
-    assert_eq!(prepared.solve.backend(), Some(Backend::Pounce));
-    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let inputs = prepared.solve.advice_inputs(&flag).unwrap().unwrap();
-    let inventory = prepared.solve.advice_comparison_operations(&flag).unwrap();
-    let advised = inventory.iter().find(|operation| matches!(operation.binding,
-        AutomaticBinding::NativeRoute { backend: Backend::Scip, .. })).unwrap().candidate.identity;
-    assert_ne!(advised, inputs.candidates[0]);
-    let observations = inputs.candidates.iter().map(|candidate| AdviceObservation {
-        cohort: inputs.cohort.clone(), matched: pse_ids::ContentHash::from_bytes([41; 32]),
-        candidate: *candidate, attempt: *candidate, outcome: AdviceOutcome::Complete,
-        value: Some(if *candidate == advised { 1.0 } else { 10.0 }),
+    let mut prepared = bound(&package, root, profile.clone()).await;
+    let mut leaves = Vec::new();
+    for method in [Method::Simplex,Method::Ipm] {
+        let mut leaf = profile.clone();
+        leaf.selection=SolverSelection::Explicit(Backend::Highs);
+        leaf.backend=BackendSettings::Highs(Settings {method,..Default::default()});
+        leaves.push(bound(&package,root,leaf).await.solve);
+    }
+    prepared.solve=prepared.solve.with_automatic_products(leaves.into_iter().map(PreparedRung::from).collect()).unwrap();
+    let flag=Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let inputs=prepared.solve.advice_inputs(&flag).unwrap().unwrap();
+    let inventory=prepared.solve.advice_comparison_operations(&flag).unwrap();
+    let advised=inventory.iter().find(|operation| matches!(&operation.binding,
+        AutomaticBinding::Prepared(rung) if matches!(rung.as_ref(),PreparedRung::Original(leaf)
+            if matches!(&leaf.profile.backend,BackendSettings::Highs(settings) if settings.method==Method::Ipm))))
+        .unwrap().candidate.identity;
+    assert_ne!(advised,inputs.candidates[0]);
+    let observations=inputs.candidates.iter().map(|candidate|AdviceObservation {
+        cohort:inputs.cohort.clone(),matched:pse_ids::ContentHash::from_bytes([41;32]),
+        candidate:*candidate,attempt:*candidate,outcome:AdviceOutcome::Complete,
+        value:Some(if *candidate==advised {1.0} else {10.0}),
     }).collect();
-    profile.composition.advice = Some(FrozenAdvice::freeze(inputs.cohort, AdviceMetric::NativeExecutionNanoseconds,
-        inputs.candidates, observations, inputs.limits).unwrap());
-    let advised_preparation = bound(&package, root, profile).await;
-    let effective_request = advised_preparation.solve.request_identity().unwrap();
-    let joined = advised_preparation.start().unwrap().wait().await.unwrap();
-    assert!(joined.usable(), "the advised native candidate must pass original scientific acceptance");
-    let crate::workflow::RunReport::Modeling(results) = joined.report().unwrap() else { panic!("modeling report"); };
-    let Outcome::Native(native) = &results[0].outcome else { panic!("native report"); };
-    assert_eq!(native.backend, Backend::Scip);
-    let trace = results[0].strategy.as_ref().unwrap();
-    assert_eq!(trace.publication_request, Some(effective_request));
-    assert_eq!(trace.events.iter().filter(|event| event.kind == pse_model::generated::enums::NumericalEventKind::Started
-        && event.phase == pse_model::strategy::Phase::Native).count(), 1,
-        "the advised equivalent solver runs before the successful baseline solver");
+    prepared.solve.profile.composition.advice=Some(FrozenAdvice::freeze(inputs.cohort.clone(),
+        AdviceMetric::NativeExecutionNanoseconds,inputs.candidates.clone(),observations,inputs.limits).unwrap());
+    assert_eq!(prepared.solve.advice_inputs(&flag).unwrap().unwrap(),inputs,
+        "comparison identity excludes advice while preserving the actual ordered profile inventory");
+    let scope=pse_kernels::ExecutionScope::new(Arc::default(),
+        Some(std::time::Instant::now()+std::time::Duration::from_secs(30)));
+    let admitted=prepared.solve.clone().within_task(scope).unwrap();
+    assert_eq!(admitted.advice_inputs(&flag).unwrap().unwrap(),inputs,
+        "binding the original task scope cannot disable otherwise applicable advice");
+    let effective_request=prepared.solve.request_identity().unwrap();
+    let joined=prepared.start().unwrap().wait().await.unwrap();
+    assert!(joined.usable(),"the advised original profile must pass independent original scientific acceptance");
+    let crate::workflow::RunReport::Modeling(results)=joined.report().unwrap() else {panic!("modeling report");};
+    let Outcome::Native(native)=&results[0].outcome else {panic!("native report");};
+    assert_eq!(native.backend,Backend::Highs);
+    assert_eq!(native.options["solver"],OptionValue::Text("ipm".into()));
+    let trace=results[0].strategy.as_ref().unwrap();
+    assert_eq!(trace.publication_request,Some(effective_request));
+    assert_eq!(trace.events.iter().filter(|event|event.kind==pse_model::generated::enums::NumericalEventKind::Started
+        && event.phase==pse_model::strategy::Phase::Native).count(),1,
+        "the advised equivalent profile executes before the successful baseline profile");
 
-    // A censored/empty comparison keeps the pre-existing recovery catalog unchanged.
-    let mut tied = prepared.solve.clone();
-    let inputs = tied.advice_inputs(&flag).unwrap().unwrap();
-    tied.profile.composition.advice = Some(FrozenAdvice::freeze(inputs.cohort,
-        AdviceMetric::NativeExecutionNanoseconds, inputs.candidates, vec![], inputs.limits).unwrap());
-    assert_eq!(tied.automatic_entry_operations(pse_model::strategy::StartOrigin::Specification, false, &flag).unwrap().len(),
-        tied.automatic_operations(None, &flag).unwrap().len());
+    let mut tied=prepared.solve.clone();
+    tied.profile.composition.advice=Some(FrozenAdvice::freeze(inputs.cohort.clone(),
+        AdviceMetric::NativeExecutionNanoseconds,inputs.candidates.clone(),vec![],inputs.limits).unwrap());
+    assert_eq!(tied.automatic_entry_operations(pse_model::strategy::StartOrigin::Specification,false,&flag).unwrap().len(),
+        tied.automatic_operations(None,&flag).unwrap().len());
+    let mut changed=tied.clone();
+    let PreparedRung::Original(leaf)=&mut changed.automatic_products[0] else {panic!("Original profile");};
+    leaf.tolerances.rows[0]*=2.0;
+    assert!(changed.advice_inputs(&flag).unwrap().is_none(),"changed physical acceptance refuses equivalence");
+    let mut pending=tied.clone();
+    let PreparedRung::Original(leaf)=&mut pending.automatic_products[0] else {panic!("Original profile");};
+    leaf.route_decision.as_mut().unwrap().state=routing::AssessmentState::PendingEvidence;
+    assert!(pending.advice_inputs(&flag).unwrap().is_none(),"pending scientific evidence preserves the baseline barrier");
+    let mut reordered=tied.clone();reordered.automatic_products.swap(0,1);
+    let reordered_inputs=reordered.advice_inputs(&flag).unwrap().unwrap();
+    assert_ne!(reordered_inputs.cohort.profiles,inputs.cohort.profiles,
+        "the cohort binds actual profile order, settings and local allowances");
+    assert!(!tied.profile.composition.advice.as_ref().unwrap().applies(&reordered_inputs.cohort,
+        &reordered_inputs.candidates,reordered_inputs.limits));
+}
 
-    // Newly observed recovery retains priority even after historical advice exposed alternatives.
-    let Representation::Algebraic(source) = &prepared.solve.representation else { panic!("algebraic original"); };
-    let execution = Execution::new(flag.clone(), &prepared.solve.profile.controls);
-    let contract = native::assembled::contract(&source.prepared.prepared.plan);
-    let observed = SolveReport::new(Backend::Pounce, &contract,
-        NativeTermination { code: -1,
-            name: "MaximumIterationsExceeded".into(), message: None, category: Termination::Limit, assurance: Assurance::None }, &execution);
-    let recovered = prepared.solve.automatic_operations(Some(&observed), &flag).unwrap();
-    assert!(recovered.iter().any(|operation| operation.candidate.observed.is_some()));
-    let mut candidates = inventory.iter().map(|operation| operation.candidate.clone()).collect::<Vec<_>>();
-    let mut known = candidates.iter().map(|candidate| candidate.identity).collect::<std::collections::BTreeSet<_>>();
-    candidates.extend(recovered.into_iter().map(|operation| operation.candidate).filter(|candidate| known.insert(candidate.identity)));
-    let last = super::super::strategy::AutoObservation { awaiting_assessment: false,
-        native: pse_model::generated::enums::NumericalAttemptObservation::Limited,
-        original: None, permission: None };
-    let decision = super::super::strategy::next_automatic(&prepared.solve.profile.composition,
-        &prepared.solve.numerical_strategy().start, &candidates, &std::collections::BTreeSet::from([0]), Some(&last),
-        pse_model::strategy::WorkObservation { attempts: 1, evaluations: None, iterations: None, factorizations: None, proof_steps: None },
-        false, prepared.solve.advice_cohort(pse_model::strategy::StartOrigin::Specification, false).unwrap().as_ref());
-    assert!(matches!(decision, super::super::strategy::AutoDecision::Prepare { candidate }
-        if candidates[candidate].observed.is_some()), "actual observation-dependent recovery precedes ordinary alternatives");
+#[cfg(feature = "solver-pounce")]
+#[tokio::test]
+async fn actual_pounce_observed_recovery_precedes_unobserved_profiles() {
+    let prepared=prepare("package p { def Root { var x:Scalar; annotation bounds x(-1,2); annotation start x(0.5); let f:Scalar=exp(x); annotation objective f(minimize); eq floor:x>=0; } }",
+        SolveIntent::Optimize,SolverSelection::Explicit(Backend::Pounce)).await;
+    let flag=Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let inventory=prepared.solve.automatic_operations(None,&flag).unwrap();
+    let Representation::Algebraic(source)=&prepared.solve.representation else {panic!("algebraic original");};
+    let execution=Execution::new(flag.clone(),&prepared.solve.profile.controls);
+    let contract=native::assembled::contract(&source.prepared.prepared.plan);
+    let observed=SolveReport::new(Backend::Pounce,&contract,NativeTermination {code:-1,
+        name:"MaximumIterationsExceeded".into(),message:None,category:Termination::Limit,assurance:Assurance::None},&execution);
+    let recovered=prepared.solve.automatic_operations(Some(&observed),&flag).unwrap();
+    assert!(recovered.iter().any(|operation|operation.candidate.observed.is_some()));
+    let mut candidates=inventory.iter().map(|operation|operation.candidate.clone()).collect::<Vec<_>>();
+    let mut known=candidates.iter().map(|candidate|candidate.identity).collect::<std::collections::BTreeSet<_>>();
+    candidates.extend(recovered.into_iter().map(|operation|operation.candidate).filter(|candidate|known.insert(candidate.identity)));
+    let last=super::super::strategy::AutoObservation {awaiting_assessment:false,
+        native:pse_model::generated::enums::NumericalAttemptObservation::Limited,original:None,permission:None};
+    let decision=super::super::strategy::next_automatic(&prepared.solve.profile.composition,
+        &prepared.solve.numerical_strategy().start,&candidates,&std::collections::BTreeSet::from([0]),Some(&last),
+        pse_model::strategy::WorkObservation {attempts:1,evaluations:None,iterations:None,factorizations:None,proof_steps:None},false,None);
+    assert!(matches!(decision,super::super::strategy::AutoDecision::Prepare {candidate}
+        if candidates[candidate].observed.is_some()),"actual observation-dependent recovery precedes ordinary alternatives");
 }
 
 #[cfg(feature = "solver-highs")]
