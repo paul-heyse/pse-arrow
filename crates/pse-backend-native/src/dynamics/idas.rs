@@ -2212,10 +2212,14 @@ impl<'a> Session<'a> {
             }};
         }
         let observation = crate::solve::NativeStepObservation::Idas {
-            last_order: advanced.then(|| output!(IDAGetLastOrder, c_int))
-                .flatten().and_then(|order| u32::try_from(order).ok()).filter(|order| *order > 0),
+            last_order: advanced
+                .then(|| output!(IDAGetLastOrder, c_int))
+                .flatten()
+                .and_then(|order| u32::try_from(order).ok())
+                .filter(|order| *order > 0),
             current_order: output!(IDAGetCurrentOrder, c_int)
-                .and_then(|order| u32::try_from(order).ok()).filter(|order| *order > 0),
+                .and_then(|order| u32::try_from(order).ok())
+                .filter(|order| *order > 0),
             last_step: advanced.then(|| output!(IDAGetLastStep, f64)).flatten(),
             current_step: output!(IDAGetCurrentStep, f64).filter(|step| *step != 0.0),
             internal_time: output!(IDAGetCurrentTime, f64),

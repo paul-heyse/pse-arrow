@@ -23,9 +23,9 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Candidate, CandidateKind, CaptureThrottle, Compatibility,
         Controls, Event, Execution, GlobalEvidence, GlobalRecord, Iis, IisMember, IncumbentEvent,
-        IpoptLinearSolver, Metric, NativeTermination, OptionValue, Options, PoolSolution, PrimalSource, Progress,
-        ResolvedAccuracy, SolveIntent, SolveReport, Termination, UnavailableReason, WarmPayload,
-        WarmStart,
+        IpoptLinearSolver, Metric, NativeTermination, OptionValue, Options, PoolSolution,
+        PrimalSource, Progress, ResolvedAccuracy, SolveIntent, SolveReport, Termination,
+        UnavailableReason, WarmPayload, WarmStart,
     },
 };
 use pse_ids::{ContentHash, FramedHasher};
@@ -62,11 +62,17 @@ impl Drop for ConcurrentAdmission<'_> {
     }
 }
 impl<'a> ConcurrentAdmission<'a> {
-    fn acquire(lock: &'a Mutex<()>, failed: &'a AtomicBool, execution: &Execution) -> Result<Self, ProblemError> {
+    fn acquire(
+        lock: &'a Mutex<()>,
+        failed: &'a AtomicBool,
+        execution: &Execution,
+    ) -> Result<Self, ProblemError> {
         execution.check()?;
         check_concurrent_health(failed)?;
         if CONCURRENT_ACTIVE.get() {
-            return Err(ProblemError::Unsupported("nested SCIP concurrent process owner".into()));
+            return Err(ProblemError::Unsupported(
+                "nested SCIP concurrent process owner".into(),
+            ));
         }
         crate::execution::pause_compute();
         loop {
@@ -78,14 +84,22 @@ impl<'a> ConcurrentAdmission<'a> {
                     match crate::execution::try_resume_compute(execution) {
                         Ok(crate::execution::ComputeAvailability::Acquired) => {
                             CONCURRENT_ACTIVE.set(true);
-                            return Ok(Self { _gate: gate, failed });
+                            return Ok(Self {
+                                _gate: gate,
+                                failed,
+                            });
                         }
                         Ok(crate::execution::ComputeAvailability::Unavailable) => drop(gate),
-                        Err(error) => { drop(gate); return Err(error); }
+                        Err(error) => {
+                            drop(gate);
+                            return Err(error);
+                        }
                     }
                 }
                 Err(TryLockError::Poisoned(_)) => {
-                    return Err(ProblemError::internal("SCIP concurrent process owner poisoned"));
+                    return Err(ProblemError::internal(
+                        "SCIP concurrent process owner poisoned",
+                    ));
                 }
                 Err(TryLockError::WouldBlock) => {}
             }
@@ -95,8 +109,12 @@ impl<'a> ConcurrentAdmission<'a> {
 }
 fn check_concurrent_health(failed: &AtomicBool) -> Result<(), ProblemError> {
     if failed.load(Ordering::Acquire) {
-        Err(ProblemError::Unsupported("SCIP concurrent process owner has uncertain native teardown".into()))
-    } else { Ok(()) }
+        Err(ProblemError::internal(
+            "SCIP concurrent process owner has uncertain native teardown",
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 // Known requested stack extent, independently reserved before creating the probe.
@@ -119,8 +137,12 @@ struct Quarantine {
 }
 fn probe_nested_defaults(execution: &Execution) -> Result<NestedObservation, ProblemError> {
     execution.check()?;
-    let omp_list = std::env::var_os("OMP_NUM_THREADS").map(|value| value.into_string()
-        .map_err(|_| ProblemError::Unsupported("non-Unicode OMP_NUM_THREADS".into())))
+    let omp_list = std::env::var_os("OMP_NUM_THREADS")
+        .map(|value| {
+            value
+                .into_string()
+                .map_err(|_| ProblemError::Unsupported("non-Unicode OMP_NUM_THREADS".into()))
+        })
         .transpose()?;
     let defaults = probe_defaults_with(execution, |execution| {
         let _original = crate::execution::original_scope(execution);
@@ -137,20 +159,32 @@ fn probe_defaults_with(
 ) -> Result<crate::mkl::NestedDefaults, ProblemError> {
     execution.check()?;
     let _stack_owner = match &execution.work_admission {
-        Some(admission) => Some(admission.reserve_retained_storage(
-            "scip-nested-default-probe", DEFAULT_PROBE_STACK,
-        )?.ok_or_else(|| ProblemError::memory("SCIP nested-default probe stack admission"))?),
+        Some(admission) => Some(
+            admission
+                .reserve_retained_storage("scip-nested-default-probe", DEFAULT_PROBE_STACK)?
+                .ok_or_else(|| ProblemError::memory("SCIP nested-default probe stack admission"))?,
+        ),
         // Low-level callers without WorkAdmission own the complete foreign/runtime
         // envelope, including this explicit probe stack, as for other SCIP work.
         // The product runtime supplies TaskAdmission and must obtain a real token.
         None if execution.memory.is_some() => None,
-        None => return Err(ProblemError::Contract("SCIP probe needs an admitted foreign envelope".into())),
+        None => {
+            return Err(ProblemError::Contract(
+                "SCIP probe needs an admitted foreign envelope".into(),
+            ));
+        }
     };
     let defaults = std::thread::scope(|scope| {
-        let worker = std::thread::Builder::new().name("scip-defaults".into())
-            .stack_size(DEFAULT_PROBE_STACK).spawn_scoped(scope, || observe(execution))
-            .map_err(|error| ProblemError::internal(format!("SCIP default probe thread: {error}")))?;
-        worker.join().map_err(|_| ProblemError::internal("SCIP default probe panicked"))?
+        let worker = std::thread::Builder::new()
+            .name("scip-defaults".into())
+            .stack_size(DEFAULT_PROBE_STACK)
+            .spawn_scoped(scope, || observe(execution))
+            .map_err(|error| {
+                ProblemError::internal(format!("SCIP default probe thread: {error}"))
+            })?;
+        worker
+            .join()
+            .map_err(|_| ProblemError::internal("SCIP default probe panicked"))?
     })?;
     // Even cancellation during a scalar query waits for the actual joined thread
     // before releasing its allocation token or the enclosing native process gate.
@@ -272,6 +306,22 @@ fn check(code: ffi::SCIP_RETCODE, operation: &str) -> Result<(), ProblemError> {
             status: Some(status),
             detail: operation.into(),
         },
+    })
+}
+/// Failed destruction is operational uncertainty, never permission for another
+/// numerical attempt. Preserve the exact native code without its search-failure class.
+fn check_shutdown(code: ffi::SCIP_RETCODE, operation: &str) -> Result<(), ProblemError> {
+    if code == ffi::SCIP_Retcode_SCIP_OKAY {
+        return Ok(());
+    }
+    Err(ProblemError::Native {
+        status: NativeStatus {
+            backend: Backend::Scip,
+            code: i64::from(code),
+            name: retcode_name(code).into(),
+        },
+        kind: crate::NativeFailureKind::Infrastructure,
+        detail: format!("{operation}: native destruction was not proved"),
     })
 }
 /// One checked native call whose arguments are pointers owned by a live instance on its
@@ -478,7 +528,7 @@ struct Concurrent {
     program: FactorableProgram,
     objective: pse_math::factorable::NodeId,
     sense: ObjectiveSense,
-    best: std::sync::Mutex<Option<f64>>,
+    best: Mutex<Option<f64>>,
 }
 impl Concurrent {
     /// Report `objective` through `report` when it improves on every earlier report,
@@ -944,7 +994,9 @@ impl Instance {
         self.shutdown_with(
             // SAFETY: a single live owning pointer, after captured references release.
             |raw| unsafe { ffi::SCIPfree(raw) },
-            |owner| { let _ = Box::leak(owner); },
+            |owner| {
+                let _ = Box::leak(owner);
+            },
         )
     }
     fn shutdown_with(
@@ -953,7 +1005,9 @@ impl Instance {
         quarantine: impl FnOnce(Box<Quarantine>),
     ) -> Result<(), ProblemError> {
         if self.disposed {
-            return self.shutdown_error.map_or(Ok(()), |(code, operation)| check(code, operation));
+            return self
+                .shutdown_error
+                .map_or(Ok(()), |(code, operation)| check_shutdown(code, operation));
         }
         self.disposed = true;
         let scip = self.scip.as_ptr();
@@ -982,7 +1036,7 @@ impl Instance {
         let mut raw = scip;
         // SAFETY: the instance is freed once, on its owning thread, after its references.
         let code = free(&mut raw);
-        if let Err(cause) = check(code, "SCIPfree") {
+        if let Err(cause) = check_shutdown(code, "SCIPfree") {
             self.shutdown_error = Some((code, "SCIPfree"));
             quarantine(self.quarantine());
             return Err(cause);
@@ -992,7 +1046,7 @@ impl Instance {
         self._concurrent.take();
         self._storage_owner.take();
         self.shutdown_error = failure;
-        failure.map_or(Ok(()), |(code, operation)| check(code, operation))
+        failure.map_or(Ok(()), |(code, operation)| check_shutdown(code, operation))
     }
     fn quarantine(&mut self) -> Box<Quarantine> {
         // SCIPfree can return before Syncstore/TPI destruction. Preserve its Watch
@@ -1001,12 +1055,18 @@ impl Instance {
         // remain resident uncertainty. A double native failure also retains compute.
         let compute = if let Some(owner) = &self._concurrent {
             owner.failed.store(true, Ordering::Release);
-            self.concurrent_may_be_active.then(crate::execution::take_compute_for_quarantine).flatten()
-        } else { None };
+            self.concurrent_may_be_active
+                .then(crate::execution::take_compute_for_quarantine)
+                .flatten()
+        } else {
+            None
+        };
         // `watch` remains a raw owned allocation; no Box is reconstructed on failure.
         Box::new(Quarantine {
-            _watch: self.watch, _gate: self._concurrent.take(),
-            _storage: self._storage_owner.take(), _compute: compute,
+            _watch: self.watch,
+            _gate: self._concurrent.take(),
+            _storage: self._storage_owner.take(),
+            _compute: compute,
         })
     }
 }
@@ -1043,7 +1103,10 @@ impl Instance {
             infinity: 0.0,
             modes,
             _concurrent: None,
-            _storage_owner: execution.work_admission.as_ref().and_then(|owner| owner.retain_storage()),
+            _storage_owner: execution
+                .work_admission
+                .as_ref()
+                .and_then(|owner| owner.retain_storage()),
             disposed: false,
             shutdown_error: None,
             concurrent_may_be_active: false,
@@ -3044,13 +3107,18 @@ pub(crate) fn solve(
     // cannot control the fresh tinycthread workers of a concurrent native solve.
     let _threads = crate::mkl::Threads::enter(1)?;
     let mut concurrent = (r.controls.threads > 1)
-        .then(|| ConcurrentAdmission::acquire(&CONCURRENT, &CONCURRENT_FAILED, r.execution)).transpose()?;
+        .then(|| ConcurrentAdmission::acquire(&CONCURRENT, &CONCURRENT_FAILED, r.execution))
+        .transpose()?;
     let nested = if concurrent.is_some() {
         let observation = probe_nested_defaults(r.execution)?;
-        observation.defaults.admit(observation.omp_list.as_deref(),
-            r.settings.nlp_linear_solver == IpoptLinearSolver::Spral)?;
+        observation.defaults.admit(
+            observation.omp_list.as_deref(),
+            r.settings.nlp_linear_solver == IpoptLinearSolver::Spral,
+        )?;
         Some(observation)
-    } else { None };
+    } else {
+        None
+    };
     let abi = abi()?;
     let plan = crate::execution::factorable::plan(r.program, r.intent).map_err(|refusals| {
         let reasons: Vec<String> = refusals.iter().map(ToString::to_string).collect();
@@ -3133,7 +3201,7 @@ pub(crate) fn solve(
             program: program.clone(),
             objective,
             sense,
-            best: std::sync::Mutex::new(None),
+            best: Mutex::new(None),
         }),
         _ => None,
     };
@@ -3147,7 +3215,9 @@ pub(crate) fn solve(
     let solved = if r.controls.threads > 1 {
         session.instance.concurrent_may_be_active = true;
         let result = native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s));
-        if result.is_ok() { session.instance.concurrent_may_be_active = false; }
+        if result.is_ok() {
+            session.instance.concurrent_may_be_active = false;
+        }
         result
     } else {
         native!("SCIPsolve", ffi::SCIPsolve(s))
@@ -3347,16 +3417,36 @@ pub(crate) fn solve(
     if let Some(observation) = &nested {
         let defaults = observation.defaults;
         for (name, value) in [
-            ("omp", defaults.omp), ("mkl", defaults.mkl), ("all", defaults.all), ("blas", defaults.blas),
-            ("lapack", defaults.lapack), ("pardiso", defaults.pardiso),
+            ("omp", defaults.omp),
+            ("mkl", defaults.mkl),
+            ("all", defaults.all),
+            ("blas", defaults.blas),
+            ("lapack", defaults.lapack),
+            ("pardiso", defaults.pardiso),
             ("omp_proc_bind", defaults.proc_bind),
         ] {
-            metrics.insert(format!("scip.nested.{name}"), Metric::Integer(i64::from(value)));
+            metrics.insert(
+                format!("scip.nested.{name}"),
+                Metric::Integer(i64::from(value)),
+            );
         }
-        metrics.insert("scip.nested.omp_cancellation".into(), Metric::Bool(defaults.cancellation));
-        metrics.insert("scip.nested.omp_num_threads".into(),
-            Metric::Text(observation.omp_list.clone().unwrap_or_else(|| "unset".into())));
-        metrics.insert("scip.nested.probe_stack_bytes".into(), Metric::Integer(DEFAULT_PROBE_STACK as i64));
+        metrics.insert(
+            "scip.nested.omp_cancellation".into(),
+            Metric::Bool(defaults.cancellation),
+        );
+        metrics.insert(
+            "scip.nested.omp_num_threads".into(),
+            Metric::Text(
+                observation
+                    .omp_list
+                    .clone()
+                    .unwrap_or_else(|| "unset".into()),
+            ),
+        );
+        metrics.insert(
+            "scip.nested.probe_stack_bytes".into(),
+            Metric::Integer(DEFAULT_PROBE_STACK as i64),
+        );
     }
     metrics.insert("scip.exact".into(), Metric::Bool(exact));
     // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the

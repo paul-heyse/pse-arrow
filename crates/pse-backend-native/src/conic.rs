@@ -985,10 +985,31 @@ pub(crate) fn cone_violation(cone: &Cone, s: &[f64]) -> Result<f64, ProblemError
                     k += 1;
                 }
             }
-            let eig = m
-                .self_adjoint_eigenvalues(faer::Side::Lower)
-                .map_err(|e| ProblemError::numerical(format!("PSD quality eigensolve: {e:?}")))?;
-            eig.iter().map(|v| -v).fold(0.0, f64::max)
+            // Original assessment owns no extra team. The high-level getter selects
+            // faer's process-global parallelism and can escape a serial native scope.
+            let mut eigenvalues = faer::diag::Diag::<f64>::zeros(n);
+            let scratch = faer::linalg::evd::self_adjoint_evd_scratch::<f64>(
+                n,
+                faer::linalg::evd::ComputeEigenvectors::No,
+                faer::Par::Seq,
+                Default::default(),
+            );
+            let mut memory = faer::dyn_stack::MemBuffer::try_new(scratch)
+                .map_err(|e| ProblemError::memory(e.to_string()))?;
+            faer::linalg::evd::self_adjoint_evd(
+                m.as_ref(),
+                eigenvalues.as_mut(),
+                None,
+                faer::Par::Seq,
+                faer::dyn_stack::MemStack::new(&mut memory),
+                Default::default(),
+            )
+            .map_err(|e| ProblemError::numerical(format!("PSD quality eigensolve: {e:?}")))?;
+            eigenvalues
+                .column_vector()
+                .iter()
+                .map(|v| -v)
+                .fold(0.0, f64::max)
         }
     };
     Ok(violation.max(0.0))
@@ -1081,6 +1102,22 @@ mod tests {
         assert!((v.iter().map(|x| x * x).sum::<f64>() - 23.0).abs() < 1e-12);
     }
     #[test]
+    fn serial_psd_quality_preserves_negative_eigenvalue_in_original_svec_coordinates() {
+        // A dense rank-one perturbation has eigenvalues 1 (multiplicity n-1)
+        // and -0.25. This exercises the serial low-level EVD beyond a 2x2 case.
+        let n = 96;
+        let matrix = faer::Mat::from_fn(n, n, |r, c| {
+            if r == c {
+                1.0 - 1.25 / n as f64
+            } else {
+                -1.25 / n as f64
+            }
+        });
+        let values = svec(matrix.as_ref()).unwrap();
+        let violation = cone_violation(&Cone::PsdTriangle { order: n }, &values).unwrap();
+        assert!((violation - 0.25).abs() < 1e-12, "{violation}");
+    }
+    #[test]
     fn closed_nonsymmetric_cones_handle_boundaries_without_library_panics() {
         assert_eq!(
             cone_violation(&Cone::Exponential, &[-1.0, 0.0, 2.0]).unwrap(),
@@ -1143,7 +1180,10 @@ mod tests {
             mode: Mode::ReusableData,
             ..Settings::default()
         };
-        let accuracy = ResolvedAccuracy { native_scaling: false, ..ResolvedAccuracy::verification() };
+        let accuracy = ResolvedAccuracy {
+            native_scaling: false,
+            ..ResolvedAccuracy::verification()
+        };
         let mut session = Session::new(
             &p,
             &certificate,
@@ -1157,76 +1197,232 @@ mod tests {
         assert_eq!(session.rows, 1);
         p.objective[0] = 2.0;
         p.contract.variables[0].upper = 3.0;
-        assert_eq!(session.update(&p, &certificate, &reusable, stamp.clone()).unwrap(), crate::execution::SessionUpdate::Compatible);
+        assert_eq!(
+            session
+                .update(&p, &certificate, &reusable, stamp.clone())
+                .unwrap(),
+            crate::execution::SessionUpdate::Compatible
+        );
         // A different mode never updates a retained session.
         assert_eq!(
-            session.update(&p, &certificate, &Settings::default(), stamp.clone()).unwrap(),
+            session
+                .update(&p, &certificate, &Settings::default(), stamp.clone())
+                .unwrap(),
             crate::execution::SessionUpdate::Incompatible,
         );
         p.contract.variables[0].upper = f64::INFINITY;
-        assert_eq!(session.update(&p, &certificate, &reusable, stamp).unwrap(), crate::execution::SessionUpdate::Incompatible);
+        assert_eq!(
+            session.update(&p, &certificate, &reusable, stamp).unwrap(),
+            crate::execution::SessionUpdate::Incompatible
+        );
     }
     #[test]
     fn equilibrated_conic_updates_refuse_before_mutation_and_rebuild_fresh_scaling() {
-        use crate::{execution::{Retained, SessionUpdate}, solve::ReusePolicy};
+        use crate::{
+            execution::{Retained, SessionUpdate},
+            solve::ReusePolicy,
+        };
         let (mut p, certificate) = reuse_problem();
         let stamp = crate::solver_tests::stamp(Backend::Clarabel);
-        let reusable = Settings { mode: Mode::ReusableData, ..Settings::default() };
-        let accuracy = ResolvedAccuracy { native_scaling: true, ..ResolvedAccuracy::verification() };
+        let reusable = Settings {
+            mode: Mode::ReusableData,
+            ..Settings::default()
+        };
+        let accuracy = ResolvedAccuracy {
+            native_scaling: true,
+            ..ResolvedAccuracy::verification()
+        };
         let mut retained = Retained::default();
-        let (session, reused) = retained.session(Backend::Clarabel, ReusePolicy::AllowRebuild,
-            |_: &mut Session| Ok(SessionUpdate::Compatible),
-            || Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp.clone())).unwrap();
+        let (session, reused) = retained
+            .session(
+                Backend::Clarabel,
+                ReusePolicy::AllowRebuild,
+                |_: &mut Session| Ok(SessionUpdate::Compatible),
+                || {
+                    Session::new(
+                        &p,
+                        &certificate,
+                        &Controls::default(),
+                        &accuracy,
+                        &reusable,
+                        stamp.clone(),
+                    )
+                },
+            )
+            .unwrap();
         assert!(!reused);
-        let before = (session.solver.data.P.nzval.clone(), session.solver.data.q.clone(), session.solver.data.A.nzval.clone(), session.solver.data.b.clone());
-        let scaling = (session.solver.data.equilibration.d.clone(), session.solver.data.equilibration.e.clone());
+        let before = (
+            session.solver.data.P.nzval.clone(),
+            session.solver.data.q.clone(),
+            session.solver.data.A.nzval.clone(),
+            session.solver.data.b.clone(),
+        );
+        let scaling = (
+            session.solver.data.equilibration.d.clone(),
+            session.solver.data.equilibration.e.clone(),
+        );
         p.constraints.values[0] = -1e6;
         p.rhs[0] = -2e6;
         p.objective[0] = 2.;
-        let refusal = retained.session(Backend::Clarabel, ReusePolicy::RequireReuse,
-            |session: &mut Session| {
-                let outcome = session.update(&p, &certificate, &reusable, stamp.clone())?;
-                assert_eq!((session.solver.data.P.nzval.clone(), session.solver.data.q.clone(), session.solver.data.A.nzval.clone(), session.solver.data.b.clone()), before);
-                assert_eq!((session.solver.data.equilibration.d.clone(), session.solver.data.equilibration.e.clone()), scaling);
-                Ok(outcome)
-            }, || panic!("RequireReuse must not rebuild an equilibrated retained model")).unwrap_err();
-        assert!(matches!(refusal, ProblemError::Reuse { backend: Backend::Clarabel, .. }));
+        let refusal = retained
+            .session(
+                Backend::Clarabel,
+                ReusePolicy::RequireReuse,
+                |session: &mut Session| {
+                    let outcome = session.update(&p, &certificate, &reusable, stamp.clone())?;
+                    assert_eq!(
+                        (
+                            session.solver.data.P.nzval.clone(),
+                            session.solver.data.q.clone(),
+                            session.solver.data.A.nzval.clone(),
+                            session.solver.data.b.clone()
+                        ),
+                        before
+                    );
+                    assert_eq!(
+                        (
+                            session.solver.data.equilibration.d.clone(),
+                            session.solver.data.equilibration.e.clone()
+                        ),
+                        scaling
+                    );
+                    Ok(outcome)
+                },
+                || panic!("RequireReuse must not rebuild an equilibrated retained model"),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            refusal,
+            ProblemError::Reuse {
+                backend: Backend::Clarabel,
+                ..
+            }
+        ));
         assert!(!retained.is_empty());
-        let (session, reused) = retained.session(Backend::Clarabel, ReusePolicy::AllowRebuild,
-            |session: &mut Session| session.update(&p, &certificate, &reusable, stamp.clone()),
-            || Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp.clone())).unwrap();
+        let (session, reused) = retained
+            .session(
+                Backend::Clarabel,
+                ReusePolicy::AllowRebuild,
+                |session: &mut Session| session.update(&p, &certificate, &reusable, stamp.clone()),
+                || {
+                    Session::new(
+                        &p,
+                        &certificate,
+                        &Controls::default(),
+                        &accuracy,
+                        &reusable,
+                        stamp.clone(),
+                    )
+                },
+            )
+            .unwrap();
         assert!(!reused);
-        let fresh = Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp).unwrap();
-        let current = (&session.solver.data.equilibration.d, &session.solver.data.equilibration.e);
-        assert_ne!(current, (&scaling.0, &scaling.1), "changed values must reveal different fresh equilibration");
-        assert_eq!(current, (&fresh.solver.data.equilibration.d, &fresh.solver.data.equilibration.e));
+        let fresh = Session::new(
+            &p,
+            &certificate,
+            &Controls::default(),
+            &accuracy,
+            &reusable,
+            stamp,
+        )
+        .unwrap();
+        let current = (
+            &session.solver.data.equilibration.d,
+            &session.solver.data.equilibration.e,
+        );
+        assert_ne!(
+            current,
+            (&scaling.0, &scaling.1),
+            "changed values must reveal different fresh equilibration"
+        );
+        assert_eq!(
+            current,
+            (
+                &fresh.solver.data.equilibration.d,
+                &fresh.solver.data.equilibration.e
+            )
+        );
     }
     #[test]
     fn unscaled_conic_updates_match_fresh_solves_and_reset_prior_iterates() {
         let (mut p, certificate) = reuse_problem();
         let stamp = crate::solver_tests::stamp(Backend::Clarabel);
-        let reusable = Settings { mode: Mode::ReusableData, ..Settings::default() };
+        let reusable = Settings {
+            mode: Mode::ReusableData,
+            ..Settings::default()
+        };
         let controls = Controls::default();
-        let accuracy = ResolvedAccuracy { native_scaling: false, ..ResolvedAccuracy::verification() };
-        let tolerances = Tolerances { variables: vec![1e-7], rows: vec![1e-7], integrality: 1e-7 };
+        let accuracy = ResolvedAccuracy {
+            native_scaling: false,
+            ..ResolvedAccuracy::verification()
+        };
+        let tolerances = Tolerances {
+            variables: vec![1e-7],
+            rows: vec![1e-7],
+            integrality: 1e-7,
+        };
         let execution = || Execution::new(Default::default(), &controls);
-        let mut session = Session::new(&p, &certificate, &controls, &accuracy, &reusable, stamp.clone()).unwrap();
-        assert_eq!(session.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap().termination.category, Termination::Success);
+        let mut session = Session::new(
+            &p,
+            &certificate,
+            &controls,
+            &accuracy,
+            &reusable,
+            stamp.clone(),
+        )
+        .unwrap();
+        assert_eq!(
+            session
+                .solve(
+                    &p,
+                    &controls,
+                    &accuracy,
+                    &reusable,
+                    execution(),
+                    &tolerances
+                )
+                .unwrap()
+                .termination
+                .category,
+            Termination::Success
+        );
         p.objective[0] = 2.;
         p.constraints.values[0] = -2.;
         p.rhs[0] = -2.;
         p.contract.variables[0].upper = 3.;
-        assert_eq!(session.update(&p, &certificate, &reusable, stamp.clone()).unwrap(), crate::execution::SessionUpdate::Compatible);
+        assert_eq!(
+            session
+                .update(&p, &certificate, &reusable, stamp.clone())
+                .unwrap(),
+            crate::execution::SessionUpdate::Compatible
+        );
         // The pinned solver's solve() calls default_start each time. Make stale native
         // iterates unmistakable so this control would fail if they were consumed.
         session.solver.variables.x.fill(1e100);
         session.solver.variables.s.fill(1e100);
         session.solver.variables.z.fill(1e100);
-        session.solver.variables.τ = 1e100;
-        session.solver.variables.κ = 1e100;
-        let actual = session.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap();
-        let mut fresh = Session::new(&p, &certificate, &controls, &accuracy, &reusable, stamp).unwrap();
-        let expected = fresh.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap();
+        let actual = session
+            .solve(
+                &p,
+                &controls,
+                &accuracy,
+                &reusable,
+                execution(),
+                &tolerances,
+            )
+            .unwrap();
+        let mut fresh =
+            Session::new(&p, &certificate, &controls, &accuracy, &reusable, stamp).unwrap();
+        let expected = fresh
+            .solve(
+                &p,
+                &controls,
+                &accuracy,
+                &reusable,
+                execution(),
+                &tolerances,
+            )
+            .unwrap();
         assert_eq!(actual.termination.category, Termination::Success);
         assert_eq!(actual.termination.category, expected.termination.category);
         assert!(actual.quality.unwrap().feasible());

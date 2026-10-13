@@ -140,10 +140,20 @@ impl NestedDefaults {
     /// OMP_NUM_THREADS list. Preserve the supported serial list at all levels.
     pub(crate) fn admit(self, omp_list: Option<&str>, spral: bool) -> Result<(), ProblemError> {
         let serial_list = omp_list.is_none_or(|list| {
-            list.split(',').all(|width| width.trim().parse::<usize>() == Ok(1))
+            list.split(',')
+                .all(|width| width.trim().parse::<usize>() == Ok(1))
         });
-        if !serial_list || [self.omp, self.mkl, self.all, self.blas, self.lapack, self.pardiso]
-            .iter().any(|width| *width != 1)
+        if !serial_list
+            || [
+                self.omp,
+                self.mkl,
+                self.all,
+                self.blas,
+                self.lapack,
+                self.pardiso,
+            ]
+            .iter()
+            .any(|width| *width != 1)
         {
             return Err(ProblemError::Unsupported(format!(
                 "SCIP concurrent workers require serial nested OpenMP/MKL defaults: {self:?}; OMP_NUM_THREADS={omp_list:?}"

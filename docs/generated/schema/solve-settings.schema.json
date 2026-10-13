@@ -2838,7 +2838,7 @@
         },
         "reuse": {
           "$ref": "#/$defs/ReusePolicy",
-          "default": "fresh",
+          "default": "allow_rebuild",
           "description": "Native allocation/data reuse policy."
         },
         "start": {
@@ -3045,7 +3045,7 @@
         "history": 256,
         "iterations": 3000,
         "options": {},
-        "reuse": "fresh",
+        "reuse": "allow_rebuild",
         "start": "no_prior_start",
         "threads": 1,
         "time_limit": 300.0

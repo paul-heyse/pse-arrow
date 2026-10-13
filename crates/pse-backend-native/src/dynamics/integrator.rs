@@ -822,8 +822,11 @@ fn segment_statistics(
     let mut value = serde_json::to_value(statistics)
         .map_err(|e| ProblemError::internal(format!("Diffsol statistics: {e}")))?;
     if let Some(fields) = value.as_object_mut() {
-        fields.insert("native_step".into(), serde_json::to_value(observation)
-            .map_err(|e| ProblemError::internal(format!("Diffsol native step: {e}")))?);
+        fields.insert(
+            "native_step".into(),
+            serde_json::to_value(observation)
+                .map_err(|e| ProblemError::internal(format!("Diffsol native step: {e}")))?,
+        );
         fields.insert(
             "diffsol".into(),
             serde_json::to_value(settings)
@@ -839,7 +842,9 @@ fn step_observation<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
 ) -> crate::solve::NativeStepObservation {
     let state = solver.state();
     crate::solve::NativeStepObservation::Diffsol {
-        current_order: u32::try_from(solver.order()).ok().filter(|order| *order > 0),
+        current_order: u32::try_from(solver.order())
+            .ok()
+            .filter(|order| *order > 0),
         current_step: Some(state.h),
         internal_time: Some(state.t),
         returned_time,

@@ -566,7 +566,14 @@ impl Coefficients {
         // the EVD. Subtract in place so no weighted/identity matrix or additional
         // subtraction result expands the already admitted construction population.
         let mut residual_matrix = faer::Mat::zeros(n, n);
-        faer::linalg::matmul::matmul(residual_matrix.as_mut(), faer::Accum::Replace, a.as_ref(), vectors.as_ref(), 1., faer::Par::Seq);
+        faer::linalg::matmul::matmul(
+            residual_matrix.as_mut(),
+            faer::Accum::Replace,
+            a.as_ref(),
+            vectors.as_ref(),
+            1.,
+            faer::Par::Seq,
+        );
         for j in 0..n {
             for i in 0..n {
                 residual_matrix[(i, j)] -= vectors[(i, j)] * eigenvalues[j];
@@ -575,7 +582,14 @@ impl Coefficients {
         let residual = residual_matrix.norm_l2();
         drop(residual_matrix);
         let mut orthogonality_matrix = faer::Mat::zeros(n, n);
-        faer::linalg::matmul::matmul(orthogonality_matrix.as_mut(), faer::Accum::Replace, vectors.as_ref().transpose(), vectors.as_ref(), 1., faer::Par::Seq);
+        faer::linalg::matmul::matmul(
+            orthogonality_matrix.as_mut(),
+            faer::Accum::Replace,
+            vectors.as_ref().transpose(),
+            vectors.as_ref(),
+            1.,
+            faer::Par::Seq,
+        );
         for i in 0..n {
             orthogonality_matrix[(i, i)] -= 1.;
         }

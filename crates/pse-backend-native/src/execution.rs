@@ -97,6 +97,13 @@ pub fn compute_scoped<T>(owner: Box<dyn ComputeAdmission>, work: impl FnOnce() -
     let _scope = ComputeScope(COMPUTE.with(|held| held.borrow_mut().replace(owner)));
     work()
 }
+/// Transfer the actual active owner into a terminal native quarantine when neither
+/// computation nor destruction can be proved drained. The quarantining backend must
+/// retain this owner with the uncertain native state; a timeout is not drain evidence.
+#[cfg(any(test, feature = "scip"))]
+pub(crate) fn take_compute_for_quarantine() -> Option<Box<dyn ComputeAdmission>> {
+    COMPUTE.with(|held| held.borrow_mut().take())
+}
 /// Release this synchronous operation's active allowance at a joined phase boundary.
 pub fn pause_compute() {
     COMPUTE.with(|held| {
@@ -796,6 +803,26 @@ pub enum SessionUpdate {
     Incompatible,
 }
 
+/// Bounded backend-local lost-state provenance, containing no native handles or seeds.
+/// A first construction for an unseen backend remains distinct from rebuilding lost state.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ReuseHistory([bool; Backend::ALL.len()]);
+impl ReuseHistory {
+    fn record(&mut self, backend: Backend) {
+        for (member, seen) in Backend::ALL.iter().zip(&mut self.0) {
+            if *member == backend {
+                *seen = true;
+            }
+        }
+    }
+    fn contains(self, backend: Backend) -> bool {
+        Backend::ALL
+            .iter()
+            .zip(self.0)
+            .any(|(member, seen)| *member == backend && seen)
+    }
+}
+
 /// Worker-owned native state retained from the previous step of a finite sequence.
 /// Opaque to workflows: each adapter recognizes only its own session. It never crosses a
 /// worker boundary and is dropped on the owning thread.
@@ -809,7 +836,7 @@ pub struct Retained {
     session: Option<(Backend, Box<dyn Any>)>,
     session_charge: Option<Box<dyn Any + Send>>,
     advance: Option<(crate::kkt::Advance, Option<Box<dyn Any + Send>>)>,
-    scheduler_discard: Option<Backend>,
+    reuse_history: ReuseHistory,
 }
 impl std::fmt::Debug for Retained {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -828,15 +855,39 @@ impl std::fmt::Debug for Retained {
 impl Retained {
     /// Drop the retained adapter session now. A kept advanced-step factor stays.
     pub fn clear(&mut self) {
+        self.reuse_history = self.scope_history();
         self.session = None;
         self.session_charge = None;
-        self.scheduler_discard = None;
+    }
+    /// Metadata surviving owner-scope destruction; never a native object or start seed.
+    pub fn scope_history(&self) -> ReuseHistory {
+        let mut history = self.reuse_history;
+        if let Some(backend) = self.backend() {
+            history.record(backend);
+        }
+        history
+    }
+    /// Enter a fresh native scope while preserving prior-state refusal provenance.
+    pub fn after_scope(discarded: ReuseHistory) -> Self {
+        Self {
+            reuse_history: discarded,
+            ..Self::default()
+        }
     }
     /// End an independent request without carrying numeric history or request owners.
     /// Only profiles with an accepted neutral reset may park a native object. Others
     /// take the fresh-object fallback; immutable external programs are unaffected.
     pub fn reset_independent(&mut self) -> Result<(), ProblemError> {
         self.release();
+        #[cfg(feature = "scip")]
+        if let Some((Backend::Scip, state)) = &mut self.session {
+            if let Some(session) = state.downcast_mut::<crate::scip::Session>() {
+                let result = session.shutdown();
+                self.clear();
+                self.reuse_history.record(Backend::Scip);
+                return result;
+            }
+        }
         #[cfg(feature = "highs")]
         if let Some((Backend::Highs, state)) = &mut self.session {
             if let Some(session) = state.downcast_mut::<crate::highs::Session>() {
@@ -854,14 +905,19 @@ impl Retained {
                     self.clear();
                     return Err(cause);
                 }
+                if session.has_neutral_state() {
+                    return Ok(());
+                }
+                self.clear();
+                self.reuse_history.record(Backend::Pounce);
                 return Ok(());
             }
         }
-        let discarded = self.backend();
+        let discarded = self.scope_history();
         self.clear();
         // A subsequent RequireReuse must see the actual fresh fallback, even though
         // no native object remains. Initial construction of a new sequence is distinct.
-        self.scheduler_discard = discarded;
+        self.reuse_history = discarded;
         Ok(())
     }
     /// Relinquish idle direct HiGHS state on its owning thread for a waiting Uno
@@ -869,7 +925,7 @@ impl Retained {
     pub fn relinquish_scheduler(&mut self) {
         if self.backend() == Some(Backend::Highs) {
             self.clear();
-            self.scheduler_discard = Some(Backend::Highs);
+            self.reuse_history.record(Backend::Highs);
         }
     }
     /// Keep the admitted opaque-library allowance until native session destruction.
@@ -926,9 +982,11 @@ impl Retained {
         reuse: impl FnOnce(&mut S) -> Result<SessionUpdate, ProblemError>,
         build: impl FnOnce() -> Result<S, ProblemError>,
     ) -> Result<(&mut S, bool), ProblemError> {
-        if policy == crate::solve::ReusePolicy::Fresh { self.clear(); }
+        if policy == crate::solve::ReusePolicy::Fresh {
+            self.clear();
+        }
         if self.session.is_none()
-            && self.scheduler_discard == Some(backend)
+            && self.reuse_history.contains(backend)
             && policy == crate::solve::ReusePolicy::RequireReuse
         {
             return Err(ProblemError::Reuse {
@@ -960,6 +1018,8 @@ impl Retained {
             }
             // Native teardown precedes construction of the replacement.
             self.clear();
+            // A failed first construction is no longer a pristine sequence either.
+            self.reuse_history.record(backend);
             self.session = Some((backend, Box::new(build()?)));
         }
         let session = self

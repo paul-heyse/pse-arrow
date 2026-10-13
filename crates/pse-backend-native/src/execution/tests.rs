@@ -1222,24 +1222,39 @@ fn declared_lexicographic_capability_native_staged_and_no_fallback() {
 
 #[test]
 fn failed_mutation_destroys_retained_state_and_charge_before_returning_cause() {
-    use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
     #[derive(Debug)]
     struct Owner(Arc<AtomicBool>);
     impl Drop for Owner {
-        fn drop(&mut self) { self.0.store(true, Ordering::Release); }
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Release);
+        }
     }
     for policy in [ReusePolicy::AllowRebuild, ReusePolicy::RequireReuse] {
         let destroyed = Arc::new(AtomicBool::new(false));
         let uncharged = Arc::new(AtomicBool::new(false));
         let mut retained = Retained::default();
-        retained.session(Backend::Highs, ReusePolicy::AllowRebuild,
-            |_: &mut Owner| Ok(SessionUpdate::Compatible),
-            || Ok(Owner(destroyed.clone()))).unwrap();
+        retained
+            .session(
+                Backend::Highs,
+                ReusePolicy::AllowRebuild,
+                |_: &mut Owner| Ok(SessionUpdate::Compatible),
+                || Ok(Owner(destroyed.clone())),
+            )
+            .unwrap();
         retained.charge_session(Box::new(Owner(uncharged.clone())));
-        let result = retained.session(Backend::Highs, policy,
+        let result = retained.session(
+            Backend::Highs,
+            policy,
             |_: &mut Owner| Err(ProblemError::Contract("partial native mutation".into())),
-            || panic!("failed mutation must not rebuild or replace its cause"));
-        assert!(matches!(result, Err(ProblemError::Contract(ref detail)) if detail == "partial native mutation"));
+            || panic!("failed mutation must not rebuild or replace its cause"),
+        );
+        assert!(
+            matches!(result, Err(ProblemError::Contract(ref detail)) if detail == "partial native mutation")
+        );
         assert!(destroyed.load(Ordering::Acquire));
         assert!(uncharged.load(Ordering::Acquire));
         assert!(retained.is_empty());
@@ -1249,13 +1264,29 @@ fn failed_mutation_destroys_retained_state_and_charge_before_returning_cause() {
 #[test]
 fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
     let mut retained = Retained::default();
-    retained.session(Backend::Highs, ReusePolicy::AllowRebuild,
-        |_: &mut u64| Ok(SessionUpdate::Compatible), || Ok(5u64)).unwrap();
-    let refusal = retained.session(Backend::Highs, ReusePolicy::RequireReuse,
-        |_: &mut u64| Ok(SessionUpdate::Incompatible), || panic!("forbidden rebuild"));
+    retained
+        .session(
+            Backend::Highs,
+            ReusePolicy::AllowRebuild,
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
+            || Ok(5u64),
+        )
+        .unwrap();
+    let refusal = retained.session(
+        Backend::Highs,
+        ReusePolicy::RequireReuse,
+        |_: &mut u64| Ok(SessionUpdate::Incompatible),
+        || panic!("forbidden rebuild"),
+    );
     assert!(matches!(refusal, Err(ProblemError::Reuse { .. })));
-    let (value, reused) = retained.session(Backend::Highs, ReusePolicy::RequireReuse,
-        |_: &mut u64| Ok(SessionUpdate::Compatible), || panic!("healthy state retained")).unwrap();
+    let (value, reused) = retained
+        .session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
+            || panic!("healthy state retained"),
+        )
+        .unwrap();
     assert!(reused);
     assert_eq!(*value, 5);
 }
@@ -1263,13 +1294,177 @@ fn pre_mutation_incompatibility_keeps_required_owner_healthy() {
 #[test]
 fn independent_fresh_fallback_is_visible_to_required_reuse() {
     let mut retained = Retained::default();
-    retained.session(Backend::Kinsol, ReusePolicy::AllowRebuild,
-        |_: &mut u64| Ok(SessionUpdate::Compatible), || Ok(1u64)).unwrap();
+    retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::AllowRebuild,
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
+            || Ok(1u64),
+        )
+        .unwrap();
     retained.reset_independent().unwrap();
-    assert!(matches!(retained.session(Backend::Kinsol, ReusePolicy::RequireReuse,
-        |_: &mut u64| Ok(SessionUpdate::Compatible), || panic!("fresh fallback cannot satisfy required reuse")),
-        Err(ProblemError::Reuse { .. })));
-    let (value, reused) = retained.session(Backend::Kinsol, ReusePolicy::Fresh,
-        |_: &mut u64| panic!("Fresh must not visit previous state"), || Ok(2u64)).unwrap();
-    assert_eq!(*value, 2); assert!(!reused);
+    retained.reset_independent().unwrap();
+    assert!(matches!(
+        retained.session(
+            Backend::Kinsol,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| Ok(SessionUpdate::Compatible),
+            || panic!("fresh fallback cannot satisfy required reuse")
+        ),
+        Err(ProblemError::Reuse { .. })
+    ));
+    let (value, reused) = retained
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::Fresh,
+            |_: &mut u64| panic!("Fresh must not visit previous state"),
+            || Ok(2u64),
+        )
+        .unwrap();
+    assert_eq!(*value, 2);
+    assert!(!reused);
+}
+
+#[test]
+fn cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse() {
+    let mut pristine = Retained::default();
+    pristine
+        .session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| panic!("pristine construction"),
+            || Ok(1u64),
+        )
+        .unwrap();
+    pristine.clear();
+    pristine.clear();
+    let mut reentered = Retained::after_scope(pristine.scope_history());
+    assert!(matches!(
+        reentered.session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| panic!("no retained object"),
+            || panic!("discard forbids bootstrap")
+        ),
+        Err(ProblemError::Reuse { .. })
+    ));
+    reentered
+        .session(
+            Backend::Kinsol,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| panic!("unseen backend has no old object"),
+            || Ok(2u64),
+        )
+        .unwrap();
+    reentered.clear();
+    assert!(matches!(
+        reentered.session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| panic!("old backend remains discarded"),
+            || panic!("history survives another backend")
+        ),
+        Err(ProblemError::Reuse { .. })
+    ));
+    let mut failed = Retained::default();
+    assert!(
+        failed
+            .session::<u64>(
+                Backend::Highs,
+                ReusePolicy::AllowRebuild,
+                |_| panic!("no object"),
+                || Err(ProblemError::internal("construction failure"))
+            )
+            .is_err()
+    );
+    assert!(matches!(
+        failed.session(
+            Backend::Highs,
+            ReusePolicy::RequireReuse,
+            |_: &mut u64| panic!("no object"),
+            || panic!("failed construction forbids bootstrap")
+        ),
+        Err(ProblemError::Reuse { .. })
+    ));
+}
+
+#[test]
+fn uncertain_native_compute_owner_survives_scope_exit_until_verified_release() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    #[derive(Debug)]
+    struct Owner(Arc<AtomicUsize>);
+    impl Drop for Owner {
+        fn drop(&mut self) {
+            self.0.fetch_add(1, Ordering::AcqRel);
+        }
+    }
+    impl ComputeAdmission for Owner {
+        fn pause(&mut self) {
+            panic!("quarantined compute must not be paused");
+        }
+        fn try_resume(&mut self, _: &Execution) -> Result<ComputeAvailability, ProblemError> {
+            Ok(ComputeAvailability::Acquired)
+        }
+        fn resume(&mut self, _: &Execution) -> Result<(), ProblemError> {
+            Ok(())
+        }
+    }
+    let dropped = Arc::new(AtomicUsize::new(0));
+    let owner = compute_scoped(Box::new(Owner(dropped.clone())), || {
+        take_compute_for_quarantine().expect("actual active owner")
+    });
+    assert_eq!(
+        dropped.load(Ordering::Acquire),
+        0,
+        "scope exit cannot prove drain"
+    );
+    assert!(
+        take_compute_for_quarantine().is_none(),
+        "no stale active owner remains installed"
+    );
+    // This test owns a known drained fake. Production quarantine never makes this
+    // release without evidence that the uncertain foreign lifetime has ended.
+    drop(owner);
+    assert_eq!(dropped.load(Ordering::Acquire), 1);
+}
+
+#[cfg(feature = "pounce")]
+#[test]
+fn empty_pounce_reset_releases_retained_charge_and_preserves_required_refusal() {
+    use std::sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    };
+    struct Charge(Arc<AtomicBool>);
+    impl Drop for Charge {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Release);
+        }
+    }
+    let released = Arc::new(AtomicBool::new(false));
+    let mut retained = Retained::default();
+    retained
+        .session(
+            Backend::Pounce,
+            ReusePolicy::AllowRebuild,
+            |_: &mut crate::pounce::Session| Ok(SessionUpdate::Compatible),
+            || Ok(crate::pounce::Session::new()),
+        )
+        .unwrap();
+    retained.charge_session(Box::new(Charge(released.clone())));
+    retained.reset_independent().unwrap();
+    assert!(retained.is_empty());
+    assert!(released.load(Ordering::Acquire));
+    assert!(matches!(
+        retained.session(
+            Backend::Pounce,
+            ReusePolicy::RequireReuse,
+            |_: &mut crate::pounce::Session| Ok(SessionUpdate::Compatible),
+            || panic!("empty reset cannot satisfy required reuse")
+        ),
+        Err(ProblemError::Reuse { .. })
+    ));
 }

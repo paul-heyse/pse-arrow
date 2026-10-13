@@ -2359,11 +2359,20 @@ fn concurrent_mode_under_admitted_permits() {
         report.metrics["scip.threads"],
         crate::solve::Metric::Integer(2)
     ));
-    assert_eq!(report.metrics["scip.tpi.exclusive"], crate::solve::Metric::Bool(true));
+    assert_eq!(
+        report.metrics["scip.tpi.exclusive"],
+        crate::solve::Metric::Bool(true)
+    );
     for domain in ["omp", "mkl", "all", "blas", "lapack", "pardiso"] {
-        assert_eq!(report.metrics[&format!("scip.nested.{domain}")], crate::solve::Metric::Integer(1));
+        assert_eq!(
+            report.metrics[&format!("scip.nested.{domain}")],
+            crate::solve::Metric::Integer(1)
+        );
     }
-    assert_eq!(report.metrics["scip.nested.probe_stack_bytes"], crate::solve::Metric::Integer(2 << 20));
+    assert_eq!(
+        report.metrics["scip.nested.probe_stack_bytes"],
+        crate::solve::Metric::Integer(2 << 20)
+    );
     assert_eq!(
         report.options["parallel/maxnthreads"],
         OptionValue::Integer(2)

@@ -15,10 +15,10 @@ mod isolation;
 pub mod reconstruction;
 #[path = "implicit_regimes.rs"]
 mod regimes;
-#[path = "implicit_selection.rs"]
-mod selection;
 #[path = "implicit_scalar.rs"]
 mod scalar;
+#[path = "implicit_selection.rs"]
+mod selection;
 use crate::{
     MathError,
     guarded::{CompiledBody, Evaluation, Worker},
@@ -27,7 +27,6 @@ pub use affine::Affine;
 use configuration::ConfigurationWorker;
 pub use configuration::{Configuration, HintResolver};
 pub use cubic::CubicRoots;
-pub use scalar::BracketedRoot;
 use faer::{
     Conj, Mat, Par,
     dyn_stack::{MemBuffer, MemStack},
@@ -46,6 +45,7 @@ use pse_ids::{ContentHash, SemanticId};
 use pse_kernels::{DerivativeOrder, ProviderValues};
 pub(crate) use regimes::NumericalRefinement;
 pub use regimes::{Regime, RegimeFactory, RegimeFactoryBranch, RegimeSelection, SelectedRegime};
+pub use scalar::BracketedRoot;
 pub use selection::{Selection, SelectionEquivalence, graph_equivalence};
 use std::{
     collections::BTreeMap,
@@ -1050,7 +1050,10 @@ impl Factory {
         // parallel work. Query the pool width only on a Rayon worker: outside one,
         // current_num_threads would initialize the unrelated global pool.
         let threads = if rayon::current_thread_index().is_some() {
-            scope.admitted_threads().get().min(rayon::current_num_threads())
+            scope
+                .admitted_threads()
+                .get()
+                .min(rayon::current_num_threads())
         } else {
             1
         };
@@ -1721,7 +1724,10 @@ mod tests {
         };
         let admitted = pse_kernels::ExecutionScope::new(cancel.clone(), None)
             .with_admitted_threads(std::num::NonZeroUsize::new(2).unwrap());
-        let pool = rayon::ThreadPoolBuilder::new().num_threads(2).build().unwrap();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(2)
+            .build()
+            .unwrap();
         assert_eq!(
             pool.install(|| factory
                 .problem(admitted.clone())
@@ -1735,8 +1741,16 @@ mod tests {
         // A capacity larger than the installed pool cannot create another team.
         assert_eq!(
             pool.install(|| factory
-                .problem(admitted.clone().with_admitted_threads(std::num::NonZeroUsize::new(4).unwrap()))
-                .unwrap().factor.lock().unwrap().parallel),
+                .problem(
+                    admitted
+                        .clone()
+                        .with_admitted_threads(std::num::NonZeroUsize::new(4).unwrap())
+                )
+                .unwrap()
+                .factor
+                .lock()
+                .unwrap()
+                .parallel),
             Par::rayon(2)
         );
         assert_eq!(
@@ -1753,14 +1767,35 @@ mod tests {
         // must fall back to Seq without consulting or initializing the global pool.
         std::thread::scope(|threads| {
             let outside = admitted.clone();
-            let factor_parallelism = threads.spawn(|| {
-                assert!(rayon::current_thread_index().is_none());
-                factory.problem(outside).unwrap().factor.lock().unwrap().parallel
-            }).join().unwrap();
+            let factor_parallelism = threads
+                .spawn(|| {
+                    assert!(rayon::current_thread_index().is_none());
+                    factory
+                        .problem(outside)
+                        .unwrap()
+                        .factor
+                        .lock()
+                        .unwrap()
+                        .parallel
+                })
+                .join()
+                .unwrap();
             assert_eq!(factor_parallelism, Par::Seq);
         });
-        let serial_pool = rayon::ThreadPoolBuilder::new().num_threads(1).build().unwrap();
-        assert_eq!(serial_pool.install(|| factory.problem(admitted.clone()).unwrap().factor.lock().unwrap().parallel), Par::Seq);
+        let serial_pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        assert_eq!(
+            serial_pool.install(|| factory
+                .problem(admitted.clone())
+                .unwrap()
+                .factor
+                .lock()
+                .unwrap()
+                .parallel),
+            Par::Seq
+        );
         let mut provider = factory.create().unwrap();
         let context = EvaluationContext {
             cancelled: cancel.as_ref(),

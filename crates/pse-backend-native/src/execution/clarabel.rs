@@ -40,7 +40,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: false,
     sensitivities: false,
-    reuse: "native data-update eligibility; reusable mode disables preprocessing",
+    reuse: "unscaled reusable-data native updates with fresh iterates; equilibrated values require rebuild; fresh independent fallback",
     cancellation: "native iteration termination callback",
     diagnostics: "complete native info/settings, cone slacks/duals and certificates",
 };
@@ -112,12 +112,10 @@ impl BackendExecution for Clarabel {
             )]
             _ => return Err(super::foreign(Backend::Clarabel)),
         };
-        // MKL Pardiso runs on the owning worker's oneMKL-local thread count (ADR-0108
-        // item 12); QDLDL is serial.
-        #[cfg(feature = "clarabel-pardiso")]
-        let _threads = (settings.direct == conic::Direct::MklPardiso)
-            .then(|| crate::mkl::Threads::enter(input.controls.threads))
-            .transpose()?;
+        // SDP's BLAS/LAPACK also uses MKL even with serial QDLDL. Scope both
+        // profiles so a caller's ambient width cannot multiply the admitted team.
+        #[cfg(any(feature = "clarabel-pardiso", feature = "sdp"))]
+        let _threads = crate::mkl::Threads::enter(input.controls.threads)?;
         let stamp = input.compatibility;
         let (session, reused) = retained.session(
             Backend::Clarabel,

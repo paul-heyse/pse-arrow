@@ -6,7 +6,10 @@ use faer::{
     Accum, Mat, Par,
     diag::Diag,
     dyn_stack::{MemBuffer, MemStack},
-    linalg::{matmul::matmul, svd::{self, ComputeSvdVectors}},
+    linalg::{
+        matmul::matmul,
+        svd::{self, ComputeSvdVectors},
+    },
     sparse::SparseColMatRef,
 };
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -152,8 +155,22 @@ pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
     });
     let mut row_gram = Mat::zeros(m, m);
     let mut column_gram = Mat::zeros(n, n);
-    matmul(row_gram.as_mut(), Accum::Replace, rows.as_ref(), rows.as_ref().transpose(), 1., Par::Seq);
-    matmul(column_gram.as_mut(), Accum::Replace, columns.as_ref().transpose(), columns.as_ref(), 1., Par::Seq);
+    matmul(
+        row_gram.as_mut(),
+        Accum::Replace,
+        rows.as_ref(),
+        rows.as_ref().transpose(),
+        1.,
+        Par::Seq,
+    );
+    matmul(
+        column_gram.as_mut(),
+        Accum::Replace,
+        columns.as_ref().transpose(),
+        columns.as_ref(),
+        1.,
+        Par::Seq,
+    );
     let mut findings = 0usize;
     let mut pairs =
         |gram: &Mat<f64>, norms: &[f64]| -> Result<Vec<(usize, usize, f64)>, MathError> {
@@ -202,20 +219,44 @@ pub fn analyze_matrix<R: From<usize>, C: From<usize>>(
     let mut left = Mat::zeros(m, m);
     let mut right = Mat::zeros(n, n);
     let mut singular = Diag::<f64>::zeros(k);
-    let scratch = svd::svd_scratch::<f64>(m, n, ComputeSvdVectors::Full, ComputeSvdVectors::Full, Par::Seq, Default::default());
-    let mut memory = MemBuffer::try_new(scratch).map_err(|_| MathError::Limit("diagnostic SVD scratch allocation"))?;
-    svd::svd(scaled.as_ref(), singular.as_mut(), Some(left.as_mut()), Some(right.as_mut()), Par::Seq, MemStack::new(&mut memory), Default::default())
-        .map_err(|e| MathError::Library(format!("diagnostic SVD: {e:?}")))?;
+    let scratch = svd::svd_scratch::<f64>(
+        m,
+        n,
+        ComputeSvdVectors::Full,
+        ComputeSvdVectors::Full,
+        Par::Seq,
+        Default::default(),
+    );
+    let mut memory = MemBuffer::try_new(scratch)
+        .map_err(|_| MathError::Limit("diagnostic SVD scratch allocation"))?;
+    svd::svd(
+        scaled.as_ref(),
+        singular.as_mut(),
+        Some(left.as_mut()),
+        Some(right.as_mut()),
+        Par::Seq,
+        MemStack::new(&mut memory),
+        Default::default(),
+    )
+    .map_err(|e| MathError::Library(format!("diagnostic SVD: {e:?}")))?;
     drop(memory);
     if cancel.load(Ordering::Acquire) {
         return Err(MathError::Cancelled);
     }
-    let maximum = (0..k).map(|i| singular.column_vector()[i]).fold(0., f64::max);
+    let maximum = (0..k)
+        .map(|i| singular.column_vector()[i])
+        .fold(0., f64::max);
     let cutoff = policy.rank_absolute.max(maximum * policy.rank_relative);
-    let rank = (0..k).filter(|i| singular.column_vector()[*i] > cutoff).count();
+    let rank = (0..k)
+        .filter(|i| singular.column_vector()[*i] > cutoff)
+        .count();
     let mut modes = (0..m.max(n))
         .map(|i| SingularMode {
-            value: if i < k { singular.column_vector()[i] } else { 0. },
+            value: if i < k {
+                singular.column_vector()[i]
+            } else {
+                0.
+            },
             left: if i < m {
                 (0..m).map(|j| left[(j, i)]).collect()
             } else {
@@ -316,20 +357,51 @@ mod tests {
     }
     #[test]
     fn diagnostics_full_sequential_svd_preserves_wide_rectangular_nullspaces() {
-        let entries = (0..3).flat_map(|column| (0..2).map(move |row| faer::sparse::Triplet::new(row, column, [1., 2.][row] * [1., 2., -1.][column]))).collect::<Vec<_>>();
+        let entries = (0..3)
+            .flat_map(|column| {
+                (0..2).map(move |row| {
+                    faer::sparse::Triplet::new(row, column, [1., 2.][row] * [1., 2., -1.][column])
+                })
+            })
+            .collect::<Vec<_>>();
         let matrix = faer::sparse::SparseColMat::try_new_from_triplets(2, 3, &entries).unwrap();
-        let policy = MatrixPolicy { dense_entries: 100, findings: 100, parallel_tolerance: 1e-8, rank_absolute: 1e-12, rank_relative: 1e-8, singular_vector: 0.1 };
-        let report: Report = analyze_matrix(matrix.as_ref(), &[1.; 2], &[1.; 3], policy, &AtomicBool::new(false)).unwrap();
+        let policy = MatrixPolicy {
+            dense_entries: 100,
+            findings: 100,
+            parallel_tolerance: 1e-8,
+            rank_absolute: 1e-12,
+            rank_relative: 1e-8,
+            singular_vector: 0.1,
+        };
+        let report: Report = analyze_matrix(
+            matrix.as_ref(),
+            &[1.; 2],
+            &[1.; 3],
+            policy,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(report.rank, 1);
         assert_eq!(report.parallel_rows.len(), 1);
         assert_eq!(report.parallel_columns.len(), 3);
         assert_eq!(report.modes.len(), 3);
-        assert!(report.modes.iter().any(|mode| mode.left.is_empty() && mode.right.len() == 3));
-        let null_modes = report.modes.iter().filter(|mode| mode.value <= report.cutoff).collect::<Vec<_>>();
+        assert!(
+            report
+                .modes
+                .iter()
+                .any(|mode| mode.left.is_empty() && mode.right.len() == 3)
+        );
+        let null_modes = report
+            .modes
+            .iter()
+            .filter(|mode| mode.value <= report.cutoff)
+            .collect::<Vec<_>>();
         assert_eq!(null_modes.len(), 2);
         for mode in null_modes {
             for row in 0..2 {
-                let residual = (0..3).map(|column| [1., 2.][row] * [1., 2., -1.][column] * mode.right[column]).sum::<f64>();
+                let residual = (0..3)
+                    .map(|column| [1., 2.][row] * [1., 2., -1.][column] * mode.right[column])
+                    .sum::<f64>();
                 assert!(residual.abs() < 1e-12);
             }
             assert!((mode.right.iter().map(|value| value * value).sum::<f64>() - 1.).abs() < 1e-12);

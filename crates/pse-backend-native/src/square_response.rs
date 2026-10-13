@@ -213,15 +213,18 @@ pub fn products(
     if parameter_values.len() != np || parameter_values.iter().any(|value| !value.is_finite()) {
         return Products::withheld(Withheld::Numerical("parameter base values".into()), retain);
     }
-    if let Err(cause) = SparseFactor::admit(&SparseRequest {
-        scope: request.scope,
-        point: request.point,
-        values: request.residual_values,
-        tolerances: request.tolerances,
-        normalization: request.normalization,
-        key,
-        bytes: request.bytes,
-    }, execution) {
+    if let Err(cause) = SparseFactor::admit(
+        &SparseRequest {
+            scope: request.scope,
+            point: request.point,
+            values: request.residual_values,
+            tolerances: request.tolerances,
+            normalization: request.normalization,
+            key,
+            bytes: request.bytes,
+        },
+        execution,
+    ) {
         return Products::withheld(cause, retain);
     }
     let (fx, fp) = match evaluate() {
@@ -713,34 +716,76 @@ mod tests {
                 self.work.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 Ok(())
             }
-            fn observe(&self, _: crate::solve::WorkEvidence) -> Result<(), ProblemError> { Ok(()) }
-            fn admit_storage(&self, scope: crate::solve::NativeStorageScope, _: &str, _: usize, opaque: bool) -> Result<(), ProblemError> {
+            fn observe(&self, _: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+                Ok(())
+            }
+            fn admit_storage(
+                &self,
+                scope: crate::solve::NativeStorageScope,
+                _: &str,
+                _: usize,
+                opaque: bool,
+            ) -> Result<(), ProblemError> {
                 assert_eq!(scope, crate::solve::NativeStorageScope::Linear);
                 assert!(opaque);
-                self.storage.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                Err(ProblemError::Unsupported("strict linear storage requires a complete producer-owned bound".into()))
+                self.storage
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Err(ProblemError::Unsupported(
+                    "strict linear storage requires a complete producer-owned bound".into(),
+                ))
             }
         }
         let scope = scope();
-        let tolerance = crate::quality::Tolerances { variables: vec![1e-8; 2], rows: vec![1e-8; 2], integrality: 1e-8 };
+        let tolerance = crate::quality::Tolerances {
+            variables: vec![1e-8; 2],
+            rows: vec![1e-8; 2],
+            integrality: 1e-8,
+        };
         let normalization = pse_math::normalization::Normalization::identity(2, 2);
         let request = Request {
-            scope: &scope, point: &[2., 1.], residual_values: &[0., 0.], tolerances: &tolerance,
-            normalization: &normalization, parameters: &[id(5)], parameter_scales: &[1.], rank_tolerance: 1e-12, bytes: 1 << 20,
+            scope: &scope,
+            point: &[2., 1.],
+            residual_values: &[0., 0.],
+            tolerances: &tolerance,
+            normalization: &normalization,
+            parameters: &[id(5)],
+            parameter_scales: &[1.],
+            rank_tolerance: 1e-12,
+            bytes: 1 << 20,
         };
         let source = key(&request);
         let evaluated = std::cell::Cell::new(0);
         let admission = std::sync::Arc::new(StrictStorage::default());
-        let mut execution = crate::solve::Execution::new(std::sync::Arc::default(), &crate::solve::Controls::default());
+        let mut execution = crate::solve::Execution::new(
+            std::sync::Arc::default(),
+            &crate::solve::Controls::default(),
+        );
         execution.work_admission = Some(admission.clone());
-        let result = products(request, source, &[3.], true, || {
-            evaluated.set(evaluated.get() + 1);
-            Ok((sparse(&faer::mat![[4., 3.], [1., 1.]]), sparse(&faer::mat![[1.], [-1.]])))
-        }, &execution);
-        assert!(matches!(result.response, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
-        assert!(matches!(result.predictor.unwrap(), Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
+        let result = products(
+            request,
+            source,
+            &[3.],
+            true,
+            || {
+                evaluated.set(evaluated.get() + 1);
+                Ok((
+                    sparse(&faer::mat![[4., 3.], [1., 1.]]),
+                    sparse(&faer::mat![[1.], [-1.]]),
+                ))
+            },
+            &execution,
+        );
+        assert!(
+            matches!(result.response, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_)))
+        );
+        assert!(
+            matches!(result.predictor.unwrap(), Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_)))
+        );
         assert_eq!(evaluated.get(), 0);
-        assert_eq!(admission.storage.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(
+            admission.storage.load(std::sync::atomic::Ordering::Relaxed),
+            1
+        );
         assert_eq!(admission.work.load(std::sync::atomic::Ordering::Relaxed), 0);
     }
     #[test]

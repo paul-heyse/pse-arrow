@@ -1,6 +1,6 @@
 ---
 title: Efficiency and the common solver target
-status: draft
+status: in-progress
 date: 2026-10-13
 adrs: []
 review_sources:
@@ -282,3 +282,30 @@ scientific controllers, storage/analytics and assembled qualification remain wit
 companions. Minimum producer delivery does not close C1/C3/D2 or shared F09–F12; their
 remaining obligations and 38g acceptance remain open. Existing-plan/status/index and campaign
 reconciliation remains deferred until the series is implemented.
+
+## Execution checkpoint — Plan 38c, 2026-10-13
+
+At the maintainer's request, finish the immediate native integration/verification tasks,
+integrate owned worker changes, remove the owned worktrees and stop. [38c's Outcome](38c-native-methods-reuse-and-parallelism.md#outcome)
+owns the resulting packet state, exact support decisions and targeted acceptance;
+[its Verification](38c-native-methods-reuse-and-parallelism.md#verification) owns the commands
+and results. Proposed ADR-0185 and architecture revision 162 carry enduring reset, reuse,
+resource, mutation and selected-method contracts. ADR status remains proposed.
+
+38a/38b retain their completed bounded outcomes. C1–C6 and I-C1–I-C4 now have implemented
+deliveries or explicit method/support decisions. 38c remains in-progress for the final linked
+Python extension refresh and consumer tests, which were not run before the maintainer stopped
+further testing. Final native selections passed 66 and 39 tests, runtime lifecycle/consumer
+controls passed 17, and the actual child selection passed 10; these are overlapping scoped
+invocations, not assembled qualification. Shared review findings and assembled
+qualification remain open at this coordinator and 38g. Remaining scientific/workflow,
+storage/analytics and development scope stays with 38d–38f. None is started by this handoff.
+
+The current-work index now points here instead of the superseded Plan36. This is a navigation
+and stop checkpoint; substantive reconciliation of other plan contracts/statuses and historical
+campaigns remains deferred until series completion. Do not resume a historical campaign or
+infer whole-product qualification from 38c's targeted controls.
+
+The maintainer explicitly ceased further testing at closeout. No tests, builds or qualification
+checks should resume from this checkpoint without a new instruction. Owned worker changes are
+integrated on main and their worktrees removed; the companion retains the exact stop boundary.

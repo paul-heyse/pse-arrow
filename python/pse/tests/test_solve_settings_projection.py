@@ -158,6 +158,8 @@ def test_backend_settings_typed() -> None:
 @pytest.mark.unit
 def test_solve_settings_enum_types() -> None:
     """Every enumeration of the settings documents is the registry's generated type."""
+    assert pse.SolveSettings().controls.reuse == ReusePolicy.ALLOW_REBUILD
+    assert pse.SolveSettings().controls.start == NativeStartPolicy.NO_PRIOR_START
     hints = {
         field.name: field.type for field in msgspec.structs.fields(pse.SolveSettings)
     }

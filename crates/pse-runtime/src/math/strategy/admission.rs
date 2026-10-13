@@ -294,8 +294,11 @@ impl WorkAdmission for TaskAdmission {
         known_bytes: usize,
     ) -> Result<Option<Arc<dyn std::any::Any + Send + Sync>>, ProblemError> {
         self.scope.check().map_err(ProblemError::Provider)?;
-        let Some(pool) = &self.pool else { return Ok(None) };
-        let reservation = MemoryConsumer::new(format!("math:native-retained:{owner}")).register(pool);
+        let Some(pool) = &self.pool else {
+            return Ok(None);
+        };
+        let reservation =
+            MemoryConsumer::new(format!("math:native-retained:{owner}")).register(pool);
         let result = match &self.pressure {
             Some(pressure) => pressure.try_grow(&reservation, known_bytes),
             None => reservation.try_grow(known_bytes),
@@ -303,7 +306,9 @@ impl WorkAdmission for TaskAdmission {
         // Optional retention never blocks useful full-update work under pressure.
         // Cancellation/deadline retains its typed meaning even if capacity also failed.
         self.scope.check().map_err(ProblemError::Provider)?;
-        if result.is_err() { return Ok(None) }
+        if result.is_err() {
+            return Ok(None);
+        }
         Ok(Some(pse_columnar::AllocationLease::new(reservation)))
     }
     fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
@@ -663,14 +668,28 @@ mod tests {
         use datafusion::execution::memory_pool::GreedyMemoryPool;
         let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64));
         let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let task = TaskAdmission::new(limits(),
-            pse_kernels::ExecutionScope::new(cancel.clone(), None), Some(pool.clone()), false);
+        let task = TaskAdmission::new(
+            limits(),
+            pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            Some(pool.clone()),
+            false,
+        );
         let weak = Arc::downgrade(&task);
-        let token = task.reserve_retained_storage("witness", 64).unwrap().unwrap();
+        let token = task
+            .reserve_retained_storage("witness", 64)
+            .unwrap()
+            .unwrap();
         assert_eq!(pool.reserved(), 64);
-        assert!(task.reserve_retained_storage("replacement", 1).unwrap().is_none());
+        assert!(
+            task.reserve_retained_storage("replacement", 1)
+                .unwrap()
+                .is_none()
+        );
         cancel.store(true, std::sync::atomic::Ordering::Release);
-        assert!(matches!(task.reserve_retained_storage("cancelled", 1), Err(ProblemError::Provider(_))));
+        assert!(matches!(
+            task.reserve_retained_storage("cancelled", 1),
+            Err(ProblemError::Provider(_))
+        ));
         drop(task);
         assert!(weak.upgrade().is_none());
         assert_eq!(pool.reserved(), 64);

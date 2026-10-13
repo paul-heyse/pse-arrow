@@ -239,7 +239,10 @@ impl SparseFactor {
             .filter(|bytes| *bytes <= request.bytes)
             .ok_or(Withheld::Memory)
     }
-    pub(super) fn admit(request: &SparseRequest<'_>, execution: &Execution) -> Result<usize, Withheld> {
+    pub(super) fn admit(
+        request: &SparseRequest<'_>,
+        execution: &Execution,
+    ) -> Result<usize, Withheld> {
         let allowance = Self::check(request)?;
         admit_storage(execution).map_err(partial)?;
         Ok(allowance)
@@ -704,7 +707,12 @@ fn admit_storage(execution: &Execution) -> Result<(), ProblemError> {
         // faer 0.24.4's scratch API covers MemStack, while symbolic preparation and
         // pivot-dependent NumericLu fill grow private heap Vecs. Do not present the
         // deployment estimate as known bytes or a complete bound, including for retained-factor actions.
-        admission.admit_storage(NativeStorageScope::Linear, "square-response-faer-lu", 0, true)?;
+        admission.admit_storage(
+            NativeStorageScope::Linear,
+            "square-response-faer-lu",
+            0,
+            true,
+        )?;
     }
     Ok(())
 }
@@ -794,10 +802,18 @@ mod tests {
         iterations: Option<u64>,
     }
     impl crate::solve::WorkAdmission for Admission {
-        fn admit_storage(&self, scope: NativeStorageScope, _: &str, bytes: usize, opaque: bool) -> Result<(), ProblemError> {
+        fn admit_storage(
+            &self,
+            scope: NativeStorageScope,
+            _: &str,
+            bytes: usize,
+            opaque: bool,
+        ) -> Result<(), ProblemError> {
             self.storage.lock().unwrap().push((scope, bytes, opaque));
             if self.strict_storage && scope == NativeStorageScope::Linear && opaque {
-                return Err(ProblemError::Unsupported("strict linear storage requires complete producer-owned fill bound".into()));
+                return Err(ProblemError::Unsupported(
+                    "strict linear storage requires complete producer-owned fill bound".into(),
+                ));
             }
             Ok(())
         }
@@ -831,22 +847,48 @@ mod tests {
     }
     #[test]
     fn opaque_sparse_fill_refuses_strict_before_derivatives_and_retained_actions() {
-        let admission = Arc::new(Admission { strict_storage: true, ..Default::default() });
+        let admission = Arc::new(Admission {
+            strict_storage: true,
+            ..Default::default()
+        });
         let execution = admitted(admission.clone());
         let evaluated = std::cell::Cell::new(0);
-        let result = factor_evaluations(1 << 20, &[2., 1.], &execution, vec![4., 1., 3., 1.], &evaluated);
-        assert!(matches!(result, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
+        let result = factor_evaluations(
+            1 << 20,
+            &[2., 1.],
+            &execution,
+            vec![4., 1., 3., 1.],
+            &evaluated,
+        );
+        assert!(
+            matches!(result, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_)))
+        );
         assert_eq!(evaluated.get(), 0);
         assert!(admission.seen.lock().unwrap().is_empty());
-        assert_eq!(*admission.storage.lock().unwrap(), [(NativeStorageScope::Linear, 0, true)]);
+        assert_eq!(
+            *admission.storage.lock().unwrap(),
+            [(NativeStorageScope::Linear, 0, true)]
+        );
 
         let ordinary = admitted(Arc::new(Admission::default()));
         let held = factor(1 << 20, &[2., 1.], &ordinary).unwrap();
-        assert!(matches!(held.action(&[-1., 1.], &execution), Err(ProblemError::Unsupported(_))));
-        assert!(matches!(held.transpose_action(&[1., 2.], &execution), Err(ProblemError::Unsupported(_))));
+        assert!(matches!(
+            held.action(&[-1., 1.], &execution),
+            Err(ProblemError::Unsupported(_))
+        ));
+        assert!(matches!(
+            held.transpose_action(&[1., 2.], &execution),
+            Err(ProblemError::Unsupported(_))
+        ));
         let rhs = faer::mat![[-1., -2.], [1., -3.]];
-        assert!(matches!(held.actions(rhs.as_ref(), 1 << 20, &execution), Err(ProblemError::Unsupported(_))));
-        assert!(admission.seen.lock().unwrap().is_empty(), "refused actions must not execute a backsolve");
+        assert!(matches!(
+            held.actions(rhs.as_ref(), 1 << 20, &execution),
+            Err(ProblemError::Unsupported(_))
+        ));
+        assert!(
+            admission.seen.lock().unwrap().is_empty(),
+            "refused actions must not execute a backsolve"
+        );
         let (values, evidence) = held.actions(rhs.as_ref(), 1 << 20, &ordinary).unwrap();
         let expected = faer::mat![[-4., 7.], [5., -10.]];
         for column in 0..2 {

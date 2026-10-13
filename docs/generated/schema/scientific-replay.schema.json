@@ -7559,7 +7559,7 @@
         },
         "reuse": {
           "$ref": "#/$defs/ReusePolicy",
-          "default": "fresh",
+          "default": "allow_rebuild",
           "description": "Native allocation/data reuse policy."
         },
         "start": {

@@ -300,8 +300,11 @@ mod tests {
         )
     }
 
-    fn admitted_expression(expression: Atom, lower: f64, upper: f64)
-        -> (CubicRoots, Arc<Problem>, Options, Arc<AtomicBool>) {
+    fn admitted_expression(
+        expression: Atom,
+        lower: f64,
+        upper: f64,
+    ) -> (CubicRoots, Arc<Problem>, Options, Arc<AtomicBool>) {
         use crate::guarded::{PreparedBody, Stage};
         let cancel = Arc::new(AtomicBool::new(false));
         crate::initialize().unwrap();
@@ -363,32 +366,61 @@ mod tests {
         let x = crate::library::formal(0).unwrap();
         let p = crate::library::formal(1).unwrap();
         let (solver, problem, options, cancel) = admitted_expression(
-            p.clone()*x.clone().pow(Atom::num(3)) + x.clone() - Atom::num(1), 0.0, 3.0);
+            p.clone() * x.clone().pow(Atom::num(3)) + x.clone() - Atom::num(1),
+            0.0,
+            3.0,
+        );
         let mut worker = solver.worker();
         for parameter in [1.0, 0.0, 1.0] {
-            let point = worker.solve(problem.clone(), &[parameter], &options, &cancel).unwrap();
-            problem.verify(&[parameter], &point, &options, &cancel).unwrap();
-            if parameter == 0.0 { assert_eq!(point, [1.0]); }
+            let point = worker
+                .solve(problem.clone(), &[parameter], &options, &cancel)
+                .unwrap();
+            problem
+                .verify(&[parameter], &point, &options, &cancel)
+                .unwrap();
+            if parameter == 0.0 {
+                assert_eq!(point, [1.0]);
+            }
         }
-        let (solver, problem, options, cancel) = admitted_expression(
-            p*x.clone().pow(Atom::num(2)), 0.0, 3.0);
-        assert!(matches!(solver.worker().solve(problem, &[0.0], &options, &cancel),
-            Err(MathError::Domain { requirement: "nondegenerate polynomial root", .. })));
-        let (solver, problem, options, cancel) = admitted_expression(
-            x.pow(Atom::num(2)) - Atom::num(1), -3.0, 3.0);
-        assert!(matches!(solver.worker().solve(problem, &[0.0], &options, &cancel),
-            Err(MathError::Domain { requirement: "exactly one original-residual-verified root in the declared branch interval", .. })));
+        let (solver, problem, options, cancel) =
+            admitted_expression(p * x.clone().pow(Atom::num(2)), 0.0, 3.0);
+        assert!(matches!(
+            solver.worker().solve(problem, &[0.0], &options, &cancel),
+            Err(MathError::Domain {
+                requirement: "nondegenerate polynomial root",
+                ..
+            })
+        ));
+        let (solver, problem, options, cancel) =
+            admitted_expression(x.pow(Atom::num(2)) - Atom::num(1), -3.0, 3.0);
+        assert!(matches!(
+            solver.worker().solve(problem, &[0.0], &options, &cancel),
+            Err(MathError::Domain {
+                requirement: "exactly one original-residual-verified root in the declared branch interval",
+                ..
+            })
+        ));
     }
 
     #[test]
     fn repeated_cubic_root_is_a_value_but_never_a_regular_ift_jet() {
         crate::initialize().unwrap();
         let (solver, problem, options, cancel) = admitted_expression(
-            (crate::library::formal(0).unwrap() - crate::library::formal(1).unwrap()).pow(Atom::num(3)),
-            0.0, 3.0);
-        let point = solver.worker().solve(problem.clone(), &[1.0], &options, &cancel).unwrap();
+            (crate::library::formal(0).unwrap() - crate::library::formal(1).unwrap())
+                .pow(Atom::num(3)),
+            0.0,
+            3.0,
+        );
+        let point = solver
+            .worker()
+            .solve(problem.clone(), &[1.0], &options, &cancel)
+            .unwrap();
         assert_eq!(point, [1.0]);
-        assert!(problem.derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel).is_err());
+        assert!(
+            problem
+                .derivatives(&[1.0], &point, DerivativeOrder::First, &options, &cancel)
+                .is_err()
+        );
     }
 
     #[test]

@@ -111,7 +111,9 @@ impl Accelerator for Bracketed {
         cancel: &Arc<AtomicBool>,
     ) -> Result<Arc<dyn InnerSolver>, MathError> {
         if unknowns != 1 {
-            return Err(MathError::Contract("bracketed accelerator requires one unknown".into()));
+            return Err(MathError::Contract(
+                "bracketed accelerator requires one unknown".into(),
+            ));
         }
         limits.check()?;
         Ok(Arc::new(BracketedRoot::new(body, cancel)?))
@@ -165,9 +167,21 @@ mod tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let limits = EvaluationLimits::default();
         let standard = Accelerators::standard();
-        assert!(standard.admit("affine", &body(1), 1, limits, &cancel).is_ok());
-        assert!(standard.admit("affine", &body(2), 1, limits, &cancel).is_err());
-        assert!(standard.admit("affine", &body(1), 2, limits, &cancel).is_err());
+        assert!(
+            standard
+                .admit("affine", &body(1), 1, limits, &cancel)
+                .is_ok()
+        );
+        assert!(
+            standard
+                .admit("affine", &body(2), 1, limits, &cancel)
+                .is_err()
+        );
+        assert!(
+            standard
+                .admit("affine", &body(1), 2, limits, &cancel)
+                .is_err()
+        );
         let mut registry = Accelerators::default();
         assert!(
             registry

@@ -4,10 +4,12 @@ Plans own the execution status of work that is actually active; packets may own 
 progress. The current architecture and its supported scope live in the
 [architecture sections](../authoritative_design/README.md), not in plans.
 
-[Plan 36: Efficiency alignment](36-efficiency-alignment.md) owns the remaining reconciled
-efficiency scope. Its [maintainer stop checkpoint](36-efficiency-alignment.md#maintainer-stop-checkpoint-2026-10-12)
-owns the next execution boundary and open P-G1 acceptance. Plan37 supplies completed lifecycle
-prerequisites; this handoff does not resume Plan36 or qualify its stopped campaign.
+[Plan 38: Efficiency and the common solver target](38-efficiency-and-solver-target.md)
+owns the current reconciled efficiency/solver scope and supersedes remaining Plan36 work.
+Its [current handoff](38-efficiency-and-solver-target.md#execution-checkpoint--plan-38c-2026-10-13)
+routes the native implementation, open companion work and separately owed assembled
+qualification. The owning companions retain their exact outcomes and limits. Plan37 supplies
+completed lifecycle prerequisites; this handoff does not resume or qualify a stopped campaign.
 
 [Plan 32: Workspace content lifecycle](32-workspace-content-lifecycle.md) owns shared metadata
 interpretation, explicit publication assets, producer-owned artifact lifecycle and the bounded

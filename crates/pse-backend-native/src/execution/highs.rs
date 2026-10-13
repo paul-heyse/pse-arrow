@@ -37,7 +37,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[ProblemClass::Linear, ProblemClass::MixedLinear],
     batch: false,
     sensitivities: false,
-    reuse: "native coefficient/bound updates with compatible layout",
+    reuse: "bulk native vectors and optional charged exact value deltas with compatible layout; independent reset clears solver/options/history; explicit basis only",
     // PDLP never polls the interrupt callback (HiGHS `pdlp/*Wrapper.cpp`), so, like the
     // QP solver, it stops only at the native time limit (F08c).
     cancellation: "simplex/IPM/MIP interrupt callbacks; QP and PDLP native time limit only",
@@ -153,82 +153,85 @@ impl BackendExecution for Highs {
             };
             let stamp = input.compatibility;
             let outcome = (|| {
-            let (session, reused) = retained.session(
-                Backend::Highs,
-                input.controls.reuse,
-                |session: &mut highs::Session| {
-                    session.update(problem, certificate, stamp.clone(), &input.execution)
-                },
-                || highs::Session::new(problem, certificate, stamp.clone(), &input.execution),
-            )?;
-            if let Some(start) = &settings.sparse_start {
-                let start = start
-                    .iter()
-                    .map(|(id, v)| {
-                        let i = problem
-                            .contract
-                            .variables
-                            .iter()
-                            .position(|c| c.id == *id)
-                            .ok_or_else(|| {
-                                ProblemError::Contract("unknown sparse start coordinate".into())
-                            })?;
-                        Ok((
-                            *id,
-                            pse_math::normalization::checked_ratio(*v, normalization.variables[i])?,
-                        ))
-                    })
-                    .collect::<Result<BTreeMap<_, _>, ProblemError>>()?;
-                session.sparse_start(problem, &start)?;
-            }
-            let mut report = session.solve(
-                problem,
-                normalization,
-                input.controls,
-                input.accuracy,
-                settings,
-                input.execution.clone(),
-                input.tolerances,
-                input.warm,
-            )?;
-            let requested = &settings.diagnostics;
-            if requested.any() {
-                let request = transport::diagnostic_request(requested, normalization)?;
-                let mut diagnostics = session.diagnose(problem, &request, &input.execution)?;
-                // The fixed-commitment LP prices the MIP candidate, conditional on its
-                // commitment (ADR-0118 item 9); both are still native coordinates.
-                if let Some(fixed) = &diagnostics.fixed_lp {
-                    let priced = report.candidate.as_mut().map_or_else(
-                        || Err("no MIP candidate to price".to_owned()),
-                        |candidate| fixed.price(candidate, input.accuracy),
-                    );
-                    if let Err(reason) = priced {
-                        diagnostics
-                            .unavailable
-                            .insert("fixed_lp.candidate".into(), reason);
-                    }
-                }
-                // An exported ray is the typed certificate of an infeasible or unbounded LP,
-                // in native coordinates like every adapter's; the runner verifies it.
-                report.certificate = crate::certificate::from_highs_rays(
-                    problem,
-                    report.termination.category,
-                    diagnostics.dual_ray.as_deref(),
-                    diagnostics.primal_ray.as_deref(),
-                );
-                transport::recover_diagnostics(
-                    &mut diagnostics,
-                    normalization,
-                    row_constants,
-                    &problem.contract,
+                let (session, reused) = retained.session(
+                    Backend::Highs,
+                    input.controls.reuse,
+                    |session: &mut highs::Session| {
+                        session.update(problem, certificate, stamp.clone(), &input.execution)
+                    },
+                    || highs::Session::new(problem, certificate, stamp.clone(), &input.execution),
                 )?;
-                report.highs_diagnostics = Some(Box::new(diagnostics));
-            }
-            report
-                .metrics
-                .insert("reuse.native_model".into(), Metric::Bool(reused));
-            report.evidence.reused_native_state = reused;
-            Ok(report)
+                if let Some(start) = &settings.sparse_start {
+                    let start = start
+                        .iter()
+                        .map(|(id, v)| {
+                            let i = problem
+                                .contract
+                                .variables
+                                .iter()
+                                .position(|c| c.id == *id)
+                                .ok_or_else(|| {
+                                    ProblemError::Contract("unknown sparse start coordinate".into())
+                                })?;
+                            Ok((
+                                *id,
+                                pse_math::normalization::checked_ratio(
+                                    *v,
+                                    normalization.variables[i],
+                                )?,
+                            ))
+                        })
+                        .collect::<Result<BTreeMap<_, _>, ProblemError>>()?;
+                    session.sparse_start(problem, &start)?;
+                }
+                let mut report = session.solve(
+                    problem,
+                    normalization,
+                    input.controls,
+                    input.accuracy,
+                    settings,
+                    input.execution.clone(),
+                    input.tolerances,
+                    input.warm,
+                )?;
+                let requested = &settings.diagnostics;
+                if requested.any() {
+                    let request = transport::diagnostic_request(requested, normalization)?;
+                    let mut diagnostics = session.diagnose(problem, &request, &input.execution)?;
+                    // The fixed-commitment LP prices the MIP candidate, conditional on its
+                    // commitment (ADR-0118 item 9); both are still native coordinates.
+                    if let Some(fixed) = &diagnostics.fixed_lp {
+                        let priced = report.candidate.as_mut().map_or_else(
+                            || Err("no MIP candidate to price".to_owned()),
+                            |candidate| fixed.price(candidate, input.accuracy),
+                        );
+                        if let Err(reason) = priced {
+                            diagnostics
+                                .unavailable
+                                .insert("fixed_lp.candidate".into(), reason);
+                        }
+                    }
+                    // An exported ray is the typed certificate of an infeasible or unbounded LP,
+                    // in native coordinates like every adapter's; the runner verifies it.
+                    report.certificate = crate::certificate::from_highs_rays(
+                        problem,
+                        report.termination.category,
+                        diagnostics.dual_ray.as_deref(),
+                        diagnostics.primal_ray.as_deref(),
+                    );
+                    transport::recover_diagnostics(
+                        &mut diagnostics,
+                        normalization,
+                        row_constants,
+                        &problem.contract,
+                    )?;
+                    report.highs_diagnostics = Some(Box::new(diagnostics));
+                }
+                report
+                    .metrics
+                    .insert("reuse.native_model".into(), Metric::Bool(reused));
+                report.evidence.reused_native_state = reused;
+                Ok(report)
             })();
             if outcome.is_err() {
                 retained.clear();

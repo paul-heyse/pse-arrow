@@ -35,8 +35,10 @@ pub mod kinsol;
 pub mod kkt;
 #[cfg(any(
     feature = "ipopt",
+    feature = "sdp",
     feature = "clarabel-pardiso",
     feature = "uno",
+    feature = "scip",
     feature = "petsc"
 ))]
 mod mkl;
@@ -743,7 +745,15 @@ impl CoefficientProblem {
         let column = faer::ColRef::from_slice(x);
         let linear = faer::ColRef::from_slice(&self.objective).transpose() * column;
         let quadratic = self.hessian.as_ref().map_or(0.0, |q| {
-            let product = q * column;
+            let mut product = faer::Col::zeros(x.len());
+            faer::sparse::linalg::matmul::sparse_dense_matmul(
+                product.as_mut().as_mat_mut(),
+                faer::Accum::Replace,
+                q.as_ref(),
+                column.as_mat(),
+                1.0,
+                faer::Par::Seq,
+            );
             0.5 * (column.transpose() * product.as_ref())
         });
         self.objective_constant + linear + quadratic

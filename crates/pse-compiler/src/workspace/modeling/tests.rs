@@ -7022,7 +7022,9 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
     #[derive(Debug)]
     struct UnselectedNative;
     impl InnerSolver for UnselectedNative {
-        fn minimum_order(&self) -> DerivativeOrder { DerivativeOrder::Value }
+        fn minimum_order(&self) -> DerivativeOrder {
+            DerivativeOrder::Value
+        }
         fn identity(&self) -> ContentHash {
             pse_math::implicit::solver_identity("test.unselected-native.v1")
         }
@@ -7030,34 +7032,86 @@ fn authored_affine_accelerator_uses_registered_solver_and_original_ift_guards() 
             panic!("accelerated(affine) must use its registered capability");
         }
     }
-    let (mut workspace, _, _, root) = setup("package p { def Root { var p:Scalar; implicit direct { var y:Scalar; eq residual:y==1/p; } realize solve on direct using accelerated(affine); eq pin:direct.y==0.5; } }");
+    let (mut workspace, _, _, root) = setup(
+        "package p { def Root { var p:Scalar; implicit direct { var y:Scalar; eq residual:y==1/p; } realize solve on direct using accelerated(affine); eq pin:direct.y==0.5; } }",
+    );
     let admitted = admit(&mut workspace, root);
     let inner = admitted.implicit.values().next().unwrap();
     assert!(matches!(&inner.algorithm, ImplicitAlgorithm::Accelerator(name) if name == "affine"));
-    assert_eq!(inner.selection.equivalence, SelectionEquivalence::NondegenerateAffine);
+    assert_eq!(
+        inner.selection.equivalence,
+        SelectionEquivalence::NondegenerateAffine
+    );
     let cancel = Arc::new(AtomicBool::new(false));
     let accelerators = pse_math::implicit::accelerators::Accelerators::standard();
-    let factory = inner.factory(BTreeMap::from([(inner.residuals[0].id,
-        Configuration::Fixed(vec![Unknown { id: inner.unknowns[0], lower: 0.0, upper: 2.0 }],
-            Options { start: vec![0.0], variable_nominals: vec![1.0], variable_tolerance: vec![1e-10],
-                residual_tolerance: vec![1e-10], iterations: 1,
-                time_limit: std::time::Duration::from_secs(1), derivative_tolerance: 1e-12 }))]),
-        ImplicitCapabilities { solver: Arc::new(UnselectedNative), verifier: None, accelerators: &accelerators },
-        DerivativeOrder::Second, cancel.clone(), EvaluationLimits::default()).unwrap();
+    let factory = inner
+        .factory(
+            BTreeMap::from([(
+                inner.residuals[0].id,
+                Configuration::Fixed(
+                    vec![Unknown {
+                        id: inner.unknowns[0],
+                        lower: 0.0,
+                        upper: 2.0,
+                    }],
+                    Options {
+                        start: vec![0.0],
+                        variable_nominals: vec![1.0],
+                        variable_tolerance: vec![1e-10],
+                        residual_tolerance: vec![1e-10],
+                        iterations: 1,
+                        time_limit: std::time::Duration::from_secs(1),
+                        derivative_tolerance: 1e-12,
+                    },
+                ),
+            )]),
+            ImplicitCapabilities {
+                solver: Arc::new(UnselectedNative),
+                verifier: None,
+                accelerators: &accelerators,
+            },
+            DerivativeOrder::Second,
+            cancel.clone(),
+            EvaluationLimits::default(),
+        )
+        .unwrap();
     let pse_math::implicit::ImplicitFactory::Root(root_factory) = &factory else {
         panic!("single authored affine root factory");
     };
-    assert_eq!(root_factory.solver.identity(), pse_math::implicit::solver_identity("faer.affine.v1"));
+    assert_eq!(
+        root_factory.solver.identity(),
+        pse_math::implicit::solver_identity("faer.affine.v1")
+    );
     let mut provider = factory.create().unwrap();
-    let request = ProviderRequest { outputs: vec![0], order: DerivativeOrder::Second };
-    let context = EvaluationContext { cancelled: &cancel, max_result_bytes: 1024 };
-    for (parameter, value, first, second) in [(2.0, 0.5, -0.25, 0.25), (4.0, 0.25, -0.0625, 0.03125)] {
+    let request = ProviderRequest {
+        outputs: vec![0],
+        order: DerivativeOrder::Second,
+    };
+    let context = EvaluationContext {
+        cancelled: &cancel,
+        max_result_bytes: 1024,
+    };
+    for (parameter, value, first, second) in
+        [(2.0, 0.5, -0.25, 0.25), (4.0, 0.25, -0.0625, 0.03125)]
+    {
         let output = provider.evaluate(&[parameter], &request, &context).unwrap();
         assert!((output.values[0] - value).abs() < 1e-12);
         assert!((output.jacobian[0] - first).abs() < 1e-12);
         assert!((output.hessians[0] - second).abs() < 1e-12);
     }
-    assert!(provider.evaluate(&[0.0], &request, &context).is_err(), "original reciprocal guard");
-    assert!(provider.evaluate(&[-1.0], &request, &context).is_err(), "original unknown bounds");
-    assert_eq!(provider.evaluate(&[2.0], &request, &context).unwrap().values, vec![0.5]);
+    assert!(
+        provider.evaluate(&[0.0], &request, &context).is_err(),
+        "original reciprocal guard"
+    );
+    assert!(
+        provider.evaluate(&[-1.0], &request, &context).is_err(),
+        "original unknown bounds"
+    );
+    assert_eq!(
+        provider
+            .evaluate(&[2.0], &request, &context)
+            .unwrap()
+            .values,
+        vec![0.5]
+    );
 }

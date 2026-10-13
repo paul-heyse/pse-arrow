@@ -193,8 +193,8 @@ mod native {
     };
     use pounce_rs::{
         convex::{
-            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, Triplet,
-            solve_qp_batch_parallel, solve_socp_ipm,
+            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, Triplet, solve_qp_batch_parallel,
+            solve_socp_ipm,
         },
         linsol::{FeralSolverInterface, SparseSymLinearSolverInterface},
     };
@@ -356,8 +356,9 @@ mod native {
             problem.contract.rows.len(),
         )?;
         input.controls.validate()?;
-        let pool_width = NonZeroUsize::new(input.controls.threads).ok_or_else(||
-            ProblemError::Contract("POUNCE-convex factor pool width must be positive".into()))?;
+        let pool_width = NonZeroUsize::new(input.controls.threads).ok_or_else(|| {
+            ProblemError::Contract("POUNCE-convex factor pool width must be positive".into())
+        })?;
         super::admit_reuse(input.controls)?;
         if input.warm.is_some() {
             return Err(ProblemError::Unsupported(
@@ -463,10 +464,7 @@ mod native {
     /// one options set through the library's cold batch, the others instance by instance.
     /// A single member factors on the worker's threads; a batch factors each instance
     /// serially, its parallelism across instances.
-    fn solve_members(
-        members: &[Option<Member<'_>>],
-        active: &[usize],
-    ) -> Vec<Option<QpSolution>> {
+    fn solve_members(members: &[Option<Member<'_>>], active: &[usize]) -> Vec<Option<QpSolution>> {
         struct Job<'a> {
             problem: &'a QpProblem,
             specs: &'a [ConeSpec],
@@ -489,7 +487,11 @@ mod native {
                         quadratic: m.form.quadratic,
                         options: &m.options,
                         linear,
-                        pool_width: if serial { NonZeroUsize::MIN } else { m.pool_width },
+                        pool_width: if serial {
+                            NonZeroUsize::MIN
+                        } else {
+                            m.pool_width
+                        },
                     }
                 })
             })
@@ -497,7 +499,10 @@ mod native {
         let backend = |linear: &crate::settings::pounce::LinearSettings, pool_width| {
             let linear = linear.clone();
             move || -> Box<dyn SparseSymLinearSolverInterface> {
-                Box::new(FeralSolverInterface::with_config_and_pool_width(linear.clone(), pool_width))
+                Box::new(FeralSolverInterface::with_config_and_pool_width(
+                    linear.clone(),
+                    pool_width,
+                ))
             }
         };
         let uniform = jobs.first().is_some_and(|f| {

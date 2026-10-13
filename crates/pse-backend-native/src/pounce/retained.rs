@@ -13,8 +13,8 @@ use pounce_rs::pounce_algorithm::alg_builder::LinearBackendFactory;
 use std::{
     cell::RefCell,
     collections::BTreeMap,
-    rc::Rc,
     num::NonZeroUsize,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -64,7 +64,11 @@ pub(super) struct Pool {
     storage_owner: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 impl Pool {
-    pub(super) fn new(config: FeralConfig, identity: serde_json::Value, pool_width: NonZeroUsize) -> Rc<RefCell<Self>> {
+    pub(super) fn new(
+        config: FeralConfig,
+        identity: serde_json::Value,
+        pool_width: NonZeroUsize,
+    ) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Self {
             config,
             pool_width,
@@ -120,7 +124,10 @@ impl Pool {
                 Held {
                     #[cfg(test)]
                     id: owner.counts.created,
-                    backend: FeralSolverInterface::with_config_and_pool_width(owner.config.clone(), owner.pool_width),
+                    backend: FeralSolverInterface::with_config_and_pool_width(
+                        owner.config.clone(),
+                        owner.pool_width,
+                    ),
                     pattern: None,
                 }
             };
@@ -218,7 +225,9 @@ impl Drop for Lease {
                 }
                 owner.idle.entry(self.role).or_default().push(held);
             } else {
-                if reset_attempted { owner.counts.reset_refused += 1; }
+                if reset_attempted {
+                    owner.counts.reset_refused += 1;
+                }
                 owner.counts.discarded += 1;
             }
         }
@@ -399,14 +408,22 @@ mod tests {
     }
     #[test]
     fn independent_reset_restores_quality_and_discards_unhealthy_lease() {
-        let pool = Pool::new(FeralConfig {
-            parallel: Some(false), increase_quality: true,
-            ordering: pounce_feral::OrderingMethod::Amd,
-            scaling: pounce_feral::ScalingStrategy::Identity,
-            ..FeralConfig::default()
-        }, serde_json::Value::Null, NonZeroUsize::new(1).unwrap());
+        let pool = Pool::new(
+            FeralConfig {
+                parallel: Some(false),
+                increase_quality: true,
+                ordering: pounce_feral::OrderingMethod::Amd,
+                scaling: pounce_feral::ScalingStrategy::Identity,
+                ..FeralConfig::default()
+            },
+            serde_json::Value::Null,
+            NonZeroUsize::new(1).unwrap(),
+        );
         let sink = Arc::new(Mutex::new(LinearSolverSummary::default()));
-        let role = Role { phase: Phase::Main, ordinal: 0 };
+        let role = Role {
+            phase: Phase::Main,
+            ordinal: 0,
+        };
         let mut first = Pool::checkout(&pool, role, sink.clone());
         let id = first.held().id;
         factor(&mut first, [4.0, 1.0, 3.0]);
@@ -416,10 +433,17 @@ mod tests {
         let mut second = Pool::checkout(&pool, role, sink.clone());
         assert_eq!(second.held().id, id);
         factor(&mut second, [5.0, 1.0, 4.0]);
-        assert_eq!(second.initialize_structure(-1, 0, &[], &[]), ESymSolverStatus::FatalError);
+        assert_eq!(
+            second.initialize_structure(-1, 0, &[], &[]),
+            ESymSolverStatus::FatalError
+        );
         drop(second);
         assert_eq!(pool.borrow().counts().discarded, 1);
-        assert_eq!(pool.borrow().counts().reset_refused, 0, "project refusal did not attempt a library reset");
+        assert_eq!(
+            pool.borrow().counts().reset_refused,
+            0,
+            "project refusal did not attempt a library reset"
+        );
         let replacement = Pool::checkout(&pool, role, sink);
         assert_ne!(replacement.held().id, id);
     }
@@ -427,9 +451,20 @@ mod tests {
     #[test]
     fn owned_pool_width_is_part_of_compatibility() {
         let identity = serde_json::json!({"profile": "same"});
-        let pool = Pool::new(FeralConfig::default(), identity.clone(), NonZeroUsize::new(2).unwrap());
-        assert!(pool.borrow().matches(&identity, NonZeroUsize::new(2).unwrap()));
-        assert!(!pool.borrow().matches(&identity, NonZeroUsize::new(1).unwrap()));
+        let pool = Pool::new(
+            FeralConfig::default(),
+            identity.clone(),
+            NonZeroUsize::new(2).unwrap(),
+        );
+        assert!(
+            pool.borrow()
+                .matches(&identity, NonZeroUsize::new(2).unwrap())
+        );
+        assert!(
+            !pool
+                .borrow()
+                .matches(&identity, NonZeroUsize::new(1).unwrap())
+        );
     }
 
     #[test]
@@ -437,24 +472,47 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         struct Allocation(Arc<AtomicUsize>);
         impl Drop for Allocation {
-            fn drop(&mut self) { self.0.fetch_add(1, Ordering::SeqCst); }
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
         }
         let released = Arc::new(AtomicUsize::new(0));
-        let allocation: Arc<dyn std::any::Any + Send + Sync> = Arc::new(Allocation(released.clone()));
-        let pool = Pool::new(FeralConfig { parallel: Some(false), ..Default::default() },
-            serde_json::Value::Null, NonZeroUsize::new(1).unwrap());
+        let allocation: Arc<dyn std::any::Any + Send + Sync> =
+            Arc::new(Allocation(released.clone()));
+        let pool = Pool::new(
+            FeralConfig {
+                parallel: Some(false),
+                ..Default::default()
+            },
+            serde_json::Value::Null,
+            NonZeroUsize::new(1).unwrap(),
+        );
         pool.borrow_mut().retain_storage(Some(allocation.clone()));
-        let lease = Pool::checkout(&pool, Role { phase: Phase::Main, ordinal: 0 },
-            Arc::new(Mutex::new(LinearSolverSummary::default())));
+        let lease = Pool::checkout(
+            &pool,
+            Role {
+                phase: Phase::Main,
+                ordinal: 0,
+            },
+            Arc::new(Mutex::new(LinearSolverSummary::default())),
+        );
         let mut session = super::super::Session::new();
         session.factors = Some(pool.clone());
         session.storage_owner = Some(allocation);
         drop(pool);
         assert!(session.reset_for_new_application().is_err());
         drop(session);
-        assert_eq!(released.load(Ordering::SeqCst), 0, "active native lease still owns allocation");
+        assert_eq!(
+            released.load(Ordering::SeqCst),
+            0,
+            "active native lease still owns allocation"
+        );
         drop(lease);
-        assert_eq!(released.load(Ordering::SeqCst), 1, "last native owner drained");
+        assert_eq!(
+            released.load(Ordering::SeqCst),
+            1,
+            "last native owner drained"
+        );
     }
 
     #[test]

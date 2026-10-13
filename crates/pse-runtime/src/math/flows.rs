@@ -80,8 +80,11 @@ impl MathService {
         controls: Controls,
     ) -> Result<SolveHandle<TearResult>, MathRuntimeError> {
         controls.validate()?;
-        // A tear selection is one fresh attempt: there is no retained seed or allocation.
-        if controls.start != StartPolicy::NoPriorStart || controls.reuse != ReusePolicy::Fresh {
+        // No prior seed/allocation exists. AllowRebuild permits the fresh fallback;
+        // RequireReuse cannot be satisfied by this one-shot scientific operation.
+        if controls.start != StartPolicy::NoPriorStart
+            || controls.reuse == ReusePolicy::RequireReuse
+        {
             return Err(ProblemError::Contract(
                 "tear selection has no retained seed or allocation".into(),
             )
@@ -358,6 +361,18 @@ mod tests {
             _owner: owner,
         };
         assert_eq!(flow.document().identity, flow.graph().key());
+        assert!(
+            service
+                .select_tears(
+                    flow.clone(),
+                    TearMethod::UnweightedHeuristic,
+                    Controls {
+                        reuse: ReusePolicy::RequireReuse,
+                        ..Controls::default()
+                    }
+                )
+                .is_err()
+        );
         let permit = service.cpu.clone().acquire_many_owned(2).await.unwrap();
         let controls = Controls {
             time_limit: std::time::Duration::from_millis(25),

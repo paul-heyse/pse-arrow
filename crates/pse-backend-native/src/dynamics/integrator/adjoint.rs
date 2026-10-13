@@ -300,10 +300,20 @@ impl<'o> Passes<'_, 'o> {
             // continues to the outer boundary.
             let mut observation = step_observation(&solver, None);
             let attempt = catch_unwind(AssertUnwindSafe(|| {
-                self.record(&mut solver, r, k, &mut steps, &mut out.checkpoints, &mut observation)
+                self.record(
+                    &mut solver,
+                    r,
+                    k,
+                    &mut steps,
+                    &mut out.checkpoints,
+                    &mut observation,
+                )
             }));
-            r.statistics
-                .push(segment_statistics(solver.statistics(), &p.diffsol, &observation)?);
+            r.statistics.push(segment_statistics(
+                solver.statistics(),
+                &p.diffsol,
+                &observation,
+            )?);
             let checkpointing = match attempt {
                 Ok(result) => result?,
                 Err(payload) => resume_unwind(payload),

@@ -237,9 +237,13 @@ impl BackendExecution for Kinsol {
     }
     fn build(&self) -> Option<pse_ids::ContentHash> {
         #[cfg(feature = "kinsol")]
-        { crate::kinsol::build() }
+        {
+            crate::kinsol::build()
+        }
         #[cfg(not(feature = "kinsol"))]
-        { None }
+        {
+            None
+        }
     }
     fn work_coverage(&self, execution: &crate::solve::Execution) -> crate::solve::WorkCoverage {
         crate::solve::WorkCoverage {

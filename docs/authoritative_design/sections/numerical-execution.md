@@ -80,14 +80,21 @@ edge limits before allocation. Cancellation is checked between library stages.
 
 ### 15.4 Numerical checks that require values
 
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
 A separately selected sparse-rank method names its convention, threshold, ordering, original
 coordinates, build and memory support. It never substitutes for SVD singular values/modes or
-silently changes square-response rank meaning. SPQR is an investigation until its concrete
-binding and complete contracts qualify; unqualified large sparse rank remains explicitly
-unavailable. Authored scalar bracket execution requires actual continuity/domain/branch
+silently changes square-response rank meaning. SPQR is not selected; any future binding requires complete native/ABI/memory qualification.
+The current support decision retains bounded SVD and explicit large-size refusal; no sparse
+QR production tier is qualified. Authored scalar bracket execution requires actual continuity/domain/branch
 premises and original residual acceptance beyond library interval-width stopping.
+
+Same-point square-response factors/actions and bounded SVD/EVD diagnostics use explicit
+low-level faer `Par::Seq` paths. Shared multi-RHS factors preserve the actual point, provider,
+scale and row identity. Known scratch requirements and finite opaque factor allowances do
+not bound private symbolic/numeric fill. Strict complete-memory requests refuse before
+associated derivative, factor or retained response-action work when no complete fill bound
+is available; input-shape estimates never become that missing bound.
 
 
 After any native attempt, the adapter re-evaluates the original model at the returned
@@ -683,7 +690,8 @@ overlay over the immutable original values, and each block is an ordinary solve 
 the session's thread, and a block's solved coordinates become its successors' inputs only
 after its candidate is a result. Retained native state serves a later step with the same
 backend, coordinates and profile (the same block in a later stage) when that step's
-`ReusePolicy` allows it; the default, `Fresh`, rebuilds. A step whose candidate is not a
+`ReusePolicy` allows it; the default, `AllowRebuild`, permits compatible neutral reuse
+under the reset/fallback contract in [§17.6](#section-17-6). Explicit `Fresh` rebuilds. A step whose candidate is not a
 result drops the retained state.
 
 A case resolved directly for the initialize intent refuses a free discrete variable
@@ -806,14 +814,19 @@ commit. This is local initialization evidence, not a convergence guarantee.
 
 ### 17.6 Explicit starts and allocation reuse
 
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
-After per-profile reset/fresh-fallback and lifetime acceptance, ordinary independent solves
-default to AllowRebuild of compatible neutral allocation/structure. Explicit Fresh and
+Ordinary independent solves now default to `AllowRebuild` of compatible neutral
+allocation/structure through profile-specific reset or fresh-object fallback. Explicit Fresh and
 RequireReuse remain authoritative. Allocation reuse does not grant a seed, numerical setup
 history or branch change. Independent boundaries reset value-sensitive heuristics and clear
 request-owned advanced products/expired controls; live within-request continuation retains
-its own scientific contract. Unresettable profiles rebuild or refuse RequireReuse.
+its own scientific contract. Independent boundaries park accepted neutral HiGHS and POUNCE
+NLP state; the other direct backends use fresh-object fallback. A later `RequireReuse`
+observes the actual fallback and refuses when it cannot retain the requested state.
+POUNCE-convex always starts independent members cold, retains no native session or implicit
+seed and refuses supplied warm state and `RequireReuse`. Numerical start permission remains
+an explicit input, separate from allocation policy.
 
 
 > Decision: [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md) —
@@ -1097,7 +1110,12 @@ application starts from an empty table. Ipopt retains the actual C++ application
 TNLP and uses `ReOptimizeTNLP` only under the complete immutable effective-option,
 coordinate, objective-sense, profile, sparsity and bound signature. Changed structural
 options rebuild that state, or under `RequireReuse` return `ReuseRefusal::Structure`; an
-option subset cannot establish same-structure reuse. Seed barrier and restart pushes are
+option subset cannot establish compatible reuse. Every application, including actual
+ReOptimizeTNLP, sets `warm_start_same_structure=no`, so Ipopt rebuilds spaces/maps,
+derivative caches and value-dependent gradient scaling from the current problem and start.
+Retained TNLP/application identity does not promise retained numeric setup, zero allocation
+or zero reanalysis. Compatible finite bound values update before the call; changed
+finite/infinite, fixed/free or equality classifications rebuild or refuse. Seed barrier and restart pushes are
 per-attempt data: the adapter clears them before applying the current seed, including
 warm-to-cold reuse. They cannot force a structural rebuild or survive into an unseeded
 attempt. Ipopt owns adjustment of a finite supplied start into its native bounds, including
@@ -1133,7 +1151,7 @@ regularization is derived from the requested gap
 
 ### 18.6 Truthful outcomes
 
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
 Actual allocation/structure reuse, numeric transfer/reset, stop fidelity and unknown counters
 remain distinct observations. Native mutation failure invalidates retained state before its
@@ -1368,11 +1386,16 @@ Native state retained between the finite steps of a sequence is an opaque, worke
 profile stamps match (`Compatibility::same_session`) and `ReusePolicy` allows, and
 otherwise tears it down before building a replacement. `RequireReuse` refuses instead, with
 a typed `ReuseRefusal`: `Foreign` when another backend holds the retained state,
-`Structure` when coordinates, profile, sparsity, bounds or the complete settings/options
-signature differ ([§18.3](#section-18-3)); the boundary rule is `native.reuse`, class `incompatible`
+`Structure` when coordinates, profile, sparsity, required bound/treatment maps or the
+complete immutable settings/options signature differ ([§18.3](#section-18-3)); the boundary rule is `native.reuse`, class `incompatible`
 ([§23.2](operations-and-validation.md#section-23-2)). A reused session never inherits an
-earlier step's native options ([§18.3](#section-18-3)). *Tested* by
-`stub_backend_routes_through_adapter_table` (native backend units).
+earlier step's native options ([§18.3](#section-18-3)). Bounded per-backend discard
+metadata survives scope/width changes, repeated clear/reset and failed construction; no
+native object crosses scope teardown. With no live session, a previously unseen backend
+may construct its first object, but `RequireReuse` refuses a backend whose state was
+discarded. *Tested* by `native_scope_changes_preserve_required_reuse_refusal_after_teardown`
+and `cleared_or_failed_native_state_cannot_cold_bootstrap_required_reuse`, alongside
+`stub_backend_routes_through_adapter_table` (runtime/native backend units).
 The retained state lives on the native session of a staged sequence
 ([§18.8](#section-18-8)). Retention requires both composed original candidate permission
 and independent admission of the compatible session artifact; either refusal drops the
@@ -1475,7 +1498,7 @@ step only when the steps are declared independent.
 
 ### 18.8 Threading, cancellation and resource ownership
 
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
 Bounded service-owned native lanes retain explicit profile affinity, resident memory/stacks
 and population through owner-thread destruction/join. Each request receives fresh controls
@@ -1485,7 +1508,28 @@ indefinitely. Actual transitive teams, loaded-interface exclusions and admitted 
 placement. FERAL owns an explicitly sized pool and resets application policy at lease
 boundaries; affected SUNDIALS contexts remain thread-affine. Store-free child lanes admit only
 explicitly reconstructible portable requests under bounded authenticated IPC and the parent's
-original clock/envelope. They do not acquire canonical worker authority or distribute one solve.
+original clock/envelope. The implemented child route reconstructs closed provider-free authored
+scalar/square-root source through the existing implicit factory. Full `PreparedSolve` objects,
+opaque provider closures and strict complete child memory/RSS bounds refuse before launch.
+A concrete KINSOL native profile fingerprint is required: it binds generated SUNDIALS native
+configuration/ABI, declared sources and an admitted managed KLU receipt. Native qualification
+exports `PSE_KLU_PROVIDER_RECEIPT` only for managed generations; a stale receipt in an observed
+unmanaged prefix grants no fingerprint authority. Missing fingerprint evidence still permits
+direct native API use but refuses child launch. The separately authorized executable
+`FileObservation` authenticates deployed bytes, including static SUNDIALS; the profile
+fingerprint does not independently attest native archive bytes. Child work owns bounded IPC,
+original-space screening and actual reap before charge release. It neither acquires canonical
+worker authority nor distributes one solve.
+
+Concurrent SCIP uses quiescent process exclusion for its selected process-static tinycthread
+TPI pool, held through `SCIPfree` and native joins. Before launch, a joined fresh-thread probe
+with a separately admitted explicit stack observes OpenMP/MKL defaults and domains. Nonserial
+nested defaults and unsupported OpenMP lists refuse; parent-local controls cannot establish
+fresh-worker defaults. Failed native destruction is an Infrastructure hard-terminal outcome.
+The owner quarantines its TPI gate, Watch and resident allocation lease; if the concurrent call
+also lacks a successful computation/drain witness, that same quarantine keeps the actual
+compute owner. Uncertain cleanup cannot authorize replacement numerical work or charge release;
+quarantined charges remain held until process exit rather than becoming a successful drain.
 
 
 > Decision: [ADR-0176](../../adr/0176-quiescent-admission-and-exclusive-scratch-transfer.md) (proposed amendment; Plan 36 P-B3/P-C2/P-C8).
@@ -1613,10 +1657,11 @@ native stack, live jobs and flights.
   threads. A count that a record cannot use is ineligible (`Ineligible::Serial`), and one
   its settings cannot use is refused when the settings are admitted
   (`BackendExecution::admit_settings`), both during preparation. FERAL factorizes on its own
-  Rayon pool, which cannot be injected into the admitted local pool. It therefore runs
-  parallel only when the admitted thread count is greater than one and covers that pool's
-  whole size (`RAYON_NUM_THREADS`, otherwise the available parallelism), and serially
-  otherwise; the report records the effective count as `linear.threads`.
+  explicitly sized owned Rayon pool; the maintained binding supplies the admitted width
+  rather than discovering global/ambient width. Its persistent allocations and foreign
+  stacks remain in the charged opaque allowance; scope-team stack accounting is not a
+  complete FERAL allocator/RSS bound. The report records `linear.threads`. Original PSD
+  assessment uses explicit serial faer EVD and never selects global faer parallelism.
 - Ipopt's threads belong to its linear solver ([§18.3](#section-18-3)). MUMPS is sequential
   and refuses more than one; SPRAL runs on OpenMP threads and oneMKL Pardiso on MKL threads.
   For one solve the owning worker's OpenMP and MKL-local thread counts are set to the
@@ -1658,7 +1703,7 @@ qualification matters ([§24.2](operations-and-validation.md#section-24-2)).
 
 ### 18.9 Capability matrix
 
-> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; maintainer-authorized Plan38c target).
+> Decision: [ADR-0185](../../adr/0185-native-reuse-resource-and-method-contracts.md) (proposed; scoped Plan38c implementation).
 
 Capability claims follow the actual selected profile's reset, stopping, counters, memory and
 transitive-resource contracts. New methods enter through existing scientific builders and
@@ -1703,7 +1748,7 @@ the algebraic router never assesses them.
 | KINSOL | Square root, declared fixed point | One-sided, as shifted signs | Jacobian or JVP | Primal | Serial |
 | HiGHS | LP, MILP, convex QP; LP and MILP levels lexicographically in one solve | General, semi domains | Coefficients | Primal/dual, basis, partial MIP start; QP hot start | Admitted |
 | Clarabel | Explicit cones, automatic (SDP with `solver-sdp`, on oneMKL); LP and convex QP by explicit selection, lowered to cone form | General | Coefficients | None | QDLDL serial; MKL Pardiso on admitted MKL threads (`clarabel-pardiso`) |
-| POUNCE-convex | LP, convex QP and continuous cones by explicit selection only, lowered to cone form; batches a study's independent points | General | Coefficients | The previous solutions of the same layout | Admitted pool: one instance's factorization, or a batch's instances each factored serially |
+| POUNCE-convex | LP, convex QP and continuous cones by explicit selection only, lowered to cone form; batches a study's independent points | General | Coefficients | None; independent members start cold | Explicit admitted pool widths; a multi-instance batch factors each member serially |
 | SCIP | LP, MILP, convex and nonconvex QP, MIQP, MINLP, smooth NLP; certifies; all seven native constraint forms | General, semi domains through `semi(indicator)`; finite boxes inside nonlinear terms | Factorable | Primal incumbent | Admitted: deterministic concurrent mode, except with exact solving or reoptimization |
 | Diffsol | ODE, semi-explicit index-1 | None | Forward sensitivities and adjoint gradients (`forward_and_adjoint_sensitivities`) | None | Serial |
 | IDAS | ODE, semi-explicit index-1 | None | Forward sensitivities, adjoint gradients and the second-order adjoint (`second_order_adjoint_sensitivities`) | None | Serial |
@@ -1803,12 +1848,16 @@ iterate inside them. Two-sided boxes, a bound facing its guard sign and constrai
 fixed-point or Picard iteration are refused. Compatible layouts reuse SUNDIALS/KLU
 allocations on the owning worker; a reused session keeps the controls fixed at allocation,
 refreshes the others, and never carries an earlier step's Newton-step, forcing-term or
-Anderson controls.
+Anderson controls. Each new KINSol call requests fresh initial numerical setup and clears
+project Jacobi/block setup state; an already accepted initial point may legitimately
+perform zero setups. Within-call monitoring remains library-owned. Retained allocations
+do not authorize numerical setup history.
 
 A nested implicit solve (`implicit.rs`) reuses KINSOL sessions through a per-worker-thread
 cache keyed by problem identity and bounded in bytes. The solve takes a compatible session
 out of the cache, so a solve nested inside it cannot alias it; refreshes it with the call's
-function and parameters, keeping the SUNDIALS context, vectors and KLU analysis; and returns
+function and parameters, keeping compatible SUNDIALS/native linear allocations while
+requesting fresh numerical setup; and returns
 it afterwards, counted at its retained bytes (`kinsol::Session::retained_bytes`). The
 cache's budget is `MathPolicy.inner_session_bytes` (16 MiB by default), reserved in the job
 or native session lease ([§18.8](#section-18-8)) and handed to the owning thread
@@ -1884,7 +1933,11 @@ packed PSD-triangle cones under the backend feature `sdp` (`pse-runtime/solver-s
 BLAS/LAPACK calls resolve into the image's one oneMKL provider (LP64, GNU threading)
 through Clarabel's provider-less `blas-src` and `lapack-src`; a build without it refuses a
 PSD cone. `SingleSolve` permits native presolve/chordal
-preprocessing; `ReusableData` disables them to use native data updates. Results are
+preprocessing; `ReusableData` disables them to use native data updates. Pinned Clarabel
+retains its original equilibration on updates, so value updates with native equilibration
+enabled refuse before mutation and rebuild when permitted. With equilibration disabled,
+compatible reusable data updates remain supported; the library initializes fresh iterates
+on every solve. Results are
 post-processed into source space. *Tested* by `clarabel_boundary_types_are_pse_owned`
 (native backend units).
 
@@ -1944,12 +1997,14 @@ standard form: zero-cone rows become equalities, every other block inequality ro
 `G x ⪯_K h` with its `ConeSpec`, and the variable box stays first class. POUNCE stores the
 power cone norm-first and PSD blocks as the lower triangle, so both are row permutations
 mapped back for the multipliers; the generalized power cone is refused. A quadratic
-program runs through `solve_qp_ipm_warm`, a cone program through `solve_socp_ipm_warm`, to a
-tolerance a decade inside every budget the report is qualified against. The report carries
-the primal, dual and gap residuals of the cone form, a Farkas or recession certificate in
-the certificate layout above, and warm starts come from the previous solutions of the same
-layout (`settings::pounce_convex`: self-dual embedding or the direct method, equilibration,
-crossover and FERAL). Batches are described in
+program uses the cold `solve_qp_batch_parallel` route when the batch has uniform compatible
+options; other members use cold `solve_socp_ipm`, to a tolerance a decade inside every budget
+the report is qualified against. No native session or implicit seed is stored; supplied warm
+state and `RequireReuse` refuse before work. Backend factories receive explicit positive pool
+widths: one for every member of a multi-instance batch, or the admitted width for a single
+member. The report carries the primal, dual and gap residuals of the cone form and a Farkas
+or recession certificate in the certificate layout above. Settings retain their self-dual
+embedding/direct method, equilibration, crossover and FERAL meaning. Batches are described in
 [§19.3](workflows-and-results.md#section-19-3). *Tested* by
 `pounce_convex_qp_matches_highs` (a convex QP and a mixed LP against HiGHS),
 `pounce_convex_farkas_certificate` and `psd_rows_map_lower_to_upper_triangle` (native

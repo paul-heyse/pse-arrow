@@ -205,10 +205,10 @@ impl ModelingPackage {
             .validate()
             .map_err(crate::math::MathRuntimeError::from)?;
         if profile.solver.controls.start != native::solve::StartPolicy::NoPriorStart
-            || profile.solver.controls.reuse != native::solve::ReusePolicy::Fresh
+            || profile.solver.controls.reuse == native::solve::ReusePolicy::RequireReuse
         {
             return Err(contract(
-                "fitting consumes declared guesses and fresh solver allocations",
+                "fitting consumes declared guesses and must permit fresh solver allocation",
             ));
         }
         // A fit's parameters are its unknowns: what it derives from them is its covariance

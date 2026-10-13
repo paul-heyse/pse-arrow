@@ -68,8 +68,8 @@ use pounce_rs::{ApplicationReturnStatus, IpoptApplication, TNLP};
 use pse_math::binding::ObjectiveSense;
 use std::{
     cell::RefCell,
-    rc::Rc,
     num::NonZeroUsize,
+    rc::Rc,
     sync::{Arc, Mutex},
 };
 /// Hidden second solves are pinned off, and the ℓ1 options are reserved: only the typed
@@ -212,11 +212,15 @@ impl Session {
         let had_state = self.app.is_some() || self.stamp.is_some() || self.factors.is_some();
         self.app = None;
         let retains_backends = if let Some(pool) = self.factors.as_ref() {
-            let pool = pool.try_borrow().map_err(|_| ProblemError::Contract(
-                "POUNCE reset requires exclusive factor-pool ownership".into()))?;
+            let pool = pool.try_borrow().map_err(|_| {
+                ProblemError::Contract(
+                    "POUNCE reset requires exclusive factor-pool ownership".into(),
+                )
+            })?;
             if !pool.is_quiescent() {
                 return Err(ProblemError::Contract(
-                    "POUNCE reset requires all factor leases to finish".into()));
+                    "POUNCE reset requires all factor leases to finish".into(),
+                ));
             }
             pool.retains_backends()
         } else {
@@ -235,9 +239,12 @@ impl Session {
     /// Whether an independent reset preserved actual quiescent neutral native owners.
     /// An empty factor-pool wrapper is not retained native state.
     pub(crate) fn has_neutral_state(&self) -> bool {
-        !self.discarded && self.stamp.is_some() && self.factors.as_ref().is_some_and(|pool| {
-            pool.try_borrow().is_ok_and(|pool| pool.is_quiescent() && pool.retains_backends())
-        })
+        !self.discarded
+            && self.stamp.is_some()
+            && self.factors.as_ref().is_some_and(|pool| {
+                pool.try_borrow()
+                    .is_ok_and(|pool| pool.is_quiescent() && pool.retains_backends())
+            })
     }
 
     /// Observable pattern/owner buffers. This is not the extent of opaque FERAL
@@ -550,13 +557,17 @@ impl Session {
             options.extend(restart_options);
             applied
         });
-        let pool_width = NonZeroUsize::new(controls.threads)
-            .ok_or_else(|| ProblemError::Contract("POUNCE factor pool width must be positive".into()))?;
+        let pool_width = NonZeroUsize::new(controls.threads).ok_or_else(|| {
+            ProblemError::Contract("POUNCE factor pool width must be positive".into())
+        })?;
         let linear_threads = pool_width.get();
         feral.parallel = Some(linear_threads > 1);
         feral.fma = false;
         let factor_identity = serde_json::json!({"feral":crate::settings::pounce::record(&feral).map_err(|e|ProblemError::Internal(format!("FERAL identity: {e}")))?,"hessian_supplied":supplied,"method":serde_json::to_value(method).map_err(|e|ProblemError::Internal(format!("POUNCE method identity: {e}")))?});
-        let compatible = self.stamp.as_ref().is_some_and(|s| s.same_session(&compatibility))
+        let compatible = self
+            .stamp
+            .as_ref()
+            .is_some_and(|s| s.same_session(&compatibility))
             && controls.reuse != ReusePolicy::Fresh;
         let reused = self.app.is_some() && compatible;
         if self.app.is_some() && !reused && controls.reuse == ReusePolicy::RequireReuse {
@@ -735,13 +746,37 @@ impl Session {
             .metrics
             .insert("reuse.native_application".into(), Metric::Bool(reused));
         let after_factors = pool.borrow().counts();
-        report.evidence.reused_native_state = reused || after_factors.reused > before_factors.reused;
+        report.evidence.reused_native_state =
+            reused || after_factors.reused > before_factors.reused;
         for (name, count) in [
-            ("linear.application_reset.completed", after_factors.resets.saturating_sub(before_factors.resets)),
-            ("linear.application_reset.symbolic_retained", after_factors.symbolic_retained.saturating_sub(before_factors.symbolic_retained)),
-            ("linear.application_reset.symbolic_not_retained", after_factors.symbolic_not_retained.saturating_sub(before_factors.symbolic_not_retained)),
-            ("linear.application_reset.refused", after_factors.reset_refused.saturating_sub(before_factors.reset_refused)),
-            ("linear.backend_objects.discarded", after_factors.discarded.saturating_sub(before_factors.discarded)),
+            (
+                "linear.application_reset.completed",
+                after_factors.resets.saturating_sub(before_factors.resets),
+            ),
+            (
+                "linear.application_reset.symbolic_retained",
+                after_factors
+                    .symbolic_retained
+                    .saturating_sub(before_factors.symbolic_retained),
+            ),
+            (
+                "linear.application_reset.symbolic_not_retained",
+                after_factors
+                    .symbolic_not_retained
+                    .saturating_sub(before_factors.symbolic_not_retained),
+            ),
+            (
+                "linear.application_reset.refused",
+                after_factors
+                    .reset_refused
+                    .saturating_sub(before_factors.reset_refused),
+            ),
+            (
+                "linear.backend_objects.discarded",
+                after_factors
+                    .discarded
+                    .saturating_sub(before_factors.discarded),
+            ),
             (
                 "linear.backend_objects.created",
                 after_factors.created.saturating_sub(before_factors.created),
@@ -1472,16 +1507,25 @@ mod tests {
         use std::sync::atomic::{AtomicUsize, Ordering};
         struct Allocation(Arc<AtomicUsize>);
         impl Drop for Allocation {
-            fn drop(&mut self) { self.0.fetch_add(1, Ordering::SeqCst); }
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
         }
         let mut session = Session::new();
         let stamp = crate::solver_tests::stamp(Backend::Pounce);
-        let first = reuse_run(&mut session, &Settings::default(), ReusePolicy::AllowRebuild, stamp.clone()).unwrap();
+        let first = reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::AllowRebuild,
+            stamp.clone(),
+        )
+        .unwrap();
         assert_eq!(first.termination.category, Termination::Success);
         assert!(counted(&first, "linear.application_reset.completed") > 0);
         let pool = session.factors.as_ref().unwrap().clone();
         let released = Arc::new(AtomicUsize::new(0));
-        let allocation: Arc<dyn std::any::Any + Send + Sync> = Arc::new(Allocation(released.clone()));
+        let allocation: Arc<dyn std::any::Any + Send + Sync> =
+            Arc::new(Allocation(released.clone()));
         session.storage_owner = Some(allocation.clone());
         pool.borrow_mut().retain_storage(Some(allocation));
         session.reset_for_new_application().unwrap();
@@ -1492,17 +1536,39 @@ mod tests {
         assert!(session.storage_owner.is_some());
         assert_eq!(session.retained_foreign_allowance(), Some(64 << 20));
         assert_eq!(released.load(Ordering::SeqCst), 0);
-        let second = reuse_run(&mut session, &Settings::default(), ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+        let second = reuse_run(
+            &mut session,
+            &Settings::default(),
+            ReusePolicy::RequireReuse,
+            stamp.clone(),
+        )
+        .unwrap();
         assert_eq!(second.termination.category, Termination::Success);
-        assert_eq!(second.metrics["reuse.native_application"], Metric::Bool(false));
+        assert_eq!(
+            second.metrics["reuse.native_application"],
+            Metric::Bool(false)
+        );
         assert!(second.evidence.reused_native_state);
         assert_eq!(counted(&second, "linear.backend_objects.created"), 0);
         assert!(counted(&second, "linear.backend_objects.reused") > 0);
         assert!(counted(&second, "linear.pattern_reuse") > 0);
         assert!(counted(&second, "linear.application_reset.symbolic_retained") > 0);
-        assert_eq!(released.load(Ordering::SeqCst), 1, "new source admission replaced the old allocation owner");
-        let fresh = reuse_run(&mut Session::new(), &Settings::default(), ReusePolicy::Fresh, stamp).unwrap();
-        assert_eq!(second.candidate.as_ref().unwrap().primal, fresh.candidate.as_ref().unwrap().primal);
+        assert_eq!(
+            released.load(Ordering::SeqCst),
+            1,
+            "new source admission replaced the old allocation owner"
+        );
+        let fresh = reuse_run(
+            &mut Session::new(),
+            &Settings::default(),
+            ReusePolicy::Fresh,
+            stamp,
+        )
+        .unwrap();
+        assert_eq!(
+            second.candidate.as_ref().unwrap().primal,
+            fresh.candidate.as_ref().unwrap().primal
+        );
         assert_eq!(second.options, fresh.options);
     }
 
@@ -1511,16 +1577,26 @@ mod tests {
         let stamp = crate::solver_tests::stamp(Backend::Pounce);
         for policy in [ReusePolicy::AllowRebuild, ReusePolicy::Fresh] {
             let mut session = Session::new();
-            let first = reuse_run(&mut session, &Settings::default(),
-                ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+            let first = reuse_run(
+                &mut session,
+                &Settings::default(),
+                ReusePolicy::RequireReuse,
+                stamp.clone(),
+            )
+            .unwrap();
             assert_eq!(first.termination.category, Termination::Success);
-            assert!(counted(&first, "linear.backend_objects.created") > 0,
-                "a genuinely cold required-reuse sequence may bootstrap");
+            assert!(
+                counted(&first, "linear.backend_objects.created") > 0,
+                "a genuinely cold required-reuse sequence may bootstrap"
+            );
             // Inject the quiescent empty pool produced when an application has no
             // healthy backend to return (including acceptance before factor setup).
             // Keep the actual completed application and stamp until the real reset.
-            session.factors = Some(retained::Pool::new(Settings::default().linear,
-                serde_json::json!({}), NonZeroUsize::new(1).unwrap()));
+            session.factors = Some(retained::Pool::new(
+                Settings::default().linear,
+                serde_json::json!({}),
+                NonZeroUsize::new(1).unwrap(),
+            ));
             assert!(!session.has_neutral_state());
             session.reset_for_new_application().unwrap();
             assert!(session.app.is_none());
@@ -1529,22 +1605,38 @@ mod tests {
             assert!(session.retained_foreign_allowance().is_none());
             assert!(!session.has_neutral_state());
             assert!(session.discarded);
-            assert!(matches!(reuse_run(&mut session, &Settings::default(),
-                ReusePolicy::RequireReuse, stamp.clone()), Err(ProblemError::Reuse {
-                    backend: Backend::Pounce, refusal: crate::ReuseRefusal::Structure,
-                })));
+            assert!(matches!(
+                reuse_run(
+                    &mut session,
+                    &Settings::default(),
+                    ReusePolicy::RequireReuse,
+                    stamp.clone()
+                ),
+                Err(ProblemError::Reuse {
+                    backend: Backend::Pounce,
+                    refusal: crate::ReuseRefusal::Structure,
+                })
+            ));
             session.reset_for_new_application().unwrap();
-            assert!(session.discarded, "a second empty reset preserves refusal provenance");
-            let rebuilt = reuse_run(&mut session, &Settings::default(), policy,
-                stamp.clone()).unwrap();
+            assert!(
+                session.discarded,
+                "a second empty reset preserves refusal provenance"
+            );
+            let rebuilt =
+                reuse_run(&mut session, &Settings::default(), policy, stamp.clone()).unwrap();
             assert_eq!(rebuilt.termination.category, Termination::Success);
             assert!(counted(&rebuilt, "linear.backend_objects.created") > 0);
             assert!(!rebuilt.evidence.reused_native_state);
             assert!(!session.discarded);
             session.reset_for_new_application().unwrap();
             assert!(session.has_neutral_state());
-            let required = reuse_run(&mut session, &Settings::default(),
-                ReusePolicy::RequireReuse, stamp.clone()).unwrap();
+            let required = reuse_run(
+                &mut session,
+                &Settings::default(),
+                ReusePolicy::RequireReuse,
+                stamp.clone(),
+            )
+            .unwrap();
             assert_eq!(required.termination.category, Termination::Success);
             assert!(required.evidence.reused_native_state);
         }

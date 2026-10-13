@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let pardiso = env::var_os("CARGO_FEATURE_CLARABEL_PARDISO").is_some();
     let pipeline =
         env::var_os("CARGO_FEATURE_UNO").is_some() || env::var_os("CARGO_FEATURE_PETSC").is_some();
-    let linked = ipopt || sdp || pardiso || pipeline;
+    let linked = ipopt || sdp || pardiso || pipeline || env::var_os("CARGO_FEATURE_SCIP").is_some();
     if linked || isolation {
         println!("cargo:rerun-if-env-changed=PKG_CONFIG_PATH");
     }
@@ -94,6 +94,75 @@ fn main() -> Result<(), Box<dyn Error>> {
         &out.join("pounce-source.txt"),
         format!("{git}@{revision}").as_bytes(),
     )?;
+    kinsol_profile(&out, &workspace_manifest)?;
+    Ok(())
+}
+
+/// Capture only the selected bundled-SUNDIALS/KLU profile. The environment's native
+/// admission owns provider qualification; this copies its existing receipt, without
+/// substituting Ipopt's unrelated solver image or scanning dependency source trees.
+fn kinsol_profile(out: &Path, workspace: &toml::Value) -> Result<(), Box<dyn Error>> {
+    let dependencies = &workspace["workspace"]["dependencies"];
+    let mut source = String::new();
+    for name in ["sundials-sys", "suitesparse_sys"] {
+        source.push_str(name);
+        source.push('=');
+        source.push_str(&dependencies[name].to_string());
+        source.push('\n');
+    }
+    build_receipt::write_if_changed(&out.join("kinsol-source.txt"), source.as_bytes())?;
+    for key in [
+        "SUITESPARSE_INCLUDE_DIR",
+        "SUITESPARSE_LIBRARY_DIR",
+        "DEP_SUITESPARSE_SUITESPARSE_INCLUDE",
+        "DEP_SUITESPARSE_SUITESPARSE_LIB",
+        "PSE_KLU_PROVIDER_RECEIPT",
+    ] {
+        println!("cargo:rerun-if-env-changed={key}");
+    }
+    let directory = |explicit, metadata| {
+        env::var_os(explicit)
+            .or_else(|| env::var_os(metadata))
+            .map(PathBuf::from)
+            .and_then(|path| path.canonicalize().ok())
+    };
+    let include = directory(
+        "SUITESPARSE_INCLUDE_DIR",
+        "DEP_SUITESPARSE_SUITESPARSE_INCLUDE",
+    );
+    let library = directory("SUITESPARSE_LIBRARY_DIR", "DEP_SUITESPARSE_SUITESPARSE_LIB");
+    let receipt = include
+        .zip(library)
+        .and_then(|(include, library)| {
+            let prefix = include.parent()?.parent()?;
+            if include != prefix.join("include/suitesparse") || library != prefix.join("lib") {
+                return None;
+            }
+            Some(prefix.join(".complete.json"))
+        })
+        .filter(|receipt| {
+            // Mutable external prefixes are admitted by current file observations, not
+            // any old receipt they happen to contain. Only the existing qualifier may
+            // select a managed provider receipt for portable-child profile evidence.
+            env::var_os("PSE_KLU_PROVIDER_RECEIPT")
+                .filter(|value| !value.is_empty())
+                .and_then(|path| PathBuf::from(path).canonicalize().ok())
+                .zip(receipt.canonicalize().ok())
+                .is_some_and(|(admitted, actual)| admitted == actual)
+        });
+    let output = out.join("kinsol-klu-provider.json");
+    if env::var_os("CARGO_FEATURE_KINSOL").is_some()
+        && let Some(receipt) = receipt
+    {
+        println!("cargo:rerun-if-changed={}", receipt.display());
+        if receipt.is_file() {
+            build_receipt::materialize(&receipt, &output)?;
+            return Ok(());
+        }
+    }
+    // Unavailable profile evidence is explicit. Ordinary direct native calls retain
+    // their API contract; authenticated portable-child execution refuses this state.
+    build_receipt::write_if_changed(&output, b"")?;
     Ok(())
 }
 

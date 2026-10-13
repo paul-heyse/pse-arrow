@@ -31,7 +31,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: false,
     sensitivities: true,
-    reuse: "native application and compatible starts; iteration factors are library-owned",
+    reuse: "compatible native application within a sequence; neutral role-specific FERAL allocation/symbolics with application-policy reset; explicit starts only",
     cancellation: "TNLP intermediate/evaluation checkpoints",
     diagnostics: "complete SolveStatistics, phase timing, FERAL inertia/pivots/fill, restoration and crossover",
 };

@@ -96,13 +96,45 @@ fn admit_controls(controls: &Controls) -> Result<(), ProblemError> {
     if controls.threads != 1
         || controls.iterations != defaults.iterations
         || controls.hessian != defaults.hessian
-        || controls.reuse != defaults.reuse
+        || controls.reuse == pse_backend_native::solve::ReusePolicy::RequireReuse
         || controls.start != defaults.start
         || !controls.options.is_empty()
     {
         return Err(ProblemError::Unsupported("IDAS IC consumes its explicit IC controls; generic method/iteration/Hessian/start/reuse options cannot act on this serial fresh attempt".into()));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod control_tests {
+    use super::*;
+    #[test]
+    fn consistent_controls_accept_fresh_fallback_but_refuse_required_native_reuse() {
+        for reuse in [
+            pse_backend_native::solve::ReusePolicy::Fresh,
+            pse_backend_native::solve::ReusePolicy::AllowRebuild,
+        ] {
+            admit_controls(&Controls {
+                reuse,
+                ..Default::default()
+            })
+            .unwrap();
+        }
+        assert!(
+            admit_controls(&Controls {
+                reuse: pse_backend_native::solve::ReusePolicy::RequireReuse,
+                ..Default::default()
+            })
+            .is_err()
+        );
+        assert!(
+            admit_controls(&Controls {
+                start: pse_backend_native::solve::StartPolicy::PreviousAccepted,
+                ..Default::default()
+            })
+            .is_err()
+        );
+    }
 }
 fn original_initial_checks(
     run_id: RunId,

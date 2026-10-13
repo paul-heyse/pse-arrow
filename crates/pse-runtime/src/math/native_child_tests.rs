@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
-use std::sync::atomic::{AtomicBool};
+use std::sync::atomic::AtomicBool;
 
 #[test]
 fn private_native_frames_refuse_oversize_and_keep_original_stop() {
     let (mut reader, mut writer) = UnixStream::pair().unwrap();
-    writer.write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes()).unwrap();
+    writer
+        .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
+        .unwrap();
     let scope = ExecutionScope::new(Arc::default(), None);
-    assert!(matches!(receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope), Err(MathRuntimeError::Solve(_))));
+    assert!(matches!(
+        receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope),
+        Err(MathRuntimeError::Solve(_))
+    ));
     let cancel = Arc::new(AtomicBool::new(true));
     let scope = ExecutionScope::new(cancel, None);
     assert!(receive::<Response>(&mut reader, RESPONSE_LIMIT, &scope).is_err());
@@ -25,7 +30,10 @@ fn portable_registry_declarations_roundtrip_and_changed_context_is_distinct() {
     let changed = serde_json::to_vec(&wire).unwrap();
     assert_ne!(digest(&bytes), digest(&changed));
     let builder: pse_quantity::QuantityRegistryBuilder = serde_json::from_slice(&changed).unwrap();
-    match builder.build() { Ok(other) => assert_ne!(other, registry), Err(_) => {} }
+    match builder.build() {
+        Ok(other) => assert_ne!(other, registry),
+        Err(_) => {}
+    }
 }
 
 fn source() -> PortableRootSource {
@@ -33,72 +41,187 @@ fn source() -> PortableRootSource {
     use pse_math::typed::BodyLimits;
     pse_math::initialize().unwrap();
     let registry = Arc::new(pse_quantity::generated::standard_registry().unwrap());
-    let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap());
-    let context = CompilerContext { quantities: registry.clone(), preconditions, providers: Default::default() };
+    let preconditions = Arc::new(
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap(),
+    );
+    let context = CompilerContext {
+        quantities: registry.clone(),
+        preconditions,
+        providers: Default::default(),
+    };
     let length = match registry.physical_name("Length").unwrap() {
-        pse_quantity::PhysicalName::QuantityType(id) => id, other => panic!("{other:?}"),
+        pse_quantity::PhysicalName::QuantityType(id) => id,
+        other => panic!("{other:?}"),
     };
     let expressions = [pse_authoring::dsl::parse_expr("x - p").unwrap()];
-    let formals = [Formal { path: "x".into(), quantity: length }, Formal { path: "p".into(), quantity: length }];
+    let formals = [
+        Formal {
+            path: "x".into(),
+            quantity: length,
+        },
+        Formal {
+            path: "p".into(),
+            quantity: length,
+        },
+    ];
     let empty = std::collections::BTreeMap::new();
-    let body = Request { definition: SemanticId::from_bytes([188;16]), expressions: &expressions,
-        formals: &formals, domains: &empty, groups: &Default::default(), providers: &Default::default(),
-        literals: &Default::default(), physical: pse_compiler::workspace::physical_identity(&registry, &context.preconditions),
-        structure: ContentHash::from_bytes([189;32]), limits: BodyLimits::default() }
-        .admit_modeling_outputs(&registry, &pse_quantity::standard::StandardInvariantChecker,
-            &Arc::default(), &Default::default(), &[length], &Default::default(), &Default::default()).unwrap();
-    PortableRootSource::new(Arc::new(body), context,
-        vec![Unknown { id: SemanticId::from_bytes([190;16]), lower: 0.0, upper: 10.0 }],
-        vec![SemanticId::from_bytes([191;16])], vec![2.0],
-        Options { start: vec![5.0], variable_nominals: vec![1.0], variable_tolerance: vec![1e-8],
-            residual_tolerance: vec![1e-8], iterations: 50, time_limit: Duration::from_secs(20), derivative_tolerance: 1e-10 },
-        EvaluationLimits { scratch_bytes: 1<<20, ..Default::default() }, 4096).unwrap()
+    let body = Request {
+        definition: SemanticId::from_bytes([188; 16]),
+        expressions: &expressions,
+        formals: &formals,
+        domains: &empty,
+        groups: &Default::default(),
+        providers: &Default::default(),
+        literals: &Default::default(),
+        physical: pse_compiler::workspace::physical_identity(&registry, &context.preconditions),
+        structure: ContentHash::from_bytes([189; 32]),
+        limits: BodyLimits::default(),
+    }
+    .admit_modeling_outputs(
+        &registry,
+        &pse_quantity::standard::StandardInvariantChecker,
+        &Arc::default(),
+        &Default::default(),
+        &[length],
+        &Default::default(),
+        &Default::default(),
+    )
+    .unwrap();
+    PortableRootSource::new(
+        Arc::new(body),
+        context,
+        vec![Unknown {
+            id: SemanticId::from_bytes([190; 16]),
+            lower: 0.0,
+            upper: 10.0,
+        }],
+        vec![SemanticId::from_bytes([191; 16])],
+        vec![2.0],
+        Options {
+            start: vec![5.0],
+            variable_nominals: vec![1.0],
+            variable_tolerance: vec![1e-8],
+            residual_tolerance: vec![1e-8],
+            iterations: 50,
+            time_limit: Duration::from_secs(20),
+            derivative_tolerance: 1e-10,
+        },
+        EvaluationLimits {
+            scratch_bytes: 1 << 20,
+            ..Default::default()
+        },
+        4096,
+    )
+    .unwrap()
 }
 
 #[test]
 fn native_child_source_requires_actual_physical_registry_before_launch() {
     let mut source = source();
-    source.context.quantities = Arc::new(pse_quantity::QuantityRegistryBuilder::new().build().unwrap());
-    assert!(PortableRootSource::new(source.body, source.context, source.unknowns, source.rows,
-        source.parameters, source.options, source.evaluation, source.max_entries).is_err());
+    source.context.quantities = Arc::new(
+        pse_quantity::QuantityRegistryBuilder::new()
+            .build()
+            .unwrap(),
+    );
+    assert!(
+        PortableRootSource::new(
+            source.body,
+            source.context,
+            source.unknowns,
+            source.rows,
+            source.parameters,
+            source.options,
+            source.evaluation,
+            source.max_entries
+        )
+        .is_err()
+    );
 }
 
 #[test]
 fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
     let mut source = source();
     let quantity = source.body.quantities()[0];
-    let unit = source.context.quantities.quantity_type(quantity).unwrap().canonical_unit;
-    let descriptor = pse_kernels::AdmittedProvider::new(pse_kernels::ProviderSpec {
-        shapes: Default::default(), derivative_source: pse_kernels::DerivativeSource::Analytic,
-        id: SemanticId::from_bytes([192;16]), revision: ContentHash::from_bytes([193;32]),
-        data: ContentHash::from_bytes([194;32]), inputs: vec![],
-        outputs: vec![pse_kernels::Port { id: SemanticId::from_bytes([195;16]), quantity, unit }],
-        derivatives: DerivativeOrder::First, smoothness: DerivativeOrder::First,
-    }, &source.context.quantities).unwrap();
-    source.context.providers.insert("opaque".into(), pse_compiler::typed_math::ProviderCall { descriptor, output: 0 });
-    assert!(matches!(PortableRootSource::new(source.body, source.context, source.unknowns, source.rows,
-        source.parameters, source.options, source.evaluation, source.max_entries),
-        Err(MathRuntimeError::Solve(pse_backend_native::ProblemError::Contract(_)))));
+    let unit = source
+        .context
+        .quantities
+        .quantity_type(quantity)
+        .unwrap()
+        .canonical_unit;
+    let descriptor = pse_kernels::AdmittedProvider::new(
+        pse_kernels::ProviderSpec {
+            shapes: Default::default(),
+            derivative_source: pse_kernels::DerivativeSource::Analytic,
+            id: SemanticId::from_bytes([192; 16]),
+            revision: ContentHash::from_bytes([193; 32]),
+            data: ContentHash::from_bytes([194; 32]),
+            inputs: vec![],
+            outputs: vec![pse_kernels::Port {
+                id: SemanticId::from_bytes([195; 16]),
+                quantity,
+                unit,
+            }],
+            derivatives: DerivativeOrder::First,
+            smoothness: DerivativeOrder::First,
+        },
+        &source.context.quantities,
+    )
+    .unwrap();
+    source.context.providers.insert(
+        "opaque".into(),
+        pse_compiler::typed_math::ProviderCall {
+            descriptor,
+            output: 0,
+        },
+    );
+    assert!(matches!(
+        PortableRootSource::new(
+            source.body,
+            source.context,
+            source.unknowns,
+            source.rows,
+            source.parameters,
+            source.options,
+            source.evaluation,
+            source.max_entries
+        ),
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Contract(_)
+        ))
+    ));
 }
 
 // The actual private binary is an explicit executable prerequisite supplied by the
 // integrated selector. Never discover a stale PATH binary or build one within a test.
 #[tokio::test]
 async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
-    let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE").expect("integrator supplies exact built pse-native-lane executable");
-    let (service, _) = super::super::tests::service_with_policy(512<<20,
-        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE")
+        .expect("integrator supplies exact built pse-native-lane executable");
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
     let baseline = service.pool.reserved();
-    let child = NativeChild::qualify(executable, 128<<20).unwrap();
+    let child = NativeChild::qualify(executable, 128 << 20).unwrap();
     for target in [2.0, 4.0, 2.0] {
         let mut input = source();
         input.parameters[0] = target;
-        let handle = service.solve_portable_root(input, child.clone(), FlightCancellation::default(), None).unwrap();
+        let handle = service
+            .solve_portable_root(input, child.clone(), FlightCancellation::default(), None)
+            .unwrap();
         let (result, lease) = handle.finish().await.unwrap();
         assert_ne!(result.child_pid, std::process::id());
         assert!(result.refusal.is_none(), "{:?}", result.refusal);
-        assert!((result.proposal.as_ref().unwrap()[0]-target).abs() < 1e-8);
-        assert!(!Path::new(&format!("/proc/{}", result.child_pid)).exists(), "result cannot precede actual child reap");
+        assert!((result.proposal.as_ref().unwrap()[0] - target).abs() < 1e-8);
+        assert!(
+            !Path::new(&format!("/proc/{}", result.child_pid)).exists(),
+            "result cannot precede actual child reap"
+        );
         drop((result, lease));
         assert_eq!(service.pool.reserved(), baseline);
     }
@@ -106,25 +229,53 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
 
 #[test]
 fn private_native_fake_process() {
-    let Ok(mode) = std::env::var("PSE_PRIVATE_NATIVE_TEST_MODE") else { return; };
+    let Ok(mode) = std::env::var("PSE_PRIVATE_NATIVE_TEST_MODE") else {
+        return;
+    };
     let marker = std::env::var_os("PSE_PRIVATE_NATIVE_TEST_MARKER").unwrap();
     std::fs::write(marker, std::process::id().to_string()).unwrap();
-    if mode == "death" { std::process::exit(17); }
+    if mode == "death" {
+        std::process::exit(17);
+    }
     let mut channel = UnixStream::from(io::stdin().as_fd().try_clone_to_owned().unwrap());
     let scope = ExecutionScope::new(Arc::default(), None);
-    let attempt = SemanticId::parse_hex(&std::env::var("PSE_PRIVATE_NATIVE_TEST_ATTEMPT").unwrap()).unwrap();
+    let attempt =
+        SemanticId::parse_hex(&std::env::var("PSE_PRIVATE_NATIVE_TEST_ATTEMPT").unwrap()).unwrap();
     let parent_record = std::fs::read_to_string("/proc/self/status").unwrap();
-    let parent = parent_record.lines().find_map(|line| line.strip_prefix("PPid:")).unwrap().trim().parse().unwrap();
-    let hello = Hello { protocol: PROTOCOL.into(), attempt: if mode == "foreign" { SemanticId::NIL } else { attempt },
-        pid: std::process::id(), parent,
-        executable: pse_buildinfo::FileObservation::capture(&std::env::current_exe().unwrap()).unwrap(),
-        build: pse_buildinfo::BuildInfo::captured(), native_build: pse_backend_native::execution::adapter(pse_backend_native::solve::Backend::Kinsol).build(),
+    let parent = parent_record
+        .lines()
+        .find_map(|line| line.strip_prefix("PPid:"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    let hello = Hello {
+        protocol: PROTOCOL.into(),
+        attempt: if mode == "foreign" {
+            SemanticId::NIL
+        } else {
+            attempt
+        },
+        pid: std::process::id(),
+        parent,
+        executable: pse_buildinfo::FileObservation::capture(&std::env::current_exe().unwrap())
+            .unwrap(),
+        build: pse_buildinfo::BuildInfo::captured(),
+        native_build: if mode == "native" {
+            ContentHash::from_bytes([0; 32])
+        } else {
+            native_profile().unwrap()
+        },
     };
     send(&mut channel, &hello, RESPONSE_LIMIT, &scope).unwrap();
-    if mode == "foreign" { return; }
+    if mode == "foreign" {
+        return;
+    }
     let request: Request = receive(&mut channel, REQUEST_LIMIT, &scope).unwrap();
     if mode == "oversize" {
-        channel.write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes()).unwrap();
+        channel
+            .write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes())
+            .unwrap();
         return;
     }
     if mode == "truncated" {
@@ -132,47 +283,108 @@ fn private_native_fake_process() {
         channel.write_all(b"{").unwrap();
         return;
     }
-    if mode == "late" { std::thread::sleep(Duration::from_secs(30)); }
-    let point = if mode == "invalid" { vec![9.0] } else { vec![2.0] };
-    let _ = send(&mut channel, &Response { attempt, execution: request.execution,
-        request: if mode == "response" { ContentHash::from_bytes([0;32]) } else { request.request },
-        result: Ok(point) }, RESPONSE_LIMIT, &scope);
+    if mode == "late" {
+        std::thread::sleep(Duration::from_secs(30));
+    }
+    let point = if mode == "invalid" {
+        vec![9.0]
+    } else {
+        vec![2.0]
+    };
+    let _ = send(
+        &mut channel,
+        &Response {
+            attempt,
+            execution: request.execution,
+            request: if mode == "response" {
+                ContentHash::from_bytes([0; 32])
+            } else {
+                request.request
+            },
+            result: Ok(point),
+        },
+        RESPONSE_LIMIT,
+        &scope,
+    );
 }
 
 fn fake_child(mode: &str, marker: &Path) -> NativeChild {
-    let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128<<20).unwrap();
+    let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128 << 20).unwrap();
     child.test_mode = Some((mode.into(), marker.to_path_buf()));
     child
 }
 
 #[tokio::test]
 async fn private_native_process_death_foreign_attempt_and_original_residual_refuse_after_reap() {
-    let (service, _) = super::super::tests::service_with_policy(512<<20,
-        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
     let baseline = service.pool.reserved();
-    for mode in ["death", "foreign", "response", "oversize", "truncated", "invalid"] {
+    for mode in [
+        "death",
+        "foreign",
+        "native",
+        "response",
+        "oversize",
+        "truncated",
+        "invalid",
+    ] {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
-        let handle = service.solve_portable_root(source(), fake_child(mode, &marker), FlightCancellation::default(), None).unwrap();
+        let handle = service
+            .solve_portable_root(
+                source(),
+                fake_child(mode, &marker),
+                FlightCancellation::default(),
+                None,
+            )
+            .unwrap();
         let result = handle.finish().await;
-        assert!(result.is_err(), "{mode}: a dead, foreign or physically invalid proposal cannot publish");
+        assert!(
+            result.is_err(),
+            "{mode}: a dead, foreign or physically invalid proposal cannot publish"
+        );
         let pid: u32 = std::fs::read_to_string(&marker).unwrap().parse().unwrap();
-        assert!(!Path::new(&format!("/proc/{pid}")).exists(), "{mode}: failure returned before actual reap");
-        assert_eq!(service.pool.reserved(), baseline, "{mode}: owned parent charges released after reap");
+        assert!(
+            !Path::new(&format!("/proc/{pid}")).exists(),
+            "{mode}: failure returned before actual reap"
+        );
+        assert_eq!(
+            service.pool.reserved(),
+            baseline,
+            "{mode}: owned parent charges released after reap"
+        );
     }
 }
 
 #[tokio::test]
 async fn private_native_queue_wait_uses_original_clock_without_launch_or_cancellation() {
-    let (service, _) = super::super::tests::service_with_policy(512<<20,
-        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("must-not-launch");
     let child = fake_child("late", &marker);
     let occupied = service.cpu.clone().acquire_many_owned(2).await.unwrap();
     let control = FlightCancellation::default();
-    let handle = service.solve_portable_root(source(), child, control.clone(),
-        Some(Instant::now()+Duration::from_millis(20))).unwrap();
+    let handle = service
+        .solve_portable_root(
+            source(),
+            child,
+            control.clone(),
+            Some(Instant::now() + Duration::from_millis(20)),
+        )
+        .unwrap();
     assert!(handle.finish().await.is_err());
     assert!(!marker.exists());
     assert!(!control.flag().load(std::sync::atomic::Ordering::Acquire));
@@ -182,39 +394,79 @@ async fn private_native_queue_wait_uses_original_clock_without_launch_or_cancell
 
 #[tokio::test]
 async fn private_native_late_output_and_cancellation_hold_parent_charges_until_reap() {
-    let (service, _) = super::super::tests::service_with_policy(512<<20,
-        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
     let baseline = service.pool.reserved();
     for cancel_owned in [false, true] {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
         let control = FlightCancellation::default();
-        let deadline = if cancel_owned { None } else { Some(Instant::now()+Duration::from_secs(10)) };
-        let handle = service.solve_portable_root(source(), fake_child("late", &marker), control.clone(), deadline).unwrap();
+        let deadline = if cancel_owned {
+            None
+        } else {
+            Some(Instant::now() + Duration::from_secs(10))
+        };
+        let handle = service
+            .solve_portable_root(
+                source(),
+                fake_child("late", &marker),
+                control.clone(),
+                deadline,
+            )
+            .unwrap();
         for _ in 0..10000 {
-            if marker.exists() { break; }
+            if marker.exists() {
+                break;
+            }
             tokio::time::sleep(Duration::from_millis(2)).await;
         }
         let pid: u32 = std::fs::read_to_string(&marker).unwrap().parse().unwrap();
         assert!(Path::new(&format!("/proc/{pid}")).exists());
-        assert!(service.pool.reserved() > baseline, "live child keeps parent admission charges");
-        if cancel_owned { control.cancel(); }
-        assert!(handle.finish().await.is_err(), "late output cannot acquire proposal permission");
+        assert!(
+            service.pool.reserved() > baseline,
+            "live child keeps parent admission charges"
+        );
+        if cancel_owned {
+            control.cancel();
+        }
+        assert!(
+            handle.finish().await.is_err(),
+            "late output cannot acquire proposal permission"
+        );
         assert!(!Path::new(&format!("/proc/{pid}")).exists());
         assert_eq!(service.pool.reserved(), baseline);
-        assert_eq!(control.flag().load(std::sync::atomic::Ordering::Acquire), cancel_owned,
-            "deadline never masquerades as cancellation");
+        assert_eq!(
+            control.flag().load(std::sync::atomic::Ordering::Acquire),
+            cancel_owned,
+            "deadline never masquerades as cancellation"
+        );
     }
 }
 
 #[tokio::test]
 async fn native_child_strict_complete_memory_selection_refuses_before_launch() {
-    let (service, _) = super::super::tests::service_with_policy(512<<20,
-        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let (service, _) = super::super::tests::service_with_policy(
+        512 << 20,
+        super::super::MathPolicy {
+            worker_bytes: 256 << 20,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+    );
     let baseline = service.pool.reserved();
-    let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128<<20).unwrap();
+    let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128 << 20).unwrap();
     child.require_complete_memory_bound = true;
-    assert!(matches!(service.solve_portable_root(source(), child, FlightCancellation::default(), None),
-        Err(MathRuntimeError::Solve(pse_backend_native::ProblemError::Unsupported(_)))));
+    assert!(matches!(
+        service.solve_portable_root(source(), child, FlightCancellation::default(), None),
+        Err(MathRuntimeError::Solve(
+            pse_backend_native::ProblemError::Unsupported(_)
+        ))
+    ));
     assert_eq!(service.pool.reserved(), baseline);
 }

@@ -365,13 +365,35 @@ impl Session {
         let result = (|| {
             let ptr = self.model()?.as_mut_ptr();
             let (mut time_limit, mut iis_time_limit, mut iis_strategy) = (0.0, 0.0, 0);
-            native!(ffi::Highs_getDoubleOptionValue(ptr, c"time_limit".as_ptr(), &raw mut time_limit), "diagnostic original time limit")?;
-            native!(ffi::Highs_getDoubleOptionValue(ptr, c"iis_time_limit".as_ptr(), &raw mut iis_time_limit), "diagnostic original IIS time limit")?;
-            native!(ffi::Highs_getIntOptionValue(ptr, c"iis_strategy".as_ptr(), &raw mut iis_strategy), "diagnostic original IIS strategy")?;
+            native!(
+                ffi::Highs_getDoubleOptionValue(ptr, c"time_limit".as_ptr(), &raw mut time_limit),
+                "diagnostic original time limit"
+            )?;
+            native!(
+                ffi::Highs_getDoubleOptionValue(
+                    ptr,
+                    c"iis_time_limit".as_ptr(),
+                    &raw mut iis_time_limit
+                ),
+                "diagnostic original IIS time limit"
+            )?;
+            native!(
+                ffi::Highs_getIntOptionValue(ptr, c"iis_strategy".as_ptr(), &raw mut iis_strategy),
+                "diagnostic original IIS strategy"
+            )?;
             let report = self.diagnose_inner(p, request, execution)?;
-            native!(ffi::Highs_setDoubleOptionValue(ptr, c"time_limit".as_ptr(), time_limit), "restore diagnostic time limit")?;
-            native!(ffi::Highs_setDoubleOptionValue(ptr, c"iis_time_limit".as_ptr(), iis_time_limit), "restore diagnostic IIS time limit")?;
-            native!(ffi::Highs_setIntOptionValue(ptr, c"iis_strategy".as_ptr(), iis_strategy), "restore diagnostic IIS strategy")?;
+            native!(
+                ffi::Highs_setDoubleOptionValue(ptr, c"time_limit".as_ptr(), time_limit),
+                "restore diagnostic time limit"
+            )?;
+            native!(
+                ffi::Highs_setDoubleOptionValue(ptr, c"iis_time_limit".as_ptr(), iis_time_limit),
+                "restore diagnostic IIS time limit"
+            )?;
+            native!(
+                ffi::Highs_setIntOptionValue(ptr, c"iis_strategy".as_ptr(), iis_strategy),
+                "restore diagnostic IIS strategy"
+            )?;
             verify_upload(self.model()?, p)?;
             Ok(report)
         })();

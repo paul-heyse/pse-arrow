@@ -319,12 +319,11 @@ def admit_external(prefix: Path, required: tuple[str, ...]) -> bool:
             },
         )
         return True
-    else:
-        observed = installation_files(prefix)
-        operation.admit(
-            key, {"managed": False, "required": list(required), "files": observed}
-        )
-        return False
+    observed = installation_files(prefix)
+    operation.admit(
+        key, {"managed": False, "required": list(required), "files": observed}
+    )
+    return False
 
 
 def prepare(

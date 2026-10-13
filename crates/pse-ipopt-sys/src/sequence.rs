@@ -232,15 +232,31 @@ mod tests {
     unsafe extern "C" fn poll(_: *mut c_void) -> i32 {
         0
     }
-    unsafe extern "C" fn row_value(_: i32, _: i32, x: *const f64, out: *mut f64, _: *mut c_void) -> i32 {
+    unsafe extern "C" fn row_value(
+        _: i32,
+        _: i32,
+        x: *const f64,
+        out: *mut f64,
+        _: *mut c_void,
+    ) -> i32 {
         // SAFETY: the optional one-row fixture receives one readable variable and
         // one distinct writable constraint value for its identity row.
-        unsafe { *out = *x; }
+        unsafe {
+            *out = *x;
+        }
         0
     }
-    unsafe extern "C" fn row_jacobian(_: i32, _: i32, _: *const f64, out: *mut f64, _: *mut c_void) -> i32 {
+    unsafe extern "C" fn row_jacobian(
+        _: i32,
+        _: i32,
+        _: *const f64,
+        out: *mut f64,
+        _: *mut c_void,
+    ) -> i32 {
         // SAFETY: the optional identity row has exactly one writable Jacobian value.
-        unsafe { *out = 1.0; }
+        unsafe {
+            *out = 1.0;
+        }
         0
     }
     fn create(fixture: &mut Fixture) -> *mut Handle {
@@ -249,12 +265,17 @@ mod tests {
     fn create_with_bounds(fixture: &mut Fixture, lower: f64, upper: f64) -> *mut Handle {
         create_with_optional_row(fixture, lower, upper, None)
     }
-    fn create_with_optional_row(fixture: &mut Fixture, lower: f64, upper: f64, row: Option<(f64, f64)>) -> *mut Handle {
+    fn create_with_optional_row(
+        fixture: &mut Fixture,
+        lower: f64,
+        upper: f64,
+        row: Option<(f64, f64)>,
+    ) -> *mut Handle {
         let callbacks = Callbacks {
             objective: Some(objective),
             gradient: Some(gradient),
-            constraints: row.map(|_| row_value as Constraints),
-            jacobian: row.map(|_| row_jacobian as Jacobian),
+            constraints: row.map(|_| -> Constraints { row_value }),
+            jacobian: row.map(|_| -> Jacobian { row_jacobian }),
             hessian: Some(hessian),
             poll: Some(poll),
             iteration: None,
@@ -428,12 +449,29 @@ mod tests {
         assert_eq!(
             // SAFETY: the fixture handle retains its one-variable callback owner;
             // initial and zero-row buffers match the shape and outlive this call.
-            unsafe { pse_ipopt_sequence_solve(handle, i32::from(reused), 5.0, 1,
-                &initial, ptr::null(), ptr::null(), 0, ptr::null(), ptr::null_mut(), 0) }, OK);
+            unsafe {
+                pse_ipopt_sequence_solve(
+                    handle,
+                    i32::from(reused),
+                    5.0,
+                    1,
+                    &initial,
+                    ptr::null(),
+                    ptr::null(),
+                    0,
+                    ptr::null(),
+                    ptr::null_mut(),
+                    0,
+                )
+            },
+            OK
+        );
         let mut result = Result::default();
         assert_eq!(
             // SAFETY: live owned handle and a distinct writable result buffer.
-            unsafe { pse_ipopt_sequence_get_result(handle, &mut result, ptr::null_mut(), 0) }, OK);
+            unsafe { pse_ipopt_sequence_get_result(handle, &mut result, ptr::null_mut(), 0) },
+            OK
+        );
         assert_eq!(result.application_status, 0, "{result:?}");
         result
     }
@@ -442,19 +480,48 @@ mod tests {
         assert_eq!(
             // SAFETY: live one-variable handle and three distinct writable outputs;
             // the fixture has zero constraints, allowing null row buffers.
-            unsafe { pse_ipopt_sequence_get_vectors(handle, 1, &mut primal, &mut lower,
-                &mut upper, 0, ptr::null_mut(), ptr::null_mut(), ptr::null_mut(), 0) }, OK);
+            unsafe {
+                pse_ipopt_sequence_get_vectors(
+                    handle,
+                    1,
+                    &mut primal,
+                    &mut lower,
+                    &mut upper,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                    0,
+                )
+            },
+            OK
+        );
         primal
     }
     fn update_fixture_bounds(handle: *mut Handle, lower: f64, upper: f64) -> i32 {
         // SAFETY: live one-variable handle and readable one-value bounds; the
         // declared zero-row shape allows null row bound pointers.
-        unsafe { pse_ipopt_sequence_update_bounds(handle, 1, &lower, &upper, 0,
-            ptr::null(), ptr::null(), ptr::null_mut(), 0) }
+        unsafe {
+            pse_ipopt_sequence_update_bounds(
+                handle,
+                1,
+                &lower,
+                &upper,
+                0,
+                ptr::null(),
+                ptr::null(),
+                ptr::null_mut(),
+                0,
+            )
+        }
     }
     #[test]
     fn sequence_bound_update_matches_fresh_and_invalid_update_is_transactional() {
-        let mut fixture = Fixture { target: Cell::new(3.0), terminal: false, calls: 0 };
+        let mut fixture = Fixture {
+            target: Cell::new(3.0),
+            terminal: false,
+            calls: 0,
+        };
         let mut handle = create(&mut fixture);
         optimize_fixture(handle, false, 0.0);
         assert!((fixture_primal(handle) - 2.0).abs() < 1e-6);
@@ -463,11 +530,17 @@ mod tests {
         assert_eq!(
             // SAFETY: live native handle and a distinct writable output; no solve
             // has produced a result for the successfully uploaded new bounds yet.
-            unsafe { pse_ipopt_sequence_get_result(handle, &mut unavailable, ptr::null_mut(), 0) }, NO_RESULT);
+            unsafe { pse_ipopt_sequence_get_result(handle, &mut unavailable, ptr::null_mut(), 0) },
+            NO_RESULT
+        );
         let result = optimize_fixture(handle, true, 0.0);
         assert_eq!(result.reoptimized, 1);
         let updated = fixture_primal(handle);
-        let mut fresh_fixture = Fixture { target: Cell::new(3.0), terminal: false, calls: 0 };
+        let mut fresh_fixture = Fixture {
+            target: Cell::new(3.0),
+            terminal: false,
+            calls: 0,
+        };
         let mut fresh = create_with_bounds(&mut fresh_fixture, -4.0, 4.0);
         optimize_fixture(fresh, false, 0.0);
         assert!((updated - fixture_primal(fresh)).abs() < 1e-7);
@@ -480,14 +553,22 @@ mod tests {
         assert!((fixture_primal(handle) + 4.0).abs() < 1e-6);
         assert_eq!(
             // SAFETY: each pointer slot uniquely owns its live handle and is nulled.
-            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) }, OK);
+            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) },
+            OK
+        );
         assert_eq!(
             // SAFETY: fresh is the sole owner of the separate live reference handle.
-            unsafe { pse_ipopt_sequence_destroy(&mut fresh, ptr::null_mut(), 0) }, OK);
+            unsafe { pse_ipopt_sequence_destroy(&mut fresh, ptr::null_mut(), 0) },
+            OK
+        );
     }
     #[test]
     fn sequence_bound_update_validates_row_vectors_before_changing_variable_vectors() {
-        let mut fixture = Fixture { target: Cell::new(3.0), terminal: false, calls: 0 };
+        let mut fixture = Fixture {
+            target: Cell::new(3.0),
+            terminal: false,
+            calls: 0,
+        };
         let mut handle = create_with_optional_row(&mut fixture, -2.0, 2.0, Some((-10.0, 10.0)));
         for reuse in [0, 1] {
             if reuse == 1 {
@@ -495,34 +576,80 @@ mod tests {
                     // SAFETY: this live handle owns one variable and one row; all
                     // supplied vectors have one readable value. The NaN is an input
                     // validation control and must precede every native mutation.
-                    unsafe { pse_ipopt_sequence_update_bounds(handle, 1, &-4.0, &4.0,
-                        1, &f64::NAN, &10.0, ptr::null_mut(), 0) }, INVALID);
+                    unsafe {
+                        pse_ipopt_sequence_update_bounds(
+                            handle,
+                            1,
+                            &-4.0,
+                            &4.0,
+                            1,
+                            &f64::NAN,
+                            &10.0,
+                            ptr::null_mut(),
+                            0,
+                        )
+                    },
+                    INVALID
+                );
             }
             assert_eq!(
                 // SAFETY: live callback owner, one finite initial value, and no
                 // optional dual starts; dimensions match the one-row fixture.
-                unsafe { pse_ipopt_sequence_solve(handle, reuse, 5.0, 1, &0.0,
-                    ptr::null(), ptr::null(), 1, ptr::null(), ptr::null_mut(), 0) }, OK);
+                unsafe {
+                    pse_ipopt_sequence_solve(
+                        handle,
+                        reuse,
+                        5.0,
+                        1,
+                        &0.0,
+                        ptr::null(),
+                        ptr::null(),
+                        1,
+                        ptr::null(),
+                        ptr::null_mut(),
+                        0,
+                    )
+                },
+                OK
+            );
             let mut result = Result::default();
             assert_eq!(
                 // SAFETY: distinct writable result slot for this live native owner.
-                unsafe { pse_ipopt_sequence_get_result(handle, &mut result, ptr::null_mut(), 0) }, OK);
+                unsafe { pse_ipopt_sequence_get_result(handle, &mut result, ptr::null_mut(), 0) },
+                OK
+            );
             assert_eq!(result.application_status, 0, "{result:?}");
-            assert!((result.objective - 1.0).abs() < 1e-6, "changed variable bounds leaked after invalid row: {result:?}");
+            assert!(
+                (result.objective - 1.0).abs() < 1e-6,
+                "changed variable bounds leaked after invalid row: {result:?}"
+            );
         }
         assert_eq!(
             // SAFETY: the sole owned handle is destroyed once and its slot nulled.
-            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) }, OK);
+            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) },
+            OK
+        );
     }
     #[test]
     fn sequence_bound_update_uses_configured_infinity_and_fixed_maps() {
-        let mut fixture = Fixture { target: Cell::new(0.5), terminal: false, calls: 0 };
+        let mut fixture = Fixture {
+            target: Cell::new(0.5),
+            terminal: false,
+            calls: 0,
+        };
         let mut handle = create(&mut fixture);
-        for (name, value) in [(c"nlp_lower_bound_inf", -10.0), (c"nlp_upper_bound_inf", 10.0)] {
+        for (name, value) in [
+            (c"nlp_lower_bound_inf", -10.0),
+            (c"nlp_upper_bound_inf", 10.0),
+        ] {
             assert_eq!(
                 // SAFETY: live fresh handle, static option name, and finite value;
                 // structural threshold settings precede the first native solve.
-                unsafe { pse_ipopt_sequence_set_double(handle, name.as_ptr(), value, ptr::null_mut(), 0) }, OK);
+                unsafe {
+                    pse_ipopt_sequence_set_double(handle, name.as_ptr(), value, ptr::null_mut(), 0)
+                },
+                OK
+            );
         }
         optimize_fixture(handle, false, 0.0);
         assert_eq!(update_fixture_bounds(handle, -10.0, 2.0), INCOMPATIBLE);
@@ -534,7 +661,9 @@ mod tests {
         assert!((fixture_primal(handle) - 8.0).abs() < 1e-6);
         assert_eq!(
             // SAFETY: handle is the sole live native owner and is nulled on teardown.
-            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) }, OK);
+            unsafe { pse_ipopt_sequence_destroy(&mut handle, ptr::null_mut(), 0) },
+            OK
+        );
     }
     #[test]
     fn terminal_sequence_callback_is_latched_and_not_reentered() {

@@ -51,9 +51,11 @@ mod test_mutations {
         static CONTROL: RefCell<Control> = RefCell::default();
     }
     pub(super) fn reset(fail: Option<&str>) {
-        CONTROL.with(|control| *control.borrow_mut() = Control {
-            fail: fail.map(str::to_owned),
-            ..Default::default()
+        CONTROL.with(|control| {
+            *control.borrow_mut() = Control {
+                fail: fail.map(str::to_owned),
+                ..Default::default()
+            }
         });
     }
     pub(super) fn count(operation: &str) -> usize {
@@ -67,7 +69,9 @@ mod test_mutations {
                 control.fail = None;
                 // Inject after the real native operation succeeded: native content may
                 // already have changed, so the original typed error must invalidate it.
-                Err(ProblemError::Contract(format!("injected HiGHS {operation} failure")))
+                Err(ProblemError::Contract(format!(
+                    "injected HiGHS {operation} failure"
+                )))
             } else {
                 Ok(())
             }
@@ -103,7 +107,10 @@ struct UploadedHessian {
     values: Vec<u64>,
 }
 impl Uploaded {
-    fn prepare(p: &CoefficientProblem, execution: &Execution) -> Result<Option<Self>, ProblemError> {
+    fn prepare(
+        p: &CoefficientProblem,
+        execution: &Execution,
+    ) -> Result<Option<Self>, ProblemError> {
         let Some(admission) = &execution.work_admission else {
             return Ok(None);
         };
@@ -111,7 +118,9 @@ impl Uploaded {
         // Include the simultaneous bulk-bound scratch in this replacement's grant.
         let mut bytes = size_of::<Self>();
         let mut add = |count: usize, width: usize| -> Result<(), ProblemError> {
-            bytes = count.checked_mul(width).and_then(|n| bytes.checked_add(n))
+            bytes = count
+                .checked_mul(width)
+                .and_then(|n| bytes.checked_add(n))
                 .ok_or_else(|| ProblemError::memory("HiGHS upload witness extent overflow"))?;
             Ok(())
         };
@@ -139,10 +148,16 @@ impl Uploaded {
     fn same_hessian(&self, p: &CoefficientProblem) -> bool {
         match (&self.h, &p.hessian) {
             (None, None) => true,
-            (Some(old), Some(h)) => old.start == h.col_ptr()
-                && old.rows == h.row_idx()
-                && old.values.len() == h.val().len()
-                && old.values.iter().zip(h.val()).all(|(a, b)| *a == b.to_bits()),
+            (Some(old), Some(h)) => {
+                old.start == h.col_ptr()
+                    && old.rows == h.row_idx()
+                    && old.values.len() == h.val().len()
+                    && old
+                        .values
+                        .iter()
+                        .zip(h.val())
+                        .all(|(a, b)| *a == b.to_bits())
+            }
             _ => false,
         }
     }
@@ -315,7 +330,10 @@ fn pass_objectives(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), Probl
 /// model's costs cleared and the last level's sense and offset, so the native model equals
 /// the admitted problem again.
 fn restore_objective(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), ProblemError> {
-    native!(ffi::Highs_clearLinearObjectives(ptr), "restore linear objectives")?;
+    native!(
+        ffi::Highs_clearLinearObjectives(ptr),
+        "restore linear objectives"
+    )?;
     native!(
         ffi::Highs_changeObjectiveSense(
             ptr,
@@ -635,8 +653,14 @@ impl Session {
     pub fn reset_for_new_application(&mut self) -> Result<(), ProblemError> {
         let result = (|| {
             let ptr = self.model()?.as_mut_ptr();
-            native!(ffi::Highs_clearSolver(ptr), "reset independent solver state")?;
-            native!(ffi::Highs_clearLinearObjectives(ptr), "reset independent linear objectives")?;
+            native!(
+                ffi::Highs_clearSolver(ptr),
+                "reset independent solver state"
+            )?;
+            native!(
+                ffi::Highs_clearLinearObjectives(ptr),
+                "reset independent linear objectives"
+            )?;
             native!(ffi::Highs_resetOptions(ptr), "reset independent options")?;
             self.pending_sparse = None;
             self.cut_pool = None;
@@ -681,9 +705,17 @@ impl Session {
         let uploaded = Uploaded::prepare(p, execution)?;
         // Without an admitted replacement, perform the complete checked update.
         let delta = uploaded.is_some() && self.uploaded.is_some();
-        let same_hessian = delta && self.uploaded.as_ref().is_some_and(|old| old.same_hessian(p));
-        let lower: Vec<_> = (0..p.domains.len()).map(|c| domain_bounds(p, c).0).collect();
-        let upper: Vec<_> = (0..p.domains.len()).map(|c| domain_bounds(p, c).1).collect();
+        let same_hessian = delta
+            && self
+                .uploaded
+                .as_ref()
+                .is_some_and(|old| old.same_hessian(p));
+        let lower: Vec<_> = (0..p.domains.len())
+            .map(|c| domain_bounds(p, c).0)
+            .collect();
+        let upper: Vec<_> = (0..p.domains.len())
+            .map(|c| domain_bounds(p, c).1)
+            .collect();
         let row_lower: Vec<_> = p.bounds.iter().map(|v| v.0).collect();
         let row_upper: Vec<_> = p.bounds.iter().map(|v| v.1).collect();
         // Move the predecessor out before borrowing the model mutably. Its grant stays
@@ -703,29 +735,54 @@ impl Session {
         )?;
         if !p.objective.is_empty() {
             native!(
-                ffi::Highs_changeColsCostByRange(ptr, 0, index(p.objective.len() - 1)?, p.objective.as_ptr()),
+                ffi::Highs_changeColsCostByRange(
+                    ptr,
+                    0,
+                    index(p.objective.len() - 1)?,
+                    p.objective.as_ptr()
+                ),
                 "update costs",
             )?;
             native!(
-                ffi::Highs_changeColsBoundsByRange(ptr, 0, index(lower.len() - 1)?, lower.as_ptr(), upper.as_ptr()),
+                ffi::Highs_changeColsBoundsByRange(
+                    ptr,
+                    0,
+                    index(lower.len() - 1)?,
+                    lower.as_ptr(),
+                    upper.as_ptr()
+                ),
                 "update column bounds",
             )?;
         }
         for c in 0..p.contract.variables.len() {
             for k in p.constraints.col_ptr()[c]..p.constraints.col_ptr()[c + 1] {
                 let value = p.constraints.val()[k];
-                if previous.as_ref().is_some_and(|old| old.a[k] == value.to_bits()) {
+                if previous
+                    .as_ref()
+                    .is_some_and(|old| old.a[k] == value.to_bits())
+                {
                     continue;
                 }
                 native!(
-                    ffi::Highs_changeCoeff(ptr, index(p.constraints.row_idx()[k])?, index(c)?, value),
+                    ffi::Highs_changeCoeff(
+                        ptr,
+                        index(p.constraints.row_idx()[k])?,
+                        index(c)?,
+                        value
+                    ),
                     "update coefficient",
                 )?;
             }
         }
         if !p.bounds.is_empty() {
             native!(
-                ffi::Highs_changeRowsBoundsByRange(ptr, 0, index(p.bounds.len() - 1)?, row_lower.as_ptr(), row_upper.as_ptr()),
+                ffi::Highs_changeRowsBoundsByRange(
+                    ptr,
+                    0,
+                    index(p.bounds.len() - 1)?,
+                    row_lower.as_ptr(),
+                    row_upper.as_ptr()
+                ),
                 "update row bounds",
             )?;
         }
@@ -761,7 +818,21 @@ impl Session {
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
-        let result = self.solve_inner(p, normalization, controls, accuracy, settings, execution, tolerances, warm);
+        // Request refusal precedes any native mutation and preserves the model.
+        settings.admit_controls(controls)?;
+        settings.admit_model(p, accuracy)?;
+        tolerances.validate(p.contract.variables.len(), p.contract.rows.len())?;
+        normalization.validate(p.contract.variables.len(), p.contract.rows.len())?;
+        let result = self.solve_inner(
+            p,
+            normalization,
+            controls,
+            accuracy,
+            settings,
+            execution,
+            tolerances,
+            warm,
+        );
         if result.is_err() {
             self.invalidate();
         }
@@ -782,13 +853,9 @@ impl Session {
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
-        settings.admit_controls(controls)?;
-        settings.admit_model(p, accuracy)?;
         let method = settings.method;
         let n = p.contract.variables.len();
         let m = p.contract.rows.len();
-        tolerances.validate(n, m)?;
-        normalization.validate(n, m)?;
         let mut options = controls.options.clone();
         options.extend([
             (

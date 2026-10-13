@@ -127,18 +127,43 @@ enum BoundClass {
     Equal,
     Interval { lower: bool, upper: bool },
 }
-fn bound_classes(lower: &[f64], upper: &[f64], lower_inf: f64, upper_inf: f64) -> Result<Vec<BoundClass>, ProblemError> {
-    if lower.len() != upper.len() || !lower_inf.is_finite() || !upper_inf.is_finite() || lower_inf >= upper_inf {
-        return Err(ProblemError::Contract("Ipopt bound map dimensions or infinity thresholds".into()));
+fn bound_classes(
+    lower: &[f64],
+    upper: &[f64],
+    lower_inf: f64,
+    upper_inf: f64,
+) -> Result<Vec<BoundClass>, ProblemError> {
+    if lower.len() != upper.len()
+        || !lower_inf.is_finite()
+        || !upper_inf.is_finite()
+        || lower_inf >= upper_inf
+    {
+        return Err(ProblemError::Contract(
+            "Ipopt bound map dimensions or infinity thresholds".into(),
+        ));
     }
-    lower.iter().zip(upper).map(|(&lower, &upper)| {
-        if lower.is_nan() || upper.is_nan() || lower > upper || lower == f64::INFINITY || upper == f64::NEG_INFINITY {
-            return Err(ProblemError::Contract("invalid Ipopt bounds".into()));
-        }
-        Ok(if lower == upper { BoundClass::Equal } else {
-            BoundClass::Interval { lower: lower > lower_inf, upper: upper < upper_inf }
+    lower
+        .iter()
+        .zip(upper)
+        .map(|(&lower, &upper)| {
+            if lower.is_nan()
+                || upper.is_nan()
+                || lower > upper
+                || lower == f64::INFINITY
+                || upper == f64::NEG_INFINITY
+            {
+                return Err(ProblemError::Contract("invalid Ipopt bounds".into()));
+            }
+            Ok(if lower == upper {
+                BoundClass::Equal
+            } else {
+                BoundClass::Interval {
+                    lower: lower > lower_inf,
+                    upper: upper < upper_inf,
+                }
+            })
         })
-    }).collect()
+        .collect()
 }
 #[derive(PartialEq)]
 struct Signature {
@@ -421,7 +446,12 @@ impl Sequence {
                 jac: jac.clone(),
                 hess: hess.clone(),
                 variable_bounds: bound_classes(&lower, &upper, -super::INFINITY, super::INFINITY)?,
-                row_bounds: bound_classes(&row_lower, &row_upper, -super::INFINITY, super::INFINITY)?,
+                row_bounds: bound_classes(
+                    &row_lower,
+                    &row_upper,
+                    -super::INFINITY,
+                    super::INFINITY,
+                )?,
                 options: structural_options.clone(),
             };
             let mut reused = self.owned.is_some()
@@ -429,14 +459,27 @@ impl Sequence {
                 && controls.reuse != ReusePolicy::Fresh;
             let mut bounds_updated = false;
             if reused {
-                let owned = self.owned.as_ref().ok_or_else(|| ProblemError::internal("lost Ipopt bound update owner"))?;
+                let owned = self
+                    .owned
+                    .as_ref()
+                    .ok_or_else(|| ProblemError::internal("lost Ipopt bound update owner"))?;
                 let mut error: [c_char; 512] = [0; 512];
                 // SAFETY: exclusive live handle; all native vectors have checked
                 // dimensions and remain readable through this transactional copy.
                 // No borrowed callback context is active during a bound update.
-                let code = unsafe { ffi::pse_ipopt_sequence_update_bounds(
-                    owned.handle.pointer.as_ptr(), native_n, lower.as_ptr(), upper.as_ptr(),
-                    native_m, row_lower.as_ptr(), row_upper.as_ptr(), error.as_mut_ptr(), error.len()) };
+                let code = unsafe {
+                    ffi::pse_ipopt_sequence_update_bounds(
+                        owned.handle.pointer.as_ptr(),
+                        native_n,
+                        lower.as_ptr(),
+                        upper.as_ptr(),
+                        native_m,
+                        row_lower.as_ptr(),
+                        row_upper.as_ptr(),
+                        error.as_mut_ptr(),
+                        error.len(),
+                    )
+                };
                 if code == ffi::INCOMPATIBLE {
                     reused = false;
                 } else if code != ffi::OK {
@@ -604,7 +647,9 @@ impl Sequence {
             report
                 .metrics
                 .insert("reuse.native_model".into(), Metric::Bool(reused));
-            report.metrics.insert("reuse.bounds_update".into(), Metric::Bool(bounds_updated));
+            report
+                .metrics
+                .insert("reuse.bounds_update".into(), Metric::Bool(bounds_updated));
             report.metrics.insert(
                 "reuse.reoptimize_tnlp".into(),
                 Metric::Bool(native_known && result.reoptimized == 1),
@@ -645,10 +690,9 @@ impl Sequence {
                     .map_err(|error| ProblemError::internal(error.to_string()))?,
             );
             report.provenance.insert("duals".into(),"minimization L=f+lambda*g-zL*x+zU*x; same TNLP/application; authored objective recovered once".into());
-            report.options.insert(
-                "warm_start_same_structure".into(),
-                OptionValue::Bool(false),
-            );
+            report
+                .options
+                .insert("warm_start_same_structure".into(), OptionValue::Bool(false));
             report.options.insert(
                 "warm_start_init_point".into(),
                 OptionValue::Bool(input_duals.is_some()),
@@ -830,14 +874,22 @@ mod tests {
     }
     #[test]
     fn native_bound_maps_classify_thresholds_and_equalities_without_value_identity() {
-        assert_eq!(bound_classes(&[-2.0, 1.0], &[2.0, 1.0], -10.0, 10.0).unwrap(),
-            bound_classes(&[-4.0, 8.0], &[4.0, 8.0], -10.0, 10.0).unwrap());
-        assert_ne!(bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
-            bound_classes(&[-10.0], &[9.0], -10.0, 10.0).unwrap());
-        assert_ne!(bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
-            bound_classes(&[-9.0], &[10.0], -10.0, 10.0).unwrap());
-        assert_ne!(bound_classes(&[0.0], &[0.0], -10.0, 10.0).unwrap(),
-            bound_classes(&[0.0], &[1.0], -10.0, 10.0).unwrap());
+        assert_eq!(
+            bound_classes(&[-2.0, 1.0], &[2.0, 1.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-4.0, 8.0], &[4.0, 8.0], -10.0, 10.0).unwrap()
+        );
+        assert_ne!(
+            bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-10.0], &[9.0], -10.0, 10.0).unwrap()
+        );
+        assert_ne!(
+            bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-9.0], &[10.0], -10.0, 10.0).unwrap()
+        );
+        assert_ne!(
+            bound_classes(&[0.0], &[0.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[0.0], &[1.0], -10.0, 10.0).unwrap()
+        );
         assert!(bound_classes(&[2.0], &[1.0], -10.0, 10.0).is_err());
         assert!(bound_classes(&[0.0], &[f64::NAN], -10.0, 10.0).is_err());
         assert!(bound_classes(&[0.0], &[], -10.0, 10.0).is_err());
@@ -849,24 +901,61 @@ mod tests {
         oracle.bounds[0] = rows;
         oracle
     }
-    fn solve_bound_fixture(sequence: &mut Sequence, oracle: &mut dyn NlpOracle, reuse: ReusePolicy) -> Result<SolveReport, ProblemError> {
-        let controls = Controls { reuse, time_limit: std::time::Duration::from_secs(5), iterations: 50, ..Default::default() };
-        sequence.solve(oracle, &[1.5], ObjectiveSense::Minimize, &controls,
-            &ResolvedAccuracy::verification(), &Settings::default(), Execution::new(Arc::default(), &controls),
-            &tolerance(), None, crate::solver_tests::stamp(Backend::Ipopt))
+    fn solve_bound_fixture(
+        sequence: &mut Sequence,
+        oracle: &mut dyn NlpOracle,
+        reuse: ReusePolicy,
+    ) -> Result<SolveReport, ProblemError> {
+        let controls = Controls {
+            reuse,
+            time_limit: std::time::Duration::from_secs(5),
+            iterations: 50,
+            ..Default::default()
+        };
+        sequence.solve(
+            oracle,
+            &[1.5],
+            ObjectiveSense::Minimize,
+            &controls,
+            &ResolvedAccuracy::verification(),
+            &Settings::default(),
+            Execution::new(Arc::default(), &controls),
+            &tolerance(),
+            None,
+            crate::solver_tests::stamp(Backend::Ipopt),
+        )
     }
     #[test]
     fn compatible_numeric_variable_and_equality_bounds_update_before_real_reoptimize() {
         let mut sequence = Sequence::new();
-        let first = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        let first = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
         assert_eq!(first.termination.category, Termination::Success);
         let pointer = sequence.owned.as_ref().unwrap().handle.pointer;
-        let second = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)), ReusePolicy::RequireReuse).unwrap();
-        assert_eq!(second.termination.category, Termination::Success, "{second:?}");
+        let second = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)),
+            ReusePolicy::RequireReuse,
+        )
+        .unwrap();
+        assert_eq!(
+            second.termination.category,
+            Termination::Success,
+            "{second:?}"
+        );
         assert_eq!(sequence.owned.as_ref().unwrap().handle.pointer, pointer);
         assert_eq!(second.metrics["reuse.reoptimize_tnlp"], Metric::Bool(true));
         assert_eq!(second.metrics["reuse.bounds_update"], Metric::Bool(true));
-        let fresh = solve_bound_fixture(&mut Sequence::new(), &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)), ReusePolicy::Fresh).unwrap();
+        let fresh = solve_bound_fixture(
+            &mut Sequence::new(),
+            &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)),
+            ReusePolicy::Fresh,
+        )
+        .unwrap();
         assert_eq!(fresh.termination.category, Termination::Success);
         let actual = &second.candidate.as_ref().unwrap().primal;
         let reference = &fresh.candidate.as_ref().unwrap().primal;
@@ -876,28 +965,76 @@ mod tests {
     #[test]
     fn changed_bound_classification_refuses_required_reuse_and_rebuilds_when_allowed() {
         let mut sequence = Sequence::new();
-        let first = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        let first = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
         assert_eq!(first.termination.category, Termination::Success);
-        let result = solve_bound_fixture(&mut sequence, &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 1.0)), ReusePolicy::RequireReuse);
-        assert!(matches!(result, Err(ProblemError::Reuse { refusal: ReuseRefusal::Structure, .. })));
+        let result = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 1.0)),
+            ReusePolicy::RequireReuse,
+        );
+        assert!(matches!(
+            result,
+            Err(ProblemError::Reuse {
+                refusal: ReuseRefusal::Structure,
+                ..
+            })
+        ));
         assert!(sequence.owned.is_none());
-        let baseline = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        let baseline = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
         assert_eq!(baseline.termination.category, Termination::Success);
         assert!(sequence.owned.is_some());
-        let rebuilt = solve_bound_fixture(&mut sequence, &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 2.0)), ReusePolicy::AllowRebuild).unwrap();
+        let rebuilt = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 2.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
         assert_eq!(rebuilt.termination.category, Termination::Success);
-        assert_eq!(rebuilt.metrics["reuse.reoptimize_tnlp"], Metric::Bool(false));
+        assert_eq!(
+            rebuilt.metrics["reuse.reoptimize_tnlp"],
+            Metric::Bool(false)
+        );
         assert_eq!(rebuilt.metrics["reuse.bounds_update"], Metric::Bool(false));
     }
     #[test]
     fn invalid_numeric_bounds_invalidate_retained_owner_before_any_reoptimize() {
         let mut sequence = Sequence::new();
-        solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
-        assert!(solve_bound_fixture(&mut sequence, &mut bounded_oracle(-5.0, 5.0, (f64::NAN, 1.0)), ReusePolicy::AllowRebuild).is_err());
+        solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
+        assert!(
+            solve_bound_fixture(
+                &mut sequence,
+                &mut bounded_oracle(-5.0, 5.0, (f64::NAN, 1.0)),
+                ReusePolicy::AllowRebuild
+            )
+            .is_err()
+        );
         assert!(sequence.owned.is_none());
-        let rebuilt = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        let rebuilt = solve_bound_fixture(
+            &mut sequence,
+            &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)),
+            ReusePolicy::AllowRebuild,
+        )
+        .unwrap();
         assert_eq!(rebuilt.termination.category, Termination::Success);
-        assert_eq!(rebuilt.metrics["reuse.reoptimize_tnlp"], Metric::Bool(false));
+        assert_eq!(
+            rebuilt.metrics["reuse.reoptimize_tnlp"],
+            Metric::Bool(false)
+        );
     }
     #[test]
     fn native_observations_survive_zero_telemetry_and_use_structured_ipopt_statistics() {
@@ -1007,7 +1144,10 @@ mod tests {
             .unwrap();
         assert_eq!(second_report.termination.category, Termination::Success);
         assert!(second_report.evidence.reused_native_state);
-        assert_eq!(second_report.options["warm_start_same_structure"], OptionValue::Bool(false));
+        assert_eq!(
+            second_report.options["warm_start_same_structure"],
+            OptionValue::Bool(false)
+        );
         assert!(matches!(
             second_report.metrics.get("reuse.reoptimize_tnlp"),
             Some(Metric::Bool(true))
@@ -1085,7 +1225,10 @@ mod tests {
                 "{report:?}"
             );
             assert_eq!(report.evidence.reused_native_state, attempt > 0);
-            assert_eq!(report.options["warm_start_same_structure"], OptionValue::Bool(false));
+            assert_eq!(
+                report.options["warm_start_same_structure"],
+                OptionValue::Bool(false)
+            );
             assert_eq!(
                 report.options.get("warm_start_init_point"),
                 Some(&OptionValue::Bool(barrier.is_some()))
@@ -1129,39 +1272,84 @@ mod tests {
             Self {
                 contract,
                 jacobian: faer::sparse::SparseColMat::try_new_from_triplets(0, 1, &[]).unwrap(),
-                hessian: faer::sparse::SparseColMat::try_new_from_triplets(1, 1,
-                    &[faer::sparse::Triplet::new(0, 0, 1.0)]).unwrap(),
-                coefficient, target,
+                hessian: faer::sparse::SparseColMat::try_new_from_triplets(
+                    1,
+                    1,
+                    &[faer::sparse::Triplet::new(0, 0, 1.0)],
+                )
+                .unwrap(),
+                coefficient,
+                target,
             }
         }
     }
     impl NlpOracle for QuadraticScaling {
-        fn contract(&self) -> &crate::OracleContract { &self.contract }
-        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> { self.jacobian.symbolic() }
-        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> { Some(self.hessian.symbolic()) }
-        fn constraint_bounds(&self) -> &[(f64, f64)] { &[] }
-        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> { Ok(self.coefficient * (x[0] - self.target).powi(2)) }
-        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out[0] = 2.0 * self.coefficient * (x[0] - self.target); Ok(())
+        fn contract(&self) -> &crate::OracleContract {
+            &self.contract
         }
-        fn constraints(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> { Ok(()) }
-        fn jacobian(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> { Ok(()) }
-        fn hessian(&mut self, _: &[f64], objective: f64, _: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-            out[0] = 2.0 * self.coefficient * objective; Ok(())
+        fn jacobian_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
+            self.jacobian.symbolic()
+        }
+        fn hessian_pattern(&self) -> Option<faer::sparse::SymbolicSparseColMatRef<'_, usize>> {
+            Some(self.hessian.symbolic())
+        }
+        fn constraint_bounds(&self) -> &[(f64, f64)] {
+            &[]
+        }
+        fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
+            Ok(self.coefficient * (x[0] - self.target).powi(2))
+        }
+        fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
+            out[0] = 2.0 * self.coefficient * (x[0] - self.target);
+            Ok(())
+        }
+        fn constraints(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
+            Ok(())
+        }
+        fn jacobian(&mut self, _: &[f64], _: &mut [f64]) -> Result<(), ProblemError> {
+            Ok(())
+        }
+        fn hessian(
+            &mut self,
+            _: &[f64],
+            objective: f64,
+            _: &[f64],
+            out: &mut [f64],
+        ) -> Result<(), ProblemError> {
+            out[0] = 2.0 * self.coefficient * objective;
+            Ok(())
         }
     }
     #[test]
     fn retained_application_refreshes_gradient_scaling_from_current_coefficient_and_start() {
-        let controls = Controls { reuse: ReusePolicy::RequireReuse, iterations: 50,
-            time_limit: std::time::Duration::from_secs(5), ..Default::default() };
+        let controls = Controls {
+            reuse: ReusePolicy::RequireReuse,
+            iterations: 50,
+            time_limit: std::time::Duration::from_secs(5),
+            ..Default::default()
+        };
         let mut accuracy = ResolvedAccuracy::verification();
         accuracy.native_scaling = true;
-        let tolerance = Tolerances { variables: vec![1e-7], rows: vec![], integrality: 1e-7 };
+        let tolerance = Tolerances {
+            variables: vec![1e-7],
+            rows: vec![],
+            integrality: 1e-7,
+        };
         let solve = |sequence: &mut Sequence, coefficient, target, initial| {
-            sequence.solve(&mut QuadraticScaling::new(coefficient, target), &[initial],
-                ObjectiveSense::Minimize, &controls, &accuracy, &Settings::default(),
-                Execution::new(Arc::default(), &controls), &tolerance, None,
-                crate::solver_tests::stamp(Backend::Ipopt)).unwrap()
+            sequence
+                .solve(
+                    &mut QuadraticScaling::new(coefficient, target),
+                    &[initial],
+                    ObjectiveSense::Minimize,
+                    &controls,
+                    &accuracy,
+                    &Settings::default(),
+                    Execution::new(Arc::default(), &controls),
+                    &tolerance,
+                    None,
+                    crate::solver_tests::stamp(Backend::Ipopt),
+                )
+                .unwrap()
         };
         let mut sequence = Sequence::new();
         // The predecessor's starting gradient is 3e12, above Ipopt's default
@@ -1169,25 +1357,50 @@ mod tests {
         // evaluation count must include the same fresh scaling work as a new app;
         // candidate agreement alone does not establish a new scaling decision.
         let predecessor = solve(&mut sequence, 1e12, 0.5, -1.0);
-        assert_eq!(predecessor.termination.category, Termination::Success, "{predecessor:?}");
+        assert_eq!(
+            predecessor.termination.category,
+            Termination::Success,
+            "{predecessor:?}"
+        );
         let pointer = sequence.owned.as_ref().unwrap().handle.pointer;
         let updated = solve(&mut sequence, 1.0, 1.0, 0.0);
         let fresh = solve(&mut Sequence::new(), 1.0, 1.0, 0.0);
-        assert_eq!(updated.termination.category, Termination::Success, "{updated:?}");
+        assert_eq!(
+            updated.termination.category,
+            Termination::Success,
+            "{updated:?}"
+        );
         assert_eq!(fresh.termination.category, Termination::Success);
         assert_eq!(sequence.owned.as_ref().unwrap().handle.pointer, pointer);
         assert_eq!(updated.metrics["reuse.native_model"], Metric::Bool(true));
         assert_eq!(updated.metrics["reuse.reoptimize_tnlp"], Metric::Bool(true));
-        assert_eq!(updated.options["warm_start_same_structure"], OptionValue::Bool(false));
-        assert_eq!(updated.options["warm_start_init_point"], OptionValue::Bool(false));
-        assert_eq!(updated.options["nlp_scaling_method"], OptionValue::Text("gradient-based".into()));
+        assert_eq!(
+            updated.options["warm_start_same_structure"],
+            OptionValue::Bool(false)
+        );
+        assert_eq!(
+            updated.options["warm_start_init_point"],
+            OptionValue::Bool(false)
+        );
+        assert_eq!(
+            updated.options["nlp_scaling_method"],
+            OptionValue::Text("gradient-based".into())
+        );
         let point = updated.candidate.as_ref().unwrap().primal[0];
         let reference = fresh.candidate.as_ref().unwrap().primal[0];
-        assert!((point - 1.0).abs() < 1e-7, "current unscaled gradient must be stationary");
+        assert!(
+            (point - 1.0).abs() < 1e-7,
+            "current unscaled gradient must be stationary"
+        );
         assert!((point - reference).abs() < 1e-10);
-        assert_eq!(updated.evidence.work.iterations, fresh.evidence.work.iterations);
-        assert_eq!(updated.metrics["callback.gradient.calls"], fresh.metrics["callback.gradient.calls"],
-            "retained application must evaluate current gradient scaling like a fresh application");
+        assert_eq!(
+            updated.evidence.work.iterations,
+            fresh.evidence.work.iterations
+        );
+        assert_eq!(
+            updated.metrics["callback.gradient.calls"], fresh.metrics["callback.gradient.calls"],
+            "retained application must evaluate current gradient scaling like a fresh application"
+        );
     }
     #[test]
     fn persistent_profile_change_refuses_required_reuse_and_discards_native_state() {

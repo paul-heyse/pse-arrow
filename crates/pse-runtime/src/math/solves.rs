@@ -4300,10 +4300,17 @@ impl MathService {
                     },
                 )
                 .await;
-            let healthy = !cancel.token().is_cancelled() && result.as_ref().is_ok_and(|(outcome, (), _)|
-                outcome.candidate_use(&finish_policy).permits_use());
-            if healthy { session.park_independent(affinity, original_scope, &cancel).await?; }
-            else { session.close().await; }
+            let healthy = !cancel.token().is_cancelled()
+                && result.as_ref().is_ok_and(|(outcome, (), _)| {
+                    outcome.candidate_use(&finish_policy).permits_use()
+                });
+            if healthy {
+                session
+                    .park_independent(affinity, original_scope, &cancel)
+                    .await?;
+            } else {
+                session.close().await;
+            }
             result.map(|(outcome, (), strategy)| StepReport {
                 run_id,
                 outcome,

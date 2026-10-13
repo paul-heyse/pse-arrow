@@ -199,7 +199,10 @@ fn sdirk_matches_bdf_on_vessel() {
                 DiffsolMethod::Tsit45 => 5,
                 DiffsolMethod::Bdf => unreachable!(),
             };
-            assert_eq!(r.statistics[0]["native_step"]["current_order"], expected_order);
+            assert_eq!(
+                r.statistics[0]["native_step"]["current_order"],
+                expected_order
+            );
             assert_eq!(r.statistics[0]["native_step"]["kind"], "diffsol");
         }
     }

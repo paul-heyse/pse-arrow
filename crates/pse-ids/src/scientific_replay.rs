@@ -75,7 +75,13 @@ impl QualifiedScientificRecipe {
         qualification: ContentHash,
         request: ContentHash,
     ) -> Result<Self, IdError> {
-        Self::qualified(payload, expected_digest, qualification, request, "qualified-recipe")
+        Self::qualified(
+            payload,
+            expected_digest,
+            qualification,
+            request,
+            "qualified-recipe",
+        )
     }
     /// Cross the private parent-to-native-child scientific admission boundary.
     ///
@@ -90,16 +96,30 @@ impl QualifiedScientificRecipe {
     ///
     /// # Errors
     /// Oversized, malformed or digest-mismatching descriptors are refused.
-    #[allow(unsafe_code, reason = "ADR-0185 controlled private process scientific authority; no unsafe memory operation")]
+    #[allow(
+        unsafe_code,
+        reason = "ADR-0185 controlled private process scientific authority; no unsafe memory operation"
+    )]
     pub unsafe fn from_admitted_process_message(
-        payload: Vec<u8>, expected_digest: ContentHash,
-        execution: ContentHash, request: ContentHash,
+        payload: Vec<u8>,
+        expected_digest: ContentHash,
+        execution: ContentHash,
+        request: ContentHash,
     ) -> Result<Self, IdError> {
-        Self::qualified(payload, expected_digest, execution, request, "admitted-process-message")
+        Self::qualified(
+            payload,
+            expected_digest,
+            execution,
+            request,
+            "admitted-process-message",
+        )
     }
     fn qualified(
-        payload: Vec<u8>, expected_digest: ContentHash, qualification: ContentHash,
-        request: ContentHash, source: &str,
+        payload: Vec<u8>,
+        expected_digest: ContentHash,
+        qualification: ContentHash,
+        request: ContentHash,
+        source: &str,
     ) -> Result<Self, IdError> {
         Self::scratch_bytes(payload.len())?;
         if admitted_recipe_payload_hash(&payload) != expected_digest {

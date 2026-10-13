@@ -34,7 +34,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: false,
     sensitivities: true,
-    reuse: "same sparse layout and bounds: retained C problem",
+    reuse: "compatible TNLP/application and bound-value updates within a sequence; fresh library spaces/maps/scaling each application; fresh independent fallback",
     cancellation: "intermediate/evaluation checkpoints",
     diagnostics: "typed structured native evaluation/iteration/time statistics; bounded submitted-coordinate current/restoration snapshots; independent callback counts",
 };

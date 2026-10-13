@@ -702,12 +702,27 @@ impl MathService {
     }
     /// Trusted closed child driver enforces its absolute deadline, kills and reaps.
     /// Expiry must not mutate the public user-cancellation source to wake it.
+    #[cfg(all(unix, feature = "solver-kinsol"))]
     pub(super) fn submit_source_timed<T: Send + 'static>(
-        self: &Arc<Self>, cores: usize, bytes: usize, submission: Submission,
-        work: impl FnOnce(Arc<std::sync::atomic::AtomicBool>, Arc<pse_backend_native::solve::Progress>)
-            -> Result<(T, usize), MathRuntimeError> + Send + 'static,
-    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError> {
-        self.submit_construction_mode(cores, ConstructionEstimate::Opaque(bytes), submission, true, work)
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        submission: Submission,
+        work: impl FnOnce(
+            Arc<std::sync::atomic::AtomicBool>,
+            Arc<pse_backend_native::solve::Progress>,
+        ) -> Result<(T, usize), MathRuntimeError>
+        + Send
+        + 'static,
+    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
+    {
+        self.submit_construction_mode(
+            cores,
+            ConstructionEstimate::Opaque(bytes),
+            submission,
+            true,
+            work,
+        )
     }
     fn submit_construction_mode<T: Send + 'static>(
         self: &Arc<Self>,
@@ -889,8 +904,15 @@ impl MathService {
         + Send
         + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, deadline, false), Some(entry), work)
-            .await
+        self.admitted(
+            cores,
+            bytes,
+            cancel,
+            (None, deadline, false),
+            Some(entry),
+            work,
+        )
+        .await
     }
     /// Refuse a synchronous burst before its handle/task joins the bounded population.
     /// A multi-phase operation supplies one unchanged admission cutoff; the separate
@@ -929,23 +951,26 @@ impl MathService {
         if std::time::Instant::now() >= at {
             return Err(Self::admission_timeout());
         }
-        let slot =
-            match POPULATION
-                .try_with(|lane| Arc::ptr_eq(&lane.jobs, &self.jobs).then(|| lane.clone()))
-                .ok()
-                .flatten()
-            {
-                Some(lane) => PopulationEntry::Borrowed {
-                    _usage: lane.claim()?,
+        let slot = match POPULATION
+            .try_with(|lane| Arc::ptr_eq(&lane.jobs, &self.jobs).then(|| lane.clone()))
+            .ok()
+            .flatten()
+        {
+            Some(lane) => PopulationEntry::Borrowed {
+                _usage: lane.claim()?,
+            },
+            None => match self.jobs.clone().try_acquire_owned() {
+                Ok(ticket) => PopulationEntry::Owned { _ticket: ticket },
+                Err(tokio::sync::TryAcquireError::Closed) => {
+                    return Err(MathRuntimeError::Limit("native population closed"));
+                }
+                Err(tokio::sync::TryAcquireError::NoPermits) => PopulationEntry::Borrowed {
+                    _usage: self
+                        .borrow_idle_native_population()
+                        .ok_or(MathRuntimeError::Limit("native jobs"))?,
                 },
-                None => match self.jobs.clone().try_acquire_owned() {
-                    Ok(ticket) => PopulationEntry::Owned { _ticket: ticket },
-                    Err(tokio::sync::TryAcquireError::Closed) => return Err(MathRuntimeError::Limit("native population closed")),
-                    Err(tokio::sync::TryAcquireError::NoPermits) => PopulationEntry::Borrowed {
-                        _usage: self.borrow_idle_native_population().ok_or(MathRuntimeError::Limit("native jobs"))?,
-                    },
-                },
-            };
+            },
+        };
         Ok(AdmissionEntry {
             at,
             bytes,

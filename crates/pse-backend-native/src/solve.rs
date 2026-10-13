@@ -13,9 +13,9 @@ pub(crate) use observations::RawMapCapture;
 #[cfg(feature = "ipopt")]
 pub(crate) use observations::SNAPSHOT_COORDINATES;
 pub use observations::{
-    NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot, NativeStepObservation,
-    ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
-    RawMapSample, StopFidelity,
+    NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
+    NativeStepObservation, ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory,
+    RawMapRole, RawMapSample, StopFidelity,
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
@@ -365,7 +365,7 @@ impl Default for Controls {
             threads: 1,
             history: 256,
             hessian: HessianMode::Exact,
-            reuse: ReusePolicy::Fresh,
+            reuse: ReusePolicy::AllowRebuild,
             start: StartPolicy::NoPriorStart,
             options: Options::new(),
             foreign_bytes: None,
@@ -2653,6 +2653,10 @@ mod numerical_tests {
     #[test]
     fn identity_covers_every_settings_field() {
         let base = Controls::default();
+        let omitted: Controls = serde_json::from_str("{}").unwrap();
+        assert_eq!(omitted, base);
+        assert_eq!(omitted.reuse, ReusePolicy::AllowRebuild);
+        assert_eq!(omitted.start, StartPolicy::NoPriorStart);
         let key = base.identity().unwrap();
         // Exhaustive: a new control fails to compile until it is covered here.
         let Controls {
@@ -2688,7 +2692,7 @@ mod numerical_tests {
                 ..base.clone()
             },
             Controls {
-                reuse: ReusePolicy::AllowRebuild,
+                reuse: ReusePolicy::Fresh,
                 ..base.clone()
             },
             Controls {

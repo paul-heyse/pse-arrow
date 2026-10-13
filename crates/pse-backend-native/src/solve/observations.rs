@@ -523,8 +523,12 @@ mod tests {
     #[test]
     fn native_step_observation_preserves_absence_and_nonfinite_mesh_without_last_step_invention() {
         let idas = NativeStepObservation::Idas {
-            last_order: None, current_order: Some(1), last_step: None,
-            current_step: Some(0.01), internal_time: Some(f64::NAN), returned_time: None,
+            last_order: None,
+            current_order: Some(1),
+            last_step: None,
+            current_step: Some(0.01),
+            internal_time: Some(f64::NAN),
+            returned_time: None,
         };
         let value = serde_json::to_value(idas).unwrap();
         assert_eq!(value["kind"], "idas");
@@ -532,15 +536,21 @@ mod tests {
         assert!(value["returned_time"].is_null());
         assert_eq!(value["internal_time"]["kind"], "nonfinite");
         let diffsol = NativeStepObservation::Diffsol {
-            current_order: Some(3), current_step: Some(0.2),
-            internal_time: Some(0.5), returned_time: Some(0.4),
+            current_order: Some(3),
+            current_step: Some(0.2),
+            internal_time: Some(0.5),
+            returned_time: Some(0.4),
         };
         let value = serde_json::to_value(diffsol).unwrap();
         assert_eq!(value["internal_time"]["value"], 0.5);
         assert_eq!(value["returned_time"]["value"], 0.4);
         assert!(value.get("last_order").is_none() && value.get("last_step").is_none());
         let schema = serde_json::to_value(schemars::schema_for!(NativeStepObservation)).unwrap();
-        assert!(schema.to_string().contains("DiagnosticNonfiniteObservation"));
+        assert!(
+            schema
+                .to_string()
+                .contains("DiagnosticNonfiniteObservation")
+        );
     }
     #[test]
     fn native_observations_encode_nonfinite_coordinates_and_times_with_matching_schema() {

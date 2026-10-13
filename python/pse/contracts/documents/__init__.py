@@ -7403,7 +7403,7 @@ class SolveControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Additional native options, admitted by the selected adapter.
     options: dict[str, OptionValue] = msgspec.field(default_factory=dict)
     #: Native allocation/data reuse policy.
-    reuse: enums.ReusePolicy = enums.ReusePolicy.FRESH
+    reuse: enums.ReusePolicy = enums.ReusePolicy.ALLOW_REBUILD
     #: Numerical start policy, independent of native allocation reuse.
     start: enums.NativeStartPolicy = enums.NativeStartPolicy.NO_PRIOR_START
     #: Explicit admitted native thread count.
@@ -7429,7 +7429,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     #: Requested composition; omission chooses automatic resolution without replacement starts.
     composition: CompositionRequest = msgspec.field(default_factory=lambda: msgspec.convert({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, type=CompositionRequest))
     #: Shared finite attempt controls.
-    controls: SolveControls = msgspec.field(default_factory=lambda: msgspec.convert({"hessian": "auto", "history": 256, "iterations": 3000, "options": {}, "reuse": "fresh", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, type=SolveControls))
+    controls: SolveControls = msgspec.field(default_factory=lambda: msgspec.convert({"hessian": "auto", "history": 256, "iterations": 3000, "options": {}, "reuse": "allow_rebuild", "start": "no_prior_start", "threads": 1, "time_limit": 300.0}, type=SolveControls))
     #: Absolute eigenvalue budget of a numerical convexity assessment; with the relative
     #: budget, it permits numerical assessment, and absent both, only exact certification.
     convexity_absolute: float | None = None
