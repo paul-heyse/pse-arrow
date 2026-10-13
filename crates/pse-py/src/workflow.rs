@@ -756,10 +756,10 @@ impl NativeRuntime {
         let inner = blocking(
             py,
             &self.owner,
-            async {
+            self.inner.scope_activity(async {
                 let pool = self.owner.shared.pool();
                 let token = cancel.token();
-                let validation = self.owner.model.admission_context();
+                let validation = self.inner.admission_context();
                 let bundle =
                     pse_admission::authoring_driver::document::load_package_documents_owned(
                         &documents,
@@ -776,7 +776,7 @@ impl NativeRuntime {
                         &token,
                     )?;
                 self.inner.physical_from_documents(&owned, &token).await
-            },
+            }),
             || cancel.cancel(),
         )?;
         Ok(NativePhysicalContext {

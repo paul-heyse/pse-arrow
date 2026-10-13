@@ -1118,26 +1118,6 @@ impl DurableAttempt {
                 .ok_or_else(|| contract("horizon seed identity owner absent"))?,
         ))
     }
-    #[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
-    pub(in crate::workflow) fn pause_completion_export(
-        &self,
-    ) -> (
-        tokio::sync::oneshot::Receiver<()>,
-        tokio::sync::oneshot::Sender<()>,
-    ) {
-        let (reached, receiver) = tokio::sync::oneshot::channel();
-        let (release, resume) = tokio::sync::oneshot::channel();
-        self.stream
-            .export_gate
-            .set(FinishExportGate {
-                phase: FinishExportPhase::Completion,
-                reached: Mutex::new(Some(reached)),
-                release: Mutex::new(Some(resume)),
-                failure: None,
-            })
-            .unwrap();
-        (receiver, release)
-    }
     pub(crate) async fn start(&mut self, cancel: Canceller) -> Result<(), WorkflowError> {
         self.acknowledgments.admitted()?;
         if self.operations.policy.heartbeat.is_zero() || self.operations.policy.lease.is_zero() {

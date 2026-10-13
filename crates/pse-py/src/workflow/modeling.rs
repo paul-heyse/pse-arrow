@@ -66,10 +66,10 @@ pub(super) fn from_documents(
     let inner = source_settlement::blocking_source(
         py,
         &runtime.owner,
-        async {
+        runtime.inner.scope_activity(async {
             let pool = runtime.owner.shared.pool();
             let token = cancel.token();
-            let validation = runtime.owner.model.admission_context();
+            let validation = runtime.inner.admission_context();
             let bundles = documents
                 .iter()
                 .map(|documents| {
@@ -91,7 +91,7 @@ pub(super) fn from_documents(
                 .inner
                 .modeling_from_documents(&owned, physical.inner.clone(), &cancel)
                 .await
-        },
+        }),
         || cancel.cancel(),
     )?;
     Ok(NativeModelingPackage {

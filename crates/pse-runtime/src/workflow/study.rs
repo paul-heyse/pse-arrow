@@ -2219,7 +2219,7 @@ mod creation_authority_tests {
 
     fn inputs() -> (StudyPlan, StudyDefinition) {
         let sources = BTreeMap::from([(
-            format!("unpublished-{}.pse", pse_operations::mint_id()),
+            format!("unpublished-{}.pse", pse_operations::mint_id::<SemanticId>()),
             b"not parsed unless durable execution was selected".to_vec(),
         )]);
         let identity = pse_admission::authoring_driver::document::package_checksum(&sources);

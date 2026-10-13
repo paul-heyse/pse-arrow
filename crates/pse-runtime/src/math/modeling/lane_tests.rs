@@ -297,9 +297,9 @@ async fn dynamic_snapshot_pressure_evicts_idle_lane_but_retains_historical_sourc
     assert_eq!(service.pool.reserved(), 0);
 }
 
-#[cfg(feature = "canonical-tests")]
+
 #[tokio::test]
-async fn canonical_package_reload_reuses_live_lane_and_keeps_historical_source_maps() {
+async fn local_package_reload_reuses_live_lane_and_keeps_historical_source_maps() {
     let runtime = crate::workflow::tests::runtime();
     let service = runtime.shared.math();
     let pool = runtime.shared.pool();
@@ -361,27 +361,7 @@ async fn canonical_package_reload_reuses_live_lane_and_keeps_historical_source_m
         )
         .await
         .unwrap();
-    let lane = |package: &crate::workflow::ModelingPackage| {
-        let revision = package.canonical_revision();
-        service
-            .compiler_lane(
-                CompilerLineage::new(
-                    runtime.canonical_store(),
-                    &revision.problem,
-                    &revision.interpretation,
-                    runtime.sessions(),
-                    runtime.registry().clone(),
-                    runtime.model.clone(),
-                )
-                .unwrap(),
-                pse_compiler::workspace::CompilerContext {
-                    quantities: physical.quantities.clone(),
-                    preconditions: physical.preconditions.clone(),
-                    providers: BTreeMap::new(),
-                },
-            )
-            .unwrap()
-    };
+    let lane = |package: &crate::workflow::ModelingPackage| package.pure_workspace().unwrap();
     let workspace = lane(&package);
     let workspaces = service.preparation_effects().workspaces;
     let warm = package

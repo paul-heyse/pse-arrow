@@ -1285,7 +1285,7 @@ impl ModelingPackage {
     fn compiler_lineage(&self)->Result<crate::math::modeling::CompilerLineage,WorkflowError> {
         Ok(crate::math::modeling::CompilerLineage::new(self.revision.lineage_id(),pse_operations::generated::surreal::INTERPRETATION,self.runtime.sessions(),self.runtime.registry().clone(),self.runtime.model.clone())?)
     }
-    pub(super) fn pure_workspace(&self)->Result<crate::math::Workspace,WorkflowError> {
+    pub(crate) fn pure_workspace(&self)->Result<crate::math::Workspace,WorkflowError> {
         Ok(self.runtime.shared.math().compiler_lane(self.compiler_lineage()?,super::compiler_context(&self.physical,&self.providers))?)
     }
     pub(in crate::workflow) async fn selected_revision(&self,root:DeclarationId,cancel:&crate::CancelSource)->Result<crate::math::modeling::ModelingRevision,WorkflowError> {

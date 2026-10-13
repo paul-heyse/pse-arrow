@@ -58,6 +58,10 @@ def test_configured_ephemeral_runtime_does_not_open_its_substrate(
     with pytest.raises(pse.InspectionError):
         runtime.run_record("unavailable")
     assert not missing.exists(), "closed caller cannot start lazy connection"
+    with pytest.raises(pse.InspectionError):
+        runtime.physical_from_documents(physical_documents())
+    with pytest.raises(pse.InspectionError):
+        runtime.modeling_from_documents([package_documents("package closed {param a:Scalar=1;}")], physical)
 
 
 @pytest.mark.unit

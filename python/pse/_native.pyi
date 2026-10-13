@@ -19,6 +19,7 @@ from pse.contracts.documents import (
     ResourceReport,
     RouteDocument,
     SourceLocation,
+    SourceSettlement,
 )
 from pse.contracts.enums import (
     DiagnosticCode,
@@ -124,6 +125,12 @@ class DiagnosticReport:
     def source_ids(self, /) -> tuple[str, ...]: ...
     @property
     def source_locations(self, /) -> tuple[SourceLocation, ...]: ...
+    @property
+    def source_operation(self, /) -> str | None: ...
+    @property
+    def source_problem(self, /) -> str | None: ...
+    @property
+    def source_refusal_proved(self, /) -> bool: ...
     @property
     def stage(self, /) -> DiagnosticStage | None: ...
     @property
@@ -410,9 +417,9 @@ class NativeModelingNonlinearExplanation:
 class NativeModelingPackage:
     def admit_study(self, /, request: bytes) -> bytes: ...
     @property
-    def canonical_problem(self, /) -> str: ...
+    def canonical_problem(self, /) -> str | None: ...
     @property
-    def canonical_revision(self, /) -> str: ...
+    def canonical_revision(self, /) -> str | None: ...
     def conform(
         self,
         /,
@@ -472,6 +479,8 @@ class NativeModelingPackage:
     def reload_from_parent(
         self, /, documents: Sequence[dict[str, str | bytes]]
     ) -> NativeModelingPackage: ...
+    @property
+    def revision_id(self, /) -> str: ...
     def simulate(
         self, /, case_id: str, settings: SimulationSettings
     ) -> NativeModelingTrajectory: ...
@@ -626,7 +635,7 @@ class NativeRuntime:
         /,
         settings: EngineSettings,
         *,
-        substrate: str,
+        substrate: str | None = None,
         database: str | None = None,
         producer: str | None = None,
         ephemeral: bool = False,
@@ -726,6 +735,9 @@ class NativeRuntime:
     def retain_history_obligation(self, /, obligation: bytes) -> None: ...
     def run_record(self, /, run: str) -> TableStream: ...
     def scientific_artifact(self, /, key: str) -> NativeScientificArtifact: ...
+    def source_settlement(
+        self, /, problem: str, operation: str
+    ) -> SourceSettlement: ...
     def start(
         self,
         /,
