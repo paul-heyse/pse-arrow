@@ -11,6 +11,21 @@ use std::{
     time::Duration,
 };
 
+thread_local! {
+    static BORROWED_CAPACITY: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
+}
+struct RestoreCapacity(Option<usize>);
+impl Drop for RestoreCapacity {
+    fn drop(&mut self) { BORROWED_CAPACITY.with(|owner| owner.set(self.0)); }
+}
+/// The profile owner calls this only inside its admitted quiescent team. Each
+/// profile lane owns this many active cores, including its nested experiment work.
+pub(super) fn borrowed_capacity<T>(cores: usize, work: impl FnOnce() -> T) -> T {
+    let restore = RestoreCapacity(BORROWED_CAPACITY.with(|owner| owner.replace(Some(cores))));
+    let result = work();
+    drop(restore);
+    result
+}
 struct Request {
     x: Arc<[f64]>,
     demand: Demand,
@@ -37,6 +52,7 @@ pub(super) struct ExperimentTeam {
     problem: Arc<FitProblem>,
     execution: Execution,
     lanes: Vec<Lane>,
+    borrowed: Option<usize>,
     _owner: Arc<pse_columnar::AllocationLease>,
     #[cfg(test)]
     wave_gate: Option<Arc<std::sync::Barrier>>,
@@ -53,6 +69,10 @@ impl ExperimentTeam {
         let service = problem.runtime.native().clone();
         let count = requested.min(problem.experiments.len()).min(service.cores());
         if count <= 1 { return Ok(None); }
+        let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
+        if borrowed.is_some_and(|cores| count > cores) {
+            return Err(ProblemError::memory("fit experiment exceeds its admitted profile envelope"));
+        }
         let stack = service.stack_bytes();
         // Parent fit state remains charged. Additional lane scratch and stacks remain
         // charged even while active compute is lent and every lane is waiting.
@@ -62,7 +82,7 @@ impl ExperimentTeam {
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|e| ProblemError::internal(format!("fit experiment runtime: {e}")))?;
         let constructor = pse_math::construction::current();
-        let lanes = service.quiescent_phase(count, 0, &execution, || {
+        let launch = || {
             let mut lanes = Vec::with_capacity(count);
             for lane in 0..count {
                 let (tx, rx) = mpsc::sync_channel::<Request>(1);
@@ -84,7 +104,7 @@ impl ExperimentTeam {
                             (0..problem.experiments.len()).map(|_| None).collect();
                         while let Ok(request) = rx.recv() {
                             #[cfg(test)]
-                            if let Some(gate) = &request.gate { gate.wait(); }
+                            if let Some(gate) = &request.gate { let _ = gate.wait(); }
                             for (ei, previous) in request.experiments {
                                 #[cfg(test)]
                                 let constructing = match &problem.experiments[ei] {
@@ -125,8 +145,12 @@ impl ExperimentTeam {
                     #[cfg(test)] constructions });
             }
             Ok::<_, ProblemError>(lanes)
-        }).map_err(|e| e.into_problem())??;
-        Ok(Some(Self { problem, execution, lanes, _owner: owner,
+        };
+        let lanes = match borrowed {
+            Some(_) => launch()?,
+            None => service.quiescent_phase(count, 0, &execution, launch).map_err(|e| e.into_problem())??,
+        };
+        Ok(Some(Self { problem, execution, lanes, borrowed, _owner: owner,
             #[cfg(test)] wave_gate: None }))
     }
     #[cfg(test)]
@@ -143,7 +167,7 @@ impl ExperimentTeam {
         let service = self.problem.runtime.native().clone();
         let count = self.problem.experiments.len();
         let x: Arc<[f64]> = Arc::from(x);
-        service.quiescent_phase(self.lanes.len(), 0, &self.execution, || {
+        let work = || {
             self.execution.check()?;
             let (reply, replies) = mpsc::sync_channel(count);
             let mut results: Vec<Option<Result<ExperimentProducts, ProblemError>>> =
@@ -177,6 +201,10 @@ impl ExperimentTeam {
             // started experiment following a panic, cancellation or lane failure.
             results.into_iter().map(|value| value.unwrap_or_else(||
                 Err(ProblemError::internal("fit experiment lane returned no result")))).collect()
-        }).map_err(|e| e.into_problem())?
+        };
+        match self.borrowed {
+            Some(_) => work(),
+            None => service.quiescent_phase(self.lanes.len(), 0, &self.execution, work).map_err(|e| e.into_problem())?,
+        }
     }
 }

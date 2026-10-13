@@ -149,11 +149,11 @@ pub struct FitOperationSettings {
     pub derivatives: FitDerivatives,
     /// Finite independent experiment lanes.
     #[serde(default = "default_experiment_workers")]
-    pub experiment_workers: pse_model::scalars::PositiveCount,
+    pub experiment_workers: PositiveCount,
     /// Existing uncertainty/interval request.
     pub uncertainty: Option<FitUncertainty>,
 }
-fn default_experiment_workers() -> pse_model::scalars::PositiveCount {
+fn default_experiment_workers() -> PositiveCount {
     pse_model::scalar!(PositiveCount(1))
 }
 impl FitOperationSettings {
@@ -289,7 +289,7 @@ pub struct HorizonOperation {
     /// Existing positive physical sample period in seconds.
     pub period: pse_model::scalars::Tolerance,
     /// Existing closed-loop sample count.
-    pub steps: pse_model::scalars::PositiveCount,
+    pub steps: PositiveCount,
     /// Driven plant inputs.
     pub inputs: Vec<HorizonInputDocument>,
     /// Optional existing estimator.

@@ -749,7 +749,13 @@ impl FitProblem {
             })
             .collect();
         let threads = self.profile.solver.controls.threads;
-        let workers = workers.min(tasks.len()).max(1);
+        let experiment_cores = self.profile.experiment_workers.into_inner()
+            .min(self.experiments.len()).min(self.runtime.native().cores());
+        // Native fitting and its mutable callback execute in phases. A chain's
+        // admitted envelope covers either its NLP team or its experiment lanes.
+        let chain_cores = threads.max(experiment_cores);
+        let workers = workers.min(tasks.len())
+            .min(self.runtime.native().cores() / chain_cores).max(1);
         let chains = Chains {
             problem: self,
             backend,
@@ -761,7 +767,7 @@ impl FitProblem {
             points: controls.points.into_inner(),
         };
         let stack = self.runtime.native().stack_bytes();
-        let cores = threads.checked_mul(workers).ok_or_else(|| {
+        let cores = chain_cores.checked_mul(workers).ok_or_else(|| {
             FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
                 ProblemError::memory("profile team cores"),
             )))
@@ -790,6 +796,7 @@ impl FitProblem {
                     ProblemError::memory("profile team extent"),
                 )))
             })?;
+        let constructor = pse_math::construction::current();
         let (mut result, started, scheduling) = self
             .runtime
             .native()
@@ -806,7 +813,12 @@ impl FitProblem {
                             threads,
                             stack,
                             || -> Result<(), ProblemError> {
-                                work();
+                                super::experiments::borrowed_capacity(chain_cores, || {
+                                    match &constructor {
+                                        Some(owner) => pse_math::construction::scoped(owner.clone(), work),
+                                        None => work(),
+                                    }
+                                });
                                 Ok(())
                             },
                         )

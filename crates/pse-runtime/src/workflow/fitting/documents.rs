@@ -28,13 +28,13 @@ pub struct FitPreparationDocument {
     pub derivatives: super::FitDerivatives,
     #[serde(default = "FitPreparationDocument::default_experiment_workers")]
     #[doc = "Finite independent experiment workers, separately from profile chains."]
-    pub experiment_workers: pse_model::scalars::PositiveCount,
+    pub experiment_workers: PositiveCount,
     #[serde(default)]
     #[doc = "Optional fit uncertainty request."]
     pub uncertainty: Option<super::FitUncertainty>,
 }
 impl FitPreparationDocument {
-    const fn default_experiment_workers() -> pse_model::scalars::PositiveCount {
+    const fn default_experiment_workers() -> PositiveCount {
         pse_model::scalar!(PositiveCount(1))
     }
     const fn default_rank_tolerance() -> f64 {

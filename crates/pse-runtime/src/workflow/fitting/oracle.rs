@@ -2316,6 +2316,7 @@ pub(super) fn evaluate_experiment(
                         }
                         if demand.responses || demand.adjoint {
                             for term in &mapping.responses {
+                                debug_assert!(p.measurements[term.observation].included);
                                 result.responses.push((term.contribution, j.val()[term.local]));
                             }
                         }

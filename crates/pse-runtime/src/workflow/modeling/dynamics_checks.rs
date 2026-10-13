@@ -20,7 +20,7 @@ impl ModelingSimulation {
                         .map(|p| {
                             let providers =
                                 crate::math::attempt_providers(&mode.context.providers, scope)
-                                    .map_err(|e| contract(e.to_string()))?;
+                                    .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Provider(e))))?;
                             Ok::<_, WorkflowError>(
                                 p.assembly.worker_scoped(providers, scope.clone()),
                             )
@@ -88,6 +88,7 @@ impl ModelingSimulation {
         self.check_samples_impl(run_id, report, parameters, scope, true)
     }
     /// Initial, closure and endpoint checks complement the already checked live samples.
+    #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
     pub(super) fn finish_live_checks(&self, run_id: RunId, report: &native::Report,
         parameters: &[f64], scope: &pse_kernels::ExecutionScope) -> SampleChecks {
         self.check_samples_impl(run_id, report, parameters, scope, false)

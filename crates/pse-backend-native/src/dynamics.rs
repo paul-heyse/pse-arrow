@@ -2116,14 +2116,18 @@ pub trait SampleObserver {
     /// One completed sample, outside every active native callback.
     fn sample(&mut self, ordinal: usize, sample: &Sample) -> Result<(), ProblemError>;
 }
+#[cfg(any(feature = "diffsol", feature = "idas"))]
 struct IgnoreSamples;
+#[cfg(any(feature = "diffsol", feature = "idas"))]
 impl SampleObserver for IgnoreSamples {
     fn sample(&mut self, _: usize, _: &Sample) -> Result<(), ProblemError> { Ok(()) }
 }
+#[cfg(any(feature = "diffsol", feature = "idas"))]
 pub(super) struct SampleOutput<'a> {
     retention: SampleRetention,
     observer: &'a mut dyn SampleObserver,
 }
+#[cfg(any(feature = "diffsol", feature = "idas"))]
 impl SampleOutput<'_> {
     fn push(&mut self, report: &mut Report, profile: &Profile, sample: Sample) -> Result<(), ProblemError> {
         let ordinal = report.coverage.produced();

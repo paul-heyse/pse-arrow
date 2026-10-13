@@ -338,7 +338,8 @@ impl ModelingTrajectory {
         WorkflowError,
     > {
         if self.inner.report.coverage.retention == native::SampleRetention::Compact {
-            return Err(contract("compact trajectory does not retain derivative diagnostic samples"));
+            return Err(crate::math::MathRuntimeError::Solve(ProblemError::unsupported(
+                "compact trajectory does not retain derivative diagnostic samples")).into());
         }
         let trajectory = self.clone();
         let prepared = &self.inner.prepared;
@@ -879,7 +880,7 @@ impl ModelingSimulation {
         self.submit_inner(run_id, submission, native::SampleRetention::Full, None)
     }
     fn submit_inner(&self, run_id: RunId, mut submission: crate::math::Submission,
-        retention: native::SampleRetention, mut observer: Option<Box<dyn SimulationSampleObserver>>)
+        retention: native::SampleRetention, observer: Option<Box<dyn SimulationSampleObserver>>)
         -> Result<DynamicsHandle, WorkflowError> {
         let local = std::time::Instant::now()
             .checked_add(self.profile.time_limit)
@@ -891,6 +892,7 @@ impl ModelingSimulation {
         let handle = service.submit_with(1, self.bytes, submission, move |flag, progress| {
             #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
             {
+                let mut observer = observer;
                 let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
                 let accuracy_admission = (!prepared.numerics().policy.goals.is_empty())
                     .then(|| accuracy::task_admission(scope.clone()));
