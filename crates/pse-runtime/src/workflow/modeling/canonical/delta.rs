@@ -7,7 +7,7 @@ use super::*;
 use crate::workflow::SourceDelta;
 use pse_model::generated::authored::documents as document_wire;
 
-pub(super) struct Parent {
+pub(in crate::workflow::modeling) struct Parent {
     pub(super) rows: Vec<Declaration>,
     pub(super) frame: IngressFrame,
     pub(super) physical: PhysicalScope,
@@ -93,15 +93,17 @@ fn data_documents(
 }
 
 impl ModelingPackage {
-    pub(super) async fn delta_parent(&self,cancel:&crate::CancelSource)->Result<Parent,WorkflowError> {
+    pub(in crate::workflow::modeling) async fn delta_parent(&self,cancel:&crate::CancelSource)->Result<Parent,WorkflowError> {
         checkpoint(cancel)?;
-        let (frame,frame_lease)=self.source_decode::<IngressFrame>(&self.local_object(INGRESS_FRAME)?)?;
-        let (mut physical,physical_lease)=self.source_decode::<PhysicalScope>(&self.local_object(PHYSICAL_SCOPE_LOGICAL)?)?;
+        let (frame,frame_lease)=self.source_decode::<IngressFrame>(self.local_object(INGRESS_FRAME)?.as_ref())?;
+        let (mut physical,physical_lease)=self.source_decode::<PhysicalScope>(self.local_object(PHYSICAL_SCOPE_LOGICAL)?.as_ref())?;
         let mut leases=vec![frame_lease,physical_lease];let mut members=BTreeMap::new();let mut documents=BTreeMap::new();let mut index=SourceIndex::default();
         for object in self.revision.admitted.objects.values() {
             checkpoint(cancel)?;
             if object.logical.starts_with("modeling:") && object.logical!=CONTEXT_LOGICAL && object.logical!=PHYSICAL_SCOPE_LOGICAL {
-                let (source,lease)=self.source_decode::<SourcePayload>(object)?;index.insert(source)?;leases.push(lease);
+                let source=object.declaration.as_ref().ok_or_else(||contract("owned typed declaration absent"))?.clone();
+                let lease=self.runtime.shared.math().reserve("modeling:delta-declaration-copy",source.0.owned_bytes().saturating_add(8192))?;
+                index.insert(source)?;leases.push(lease);
             }else if object.kind=="document" {
                 let (row,lease)=self.source_decode::<document_wire::Row>(object)?;
                 if row.content.is_some(){return Err(contract("document metadata unexpectedly contains data bytes"));}
@@ -138,7 +140,7 @@ impl ModelingPackage {
     pub(super) async fn apply_delta_parent(&self,delta:SourceDelta,parent:Parent,cancel:&crate::CancelSource,parsed:Option<reload::ParsedEdit>)->Result<Self,WorkflowError> {
         self.apply_delta_parent_ordered(delta,parent,cancel,parsed,None).await
     }
-    pub(super) async fn apply_delta_parent_ordered(
+    pub(in crate::workflow::modeling) async fn apply_delta_parent_ordered(
         &self,
         delta: SourceDelta,
         mut parent: Parent,
@@ -228,7 +230,7 @@ impl ModelingPackage {
             .shared
             .math()
             .reserve("modeling:source-delta", extent)?;
-        let validation = self.runtime.validation_context();
+        let validation = self.runtime.admission_context();
         let mut declarations =
             pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
                 self.runtime.registry(),
@@ -751,10 +753,8 @@ fn removal(member: &SourceMember) -> ObjectEdit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "canonical-tests")]
     use crate::workflow::SourceDocumentDelta;
 
-    #[cfg(feature = "canonical-tests")]
     async fn document_package(text: &str, data: Option<Vec<u8>>) -> ModelingPackage {
         let mut sources = BTreeMap::from([
             (
@@ -779,29 +779,12 @@ mod tests {
             .unwrap()
     }
 
-    #[cfg(feature = "canonical-tests")]
-    async fn parent_metadata(package: &ModelingPackage) -> Parent {
-        let protection = package
-            .runtime
-            .canonical_store()?
-            .protect(
-                package.revision.canonical.clone(),
-                std::time::Duration::from_secs(30),
-            )
-            .await
-            .unwrap();
-        let mut read = SelectedRead::new(protection);
-        let parent = package
-            .delta_parent(&mut read, &crate::CancelSource::new())
-            .await
-            .unwrap();
-        read.finish().await.unwrap();
-        parent
+    async fn parent_metadata(package:&ModelingPackage)->Parent {
+        package.delta_parent(&crate::CancelSource::new()).await.unwrap()
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_delta_document_only_replacement_retires_exact_text_and_spans() {
+    async fn local_delta_document_only_replacement_retires_exact_text_and_spans() {
         let package = document_package("package minimal_named { param a:Scalar=1; }", None).await;
         let before = parent_metadata(&package).await;
         let mut document = before
@@ -823,7 +806,7 @@ mod tests {
         let changed = package
             .with_delta(
                 SourceDelta {
-                    parent: package.revision.canonical.key.clone(),
+                    parent: package.revision_id().into(),
                     documents: SourceDocumentDelta {
                         replacements: vec![document],
                         ..Default::default()
@@ -846,8 +829,8 @@ mod tests {
         );
         assert_eq!(changed.revision.identity, package.revision.identity);
         assert_ne!(
-            changed.revision.canonical.key,
-            package.revision.canonical.key
+            changed.revision_id(),
+            package.revision_id()
         );
         assert!(
             parent_metadata(&package).await.documents[&document_id]
@@ -857,9 +840,8 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_delta_unrelated_document_edit_retains_data_without_readmission() {
+    async fn local_delta_unrelated_document_edit_retains_data_without_readmission() {
         use datafusion::arrow::{
             array::Int64Array,
             datatypes::{DataType, Field, Schema},
@@ -901,11 +883,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let receiver = Runtime::from_shared(
-            small.shared.clone(),
-            small.model.clone(),
-            package.runtime.canonical.clone(),
-        )
+        let receiver = Runtime::from_shared_local(small.shared.clone(),small.model.clone())
         .unwrap();
         let confined = ModelingPackage {
             runtime: receiver,
@@ -918,7 +896,7 @@ mod tests {
         let changed = confined
             .with_delta(
                 SourceDelta {
-                    parent: package.revision.canonical.key.clone(),
+                    parent: package.revision_id().into(),
                     documents: SourceDocumentDelta {
                         additions: vec![document],
                         ..Default::default()
@@ -975,9 +953,8 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_delta_preserves_order_parent_and_replaces_stable_name_references() {
+    async fn local_delta_preserves_order_parent_and_replaces_stable_name_references() {
         let runtime = crate::workflow::tests::runtime();
         let physical = crate::workflow::tests::physical();
         let parse = |source: &str| {
@@ -1008,7 +985,7 @@ mod tests {
         let unchanged = package
             .with_delta(
                 SourceDelta {
-                    parent: package.revision.canonical.key.clone(),
+                    parent: package.revision_id().into(),
                     ..Default::default()
                 },
                 &cancel,
@@ -1016,14 +993,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            unchanged.revision.canonical.key,
-            package.revision.canonical.key
+            unchanged.revision_id(),
+            package.revision_id()
         );
         let new_equation = fresh.iter().find(|row| row.name == "e").unwrap().clone();
         let changed = package
             .with_delta(
                 SourceDelta {
-                    parent: package.revision.canonical.key.clone(),
+                    parent: package.revision_id().into(),
                     replacements: vec![new_equation],
                     ..Default::default()
                 },
@@ -1032,8 +1009,8 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            changed.revision.canonical.problem,
-            package.revision.canonical.problem
+            changed.revision.lineage_id(),
+            package.revision.lineage_id()
         );
         let independent = runtime
             .modeling_package(fresh.clone(), physical)
@@ -1042,37 +1019,16 @@ mod tests {
         assert_eq!(changed.revision.identity, independent.revision.identity);
         assert_eq!(changed.full_source().await.unwrap().0, fresh);
         assert_eq!(package.full_source().await.unwrap().0, old);
-        let selected = changed.selected_source(root, &cancel).await.unwrap();
-        assert!(selected.rows.iter().any(|row| row.name == "b"));
-        assert!(!selected.rows.iter().any(|row| row.name == "a"));
-        selected.read.finish().await.unwrap();
-        let reopened = runtime
-            .modeling_revision(
-                changed.revision.canonical.clone(),
-                changed.physical.clone(),
-                BTreeMap::new(),
-            )
-            .await
-            .unwrap();
-        let no_op = reopened
-            .with_delta(
-                SourceDelta {
-                    parent: reopened.revision.canonical.key.clone(),
-                    ..Default::default()
-                },
-                &cancel,
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            no_op.revision.canonical.key, changed.revision.canonical.key,
-            "cold reopened delta uses the exact ordered parent"
-        );
+        let selected=changed.checked_selection(&[root],&cancel).await.unwrap();
+        let names=selected.admission.revision.declarations().iter().map(|row|row.name.as_str()).collect::<Vec<_>>();
+        assert!(names.contains(&"b"));assert!(!names.contains(&"a"));
+        let no_op=changed.with_delta(SourceDelta {parent:changed.revision_id().into(),..Default::default()},&cancel).await.unwrap();
+        assert_eq!(no_op.revision_id(),changed.revision_id());
         assert!(
             changed
                 .with_delta(
                     SourceDelta {
-                        parent: package.revision.canonical.key,
+                        parent: package.revision_id().into(),
                         ..Default::default()
                     },
                     &cancel

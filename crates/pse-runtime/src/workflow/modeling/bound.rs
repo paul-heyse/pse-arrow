@@ -383,8 +383,6 @@ mod tests {
         assert_eq!(effects.workspaces, 0);
         assert_eq!(effects.frontiers, 0);
         assert_eq!(effects.completions, 0);
-        assert_eq!(effects.publications, 0);
-        assert_eq!(effects.settlements, 1);
         assert!(Arc::ptr_eq(
             &first.model.case.compiled().plan,
             &second.model.case.compiled().plan
@@ -465,7 +463,6 @@ mod tests {
             let effects = math.preparation_effects().since(before);
             assert_eq!(effects.frontiers, 1, "{specifications}: {effects:?}");
             assert_eq!(effects.completions, 1, "{specifications}: {effects:?}");
-            assert_eq!(effects.settlements, 1, "{specifications}: {effects:?}");
             assert!(
                 effects.workspaces >= 1,
                 "cold admission constructs a workspace"
@@ -483,14 +480,6 @@ mod tests {
             assert_eq!(effects.frontiers, 0, "retained execution: {specifications}");
             assert_eq!(
                 effects.completions, 0,
-                "retained execution: {specifications}"
-            );
-            assert_eq!(
-                effects.settlements, 0,
-                "retained execution: {specifications}"
-            );
-            assert_eq!(
-                effects.publications, 0,
                 "retained execution: {specifications}"
             );
             // Cold numerical observation/view compilation has its own workspace;

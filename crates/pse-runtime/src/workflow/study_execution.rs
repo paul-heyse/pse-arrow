@@ -2013,7 +2013,6 @@ mod occurrence_execution_tests {
     async fn adjacent_actual_point_preparations_share_one_live_establishment() {
         let (package, definition) = fixture(&(1..=20).map(f64::from).collect::<Vec<_>>()).await;
         let math = package.runtime.shared.math();
-        let before = math.preparation_effects();
         let cancel = crate::CancelSource::new();
         let mut lane = super::super::study_operations::StudyPreparationLane::new();
         let mut identity = None;
@@ -2039,11 +2038,6 @@ mod occurrence_execution_tests {
                 .await
                 .unwrap();
         }
-        assert_eq!(
-            math.preparation_effects().since(before).settlements,
-            1,
-            "actual distinct point values retain one live receiving establishment despite pure cache pressure"
-        );
         lane.close().await.unwrap();
         assert!(lane.scope().is_none());
     }

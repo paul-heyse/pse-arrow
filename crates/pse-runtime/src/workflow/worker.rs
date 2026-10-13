@@ -1727,7 +1727,7 @@ impl Runtime {
         let activity = self.admit_activity()?;
         activity
             .scope(async {
-                let validation = self.validation_context();
+                let validation = self.admission_context();
                 let pool = self.shared.pool();
                 let token = cancel.token();
                 let bundle = load_package_documents_owned(
@@ -1784,7 +1784,7 @@ impl Runtime {
                 if let Some(admitted) = service.modeling_cache.package(identity) {
                     return self.package_from_admission(admitted, physical);
                 }
-                let validation = self.validation_context();
+                let validation = self.admission_context();
                 let pool = self.shared.pool();
                 let bundles = bundles
                     .iter()

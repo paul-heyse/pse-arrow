@@ -18,6 +18,8 @@ pub(crate) struct SourceObjectValue {
 pub(crate) struct LocalSourceObject {
     pub(crate) value: SourceObjectValue,
     pub(crate) lease: Arc<pse_columnar::AllocationLease>,
+    pub(super) declaration: Option<SourcePayload>,
+    pub(super) parsed: Option<Arc<pse_modeling::expression::occurrences::ParsedFields>>,
 }
 impl std::ops::Deref for LocalSourceObject {
     type Target = SourceObjectValue;
@@ -37,7 +39,8 @@ impl LocalSourceObject {
         let extent = edit.logical.capacity() + edit.scope.capacity() + edit.name.capacity()
             + version.owned_bytes() + edit.references.iter().map(|(s,n)| s.capacity()+n.capacity()+128).sum::<usize>()
             + size_of::<Self>() + 256;
-        let lease = runtime.shared.math().reserve("modeling:owned-source-object", extent)?;
+        let declaration_extent=if version.kind.starts_with("modeling:") && version.kind!=CONTEXT {version.payload.len().checked_mul(32).and_then(|n|n.checked_add(8192)).ok_or_else(||contract("owned declaration extent"))?}else{0};
+        let lease = runtime.shared.math().reserve("modeling:owned-source-object", extent.checked_add(declaration_extent).ok_or_else(||contract("owned source object extent"))?)?;
         if version.logical != edit.logical || version.interpretation != pse_operations::generated::surreal::INTERPRETATION {
             return Err(contract("owned source object interpretation or logical identity differs"));
         }
@@ -45,7 +48,9 @@ impl LocalSourceObject {
             logical: edit.logical, scope: edit.scope, name: edit.name, version: version.key,
             kind: version.kind, payload: version.payload.into_vec(), references: edit.references,
         };
-        Ok(Some(Arc::new(Self { value, lease })))
+        let declaration=if value.kind.starts_with("modeling:") && value.kind!=CONTEXT {Some(decode::<SourcePayload>(&value.payload)?)}else{None};
+        let parsed=declaration.as_ref().map(|(row,fields)|parsed_fields(runtime,row,fields.as_ref())).transpose()?;
+        Ok(Some(Arc::new(Self { value, lease, declaration, parsed })))
     }
     pub(crate) fn edit(&self) -> ObjectEdit {
         ObjectEdit {
@@ -76,6 +81,7 @@ pub(crate) struct AdmittedModelRevision {
     pub(crate) objects: BTreeMap<String, Arc<LocalSourceObject>>,
     _metadata: Arc<pse_columnar::AllocationLease>,
     _validation_owner: pse_engine::session::BoundModel,
+    _validation_context: Arc<pse_relations::validate::ValidationContext>,
 }
 impl AdmittedModelRevision {
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -101,7 +107,7 @@ impl AdmittedModelRevision {
                 Some(_) => { if let Some(object) = LocalSourceObject::from_edit(runtime, edit.clone())? { objects.insert(edit.logical.clone(), object); } }
             }
         }
-        Ok(Arc::new(Self { objects, _metadata: metadata, _validation_owner: runtime.model.clone() }))
+        Ok(Arc::new(Self { objects, _metadata: metadata, _validation_owner: runtime.model.clone(), _validation_context:runtime.admission_context() }))
     }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -156,8 +162,8 @@ impl LocalSourcePremises {
     pub(crate) fn matches(&self, source: &AdmittedModelRevision) -> bool {
         self.logicals.iter().all(|(logical,old)| source.objects.get(logical) == old.as_ref())
             && self.inventories.iter().all(|(query,old)| {
-                let current = source.objects.values().filter(|object|query.matches(object)).collect::<Vec<_>>();
-                current.len() == old.len() && current.iter().zip(old).all(|(a,b)| *a == b)
+                let mut current=source.objects.values().filter(|object|query.matches(object));
+                old.iter().all(|old|current.next().is_some_and(|current|current==old)) && current.next().is_none()
             })
     }
     pub(super) fn logical(&mut self, source: &AdmittedModelRevision, key: &str) -> Option<Arc<LocalSourceObject>> {

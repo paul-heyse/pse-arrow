@@ -11,14 +11,14 @@ use pse_model::generated::runtime::canonical_revisions::Row as Revision;
 use pse_model::{
     HeapUsage,
     generated::{
-        enums::ModelingDeclarationKind as Kind, runtime::canonical_memberships::Row as Membership,
+        enums::ModelingDeclarationKind as Kind,
     },
 };
 use pse_modeling::selected_source::{self, LexicalLookup, Lookup};
 use pse_operations::{
     canonical::ObjectEdit,
     canonical_selection::{
-        SELECTED_INVENTORY_BATCH, SELECTED_RECHECK_WINDOW, SelectedRead, SelectedRecheckWindow,
+        SelectedRead,
     },
 };
 use std::{
@@ -30,14 +30,6 @@ mod local;
 pub(crate) use local::{AdmittedModelRevision, LocalSourcePremises};
 use local::{LocalInventory, LocalSourceObject, SourceMember};
 pub(crate) mod reload;
-
-// Only the newest bounded window survives the qualification turn. Its scratch
-// and candidate handles remain admitted, and it retains no protection follower.
-struct SelectedCandidateWindow {
-    observations: SelectedRecheckWindow,
-    _scratch: Arc<pse_columnar::AllocationLease>,
-    _handles: Arc<pse_columnar::AllocationLease>,
-}
 
 fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
     if cancel.token().is_cancelled() {
@@ -398,42 +390,6 @@ async fn object(
         .await
         .map(Some)
 }
-/// Resolve each exact nullable identity once, then precharge and hydrate its
-/// immutable objects as a group. Absent identities remain read premises.
-async fn objects(
-    runtime: &Runtime,
-    read: &mut SelectedRead,
-    logicals: &[String],
-    cancel: &crate::CancelSource,
-) -> Result<BTreeMap<String, OwnedObject>, WorkflowError> {
-    let mut objects = BTreeMap::new();
-    for logicals in logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-        checkpoint(cancel)?;
-        let _scratch = runtime.shared.math().reserve(
-            "modeling:exact-object-metadata",
-            pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-        )?;
-        let members = runtime
-            .canonical_store()?
-            .resolve_logicals(read, logicals)
-            .await?;
-        let versions = members
-            .iter()
-            .map(|member| member.version.clone())
-            .collect::<Vec<_>>();
-        if versions.is_empty() {
-            continue;
-        }
-        let selected = selected_objects(runtime, read, &versions, cancel).await?;
-        for (member, object) in members.into_iter().zip(selected) {
-            if member.logical != object.logical || member.version != object.key {
-                return Err(contract("canonical exact object association differs"));
-            }
-            objects.insert(member.logical, object);
-        }
-    }
-    Ok(objects)
-}
 async fn context(
     runtime: &Runtime,
     read: &mut SelectedRead,
@@ -449,31 +405,6 @@ async fn context(
     }
     decode(context.payload.as_slice())
 }
-async fn physical_context(
-    runtime: &Runtime,
-    read: &mut SelectedRead,
-) -> Result<(PhysicalScope, Arc<pse_columnar::AllocationLease>, String), WorkflowError> {
-    let value = object(runtime, read, PHYSICAL_SCOPE_LOGICAL)
-        .await?
-        .ok_or_else(|| contract("canonical physical name scope absent"))?;
-    if value.kind != "physical_scope" {
-        return Err(contract(
-            "canonical physical name scope interpretation differs",
-        ));
-    }
-    Ok((
-        decode(value.payload.as_slice())?,
-        value.lease,
-        value.row.key,
-    ))
-}
-
-/// Native typed rows enter the immutable store once. No checked package or Arrow
-/// source projection escapes this ingress operation.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "one immutable revision persists typed declarations with their physical interpretation and scope, document provenance, source bytes, fit declarations and optional prior revision fence"
-)]
 pub(super) async fn persist(
     runtime: &Runtime,
     rows: Vec<Declaration>,
@@ -496,7 +427,7 @@ pub(super) async fn persist(
         .shared
         .math()
         .reserve("modeling:canonical-ingress", bytes)?;
-    let validation = runtime.validation_context();
+    let validation = runtime.admission_context();
     let mut builder =
         pse_relations::generated::authored::modeling_declarations::Builder::with_registry(
             runtime.registry(),
@@ -657,7 +588,6 @@ pub(super) async fn persist(
             Vec::new(),
         ));
     }
-    let mut membership_leases = Vec::new();
     let mut frame = IngressFrame::new(&rows, documents);
     if let Some(loader) = loader {
         frame.origins = Some(reload::LoaderOrigins::from_bundles(
@@ -709,18 +639,6 @@ async fn admit_revision(
         }
     };
     SourceRevision::admitted(admitted,identity,origin,previous)
-}
-
-/// One compiler input, resolved entirely from immutable canonical records. Read
-/// premises remain protected until the preparation or portable publication ends.
-#[cfg(all(test, feature = "canonical-tests"))]
-pub(super) struct SelectedSource {
-    pub(super) rows: Vec<Declaration>,
-    pub(super) physical: PhysicalScope,
-    pub(super) read: SelectedRead,
-    pub(super) versions: BTreeMap<String, String>,
-    record_sources: BTreeMap<DeclarationId, DeclarationId>,
-    _leases: Vec<Arc<pse_columnar::AllocationLease>>,
 }
 
 /// Active eligibility belongs to this call, never to retained admission.
@@ -1249,11 +1167,14 @@ impl ModelingPackage {
         Ok(super::OwnedDeclarations {rows:parent.rows,_leases:parent._leases})
     }
     pub async fn fit_declarations(&self) -> Result<super::super::fitting::FitDeclarations,WorkflowError> {
+        let activity=self.runtime.admit_activity()?;
+        activity.scope(async {
         let mut rows=Vec::new();let mut leases=Vec::new();
         for object in self.revision.admitted.objects.values().filter(|o|o.kind=="fit") {
             let (row,lease)=self.source_decode(object)?;rows.push(row);leases.push(lease);
         }
         Ok(super::super::fitting::FitDeclarations::from_owned_rows(rows,leases))
+        }).await
     }
     pub(in crate::workflow) async fn fit_declaration(&self,id:pse_model::generated::identities::FitId)->Result<pse_model::generated::authored::fit_cases::Row,WorkflowError> {
         let object=self.local_object(&format!("fit:{id}"))?;
@@ -1277,7 +1198,7 @@ impl ModelingPackage {
         use pse_relations::generated::authored::{documents,fit_cases,packages};
         let parent=self.delta_parent(&crate::CancelSource::new()).await?;
         let mut leases=parent._leases;
-        let validation=self.runtime.validation_context();
+        let validation=self.runtime.admission_context();
         let mut inventory=pse_modeling::document::DocumentInventory {field_spans:parent.fields,..Default::default()};
         let mut document_builder=documents::Builder::with_registry(self.runtime.registry(),parent.documents.len(),&validation).map_err(super::super::relation)?;
         for mut row in parent.documents.into_values() {
@@ -1308,7 +1229,7 @@ impl ModelingPackage {
         Ok(super::OwnedDeclarations {rows,_leases:parent._leases})
     }
     pub(super) async fn declaration(&self,id:DeclarationId)->Result<Declaration,WorkflowError> {
-        Ok(self.source_decode::<SourcePayload>(&self.local_object(&logical(id))?)?.0.0)
+        Ok(self.local_object(&logical(id))?.declaration.as_ref().ok_or_else(||contract("typed declaration absent"))?.0.clone())
     }
     pub(super) async fn checked_selection(&self,roots:&[DeclarationId],cancel:&crate::CancelSource)->Result<CheckedSelection,WorkflowError> {
         checkpoint(cancel)?;
@@ -1319,7 +1240,7 @@ impl ModelingPackage {
             validation:Arc::as_ptr(self.runtime.sessions()) as usize,registry:Arc::as_ptr(self.runtime.registry()) as usize,
         });
         if let Some(candidates)=math.modeling_cache.selected(&request) {
-            for admission in candidates.iter().rev().take(8) {
+            for admission in candidates.rchunks(8).flat_map(|window|window.iter().rev()) {
                 checkpoint(cancel)?;
                 if admission.dependencies.matches(&self.revision.admitted) {
                     return Ok(CheckedSelection {admission:admission.clone(),_premises_metadata:None});
@@ -1382,7 +1303,9 @@ impl ModelingPackage {
             checkpoint(cancel)?;
             if index.versions.contains_key(&object.logical){continue;}
             if !object.kind.starts_with("modeling:") || object.kind==CONTEXT {return Err(contract("local lexical scope contains foreign object kind"));}
-            let (source,lease)=self.source_decode::<SourcePayload>(&object)?;
+            let source=object.declaration.as_ref().ok_or_else(||contract("owned typed declaration absent"))?.clone();
+            let lease=self.runtime.shared.math().reserve("modeling:local-declaration-copy",source.0.owned_bytes().saturating_add(source.1.as_ref().map_or(0,|fields|fields.len()*256)).saturating_add(1024))?;
+            if let Some(parsed)=&object.parsed {index.parsed_fields.insert(source.0.declaration_id,parsed.clone());}
             if logical(source.0.declaration_id)!=object.logical || kind(&source.0)!=object.kind || scope(source.0.parent_id)!=object.scope || source.0.name!=object.name {return Err(contract("owned source metadata differs from generated declaration"));}
             index.insert(source)?;index.versions.insert(object.logical.clone(),object.version.clone());leases.push(lease);
         }
@@ -1433,7 +1356,7 @@ impl ModelingPackage {
                 if selected_source::requires_members(&row) && !index.scopes.contains(&id){index.requests.insert(Request::Members(id));}
                 else if selected_source::owns_namespace(&row) && !index.imports.contains(&id) && !index.scopes.contains(&id){index.requests.insert(Request::Imports(id));}
                 if row.value.import.is_some() && index.needs_name(None,&row.name){index.requests.insert(Request::Name(None,row.name.clone()));}
-                let parsed=parsed_fields(&self.runtime,&row,index.fields.get(&id))?;
+                let parsed=index.parsed_fields.get(&id).cloned().map(Ok).unwrap_or_else(||parsed_fields(&self.runtime,&row,index.fields.get(&id)))?;
                 let references=selected_source::declaration_references_parsed(&row,&parsed).map_err(super::super::modeling_error)?;
                 let lease=self.runtime.shared.math().reserve("modeling:local-reference-paths",references.owned_bytes())?;
                 index.parsed_fields.insert(id,parsed);index.pending_references.insert(id,references);leases.push(lease);
@@ -1482,24 +1405,12 @@ impl ModelingPackage {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod tests {
-    #![allow(
-        clippy::unwrap_used,
-        reason = "namespace inventory fixtures require valid authored declarations and their expected identities"
-    )]
     use super::*;
-    use pse_relations::columnar::RelationRow;
-    fn parse(source: &str) -> Vec<Declaration> {
-        pse_authoring::language::parse(
-            source,
-            SemanticId::NIL,
-            pse_authoring::language::IdentityPolicy::Named,
-            Default::default(),
-        )
-        .unwrap()
+    fn parse(source:&str)->Vec<Declaration> {
+        pse_authoring::language::parse(source,SemanticId::NIL,pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap()
     }
-
     #[test]
     fn complete_namespace_inventory_resolves_nearer_names_without_leaf_or_import_probes() {
         let rows = parse(
@@ -1541,1213 +1452,69 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn full_source_batches_preserve_order_nullable_data_scopes_and_owned_leases() {
-        use pse_model::generated::{
-            enums::{IdPolicy, PackageKind},
-            identities::{FitId, PackageId},
-        };
-        use pse_operations::canonical_staging::{SELECTED_OBJECT_BATCH, SOURCE_BLOCK_BYTES};
-        use pse_relations::generated::authored::{documents, fit_cases, packages};
-        let runtime = crate::workflow::tests::runtime();
-        let rows = parse("package p {def Root {var x:Scalar; eq e:x==1;}}");
-        let mut package = runtime
-            .modeling_package(rows.clone(), crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let data_bytes = include_bytes!(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../../packages/reference/data/poling2000/data/water_antoine.parquet"
-        ));
-        let count = SELECTED_OBJECT_BATCH + 3;
-        let mut edits = Vec::new();
-        let physical = PhysicalScope {
-            package: Some("physical".into()),
-            documents: Some(BTreeSet::new()),
-        };
-        edits.push(edit(
-            PHYSICAL_SCOPE_LOGICAL.into(),
-            "context".into(),
-            "physical_scope".into(),
-            "physical_scope".into(),
-            payload(&physical).unwrap(),
-            Vec::new(),
-        ));
-        let mut expected_documents = BTreeMap::new();
-        let mut expected_packages = BTreeMap::new();
-        let mut expected_fits = BTreeMap::new();
-        let mut visible = BTreeSet::new();
-        for index in 0..count {
-            let mut bytes = [37; 16];
-            bytes[..8].copy_from_slice(&(index as u64).to_le_bytes());
-            let document_id = SemanticId::from_bytes(bytes);
-            let package_id = PackageId::from_id(document_id);
-            let text = index == 1;
-            let row = documents::Row {
-                document_id,
-                package_id,
-                path: if text {
-                    "source.pse".into()
-                } else {
-                    format!("data/{index}.parquet")
-                },
-                // Cross a payload-block boundary on a nullable-data document.
-                source_text: text.then(|| " ".repeat(SOURCE_BLOCK_BYTES + 17)),
-                content: None,
-            };
-            let logical = format!("document:{document_id}");
-            edits.push(edit(
-                logical.clone(),
-                "documents".into(),
-                document_id.to_string(),
-                "document".into(),
-                payload(&row).unwrap(),
-                Vec::new(),
-            ));
-            let mut expected = row.clone();
-            if !text {
-                edits.push(edit(
-                    format!("data:{document_id}"),
-                    "data".into(),
-                    document_id.to_string(),
-                    "data".into(),
-                    data_bytes.to_vec(),
-                    Vec::new(),
-                ));
-                expected.content = Some(data_bytes.to_vec().into());
-            }
-            expected_documents.insert(logical, expected);
-            let row = packages::Row {
-                package_id,
-                name: format!("p{index}"),
-                version: "1.0.0".into(),
-                kind: PackageKind::Model,
-                id_policy: IdPolicy::Named,
-                dependencies: Vec::new(),
-                content_hash: pse_ids::encoding_checksum(&bytes).content_hash(),
-                doc: String::new(),
-            };
-            let logical = format!("package:{package_id}");
-            edits.push(edit(
-                logical.clone(),
-                "packages".into(),
-                package_id.to_string(),
-                "package".into(),
-                payload(&row).unwrap(),
-                Vec::new(),
-            ));
-            expected_packages.insert(logical, row);
-            let row = fit_cases::Row {
-                fit_id: FitId::from_id(document_id),
-                parameters: Vec::new(),
-                experiments: Vec::new(),
-                observations: Vec::new(),
-            };
-            let logical = format!("fit:{}", row.fit_id);
-            edits.push(edit(
-                logical.clone(),
-                "fits".into(),
-                row.fit_id.to_string(),
-                "fit".into(),
-                payload(&row).unwrap(),
-                Vec::new(),
-            ));
-            expected_fits.insert(logical, row);
-            visible.insert(document_id);
-            let entry = PhysicalScope {
-                package: physical.package.clone(),
-                documents: Some(BTreeSet::from([document_id])),
-            };
-            edits.push(edit(
-                format!("physical_scope_document:{document_id}"),
-                "physical_name_scopes".into(),
-                document_id.to_string(),
-                "physical_scope_document".into(),
-                payload(&entry).unwrap(),
-                Vec::new(),
-            ));
-        }
-        let store = runtime.canonical_store()?;
-        let revision = store
-            .edit(
-                &package.revision.canonical.problem,
-                Some(&package.revision.canonical.key),
-                "full-source-batch-fixture",
-                &edits,
-            )
-            .await
-            .unwrap();
-        package.revision.canonical = revision.clone();
-        let mut read = SelectedRead::new(
-            store
-                .protect(revision, std::time::Duration::from_secs(60))
-                .await
-                .unwrap(),
-        );
-        let document_order = store
-            .resolve_kind_scope(&mut read, None, "document")
-            .await
-            .unwrap();
-        let package_order = store
-            .resolve_kind_scope(&mut read, None, "package")
-            .await
-            .unwrap();
-        let fit_order = store
-            .resolve_kind_scope(&mut read, None, "fit")
-            .await
-            .unwrap();
-        read.finish().await.unwrap();
-        let baseline = runtime.shared.pool().reserved();
-        let (acquired, physical, inventory, sources, owners) = package.full_source().await.unwrap();
-        assert_eq!(acquired.len(), rows.len());
-        assert!(rows.iter().all(|row| {
-            acquired
-                .iter()
-                .any(|actual| actual.declaration_id == row.declaration_id)
-        }));
-        assert_eq!(physical.documents, Some(visible));
-        assert_eq!(inventory.packages.len(), count);
-        assert_eq!(inventory.documents.len(), count - 1);
-        assert_eq!(
-            documents::Row::rows(&sources[&documents::RELATION_ID]).unwrap(),
-            document_order
-                .iter()
-                .map(|member| expected_documents[&member.logical].clone())
-                .collect::<Vec<_>>()
-        );
-        assert_eq!(
-            packages::Row::rows(&sources[&packages::RELATION_ID]).unwrap(),
-            package_order
-                .iter()
-                .map(|member| expected_packages[&member.logical].clone())
-                .collect::<Vec<_>>()
-        );
-        assert_eq!(
-            fit_cases::Row::rows(&sources[&fit_cases::RELATION_ID]).unwrap(),
-            fit_order
-                .iter()
-                .map(|member| expected_fits[&member.logical].clone())
-                .collect::<Vec<_>>()
-        );
-        assert!(owners.len() > 4 * count);
-        assert!(runtime.shared.pool().reserved() > baseline);
-        drop((acquired, physical, inventory, sources, owners));
-        assert_eq!(runtime.shared.pool().reserved(), baseline);
-
-        // Refuse a malformed payload in the final document batch; no partial
-        // export or accumulated reservation escapes the failed acquisition.
-        let last = document_order.last().unwrap();
-        let bad = edit(
-            last.logical.clone(),
-            last.scope.clone(),
-            last.name.clone(),
-            "document".into(),
-            b"{".to_vec(),
-            Vec::new(),
-        );
-        package.revision.canonical = store
-            .edit(
-                &package.revision.canonical.problem,
-                Some(&package.revision.canonical.key),
-                "full-source-late-refusal",
-                &[bad],
-            )
-            .await
-            .unwrap();
-        assert!(
-            package
-                .full_source()
-                .await
-                .unwrap_err()
-                .to_string()
-                .contains("canonical source decoding")
-        );
-        assert_eq!(runtime.shared.pool().reserved(), baseline);
-    }
-
-    #[tokio::test]
-    async fn selected_declaration_windows_preserve_sparse_inventory_order_and_cancellation() {
-        let runtime = crate::workflow::tests::runtime();
-        let fixtures = (0..145)
-            .map(|index| format!("test f{index} {{expect 1==1 tolerance 1e-8;}}"))
-            .collect::<String>();
-        let rows = parse(&format!(
-            "package p {{{fixtures} def Unrelated {{var bad:NotPhysical;}}}}"
-        ));
-        let selected = rows
-            .iter()
-            .filter(|row| row.value.kind == Kind::Test && row.name != "f70")
-            .map(|row| row.declaration_id)
-            .collect::<BTreeSet<_>>();
-        assert!(selected.len() > 2 * pse_operations::canonical_staging::SELECTED_OBJECT_BATCH);
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let cancel = crate::CancelSource::new();
-        let full = package.declaration_inventory().await.unwrap();
-        let expected = full
-            .rows
-            .iter()
-            .filter(|row| selected.contains(&row.declaration_id))
-            .map(|row| (row.declaration_id, row.name.clone()))
-            .collect::<Vec<_>>();
-        let acquired = package
-            .selected_declarations(&selected, &cancel)
-            .await
-            .unwrap();
-        assert_eq!(
-            acquired
-                .rows
-                .iter()
-                .map(|row| (row.declaration_id, row.name.clone()))
-                .collect::<Vec<_>>(),
-            expected
-        );
-        let sparse = BTreeSet::from([
-            expected[0].0,
-            expected[expected.len() - 1].0,
-            DeclarationId::from_bytes([7; 16]),
-        ]);
-        let sparse_rows = package
-            .selected_declarations(&sparse, &cancel)
-            .await
-            .unwrap();
-        assert_eq!(sparse_rows.rows.len(), 2);
-        assert_eq!(sparse_rows.rows[0].declaration_id, expected[0].0);
-        assert_eq!(
-            sparse_rows.rows[1].declaration_id,
-            expected[expected.len() - 1].0
-        );
-        cancel.cancel();
-        assert!(matches!(
-            package.selected_declarations(&selected, &cancel).await,
-            Err(WorkflowError::Math(
-                crate::math::MathRuntimeError::Cancelled
-            ))
-        ));
-    }
-
-    #[tokio::test]
-    async fn grouped_scalar_frontier_preserves_closure_replay_and_numerical_results() {
-        let runtime = crate::workflow::tests::runtime();
-        let parameters = (0..128)
-            .map(|index| format!("param c{index}:Scalar=1;"))
-            .collect::<String>();
-        let expression = (0..128)
-            .map(|index| format!("c{index}"))
-            .collect::<Vec<_>>()
-            .join("+");
-        let rows = parse(&format!(
-            "package p {{def Root {{{parameters}var x:Scalar; eq e:x=={expression};}} def Unrelated {{var bad:NotPhysical;}} }}"
-        ));
-        let root = rows
-            .iter()
-            .find(|row| row.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let cancel = crate::CancelSource::new();
-        let selected = package.selected_source(root, &cancel).await.unwrap();
-        assert_eq!(selected.rows.len(), 132);
-        assert!(
-            !selected
-                .rows
-                .iter()
-                .any(|row| row.name == "Unrelated" || row.name == "bad")
-        );
-        let selected_versions = selected.versions.clone();
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        let mut previous = None;
-        for _ in 0..2 {
-            let reopened = runtime
-                .modeling_revision(
-                    package.canonical_revision().clone(),
-                    crate::workflow::tests::physical(),
-                    BTreeMap::new(),
-                )
-                .await
-                .unwrap();
-            let model = reopened
-                .prepare(
-                    root,
-                    pse_modeling::specialize::root_instance(root),
-                    Default::default(),
-                    Default::default(),
-                    &cancel,
-                )
-                .await
-                .unwrap();
-            assert_eq!(model.consumed_source_versions(), &selected_versions);
-            let keys = model
-                .compiled()
-                .admitted
-                .bodies
-                .keys()
-                .copied()
-                .collect::<Vec<_>>();
-            if let Some(previous) = &previous {
-                assert_eq!(&keys, previous);
-            }
-            previous = Some(keys);
-            let values = pse_math::binding::CaseValues {
-                scalars: model
-                    .compiled()
-                    .model
-                    .symbols
-                    .values()
-                    .map(|symbol| {
-                        (
-                            symbol.id,
-                            if symbol.lineage.path.ends_with(".x") {
-                                128.0
-                            } else {
-                                1.0
-                            },
-                        )
-                    })
-                    .collect(),
-            };
-            let bound = reopened
-                .bound_case(
-                    &model,
-                    values.clone(),
-                    &BTreeMap::new(),
-                    pse_kernels::DerivativeOrder::Second,
-                    crate::workflow::tests::compiler_profile(),
-                    &cancel,
-                )
-                .await
-                .unwrap();
-            let executable = runtime.shared.math().assemble(bound.case).await.unwrap();
-            let mut changed = values.clone();
-            let x = model
-                .compiled()
-                .model
-                .symbols
-                .values()
-                .find(|symbol| symbol.lineage.path.ends_with(".x"))
-                .unwrap()
-                .id;
-            changed.scalars.insert(x, 129.0);
-            let (initial, changed) = runtime
-                .shared
-                .math()
-                .with_worker(executable, BTreeMap::new(), &cancel, move |worker| {
-                    Ok((worker.constraints(&values)?, worker.constraints(&changed)?))
-                })
-                .await
-                .unwrap();
-            assert_eq!(initial, [0.0]);
-            assert_eq!(changed, [1.0]);
-        }
-    }
-
-    #[tokio::test]
-    async fn grouped_source_precharges_resources_and_preserves_cancellation() {
-        let runtime = crate::workflow::tests::runtime();
-        let rows = parse("package p {def Root {var x:Scalar; eq e:x==1;} }");
-        let root = rows
-            .iter()
-            .find(|row| row.name == "Root")
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let cancel = crate::CancelSource::new();
-        let selected = package.selected_source(root, &cancel).await.unwrap();
-        let versions = vec![selected.versions[&logical(root)].clone()];
-        // Measure live and transient owners exactly. Optional retained products
-        // may yield under pressure; the selected source's escaped owners remain.
-        runtime.shared.math().clear_program_cache();
-        let before = runtime.shared.pool().reserved();
-        let available = runtime.shared.budget().memory_limit_bytes.get() - before;
-        let hold = runtime
-            .shared
-            .math()
-            .reserve("test:source-frontier-pressure", available - (8 << 20))
-            .unwrap();
-        let error = match package.selected_source(root, &cancel).await {
-            Ok(_) => panic!("low-budget selected source unexpectedly admitted"),
-            Err(error) => error,
-        };
-        assert_eq!(
-            error.boundary_diagnostic().class,
-            pse_model::diagnostic::BoundaryClass::ResourceLimit,
-            "{error}"
-        );
-        assert!(
-            error
-                .to_string()
-                .contains("modeling:logical-frontier-metadata"),
-            "the entrypoint must refuse at the precharged logical RPC, before payload/header acquisition: {error}"
-        );
-        assert_eq!(
-            runtime.shared.pool().reserved(),
-            before + hold.size(),
-            "entrypoint refusal releases physical decode and metadata allowances"
-        );
-        let error = selected_objects(&runtime, &selected.read, &versions, &cancel)
-            .await
-            .unwrap_err();
-        assert_eq!(
-            error.boundary_diagnostic().class,
-            pse_model::diagnostic::BoundaryClass::ResourceLimit,
-            "{error}"
-        );
-        let mut pending = selected.read.clone();
-        let mut cursors = vec![
-            runtime
-                .canonical_store()?
-                .scope_pages(&mut pending, &logical(root))
-                .unwrap(),
-        ];
-        let mut index = SourceIndex::default();
-        let mut leases = Vec::new();
-        let error = package
-            .insert_inventories(&mut index, &mut pending, &mut cursors, &mut leases, &cancel)
-            .await
-            .unwrap_err();
-        assert_eq!(
-            error.boundary_diagnostic().class,
-            pse_model::diagnostic::BoundaryClass::ResourceLimit,
-            "{error}"
-        );
-        assert!(index.rows.is_empty() && leases.is_empty());
-        assert!(
-            pending.dependency_bytes().is_err(),
-            "an unacquired inventory cannot publish partial meaning"
-        );
-        drop(hold);
-        assert_eq!(
-            runtime.shared.pool().reserved(),
-            before,
-            "failed acquisitions release their transient reservations"
-        );
-        cancel.cancel();
-        let error = selected_objects(&runtime, &selected.read, &versions, &cancel)
-            .await
-            .unwrap_err();
-        assert_eq!(
-            error.boundary_diagnostic().class,
-            pse_model::diagnostic::BoundaryClass::Cancelled,
-            "{error}"
-        );
-        let error = package
-            .insert_inventories(&mut index, &mut pending, &mut cursors, &mut leases, &cancel)
-            .await
-            .unwrap_err();
-        assert_eq!(
-            error.boundary_diagnostic().class,
-            pse_model::diagnostic::BoundaryClass::Cancelled,
-            "{error}"
-        );
-        assert!(index.rows.is_empty() && leases.is_empty());
-        assert_eq!(runtime.shared.pool().reserved(), before);
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn canonical_selected_source_acquires_package_engineering_rules_without_unrelated_growth()
-    {
-        async fn description(
-            runtime: &Runtime,
-            read: &SelectedRead,
-            request: &[u8],
-        ) -> pse_operations::canonical_selection::ProductCandidate {
-            let store = runtime.canonical_store()?;
-            let producer = "engineering-rule-frontier-fixture";
-            store
-                .publish_product(
-                    read,
-                    pse_model::generated::runtime::canonical_products::Row {
-                        key: "frontier-description".into(),
-                        problem: read.selection().revision().problem.clone(),
-                        revision: read.selection().revision().key.clone(),
-                        request: request.to_vec().into(),
-                        payload: b"dependency-reuse-control".to_vec().into(),
-                        dependencies: Vec::new().into(),
-                        producer: producer.into(),
-                        interpretation: pse_operations::generated::surreal::INTERPRETATION.into(),
-                    },
-                )
-                .await
-                .unwrap();
-            store
-                .product_candidate(read.selection(), request, producer, "")
-                .await
-                .unwrap()
-                .unwrap()
-        }
-        let runtime = crate::workflow::tests::runtime();
-        let source = "package p {use policy @\"1.0.0\"; def D {var T:Temperature; eq temperature:T==280{K};}} package policy {entity kind source provenance {attribute title:Text;} enum role {published} entity source maintainer {title=\"engineering policy\"} constant temperature:DeltaTemperature=0.1{K} provenance(maintainer,role.published); annotation engineering_rule policy.temperature;}";
-        let rows = parse(source);
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let rule = rows
-            .iter()
-            .find(|row| row.value.constant.is_some())
-            .unwrap()
-            .declaration_id;
-        let marker = rows
-            .iter()
-            .find(|row| row.value.annotation.is_some())
-            .unwrap()
-            .declaration_id;
-        let policy = rows
-            .iter()
-            .find(|row| row.name == "policy" && row.value.kind == Kind::Package)
-            .unwrap()
-            .declaration_id;
-        assert_eq!(
-            kind(
-                rows.iter()
-                    .find(|row| row.declaration_id == marker)
-                    .unwrap()
-            ),
-            ENGINEERING_RULE
-        );
-        let cancel = crate::CancelSource::new();
-        // Edit the authoritative relation while keeping every other authored row
-        // (including source provenance) exact, so marker membership is the premise.
-        let unmarked_rows = rows
-            .iter()
-            .filter(|row| row.declaration_id != marker)
-            .cloned()
-            .collect::<Vec<_>>();
-        let unmarked = runtime
-            .modeling_package(unmarked_rows.clone(), crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let selected = unmarked.selected_source(root, &cancel).await.unwrap();
-        assert!(!selected.rows.iter().any(|row| row.declaration_id == marker));
-        let unmarked_candidate =
-            description(&runtime, &selected.read, b"frontier-without-rule").await;
-        let _unmarked_lease = runtime
-            .shared
-            .math()
-            .reserve(
-                "test:engineering-rule-unmarked-product",
-                unmarked_candidate.retained_bytes(),
-            )
-            .unwrap();
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
-                .await
-                .unwrap()
-                .is_some()
-        );
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        let package = unmarked.with_declarations(rows.clone()).await.unwrap();
-        let selected = package.selected_source(root, &cancel).await.unwrap();
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
-                .await
-                .unwrap()
-                .is_none(),
-            "adding a package rule invalidates the recorded empty marker inventory"
-        );
-        assert!(selected.rows.iter().any(|row| row.declaration_id == marker));
-        assert!(selected.rows.iter().any(|row| row.declaration_id == rule));
-        let extent = selected.rows.owned_bytes();
-        let count = selected.rows.len();
-        let dependency_bytes = selected.read.dependency_bytes().unwrap();
-        let prepared = package
-            .prepare(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Default::default(),
-                Default::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        let rules = &prepared.compiled().model.engineering_rules;
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].id, rule.as_id());
-        assert_eq!(rules[0].marker, marker);
-        let pse_modeling::specialize::Value::Number { bits, quantity } = &rules[0].value else {
-            panic!("shared rule retains its typed constant value")
-        };
-        assert_eq!(f64::from_bits(*bits), 0.1);
-        assert_eq!(
-            package
-                .physical
-                .quantities
-                .quantity_type(*quantity)
-                .unwrap()
-                .key
-                .scale_kind,
-            pse_quantity::ScaleKind::Difference
-        );
-        let marked_candidate = description(&runtime, &selected.read, b"frontier-with-rule").await;
-        let _marked_lease = runtime
-            .shared
-            .math()
-            .reserve(
-                "test:engineering-rule-marked-product",
-                marked_candidate.retained_bytes(),
-            )
-            .unwrap();
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &marked_candidate)
-                .await
-                .unwrap()
-                .is_some(),
-            "the marked product qualifies against its own protected source"
-        );
-        let marked_versions = selected.versions.clone();
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        // Unrelated parameters and ordinary package annotations stay outside the
-        // selected closure, even when they cannot pass scientific admission.
-        let extras = (0..64).map(|index| format!(
-            "param ignored{index}:NotPhysical=1; annotation check ignored{index}(ignored{index}>0);"
-        )).collect::<String>();
-        let grown = source.strip_suffix('}').unwrap().to_owned() + extras.as_str() + "}";
-        let grown_rows = parse(&grown);
-        let revised = package.with_declarations(grown_rows.clone()).await.unwrap();
-        let selected = revised.selected_source(root, &cancel).await.unwrap();
-        assert_eq!(selected.rows.owned_bytes(), extent);
-        assert_eq!(selected.rows.len(), count);
-        assert_eq!(
-            selected.read.dependency_bytes().unwrap(),
-            dependency_bytes,
-            "unrelated package members do not grow semantic marker/import premises"
-        );
-        assert!(
-            !selected
-                .rows
-                .iter()
-                .any(|row| row.name.starts_with("ignored"))
-        );
-        let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        let changed = selected
-            .versions
-            .iter()
-            .filter(|(logical, version)| marked_versions.get(*logical) != Some(*version))
-            .map(|(logical, _)| logical.clone())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            changed,
-            [logical(policy)],
-            "parsed package extension changes its closing source location, preserving other selected versions"
-        );
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &marked_candidate)
-                .await
-                .unwrap()
-                .is_none(),
-            "changed package source provenance invalidates exact reuse"
-        );
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        // A relation extension leaves all existing rows exact. Its unrelated members
-        // must neither grow selected acquisition nor invalidate marker/import meaning.
-        let existing = rows
-            .iter()
-            .map(|row| row.declaration_id)
-            .collect::<BTreeSet<_>>();
-        let additions = grown_rows
-            .into_iter()
-            .filter(|row| !existing.contains(&row.declaration_id))
-            .collect::<Vec<_>>();
-        let mut extended_rows = rows;
-        extended_rows.extend(additions.iter().cloned());
-        let extended = revised.with_declarations(extended_rows).await.unwrap();
-        let selected = extended.selected_source(root, &cancel).await.unwrap();
-        assert_eq!(selected.rows.owned_bytes(), extent);
-        assert_eq!(selected.rows.len(), count);
-        assert_eq!(selected.read.dependency_bytes().unwrap(), dependency_bytes);
-        assert_eq!(
-            selected.versions, marked_versions,
-            "independent relation additions preserve exact selected object versions"
-        );
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &marked_candidate)
-                .await
-                .unwrap()
-                .is_some(),
-            "unrelated relation growth preserves the actual reuse premises"
-        );
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        let mut removed_rows = unmarked_rows;
-        removed_rows.extend(additions);
-        let removed = extended.with_declarations(removed_rows).await.unwrap();
-        let selected = removed.selected_source(root, &cancel).await.unwrap();
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &marked_candidate)
-                .await
-                .unwrap()
-                .is_none(),
-            "removing the package rule invalidates its recorded marker inventory"
-        );
-        assert!(
-            runtime
-                .canonical_store()?
-                .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
-                .await
-                .unwrap()
-                .is_some(),
-            "restoring the original unmarked meaning permits its original product"
-        );
-        let prepared = removed
-            .prepare(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Default::default(),
-                Default::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        assert!(prepared.compiled().model.engineering_rules.is_empty());
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn canonical_source_revision_refuses_old_context_interpretation() {
-        let runtime = crate::workflow::tests::runtime();
-        let package = runtime
-            .modeling_package(
-                parse("package p {def D {var x:Scalar; eq e:x==2;}}"),
-                crate::workflow::tests::physical(),
-            )
-            .await
-            .unwrap();
-        let current = package.canonical_revision().clone();
-        assert_eq!(
-            SourceRevision::open(&runtime, current.clone())
-                .await
-                .unwrap()
-                .identity(),
-            package.revision.identity()
-        );
-        // Stage a genuine old-kind object with the same logical ID and payload.
-        // Only its source interpretation differs; no fixture bypass changes open.
-        let old_operation = pse_operations::mint_id::<SemanticId>().to_string();
-        let old = runtime
-            .canonical_store()?
-            .edit(
-                &current.problem,
-                Some(&current.key),
-                &old_operation,
-                &[edit(
-                    CONTEXT_LOGICAL.into(),
-                    "context".into(),
-                    "modeling:context".into(),
-                    "modeling:context".into(),
-                    payload(&package.revision.identity()).unwrap(),
-                    Vec::new(),
-                )],
-            )
-            .await
-            .unwrap();
-        let error = SourceRevision::open(&runtime, old.clone())
-            .await
-            .unwrap_err();
-        assert!(
-            error
-                .to_string()
-                .contains("canonical modeling context interpretation differs"),
-            "{error}"
-        );
-        assert!(
-            error.to_string().contains("restage the authored source"),
-            "{error}"
-        );
-        let current_operation = pse_operations::mint_id::<SemanticId>().to_string();
-        let restaged = runtime
-            .canonical_store()?
-            .edit(
-                &current.problem,
-                Some(&old.key),
-                &current_operation,
-                &[edit(
-                    CONTEXT_LOGICAL.into(),
-                    "context".into(),
-                    CONTEXT.into(),
-                    CONTEXT.into(),
-                    payload(&package.revision.identity()).unwrap(),
-                    Vec::new(),
-                )],
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            SourceRevision::open(&runtime, restaged)
-                .await
-                .unwrap()
-                .identity(),
-            package.revision.identity()
-        );
-    }
-
-    #[tokio::test]
-    async fn canonical_selected_source_precedes_admission_and_survives_unrelated_growth() {
-        let runtime = crate::workflow::tests::runtime();
-        let source = "package p {fn shared()->Scalar=3; fn law(x:Scalar)->Scalar=x*x; def D {var x:Scalar; eq e:law(x)==shared();} def Unrelated {var wrong:NotPhysical;} }";
-        let rows = parse(source);
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let cancel = crate::CancelSource::new();
-        let selected = package.selected_source(root, &cancel).await.unwrap();
-        let extent = selected.rows.owned_bytes();
-        let names = selected
-            .rows
-            .iter()
-            .map(|row| row.name.as_str())
-            .collect::<BTreeSet<_>>();
-        assert_eq!(
-            names,
-            ["p", "shared", "law", "D", "x", "e"].into_iter().collect()
-        );
-        let checked = package.checked_selection(&[root], &cancel).await.unwrap();
-        let admitted = checked.admission.revision.clone();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        assert!(admitted.checked().entry("p.D").is_some());
-        assert!(admitted.checked().entry("p.Unrelated").is_none());
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        let preparation = package
-            .prepare(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Default::default(),
-                Default::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        assert_eq!(preparation.compiled().model.equations.len(), 1);
-        let extras = (0..64)
-            .map(|index| format!("def Extra{index} {{var bad:NotPhysical;}} "))
-            .collect::<String>();
-        let grown = source.strip_suffix('}').unwrap().to_owned() + extras.as_str() + "}";
-        let revised = package.with_declarations(parse(&grown)).await.unwrap();
-        let selected = revised.selected_source(root, &cancel).await.unwrap();
-        assert_eq!(
-            selected.rows.owned_bytes(),
-            extent,
-            "unrelated declarations never enter the typed compiler input"
-        );
-        assert_eq!(selected.rows.len(), 6);
-        let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        let reopened = runtime
-            .modeling_revision(
-                revised.canonical_revision().clone(),
-                crate::workflow::tests::physical(),
-                BTreeMap::new(),
-            )
-            .await
-            .unwrap();
-        let prepared = reopened
-            .prepare(
-                root,
-                pse_modeling::specialize::root_instance(root),
-                Default::default(),
-                Default::default(),
-                &cancel,
-            )
-            .await
-            .unwrap();
-        assert_eq!(prepared.compiled().model.equations.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn canonical_selected_source_keeps_nearer_names_and_unused_formals() {
-        let runtime = crate::workflow::tests::runtime();
-        let rows = parse(
-            "package p {param outer:Scalar=8; fn law(outer:Scalar)->Scalar=outer; def D {param outer:Scalar=2; var x:Scalar; eq e:law(x)==outer;} }",
-        );
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let inner = rows
-            .iter()
-            .find(|row| row.name == "outer" && row.parent_id == Some(root))
-            .unwrap()
-            .declaration_id;
-        let outer = rows
-            .iter()
-            .find(|row| row.name == "outer" && row.parent_id != Some(root))
-            .unwrap()
-            .declaration_id;
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let selected = package
-            .selected_source(root, &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert!(selected.rows.iter().any(|row| row.declaration_id == inner));
-        assert!(!selected.rows.iter().any(|row| row.declaration_id == outer));
-        let checked = package
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        let revision = checked.admission.revision.clone();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        assert_eq!(revision.checked().resolve(root, "outer"), Some(inner));
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
+    async fn local_source_admission_and_selection_need_no_store() {
+        let runtime=crate::workflow::tests::runtime();
+        assert!(matches!(runtime.canonical(),Err(WorkflowError::RecordingUnavailable)));
+        let rows=parse("package p {param a:Scalar=1;param b:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}");
+        let root=rows.iter().find(|r|r.name=="Root").unwrap().declaration_id;
+        let package=runtime.modeling_package(rows.clone(),crate::workflow::tests::physical()).await.unwrap();
+        assert!(package.canonical_revision().is_none());
+        let selected=package.checked_selection(&[root],&crate::CancelSource::new()).await.unwrap();
+        let declarations=selected.admission.revision.declarations();
+        assert!(declarations.iter().any(|r|r.name=="a"));assert!(!declarations.iter().any(|r|r.name=="b"));
+        assert_eq!(&*package.declarations().await.unwrap(),rows.as_slice());
+        let same=runtime.modeling_package(rows,package.physical.clone()).await.unwrap();
+        assert_ne!(same.revision_id(),package.revision_id());assert_ne!(same.revision.lineage_id(),package.revision.lineage_id());
+        let reused=same.checked_selection(&[root],&crate::CancelSource::new()).await.unwrap();
+        assert!(Arc::ptr_eq(&selected.admission,&reused.admission));
     }
     #[tokio::test]
-    async fn canonical_synthetic_record_selects_its_admitted_supplier() {
-        let runtime = crate::workflow::tests::runtime();
-        let rows = parse(
-            "package p {entity kind sample {key id:Integer;attribute value:Scalar;} entity kind source provenance {} entity source origin {} enum role {published} dataset readings:sample provenance(origin,role.published) {[7]=[2];[8]=[3];[9]=[4];} def D {var x:Scalar;eq e:x==2;} def Unrelated {var broken:MissingType;}}",
-        );
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let kind = rows
-            .iter()
-            .find(|row| row.name == "sample")
-            .unwrap()
-            .declaration_id;
-        let supplier = rows
-            .iter()
-            .find(|row| row.name == "readings")
-            .unwrap()
-            .declaration_id;
-        let record = pse_modeling::entity::keyed_identity(
-            kind,
-            &[pse_modeling::specialize::Value::Integer(7)],
-        );
-        let other_records = [8, 9].map(|key| {
-            pse_modeling::entity::keyed_identity(
-                kind,
-                &[pse_modeling::specialize::Value::Integer(key)],
-            )
-        });
-        let package = runtime
-            .modeling_package(rows, crate::workflow::tests::physical())
-            .await
-            .unwrap();
-        let selected = package
-            .selected_sources(
-                &[root, record, other_records[0], other_records[1]],
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(selected.record_sources[&record], supplier);
-        assert!(selected.versions.contains_key(&format!("record:{record}")));
-        assert!(
-            !selected
-                .rows
-                .iter()
-                .any(|row| row.name == "Unrelated" || row.name == "broken")
-        );
-        for record in other_records {
-            assert_eq!(selected.record_sources[&record], supplier);
-            assert!(selected.versions.contains_key(&format!("record:{record}")));
-        }
-        assert_eq!(
-            selected
-                .rows
-                .iter()
-                .filter(|row| row.declaration_id == supplier)
-                .count(),
-            1,
-            "shared suppliers are hydrated once across exact record demands"
-        );
-        let checked = package
-            .checked_selection(
-                &[root, record, other_records[0], other_records[1]],
-                &crate::CancelSource::new(),
-            )
-            .await
-            .unwrap();
-        let admitted = checked.admission.revision.clone();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        for (record, expected) in other_records.into_iter().zip([3.0, 4.0]) {
-            let value = admitted.checked().record(record).unwrap();
-            assert_eq!(value.origin, supplier);
-            assert!(
-                matches!(value.values["value"], pse_modeling::specialize::Value::Number { bits, .. } if f64::from_bits(bits) == expected)
-            );
-        }
-        assert_eq!(admitted.checked().record(record).unwrap().origin, supplier);
-        assert!(
-            matches!(admitted.checked().record(record).unwrap().values["value"], pse_modeling::specialize::Value::Number { bits, .. } if f64::from_bits(bits) == 2.0)
-        );
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
+    async fn local_siblings_branch_and_cancel_keeps_previous_head() {
+        let runtime=crate::workflow::tests::runtime();
+        let package=runtime.modeling_package(parse("package p {param a:Scalar=1;}"),crate::workflow::tests::physical()).await.unwrap();
+        let left=parse("package p {param a:Scalar=2;}");let right=parse("package p {param a:Scalar=3;}");
+        let (left,right)=tokio::join!(package.with_declarations(left),package.with_declarations(right));
+        let left=left.unwrap();let right=right.unwrap();
+        assert_ne!(left.revision_id(),right.revision_id());assert_ne!(left.revision.lineage_id(),right.revision.lineage_id());
+        assert!(left.revision.lineage_id()==package.revision.lineage_id() || right.revision.lineage_id()==package.revision.lineage_id());
+        assert_eq!(&*package.declarations().await.unwrap(),parse("package p {param a:Scalar=1;}").as_slice());
+        let before=left.revision.head.lock().unwrap().revision.clone();
+        let cancel=crate::CancelSource::new();cancel.cancel();
+        assert!(left.with_delta(crate::workflow::SourceDelta {parent:left.revision_id().into(),..Default::default()},&cancel).await.is_err());
+        assert_eq!(left.revision.head.lock().unwrap().revision,before);
     }
-
     #[tokio::test]
-    async fn canonical_document_physical_visibility_and_inventory_owners_are_selected() {
-        let runtime = crate::workflow::tests::runtime();
-        let physical = crate::workflow::tests::physical();
-        let rows = parse("package p {def D {var x:Scalar;eq e:x==2;}}");
-        let root = rows
-            .iter()
-            .find(|row| row.name == "D")
-            .unwrap()
-            .declaration_id;
-        let visible = std::iter::once(SemanticId::NIL)
-            .chain((1..=64).map(|id| SemanticId::from_bytes([id; 16])))
-            .collect::<BTreeSet<_>>();
-        let revision = persist(
-            &runtime,
-            rows,
-            &physical,
-            PhysicalScope {
-                package: None,
-                documents: Some(visible),
-            },
-            &Default::default(),
-            &Default::default(),
-            &Default::default(),
-            None,
-            None,
-        )
-        .await
-        .unwrap();
-        let package = runtime
-            .package_from_canonical(revision, physical, BTreeMap::new())
-            .unwrap();
-        let selected = package
-            .selected_source(root, &crate::CancelSource::new())
-            .await
-            .unwrap();
-        assert_eq!(
-            selected.physical.documents,
-            Some(BTreeSet::from([SemanticId::NIL]))
-        );
-        assert_eq!(
-            selected
-                .versions
-                .keys()
-                .filter(|key| key.starts_with("physical_scope_document:"))
-                .count(),
-            1
-        );
-        let checked = package
-            .checked_selection(&[root], &crate::CancelSource::new())
-            .await
-            .unwrap();
-        runtime
-            .canonical_store()?
-            .release(checked.read.selection())
-            .await
-            .unwrap();
-        runtime
-            .canonical_store()?
-            .release(selected.read.selection())
-            .await
-            .unwrap();
-        drop(selected);
-        let baseline = runtime.shared.pool().reserved();
-        let inventory = package.declarations().await.unwrap();
-        assert!(runtime.shared.pool().reserved() > baseline);
-        drop(package);
-        assert!(
-            runtime.shared.pool().reserved() > baseline,
-            "escaped generated rows retain their decode grants"
-        );
-        drop(inventory);
-        assert_eq!(runtime.shared.pool().reserved(), baseline);
+    async fn local_exact_premises_reject_payload_collision_and_new_shadow() {
+        let runtime=crate::workflow::tests::runtime();
+        let package=runtime.modeling_package(parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),crate::workflow::tests::physical()).await.unwrap();
+        let root=package.declarations().await.unwrap().iter().find(|r|r.name=="Root").unwrap().declaration_id;
+        let selected=package.checked_selection(&[root],&crate::CancelSource::new()).await.unwrap();
+        let object=package.revision.admitted.objects.values().find(|o|o.name=="a").unwrap();
+        let mut forged=object.edit();
+        let replacement=parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}").into_iter().find(|r|r.name=="a").unwrap();
+        forged.version.as_mut().unwrap().payload=payload(&(replacement,None::<FieldSpans>)).unwrap().into();
+        // Keep its correspondence key deliberately unchanged: full equality refuses reuse.
+        let forged_owner=AdmittedModelRevision::apply(&runtime,Some(&package.revision.admitted),&[forged]).unwrap();
+        assert!(!selected.admission.dependencies.matches(&forged_owner));
+        let shadow=package.with_declarations(parse("package p {param a:Scalar=1;def Root {param a:Scalar=4;var x:Scalar;eq e:x==a;}}")).await.unwrap();
+        assert!(!selected.admission.dependencies.matches(&shadow.revision.admitted));
+        let current=shadow.checked_selection(&[root],&crate::CancelSource::new()).await.unwrap();
+        assert_ne!(selected.admission.dependencies,current.admission.dependencies);
+    }
+    #[cfg(feature="canonical-tests")]
+    #[tokio::test]
+    async fn durable_source_ack_conflict_and_disconnected_owned_compute() {
+        let runtime=crate::workflow::tests::durable_runtime();
+        let package=runtime.modeling_package(parse("package p {param a:Scalar=1;def Root {var x:Scalar;eq e:x==a;}}"),crate::workflow::tests::physical()).await.unwrap();
+        let root=package.declarations().await.unwrap().iter().find(|r|r.name=="Root").unwrap().declaration_id;
+        let origin=package.canonical_revision().unwrap().clone();
+        let imported=runtime.modeling_revision(origin.clone(),package.physical.clone(),BTreeMap::new()).await.unwrap();
+        assert_ne!(imported.revision_id(),package.revision_id());assert_eq!(imported.revision.identity,package.revision.identity);
+        let changed=package.with_declarations(parse("package p {param a:Scalar=2;def Root {var x:Scalar;eq e:x==a;}}")).await.unwrap();
+        assert!(imported.with_declarations(parse("package p {param a:Scalar=3;def Root {var x:Scalar;eq e:x==a;}}")).await.is_err());
+        assert_eq!(imported.canonical_revision().unwrap(),&origin);
+        runtime.canonical_store().unwrap().close();
+        assert!(changed.checked_selection(&[root],&crate::CancelSource::new()).await.is_ok());
+        assert!(changed.with_declarations(parse("package p {param a:Scalar=4;def Root {var x:Scalar;eq e:x==a;}}")).await.is_err());
     }
 }

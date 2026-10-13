@@ -136,7 +136,7 @@ enum ParsedOwner {
     Initial(OwnedDocumentSet),
     Reload(Arc<ParsedReload>),
 }
-/// Service-local, charged, evictable parser accelerator; canonical provenance is authority.
+/// Service-local, charged, evictable parser accelerator; exact owned loader provenance is authority.
 #[derive(Debug)]
 pub(crate) struct RetainedIngress {
     revision: String,
@@ -327,7 +327,7 @@ async fn cold_owner(
         Default::default(),
         &package.runtime.shared.pool(),
         &cancel.token(),
-        &package.runtime.validation_context(),
+        &package.runtime.admission_context(),
     )?);
     let (rows, _, fits, _, inventory, _lease) = source_rows(&parsed, package, cancel)?;
     let expected = rows
@@ -601,7 +601,7 @@ impl ModelingPackage {
             Default::default(),
             &self.runtime.shared.pool(),
             &cancel.token(),
-            &self.runtime.validation_context(),
+            &self.runtime.admission_context(),
         )?);
         let (delta, extras) = make_edit(self, &parent, parsed.clone(), &origins, cancel)?;
         let result = self
@@ -614,7 +614,6 @@ impl ModelingPackage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "canonical-tests")]
     fn sources(text: &str) -> BTreeMap<String, Vec<u8>> {
         BTreeMap::from([
             (
@@ -627,24 +626,8 @@ mod tests {
             ("models/bank.pse".into(), text.as_bytes().to_vec()),
         ])
     }
-    #[cfg(feature = "canonical-tests")]
-    async fn parent(package: &ModelingPackage) -> delta::Parent {
-        let protection = package
-            .runtime
-            .canonical_store()?
-            .protect(
-                package.revision.canonical.clone(),
-                std::time::Duration::from_secs(30),
-            )
-            .await
-            .unwrap();
-        let mut read = SelectedRead::new(protection);
-        let result = package
-            .delta_parent(&mut read, &crate::CancelSource::new())
-            .await
-            .unwrap();
-        read.finish().await.unwrap();
-        result
+    async fn parent(package:&ModelingPackage)->delta::Parent {
+        package.delta_parent(&crate::CancelSource::new()).await.unwrap()
     }
     #[test]
     fn ir_fit_intent_invalidates_exact_document_origin_without_inferring_other_fits() {
@@ -671,9 +654,8 @@ mod tests {
             [(retained, "retained".into())]
         );
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_parsed_reload_noop_order_add_remove_and_exact_fresh_v4() {
+    async fn local_parsed_reload_noop_order_add_remove_and_exact_fresh_v4() {
         let runtime = crate::workflow::tests::runtime();
         let physical = crate::workflow::tests::physical();
         let cancel = crate::CancelSource::new();
@@ -686,7 +668,7 @@ mod tests {
             .reload_from_parent(&[original.clone()], &cancel)
             .await
             .unwrap();
-        assert_eq!(no_op.revision.canonical, package.revision.canonical);
+        assert_eq!(no_op.revision_id(), package.revision_id());
         let mut expanded = original.clone();
         expanded.insert(
             "models/a.pse".into(),
@@ -710,8 +692,8 @@ mod tests {
         assert_eq!(actual.fields, expected.fields);
         assert_eq!(actual.documents, expected.documents);
         assert_eq!(
-            reloaded.revision.canonical.problem,
-            package.revision.canonical.problem
+            reloaded.revision.lineage_id(),
+            package.revision.lineage_id()
         );
         for (logical, member) in &parent(&package).await.members {
             if logical.starts_with("modeling:")
@@ -735,9 +717,8 @@ mod tests {
                 .all(|row| row.path != "models/a.pse")
         );
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_parsed_reload_rebinds_stable_name_and_preserves_failed_parent() {
+    async fn local_parsed_reload_rebinds_stable_name_and_preserves_failed_parent() {
         let runtime = crate::workflow::tests::runtime();
         let cancel = crate::CancelSource::new();
         let original = sources(
@@ -765,10 +746,9 @@ mod tests {
             .reload_from_parent(&[changed], &cancel)
             .await
             .unwrap();
-        let selected = result.selected_source(root, &cancel).await.unwrap();
-        assert!(selected.rows.iter().any(|row| row.name == "b"));
-        assert!(!selected.rows.iter().any(|row| row.name == "a"));
-        selected.read.finish().await.unwrap();
+        let selected = result.checked_selection(&[root], &cancel).await.unwrap();
+        assert!(selected.admission.revision.declarations().iter().any(|row| row.name == "b"));
+        assert!(!selected.admission.revision.declarations().iter().any(|row| row.name == "a"));
         // Reference admission is selected, as on independent initial ingress.
         let unresolved =
             sources("package minimal_named {def Root {var x:Scalar; eq e:x==missing;}}");
@@ -784,15 +764,7 @@ mod tests {
         );
         // Malformed syntax must still refuse the reload atomically.
         let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:;}}");
-        let store = runtime.canonical_store()?;
-        let before = pse_operations::testing::source_problem_head(
-            store,
-            &unresolved.revision.canonical.problem,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert_eq!(before.head, unresolved.revision.canonical.key);
+        let before=unresolved.revision.head.lock().unwrap().revision.clone();
         let error = unresolved
             .reload_from_parent(&[invalid], &cancel)
             .await
@@ -806,15 +778,7 @@ mod tests {
             ),
             "malformed reload refuses at the parser rather than parent CAS: {error}"
         );
-        let after = pse_operations::testing::source_problem_head(
-            store,
-            &unresolved.revision.canonical.problem,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert_eq!(after.head, before.head);
-        assert_eq!(after.sequence, before.sequence);
+        assert_eq!(unresolved.revision.head.lock().unwrap().revision,before);
         assert_eq!(
             parent(&result)
                 .await
@@ -852,9 +816,8 @@ mod tests {
                 .is_err()
         );
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_parsed_reload_cold_older_frame_recovers_exact_owner_and_ir_fit_survives() {
+    async fn local_parsed_reload_cold_older_frame_recovers_exact_owner_and_ir_fit_survives() {
         let runtime = crate::workflow::tests::runtime();
         let cancel = crate::CancelSource::new();
         let original = sources("package minimal_named {param a:Scalar=1;}");
@@ -868,31 +831,8 @@ mod tests {
             .unwrap();
         let mut frame = parent(&package).await.frame;
         frame.origins = None;
-        let operation = pse_operations::mint_id::<SemanticId>().to_string();
-        let canonical = runtime
-            .canonical_store()?
-            .edit(
-                &package.revision.canonical.problem,
-                Some(&package.revision.canonical.key),
-                &operation,
-                &[edit(
-                    INGRESS_FRAME.into(),
-                    "context".into(),
-                    "ingress_frame".into(),
-                    "ingress_frame".into(),
-                    payload(&frame).unwrap(),
-                    Vec::new(),
-                )],
-            )
-            .await
-            .unwrap();
-        let older = ModelingPackage {
-            revision: SourceRevision {
-                canonical,
-                identity: package.revision.identity,
-            },
-            ..package.clone()
-        };
+        let revision=admit_revision(&runtime,Some(&package.revision),package.revision.identity,&[edit(INGRESS_FRAME.into(),"context".into(),"ingress_frame".into(),"ingress_frame".into(),payload(&frame).unwrap(),Vec::new())]).await.unwrap();
+        let older=ModelingPackage {revision,..package.clone()};
         runtime.clear_program_cache();
         let loaded = older
             .reload_from_parent(&[original.clone()], &cancel)
@@ -904,7 +844,7 @@ mod tests {
         let with_fit = loaded
             .with_delta(
                 crate::workflow::SourceDelta {
-                    parent: loaded.revision.canonical.key.clone(),
+                    parent: loaded.revision_id().into(),
                     fits: crate::workflow::SourceFitDelta {
                         additions: vec![pse_model::generated::authored::fit_cases::Row {
                             fit_id: id,
@@ -931,9 +871,8 @@ mod tests {
             "full parsed inventory is no authority to delete unrelated IR fits"
         );
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_parsed_reload_unrelated_document_keeps_data_without_compiler_readmission() {
+    async fn local_parsed_reload_unrelated_document_keeps_data_without_compiler_readmission() {
         use datafusion::arrow::{
             array::Int64Array,
             datatypes::{DataType, Field, Schema},
@@ -976,11 +915,7 @@ mod tests {
                 ..Default::default()
             },
         );
-        let receiver = Runtime::from_shared(
-            small.shared.clone(),
-            small.model.clone(),
-            package.runtime.canonical.clone(),
-        )
+        let receiver = Runtime::from_shared_local(small.shared.clone(),small.model.clone())
         .unwrap();
         let confined = ModelingPackage {
             runtime: receiver,
@@ -1008,9 +943,8 @@ mod tests {
             assert_eq!(after.members[logical].version, member.version);
         }
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
-    async fn canonical_parsed_reload_removed_document_fit_is_exact_and_ir_replacement_survives() {
+    async fn local_parsed_reload_removed_document_fit_is_exact_and_ir_replacement_survives() {
         let runtime = crate::workflow::tests::runtime();
         let cancel = crate::CancelSource::new();
         let mut inventory = sources("package minimal_named {param a:Scalar=1;}");
@@ -1060,7 +994,7 @@ mod tests {
         let replaced = current
             .with_delta(
                 crate::workflow::SourceDelta {
-                    parent: current.revision.canonical.key.clone(),
+                    parent: current.revision_id().into(),
                     fits: crate::workflow::SourceFitDelta {
                         replacements: vec![ir],
                         ..Default::default()

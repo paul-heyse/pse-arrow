@@ -97,14 +97,13 @@ pub(crate) fn runtime_on_threads(
             .session_factory(pse_engine::session::native_engine_profile())
             .unwrap(),
     );
-    Runtime::from_shared(
-        shared,
-        sessions.bind_model(registry).unwrap(),
-        canonical_deployment(),
-    )
-    .unwrap()
-    .with_durability(DurabilitySelection::Ephemeral)
-    .unwrap()
+    Runtime::from_shared_local(shared,sessions.bind_model(registry).unwrap()).unwrap()
+}
+/// Genuine store-effect fixtures explicitly request durable source/run acknowledgement.
+pub(crate) fn durable_runtime() -> Runtime {
+    let local=runtime();
+    Runtime::from_shared(local.shared.clone(),local.model.clone(),canonical_deployment()).unwrap()
+
 }
 fn shared_runtime_on(memory: usize, math: crate::math::MathPolicy) -> Arc<SharedRuntime> {
     shared_runtime_on_threads(memory, math, 2)

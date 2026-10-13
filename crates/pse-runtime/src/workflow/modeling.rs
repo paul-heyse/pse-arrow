@@ -21,7 +21,7 @@ fn preparation_deadline(cancel: &crate::CancelSource) -> Result<std::time::Insta
 mod bound;
 mod canonical;
 pub(crate) use canonical::reload::RetainedIngress;
-pub(crate) use canonical::{AdmittedModelRevision, LocalSourcePremises};
+pub(crate) use canonical::LocalSourcePremises;
 pub(super) mod cases;
 mod conformance;
 pub(super) mod declared;
@@ -99,7 +99,7 @@ pub(super) mod assessment;
 pub(super) mod documents;
 pub(super) mod results;
 mod views;
-use super::{PhysicalContext, Runtime, WorkflowError, contract, relation};
+use super::{PhysicalContext, Runtime, WorkflowError, SourceDelta, contract, relation};
 use crate::math::{Workspace, modeling::ModelingPreparation};
 pub use analysis_tables::ModelingNativeAnalysis;
 pub use cases::{ModelingObservations, ModelingSolvePreparation, StartSource};
@@ -429,7 +429,7 @@ impl Runtime {
             .scope(async {
                 let token = cancel.token();
                 token.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let validation = self.validation_context();
+                let validation = self.admission_context();
                 documents.validate_context(
                     self.registry(),
                     &validation,
@@ -705,7 +705,7 @@ impl ModelingPackage {
         use pse_relations::generated::authored::modeling_declarations as wire;
         let (source_rows, _, _, document_sources, _source_owners) = self.full_source().await?;
         let registry = self.runtime.registry();
-        let validation = self.runtime.validation_context();
+        let validation = self.runtime.admission_context();
         let bytes = source_rows
             .iter()
             .map(HeapUsage::owned_bytes)

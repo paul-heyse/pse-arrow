@@ -4,7 +4,6 @@
 use super::*;
 use crate::math::solves::{NumericalInputs, SolverProfile};
 use pse_compiler::workspace::{ModelingCaseBindings, Profile};
-use pse_model::HeapUsage;
 use pse_model::generated::enums::{ModelingAnalysisRoute as Route, ModelingProcedure as Procedure};
 use pse_modeling::specialize::{Fixture, IntegrationFixture, ShootingFixture};
 fn authored_fixture(row: &Declaration) -> Option<&pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueScopeFixture>{
