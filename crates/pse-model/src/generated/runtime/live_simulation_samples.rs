@@ -15,6 +15,10 @@ pub struct RuntimeLiveSimulationSamplesRow {
     pub r#accuracy_attempt: i64,
     ///sample
     pub r#sample: i64,
+    ///mode
+    pub r#mode: i64,
+    ///mode_identity
+    pub r#mode_identity: pse_ids::ContentHash,
     ///time
     pub r#time: f64,
     ///symbol_id
@@ -33,7 +37,11 @@ impl crate::SemanticEq for RuntimeLiveSimulationSamplesRow {
                 &self.r#accuracy_attempt,
                 &other.r#accuracy_attempt,
             ) && crate::SemanticEq::semantic_eq(&self.r#sample, &other.r#sample)
-            && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
+            && crate::SemanticEq::semantic_eq(&self.r#mode, &other.r#mode)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#mode_identity,
+                &other.r#mode_identity,
+            ) && crate::SemanticEq::semantic_eq(&self.r#time, &other.r#time)
             && crate::SemanticEq::semantic_eq(&self.r#symbol_id, &other.r#symbol_id)
             && crate::SemanticEq::semantic_eq(&self.r#quantity_id, &other.r#quantity_id)
             && crate::SemanticEq::semantic_eq(&self.r#unit_id, &other.r#unit_id)
@@ -55,6 +63,10 @@ impl crate::SemanticFrame for RuntimeLiveSimulationSamplesRow {
         crate::SemanticFrame::frame(&self.r#accuracy_attempt, hash);
         hash.str(stringify!(r#sample));
         crate::SemanticFrame::frame(&self.r#sample, hash);
+        hash.str(stringify!(r#mode));
+        crate::SemanticFrame::frame(&self.r#mode, hash);
+        hash.str(stringify!(r#mode_identity));
+        crate::SemanticFrame::frame(&self.r#mode_identity, hash);
         hash.str(stringify!(r#time));
         crate::SemanticFrame::frame(&self.r#time, hash);
         hash.str(stringify!(r#symbol_id));
@@ -73,6 +85,8 @@ impl crate::HeapUsage for RuntimeLiveSimulationSamplesRow {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#run_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#accuracy_attempt))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#sample))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#mode_identity))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#time))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symbol_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity_id))

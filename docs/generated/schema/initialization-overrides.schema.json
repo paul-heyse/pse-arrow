@@ -75,6 +75,22 @@
           "type": "object"
         }
       ]
+    },
+    "EffortPolicy": {
+      "additionalProperties": false,
+      "description": "Opt-in adaptation from comparable native nonlinear iteration counts.",
+      "properties": {
+        "target_iterations": {
+          "description": "Desired iterations at the next qualified continuation endpoint.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target_iterations"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -92,6 +108,18 @@
       ],
       "default": null,
       "description": "Optional discrete treatment."
+    },
+    "effort": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EffortPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional continuation effort target; absent preserves the declared step rule."
     },
     "growth": {
       "default": null,

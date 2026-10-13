@@ -42,7 +42,9 @@ OptionValue = bool | int | float | str
 
 PositiveCount = Annotated[int, msgspec.Meta(ge=1)]
 
-RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown"]
+RawMapContextKind = Literal["unavailable", "inapplicable", "frozen"]
+
+RawMapRole = Literal["FixedPointEvaluation", "OriginalAssessment", "Unknown", "RestartScreening"]
 
 ReplayNativeRecordCoverage = Literal["strategy_attempts", "integration_report_only"]
 
@@ -2658,6 +2660,22 @@ class BindingTargetPath(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
         return (type(self), (v.scalar_key(self.value),))
 
 
+class BlockSolveOverride(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Native realization and finite work controls of one compiler-issued block.
+    Physical numerical meaning, intent, branch permission and authored start stay inherited.
+    """
+
+    #: Explicit eligible backend; omission uses contextual Auto selection.
+    backend: enums.NativeBackend | None = None
+    #: Optional finite controls within the original aggregate allowance.
+    controls: SolveControls | None = None
+    #: Typed settings admitted against this actual block.
+    settings: BackendSettings | None = None
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.optional_key(v.record_key)(self.controls), v.optional_key(v.record_key)(self.settings),))
+
+
 class BoundaryDiagnostic(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Stable structured cause shared by Rust and the public error projection."""
 
@@ -3317,6 +3335,16 @@ class DiscreteInitializationRefuse(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), ())
 
 
+class EffortPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Opt-in adaptation from comparable native nonlinear iteration counts."""
+
+    #: Desired iterations at the next qualified continuation endpoint.
+    target_iterations: Annotated[int, msgspec.Meta(ge=0)]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.target_iterations),))
+
+
 class EligibilityDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """An adapter's retained contextual representation assessment."""
 
@@ -3449,6 +3477,8 @@ class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Existing fit derivative source vocabulary.
     derivatives: enums.FitDerivatives
+    #: Finite independent experiment lanes.
+    experiment_workers: PositiveCount = 1
     #: Existing derivative/rank allocation bound.
     max_cells: Annotated[int, msgspec.Meta(ge=0)]
     #: Existing local response rank cutoff.
@@ -3461,7 +3491,7 @@ class FitOperationSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -3469,6 +3499,8 @@ class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
 
     #: Requested derivative evidence policy.
     derivatives: enums.FitDerivatives = enums.FitDerivatives.RESPONSES
+    #: Finite independent experiment workers, separately from profile chains.
+    experiment_workers: PositiveCount = 1
     #: Maximum native fit workspace cells.
     max_cells: Annotated[int, msgspec.Meta(ge=0)] = 1000000
     #: Rank tolerance for fit admission.
@@ -3481,7 +3513,7 @@ class FitPreparationDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.max_cells), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class FitProfileDocumentAvailable(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="status", tag="available"):
@@ -3991,6 +4023,8 @@ class InitializationOverrides(msgspec.Struct, frozen=True, forbid_unknown_fields
 
     #: Optional discrete treatment.
     discrete: DiscreteInitialization | None = None
+    #: Optional continuation effort target; absent preserves the declared step rule.
+    effort: EffortPolicy | None = None
     #: Optional growth factor.
     growth: float | None = None
     #: Optional homotopy enablement.
@@ -4007,7 +4041,7 @@ class InitializationOverrides(msgspec.Struct, frozen=True, forbid_unknown_fields
     time_limit: ClosedDuration | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.record_key)(self.discrete), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
+        return (type(self), (v.optional_key(v.record_key)(self.discrete), v.optional_key(v.record_key)(self.effort), v.optional_key(v.scalar_key)(self.growth), v.optional_key(v.scalar_key)(self.homotopy), v.optional_key(v.scalar_key)(self.initial_step), v.optional_key(v.scalar_key)(self.maximum_attempts), v.optional_key(v.scalar_key)(self.minimum_step), v.optional_key(v.sequence_key(v.scalar_key))(self.stages), v.optional_key(v.record_key)(self.time_limit),))
 
 
 class InitializationStageDocument(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -4354,6 +4388,18 @@ class KnowledgeControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_cells),))
+
+
+class LazyStudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Frozen lazy input and its common output demand, retained once per study."""
+
+    #: Original completion/detail demand.
+    output: StudyOutputDemand
+    #: Bounded immutable reconstructible science.
+    variants: StudyVariants
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.output), v.record_key(self.variants),))
 
 
 class Limits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6027,8 +6073,12 @@ class RawMapSample(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     coordinates: ObservationCoordinates
     #: Failure of this evaluation; partial native outputs are never captured as G.
     failure: RawMapFailure | None = None
+    #: Exact inner accuracy identity, including compound heterogeneous budgets.
+    inner_accuracy: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
     #: Observed inner branch identity, when supplied by the scientific producer.
     inner_branch: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
+    #: Availability of actual inner-solve context, distinct from no inner solve.
+    inner_context: RawMapContextKind
     #: Observed inner start identity, when supplied by the scientific producer.
     inner_start: Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")] | None = None
     #: Inner tolerance is absent when a compound map has no single observed value.
@@ -6045,7 +6095,7 @@ class RawMapSample(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_o
     values: tuple[RawMapCoordinate, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.coordinates), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.inner_branch), v.optional_key(v.scalar_key)(self.inner_start), v.optional_key(v.scalar_key)(self.inner_tolerance), v.scalar_key(self.ordinal), v.scalar_key(self.partial), v.scalar_key(self.role), v.scalar_key(self.total_coordinates), v.sequence_key(v.record_key)(self.values),))
+        return (type(self), (v.scalar_key(self.coordinates), v.optional_key(v.record_key)(self.failure), v.optional_key(v.scalar_key)(self.inner_accuracy), v.optional_key(v.scalar_key)(self.inner_branch), v.scalar_key(self.inner_context), v.optional_key(v.scalar_key)(self.inner_start), v.optional_key(v.scalar_key)(self.inner_tolerance), v.scalar_key(self.ordinal), v.scalar_key(self.partial), v.scalar_key(self.role), v.scalar_key(self.total_coordinates), v.sequence_key(v.record_key)(self.values),))
 
 
 class ReconstructionAccuracy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6071,18 +6121,34 @@ class RecycleRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw
 
     #: Native Anderson history; zero means unaccelerated fixed point.
     anderson: Annotated[int, msgspec.Meta(ge=0)]
+    #: Native Anderson delay; zero keeps the existing default.
+    anderson_delay: Annotated[int, msgspec.Meta(ge=0)] = 0
     #: Native fixed-point damping in (0,1].
     damping: Fraction
+    #: Explicit finite screened restarts; omission never restarts.
+    restarts: RecycleRestartRequest | None = None
     #: Exact selected tear decision groups, obtainable through select_tears.
     tears: tuple[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], ...]
     #: Complete admitted causal unit inventory.
     units: tuple[CausalUnitRequest, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.damping), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
+        return (type(self), (v.scalar_key(self.anderson), v.scalar_key(self.anderson_delay), v.scalar_key(self.damping), v.optional_key(v.record_key)(self.restarts), v.sequence_key(v.scalar_key)(self.tears), v.sequence_key(v.record_key)(self.units),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.tears)
+
+
+class RecycleRestartRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Authorized replacement starts and a bounded native iteration slice."""
+
+    #: Positive per-attempt slice within the original aggregate native iteration cap.
+    iterations: Annotated[int, msgspec.Meta(ge=0)]
+    #: Exact physical tear coordinates for each authorized candidate, keyed by identity.
+    starts: tuple[dict[Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")], float], ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.iterations), v.sequence_key(v.mapping_key(v.scalar_key, v.scalar_key))(self.starts),))
 
 
 class RefinementLimits(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6269,6 +6335,8 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Original derivative evidence policy.
     derivatives: enums.FitDerivatives
+    #: Finite independent experiment lanes.
+    experiment_workers: PositiveCount
     #: Exact authored fit declaration.
     id: Annotated[str, msgspec.Meta(pattern="^[0-9a-fA-F]{32}$")]
     #: Original finite derivative/rank allowance.
@@ -6287,7 +6355,7 @@ class ReplayFitConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     uncertainty: FitUncertainty | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
+        return (type(self), (v.scalar_key(self.derivatives), v.scalar_key(self.experiment_workers), v.scalar_key(self.id), v.scalar_key(self.max_cells), v.record_key(self.preparation), v.scalar_key(self.rank_tolerance), v.mapping_key(v.scalar_key, v.record_key)(self.simulations), v.record_key(self.solver), v.scalar_key(self.source), v.optional_key(v.record_key)(self.uncertainty),))
 
 
 class ReplayHorizonConstructor(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -6625,6 +6693,10 @@ class ReplaySolverSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
     #: Explicit native selection; absent means Auto.
     backend: enums.NativeBackend | None = None
+    #: Stable original structural block overrides, including their complete controls.
+    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverride]
+    #: Original explicitly admitted independent block width.
+    block_workers: Annotated[int, msgspec.Meta(ge=0)]
     #: Complete original composition, frozen advice, branch and finite work limits.
     composition: CompositionRequest
     #: Original finite controls, including wall allowance, options, starts and reuse.
@@ -6651,7 +6723,7 @@ class ReplaySolverSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
     settings: BackendSettings | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
+        return (type(self), (v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.required_passes)
@@ -7307,6 +7379,18 @@ class SeedTransformationWorkingSet(msgspec.Struct, frozen=True, forbid_unknown_f
         return (type(self), (v.record_key(self.value),))
 
 
+class SelectedStudyVariant(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """One selected Cartesian ordinal and its explicit scientific intent."""
+
+    #: Last-choice-fast mixed-radix ordinal, independent of visible occurrence order.
+    ordinal: Annotated[int, msgspec.Meta(ge=0)]
+    #: Operation, physically typed assignments, dependencies and original start policy.
+    point: StudyPoint
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.ordinal), v.record_key(self.point),))
+
+
 class SemanticProductKey(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Actual consumed dependencies of a semantic product. Omitted fields were not consumed;
     producer ownership determines compatibility, including lawful transport between values.
@@ -7426,6 +7510,12 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     version: Literal[4] = 4
     #: An explicitly selected eligible backend; absent is deterministic routing.
     backend: enums.NativeBackend | None = None
+    #: Compiler stable block identities and admitted native realization overrides.
+    #: Validated against the actual compiler scope even when direct execution wins;
+    #: applied only if the governing policy selects the block mechanism.
+    block_overrides: dict[Annotated[str, msgspec.Meta(pattern="^blake3:[0-9a-fA-F]{64}$")], BlockSolveOverride] = msgspec.field(default_factory=dict)
+    #: Maximum independent ready blocks; actual capacity is admitted by the existing owner.
+    block_workers: Annotated[int, msgspec.Meta(ge=0)] = 1
     #: Requested composition; omission chooses automatic resolution without replacement starts.
     composition: CompositionRequest = msgspec.field(default_factory=lambda: msgspec.convert({"branch": {"connected": None, "kind": "any_qualified"}, "limits": None, "policy": "auto", "recovery": []}, type=CompositionRequest))
     #: Shared finite attempt controls.
@@ -7455,7 +7545,7 @@ class SolveSettings(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_
     settings: BackendSettings | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
+        return (type(self), (v.scalar_key(self.version), v.optional_key(v.scalar_key)(self.backend), v.mapping_key(v.scalar_key, v.record_key)(self.block_overrides), v.scalar_key(self.block_workers), v.record_key(self.composition), v.record_key(self.controls), v.optional_key(v.scalar_key)(self.convexity_absolute), v.optional_key(v.scalar_key)(self.convexity_relative), v.scalar_key(self.intent), v.record_key(self.numerics), v.scalar_key(self.presolve), v.mapping_key(v.scalar_key, v.scalar_key)(self.presolve_options), v.optional_key(v.record_key)(self.reconstruction), v.sequence_key(v.scalar_key)(self.required_passes), v.optional_key(v.record_key)(self.sensitivity), v.optional_key(v.record_key)(self.settings),))
 
     def __post_init__(self) -> None:
         v.unique(v.scalar_key)(self, None, self.required_passes)
@@ -7487,6 +7577,16 @@ class SourceAcknowledgement(msgspec.Struct, frozen=True, forbid_unknown_fields=T
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.optional_key(v.scalar_key)(self.parent), v.scalar_key(self.revision), v.scalar_key(self.sequence),))
+
+
+class SourceChoice(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """A finite structural dimension. Alternatives are edits against the one admitted base."""
+
+    #: Ordered alternatives; ordering is part of ordinal reconstruction.
+    alternatives: tuple[SourceDelta, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.alternatives),))
 
 
 class SourceDelta(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7735,23 +7835,25 @@ class StudyCompilerProfile(msgspec.Struct, frozen=True, forbid_unknown_fields=Tr
 
 
 class StudyDefinition(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
-    """Version 9 of a study's definition: the store's `definition` document and the content of
+    """Version 10 of a study's definition: the store's `definition` document and the content of
     the study's request identity.
     """
 
-    _pse_required_version: ClassVar[int] = 9
+    _pse_required_version: ClassVar[int] = 10
 
     #: Document version.
-    version: Literal[9] = 9
+    version: Literal[10] = 10
     #: The exact immutable canonical modeling revision.
     modeling_revision: str
     #: The source bundle of the physical package.
     physical: PhysicalSource
-    #: The points, in index order.
+    #: The explicit admitted points, in index order.
     points: tuple[StudyPointDefinition, ...]
+    #: Lazy science retained once; when present explicit admitted points are empty.
+    variants: LazyStudyDefinition | None = None
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points),))
+        return (type(self), (v.scalar_key(self.version), v.scalar_key(self.modeling_revision), v.record_key(self.physical), v.sequence_key(v.record_key)(self.points), v.optional_key(v.record_key)(self.variants),))
 
 
 class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7770,6 +7872,24 @@ class StudyDetailDemand(msgspec.Struct, frozen=True, forbid_unknown_fields=True,
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.maximum_bytes), v.scalar_key(self.maximum_rows), v.sequence_key(v.record_key)(self.members), v.sequence_key(v.scalar_key)(self.relations),))
+
+
+class StudyInputsExplicit(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="explicit"):
+    """Explicit operation points admitted at the input boundary."""
+
+    value: tuple[StudyPoint, ...]
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.sequence_key(v.record_key)(self.value),))
+
+
+class StudyInputsLazy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="lazy"):
+    """Structural variants admitted only when their selected occurrence becomes ready."""
+
+    value: StudyVariants
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.record_key(self.value),))
 
 
 class StudyMemberDemandConstraint(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True, tag_field="kind", tag="constraint"):
@@ -7920,17 +8040,17 @@ class StudyPointPolicy(msgspec.Struct, frozen=True, forbid_unknown_fields=True, 
 class StudyRequest(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
     """Raw request admitted once into the immutable executable definition."""
 
-    _pse_required_version: ClassVar[int] = 5
+    _pse_required_version: ClassVar[int] = 6
 
     #: Document version.
-    version: Literal[5] = 5
+    version: Literal[6] = 6
+    #: Explicit points or a bounded immutable lazy structural input.
+    inputs: StudyInputs
     #: Explicit original-summary and occurrence-detail demand.
     output: StudyOutputDemand
-    #: Ordered occurrence requests.
-    points: tuple[StudyPoint, ...]
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.version), v.record_key(self.output), v.sequence_key(v.record_key)(self.points),))
+        return (type(self), (v.scalar_key(self.version), v.record_key(self.inputs), v.record_key(self.output),))
 
 
 class StudyResults(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -7975,6 +8095,24 @@ class StudyStatus(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_on
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.cancelled), v.sequence_key(v.record_key)(self.points), v.optional_key(v.scalar_key)(self.result_attempt), v.scalar_key(self.run), v.scalar_key(self.state), v.scalar_key(self.study_id),))
+
+
+class StudyVariants(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
+    """Immutable finite structural alternatives, without Cartesian materialization."""
+
+    _pse_required_version: ClassVar[int] = 1
+
+    #: Descriptor interpretation.
+    version: Literal[1] = 1
+    #: Independent structural dimensions, applied in declared order.
+    choices: tuple[SourceChoice, ...]
+    #: Explicit selected ordinals in original visible occurrence order.
+    selected: tuple[SelectedStudyVariant, ...]
+    #: Complete admitted base source and physical identity.
+    source: OperationSource
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.version), v.sequence_key(v.record_key)(self.choices), v.sequence_key(v.record_key)(self.selected), v.record_key(self.source),))
 
 
 class StudyWaitControls(msgspec.Struct, frozen=True, forbid_unknown_fields=True, kw_only=True):
@@ -8475,6 +8613,8 @@ StartPolicy = StartPolicyFresh | StartPolicyContinuation | StartPolicyExplicit
 
 StartProvenance = StartProvenanceFresh | StartProvenanceNotNeeded | StartProvenanceContinuation | StartProvenanceExplicit | StartProvenanceFreshFallback
 
+StudyInputs = StudyInputsExplicit | StudyInputsLazy
+
 StudyMemberDemand = StudyMemberDemandVariable | StudyMemberDemandConstraint | StudyMemberDemandFitParameter | StudyMemberDemandFitObservation | StudyMemberDemandTrajectory
 
 StudyOutputDemand = StudyOutputDemandFull | StudyOutputDemandCompact
@@ -8646,6 +8786,7 @@ __all__ = [
     "BindingTarget",
     "BindingTargetMember",
     "BindingTargetPath",
+    "BlockSolveOverride",
     "BoundaryDiagnostic",
     "BranchPolicy",
     "BuildInfo",
@@ -8692,6 +8833,7 @@ __all__ = [
     "DiscreteInitializationFixAt",
     "DiscreteInitializationFixAtStart",
     "DiscreteInitializationRefuse",
+    "EffortPolicy",
     "EligibilityDocument",
     "EndpointRequirement",
     "EstimatorInput",
@@ -8773,6 +8915,7 @@ __all__ = [
     "KinsolSettings",
     "KktTolerances",
     "KnowledgeControls",
+    "LazyStudyDefinition",
     "Limits",
     "LinearDiagnosticControls",
     "MatrixPolicy",
@@ -8893,6 +9036,7 @@ __all__ = [
     "Propagation",
     "PseudoTime",
     "PureConformanceControls",
+    "RawMapContextKind",
     "RawMapCoordinate",
     "RawMapFailure",
     "RawMapFailureFatal",
@@ -8903,6 +9047,7 @@ __all__ = [
     "RawMapSample",
     "ReconstructionAccuracy",
     "RecycleRequest",
+    "RecycleRestartRequest",
     "RefinementLimits",
     "ReplayBoundOverride",
     "ReplayBoundOverrideKeep",
@@ -8967,6 +9112,7 @@ __all__ = [
     "SeedTransformationNormalization",
     "SeedTransformationPresolve",
     "SeedTransformationWorkingSet",
+    "SelectedStudyVariant",
     "SemanticProductKey",
     "SensitivityRequest",
     "SimulationOperation",
@@ -8975,6 +9121,7 @@ __all__ = [
     "SolveSettings",
     "SolverAdviceInputs",
     "SourceAcknowledgement",
+    "SourceChoice",
     "SourceDelta",
     "SourceDocumentDelta",
     "SourceFitDelta",
@@ -8998,6 +9145,9 @@ __all__ = [
     "StudyCompilerProfile",
     "StudyDefinition",
     "StudyDetailDemand",
+    "StudyInputs",
+    "StudyInputsExplicit",
+    "StudyInputsLazy",
     "StudyMemberDemand",
     "StudyMemberDemandConstraint",
     "StudyMemberDemandFitObservation",
@@ -9015,6 +9165,7 @@ __all__ = [
     "StudyResults",
     "StudyRunControls",
     "StudyStatus",
+    "StudyVariants",
     "StudyWaitControls",
     "SubmittedStartRecord",
     "TableName",

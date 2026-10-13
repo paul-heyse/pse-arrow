@@ -17,6 +17,21 @@ pub struct LiveSimulationOptions {
     /// Whether the terminal native report also retains the complete trajectory.
     pub retention: SampleRetention,
 }
+impl LiveSimulationOptions {
+    pub(super) fn admit(self, profile: &pse_backend_native::dynamics::Profile) -> Result<(), WorkflowError> {
+        if self.capacity == 0 || self.capacity > 1024 {
+            return Err(contract("live simulation queue capacity must be 1..=1024"));
+        }
+        if self.retention == SampleRetention::Compact
+            && profile.sensitivity != pse_backend_native::dynamics::DynamicSensitivity::None
+        {
+            return Err(crate::math::MathRuntimeError::from(ProblemError::Unsupported(
+                "compact live transport delivers physical values; explicitly requested sample sensitivities require Full retention".into(),
+            )).into());
+        }
+        Ok(())
+    }
+}
 
 /// Owned checked physical rows with the original accuracy-attempt locator.
 #[derive(Clone, Debug)]
@@ -115,9 +130,6 @@ impl LiveDispatch {
         prepared: ModelingSimulation, options: LiveSimulationOptions, run_id: RunId,
         canonical_attempt: Option<String>,
     ) -> Result<Self, WorkflowError> {
-        if options.capacity == 0 || options.capacity > 1024 {
-            return Err(contract("live simulation queue capacity must be 1..=1024"));
-        }
         let owner = prepared.runtime.native().reserve("simulation:live-queues",
             options.capacity.checked_mul(2 * size_of::<LiveSimulationEvent>() + 256)
                 .ok_or_else(|| contract("live queue extent"))?)?;
@@ -147,7 +159,17 @@ impl Observer {
                 Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => return Err(ProblemError::internal("live simulation recording supervisor disappeared")),
                 Err(tokio::sync::mpsc::error::TrySendError::Full(returned)) => {
                     event = returned;
-                    std::thread::sleep(Duration::from_millis(1));
+                    return super::with_simulation_sample_wait(execution, || loop {
+                        execution.check()?;
+                        match self.sender.try_send(event) {
+                            Ok(()) => return Ok(()),
+                            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => return Err(ProblemError::internal("live simulation recording supervisor disappeared")),
+                            Err(tokio::sync::mpsc::error::TrySendError::Full(returned)) => {
+                                event = returned;
+                                std::thread::sleep(Duration::from_millis(1));
+                            }
+                        }
+                    });
                 }
             }
         }
@@ -221,14 +243,29 @@ mod tests {
     use super::*;
     use pse_backend_native::dynamics::Method;
 
+    #[test]
+    fn compact_refuses_requested_sensitivity_payload_before_live_dispatch() {
+        use pse_backend_native::dynamics::{DynamicSensitivity, Profile};
+        let options = LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact };
+        assert!(options.admit(&Profile::default()).is_ok());
+        for sensitivity in [DynamicSensitivity::Forward, DynamicSensitivity::Adjoint] {
+            let profile = Profile { sensitivity, ..Default::default() };
+            assert!(matches!(options.admit(&profile), Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Unsupported(_))))));
+            assert!(LiveSimulationOptions { retention: SampleRetention::Full, ..options }.admit(&profile).is_ok());
+        }
+    }
+
     async fn prepared() -> ModelingSimulation {
+        prepared_on(crate::workflow::tests::runtime_with_workspace(32 << 20)).await
+    }
+    async fn prepared_on(runtime: Runtime) -> ModelingSimulation {
         let rows = pse_authoring::language::parse(
             "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); } }",
             pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();
         let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
-        let package = crate::workflow::tests::runtime_with_workspace(32 << 20)
+        let package = runtime
             .modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
         package.prepare_simulation(root, pse_modeling::specialize::root_instance(root),
             Default::default(), Default::default(), Default::default(),
@@ -307,5 +344,50 @@ mod tests {
         let _ = tokio::time::timeout(Duration::from_secs(10), handle.wait()).await.unwrap().unwrap();
         cursor.close();
         assert!(handle.result().is_some(), "cancelled native owner joined before publication");
+    }
+
+    #[cfg(feature = "canonical-tests")]
+    #[tokio::test]
+    async fn canonical_live_sample_acknowledgments_close_the_original_attempt_prefix() {
+        let runtime = crate::workflow::durable_tests::durable_runtime();
+        let prepared = prepared_on(runtime.clone()).await;
+        let (handle, cursor) = prepared.start_live(LiveSimulationOptions { capacity: 1, retention: SampleRetention::Compact }).unwrap();
+        let canonical_attempt = handle.canonical_attempt_key().unwrap().to_owned();
+        let mut computed_rows = 0_u64;
+        let mut acknowledged_rows = 0;
+        let mut closed = false;
+        let result = loop {
+            match tokio::time::timeout(Duration::from_secs(30), cursor.next()).await.unwrap().unwrap() {
+                LiveSimulationEvent::Sample(batch) => {
+                    assert_eq!(batch.canonical_attempt.as_deref(), Some(canonical_attempt.as_str()));
+                    computed_rows += batch.table.batch().num_rows() as u64;
+                }
+                LiveSimulationEvent::Recorded { rows } => {
+                    assert!(rows > acknowledged_rows && rows <= computed_rows);
+                    acknowledged_rows = rows;
+                }
+                LiveSimulationEvent::RecordingClosed => { assert_eq!(acknowledged_rows, computed_rows); closed = true; }
+                LiveSimulationEvent::RecordingUnknown(error) => panic!("recording failure: {error}"),
+                LiveSimulationEvent::Joined(result) => break result,
+                _ => {}
+            }
+        };
+        assert!(closed);
+        let super::super::RunDurability::Durable(record) = result.durability() else { panic!("durable result missing") };
+        assert!(record.attempt.is_ok(), "{:?}", record.attempt);
+        let sets = pse_operations::canonical_execution::decode_result_descriptors(record.manifest.as_ref().unwrap()).unwrap();
+        let live = sets.iter().find(|set| set.name == pse_relations::generated::runtime::live_simulation_samples::RELATION_ID.to_string()).unwrap();
+        assert_eq!(live.row_count, acknowledged_rows);
+        assert_eq!(live.batch_count, 5);
+        let super::super::RunReport::Simulation(trajectory) = result.report().unwrap() else { panic!("simulation missing") };
+        assert!(trajectory.checks_complete());
+        assert!(trajectory.report().samples.is_empty());
+        cursor.close();
+        drop(cursor);
+        drop(result);
+        drop(handle);
+        drop(prepared);
+        runtime.clear_program_cache();
+        runtime.canonical().unwrap().store().remove_isolated_fixture().await.unwrap();
     }
 }

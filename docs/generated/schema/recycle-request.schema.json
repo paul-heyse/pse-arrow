@@ -1301,6 +1301,49 @@
         }
       ]
     },
+    "BlockSolveOverride": {
+      "additionalProperties": false,
+      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeBackend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit eligible backend; omission uses contextual Auto selection."
+        },
+        "controls": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SolveControls"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional finite controls within the original aggregate allowance."
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed settings admitted against this actual block."
+        }
+      },
+      "type": "object"
+    },
     "BranchPolicy": {
       "additionalProperties": false,
       "description": "Root-selection meaning retained by every proposal and correction.",
@@ -2773,6 +2816,37 @@
       ],
       "type": "object"
     },
+    "RecycleRestartRequest": {
+      "additionalProperties": false,
+      "description": "Authorized replacement starts and a bounded native iteration slice.",
+      "properties": {
+        "iterations": {
+          "description": "Positive per-attempt slice within the original aggregate native iteration cap.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "starts": {
+          "description": "Exact physical tear coordinates for each authorized candidate, keyed by identity.",
+          "items": {
+            "additionalProperties": false,
+            "patternProperties": {
+              "^[0-9a-fA-F]{32}$": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "starts",
+        "iterations"
+      ],
+      "type": "object"
+    },
     "RefinementLimits": {
       "additionalProperties": false,
       "description": "Explicit consumer allowance for one point or one realized action product.\nProof cells are shared across its rounds; the original task clock is unchanged.",
@@ -2974,6 +3048,24 @@
           ],
           "default": null,
           "description": "An explicitly selected eligible backend; absent is deterministic routing."
+        },
+        "block_overrides": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
+          "patternProperties": {
+            "^blake3:[0-9a-fA-F]{64}$": {
+              "$ref": "#/$defs/BlockSolveOverride"
+            }
+          },
+          "type": "object"
+        },
+        "block_workers": {
+          "default": 1,
+          "description": "Maximum independent ready blocks; actual capacity is admitted by the existing owner.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
         },
         "composition": {
           "$ref": "#/$defs/CompositionRequest",
@@ -3280,9 +3372,27 @@
       "minimum": 0,
       "type": "integer"
     },
+    "anderson_delay": {
+      "default": 0,
+      "description": "Native Anderson delay; zero keeps the existing default.",
+      "format": "uint",
+      "minimum": 0,
+      "type": "integer"
+    },
     "damping": {
       "$ref": "#/$defs/Fraction",
       "description": "Native fixed-point damping in (0,1]."
+    },
+    "restarts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RecycleRestartRequest"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Explicit finite screened restarts; omission never restarts."
     },
     "tears": {
       "description": "Exact selected tear decision groups, obtainable through select_tears.",

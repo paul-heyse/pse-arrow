@@ -2530,6 +2530,7 @@ class StudyRetryFailure(StrEnum):
 class StudySeedNeed(StrEnum):
     """The declared StudySeedNeed enumeration."""
 
+    PENDING = "pending"
     NOT_NEEDED = "not_needed"
     REQUIRED = "required"
 

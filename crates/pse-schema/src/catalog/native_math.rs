@@ -85,6 +85,8 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             run_id(),
             column("accuracy_attempt", ordinal()),
             column("sample", ordinal()),
+            column("mode", ordinal()),
+            column("mode_identity", T::hash()),
             column("time", real()),
             column("symbol_id", T::id()),
             column("quantity_id", T::id()),

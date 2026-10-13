@@ -552,6 +552,7 @@ impl super::ModelingSimulation {
         &self, attempt: Option<DurableAttempt>, deadline: std::time::Instant,
         parent: Option<crate::CancelSource>, live: Option<super::LiveSimulationOptions>,
     ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
+        if let Some(options) = live { options.admit(self.profile())?; }
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.runtime.clone();

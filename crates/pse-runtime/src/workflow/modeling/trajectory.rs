@@ -557,6 +557,9 @@ impl ModelingSimulation {
         ordinal: usize, sample: &native::Sample)
         -> Result<Vec<pse_model::generated::runtime::live_simulation_samples::Row>, WorkflowError> {
         let product = self.model().compiled();
+        let mode = self.modes.get(sample.mode).ok_or_else(|| contract("live trajectory mode absent"))?;
+        let mode_identity = mode.model.compiled().admitted.case().key();
+        let mode = i64::try_from(sample.mode).map_err(|_| contract("live trajectory mode ordinal extent"))?;
         let outputs = pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id()).map_err(math)?;
         let rows = pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id).map_err(math)?;
         if sample.outputs.len() != self.contract.outputs.len() {
@@ -570,6 +573,8 @@ impl ModelingSimulation {
             let unit = self.quantities.quantity_type(row.quantity).map_err(math)?.canonical_unit;
             Ok(pse_model::generated::runtime::live_simulation_samples::Row {
                 run_id,
+                mode,
+                mode_identity,
                 accuracy_attempt: i64::try_from(accuracy_attempt).map_err(|_| contract("live accuracy attempt ordinal extent"))?,
                 sample: i64::try_from(ordinal).map_err(|_| contract("live sample ordinal extent"))?,
                 time: sample.time,

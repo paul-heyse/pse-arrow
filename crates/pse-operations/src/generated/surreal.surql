@@ -838,7 +838,7 @@ DEFINE FUNCTION fn::pse_execution_v1::fence($rpc_expiry: int, $run: string, $att
     RETURN $writer.attempt;
 };
 
-DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>) -> object {
+DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, $sources: array<object>, $admission: option<object>) -> object {
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $row.interpretation!='pse.substrate.v5' OR (SELECT * FROM ONLY canonical_interpretations:current).interpretation!='pse.substrate.v5' { THROW 'stale execution publication interpretation'; };
     fn::pse_execution_v1::available($rpc_expiry, $row.key);
@@ -850,6 +850,8 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
     };
+    LET $admission_owner=IF $admission=NONE {NONE} ELSE {fn::pse_study_v1::admission_authority($rpc_expiry,$admission)};
+    IF $admission!=NONE AND $row.key!=(SELECT run FROM ONLY type::record('canonical_study_points',$admission.point)).run { THROW 'selected scientific run identity differs from its occurrence'; };
     fn::pse_execution_v1::source_creator($rpc_expiry,$row.problem,'run:'+$row.key);
     LET $revision = SELECT * FROM ONLY type::record('canonical_revisions', $row.revision);
     IF $revision = NONE OR $revision.problem != $row.problem OR $revision.sequence != $row.source_sequence OR $revision.interpretation != $row.interpretation { THROW 'execution revision unavailable'; };
@@ -874,6 +876,7 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
+    IF $admission_owner!=NONE { fn::pse_execution_v1::lease($rpc_expiry,$admission_owner.expires_at); };
     RETURN $rpc_result;
 };
 
@@ -1606,6 +1609,15 @@ DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: s
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $existing_operation = NONE AND $authority = $saved.generation { fn::pse_execution_v1::lease($rpc_expiry, $saved.expires_at); };
     RETURN $rpc_result;
+};
+
+// Shared mutation admission: exact original point/premises, cancellation, owner and lease.
+DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority:object) -> object {
+    IF $authority.run!='study-admission:'+$authority.point { THROW 'scientific admission capability belongs elsewhere'; };
+    LET $p=fn::pse_study_v1::guard($rpc_expiry,$authority.study,$authority.generation,false,$authority.point,$authority.expected);
+    IF $p.admission!=NONE { THROW 'scientific admission already settled'; };
+    fn::pse_execution_v1::current_writer($rpc_expiry,$authority.run);
+    RETURN fn::pse_execution_v1::fence($rpc_expiry,$authority.run,$authority.attempt,$authority.authority);
 };
 
 // Input admission uses a separate run. Its lease never increments native point attempts.

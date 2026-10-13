@@ -955,6 +955,7 @@ class RuntimeCanonicalStudyPointsRow:
     seed_solution: b.str | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.str)))
     policy: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     descriptor: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
+    admission: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
     facts: b.bytes = attrs.field(validator=attrs.validators.instance_of(b.bytes))
     outcome: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
     run: b.str = attrs.field(validator=attrs.validators.instance_of(b.str))
@@ -965,7 +966,7 @@ class RuntimeCanonicalStudyPointsRow:
     start: b.bytes | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(b.bytes)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.ordinal), v.scalar_key(self.occurrence), v.optional_key(v.scalar_key)(self.seed_solution), v.scalar_key(self.policy), v.scalar_key(self.descriptor), v.scalar_key(self.facts), v.optional_key(v.scalar_key)(self.outcome), v.scalar_key(self.run), v.scalar_key(self.revision), v.scalar_key(self.assigned), v.scalar_key(self.settled), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.start),))
+        return (type(self), (v.scalar_key(self.key), v.scalar_key(self.study), v.scalar_key(self.ordinal), v.scalar_key(self.occurrence), v.optional_key(v.scalar_key)(self.seed_solution), v.scalar_key(self.policy), v.scalar_key(self.descriptor), v.optional_key(v.scalar_key)(self.admission), v.scalar_key(self.facts), v.optional_key(v.scalar_key)(self.outcome), v.scalar_key(self.run), v.scalar_key(self.revision), v.scalar_key(self.assigned), v.scalar_key(self.settled), v.optional_key(v.scalar_key)(self.attempt), v.optional_key(v.scalar_key)(self.start),))
 
 
 @attrs.frozen(kw_only=True)
@@ -1307,6 +1308,25 @@ class RuntimeInfeasibilityCertificatesRow:
 
     def _pse_equality_key(self) -> v.EqualityKey:
         return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.step), v.scalar_key(self.backend), v.scalar_key(self.kind), v.scalar_key(self.accuracy), v.sequence_key(v.record_key)(self.ray), v.optional_key(v.record_key)(self.verification),))
+
+
+@attrs.frozen(kw_only=True)
+class RuntimeLiveSimulationSamplesRow:
+    """Declared relation row or nested value."""
+
+    run_id: i.RunId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    accuracy_attempt: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    sample: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    mode: b.int = attrs.field(validator=v.integer_range(0, 4294967295))
+    mode_identity: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    time: b.float = attrs.field(validator=v.finite_float)
+    symbol_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    quantity_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    unit_id: v.SemanticId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
+    value: b.float = attrs.field(validator=v.finite_float)
+
+    def _pse_equality_key(self) -> v.EqualityKey:
+        return (type(self), (v.scalar_key(self.run_id), v.scalar_key(self.accuracy_attempt), v.scalar_key(self.sample), v.scalar_key(self.mode), v.scalar_key(self.mode_identity), v.scalar_key(self.time), v.scalar_key(self.symbol_id), v.scalar_key(self.quantity_id), v.scalar_key(self.unit_id), v.scalar_key(self.value),))
 
 
 @attrs.frozen(kw_only=True)
@@ -4511,7 +4531,7 @@ class RuntimeStudyOutcomesRow:
     study_id: i.StudyId = attrs.field(validator=attrs.validators.instance_of(v.SemanticId))
     point_index: b.int = attrs.field(validator=v.integer_range(0, 9223372036854775807))
     case_id: i.DeclarationId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
-    binding_hash: v.ContentHash = attrs.field(validator=attrs.validators.instance_of(v.ContentHash))
+    binding_hash: v.ContentHash | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.ContentHash)))
     state: e.StudyPointState = attrs.field(validator=attrs.validators.instance_of(e.StudyPointState))
     attempt_id: i.AttemptId | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(v.SemanticId)))
     attempt_state: e.AttemptState | None = attrs.field(validator=attrs.validators.optional(attrs.validators.instance_of(e.AttemptState)))
@@ -4525,7 +4545,7 @@ class RuntimeStudyOutcomesRow:
     attempts: b.tuple[RuntimeStudyOutcomesFieldAttemptsItem, ...] = attrs.field(validator=attrs.validators.deep_iterable(member_validator=attrs.validators.instance_of(RuntimeStudyOutcomesFieldAttemptsItem), iterable_validator=attrs.validators.instance_of(b.tuple)))
 
     def _pse_equality_key(self) -> v.EqualityKey:
-        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.point_index), v.optional_key(v.scalar_key)(self.case_id), v.scalar_key(self.binding_hash), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.scalar_key)(self.attempt_state), v.optional_key(v.scalar_key)(self.result_id), v.scalar_key(self.usable), v.scalar_key(self.seed_permission), v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.start), v.optional_key(v.record_key)(self.diagnostic), v.sequence_key(v.record_key)(self.attempts),))
+        return (type(self), (v.scalar_key(self.study_id), v.scalar_key(self.point_index), v.optional_key(v.scalar_key)(self.case_id), v.optional_key(v.scalar_key)(self.binding_hash), v.scalar_key(self.state), v.optional_key(v.scalar_key)(self.attempt_id), v.optional_key(v.scalar_key)(self.attempt_state), v.optional_key(v.scalar_key)(self.result_id), v.scalar_key(self.usable), v.scalar_key(self.seed_permission), v.optional_key(v.scalar_key)(self.candidate_use), v.scalar_key(self.effect), v.optional_key(v.record_key)(self.start), v.optional_key(v.record_key)(self.diagnostic), v.sequence_key(v.record_key)(self.attempts),))
 
 
 @attrs.frozen(kw_only=True)

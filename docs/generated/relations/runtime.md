@@ -950,6 +950,7 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `seed_solution` | `Utf8` | true | `payload` | — | — |
 | `policy` | `Binary` | false | `payload` | — | — |
 | `descriptor` | `Binary` | false | `payload` | — | — |
+| `admission` | `Binary` | true | `payload` | — | — |
 | `facts` | `Binary` | false | `payload` | — | — |
 | `outcome` | `Binary` | true | `payload` | — | — |
 | `run` | `Utf8` | false | `payload` | — | — |
@@ -1252,6 +1253,25 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `verification.margin` | `Float64` | false | `payload` | — | — |
 | `verification.tolerance` | `Float64` | false | `payload` | — | — |
 | `verification.verified` | `Boolean` | false | `payload` | — | — |
+
+## `live_simulation_samples`
+
+Provisional completed physical samples qualified by the actual accuracy attempt; recording acknowledgement and final scientific selection remain separate.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, accuracy_attempt, sample, symbol_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `accuracy_attempt` | `Int64` | false | `key` | — | — |
+| `sample` | `Int64` | false | `key` | — | — |
+| `mode` | `Int64` | false | `payload` | — | — |
+| `mode_identity` | `content_hash` | false | `payload` | — | — |
+| `time` | `Float64` | false | `payload` | — | — |
+| `symbol_id` | `semantic_id` | false | `key` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
 
 ## `local_validity`
 
@@ -3025,7 +3045,7 @@ Version: 2. Snapshot class: `derived`. Primary key: `study_id, point_index`.
 | `study_id` | `semantic_id` | false | `key` | — | — |
 | `point_index` | `Int64` | false | `key` | — | — |
 | `case_id` | `semantic_id` | true | `payload` | — | — |
-| `binding_hash` | `content_hash` | false | `payload` | — | — |
+| `binding_hash` | `content_hash` | true | `payload` | — | — |
 | `state` | `enum:StudyPointState` | false | `payload` | — | — |
 | `attempt_id` | `semantic_id` | true | `payload` | — | — |
 | `attempt_state` | `enum:AttemptState` | true | `payload` | — | — |

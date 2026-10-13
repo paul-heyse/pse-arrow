@@ -1572,6 +1572,49 @@
       ],
       "type": "object"
     },
+    "BlockSolveOverride": {
+      "additionalProperties": false,
+      "description": "Native realization and finite work controls of one compiler-issued block.\nPhysical numerical meaning, intent, branch permission and authored start stay inherited.",
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeBackend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit eligible backend; omission uses contextual Auto selection."
+        },
+        "controls": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SolveControls"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional finite controls within the original aggregate allowance."
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendSettings"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed settings admitted against this actual block."
+        }
+      },
+      "type": "object"
+    },
     "BoundActivity": {
       "enum": [
         "inactive",
@@ -4908,6 +4951,26 @@
       },
       "type": "object"
     },
+    "RawMapContextKind": {
+      "description": "Whether an actual inner solve has a supplied frozen scientific context.",
+      "oneOf": [
+        {
+          "const": "unavailable",
+          "description": "An opaque producer did not supply the fact.",
+          "type": "string"
+        },
+        {
+          "const": "inapplicable",
+          "description": "The producer has no inner numerical solve.",
+          "type": "string"
+        },
+        {
+          "const": "frozen",
+          "description": "Actual authored starts, branch permission and effective accuracy are frozen.",
+          "type": "string"
+        }
+      ]
+    },
     "RawMapCoordinate": {
       "additionalProperties": false,
       "description": "One physical tear quantity, or an explicitly submitted-oracle quantity.",
@@ -5098,6 +5161,11 @@
           "const": "Unknown",
           "description": "A producer cannot establish the role.",
           "type": "string"
+        },
+        {
+          "const": "RestartScreening",
+          "description": "An explicitly authorized restart start screened against the actual map.",
+          "type": "string"
         }
       ]
     },
@@ -5120,6 +5188,14 @@
           ],
           "description": "Failure of this evaluation; partial native outputs are never captured as G."
         },
+        "inner_accuracy": {
+          "description": "Exact inner accuracy identity, including compound heterogeneous budgets.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "inner_branch": {
           "description": "Observed inner branch identity, when supplied by the scientific producer.",
           "pattern": "^blake3:[0-9a-fA-F]{64}$",
@@ -5127,6 +5203,10 @@
             "string",
             "null"
           ]
+        },
+        "inner_context": {
+          "$ref": "#/$defs/RawMapContextKind",
+          "description": "Availability of actual inner-solve context, distinct from no inner solve."
         },
         "inner_start": {
           "description": "Observed inner start identity, when supplied by the scientific producer.",
@@ -5178,7 +5258,8 @@
         "coordinates",
         "values",
         "total_coordinates",
-        "partial"
+        "partial",
+        "inner_context"
       ],
       "type": "object"
     },
@@ -5591,6 +5672,10 @@
           "$ref": "#/$defs/FitDerivatives",
           "description": "Original derivative evidence policy."
         },
+        "experiment_workers": {
+          "$ref": "#/$defs/PositiveCount",
+          "description": "Finite independent experiment lanes."
+        },
         "id": {
           "description": "Exact authored fit declaration.",
           "pattern": "^[0-9a-fA-F]{32}$",
@@ -5651,7 +5736,8 @@
         "simulations",
         "rank_tolerance",
         "max_cells",
-        "derivatives"
+        "derivatives",
+        "experiment_workers"
       ],
       "type": "object"
     },
@@ -6678,6 +6764,22 @@
           ],
           "description": "Explicit native selection; absent means Auto."
         },
+        "block_overrides": {
+          "additionalProperties": false,
+          "description": "Stable original structural block overrides, including their complete controls.",
+          "patternProperties": {
+            "^blake3:[0-9a-fA-F]{64}$": {
+              "$ref": "#/$defs/BlockSolveOverride"
+            }
+          },
+          "type": "object"
+        },
+        "block_workers": {
+          "description": "Original explicitly admitted independent block width.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
         "composition": {
           "$ref": "#/$defs/CompositionRequest",
           "description": "Complete original composition, frozen advice, branch and finite work limits."
@@ -6764,6 +6866,8 @@
         }
       },
       "required": [
+        "block_overrides",
+        "block_workers",
         "intent",
         "controls",
         "composition",

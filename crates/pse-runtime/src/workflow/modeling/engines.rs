@@ -921,6 +921,32 @@ mod tests {
     }
     #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
+    async fn homotopy_effort_changes_only_displacement_after_native_qualified_endpoints() {
+        let (package, analysis, mut policy) = continuation_fixture(
+            "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: exp(x) == 2+t; annotation start x(0); continue ramp on t from 0 to 1; } }",
+            100,
+        ).await;
+        policy.initial_step = 0.25;
+        policy.minimum_step = 0.01;
+        let baseline = package.initialize_model(&analysis, policy.clone(), &crate::CancelSource::new()).await.unwrap();
+        policy.effort = Some(pse_model::strategy::EffortPolicy { target_iterations: 1 });
+        let adapted = package.initialize_model(&analysis, policy.clone(), &crate::CancelSource::new()).await.unwrap();
+        assert!(baseline.completed, "{}", initialization_summary(&baseline));
+        assert!(adapted.completed, "{}", initialization_summary(&adapted));
+        let fractions = |report: &ModelingInitializationReport| report.attempts.iter().filter_map(|attempt| {
+            if let ModelingInitializationStep::Homotopy(fraction) = attempt.step { Some(fraction) } else { None }
+        }).collect::<Vec<_>>();
+        assert_ne!(fractions(&baseline), fractions(&adapted), "actual native effort must affect the selected optional rule");
+        assert!(adapted.attempts.len() <= policy.maximum_attempts);
+        for report in [&baseline, &adapted] {
+            let original = report.attempts.last().unwrap().result.as_ref().unwrap();
+            assert!(original.accepted);
+            let x = original_scalar(&original.prepared, &analysis, "x");
+            assert!((original.values.scalars[&x] - 3_f64.ln()).abs() < 1e-6);
+        }
+    }
+    #[cfg(feature = "solver-kinsol")]
+    #[tokio::test]
     async fn kernel_initialization_retries_typed_preparation_rejections() {
         let (package, analysis, policy) = continuation_fixture(
             "package p { def Root { param t: Scalar = 1; var x: Scalar; eq residual: log(x-t) == 0; annotation start x(1); annotation nominal x(1+log(x-t)*log(x-t)); continue ramp on t from 0 to 1; } }",

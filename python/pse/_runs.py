@@ -212,6 +212,7 @@ class PreparedOperation:
 
         Compact output omits full terminal payload retention. Consume or close the
         cursor while the run is active: its bounded queue applies backpressure.
+        Explicit sample sensitivity requests require Full retention.
         """
         run, cursor = self._handle.start_live(capacity=capacity, compact=compact)
         return RunHandle(run), LiveSimulationCursor(cursor)

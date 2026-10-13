@@ -177,6 +177,7 @@
 | `runtime.fitted_parameter_cells` | `unique:pk` | `SELECT s."run_id", s."parameter_id" FROM "runtime"."fitted_parameter_cells" s GROUP BY s."run_id", s."parameter_id" HAVING COUNT(*) > 1` |
 | `runtime.incumbents` | `unique:pk` | `SELECT s."run_id", s."seq" FROM "runtime"."incumbents" s GROUP BY s."run_id", s."seq" HAVING COUNT(*) > 1` |
 | `runtime.infeasibility_certificates` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."infeasibility_certificates" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.live_simulation_samples` | `unique:pk` | `SELECT s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" FROM "runtime"."live_simulation_samples" s GROUP BY s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.local_validity` | `unique:pk` | `SELECT s."run_id", s."step", s."quantity" FROM "runtime"."local_validity" s GROUP BY s."run_id", s."step", s."quantity" HAVING COUNT(*) > 1` |
 | `runtime.modeling_checks` | `unique:pk` | `SELECT s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_checks" s GROUP BY s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
 | `runtime.modeling_conformance` | `unique:pk` | `SELECT s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_conformance" s GROUP BY s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |

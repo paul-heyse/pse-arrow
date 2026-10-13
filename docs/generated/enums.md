@@ -2531,6 +2531,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 
 | Member | IDAES name | Deprecated |
 |---|---|---|
+| `pending` | `` | false |
 | `not_needed` | `` | false |
 | `required` | `` | false |
 

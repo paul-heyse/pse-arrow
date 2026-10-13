@@ -19,9 +19,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    218u8, 207u8, 219u8, 176u8, 157u8, 97u8, 100u8, 223u8, 206u8, 68u8, 215u8, 208u8,
-    135u8, 137u8, 69u8, 9u8, 61u8, 2u8, 77u8, 208u8, 99u8, 116u8, 66u8, 212u8, 243u8,
-    68u8, 159u8, 116u8, 228u8, 240u8, 168u8, 215u8,
+    7u8, 14u8, 175u8, 204u8, 226u8, 73u8, 56u8, 112u8, 136u8, 20u8, 25u8, 217u8, 100u8,
+    102u8, 158u8, 227u8, 189u8, 211u8, 238u8, 4u8, 244u8, 227u8, 181u8, 31u8, 250u8,
+    46u8, 223u8, 254u8, 179u8, 152u8, 173u8, 12u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeLiveSimulationSamplesRow {
     fn append(
@@ -38,17 +38,22 @@ impl crate::columnar::ArrowValue for RuntimeLiveSimulationSamplesRow {
             children[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#sample, children[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#time, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#mode, children[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#mode_identity,
+            children[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#time, children[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#symbol_id,
-            children[4usize].as_mut(),
+            children[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#quantity_id,
-            children[5usize].as_mut(),
+            children[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#unit_id, children[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#value, children[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unit_id, children[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, children[9usize].as_mut())?;
         output.append(true);
         Ok(())
     }
@@ -64,17 +69,21 @@ impl crate::columnar::ArrowValue for RuntimeLiveSimulationSamplesRow {
         )?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <i64 as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+        <i64 as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
+        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
-        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
-            children[5usize].as_mut(),
-        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[5usize].as_mut())?;
         <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
             children[6usize].as_mut(),
         )?;
-        <f64 as crate::columnar::ArrowValue>::append_null(children[7usize].as_mut())?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[7usize].as_mut(),
+        )?;
+        <pse_ids::SemanticId as crate::columnar::ArrowValue>::append_null(
+            children[8usize].as_mut(),
+        )?;
+        <f64 as crate::columnar::ArrowValue>::append_null(children[9usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -97,24 +106,32 @@ impl crate::columnar::ArrowValue for RuntimeLiveSimulationSamplesRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#time: <f64 as crate::columnar::ArrowValue>::read(
+            r#mode: <i64 as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
-            r#symbol_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#mode_identity: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
                 index,
             )?,
-            r#quantity_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#time: <f64 as crate::columnar::ArrowValue>::read(
                 input.column(5usize).as_ref(),
                 index,
             )?,
-            r#unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+            r#symbol_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(6usize).as_ref(),
                 index,
             )?,
-            r#value: <f64 as crate::columnar::ArrowValue>::read(
+            r#quantity_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
                 input.column(7usize).as_ref(),
+                index,
+            )?,
+            r#unit_id: <pse_ids::SemanticId as crate::columnar::ArrowValue>::read(
+                input.column(8usize).as_ref(),
+                index,
+            )?,
+            r#value: <f64 as crate::columnar::ArrowValue>::read(
+                input.column(9usize).as_ref(),
                 index,
             )?,
         })
@@ -179,17 +196,22 @@ impl crate::columnar::RelationRow for RuntimeLiveSimulationSamplesRow {
             columns[1usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#sample, columns[2usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#time, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#mode, columns[3usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#mode_identity,
+            columns[4usize].as_mut(),
+        )?;
+        crate::columnar::ArrowValue::append(&self.r#time, columns[5usize].as_mut())?;
         crate::columnar::ArrowValue::append(
             &self.r#symbol_id,
-            columns[4usize].as_mut(),
+            columns[6usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(
             &self.r#quantity_id,
-            columns[5usize].as_mut(),
+            columns[7usize].as_mut(),
         )?;
-        crate::columnar::ArrowValue::append(&self.r#unit_id, columns[6usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#value, columns[7usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#unit_id, columns[8usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#value, columns[9usize].as_mut())?;
         Ok(())
     }
     fn relation(
@@ -225,10 +247,10 @@ impl crate::columnar::RelationRow for RuntimeLiveSimulationSamplesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        20_480_usize + size_of::<Self::Builder>()
+        27_648_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        160usize
+        216usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -243,6 +265,14 @@ impl crate::columnar::RelationRow for RuntimeLiveSimulationSamplesRow {
         bytes = crate::columnar::allocation_add(
             bytes,
             Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(8usize)?,
+        )?;
+        bytes = crate::columnar::allocation_add(
+            bytes,
+            Ok::<usize, crate::RelationError>(32usize)?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
@@ -274,7 +304,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
+pub const COLUMNS: [crate::columnar::ColumnReference; 10usize] = [
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "run_id",
@@ -292,28 +322,38 @@ pub const COLUMNS: [crate::columnar::ColumnReference; 8usize] = [
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "time",
+        name: "mode",
         position: 3usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "symbol_id",
+        name: "mode_identity",
         position: 4usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "quantity_id",
+        name: "time",
         position: 5usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "unit_id",
+        name: "symbol_id",
         position: 6usize,
     },
     crate::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "value",
+        name: "quantity_id",
         position: 7usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "unit_id",
+        position: 8usize,
+    },
+    crate::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "value",
+        position: 9usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
@@ -324,16 +364,20 @@ pub mod columns {
     pub const ACCURACY_ATTEMPT: crate::columnar::ColumnReference = super::COLUMNS[1usize];
     ///sample
     pub const SAMPLE: crate::columnar::ColumnReference = super::COLUMNS[2usize];
+    ///mode
+    pub const MODE: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    ///mode_identity
+    pub const MODE_IDENTITY: crate::columnar::ColumnReference = super::COLUMNS[4usize];
     ///time
-    pub const TIME: crate::columnar::ColumnReference = super::COLUMNS[3usize];
+    pub const TIME: crate::columnar::ColumnReference = super::COLUMNS[5usize];
     ///symbol_id
-    pub const SYMBOL_ID: crate::columnar::ColumnReference = super::COLUMNS[4usize];
+    pub const SYMBOL_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
     ///quantity_id
-    pub const QUANTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[5usize];
+    pub const QUANTITY_ID: crate::columnar::ColumnReference = super::COLUMNS[7usize];
     ///unit_id
-    pub const UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[6usize];
+    pub const UNIT_ID: crate::columnar::ColumnReference = super::COLUMNS[8usize];
     ///value
-    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[7usize];
+    pub const VALUE: crate::columnar::ColumnReference = super::COLUMNS[9usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -344,6 +388,8 @@ pub struct RuntimeLiveSimulationSamplesView<'a> {
     run_id_column: &'a arrow_array::FixedSizeBinaryArray,
     accuracy_attempt_column: &'a arrow_array::Int64Array,
     sample_column: &'a arrow_array::Int64Array,
+    mode_column: &'a arrow_array::Int64Array,
+    mode_identity_column: &'a arrow_array::FixedSizeBinaryArray,
     time_column: &'a arrow_array::Float64Array,
     symbol_id_column: &'a arrow_array::FixedSizeBinaryArray,
     quantity_id_column: &'a arrow_array::FixedSizeBinaryArray,
@@ -402,21 +448,27 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
             sample_column: crate::columnar::array::<
                 arrow_array::Int64Array,
             >(batch.column(2usize).as_ref())?,
-            time_column: crate::columnar::array::<
-                arrow_array::Float64Array,
+            mode_column: crate::columnar::array::<
+                arrow_array::Int64Array,
             >(batch.column(3usize).as_ref())?,
-            symbol_id_column: crate::columnar::array::<
+            mode_identity_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(4usize).as_ref())?,
-            quantity_id_column: crate::columnar::array::<
-                arrow_array::FixedSizeBinaryArray,
+            time_column: crate::columnar::array::<
+                arrow_array::Float64Array,
             >(batch.column(5usize).as_ref())?,
-            unit_id_column: crate::columnar::array::<
+            symbol_id_column: crate::columnar::array::<
                 arrow_array::FixedSizeBinaryArray,
             >(batch.column(6usize).as_ref())?,
+            quantity_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(7usize).as_ref())?,
+            unit_id_column: crate::columnar::array::<
+                arrow_array::FixedSizeBinaryArray,
+            >(batch.column(8usize).as_ref())?,
             value_column: crate::columnar::array::<
                 arrow_array::Float64Array,
-            >(batch.column(7usize).as_ref())?,
+            >(batch.column(9usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -469,6 +521,30 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "mode",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn mode_column(&self) -> &'a arrow_array::Int64Array {
+        self.mode_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "mode", "`.")]
+    pub fn mode_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[3usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
+        "mode_identity",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn mode_identity_column(&self) -> &'a arrow_array::FixedSizeBinaryArray {
+        self.mode_identity_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "mode_identity", "`.")]
+    pub fn mode_identity_field(&self) -> &'a crate::FieldRef {
+        &self.batch.schema_ref().fields()[4usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "time",
         "`, including its offsets and validity bitmap.",
     )]
@@ -477,7 +553,7 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "time", "`.")]
     pub fn time_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[3usize]
+        &self.batch.schema_ref().fields()[5usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -489,7 +565,7 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "symbol_id", "`.")]
     pub fn symbol_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[4usize]
+        &self.batch.schema_ref().fields()[6usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -501,7 +577,7 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "quantity_id", "`.")]
     pub fn quantity_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[5usize]
+        &self.batch.schema_ref().fields()[7usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -513,7 +589,7 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "unit_id", "`.")]
     pub fn unit_id_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[6usize]
+        &self.batch.schema_ref().fields()[8usize]
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
@@ -525,7 +601,7 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "value", "`.")]
     pub fn value_field(&self) -> &'a crate::FieldRef {
-        &self.batch.schema_ref().fields()[7usize]
+        &self.batch.schema_ref().fields()[9usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -545,6 +621,11 @@ impl<'a> RuntimeLiveSimulationSamplesView<'a> {
                 index,
             )?,
             r#sample: crate::columnar::ArrowValue::read(self.sample_column, index)?,
+            r#mode: crate::columnar::ArrowValue::read(self.mode_column, index)?,
+            r#mode_identity: crate::columnar::ArrowValue::read(
+                self.mode_identity_column,
+                index,
+            )?,
             r#time: crate::columnar::ArrowValue::read(self.time_column, index)?,
             r#symbol_id: crate::columnar::ArrowValue::read(
                 self.symbol_id_column,
