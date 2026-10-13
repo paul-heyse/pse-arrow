@@ -32,7 +32,7 @@ impl RunResult {
             _ => return Err(contract("fit report mismatch")),
         };
         let registry = self.runtime.registry();
-        let validation = self.runtime.validation_context();
+        let validation = self.result_validation_context();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
         let mut context = crate::workflow::result_export::Rows::<
@@ -1079,7 +1079,7 @@ impl RunResult {
         let problem = &prepared.problem;
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context();
+        let validation = self.result_validation_context();
         let mut builder = crate::workflow::result_export::SelectedCollection::new(
             request,
             self.runtime.registry(),

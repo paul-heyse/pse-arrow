@@ -14,6 +14,13 @@ use pse_relations::{
 };
 use std::{collections::BTreeMap, sync::Arc};
 impl RunResult {
+    /// One actual validation scope retained by this immutable completed result.
+    pub(super) fn result_validation_context(&self) -> Arc<pse_relations::validate::ValidationContext> {
+        self.result_validation.clone()
+    }
+    fn projection_retention(&self, id: SemanticId, rows: usize, order: super::ResultOrder, range: std::ops::Range<usize>) -> Option<super::result_export::ProjectionRetention> {
+        self.projection_owner.clone().map(|owner| super::result_export::ProjectionRetention::new(&self.runtime, owner, id, rows, order, range))
+    }
     /// Advertised relations are completion metadata; discovery does not encode payloads.
     pub fn table_ids(&self) -> Vec<SemanticId> {
         use pse_relations::generated::runtime::*;
@@ -162,11 +169,18 @@ impl RunResult {
         self.table_by_id(id)
     }
     fn table_by_id(&self, id: SemanticId) -> Result<FieldCheckedBatch, Arc<WorkflowError>> {
-        super::result_export::collect(
+        // Check membership/intrinsic failure even on a cache hit.
+        if !self.table_ids().contains(&id) { return Err(Arc::new(contract("relation is not part of this run"))); }
+        if let Some(error) = self.encodings.failure(id) { return Err(error); }
+        let retention = self.projection_retention(id, 1024, super::ResultOrder::Public, 0..usize::MAX);
+        if let Some(batch) = retention.as_ref().and_then(|retention| retention.whole()) { return Ok(batch); }
+        let batch = super::result_export::collect(
             self.cursor_by_id(id, 1024, super::ResultOrder::Public)?,
             &self.runtime,
             id,
-        )
+        )?;
+        if let Some(retention) = retention { retention.retain_whole(batch.clone()); }
+        Ok(batch)
     }
     /// Independent bounded traversal of one advertised relation.
     pub fn table_cursor(
@@ -207,17 +221,24 @@ impl RunResult {
             .ok_or_else(|| Arc::new(contract("result declaration absent")))?;
         let schema = pse_schema::arrow::relation_schema_ref(self.runtime.registry(), spec)
             .map_err(|e| Arc::new(relation(e.into())))?;
+        let retention = self.projection_retention(id, rows, super::ResultOrder::Public, 0..usize::MAX);
+        let producer_retention = retention.clone();
         super::ResultCursor::new(
             schema,
             id,
             rows,
             super::ResultOrder::Public,
-            |projection| async move {
+            |mut projection| async move {
+                if let Some(retention) = producer_retention {
+                    let Some(range) = retention.replay(&projection).await? else { return Ok(()); };
+                    projection.range = range;
+                }
                 self.encode(&projection)
                     .await
                     .map_err(|error| self.encodings.record(id, error))
             },
         )
+        .map(|cursor| cursor.with_retention(retention))
         .map_err(Arc::new)
     }
     /// Select original row coordinates without materializing a complete relation.
@@ -285,6 +306,8 @@ impl RunResult {
                     pse_relations::RelationError::Schema(e).into(),
                 ))
             })?;
+        let retention = self.projection_retention(id, rows, order, range.clone());
+        let producer_retention = retention.clone();
         super::ResultCursor::new_range_controlled(
             schema,
             id,
@@ -292,12 +315,17 @@ impl RunResult {
             order,
             range,
             cancel,
-            |projection| async move {
+            |mut projection| async move {
+                if let Some(retention) = producer_retention {
+                    let Some(range) = retention.replay(&projection).await? else { return Ok(()); };
+                    projection.range = range;
+                }
                 self.encode(&projection)
                     .await
                     .map_err(|error| self.encodings.record(id, error))
             },
         )
+        .map(|cursor| cursor.with_retention(retention))
         .map_err(Arc::new)
     }
     pub(super) async fn encode_horizon_findings(
@@ -306,7 +334,7 @@ impl RunResult {
     ) -> Result<(), WorkflowError> {
         let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
-        let validation = self.runtime.validation_context();
+        let validation = self.result_validation_context();
         let mut rows = super::result_export::Rows::<
             pse_relations::generated::runtime::modeling_findings::Row,
         >::new(projection, registry, &pool, &projection.cancel, &validation)
@@ -385,7 +413,7 @@ impl RunResult {
             {
                 let registry = self.runtime.registry();
                 let pool = self.runtime.shared.pool();
-                let validation = self.runtime.validation_context();
+                let validation = self.result_validation_context();
                 let mut empty = super::result_export::SelectedCollection::new(
                     projection,
                     registry,
@@ -415,7 +443,7 @@ impl RunResult {
             if id == pse_relations::generated::runtime::solve_runs::RELATION_ID {
                 let registry = self.runtime.registry();
                 let pool = self.runtime.shared.pool();
-                let validation = self.runtime.validation_context();
+                let validation = self.result_validation_context();
                 let mut rows = super::result_export::Rows::<
                     pse_relations::generated::runtime::solve_runs::Row,
                 >::new(

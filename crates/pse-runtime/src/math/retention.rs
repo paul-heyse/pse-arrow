@@ -26,6 +26,7 @@ enum Key {
     Solver(PreparedViewHash),
     Observation(PreparedViewHash),
     Parametric(PreparedViewHash),
+    ResultProjection(crate::workflow::result_export::ProjectionKey),
 }
 impl CacheKey for Key {
     fn size(&self) -> usize {
@@ -56,6 +57,7 @@ enum Product {
     Frontier(Arc<modeling::OwnedModelingFrontier>),
     Solver(Preparation),
     Program(Arc<ExecutableCase>),
+    ResultProjection(Arc<crate::workflow::result_export::RetainedProjection>),
 }
 impl CacheValue for Product {
     fn size(&self) -> usize {
@@ -83,6 +85,7 @@ impl CacheValue for Product {
                 Self::Frontier(frontier) => frontier.retained_bytes(),
                 Self::Solver(p) => p.compiled().retained_bytes(),
                 Self::Program(p) => p.assembly.retained_bytes(),
+                Self::ResultProjection(value) => value.retained_bytes(),
             })
     }
 }
@@ -301,6 +304,14 @@ impl ModelingCache {
         {
             self.bypasses.fetch_add(1, Ordering::Relaxed);
         }
+    }
+    pub(crate) fn result_projection(&self, key: &crate::workflow::result_export::ProjectionKey) -> Option<Arc<crate::workflow::result_export::RetainedProjection>> {
+        match self.get(&Key::ResultProjection(key.clone()))? {
+            Product::ResultProjection(value) => Some(value), _ => None,
+        }
+    }
+    pub(crate) fn retain_result_projection(&self, generation: u64, key: crate::workflow::result_export::ProjectionKey, value: Arc<crate::workflow::result_export::RetainedProjection>) {
+        self.put(generation, Key::ResultProjection(key), Product::ResultProjection(value));
     }
     pub(crate) fn ingress(
         &self,

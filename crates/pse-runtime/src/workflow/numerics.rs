@@ -681,7 +681,7 @@ impl RunResult {
         let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = request.cancel.clone();
-        let validation = self.runtime.validation_context();
+        let validation = self.result_validation_context();
         if request.wants(assessments::RELATION_ID) {
             let mut candidates = crate::workflow::result_export::Rows::<assessments::Row>::new(
                 request,

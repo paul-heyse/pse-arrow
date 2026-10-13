@@ -29,7 +29,7 @@ impl RunResult {
         let registry = self.runtime.registry();
         let pool = self.runtime.shared.pool();
         let cancel = projection.cancel.clone();
-        let validation = self.runtime.validation_context();
+        let validation = self.result_validation_context();
         let mut run_rows = crate::workflow::result_export::Rows::<runs::Row>::new(
             projection,
             registry,

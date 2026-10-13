@@ -174,6 +174,8 @@ pub struct RunResult {
     pub(crate) assessments: Vec<pse_relations::generated::runtime::candidate_assessments::Row>,
     pub(crate) completion: Result<super::completion::Completion, Arc<WorkflowError>>,
     pub(super) encodings: super::result_export::EncodingState,
+    pub(super) result_validation: Arc<pse_relations::validate::ValidationContext>,
+    pub(super) projection_owner: Option<super::result_export::ProjectionOwner>,
     /// What the run recorded durably; ephemeral runs record nothing.
     pub(crate) durability: RunDurability,
     /// What a rolling horizon did at each sample (Plan 22 Y5c); `None` for any other run.
@@ -193,7 +195,11 @@ impl RunResult {
         owner: Option<Arc<pse_columnar::AllocationLease>>,
         report: Result<RunReport, Arc<WorkflowError>>,
     ) -> Self {
+        let result_validation = Arc::new(runtime.validation_context().new_scope());
+        let projection_owner = super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
         Self {
+            result_validation,
+            projection_owner,
             modeling_origin: 0,
             original_completion_captured: false,
             horizon_output: None,
@@ -213,6 +219,10 @@ impl RunResult {
             durability: RunDurability::Ephemeral,
             horizon: None,
         }
+    }
+    fn reset_result_projection(&mut self) {
+        self.result_validation = Arc::new(self.runtime.validation_context().new_scope());
+        self.projection_owner = super::result_export::ProjectionOwner::new(&self.runtime, self.result_validation.clone());
     }
     /// Final completion-owned scientific assessments; exporting tables cannot change them.
     pub fn assessments(&self) -> &[pse_relations::generated::runtime::candidate_assessments::Row] {
@@ -261,6 +271,7 @@ impl RunResult {
         }
         self.assessments = self.assess_candidates();
         self.completion = self.capture_completion().map_err(Arc::new);
+        self.reset_result_projection();
         self
     }
     /// Capture completion, then record the attempt's end durably when the run is durable.
@@ -270,6 +281,7 @@ impl RunResult {
             let record = attempt.finish(&result, cancelled).await;
             if let Err(error) = &record.attempt {
                 result.report = Err(error.clone());
+                result.reset_result_projection();
             }
             result.durability = RunDurability::Durable(Box::new(record));
         }
@@ -285,6 +297,7 @@ impl RunResult {
             // It must not replace the refusal that prevented scientific execution.
             if record.attempt.is_err() {
                 self.completion = Err(error);
+                self.reset_result_projection();
             }
             self.durability = RunDurability::Durable(Box::new(record));
         }

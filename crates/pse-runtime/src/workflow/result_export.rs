@@ -18,7 +18,7 @@ use std::{
 };
 
 /// Physical traversal of the same scientific rows.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum ResultOrder {
     /// Existing public sample-major order.
     #[default]
@@ -45,6 +45,117 @@ impl ResultOrder {
         })
     }
 }
+/// Actual immutable result occurrence and its admission scope. Retention never
+/// equates two runs merely because their scientific contents happen to match.
+#[derive(Clone, Debug)]
+pub(super) struct ProjectionOwner(Arc<ProjectionOwnerData>);
+#[derive(Debug)]
+struct ProjectionOwnerData {
+    _validation: Arc<pse_relations::validate::ValidationContext>,
+    _metadata: Arc<pse_columnar::AllocationLease>,
+}
+impl PartialEq for ProjectionOwner {
+    fn eq(&self, other: &Self) -> bool { Arc::ptr_eq(&self.0, &other.0) }
+}
+impl Eq for ProjectionOwner {}
+impl std::hash::Hash for ProjectionOwner {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::hash::Hash::hash(&Arc::as_ptr(&self.0), state);
+    }
+}
+impl ProjectionOwner {
+    pub(super) fn new(runtime: &super::Runtime, validation: Arc<pse_relations::validate::ValidationContext>) -> Option<Self> {
+        let metadata = runtime.shared.math().reserve("result:projection-owner", size_of::<ProjectionOwnerData>()).ok()?;
+        Some(Self(Arc::new(ProjectionOwnerData { _validation: validation, _metadata: metadata })))
+    }
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) enum ProjectionPart { Chunk(usize), Terminal, Whole }
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct ProjectionKey {
+    owner: ProjectionOwner,
+    relation: SemanticId,
+    rows: usize,
+    order: ResultOrder,
+    start: usize,
+    end: usize,
+    part: ProjectionPart,
+}
+#[derive(Debug)]
+pub(crate) enum ProjectionValue {
+    Batch(FieldCheckedBatch),
+    Terminal(usize),
+}
+#[derive(Debug)]
+pub(crate) struct RetainedProjection {
+    pub(crate) value: ProjectionValue,
+    _metadata: Arc<pse_columnar::AllocationLease>,
+}
+impl RetainedProjection {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(match &self.value {
+            ProjectionValue::Batch(batch) => batch.batch().get_array_memory_size(),
+            ProjectionValue::Terminal(_) => 0,
+        })
+    }
+}
+/// Uses the existing deployment retention/pressure owner; there is no per-result
+/// unbounded batch map. A clear fences late publication from an older cursor.
+#[derive(Clone, Debug)]
+pub(super) struct ProjectionRetention {
+    service: Arc<crate::math::MathService>,
+    key: ProjectionKey,
+    generation: u64,
+    delivered: usize,
+}
+impl ProjectionRetention {
+    pub(super) fn new(runtime: &super::Runtime, owner: ProjectionOwner, relation: SemanticId, rows: usize, order: ResultOrder, range: std::ops::Range<usize>) -> Self {
+        Self::from_service(runtime.shared.math().clone(), owner, relation, rows, order, range)
+    }
+    fn from_service(service: Arc<crate::math::MathService>, owner: ProjectionOwner, relation: SemanticId, rows: usize, order: ResultOrder, range: std::ops::Range<usize>) -> Self {
+        let generation = service.modeling_cache.generation();
+        Self { service, key: ProjectionKey { owner, relation, rows, order, start: range.start, end: range.end, part: ProjectionPart::Terminal }, generation, delivered: 0 }
+    }
+    fn part(&self, part: ProjectionPart) -> ProjectionKey { ProjectionKey { part, ..self.key.clone() } }
+    fn get(&self, part: ProjectionPart) -> Option<Arc<RetainedProjection>> {
+        self.service.modeling_cache.result_projection(&self.part(part))
+    }
+    fn retain(&self, part: ProjectionPart, value: ProjectionValue) {
+        // Borrowed payload already has its real allocation charge. Reserve only
+        // new cache-key/value metadata, not another charge for the same arrays.
+        let Ok(metadata) = self.service.reserve("result:projection-entry", size_of::<ProjectionKey>() + size_of::<RetainedProjection>() + 256) else { return; };
+        self.service.modeling_cache.retain_result_projection(self.generation, self.part(part), Arc::new(RetainedProjection { value, _metadata: metadata }));
+    }
+    fn receive(&mut self, batch: &FieldCheckedBatch) {
+        let part = ProjectionPart::Chunk(self.delivered);
+        if self.get(part.clone()).is_none() { self.retain(part, ProjectionValue::Batch(batch.clone())); }
+        self.delivered = self.delivered.saturating_add(1);
+    }
+    fn complete(&self) { self.retain(ProjectionPart::Terminal, ProjectionValue::Terminal(self.delivered)); }
+    pub(super) fn whole(&self) -> Option<FieldCheckedBatch> {
+        match &self.get(ProjectionPart::Whole)?.value { ProjectionValue::Batch(batch) => Some(batch.clone()), _ => None }
+    }
+    pub(super) fn retain_whole(&self, batch: FieldCheckedBatch) { self.retain(ProjectionPart::Whole, ProjectionValue::Batch(batch)); }
+    /// Replay only cached checked prefixes. A miss resumes original projection at
+    /// its exact original row, not at a renumbered scientific coordinate.
+    pub(super) async fn replay(&self, request: &Projection) -> Result<Option<std::ops::Range<usize>>, Arc<WorkflowError>> {
+        let terminal = self.get(ProjectionPart::Terminal).and_then(|value| match &value.value { ProjectionValue::Terminal(count) => Some(*count), _ => None });
+        let mut index = 0usize;
+        let mut start = request.range.start;
+        loop {
+            if terminal == Some(index) { return Ok(None); }
+            let Some(value) = self.get(ProjectionPart::Chunk(index)) else { return Ok(Some(start..request.range.end)); };
+            let ProjectionValue::Batch(batch) = &value.value else { return Ok(Some(start..request.range.end)); };
+            // An empty delivered chunk alone proves no terminal exhaustion. Do
+            // not replay it and then manufacture another empty continuation.
+            if batch.batch().num_rows() == 0 && terminal.is_none() { return Ok(Some(start..request.range.end)); }
+            start = start.checked_add(batch.batch().num_rows()).ok_or_else(|| Arc::new(contract("cached projection row extent")))?;
+            request.send_checked(batch.clone()).await?;
+            index = index.checked_add(1).ok_or_else(|| Arc::new(contract("cached projection chunk extent")))?;
+        }
+    }
+}
+
 /// Shared intrinsic failures only; request allocation and delivery never enter this map.
 #[derive(Debug, Default)]
 pub(super) struct EncodingState(Mutex<BTreeMap<SemanticId, Arc<WorkflowError>>>);
@@ -137,6 +248,7 @@ pub struct ResultCursor<'a> {
     checked_buffers: bool,
     cancel_on_drop: bool,
     projection_memory_refused: bool,
+    retention: Option<ProjectionRetention>,
 }
 impl std::fmt::Debug for ResultCursor<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -194,6 +306,7 @@ impl<'a> ResultCursor<'a> {
             checked_buffers: true,
             cancel_on_drop: true,
             projection_memory_refused: false,
+            retention: None,
         }
     }
 
@@ -270,7 +383,12 @@ impl<'a> ResultCursor<'a> {
             checked_buffers: false,
             cancel_on_drop: true,
             projection_memory_refused: false,
+            retention: None,
         })
+    }
+    pub(super) fn with_retention(mut self, retention: Option<ProjectionRetention>) -> Self {
+        self.retention = retention;
+        self
     }
     /// Only the typed immutable projection owner may reuse its token after a
     /// positively classified memory refusal. The failed producer has returned;
@@ -336,6 +454,7 @@ impl Stream for ResultCursor<'_> {
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         if let Ok(batch) = this.receiver.try_recv() {
+            if let Some(retention) = &mut this.retention { retention.receive(&batch); }
             return Poll::Ready(Some(Ok(batch)));
         }
         if let Some(producer) = &mut this.producer
@@ -345,7 +464,10 @@ impl Stream for ResultCursor<'_> {
             this.producer = None;
         }
         match this.receiver.poll_recv(cx) {
-            Poll::Ready(Some(batch)) => Poll::Ready(Some(Ok(batch))),
+            Poll::Ready(Some(batch)) => {
+                if let Some(retention) = &mut this.retention { retention.receive(&batch); }
+                Poll::Ready(Some(Ok(batch)))
+            },
             Poll::Ready(None) => match this.terminal.take() {
                 Some(Err(error)) => {
                     this.projection_memory_refused =
@@ -353,6 +475,7 @@ impl Stream for ResultCursor<'_> {
                     Poll::Ready(Some(Err(error)))
                 }
                 Some(Ok(())) => {
+                    if let Some(retention) = &this.retention { retention.complete(); }
                     this.complete = true;
                     Poll::Ready(None)
                 }
@@ -1101,6 +1224,7 @@ mod tests {
         pool: Arc<dyn MemoryPool>,
         failures: EncodingState,
         projected: AtomicUsize,
+        retention: Option<(Arc<crate::math::MathService>, ProjectionOwner)>,
     }
     impl Source {
         fn new(bytes: usize) -> Arc<Self> {
@@ -1116,7 +1240,25 @@ mod tests {
                 pool: Arc::new(GreedyMemoryPool::new(bytes)),
                 failures: EncodingState::default(),
                 projected: AtomicUsize::new(0),
+                retention: None,
             })
+        }
+        fn retained(bytes: usize, limit: usize) -> Arc<Self> {
+            let mut source = Arc::try_unwrap(Self::new(bytes)).ok().unwrap();
+            let native = pse_engine::cache_service::NativeCacheService::new(
+                pse_engine::cache_service::CacheBudget::disabled(1024), &source.pool,
+            ).unwrap();
+            let service = crate::math::MathService::new(source.pool.clone(), Arc::new(tokio::sync::Semaphore::new(2)), 2,
+                crate::math::MathPolicy { artifact_bytes: limit, ..Default::default() }, &native);
+            let owner = ProjectionOwner(Arc::new(ProjectionOwnerData {
+                _validation: Arc::new(source.validation.clone()),
+                _metadata: service.reserve("test:projection-owner", size_of::<ProjectionOwnerData>()).unwrap(),
+            }));
+            source.retention = Some((service, owner));
+            Arc::new(source)
+        }
+        fn projection_retention(&self, id: SemanticId, rows: usize, order: ResultOrder, range: std::ops::Range<usize>) -> Option<ProjectionRetention> {
+            self.retention.as_ref().map(|(service, owner)| ProjectionRetention::from_service(service.clone(), owner.clone(), id, rows, order, range))
         }
         fn cursor(
             self: &Arc<Self>,
@@ -1144,14 +1286,20 @@ mod tests {
             )
             .unwrap();
             let source = self.clone();
+            let retention = self.projection_retention(id, rows, ResultOrder::Public, range.clone());
+            let producer_retention = retention.clone();
             ResultCursor::new_range(
                 schema,
                 id,
                 rows,
                 ResultOrder::Public,
                 range,
-                move |request| async move {
+                move |mut request| async move {
                     let result = async {
+                        if let Some(retention) = producer_retention {
+                            let Some(range) = retention.replay(&request).await.map_err(WorkflowError::Shared)? else { return Ok(()); };
+                            request.range = range;
+                        }
                         let cancel = request.cancel.clone();
                         let mut columns = SelectedCollection::new(
                             &request,
@@ -1191,6 +1339,7 @@ mod tests {
                     result.map_err(|error| source.failures.record(id, error))
                 },
             )
+            .map(|cursor| cursor.with_retention(retention))
             .map_err(Arc::new)
         }
     }
@@ -1619,4 +1768,87 @@ mod tests {
         assert_eq!(rows, 300);
         assert!(cursor.complete());
     }
+    #[test]
+    fn retained_result_prefixes_reuse_checked_chunks_and_resume_original_coordinates() {
+        let source = Source::retained(8 << 20, 4 << 20);
+        let id = fit_parameters::RELATION_ID;
+        let mut first = source.cursor(id, 2, 7, None).unwrap();
+        let original = first.next_chunk().unwrap().unwrap();
+        assert_eq!(source.projected.load(Ordering::Relaxed), 2);
+        drop(first);
+        let mut resumed = source.cursor(id, 2, 7, None).unwrap();
+        let reused = resumed.next_chunk().unwrap().unwrap();
+        assert!(original.same_source(&reused));
+        assert_eq!(source.projected.load(Ordering::Relaxed), 2);
+        let mut values = fit_parameters::Row::rows(&reused).unwrap().into_iter().map(|row| row.value.unwrap()).collect::<Vec<_>>();
+        while let Some(batch) = resumed.next_chunk().unwrap() {
+            values.extend(fit_parameters::Row::rows(&batch).unwrap().into_iter().map(|row| row.value.unwrap()));
+        }
+        assert_eq!(values, (0..7).map(|value| value as f64).collect::<Vec<_>>());
+        assert!(resumed.complete());
+        assert_eq!(source.projected.load(Ordering::Relaxed), 7);
+        let mut replay = source.cursor(id, 2, 7, None).unwrap();
+        while replay.next_chunk().unwrap().is_some() {}
+        assert!(replay.complete());
+        assert_eq!(source.projected.load(Ordering::Relaxed), 7, "complete replay constructs no rows");
+        let unrelated = source.projection_retention(solve_metrics::RELATION_ID, 2, ResultOrder::Public, 0..usize::MAX).unwrap();
+        assert!(unrelated.get(ProjectionPart::Chunk(0)).is_none(), "untouched result families stay absent");
+        let other_order = source.projection_retention(id, 2, ResultOrder::Canonical, 0..usize::MAX).unwrap();
+        assert!(other_order.get(ProjectionPart::Chunk(0)).is_none());
+        let mut range = source.range(id, 2, 7, None, 3..6).unwrap();
+        let selected = range.next_chunk().unwrap().unwrap();
+        assert_eq!(fit_parameters::Row::rows(&selected).unwrap()[0].value, Some(3.0));
+        assert_eq!(source.projected.load(Ordering::Relaxed), 9);
+    }
+
+    #[test]
+    fn result_retention_pressure_and_clear_preserve_borrowers_and_fence_late_fills() {
+        let capacity = 8 << 20;
+        let source = Source::retained(capacity, 4 << 20);
+        let id = fit_parameters::RELATION_ID;
+        let mut old = source.cursor(id, 3, 6, None).unwrap();
+        let checked = old.next_chunk().unwrap().unwrap();
+        let escaped = checked.checked_export(&CancellationToken::new()).unwrap().column(3).clone();
+        let retention = source.projection_retention(id, 3, ResultOrder::Public, 0..usize::MAX).unwrap();
+        retention.retain_whole(checked.clone());
+        assert!(retention.whole().unwrap().same_source(&checked));
+        let service = source.retention.as_ref().unwrap().0.clone();
+        let before = source.pool.reserved();
+        let pressure = service.reserve("test:result-retention-pressure", capacity - before + 64).unwrap();
+        assert!(retention.get(ProjectionPart::Chunk(0)).is_none(), "existing global pressure releases cache references");
+        assert_eq!(escaped.len(), 3, "escaped buffers keep their actual owner after eviction");
+        drop(pressure);
+        service.clear_program_cache();
+        while old.next_chunk().unwrap().is_some() {}
+        assert!(old.complete());
+        assert!(retention.get(ProjectionPart::Chunk(1)).is_none(), "old cursor cannot publish through clear fence");
+        assert!(retention.get(ProjectionPart::Terminal).is_none());
+        drop((checked, old, retention, service, source));
+        assert_eq!(escaped.len(), 3);
+        drop(escaped);
+    }
+
+    #[test]
+    fn result_projection_identity_and_disabled_retention_do_not_create_false_hits() {
+        let source = Source::retained(8 << 20, 0);
+        let id = fit_parameters::RELATION_ID;
+        let mut first = source.cursor(id, 2, 4, None).unwrap();
+        while first.next_chunk().unwrap().is_some() {}
+        let mut second = source.cursor(id, 2, 4, None).unwrap();
+        while second.next_chunk().unwrap().is_some() {}
+        assert_eq!(source.projected.load(Ordering::Relaxed), 8);
+        let source = Source::retained(8 << 20, 4 << 20);
+        let mut first = source.cursor(id, 2, 4, None).unwrap();
+        let checked = first.next_chunk().unwrap().unwrap();
+        let (service, owner) = source.retention.as_ref().unwrap();
+        let other = ProjectionOwner(Arc::new(ProjectionOwnerData {
+            _validation: Arc::new(source.validation.new_scope()),
+            _metadata: service.reserve("test:other-projection-owner", size_of::<ProjectionOwnerData>()).unwrap(),
+        }));
+        assert_ne!(*owner, other);
+        let foreign = ProjectionRetention::from_service(service.clone(), other, id, 2, ResultOrder::Public, 0..usize::MAX);
+        assert!(foreign.get(ProjectionPart::Chunk(0)).is_none());
+        assert_eq!(checked.batch().num_rows(), 2);
+    }
+
 }
