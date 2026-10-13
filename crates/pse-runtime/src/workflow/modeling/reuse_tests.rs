@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Allocation and retention controls through the admitted ModelingPackage production route.
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[path = "reuse_journey_tests.rs"]
 mod reuse_journey_tests;
 
@@ -222,96 +222,43 @@ async fn shared_body_cache_invalidates_the_complete_physical_closure() {
     assert_eq!(pool.reserved(), baseline);
 }
 #[tokio::test]
-async fn canonical_edits_preserve_unchanged_memberships_and_skip_true_noops() {
+async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
     let runtime = super::super::tests::runtime();
     let original = "package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==2; } }";
     let first = runtime
         .modeling_package(declarations(original), super::super::tests::physical())
         .await
         .unwrap();
-    let noop = first
-        .with_declarations(declarations(original))
-        .await
-        .unwrap();
-    assert_eq!(first.canonical_revision(), noop.canonical_revision());
-    let store = runtime.canonical.store();
-    let pin = store
-        .protect(
-            first.canonical_revision().clone(),
-            std::time::Duration::from_secs(60),
-        )
-        .await
-        .unwrap();
-    let root = declarations(original)
-        .into_iter()
-        .find(|row| row.name == "Root")
-        .unwrap();
-    let before = store
-        .select_names(&pin, &canonical::scope(root.parent_id), &["Root".into()])
-        .await
-        .unwrap();
+    assert!(first.canonical_revision().is_none());
+    let before = prepared(&first).await;
+    let noop = first.with_declarations(declarations(original)).await.unwrap();
+    assert_eq!(first.revision_id(), noop.revision_id());
+    let effects = runtime.shared.math().preparation_effects();
+    let again = prepared(&noop).await;
+    let effects = runtime.shared.math().preparation_effects().since(effects);
+    assert_eq!(effects.workspaces, 0);
+    assert_eq!(effects.settlements, 0, "local reuse has no publication effect");
+    assert!(pse_math::SharedAllocation::ptr_eq(
+        &before.compiled().admitted, &again.compiled().admitted
+    ));
     let changed = first.with_declarations(declarations("package p { def Root { var x: Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
-    assert_eq!(
-        changed.canonical_revision().sequence,
-        first.canonical_revision().sequence + 1
-    );
-    let current = store
-        .protect(
-            changed.canonical_revision().clone(),
-            std::time::Duration::from_secs(60),
-        )
-        .await
-        .unwrap();
-    let after = store
-        .select_names(
-            &current,
-            &canonical::scope(root.parent_id),
-            &["Root".into()],
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        before, after,
-        "unrelated edits preserve the exact membership interval"
-    );
-    let removed = changed
-        .with_declarations(declarations(
-            "package p { def Root { var x: Scalar; eq a:x*x==1; } }",
-        ))
-        .await
-        .unwrap();
-    let final_pin = store
-        .protect(
-            removed.canonical_revision().clone(),
-            std::time::Duration::from_secs(60),
-        )
-        .await
-        .unwrap();
-    assert!(
-        store
-            .select_names(
-                &final_pin,
-                &canonical::scope(root.parent_id),
-                &["Other".into()]
-            )
-            .await
-            .unwrap()
-            .is_empty()
-    );
-    assert_eq!(
-        store
-            .select_names(&pin, &canonical::scope(root.parent_id), &["Root".into()])
-            .await
-            .unwrap(),
-        before
-    );
-    store.release(&pin).await.unwrap();
-    store.release(&current).await.unwrap();
-    store.release(&final_pin).await.unwrap();
+    assert_ne!(first.revision_id(), changed.revision_id());
+    let after = prepared(&changed).await;
+    for (key, body) in &before.compiled().admitted.bodies {
+        assert!(Arc::ptr_eq(body.math(), after.compiled().admitted.bodies[key].math()));
+    }
+    let removed = changed.with_declarations(declarations(
+        "package p { def Root { var x: Scalar; eq a:x*x==1; } }"
+    )).await.unwrap();
+    assert!(!removed.declarations().await.unwrap().iter().any(|row| row.name == "Other"));
+    assert!(first.declarations().await.unwrap().iter().any(|row| row.name == "Other"));
+    let historical = prepared(&first).await;
+    assert_eq!(before.solved(), historical.solved());
+    runtime.shared.math().clear_program_cache();
 }
 
 #[tokio::test]
-async fn canonical_package_admission_preserves_source_identity_and_accelerators_on_edits() {
+async fn local_package_admission_preserves_source_identity_and_accelerators_on_edits() {
     let runtime = super::super::tests::runtime();
     let source = "package p { def Root { var x: Scalar; eq a:x*x==1; } }";
     let texts = BTreeMap::from([
@@ -345,9 +292,9 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .unwrap();
     assert_eq!(first.revision.identity(), second.revision.identity());
     assert_eq!(
-        first.canonical_revision(),
-        second.canonical_revision(),
-        "the ingress cache retains a compact immutable revision handle"
+        first.revision_id(),
+        second.revision_id(),
+        "the ingress cache retains its owned immutable local revision"
     );
     let mut other_context = runtime.clone();
     other_context.model = Arc::new(runtime.sessions().as_ref().clone())
@@ -363,8 +310,8 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .unwrap();
     assert_eq!(first.revision.identity(), scoped.revision.identity());
     assert_ne!(
-        first.canonical_revision().problem,
-        scoped.canonical_revision().problem,
+        first.revision_id(),
+        scoped.revision_id(),
         "exact validation context owns ingress reuse"
     );
     let edited = first.with_declarations(declarations(source)).await.unwrap();
@@ -380,8 +327,8 @@ async fn canonical_package_admission_preserves_source_identity_and_accelerators_
         .unwrap();
     assert_eq!(first.revision.identity(), fresh.revision.identity());
     assert_ne!(
-        first.canonical_revision().problem,
-        fresh.canonical_revision().problem
+        first.revision_id(),
+        fresh.revision_id()
     );
 }
 
@@ -543,7 +490,7 @@ package p { def Root { param p:Scalar; var x: Scalar; eq a:x*p==1; } }",
 }
 
 #[tokio::test]
-async fn checked_selected_admission_rechecks_fresh_protection_and_retains_a_b_a() {
+async fn checked_local_admission_rechecks_exact_premises_and_retains_a_b_a() {
     let runtime = super::super::tests::runtime();
     let source = "package p { def Root { var x:Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==2; } }";
     let first = runtime
@@ -558,53 +505,20 @@ async fn checked_selected_admission_rechecks_fresh_protection_and_retains_a_b_a(
     let cancel = crate::CancelSource::new();
     let a = first.checked_selection(&[root], &cancel).await.unwrap();
     let held = a.admission.revision.clone();
-    runtime
-        .canonical
-        .store()
-        .release(a.read.selection())
-        .await
-        .unwrap();
     let hit = first.checked_selection(&[root], &cancel).await.unwrap();
     assert!(held.same_admission(&hit.admission.revision));
-    // The old pin is closed: success must have acquired independent current authority.
-    assert!(
-        runtime
-            .canonical
-            .store()
-            .recheck_selection_dependencies(&mut a.read.clone(), &a.admission.dependencies)
-            .await
-            .is_err()
-    );
-    runtime
-        .canonical
-        .store()
-        .release(hit.read.selection())
-        .await
-        .unwrap();
     let unrelated = first.with_declarations(declarations("package p { def Root { var x:Scalar; eq a:x*x==1; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
     let unchanged = unrelated.checked_selection(&[root], &cancel).await.unwrap();
     assert!(
         held.same_admission(&unchanged.admission.revision),
         "a changed unconsumed body preserves checked selected input"
     );
-    runtime
-        .canonical
-        .store()
-        .release(unchanged.read.selection())
-        .await
-        .unwrap();
     let changed = unrelated.with_declarations(declarations("package p { def Root { var x:Scalar; eq a:x*x==2; } def Other { var z:Scalar; eq b:z==3; } }")).await.unwrap();
     let b = changed.checked_selection(&[root], &cancel).await.unwrap();
     assert!(
         !held.same_admission(&b.admission.revision),
         "structural literal changes must re-admit"
     );
-    runtime
-        .canonical
-        .store()
-        .release(b.read.selection())
-        .await
-        .unwrap();
     let restored = changed
         .with_declarations(declarations(source))
         .await
@@ -614,24 +528,12 @@ async fn checked_selected_admission_rechecks_fresh_protection_and_retains_a_b_a(
         held.same_admission(&again.admission.revision),
         "A/B/A retains complete eligible candidates"
     );
-    runtime
-        .canonical
-        .store()
-        .release(again.read.selection())
-        .await
-        .unwrap();
     runtime.shared.math().clear_program_cache();
     let fresh = restored.checked_selection(&[root], &cancel).await.unwrap();
     assert!(
         !held.same_admission(&fresh.admission.revision),
         "clear forces current admission without invalidating escaped immutable owners"
     );
-    runtime
-        .canonical
-        .store()
-        .release(fresh.read.selection())
-        .await
-        .unwrap();
 }
 
 #[tokio::test]
@@ -652,7 +554,6 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
     let first = package.checked_selection(&[root], &cancel).await.unwrap();
     let original = first.admission.revision.clone();
     let request = first.admission.request.clone();
-    first.read.finish().await.unwrap();
     for literal in 2..=10 {
         package = package
             .with_declarations(declarations(&format!(
@@ -662,7 +563,6 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
             .unwrap();
         let selected = package.checked_selection(&[root], &cancel).await.unwrap();
         assert!(!original.same_admission(&selected.admission.revision));
-        selected.read.finish().await.unwrap();
     }
     assert!(
         runtime
@@ -695,7 +595,6 @@ async fn checked_selected_admission_finds_oldest_after_more_than_one_candidate_w
         0,
         "the retained oldest candidate needs no new compiler workspace"
     );
-    restored.read.finish().await.unwrap();
 }
 
 #[tokio::test]
@@ -735,12 +634,6 @@ async fn checked_selected_admission_invalidates_absent_package_rule_inventory() 
             .iter()
             .any(|row| row.declaration_id == marker)
     );
-    runtime
-        .canonical
-        .store()
-        .release(before.read.selection())
-        .await
-        .unwrap();
     let changed = first.with_declarations(rows).await.unwrap();
     let after = changed.checked_selection(&[root], &cancel).await.unwrap();
     assert_eq!(before.admission.request, after.admission.request);
@@ -758,21 +651,6 @@ async fn checked_selected_admission_invalidates_absent_package_rule_inventory() 
             .iter()
             .any(|row| row.declaration_id == marker)
     );
-    assert!(
-        !runtime
-            .canonical
-            .store()
-            .recheck_selection_dependencies(&mut after.read.clone(), &before.admission.dependencies)
-            .await
-            .unwrap(),
-        "an absent-to-present rule invalidates the complete cached receipt"
-    );
-    runtime
-        .canonical
-        .store()
-        .release(after.read.selection())
-        .await
-        .unwrap();
     let model = prepared(&changed).await;
     assert_eq!(model.compiled().model.engineering_rules.len(), 1);
     assert_eq!(model.compiled().model.engineering_rules[0].marker, marker);
@@ -814,12 +692,6 @@ async fn checked_selected_admission_invalidates_nearer_name_shadowing() {
         before.admission.revision.checked().resolve(root, "ambient"),
         Some(outer)
     );
-    runtime
-        .canonical
-        .store()
-        .release(before.read.selection())
-        .await
-        .unwrap();
     let shadowed = first.with_declarations(rows).await.unwrap();
     let after = shadowed.checked_selection(&[root], &cancel).await.unwrap();
     assert_eq!(before.admission.request, after.admission.request);
@@ -833,21 +705,6 @@ async fn checked_selected_admission_invalidates_nearer_name_shadowing() {
         after.admission.revision.checked().resolve(root, "ambient"),
         Some(inner)
     );
-    assert!(
-        !runtime
-            .canonical
-            .store()
-            .recheck_selection_dependencies(&mut after.read.clone(), &before.admission.dependencies)
-            .await
-            .unwrap(),
-        "unchanged outer membership cannot authorize reuse after a nearer name appears"
-    );
-    runtime
-        .canonical
-        .store()
-        .release(after.read.selection())
-        .await
-        .unwrap();
     let restored = shadowed.with_declarations(unshadowed).await.unwrap();
     let again = restored.checked_selection(&[root], &cancel).await.unwrap();
     assert!(
@@ -860,12 +717,6 @@ async fn checked_selected_admission_invalidates_nearer_name_shadowing() {
         again.admission.revision.checked().resolve(root, "ambient"),
         Some(outer)
     );
-    runtime
-        .canonical
-        .store()
-        .release(again.read.selection())
-        .await
-        .unwrap();
 }
 
 /// Descriptor-only fixture: selected admission must not construct execution state.
@@ -957,23 +808,12 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
         )
         .await
         .unwrap();
-    let changed = runtime
-        .modeling_revision(
-            first.canonical_revision().clone(),
-            physical,
-            BTreeMap::from([("law".into(), provider_b.clone())]),
-        )
-        .await
-        .unwrap();
-    assert_eq!(first.canonical_revision(), changed.canonical_revision());
+    let mut changed = first.clone();
+    changed.providers = Arc::new(BTreeMap::from([("law".into(), provider_b.clone())]));
+    assert_eq!(first.revision_id(), changed.revision_id());
+    assert!(changed.canonical_revision().is_none());
     let cancel = crate::CancelSource::new();
     let a = first.checked_selection(&[root], &cancel).await.unwrap();
-    runtime
-        .canonical
-        .store()
-        .release(a.read.selection())
-        .await
-        .unwrap();
     let b = changed.checked_selection(&[root], &cancel).await.unwrap();
     assert_ne!(a.admission.request, b.admission.request);
     assert!(!Arc::ptr_eq(&a.admission, &b.admission));
@@ -1032,12 +872,6 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
             "native provider handoff retains the package's actual configured factory"
         );
     }
-    runtime
-        .canonical
-        .store()
-        .release(b.read.selection())
-        .await
-        .unwrap();
     let wider = first
         .checked_selection(&[root, other], &cancel)
         .await
@@ -1056,12 +890,6 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
             .iter()
             .any(|row| row.declaration_id == other)
     );
-    runtime
-        .canonical
-        .store()
-        .release(wider.read.selection())
-        .await
-        .unwrap();
     let again = first.checked_selection(&[root], &cancel).await.unwrap();
     assert!(
         a.admission
@@ -1069,12 +897,6 @@ async fn checked_selected_admission_separates_provider_configuration_and_root_re
             .same_admission(&again.admission.revision),
         "configuration and root variants preserve the independently eligible original request"
     );
-    runtime
-        .canonical
-        .store()
-        .release(again.read.selection())
-        .await
-        .unwrap();
 }
 
 #[tokio::test]
@@ -1101,12 +923,6 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
     let artifact_bytes =
         probe.admission.retained_bytes() + probe.admission.request.retained_bytes() + 4096;
     assert!(artifact_bytes < 2 * probe.admission.retained_bytes());
-    probe_runtime
-        .canonical
-        .store()
-        .release(probe.read.selection())
-        .await
-        .unwrap();
     probe_runtime.shared.math().clear_program_cache();
     drop(probe);
     drop(probe_package);
@@ -1140,12 +956,6 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
             .len(),
         1
     );
-    runtime
-        .canonical
-        .store()
-        .release(a.read.selection())
-        .await
-        .unwrap();
     drop(a);
     let changed = first
         .with_declarations(declarations(
@@ -1168,12 +978,6 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
     assert!(retained[0].revision.same_admission(&b.admission.revision));
     assert!(!held.same_admission(&retained[0].revision));
     drop(retained);
-    runtime
-        .canonical
-        .store()
-        .release(b.read.selection())
-        .await
-        .unwrap();
     drop(b);
     let restored = changed
         .with_declarations(declarations(source))
@@ -1185,12 +989,6 @@ async fn checked_selected_admission_evicts_candidates_at_the_byte_limit() {
         "evicted A requires a fresh admission even though its escaped immutable owner remains live"
     );
     assert_eq!(held.identity(), fresh.admission.revision.identity());
-    runtime
-        .canonical
-        .store()
-        .release(fresh.read.selection())
-        .await
-        .unwrap();
     runtime.shared.math().clear_program_cache();
     drop(fresh);
     drop(restored);
@@ -1300,12 +1098,6 @@ async fn checked_selected_admission_cancelled_before_native_entry_retains_owners
         .await
         .unwrap();
     assert!(!retry.admission.revision.declarations().is_empty());
-    runtime
-        .canonical
-        .store()
-        .release(retry.read.selection())
-        .await
-        .unwrap();
     service.clear_program_cache();
     drop(retry);
     drop(package);
@@ -1328,347 +1120,7 @@ async fn retained_preparation_basis(
         .basis_key(&selected.admission, root, instance, bindings, limits)
         .unwrap();
     let basis = math.modeling_cache.basis(&key);
-    package
-        .runtime
-        .canonical
-        .store()
-        .release(selected.read.selection())
-        .await
-        .unwrap();
     basis
-}
-
-#[tokio::test]
-async fn ordinary_preparation_rechecks_additional_acquisition_absence_before_basis_reuse() {
-    let runtime = super::super::tests::runtime();
-    let rows = declarations(
-        "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==2; eq acquired:z==3;}}",
-    );
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let acquired = rows
-        .iter()
-        .find(|row| row.name == "acquired")
-        .unwrap()
-        .declaration_id;
-    // Preserve all existing source fields, including parent spans. Only this
-    // unconsumed sibling's exact missing logical becomes present later.
-    let package = runtime
-        .modeling_package(
-            rows.iter()
-                .filter(|row| row.declaration_id != acquired)
-                .cloned()
-                .collect(),
-            super::super::tests::physical(),
-        )
-        .await
-        .unwrap();
-    let math = runtime.shared.math();
-    let store = runtime.canonical.store();
-    let mut selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let key = math
-        .basis_key(
-            &selected.admission,
-            root,
-            pse_modeling::specialize::root_instance(root),
-            Bindings::default(),
-            Limits::default(),
-        )
-        .unwrap();
-    assert!(math.modeling_cache.basis(&key).is_none());
-    let logical = canonical::logical(acquired);
-    let resolved = store
-        .resolve_logicals(&mut selected.read, std::slice::from_ref(&logical))
-        .await
-        .unwrap();
-    assert!(
-        resolved.is_empty(),
-        "the acquired source premise is actually absent"
-    );
-    let extra_dependencies = Arc::new(selected.read.snapshot_dependencies().unwrap());
-    assert_ne!(extra_dependencies, selected.admission.dependencies);
-    // Complete through the production preparation boundary after acquisition
-    // adds an actual inspected premise to the already checked selection.
-    let original = package
-        .prepare_selected(
-            &mut selected,
-            root,
-            pse_modeling::specialize::root_instance(root),
-            Bindings::default(),
-            Limits::default(),
-            &crate::CancelSource::new(),
-            std::time::Instant::now() + std::time::Duration::from_secs(60),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        math.modeling_cache
-            .basis(&key)
-            .unwrap()
-            .acquisition_dependencies,
-        extra_dependencies
-    );
-    store.release(selected.read.selection()).await.unwrap();
-    let eligible = prepared(&package).await;
-    assert!(pse_math::SharedAllocation::ptr_eq(
-        &original.compiled().admitted,
-        &eligible.compiled().admitted
-    ));
-    let qualified = math.modeling_cache.basis(&key).unwrap();
-    assert_eq!(qualified.acquisition_dependencies, extra_dependencies);
-    assert!(
-        qualified.descriptions.iter().all(|description| {
-            description.description.selected_dependencies() == extra_dependencies.as_ref()
-        }),
-        "new publication descriptions must carry the fully merged acquisition premises"
-    );
-    let changed = package.with_declarations(rows).await.unwrap();
-    let current = changed
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert_eq!(
-        current.admission.dependencies, selected.admission.dependencies,
-        "ordinary selection still proves the exact same Root premises"
-    );
-    assert_eq!(
-        math.basis_key(
-            &current.admission,
-            root,
-            pse_modeling::specialize::root_instance(root),
-            Bindings::default(),
-            Limits::default(),
-        )
-        .unwrap(),
-        key,
-        "the refusal must come from additional acquisition premises, not another basis key"
-    );
-    store.release(current.read.selection()).await.unwrap();
-    let actual = prepared(&changed).await;
-    assert!(
-        !pse_math::SharedAllocation::ptr_eq(
-            &eligible.compiled().admitted,
-            &actual.compiled().admitted
-        ),
-        "the basis requiring an absent acquired source cannot be rebound after that source appears"
-    );
-    let replacement = math.modeling_cache.basis(&key).unwrap();
-    assert_ne!(replacement.acquisition_dependencies, extra_dependencies);
-    assert_eq!(
-        replacement.acquisition_dependencies,
-        current.admission.dependencies
-    );
-    for (identity, body) in &eligible.compiled().admitted.bodies {
-        assert!(
-            Arc::ptr_eq(
-                body.math(),
-                actual.compiled().admitted.bodies[identity].math()
-            ),
-            "unchanged Root body mathematics remains eligible independently of the rejected acquisition receipt"
-        );
-    }
-    math.clear_program_cache();
-}
-
-#[cfg(all(target_os = "linux", target_env = "gnu"))]
-#[tokio::test]
-#[allow(
-    unsafe_code,
-    reason = "controlled native test root owns and mutates its observed effective configuration; no provider or import runs inside observation"
-)]
-async fn ordinary_preparation_exact_basis_hit_rebinds_current_attribution_and_settles_released_roots()
- {
-    use crate::math::portable::{ExpectedProducerTarget, ReplayAdmission};
-    use std::sync::{
-        Mutex,
-        atomic::{AtomicUsize, Ordering},
-    };
-    let mut runtime = super::super::tests::runtime();
-    let effective = Arc::new(Mutex::new(vec![1_u8]));
-    let observations = Arc::new(AtomicUsize::new(0));
-    let observed = observations.clone();
-    let configuration = effective.clone();
-    fn anchor() {}
-    let observe = Arc::new(move || {
-        observed.fetch_add(1, Ordering::SeqCst);
-        // SAFETY: this native test root has no libc environment writers.
-        let environment = unsafe {
-            pse_buildinfo::identity::CurrentEnvironmentSnapshot::capture_scoped(&|| Ok(()))
-        }?;
-        crate::math::portable::RuntimeConfigurationObservation::new(
-            configuration.lock().unwrap().clone(),
-            environment,
-        )
-    });
-    // SAFETY: this actual test binary is the controlled root of immutable mathematics;
-    // the observer below supplies its actual owned configuration and imports no code.
-    let producer = unsafe {
-        ReplayAdmission::observe_local(
-            ExpectedProducerTarget::WORKER,
-            anchor as *const () as usize,
-            observe,
-        )
-    }
-    .unwrap();
-    runtime.canonical = super::super::canonical::CanonicalDeployment::new(
-        runtime.canonical.store().clone(),
-        runtime.canonical.attestation(),
-        Some(producer),
-    );
-    let source = "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==2;}}";
-    let rows = declarations(source);
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let instance = pse_modeling::specialize::root_instance(root);
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let first = prepared(&package).await;
-    let original = retained_preparation_basis(
-        &package,
-        root,
-        instance,
-        Bindings::default(),
-        Limits::default(),
-    )
-    .await
-    .unwrap();
-    assert!(!original.descriptions.is_empty());
-    let old_description = original.descriptions[0].clone();
-    let store = runtime.canonical.store();
-    let old_key = store
-        .acknowledge_description(&old_description.description)
-        .await
-        .unwrap()
-        .unwrap();
-    let after_first_observation = observations.load(Ordering::SeqCst);
-    *effective.lock().unwrap() = vec![2];
-    // An unrelated immutable source change gives this consumer a fresh canonical revision.
-    // Exact mathematical premises and the previously rooted acknowledgment still coincide.
-    let unrelated = package.with_declarations(declarations(
-        "package p {def Root {var x:Scalar; eq e:x*x==1;} def Other {var z:Scalar; eq other:z==3;}}"
-    )).await.unwrap();
-    assert_ne!(package.canonical_revision(), unrelated.canonical_revision());
-    let second = prepared(&unrelated).await;
-    assert!(
-        pse_math::SharedAllocation::ptr_eq(&first.compiled().admitted, &second.compiled().admitted),
-        "ordinary exact basis hits retain the complete admitted mathematical allocation"
-    );
-    for (key, body) in &first.compiled().admitted.bodies {
-        assert!(Arc::ptr_eq(
-            body.math(),
-            second.compiled().admitted.bodies[key].math()
-        ));
-    }
-    assert_eq!(second.solved().model(), root);
-    assert_eq!(second.solved().instance(), instance);
-    let current = unrelated
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert_eq!(
-        second.consumed_source_versions(),
-        current.admission.versions.as_ref(),
-        "the new wrapper reports this consumer's actually selected source versions"
-    );
-    store.release(current.read.selection()).await.unwrap();
-    let warm = retained_preparation_basis(
-        &unrelated,
-        root,
-        instance,
-        Bindings::default(),
-        Limits::default(),
-    )
-    .await
-    .unwrap();
-    let warm_description = warm
-        .descriptions
-        .iter()
-        .find(|description| description.semantic_identity == old_description.semantic_identity)
-        .unwrap();
-    assert_eq!(
-        warm_description.description.descriptor().as_ptr(),
-        old_description.description.descriptor().as_ptr(),
-        "warm settlement rebinds the current receipt while sharing original encoded content"
-    );
-    assert!(Arc::ptr_eq(
-        warm_description.description.selection_material(),
-        warm.selection_material.as_ref().unwrap()
-    ));
-    assert_eq!(
-        store
-            .acknowledge_description(&old_description.description)
-            .await
-            .unwrap(),
-        Some(old_key.clone())
-    );
-    assert_eq!(
-        observations.load(Ordering::SeqCst),
-        after_first_observation,
-        "an exact committed old-namespace acknowledgment requires no new receiving observation"
-    );
-    store
-        .drop_retained_root(
-            package.canonical_revision(),
-            &pse_operations::canonical_retention::RetentionOwner::Product(old_key.clone()),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        store
-            .acknowledge_description(&old_description.description)
-            .await
-            .unwrap(),
-        None
-    );
-    let after_release = prepared(&unrelated).await;
-    assert!(pse_math::SharedAllocation::ptr_eq(
-        &first.compiled().admitted,
-        &after_release.compiled().admitted
-    ));
-    assert!(
-        observations.load(Ordering::SeqCst) > after_first_observation,
-        "a released root requires actual current receiving qualification before new publication"
-    );
-    let fresh = retained_preparation_basis(
-        &unrelated,
-        root,
-        instance,
-        Bindings::default(),
-        Limits::default(),
-    )
-    .await
-    .unwrap();
-    let fresh_description = fresh
-        .descriptions
-        .iter()
-        .find(|description| description.semantic_identity == old_description.semantic_identity)
-        .unwrap();
-    let new_key = store
-        .acknowledge_description(&fresh_description.description)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_ne!(new_key, old_key);
-    assert_eq!(
-        store
-            .acknowledge_description(&old_description.description)
-            .await
-            .unwrap(),
-        None,
-        "changed actual configuration cannot revive the released old producer's rooted claim"
-    );
-    runtime.shared.math().clear_program_cache();
 }
 
 #[tokio::test]
@@ -1789,7 +1241,6 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
             "every limit remains part of the exact retained request"
         );
     }
-    store_release(&runtime, selected.read.selection()).await;
     drop(selected);
     let other_instance = InstanceId::from_id(SemanticId::from_bytes([92; 16]));
     assert!(
@@ -1862,10 +1313,6 @@ async fn ordinary_preparation_basis_separates_actual_instance_and_complete_bindi
         "a warm basis cannot bypass a current finite specialization refusal"
     );
     math.clear_program_cache();
-}
-
-async fn store_release(runtime: &Runtime, pin: &pse_operations::canonical::ProtectedSelection) {
-    runtime.canonical.store().release(pin).await.unwrap();
 }
 
 #[tokio::test]
@@ -2036,7 +1483,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         .observe(
             actual.clone(),
             BTreeSet::from([row, new_term]),
-            values,
+            values.clone(),
             super::super::tests::compiler_profile(),
             &crate::CancelSource::new(),
         )
@@ -2055,6 +1502,30 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         new_value[&row], 2.0,
         "the current consumed scientific residual is independently x*x-2"
     );
+    let fresh_runtime = super::super::tests::runtime();
+    let fresh = fresh_runtime
+        .modeling_package(
+            declarations("\n\npackage p {def Root {var x:Scalar; eq e:x*x==2;}}"),
+            super::super::tests::physical(),
+        )
+        .await
+        .unwrap();
+    let fresh_model = prepared(&fresh).await;
+    assert!(!Arc::ptr_eq(
+        new_residual.math(), body_for_row(&fresh_model, row).math()
+    ), "the oracle uses a separate runtime and independently admitted body");
+    let fresh_value = fresh
+        .observe(
+            fresh_model,
+            BTreeSet::from([row, new_term]),
+            values,
+            super::super::tests::compiler_profile(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(new_value, fresh_value);
+    fresh_runtime.shared.math().clear_program_cache();
     let selected = changed
         .checked_selection(&[root], &crate::CancelSource::new())
         .await
@@ -2063,474 +1534,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         actual.consumed_source_versions(),
         selected.admission.versions.as_ref()
     );
-    store_release(&runtime, selected.read.selection()).await;
     runtime.shared.math().clear_program_cache();
-}
-
-#[tokio::test]
-async fn selected_qualification_turn_sixteen_cold_readers_hydrate_once_with_private_pins() {
-    let runtime = super::super::tests::runtime();
-    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let service = runtime.shared.math();
-    let before = service.selected_qualifications.hydrations();
-    let barrier = Arc::new(tokio::sync::Barrier::new(16));
-    let mut readers = tokio::task::JoinSet::new();
-    for _ in 0..16 {
-        let package = package.clone();
-        let barrier = barrier.clone();
-        readers.spawn(async move {
-            barrier.wait().await;
-            package
-                .checked_selection(&[root], &crate::CancelSource::new())
-                .await
-                .unwrap()
-        });
-    }
-    let mut selected = Vec::new();
-    while let Some(result) = readers.join_next().await {
-        selected.push(result.unwrap());
-    }
-    assert_eq!(service.selected_qualifications.hydrations() - before, 1);
-    assert!(
-        selected
-            .iter()
-            .all(|read| Arc::ptr_eq(&selected[0].admission, &read.admission))
-    );
-    let store = runtime.canonical.store();
-    let mut first = selected.remove(0);
-    let baseline = selected[0].read.snapshot_dependencies().unwrap();
-    store
-        .resolve_logicals(&mut first.read, &["private-reader-absence".into()])
-        .await
-        .unwrap();
-    for read in &selected {
-        assert_eq!(read.read.snapshot_dependencies().unwrap(), baseline);
-    }
-    store.release(first.read.selection()).await.unwrap();
-    let logical = canonical::logical(root);
-    assert!(
-        store
-            .resolve_logicals(&mut first.read, std::slice::from_ref(&logical))
-            .await
-            .is_err()
-    );
-    for mut read in selected {
-        let rows = store
-            .resolve_logicals(&mut read.read, std::slice::from_ref(&logical))
-            .await
-            .unwrap();
-        assert!(
-            !rows.is_empty(),
-            "another consumer's release cannot revoke this current read"
-        );
-        store.release(read.read.selection()).await.unwrap();
-    }
-    service.clear_program_cache();
-}
-
-#[tokio::test(flavor = "current_thread")]
-async fn selected_qualification_turn_waiter_cancel_and_deadline_leave_changed_revision_independent()
-{
-    use std::time::{Duration, Instant};
-    let runtime = super::super::tests::runtime();
-    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let service = runtime.shared.math();
-    let selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let turn = service
-        .selected_qualification_turn(
-            selected.admission.request.clone(),
-            selected.read.selection().revision(),
-        )
-        .unwrap();
-    runtime
-        .canonical
-        .store()
-        .release(selected.read.selection())
-        .await
-        .unwrap();
-    service.clear_program_cache();
-    let owner_cancel = crate::CancelSource::new();
-    let owner = turn
-        .acquire(&owner_cancel, Instant::now() + Duration::from_secs(60))
-        .await
-        .unwrap();
-    let before = service.selected_qualifications.hydrations();
-    let roots = [root];
-    for expired in [false, true] {
-        let cancel = crate::CancelSource::new();
-        let baseline = runtime.shared.pool().reserved();
-        let deadline = Instant::now() + Duration::from_secs(if expired { 2 } else { 30 });
-        let mut operation = Box::pin(package.checked_selection_scoped(&roots, &cancel, deadline));
-        // Actual gate ownership, rather than a delay, proves the private protected
-        // reader reached the occupied turn before cancellation or expiry.
-        tokio::time::timeout(Duration::from_secs(10), async {
-            while Arc::strong_count(&turn) == 2 {
-                assert!(futures_util::poll!(operation.as_mut()).is_pending());
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        if !expired {
-            cancel.cancel();
-        }
-        let result = operation.await;
-        if expired {
-            assert!(matches!(
-                result,
-                Err(WorkflowError::Math(crate::math::MathRuntimeError::Solve(
-                    pse_backend_native::ProblemError::Limit {
-                        kind: pse_backend_native::LimitKind::Time,
-                        ..
-                    }
-                )))
-            ));
-        } else {
-            assert!(matches!(
-                result,
-                Err(WorkflowError::Math(
-                    crate::math::MathRuntimeError::Cancelled
-                ))
-            ));
-        }
-        assert_eq!(
-            Arc::strong_count(&turn),
-            2,
-            "failed wait releases its turn owner"
-        );
-        assert_eq!(
-            runtime.shared.pool().reserved(),
-            baseline,
-            "failed wait releases its private premise allocation"
-        );
-        assert_eq!(service.selected_qualifications.hydrations(), before);
-    }
-    // The old actual revision remains occupied. A changed actual revision must
-    // nevertheless qualify its own changed scientific input and complete.
-    let changed = package
-        .with_declarations(declarations(
-            "package p {def Root {var x:Scalar; eq e:x*x==2;}}",
-        ))
-        .await
-        .unwrap();
-    let current = tokio::time::timeout(
-        Duration::from_secs(10),
-        changed.checked_selection(&roots, &crate::CancelSource::new()),
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_ne!(
-        current.read.selection().revision(),
-        selected.read.selection().revision()
-    );
-    assert!(
-        !current
-            .admission
-            .revision
-            .same_admission(&selected.admission.revision)
-    );
-    assert_eq!(service.selected_qualifications.hydrations() - before, 1);
-    runtime
-        .canonical
-        .store()
-        .release(current.read.selection())
-        .await
-        .unwrap();
-    drop(owner);
-    // Releasing the leader turn lets a later old-revision consumer retry, rather
-    // than inheriting either waiter's cancellation or deadline failure.
-    let retry = package
-        .checked_selection(&roots, &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert!(retry.admission.dependencies == selected.admission.dependencies);
-    runtime
-        .canonical
-        .store()
-        .release(retry.read.selection())
-        .await
-        .unwrap();
-    service.clear_program_cache();
-}
-
-#[tokio::test]
-async fn selected_qualification_turn_failed_hydration_retries_without_cached_failure() {
-    let runtime = super::super::tests::runtime();
-    let rows = declarations("package p {def Root {var x:Scalar; eq e:x*x==1;}}");
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let absent = declarations("package p {def Absent {var y:Scalar; eq e:y==1;}}")
-        .into_iter()
-        .find(|row| row.name == "Absent")
-        .unwrap()
-        .declaration_id;
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let service = runtime.shared.math();
-    let before = service.selected_qualifications.hydrations();
-    for _ in 0..2 {
-        assert!(
-            package
-                .checked_selection(&[absent], &crate::CancelSource::new())
-                .await
-                .is_err()
-        );
-    }
-    assert_eq!(
-        service.selected_qualifications.hydrations() - before,
-        2,
-        "failed source qualifications are retried under fresh pins"
-    );
-    let valid = package
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    assert_eq!(service.selected_qualifications.hydrations() - before, 3);
-    runtime
-        .canonical
-        .store()
-        .release(valid.read.selection())
-        .await
-        .unwrap();
-    service.clear_program_cache();
-}
-
-#[tokio::test]
-async fn ordinary_preparation_many_body_inventory_settles_partial_descriptions_by_identity() {
-    let runtime = super::super::tests::runtime();
-    let mut source = String::from("package p {def Root {var x:Scalar;");
-    for degree in 1..=12 {
-        let expression = std::iter::repeat_n("x", degree)
-            .collect::<Vec<_>>()
-            .join("*");
-        source.push_str(&format!("eq e{degree}:{expression}=={degree};"));
-    }
-    source.push_str("}}");
-    let rows = declarations(&source);
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let instance = pse_modeling::specialize::root_instance(root);
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let first = prepared(&package).await;
-    let basis = retained_preparation_basis(
-        &package,
-        root,
-        instance,
-        Bindings::default(),
-        Limits::default(),
-    )
-    .await
-    .unwrap();
-    assert!(basis.descriptions.len() >= 12);
-    let missing = basis.descriptions[0].semantic_identity;
-    let retained = basis.descriptions[1..]
-        .iter()
-        .rev()
-        .cloned()
-        .collect::<Vec<_>>();
-    let service = runtime.shared.math();
-    let shared = basis.selection_material.as_ref().unwrap();
-    assert!(
-        basis
-            .descriptions
-            .iter()
-            .all(|description| Arc::ptr_eq(shared, description.description.selection_material()))
-    );
-    let partial = Arc::new(
-        basis
-            .with_descriptions(service, shared.clone(), retained)
-            .unwrap(),
-    );
-    assert!(partial.description(missing).is_none());
-    assert!(
-        partial
-            .descriptions
-            .windows(2)
-            .all(|pair| pair[0].semantic_identity < pair[1].semantic_identity)
-    );
-    let selected = package
-        .checked_selection(&[root], &crate::CancelSource::new())
-        .await
-        .unwrap();
-    let key = service
-        .basis_key(
-            &selected.admission,
-            root,
-            instance,
-            Bindings::default(),
-            Limits::default(),
-        )
-        .unwrap();
-    runtime
-        .canonical
-        .store()
-        .release(selected.read.selection())
-        .await
-        .unwrap();
-    service
-        .modeling_cache
-        .retain_basis(service.modeling_cache.generation(), key, partial.clone());
-    let second = prepared(&package).await;
-    assert!(pse_math::SharedAllocation::ptr_eq(
-        &first.compiled().admitted,
-        &second.compiled().admitted
-    ));
-    let settled = retained_preparation_basis(
-        &package,
-        root,
-        instance,
-        Bindings::default(),
-        Limits::default(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(settled.descriptions.len(), basis.descriptions.len());
-    assert!(settled.description(missing).is_some());
-    let shared = settled.selection_material.as_ref().unwrap();
-    assert!(
-        settled
-            .descriptions
-            .iter()
-            .all(|description| Arc::ptr_eq(shared, description.description.selection_material())),
-        "all ACK hits and newly established bodies retain one complete current receipt"
-    );
-    for old in &partial.descriptions {
-        assert_eq!(
-            old.description.descriptor().as_ptr(),
-            settled
-                .description(old.semantic_identity)
-                .unwrap()
-                .description
-                .descriptor()
-                .as_ptr(),
-            "rebinding preserves the original immutable body/blob allocation"
-        );
-    }
-    service.clear_program_cache();
-}
-
-#[tokio::test]
-async fn ordinary_preparation_failed_publication_retains_shared_material_for_exact_retry() {
-    let runtime = super::super::tests::runtime();
-    let rows =
-        declarations("package p {def Root {var x:Scalar; eq first:x==1; eq second:x*x==2;}}");
-    let root = rows
-        .iter()
-        .find(|row| row.name == "Root")
-        .unwrap()
-        .declaration_id;
-    let instance = pse_modeling::specialize::root_instance(root);
-    let package = runtime
-        .modeling_package(rows, super::super::tests::physical())
-        .await
-        .unwrap();
-    let service = runtime.shared.math();
-    let store = runtime.canonical.store();
-    let cancel = crate::CancelSource::new();
-    let mut selected = package.checked_selection(&[root], &cancel).await.unwrap();
-    let key = service
-        .basis_key(
-            &selected.admission,
-            root,
-            instance,
-            Bindings::default(),
-            Limits::default(),
-        )
-        .unwrap();
-    // Actual revoked publication authority refuses the stage after descriptions
-    // have been established; no fake ACK or writer success is injected.
-    store.release(selected.read.selection()).await.unwrap();
-    assert!(
-        package
-            .prepare_selected(
-                &mut selected,
-                root,
-                instance,
-                Bindings::default(),
-                Limits::default(),
-                &cancel,
-                std::time::Instant::now() + std::time::Duration::from_secs(30)
-            )
-            .await
-            .is_err()
-    );
-    let retained = service
-        .modeling_cache
-        .basis(&key)
-        .expect("immutable descriptions survive failed publication");
-    assert!(retained.descriptions.len() >= 2);
-    let material = retained.selection_material.as_ref().unwrap();
-    assert!(
-        retained
-            .descriptions
-            .iter()
-            .all(|description| Arc::ptr_eq(material, description.description.selection_material()))
-    );
-    for description in &retained.descriptions {
-        assert!(
-            store
-                .acknowledge_description(&description.description)
-                .await
-                .unwrap()
-                .is_none(),
-            "retention is never treated as ACK authority"
-        );
-    }
-    let retried = prepared(&package).await;
-    assert!(pse_math::SharedAllocation::ptr_eq(
-        &retained.compiled().admitted,
-        &retried.compiled().admitted
-    ));
-    let settled = service.modeling_cache.basis(&key).unwrap();
-    for old in &retained.descriptions {
-        let current = settled.description(old.semantic_identity).unwrap();
-        assert_eq!(
-            old.description.descriptor().as_ptr(),
-            current.description.descriptor().as_ptr(),
-            "exact retry shares original uncertain body/blob bytes"
-        );
-        assert!(
-            store
-                .acknowledge_description(&current.description)
-                .await
-                .unwrap()
-                .is_some()
-        );
-    }
-    service.clear_program_cache();
 }
 
 #[tokio::test]
@@ -2674,18 +1678,6 @@ async fn ordinary_preparation_basis_prehash_preserves_exact_identity_under_force
         &service.modeling_cache.basis(&second_key).unwrap(),
         &second_basis
     ));
-    runtime
-        .canonical
-        .store()
-        .release(selected.read.selection())
-        .await
-        .unwrap();
-    runtime
-        .canonical
-        .store()
-        .release(different.read.selection())
-        .await
-        .unwrap();
     drop((first, second));
     service.clear_program_cache();
 }

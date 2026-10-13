@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! One canonical authored edit journey, with actual preparation counters and original residuals.
+//! One locally owned authored edit journey, with actual preparation counters and original residuals.
 use super::*;
 use crate::workflow::{BindingAssignment, BindingQuantity, BindingTarget, PointOverlay};
 use pse_backend_native::solve::{Backend, SolverSelection};
@@ -171,7 +171,7 @@ async fn residuals(package: &ModelingPackage, prepared: &ModelingSolvePreparatio
 }
 
 #[tokio::test]
-async fn canonical_authored_value_binding_and_structural_edit_journey_preserves_exact_reuse() {
+async fn local_authored_value_binding_and_structural_edit_journey_preserves_exact_reuse() {
     marker("startup", "begin");
     let runtime = crate::workflow::tests::runtime();
     let physical = crate::workflow::tests::physical();
@@ -255,14 +255,9 @@ async fn canonical_authored_value_binding_and_structural_edit_journey_preserves_
     )
     .await;
     let edited = edited.unwrap();
-    assert_eq!(
-        original.canonical_revision().problem,
-        edited.canonical_revision().problem
-    );
-    assert_ne!(
-        original.canonical_revision().key,
-        edited.canonical_revision().key
-    );
+    assert!(original.canonical_revision().is_none());
+    assert!(edited.canonical_revision().is_none());
+    assert_ne!(original.revision_id(), edited.revision_id());
     let (value, _, value_effects) = point(&edited, root, &empty, "authored-value").await;
     assert_eq!(
         value_effects.workspaces, 0,
@@ -314,10 +309,8 @@ async fn canonical_authored_value_binding_and_structural_edit_journey_preserves_
     )
     .await;
     let structural = structural.unwrap();
-    assert_eq!(
-        edited.canonical_revision().problem,
-        structural.canonical_revision().problem
-    );
+    assert!(structural.canonical_revision().is_none());
+    assert_ne!(edited.revision_id(), structural.revision_id());
     let (changed, changed_counts, changed_effects) =
         point(&structural, root, &empty, "structural").await;
     assert!(changed_counts.views > 0);
