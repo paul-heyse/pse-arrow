@@ -249,6 +249,8 @@ values. Dictionary encoding is presentation only and never carries identity. The
 
 ### 4.6 Construction properties and residual obligations
 
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
 Admission happens in stages, and each stage establishes only its own facts:
 
 1. **Physical layout safety.** Arrow structural validity, exact recursive field contracts
@@ -257,8 +259,12 @@ Admission happens in stages, and each stage establishes only its own facts:
    never establishes a declared field, because both ignore names, metadata or nullability.
 2. **Value and domain conditions.** Declared native predicates are bound once against
    the actual invocation through an explicit immutable `ValidationContext` created by
-   its actual engine factory or session. Local contexts refuse SQL predicates requiring
-   unavailable runtime semantics. Generated builders and views receive that owner.
+   its actual engine factory or session. One admission scope supplies a captured query
+   timestamp and opaque identity to the operation and its children. Immutable predicates
+   retain complete context-owned evidence; Stable/ambient checks prepare and recheck per
+   scope, even when independent scopes have equal timestamps. SQL binds once; volatile
+   CHECKs and unsupported constructs still refuse. Local contexts refuse SQL predicates
+   requiring unavailable runtime semantics. Generated builders and views receive that owner.
 3. **Relational obligations.** Publication admission consumes declaration-owned keys and
    visible references (`pse_schema::obligations`) in their relational admission owner. Source and physical
    admission call the shared Rust closure/reference/acyclicity predicates in `pse-rules`;

@@ -1,8 +1,8 @@
 ---
 title: Local authoring, preparation and validity
-status: draft
+status: in-progress
 date: 2026-10-13
-adrs: []
+adrs: [ADR-0183]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, preparation, validation]
@@ -84,3 +84,22 @@ Carry FieldCheckedBatch and allocation ownership through unchanged arrays and su
 | I-A4 — Evaluator parameterization/optimization | Exact pinned public evaluator API, guard/parameter body classes and deterministic optimization scope. Select supported reusable products or retain current path with named limits; JIT/SIMD belongs I-C2. | A3/D4/D5 |
 
 Source/scenarios can settle ownership; discretionary probes settle decision-relevant library ambiguity. Library questions use capability skills, Context7 and exact pinned sources; stale capability maps/utilization journal are excluded. Investigation completion requires an explicit outcome/dependents, not an optimization. Targeted compile/tests accompany changes; assembled scientific/native/Python and scope-end checks belong to 38g after functional scope. This companion claims no product acceptance from authoring.
+
+## Execution checkpoint — 2026-10-13
+
+The maintainer authorized the detailed execution approach. Explicit local construction uses
+`Runtime(settings, ephemeral=True)` without a required substrate. Required durable calls
+remain fail-closed; unknown dispatched effects retain original-intent settlement. G0 installs
+proposed ADR-0183 and architecture revision160 before dependent product edits. Independent
+bounded target review precedes those edits; assembled qualification remains with38g.
+
+I-A1 selects independently owned bounded local lanes with detached historical products.
+I-A2 retains charged in-memory products and defers optional disk memo persistence until a
+named cold-start/independent-worker consumer needs it. I-A3 retains actual SQL context with
+one admission scope per operation, preserves volatile rejection and refreshes Stable/ambient
+checks across scopes. I-A4 extends pinned scalar reuse and explicit demand compilation;
+existing ceiling-based callers keep their actually consumed orders. No pin or topology change.
+
+Runtime/source migration, evaluator retention and validation scope work have isolated owners.
+The coordinator owns shared interfaces, local compiler-lineage integration, preparation and
+engagement migration, Python declarations/generation, final consumer reconciliation and status.

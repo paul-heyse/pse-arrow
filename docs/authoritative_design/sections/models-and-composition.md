@@ -244,6 +244,15 @@ the manifest depends on the declaring package.
 
 ### 22.2 Revisions and edits
 
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
+Owned immutable revisions have local receiver/lineage/generation identity independent of
+store placement. Exact deltas stage complete ordered intent against the receiver token and
+publish one admitted local head or leave its predecessor usable. Editing an older receiver
+forks its bounded compiler lineage. Optional durable origin records actual canonical problem,
+revision and source associations; publication uses that canonical parent CAS and required
+acknowledgement. Local admission never manufactures a canonical row or overrides another writer.
+
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). A problem has a linear head-CAS revision sequence, stable logical objects, immutable versions and changed membership intervals. A short edit transaction updates named head/name/scope guards for all changed premises. Conflicts retry the whole fresh decision. Draft diagnostics do not establish runnable scientific admission; selected shared-kernel admission does.
 
 Source versions are closed manifests with bounded payload blocks. A leased private stage receives

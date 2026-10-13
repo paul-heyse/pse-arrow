@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 159
+revision: 160
 date: 2026-10-12
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 160 | 2026-10-13 | Proposed ADR-0183 / Plan38a G0: owned local model authority, exact local delta/lineage identity, optional canonical origin and fail-closed recording; demand-shaped scalar products and actual admission-scoped SQL validation (§4.6/§14.2–§14.4/§19/§21/§22.2). | Operator-confirmed RC01/02/08/09/11 and authorized execution; visible `.design-edit`; bounded target review precedes product changes; targeted implementation and assembled qualification remain separate; ADR status unchanged. |
 | 159 | 2026-10-12 | Plan37 H1 target reconciliation within proposed ADR-0182: independent artifact-read grants and analysis obligations replace producer-run pins (§19.2/§20.4); public artifact/original-intent settlement and typed history boundaries are explicit (§21); focused lifecycle evidence remains separate from the historical full qualification basis (§24.2). | Maintainer-authorized Plan37 H1 through the visible design-edit route; affected-scope evidence remains with Plan37; ADR statuses unchanged. |
 | 158 | 2026-10-12 | Proposed ADR-0182 / remaining Plan37 D0: independent sufficient artifacts, retained exact study inputs, dominating reduced-history replay and explicit maintenance activation/clean v5 reset (§20.3–§20.6/§21). | Maintainer-authorized remaining Plan37 execution; visible `.design-edit`; bounded target review and implementation/qualification remain separate. |
 | 157 | 2026-10-12 | Proposed ADR-0181 / Plan 37 D0: logical caller release, continuation activities and authoritative two-driver shutdown (§20.6/§21); pure production study policy in pse-model (§3/§19). | Maintainer-authorized Plan 37 bounded foundations; independent B1 target review accepted; visible `.design-edit`; targeted implementation and assembled qualification remain distinct. |

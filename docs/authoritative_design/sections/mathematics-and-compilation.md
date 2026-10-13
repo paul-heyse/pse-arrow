@@ -518,10 +518,14 @@ the [native workflow guide](../../dev/native-workflow.md).
 
 ### 14.2 Relational invariants
 
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
 Set-oriented integrity over relations remains in Arrow/DataFusion. Declared registry
 invariant queries support explicit inspection, and declaration-owned residual obligations
 serve publication admission ([§4.6](schema-and-relations.md#section-4-6)). Row predicates
-are prepared under the actual immutable validation context; scalar predicates also persist
+retain their original bound expression under the actual immutable validation context.
+Scope-sensitive physical predicates and success evidence additionally name the actual
+admission scope (§4.6); unchanged immutable checks need not repeat. Scalar predicates also persist
 as Delta `CHECK`s. Source and physical loading each call shared Rust entity/reference and
 acyclicity predicates. Their duplicate registry SQL declarations and the inactive
 requirement-planner/provider-policy bridge are removed.
@@ -547,18 +551,26 @@ own reviewed contract.
 
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A3–P-A6).
 
-Declared specialization receives its complete path demand before one executable completion.
-Bounded candidate windows share common premise observations only within the same protected
-read; rejected candidates supply no accepted receipt. Immutable selection material encodes
-complete predicates once under a retained allocation owner. A preparation engagement owns
-exact lineage, structural binding, limits, acquired dependencies, physical/provider/validation
-and actual engine/registry owners, plus demanded preparation. It synchronously settles
-promised canonical effects once while live before success. Changed premises close/replace
-the engagement; issued uncertainty retains original identity/clock and charges through
-settlement and native drain. Receiving observations share evidence only under their actual
-artifact/configuration owner; new acquisition independently qualifies and reconstructs under
-loader exclusion. Changed/unknown premises requalify or refuse. Outer checkout capture is
-separately timed, streamed and joined outside the GIL. Stat-only identity is insufficient.
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
+Locally admitted immutable revisions own declarations/documents, consumed data and exact
+physical/provider/interpretation/validation owners. Pure preparation consumes that owned
+closure without canonical selection or renewal. Durable origin is effect/import attribution,
+not semantic compute identity. Declared specialization receives its complete path demand
+before one executable completion. Incidence, validity/execution, objective coupling, form
+facts and selected operator programs carry their own consumed identities. Retained scalar
+optimization products and demanded derivative products use existing charged retention and
+in-flight owners; mutable workers remain exclusive and lazy. Original guards, coordinates
+and independent original checking survive reuse.
+
+A held preparation owns complete local lineage/context, binding, limits, dependencies and
+leases. Actual imported/published products retain their separate protected selection and
+receipt/receiving contracts; local equality never grants durable permission. Required effects
+settle through the recording adapter before durable success. Issued uncertainty retains
+original identity/clock and charges through settlement and drain. Local immutable data,
+foreign pure memos and native executable generations have distinct trust obligations;
+changed/unknown actual import/native premises requalify or refuse. Outer checkout capture
+remains separately timed; no stat-only or process-wide loader proof is introduced.
 
 > Decision: [ADR-0175](../../adr/0175-responsibility-local-admission-and-build-roots.md)
 > (proposed; maintainer-authorized Plan 36 target). Native source admission moves to
@@ -602,8 +614,9 @@ exports compiler-issued body requests, not Salsa handles; completion consumes th
 frontier. Complete immutable prepared products expose every currently portable primary and
 original description independently of memo execution. Existing bounded retention, flights
 and allocation owners retain those products and reusable encoded description material.
-Each consumer rechecks current selection/dependencies, binds fresh lineage and numerical
-values, and explicitly settles canonical effects. Exact already-rooted acknowledgment
+Each local consumer checks complete owned dependencies and binds fresh lineage and
+numerical values. Actual persisted acquisition/publication additionally checks current
+selection and explicitly settles its canonical effects. Exact already-rooted acknowledgment
 preserves original provenance without another host observation; absent acknowledgment
 requires current admission before a new eligible publication. No retained description
 confers protection or publication authority. Interruption consumes the original clock and
@@ -862,19 +875,25 @@ or measure process RSS.
 
 ### 14.4 Incrementality
 
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
 > Decision: [ADR-0178](../../adr/0178-retained-preparation-and-source-intents.md) (proposed amendment; Plan 36 P-A2/P-A7).
 
-Explicit source deltas retain exact parent/CAS, V4 framing and document/data ownership;
+Explicit source deltas name the exact local receiver token; actual recording separately
+checks the canonical parent CAS. Retain V4 framing and document/data ownership;
 omission is not deletion. Reference-bearing field edits reextract references and namespace
 changes invalidate positive/negative lookup and graph obligations. Shared parsed fields
 retain exact bytes, grammar and span owners. A single-writer compiler lane per live
-lineage and consumed context tracks declaration fields, ordered populations including
+local lineage and consumed context tracks declaration fields, ordered populations including
 absence and consumed semantic/physical/provider/interpretation inputs. Stage charged
 candidate inputs and drain readers before mutation; publish one coherent admitted product
 or restore/destroy the candidate while preserving prior and detached historical products.
 Whole-inventory rules retain conservative dependencies where safe partitioning is unknown.
 Salsa memoizes pure semantics, never native construction, canonical permission or effects.
-The live lane is an accelerator owner, not part of an immutable reusable basis.
+The live lane is an accelerator owner, not part of an immutable reusable basis. Its identity
+excludes endpoint/database placement; current-head edits advance a local generation and
+older-parent edits fork a bounded independent lane without rewinding the live head. Detached
+immutable historical products retain their actual leases; cloned Salsa handles are not snapshots.
 
 > Decision: [ADR-0164](../../adr/0164-unify-simulation-substrate.md) (proposed target). Persisted complete dependencies govern reuse across restart; Salsa is an optional local accelerator. Immutable selected layouts and native products retain their live consumers and bounded accelerator owners, without whole ancestral source bundles. Binding edits reuse structure only when those values are not consumed structural literals.
 
@@ -885,8 +904,9 @@ selected products. A span-only edit refreshes attribution while equal mathematic
 products remain reusable. Numerical case values, fixed/free state, bounds, profile and
 derivative demand affect the downstream products that consume them. Current lineage and
 consumed-source metadata are rebuilt per use; no compiler, protected read, attempt fence or
-mutable evaluator is retained as the basis. Any acquired dependency delta is rechecked under
-each follower's own protected read before adoption. Premises already proven identically by
+mutable evaluator is retained as the basis. At an actual persisted import, acquired dependency deltas are rechecked under
+each follower's own protected read before adoption. Locally owned revisions require no
+store protection to compute; complete content equality cannot transfer acquisition permission. Premises already proven identically by
 that current read are not rechecked merely because they also appear in a retained basis.
 A previously qualified complete source receipt may be adopted only after a guarded
 store check verifies a fresh live pin and the entire identical immutable canonical revision

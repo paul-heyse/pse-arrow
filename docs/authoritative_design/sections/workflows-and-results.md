@@ -340,6 +340,8 @@ qualification basis for the admitted profiles is
 
 ## 19. Cases, results and analytics
 
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
 > Decision: [ADR-0114](../../adr/0114-typed-operational-store.md),
 > [ADR-0083](../../adr/0083-class-specific-native-execution.md),
 > [ADR-0106](../../adr/0106-execution-vocabulary-discrete-and-global.md)
@@ -355,8 +357,11 @@ waiters share the joined result and cancellation joins native destruction. Prepa
 no mutable solver and does not itself constitute execution. Ordinary execution durably
 retains its actual scientific outcome in the canonical substrate
 ([§20](identity-and-publication.md#section-20)). Explicit ephemeral execution keeps result
-observations local to the process; it still admits canonical sources and is not a fallback
-when durable retention fails. Native study workers use the same scientific operation owners
+observations local to the process and may admit owned sources without canonical state.
+It is explicit, never a fallback when required durable retention fails. Imported local
+snapshots remain computable after publication disconnects. Required edit/attempt recording
+keeps definite refusal distinct from dispatched uncertainty and settles the same original
+intent without repeating science or inventing durable success. Native study workers use the same scientific operation owners
 ([§20.6](identity-and-publication.md#section-20-6)). Owners are `workflow/modeling`,
 `workflow/staged`, `workflow/run`, `workflow/completion`, `workflow/modeling_results` and
 fitting preparation.
@@ -364,9 +369,10 @@ fitting preparation.
 Workflow assembly checks the actual consumed shared pool, CPU admission and width,
 native runtime, cache service, spill/cache managers and store registry. A supplied factory
 with foreign owners refuses construction; supported custom planning/functions and query
-partition choices remain available. Durability selection installs operations from this
-runtime's canonical store and pool with positive lease/heartbeat intervals, rather than
-accepting arbitrary live operations from another deployment.
+partition choices remain available. Durable composition installs operations from its configured canonical store and pool with
+positive lease/heartbeat intervals, rather than accepting arbitrary live operations from
+another deployment. Explicit local composition needs no store; actual store operations
+without a configured sink refuse with typed diagnostics.
 
 ### 19.1 Cases and overlays
 
@@ -1041,6 +1047,16 @@ a withheld input withholds it as `upstream_withheld`, naming that input and its 
 only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
+
+> Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
+
+`Runtime(settings, ephemeral=True)` may omit `substrate` and never connects at construction.
+A supplied substrate permits explicit store access when consumed. Default durable construction
+requires a configured sink; a database without a substrate refuses. Rust and Python use the
+same owned model/admission/preparation path. `ModelingPackage.revision_id` is an opaque exact
+receiver token used by `SourceDelta.parent`; it is distinct from semantic content identity.
+`canonical_revision` and `canonical_problem` are optional actual origin, never fabricated rows.
+Attaching acknowledged origin does not change the local token or semantic identity.
 
 > Decision: [ADR-0181](../../adr/0181-separate-caller-activity-and-physical-connection-lifetimes.md) (proposed; Plan 37 target). Runtime `close` releases logical caller admission. Already admitted work retains independent continuation authority; explicit cache clearing and deployment-owned physical shutdown are separate operations (§20.6).
 
