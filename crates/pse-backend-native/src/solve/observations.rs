@@ -266,8 +266,14 @@ impl RawMapCapture {
         x: &[f64],
         values: Option<&[f64]>,
         role: RawMapRole,
-        failure: Option<RawMapFailure>,
+        mut failure: Option<RawMapFailure>,
     ) {
+        if role == RawMapRole::OriginalAssessment
+            && values.is_some_and(|values| values.iter().any(|value| !value.is_finite()))
+            && failure.is_none()
+        {
+            failure = Some(RawMapFailure::Fatal);
+        }
         self.ordinal = self.ordinal.saturating_add(1);
         let retain = self.history.samples.len() < self.limit;
         if !retain { self.history.omitted = self.history.omitted.saturating_add(1); }
@@ -276,8 +282,9 @@ impl RawMapCapture {
         let length = x.len().min(SAMPLE_COORDINATES);
         let mut captured = Vec::with_capacity(length);
         for (i, input) in x.iter().copied().take(length).enumerate() {
-            let observed = values.and_then(|v| v.get(i)).copied().filter(|v| v.is_finite());
-            let mapped = (role == RawMapRole::FixedPointEvaluation).then_some(observed).flatten();
+            let observed = values.and_then(|v| v.get(i)).copied();
+            let mapped = (role == RawMapRole::FixedPointEvaluation).then_some(observed).flatten()
+                .filter(|value| value.is_finite());
             let residual = if role == RawMapRole::OriginalAssessment { observed }
                 else { mapped.map(|v| v - input) };
             let tolerance = (self.coordinates == ObservationCoordinates::PhysicalTears)
@@ -365,5 +372,23 @@ mod tests {
         assert_eq!(value["cpu_seconds"]["kind"], "nonfinite");
         assert_eq!(value["system_seconds"], serde_json::Value::Null);
         assert_eq!(value["wall_seconds"]["kind"], "real");
+    }
+    #[test]
+    fn raw_map_nonfinite_original_assessment_keeps_failure_and_last_success() {
+        for (value, tag) in [(f64::NAN, "nan"), (f64::INFINITY, "positive_infinity"),
+            (f64::NEG_INFINITY, "negative_infinity")]
+        {
+            let contract = crate::solver_tests::contract();
+            let mut capture = RawMapCapture::new(&contract, contract.identity, 1, true, &[1.]).unwrap();
+            capture.record(&contract, &[0.], Some(&[1.]), RawMapRole::FixedPointEvaluation, None);
+            capture.record(&contract, &[1.], Some(&[value]), RawMapRole::OriginalAssessment, None);
+            let history = capture.finish();
+            let last = history.last_evaluation.as_ref().unwrap();
+            assert!(matches!(last.failure, Some(RawMapFailure::Fatal)));
+            assert_eq!(history.last_successful.as_ref().unwrap().values[0].mapped, Some(1.));
+            let json = serde_json::to_value(last).unwrap();
+            assert_eq!(json["values"][0]["residual"]["kind"], "nonfinite");
+            assert_eq!(json["values"][0]["residual"]["value"], tag);
+        }
     }
 }
