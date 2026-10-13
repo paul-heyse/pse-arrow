@@ -616,6 +616,10 @@ impl Session {
         let quadratic = p.quadratic.to_clarabel();
         if self.mode != Mode::ReusableData
             || pse.mode != self.mode
+            // Clarabel 0.11.1 updates reapply the construction-time equilibration
+            // instead of computing fresh value-sensitive scaling. Rebuild this
+            // profile before mutation; unscaled data updates remain supported.
+            || self.solver.settings().equilibrate_enable
             || !self.solver.is_data_update_allowed()
             || !self.compatibility.same_session(&compatibility)
             || compatibility.backend != Backend::Clarabel
@@ -1139,11 +1143,12 @@ mod tests {
             mode: Mode::ReusableData,
             ..Settings::default()
         };
+        let accuracy = ResolvedAccuracy { native_scaling: false, ..ResolvedAccuracy::verification() };
         let mut session = Session::new(
             &p,
             &certificate,
             &Controls::default(),
-            &ResolvedAccuracy::verification(),
+            &accuracy,
             &reusable,
             stamp.clone(),
         )
@@ -1152,9 +1157,7 @@ mod tests {
         assert_eq!(session.rows, 1);
         p.objective[0] = 2.0;
         p.contract.variables[0].upper = 3.0;
-        session
-            .update(&p, &certificate, &reusable, stamp.clone())
-            .unwrap();
+        assert_eq!(session.update(&p, &certificate, &reusable, stamp.clone()).unwrap(), crate::execution::SessionUpdate::Compatible);
         // A different mode never updates a retained session.
         assert_eq!(
             session.update(&p, &certificate, &Settings::default(), stamp.clone()).unwrap(),
@@ -1162,6 +1165,76 @@ mod tests {
         );
         p.contract.variables[0].upper = f64::INFINITY;
         assert_eq!(session.update(&p, &certificate, &reusable, stamp).unwrap(), crate::execution::SessionUpdate::Incompatible);
+    }
+    #[test]
+    fn equilibrated_conic_updates_refuse_before_mutation_and_rebuild_fresh_scaling() {
+        use crate::{execution::{Retained, SessionUpdate}, solve::ReusePolicy};
+        let (mut p, certificate) = reuse_problem();
+        let stamp = crate::solver_tests::stamp(Backend::Clarabel);
+        let reusable = Settings { mode: Mode::ReusableData, ..Settings::default() };
+        let accuracy = ResolvedAccuracy { native_scaling: true, ..ResolvedAccuracy::verification() };
+        let mut retained = Retained::default();
+        let (session, reused) = retained.session(Backend::Clarabel, ReusePolicy::AllowRebuild,
+            |_: &mut Session| Ok(SessionUpdate::Compatible),
+            || Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp.clone())).unwrap();
+        assert!(!reused);
+        let before = (session.solver.data.P.nzval.clone(), session.solver.data.q.clone(), session.solver.data.A.nzval.clone(), session.solver.data.b.clone());
+        let scaling = (session.solver.data.equilibration.d.clone(), session.solver.data.equilibration.e.clone());
+        p.constraints.values[0] = -1e6;
+        p.rhs[0] = -2e6;
+        p.objective[0] = 2.;
+        let refusal = retained.session(Backend::Clarabel, ReusePolicy::RequireReuse,
+            |session: &mut Session| {
+                let outcome = session.update(&p, &certificate, &reusable, stamp.clone())?;
+                assert_eq!((session.solver.data.P.nzval.clone(), session.solver.data.q.clone(), session.solver.data.A.nzval.clone(), session.solver.data.b.clone()), before);
+                assert_eq!((session.solver.data.equilibration.d.clone(), session.solver.data.equilibration.e.clone()), scaling);
+                Ok(outcome)
+            }, || panic!("RequireReuse must not rebuild an equilibrated retained model")).unwrap_err();
+        assert!(matches!(refusal, ProblemError::Reuse { backend: Backend::Clarabel, .. }));
+        assert!(!retained.is_empty());
+        let (session, reused) = retained.session(Backend::Clarabel, ReusePolicy::AllowRebuild,
+            |session: &mut Session| session.update(&p, &certificate, &reusable, stamp.clone()),
+            || Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp.clone())).unwrap();
+        assert!(!reused);
+        let fresh = Session::new(&p, &certificate, &Controls::default(), &accuracy, &reusable, stamp).unwrap();
+        let current = (&session.solver.data.equilibration.d, &session.solver.data.equilibration.e);
+        assert_ne!(current, (&scaling.0, &scaling.1), "changed values must reveal different fresh equilibration");
+        assert_eq!(current, (&fresh.solver.data.equilibration.d, &fresh.solver.data.equilibration.e));
+    }
+    #[test]
+    fn unscaled_conic_updates_match_fresh_solves_and_reset_prior_iterates() {
+        let (mut p, certificate) = reuse_problem();
+        let stamp = crate::solver_tests::stamp(Backend::Clarabel);
+        let reusable = Settings { mode: Mode::ReusableData, ..Settings::default() };
+        let controls = Controls::default();
+        let accuracy = ResolvedAccuracy { native_scaling: false, ..ResolvedAccuracy::verification() };
+        let tolerances = Tolerances { variables: vec![1e-7], rows: vec![1e-7], integrality: 1e-7 };
+        let execution = || Execution::new(Default::default(), &controls);
+        let mut session = Session::new(&p, &certificate, &controls, &accuracy, &reusable, stamp.clone()).unwrap();
+        assert_eq!(session.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap().termination.category, Termination::Success);
+        p.objective[0] = 2.;
+        p.constraints.values[0] = -2.;
+        p.rhs[0] = -2.;
+        p.contract.variables[0].upper = 3.;
+        assert_eq!(session.update(&p, &certificate, &reusable, stamp.clone()).unwrap(), crate::execution::SessionUpdate::Compatible);
+        // The pinned solver's solve() calls default_start each time. Make stale native
+        // iterates unmistakable so this control would fail if they were consumed.
+        session.solver.variables.x.fill(1e100);
+        session.solver.variables.s.fill(1e100);
+        session.solver.variables.z.fill(1e100);
+        session.solver.variables.τ = 1e100;
+        session.solver.variables.κ = 1e100;
+        let actual = session.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap();
+        let mut fresh = Session::new(&p, &certificate, &controls, &accuracy, &reusable, stamp).unwrap();
+        let expected = fresh.solve(&p, &controls, &accuracy, &reusable, execution(), &tolerances).unwrap();
+        assert_eq!(actual.termination.category, Termination::Success);
+        assert_eq!(actual.termination.category, expected.termination.category);
+        assert!(actual.quality.unwrap().feasible());
+        assert!(expected.quality.unwrap().feasible());
+        let (actual, expected) = (actual.candidate.unwrap(), expected.candidate.unwrap());
+        assert!((actual.primal[0] - 1.).abs() < 1e-7);
+        assert!((actual.primal[0] - expected.primal[0]).abs() < 1e-7);
+        assert!((actual.objective.unwrap() - expected.objective.unwrap()).abs() < 1e-7);
     }
     /// The conic boundary vocabulary is pse-owned (F09): its encoding is pinned here, the
     /// layout and request identities derive from it alone, and Clarabel sees only the
