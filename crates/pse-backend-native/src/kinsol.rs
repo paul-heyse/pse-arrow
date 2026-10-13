@@ -346,15 +346,6 @@ struct SetupStamp {
     point: Vec<f64>,
     data: pse_ids::ContentHash,
 }
-fn setup_iteration(mem: *mut c_void) -> Option<i64> {
-    let mut iteration = 0;
-    // SAFETY: a read-only counter query on the session whose setup callback is active.
-    if !mem.is_null() && unsafe { ffi::KINGetNumNonlinSolvIters(mem, &raw mut iteration) } == 0 {
-        Some(long(iteration))
-    } else {
-        None
-    }
-}
 struct Context {
     function: Function,
     state: CallbackState,
@@ -371,9 +362,7 @@ struct Context {
     /// Last actual matrix/preconditioner setup, not an accepted-point response factor.
     setup: Option<SetupStamp>,
     setup_calls: u64,
-    first_setup_iteration: Option<i64>,
     data: pse_ids::ContentHash,
-    native_mem: *mut c_void,
     raw_map: Option<RawMapCapture>,
 }
 /// Worker-local allocation retains native layouts across compatible equation values.
@@ -389,7 +378,6 @@ pub struct Session {
     callback: Box<Context>,
     settings: Settings,
     compatibility: Compatibility,
-    setup_usable: bool,
     _local: PhantomData<Rc<()>>,
 }
 impl std::fmt::Debug for Session {
@@ -646,9 +634,6 @@ unsafe extern "C" fn jacobian(
             data: c.data,
         });
         c.setup_calls = c.setup_calls.saturating_add(1);
-        if c.first_setup_iteration.is_none() {
-            c.first_setup_iteration = setup_iteration(c.native_mem);
-        }
         Ok(())
     });
     result(value, &c.state)
@@ -745,9 +730,6 @@ unsafe extern "C" fn precondition_setup(
             data: c.data,
         });
         c.setup_calls = c.setup_calls.saturating_add(1);
-        if c.first_setup_iteration.is_none() {
-            c.first_setup_iteration = setup_iteration(c.native_mem);
-        }
         Ok(())
     });
     result(value, &c.state)
@@ -944,14 +926,15 @@ impl Session {
         self.compatibility.same_session(stamp) && stamp.backend == Backend::Kinsol
     }
     /// Replace compatible numeric equations while retaining native allocation and
-    /// symbolic layout. Compatible equation changes may use stale iteration setup under
-    /// native monitoring; an authored Picard splitting change requires a fresh setup.
+    /// sparse layout. New equation, guard or splitting data never authorizes using
+    /// a previous application's numeric setup or preconditioner policy.
     pub fn replace(
         &mut self,
         function: Function,
         settings: Settings,
         compatibility: Compatibility,
     ) -> Result<(), ProblemError> {
+        self.clear_callback_setup();
         let constraints = settings.validate(&function)?;
         if !self.matches_settings(&settings)
             || !compatibility.same_session(&self.compatibility)
@@ -986,12 +969,6 @@ impl Session {
                 ));
             }
         }
-        if let (Function::Picard { linear: held, .. }, Function::Picard { linear: next, .. }) =
-            (&self.callback.function, &function)
-            && held.val() != next.val()
-        {
-            self.setup_usable = false;
-        }
         if constraints.any() {
             if self.signs.is_null() {
                 // SAFETY: the session's live context; `Drop` frees the vector.
@@ -1009,13 +986,6 @@ impl Session {
                 ffi::KINSetConstraints(self.mem, std::ptr::null_mut()),
                 "clear sign constraints",
             )?;
-        }
-        if settings.method.preconditioner == Preconditioner::BlockFactor {
-            // Replacement can change guard/domain/data meaning even when CSC indices
-            // match. Drop old factors before admitting and constructing the new maps.
-            self.callback.blocks = None;
-            self.setup_usable = false;
-            self.callback.setup = None;
         }
         self.callback.function = function;
         self.callback.offsets = constraints.offsets;
@@ -1099,9 +1069,7 @@ impl Session {
             blocks,
             setup: None,
             setup_calls: 0,
-            first_setup_iteration: None,
             data: compatibility.data,
-            native_mem: std::ptr::null_mut(),
             raw_map: None,
         });
         let mut s = Self {
@@ -1116,7 +1084,6 @@ impl Session {
             callback,
             settings,
             compatibility,
-            setup_usable: false,
             _local: PhantomData,
         };
         native!(ffi::SUNContext_Create(0, &raw mut s.ctx), "context")?;
@@ -1138,7 +1105,6 @@ impl Session {
         if s.mem.is_null() {
             return Err(ProblemError::memory("KINSOL allocation"));
         }
-        s.callback.native_mem = s.mem;
         native!(
             ffi::KINSetMAA(s.mem, s.settings.method.anderson as _),
             "Anderson history",
@@ -1264,9 +1230,18 @@ impl Session {
         }
         Ok(s)
     }
-    /// Run with an explicit start. Admitted compatible setup reuse skips initial numeric
-    /// setup while KINSOL owns residual/forcing monitoring and subsequent refreshes.
-    /// The retained iteration setup is never advertised as a fresh response factor.
+    fn clear_callback_setup(&mut self) {
+        self.callback.setup = None;
+        self.callback.inverse_diagonal.fill(1.0);
+        // Block admission may depend on current values/guards and carries numeric
+        // factors. Re-admit under the next application's actual scope/allowance.
+        self.callback.blocks = None;
+        self.callback.setup_calls = 0;
+    }
+    /// Run with an explicit start and a fresh native initial setup policy. Retained
+    /// allocation does not authorize a previous application's numeric factor or
+    /// preconditioner. KINSOL owns setup reuse and monitoring within this call and
+    /// may return an already-converged initial guess before any setup is needed.
     pub fn solve(
         &mut self,
         initial: &[f64],
@@ -1276,6 +1251,7 @@ impl Session {
         tolerances: &Tolerances,
         warm: Option<&WarmStart>,
     ) -> Result<SolveReport, ProblemError> {
+        self.clear_callback_setup();
         controls.validate()?;
         if controls.threads != 1 || !controls.options.is_empty() {
             return Err(ProblemError::Unsupported(
@@ -1325,17 +1301,7 @@ impl Session {
         if let Some(blocks) = &mut self.callback.blocks {
             blocks.reset_counts();
         }
-        self.callback.first_setup_iteration = None;
         let method = self.settings.method;
-        let reuse_setup = self.setup_usable
-            && self.callback.setup.is_some()
-            && controls.reuse != ReusePolicy::Fresh
-            && method.strategy != Strategy::FixedPoint;
-        let input_stale = self
-            .callback
-            .setup
-            .as_ref()
-            .is_some_and(|s| s.data != self.compatibility.data || s.point != start);
         let (eta, eta_constant, eta_gamma, eta_alpha) = match method.eta {
             Eta::Choice1 => (ffi::KIN_ETACHOICE1, 0.0, 0.0, 0.0),
             Eta::Choice2 { gamma, alpha } => (ffi::KIN_ETACHOICE2, 0.0, gamma.into_inner(), alpha),
@@ -1375,7 +1341,7 @@ impl Session {
             "setup interval",
         )?;
         native!(
-            ffi::KINSetNoInitSetup(self.mem, i32::from(reuse_setup)),
+            ffi::KINSetNoInitSetup(self.mem, 0),
             "initial setup policy"
         )?;
         // Direct modified Newton uses KINSOL's progress monitor. KINSOL itself disables
@@ -1681,32 +1647,11 @@ impl Session {
         // Final original residual validation belongs to this same inclusive owner.
         self.callback.state.finish(&mut report);
         report.evidence.raw_map = self.callback.raw_map.take().map(RawMapCapture::finish);
-        let iterations = report
-            .metrics
-            .get("KINGetNumNonlinSolvIters")
-            .and_then(|m| match m {
-                Metric::Integer(n) => Some(*n),
-                _ => None,
-            })
-            .unwrap_or(0);
-        let reused_initial = reuse_setup
-            && iterations > 0
-            && (self.callback.setup_calls == 0
-                || self
-                    .callback
-                    .first_setup_iteration
-                    .is_some_and(|iteration| iteration > 1));
-        report.metrics.insert(
-            "setup.initial_reuse_requested".into(),
-            Metric::Bool(reuse_setup),
-        );
-        report
-            .metrics
-            .insert("setup.initial_reused".into(), Metric::Bool(reused_initial));
-        report.metrics.insert(
-            "setup.input_stale".into(),
-            Metric::Bool(reuse_setup && input_stale),
-        );
+        // Independent applications never request or consume predecessor setup.
+        // Actual setup callbacks below may still be zero on an early native exit.
+        for name in ["setup.initial_reuse_requested", "setup.initial_reused", "setup.input_stale"] {
+            report.metrics.insert(name.into(), Metric::Bool(false));
+        }
         report.metrics.insert(
             "setup.refreshes".into(),
             Metric::Integer(i64::try_from(self.callback.setup_calls).unwrap_or(i64::MAX)),
@@ -1764,11 +1709,6 @@ impl Session {
         report
             .metrics
             .insert("setup.fresh_response_factor".into(), Metric::Bool(false));
-        self.setup_usable = self.callback.setup.is_some()
-            && self.callback.state.terminal.is_none()
-            && matches!(code, ffi::KIN_SUCCESS | ffi::KIN_INITIAL_GUESS_OK)
-            && report.quality.as_ref().is_some_and(Quality::feasible);
-        report.evidence.reused_native_state |= reused_initial;
         Ok(report)
     }
 }
@@ -2123,22 +2063,17 @@ mod tests {
             .unwrap()
     }
     #[test]
-    fn compatible_native_setup_is_actually_reused_and_fresh_policy_refreshes_it() {
-        for linear in [
-            Linear::Klu,
-            Linear::Dense {
-                limit: positive(10),
-            },
-            Linear::Spgmr {
-                dimension: positive(4),
-            },
+    fn retained_allocation_requires_fresh_numeric_setup_for_every_application() {
+        for (linear, preconditioner) in [
+            (Linear::Klu, Preconditioner::None),
+            (Linear::Dense { limit: positive(10) }, Preconditioner::None),
+            (Linear::Spgmr { dimension: positive(4) }, Preconditioner::Jacobi),
+            (Linear::Spgmr { dimension: positive(4) }, Preconditioner::BlockFactor),
         ] {
             let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
             let mut config = settings();
             config.method.linear = linear;
-            if linear.krylov().is_some() {
-                config.method.preconditioner = Preconditioner::Jacobi;
-            }
+            config.method.preconditioner = preconditioner;
             let stamp = crate::solver_tests::stamp(Backend::Kinsol);
             let mut session = Session::new(
                 affine_function(1.0, &setups),
@@ -2157,32 +2092,51 @@ mod tests {
             session
                 .replace(affine_function(2.0, &setups), config.clone(), next)
                 .unwrap();
+            assert!(session.callback.setup.is_none());
+            assert!(session.callback.blocks.is_none());
+            assert_eq!(session.callback.inverse_diagonal, vec![1.0]);
             let reused = setup_solve(&mut session, 0.0, ReusePolicy::AllowRebuild);
             assert_eq!(reused.termination.category, Termination::Success);
             assert_eq!(reused.candidate.as_ref().unwrap().primal, [2.0]);
             assert_eq!(session.linear, native_address);
-            assert_eq!(setups.load(std::sync::atomic::Ordering::SeqCst), before);
-            assert_eq!(metric(&reused, "setup.refreshes"), 0);
-            assert_eq!(reused.metrics["setup.initial_reused"], Metric::Bool(true));
-            assert_eq!(reused.metrics["setup.input_stale"], Metric::Bool(true));
+            assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before);
+            assert!(metric(&reused, "setup.refreshes") > 0);
+            assert_eq!(reused.metrics["setup.initial_reuse_requested"], Metric::Bool(false));
+            assert_eq!(reused.metrics["setup.initial_reused"], Metric::Bool(false));
+            assert_eq!(reused.metrics["setup.input_stale"], Metric::Bool(false));
             assert_eq!(
                 reused.metrics["setup.fresh_response_factor"],
                 Metric::Bool(false)
             );
-            assert!(reused.evidence.reused_native_state);
             let fresh = setup_solve(&mut session, 0.0, ReusePolicy::Fresh);
             assert_eq!(fresh.termination.category, Termination::Success);
             assert!(metric(&fresh, "setup.refreshes") > 0);
             assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before);
             assert_eq!(fresh.metrics["setup.initial_reused"], Metric::Bool(false));
+            let before_repeat = setups.load(std::sync::atomic::Ordering::SeqCst);
+            let repeated = setup_solve(&mut session, 0.0, ReusePolicy::RequireReuse);
+            assert_eq!(repeated.termination.category, Termination::Success);
+            assert!(metric(&repeated, "setup.refreshes") > 0);
+            assert!(setups.load(std::sync::atomic::Ordering::SeqCst) > before_repeat);
+            assert_eq!(repeated.metrics["setup.initial_reuse_requested"], Metric::Bool(false));
+            if preconditioner == Preconditioner::BlockFactor {
+                assert!(metric(&repeated, "preconditioner.block.factor_calls") > 0);
+            }
+            let before_early = setups.load(std::sync::atomic::Ordering::SeqCst);
             let at_root = setup_solve(&mut session, 2.0, ReusePolicy::AllowRebuild);
+            assert_eq!(at_root.termination.name, "KIN_INITIAL_GUESS_OK");
+            assert_eq!(setups.load(std::sync::atomic::Ordering::SeqCst), before_early);
+            assert!(session.callback.setup.is_none());
             assert_eq!(metric(&at_root, "setup.refreshes"), 0);
             assert_eq!(metric(&at_root, "KINGetNumJacEvals"), 0);
             assert_eq!(at_root.metrics["setup.initial_reused"], Metric::Bool(false));
+            if preconditioner == Preconditioner::BlockFactor {
+                assert_eq!(metric(&at_root, "preconditioner.block.factor_calls"), 0);
+            }
         }
     }
     #[test]
-    fn setup_reuse_preserves_monitoring_and_native_interval_can_refresh_stale_iteration_setup() {
+    fn fresh_application_setup_preserves_within_call_native_monitoring() {
         let setups = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let mut config = settings();
         config.method.setup_interval = 2;
@@ -2207,10 +2161,10 @@ mod tests {
             .unwrap();
         let monitored = setup_solve(&mut session, 0.25, ReusePolicy::AllowRebuild);
         assert_eq!(monitored.termination.category, Termination::Success);
-        assert!(metric(&monitored, "setup.refreshes") > 0);
+        assert!(metric(&monitored, "setup.refreshes") > 1, "native within-call setup interval must refresh");
         assert_eq!(
             monitored.metrics["setup.initial_reused"],
-            Metric::Bool(true)
+            Metric::Bool(false)
         );
         assert_eq!(
             monitored.metrics["setup.monitoring"],
@@ -2228,6 +2182,8 @@ mod tests {
                 .replace(affine_function(1.0, &setups), config, profile)
                 .is_err()
         );
+        assert!(session.callback.setup.is_none(), "refused replacement invalidates prior setup policy");
+        assert!(session.callback.blocks.is_none());
     }
     #[test]
     fn reused_native_counters_do_not_repeat_prior_attempt_before_reset() {
