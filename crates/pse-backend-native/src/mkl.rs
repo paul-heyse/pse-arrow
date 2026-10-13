@@ -20,6 +20,14 @@ unsafe extern "C" {
     fn MKL_Set_Num_Threads_Local(threads: c_int) -> c_int;
     fn omp_get_max_threads() -> c_int;
     fn omp_set_num_threads(threads: c_int);
+    #[cfg(feature = "scip")]
+    fn MKL_Get_Max_Threads() -> c_int;
+    #[cfg(feature = "scip")]
+    fn MKL_Domain_Get_Max_Threads(domain: c_int) -> c_int;
+    #[cfg(feature = "scip")]
+    fn omp_get_cancellation() -> c_int;
+    #[cfg(feature = "scip")]
+    fn omp_get_proc_bind() -> c_int;
     #[cfg(any(feature = "clarabel-pardiso", all(test, feature = "ipopt")))]
     fn dladdr(address: *const c_void, info: *mut DlInfo) -> c_int;
 }
@@ -93,6 +101,60 @@ impl Drop for Threads {
         unsafe { omp_set_num_threads(self.omp) };
         // SAFETY: restores the calling thread's previous MKL-local count (0 clears it).
         unsafe { MKL_Set_Num_Threads_Local(self.mkl) };
+    }
+}
+
+/// Defaults consumed by newly created SCIP tinycthread workers. Query on a fresh
+/// native thread: a caller's MKL-local setting or OpenMP task ICV is not inherited.
+#[cfg(feature = "scip")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct NestedDefaults {
+    pub(crate) omp: c_int,
+    pub(crate) mkl: c_int,
+    pub(crate) all: c_int,
+    pub(crate) blas: c_int,
+    pub(crate) lapack: c_int,
+    pub(crate) pardiso: c_int,
+    pub(crate) cancellation: bool,
+    pub(crate) proc_bind: c_int,
+}
+#[cfg(feature = "scip")]
+impl NestedDefaults {
+    pub(crate) fn observe() -> Self {
+        // SAFETY: scalar queries of the linked provider; no global or local setting
+        // changes. Domain numbers are the selected oneMKL mkl_types.h constants.
+        unsafe {
+            Self {
+                omp: omp_get_max_threads(),
+                mkl: MKL_Get_Max_Threads(),
+                all: MKL_Domain_Get_Max_Threads(0),
+                blas: MKL_Domain_Get_Max_Threads(1),
+                lapack: MKL_Domain_Get_Max_Threads(5),
+                pardiso: MKL_Domain_Get_Max_Threads(4),
+                cancellation: omp_get_cancellation() != 0,
+                proc_bind: omp_get_proc_bind(),
+            }
+        }
+    }
+    /// The first OpenMP width does not establish every entry of an explicit nested
+    /// OMP_NUM_THREADS list. Preserve the supported serial list at all levels.
+    pub(crate) fn admit(self, omp_list: Option<&str>, spral: bool) -> Result<(), ProblemError> {
+        let serial_list = omp_list.is_none_or(|list| {
+            list.split(',').all(|width| width.trim().parse::<usize>() == Ok(1))
+        });
+        if !serial_list || [self.omp, self.mkl, self.all, self.blas, self.lapack, self.pardiso]
+            .iter().any(|width| *width != 1)
+        {
+            return Err(ProblemError::Unsupported(format!(
+                "SCIP concurrent workers require serial nested OpenMP/MKL defaults: {self:?}; OMP_NUM_THREADS={omp_list:?}"
+            )));
+        }
+        if spral && (!self.cancellation || self.proc_bind == 0) {
+            return Err(ProblemError::Unsupported(
+                "SCIP nested SPRAL requires actual OpenMP cancellation and binding".into(),
+            ));
+        }
+        Ok(())
     }
 }
 

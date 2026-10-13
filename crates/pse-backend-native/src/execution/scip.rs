@@ -130,7 +130,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: false,
     sensitivities: true,
-    reuse: "one SCIP instance per attempt, created and freed on the owning worker; with reoptimization, one instance and its search tree across a finite MIP sequence whose constraint system is unchanged",
+    reuse: "one SCIP instance per attempt, created and freed on the owning worker; concurrent TPI ownership excludes other concurrent instances through native teardown, with freshly observed serial nested native defaults; with reoptimization, one instance and its search tree across a finite MIP sequence whose constraint system is unchanged",
     cancellation: "event handler on presolve rounds, node focus and solve, and LP solves calls SCIPinterruptSolve; copied into sub-SCIPs, concurrent solvers and the IIS sub-problem",
     diagnostics: "raw status, primal and dual bound, gap, node count, export fidelity and readback, effective reserved options, ranked solution pool, IIS with its irreducibility flag, exact rational objective",
 };

@@ -23,7 +23,7 @@ use crate::{
     solve::{
         Assurance, Backend, BoundSource, Candidate, CandidateKind, CaptureThrottle, Compatibility,
         Controls, Event, Execution, GlobalEvidence, GlobalRecord, Iis, IisMember, IncumbentEvent,
-        Metric, NativeTermination, OptionValue, Options, PoolSolution, PrimalSource, Progress,
+        IpoptLinearSolver, Metric, NativeTermination, OptionValue, Options, PoolSolution, PrimalSource, Progress,
         ResolvedAccuracy, SolveIntent, SolveReport, Termination, UnavailableReason, WarmPayload,
         WarmStart,
     },
@@ -41,11 +41,122 @@ use std::{
     ffi::{CStr, CString, c_char},
     ptr::{self, NonNull},
     sync::{
-        Arc,
+        Arc, Mutex, MutexGuard, TryLockError,
         atomic::{AtomicBool, AtomicU64, Ordering},
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
+
+// SCIP 10.0.2 TPI=tny owns one process-static thread pool. Independent serial
+// instances need no gate; concurrent owners retain it until SCIPfree joins TPI.
+static CONCURRENT: Mutex<()> = Mutex::new(());
+static CONCURRENT_FAILED: AtomicBool = AtomicBool::new(false);
+thread_local! { static CONCURRENT_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+struct ConcurrentAdmission<'a> {
+    _gate: MutexGuard<'a, ()>,
+    failed: &'a AtomicBool,
+}
+impl Drop for ConcurrentAdmission<'_> {
+    fn drop(&mut self) {
+        CONCURRENT_ACTIVE.set(false);
+    }
+}
+impl<'a> ConcurrentAdmission<'a> {
+    fn acquire(lock: &'a Mutex<()>, failed: &'a AtomicBool, execution: &Execution) -> Result<Self, ProblemError> {
+        execution.check()?;
+        check_concurrent_health(failed)?;
+        if CONCURRENT_ACTIVE.get() {
+            return Err(ProblemError::Unsupported("nested SCIP concurrent process owner".into()));
+        }
+        crate::execution::pause_compute();
+        loop {
+            execution.check()?;
+            check_concurrent_health(failed)?;
+            match lock.try_lock() {
+                Ok(gate) => {
+                    // Never wait for capacity while holding the native exclusion.
+                    match crate::execution::try_resume_compute(execution) {
+                        Ok(crate::execution::ComputeAvailability::Acquired) => {
+                            CONCURRENT_ACTIVE.set(true);
+                            return Ok(Self { _gate: gate, failed });
+                        }
+                        Ok(crate::execution::ComputeAvailability::Unavailable) => drop(gate),
+                        Err(error) => { drop(gate); return Err(error); }
+                    }
+                }
+                Err(TryLockError::Poisoned(_)) => {
+                    return Err(ProblemError::internal("SCIP concurrent process owner poisoned"));
+                }
+                Err(TryLockError::WouldBlock) => {}
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+    }
+}
+fn check_concurrent_health(failed: &AtomicBool) -> Result<(), ProblemError> {
+    if failed.load(Ordering::Acquire) {
+        Err(ProblemError::Unsupported("SCIP concurrent process owner has uncertain native teardown".into()))
+    } else { Ok(()) }
+}
+
+// Known requested stack extent, independently reserved before creating the probe.
+// This is an allocation allowance, not a bound on native RSS or provider scratch.
+const DEFAULT_PROBE_STACK: usize = 2 << 20;
+#[derive(Debug)]
+struct NestedObservation {
+    defaults: crate::mkl::NestedDefaults,
+    omp_list: Option<String>,
+}
+/// One terminal concurrent owner, deliberately resident until process exit. The
+/// gate prevents another concurrent owner from reaching uncertain global TPI state.
+/// A low-level caller without installed compute/storage admission remains responsible
+/// for its complete foreign envelope; absence never establishes a successful drain.
+struct Quarantine {
+    _watch: NonNull<Watch>,
+    _gate: Option<ConcurrentAdmission<'static>>,
+    _storage: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    _compute: Option<Box<dyn crate::execution::ComputeAdmission>>,
+}
+fn probe_nested_defaults(execution: &Execution) -> Result<NestedObservation, ProblemError> {
+    execution.check()?;
+    let omp_list = std::env::var_os("OMP_NUM_THREADS").map(|value| value.into_string()
+        .map_err(|_| ProblemError::Unsupported("non-Unicode OMP_NUM_THREADS".into())))
+        .transpose()?;
+    let defaults = probe_defaults_with(execution, |execution| {
+        let _original = crate::execution::original_scope(execution);
+        execution.check()?;
+        let defaults = crate::mkl::NestedDefaults::observe();
+        execution.check()?;
+        Ok(defaults)
+    })?;
+    Ok(NestedObservation { defaults, omp_list })
+}
+fn probe_defaults_with(
+    execution: &Execution,
+    observe: impl FnOnce(&Execution) -> Result<crate::mkl::NestedDefaults, ProblemError> + Send,
+) -> Result<crate::mkl::NestedDefaults, ProblemError> {
+    execution.check()?;
+    let _stack_owner = match &execution.work_admission {
+        Some(admission) => Some(admission.reserve_retained_storage(
+            "scip-nested-default-probe", DEFAULT_PROBE_STACK,
+        )?.ok_or_else(|| ProblemError::memory("SCIP nested-default probe stack admission"))?),
+        // Low-level callers without WorkAdmission own the complete foreign/runtime
+        // envelope, including this explicit probe stack, as for other SCIP work.
+        // The product runtime supplies TaskAdmission and must obtain a real token.
+        None if execution.memory.is_some() => None,
+        None => return Err(ProblemError::Contract("SCIP probe needs an admitted foreign envelope".into())),
+    };
+    let defaults = std::thread::scope(|scope| {
+        let worker = std::thread::Builder::new().name("scip-defaults".into())
+            .stack_size(DEFAULT_PROBE_STACK).spawn_scoped(scope, || observe(execution))
+            .map_err(|error| ProblemError::internal(format!("SCIP default probe thread: {error}")))?;
+        worker.join().map_err(|_| ProblemError::internal("SCIP default probe panicked"))?
+    })?;
+    // Even cancellation during a scalar query waits for the actual joined thread
+    // before releasing its allocation token or the enclosing native process gate.
+    execution.check()?;
+    Ok(defaults)
+}
 
 /// SCIP release the bindings were generated from; the linked library must be exactly it.
 pub const VERSION: (i32, i32, i32) = (10, 0, 2);
@@ -806,6 +917,12 @@ pub(crate) struct Instance {
     watch: NonNull<Watch>,
     infinity: f64,
     modes: Modes,
+    // Drop runs SCIPfree (and native TPI join) before this field releases exclusion.
+    _concurrent: Option<ConcurrentAdmission<'static>>,
+    _storage_owner: Option<Arc<dyn std::any::Any + Send + Sync>>,
+    disposed: bool,
+    shutdown_error: Option<(ffi::SCIP_RETCODE, &'static str)>,
+    concurrent_may_be_active: bool,
 }
 impl std::fmt::Debug for Instance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -817,24 +934,80 @@ impl std::fmt::Debug for Instance {
 }
 impl Drop for Instance {
     fn drop(&mut self) {
+        // Normal completion/reset consumes shutdown's typed result. Early-error and
+        // unwind paths still quarantine uncertainty rather than release live owners.
+        let _ = self.shutdown();
+    }
+}
+impl Instance {
+    fn shutdown(&mut self) -> Result<(), ProblemError> {
+        self.shutdown_with(
+            // SAFETY: a single live owning pointer, after captured references release.
+            |raw| unsafe { ffi::SCIPfree(raw) },
+            |owner| { let _ = Box::leak(owner); },
+        )
+    }
+    fn shutdown_with(
+        &mut self,
+        free: impl FnOnce(*mut *mut ffi::SCIP) -> ffi::SCIP_RETCODE,
+        quarantine: impl FnOnce(Box<Quarantine>),
+    ) -> Result<(), ProblemError> {
+        if self.disposed {
+            return self.shutdown_error.map_or(Ok(()), |(code, operation)| check(code, operation));
+        }
+        self.disposed = true;
         let scip = self.scip.as_ptr();
+        let mut failure = None;
         for expr in &mut self.exprs {
             // SAFETY: each held expression carries one reference this instance captured.
-            let _ = unsafe { ffi::SCIPreleaseExpr(scip, expr) };
+            let code = unsafe { ffi::SCIPreleaseExpr(scip, expr) };
+            if code != ffi::SCIP_Retcode_SCIP_OKAY {
+                failure.get_or_insert((code, "SCIPreleaseExpr"));
+            }
         }
         for var in &mut self.vars {
             // SAFETY: each held variable carries one reference this instance captured.
-            let _ = unsafe { ffi::SCIPreleaseVar(scip, var) };
+            let code = unsafe { ffi::SCIPreleaseVar(scip, var) };
+            if code != ffi::SCIP_Retcode_SCIP_OKAY {
+                failure.get_or_insert((code, "SCIPreleaseVar"));
+            }
         }
         for cons in &mut self.conss {
             // SAFETY: each held constraint carries one reference this instance captured.
-            let _ = unsafe { ffi::SCIPreleaseCons(scip, cons) };
+            let code = unsafe { ffi::SCIPreleaseCons(scip, cons) };
+            if code != ffi::SCIP_Retcode_SCIP_OKAY {
+                failure.get_or_insert((code, "SCIPreleaseCons"));
+            }
         }
         let mut raw = scip;
         // SAFETY: the instance is freed once, on its owning thread, after its references.
-        let _ = unsafe { ffi::SCIPfree(&mut raw) };
+        let code = free(&mut raw);
+        if let Err(cause) = check(code, "SCIPfree") {
+            self.shutdown_error = Some((code, "SCIPfree"));
+            quarantine(self.quarantine());
+            return Err(cause);
+        }
         // SAFETY: SCIP no longer references the handler data after `SCIPfree`.
         drop(unsafe { Box::from_raw(self.watch.as_ptr()) });
+        self._concurrent.take();
+        self._storage_owner.take();
+        self.shutdown_error = failure;
+        failure.map_or(Ok(()), |(code, operation)| check(code, operation))
+    }
+    fn quarantine(&mut self) -> Box<Quarantine> {
+        // SCIPfree can return before Syncstore/TPI destruction. Preserve its Watch
+        // and allocation owner, and refuse replacement concurrent owners. Successful
+        // SCIPsolveConcurrent already collected all jobs; idle native threads/memory
+        // remain resident uncertainty. A double native failure also retains compute.
+        let compute = if let Some(owner) = &self._concurrent {
+            owner.failed.store(true, Ordering::Release);
+            self.concurrent_may_be_active.then(crate::execution::take_compute_for_quarantine).flatten()
+        } else { None };
+        // `watch` remains a raw owned allocation; no Box is reconstructed on failure.
+        Box::new(Quarantine {
+            _watch: self.watch, _gate: self._concurrent.take(),
+            _storage: self._storage_owner.take(), _compute: compute,
+        })
     }
 }
 /// Modes fixed before the problem exists (SCIP stage `INIT`).
@@ -869,6 +1042,11 @@ impl Instance {
             watch: NonNull::from(Box::leak(watch)),
             infinity: 0.0,
             modes,
+            _concurrent: None,
+            _storage_owner: execution.work_admission.as_ref().and_then(|owner| owner.retain_storage()),
+            disposed: false,
+            shutdown_error: None,
+            concurrent_may_be_active: false,
         };
         let s = instance.scip.as_ptr();
         native!(
@@ -2604,15 +2782,24 @@ fn system(plan: &Plan<'_>) -> Result<ContentHash, ProblemError> {
 }
 /// A reoptimization session retained across the steps of a finite MIP sequence.
 #[derive(Debug)]
-struct Session {
+pub(crate) struct Session {
     instance: Instance,
     export: Export,
     system: ContentHash,
     options: Options,
 }
 impl Session {
+    /// Explicit destruction makes a native cleanup failure visible to independent
+    /// application reset; Drop is a conservative fallback for earlier error paths.
+    pub(crate) fn shutdown(&mut self) -> Result<(), ProblemError> {
+        self.instance.shutdown()
+    }
     /// Install the step's objective in the retained problem (`SCIPchgReoptObjective`).
     fn reoptimize(&mut self, plan: &Plan<'_>, execution: &Execution) -> Result<(), ProblemError> {
+        if self.instance.disposed {
+            self.instance.shutdown()?;
+            return Err(ProblemError::Contract("SCIP session was shut down".into()));
+        }
         let s = self.instance.ptr();
         native!("SCIPfreeReoptSolve", ffi::SCIPfreeReoptSolve(s))?;
         let (sense, form) = match plan.objective {
@@ -2849,6 +3036,21 @@ pub(crate) fn solve(
 ) -> Result<SolveReport, ProblemError> {
     r.controls.validate()?;
     r.settings.admit(r.controls.threads, r.snapshot)?;
+    r.execution.check()?;
+    // Once global TPI teardown is uncertain, no replacement SCIP attempt may
+    // inspect that state, including a nominally serial replacement.
+    check_concurrent_health(&CONCURRENT_FAILED)?;
+    // Covers caller-owned export/readback and serial SCIP. A parent's local count
+    // cannot control the fresh tinycthread workers of a concurrent native solve.
+    let _threads = crate::mkl::Threads::enter(1)?;
+    let mut concurrent = (r.controls.threads > 1)
+        .then(|| ConcurrentAdmission::acquire(&CONCURRENT, &CONCURRENT_FAILED, r.execution)).transpose()?;
+    let nested = if concurrent.is_some() {
+        let observation = probe_nested_defaults(r.execution)?;
+        observation.defaults.admit(observation.omp_list.as_deref(),
+            r.settings.nlp_linear_solver == IpoptLinearSolver::Spral)?;
+        Some(observation)
+    } else { None };
     let abi = abi()?;
     let plan = crate::execution::factorable::plan(r.program, r.intent).map_err(|refusals| {
         let reasons: Vec<String> = refusals.iter().map(ToString::to_string).collect();
@@ -2881,6 +3083,8 @@ pub(crate) fn solve(
         retained.clear();
         (local.insert(build(r, &plan, gap_absolute)?), false)
     };
+    // The instance itself owns the gate, including early-return and unwind cleanup.
+    session.instance._concurrent = concurrent.take();
     // Readback at the start, clamped into the box, with auxiliaries inside theirs.
     let clamp = |x: f64, (l, u): (f64, f64)| {
         let x = if x.is_finite() { x } else { 0.0 };
@@ -2940,10 +3144,19 @@ pub(crate) fn solve(
         concurrent,
     );
     let s = session.instance.ptr();
-    if r.controls.threads > 1 {
-        native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s))?;
+    let solved = if r.controls.threads > 1 {
+        session.instance.concurrent_may_be_active = true;
+        let result = native!("SCIPsolveConcurrent", ffi::SCIPsolveConcurrent(s));
+        if result.is_ok() { session.instance.concurrent_may_be_active = false; }
+        result
     } else {
-        native!("SCIPsolve", ffi::SCIPsolve(s))?;
+        native!("SCIPsolve", ffi::SCIPsolve(s))
+    };
+    if let Err(cause) = solved {
+        // Cleanup failure carries its original typed native cause and cannot be
+        // mistaken for a healthy drained attempt or structural incompatibility.
+        session.shutdown()?;
+        return Err(cause);
     }
     session.instance.flush_incumbent();
     // SAFETY: a status query after the solve returned.
@@ -3130,6 +3343,21 @@ pub(crate) fn solve(
         "scip.threads".into(),
         Metric::Integer(i64::try_from(r.controls.threads).unwrap_or(i64::MAX)),
     );
+    metrics.insert("scip.tpi.exclusive".into(), Metric::Bool(nested.is_some()));
+    if let Some(observation) = &nested {
+        let defaults = observation.defaults;
+        for (name, value) in [
+            ("omp", defaults.omp), ("mkl", defaults.mkl), ("all", defaults.all), ("blas", defaults.blas),
+            ("lapack", defaults.lapack), ("pardiso", defaults.pardiso),
+            ("omp_proc_bind", defaults.proc_bind),
+        ] {
+            metrics.insert(format!("scip.nested.{name}"), Metric::Integer(i64::from(value)));
+        }
+        metrics.insert("scip.nested.omp_cancellation".into(), Metric::Bool(defaults.cancellation));
+        metrics.insert("scip.nested.omp_num_threads".into(),
+            Metric::Text(observation.omp_list.clone().unwrap_or_else(|| "unset".into())));
+        metrics.insert("scip.nested.probe_stack_bytes".into(), Metric::Integer(DEFAULT_PROBE_STACK as i64));
+    }
     metrics.insert("scip.exact".into(), Metric::Bool(exact));
     // The conditions every global claim holds under (ADR-0106 §9-§10): tolerances, the
     // identity of the declared box and the export fidelity below.
@@ -3188,9 +3416,14 @@ pub(crate) fn solve(
         payload: WarmPayload::primal(c.primal.clone()),
     });
     report.candidate = candidate;
-    drop(local);
+    if let Some(mut local) = local.take() {
+        local.shutdown()?;
+    }
     Ok(report)
 }
+
+#[cfg(test)]
+mod resource_tests;
 
 #[cfg(test)]
 pub(crate) mod testing {
