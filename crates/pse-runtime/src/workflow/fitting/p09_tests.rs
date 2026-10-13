@@ -2435,9 +2435,16 @@ async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
     let result = prepared.start().unwrap().wait().await.unwrap();
     let report = regression::report(&result);
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
-    assert_eq!(chains.len(), 2);
+    assert_eq!(chains.len(), 2, "{report:#?}");
     assert!(chains.iter().all(|chain| chain.actual_parallelism == 2
-        && chain.worker_failure.is_none() && chain.scheduling_failures.is_empty()));
+        && chain.worker_failure.is_none() && chain.scheduling_failures.is_empty()),
+        "nested experiment/profile admission: {chains:#?}");
+    // The unit-weight residuals p-2 and p-1 give f=(p-1.5)^2+0.25.
+    // At 90%, sqrt(2*(f-f*))=1.64485 gives ends near 0.3369 and 2.6631,
+    // strictly inside the fixture's [0.1,10] bounds. Both chains must reach
+    // Threshold; retain actual pinned outcomes/causes if this mechanism stops early.
     assert!(chains.iter().all(|chain| chain.bound.outcome ==
-        pse_model::generated::enums::IntervalOutcome::Threshold));
+        pse_model::generated::enums::IntervalOutcome::Threshold),
+        "expected interior 90% profile thresholds; candidate={:?}, objective={:?}; actual chains={chains:#?}",
+        report.candidate, report.objective);
 }
