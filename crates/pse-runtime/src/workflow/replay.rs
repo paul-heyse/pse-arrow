@@ -1078,7 +1078,7 @@ mod tests {
         let restored = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
         assert_eq!(restored.solve.requested_start().unwrap().content_key(), identity);
         assert_eq!(restored.solve.replay_declaration(), Some(&declaration));
-        assert_eq!(restored.solve.replay_rungs().unwrap()[1].strategy_profile().unwrap(), graph.nodes[1].profile);
+        assert_eq!(restored.solve.replay_rungs().unwrap()[1].strategy_profile().unwrap(), constructor.prepared_graph.as_ref().unwrap().nodes[1].profile);
         let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
         assert_ne!(fresh.run_id, stopped.run_id);
         assert!(fresh.report().is_ok(), "{:?}", fresh.report());

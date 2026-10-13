@@ -659,7 +659,7 @@ mod tests {
             report.options.insert("actual_fixture_option".into(), pse_backend_native::solve::OptionValue::Integer(7));
             flag.store(true, std::sync::atomic::Ordering::Release);
             Ok(report)
-        }, Some, strategy::observe_native, |_, _| panic!("cancelled scope must refuse original assessment")).unwrap_err();
+        }, |report| Some(report), strategy::observe_native, |_, _| panic!("cancelled scope must refuse original assessment")).unwrap_err();
         let trace = error.strategy_trace().unwrap();
         assert_eq!(trace.products.len(), 1);
         let record = trace.products[0].native_attempt.as_ref().unwrap();

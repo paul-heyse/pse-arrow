@@ -439,6 +439,25 @@ fn blocking_on_with_recovery<
         Option<pse_operations::canonical_artifacts::Artifact>,
     )>,
 ) -> PyResult<T> {
+    blocking_on_with_interrupted_value(py, executor, future, cancel, recovery_key, |_| {})
+}
+fn blocking_on_with_interrupted_value<
+    T: Send,
+    F: Future<Output = Result<T, native::WorkflowError>> + Send,
+>(
+    py: Python<'_>,
+    executor: &tokio::runtime::Runtime,
+    future: F,
+    cancel: impl Fn(),
+    recovery_key: impl Fn(
+        &T,
+    ) -> Option<(
+        &'static str,
+        String,
+        Option<pse_operations::canonical_artifacts::Artifact>,
+    )>,
+    interrupted_value: impl Fn(&T),
+) -> PyResult<T> {
     if tokio::runtime::Handle::try_current().is_ok() {
         return Err(invalid(
             py,
@@ -467,6 +486,7 @@ fn blocking_on_with_recovery<
                     use errors::ReportSource;
                     match &value {
                         Ok(value) => {
+                            interrupted_value(value);
                             if let Some((field, key, intent)) = recovery_key(value) {
                                 e.value(py).setattr(field, key)?;
                                 if let Some(intent) = intent {
@@ -1527,16 +1547,17 @@ impl NativeRunHandle {
         self.inner.cancel();
     }
     fn result(&self) -> Option<NativeRunResult> {
-        self.inner.result().map(|inner| NativeRunResult { inner })
+        self.inner.result().map(|inner| NativeRunResult { inner, owner: self.owner.clone() })
     }
     fn wait(&self, py: Python<'_>) -> PyResult<NativeRunResult> {
         let inner = blocking(py, &self.owner, self.inner.wait(), || self.inner.cancel())?;
-        Ok(NativeRunResult { inner })
+        Ok(NativeRunResult { inner, owner: self.owner.clone() })
     }
     #[pyo3(signature=() -> "typing.Awaitable[NativeRunResult]")]
     fn wait_async<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
         let handle = self.inner.clone();
+        let owner = self.owner.clone();
         let guard = CancelWait(Some(handle.clone()));
         pyo3_async_runtimes::tokio::future_into_py_with_locals(py, locals, async move {
             let mut guard = guard;
@@ -1544,7 +1565,7 @@ impl NativeRunHandle {
             guard.0.take();
             Python::attach(|py| {
                 let inner = value.map_err(|e| errors::diagnostic(py, &e))?;
-                Py::new(py, NativeRunResult { inner })
+                Py::new(py, NativeRunResult { inner, owner })
             })
         })
     }
@@ -1579,9 +1600,13 @@ impl NativeRunHandle {
 #[derive(Clone, Debug)]
 pub(crate) struct NativeRunResult {
     inner: Arc<native::RunResult>,
+    owner: Arc<runtime::Runtime>,
 }
 #[pymethods]
 impl NativeRunResult {
+    fn replay(&self) -> NativeScientificReplay {
+        NativeScientificReplay { inner: self.inner.replay(), owner: self.owner.clone() }
+    }
     #[pyo3(signature=(step=None))]
     fn available_start(&self, step: Option<usize>) -> Option<NativeStart> {
         self.inner
@@ -1612,6 +1637,12 @@ impl NativeRunResult {
             .completion()
             .map_err(|e| errors::diagnostic(py, e))?;
         documents::encode(py, completed)
+    }
+    /// Bounded synchronous evidence, independent of dropped progress events.
+    fn attempt_summary(&self, py: Python<'_>) -> PyResult<DocumentValue<Arc<native::AttemptSummary>>> {
+        self.inner.attempt_summary()
+            .map(DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
     }
     fn fit_profiles(&self, py: Python<'_>) -> PyResult<Option<Vec<u8>>> {
         let report = self
@@ -1646,6 +1677,39 @@ impl NativeRunResult {
     fn export_fit_parameters(&self, py: Python<'_>) -> PyResult<inspection::TableStream> {
         py.detach(|| self.inner.clone().into_fit_parameters_cursor(1024))
             .map(inspection::TableStream::from_result)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+}
+/// Retained immutable inputs, exported evidence and supervised tolerant reruns.
+#[pyclass(frozen, skip_from_py_object, module = "pse._native")]
+#[derive(Clone, Debug)]
+pub(crate) struct NativeScientificReplay {
+    inner: native::ScientificReplay,
+    owner: Arc<runtime::Runtime>,
+}
+#[pymethods]
+impl NativeScientificReplay {
+    #[pyo3(signature=(bytes=16777216))]
+    fn document(&self, py: Python<'_>, bytes: usize) -> PyResult<DocumentValue<native::ReplayDocument>> {
+        py.detach(|| self.inner.document_with_limit(bytes)).map(DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+    fn rerun(&self, py: Python<'_>) -> PyResult<NativeRunHandle> {
+        let cancel = CancelSource::new();
+        let inner = blocking_on_with_interrupted_value(
+            py, self.owner.executor, self.inner.rerun_with_cancel(&cancel), || cancel.cancel(),
+            |_| None,
+            |handle| {
+                handle.cancel();
+                // A launch-ready signal must join the launched run, not only its
+                // preparation future. Keep the ordinary successful launch prompt.
+                py.detach(|| { let _ = self.owner.executor.block_on(handle.wait()); });
+            },
+        )?;
+        Ok(NativeRunHandle { owner: self.owner.clone(), inner })
+    }
+    fn native_continuation(&self, py: Python<'_>) -> PyResult<NativeRunHandle> {
+        self.inner.native_continuation().map(|inner| NativeRunHandle { owner: self.owner.clone(), inner })
             .map_err(|error| errors::diagnostic(py, &error))
     }
 }
@@ -2002,6 +2066,28 @@ pub(crate) struct NativePreparedOperation {
 }
 #[pymethods]
 impl NativePreparedOperation {
+    /// Actual comparable cohort and candidates, absent when equivalence is unestablished.
+    #[getter]
+    fn advice_inputs(&self, py: Python<'_>) -> PyResult<Option<DocumentValue<pse_runtime::math::solves::SolverAdviceInputs>>> {
+        let PreparedOperation::Modeling(prepared) = &self.inner else { return Ok(None); };
+        py.detach(|| prepared.solve.advice_inputs(&Arc::new(std::sync::atomic::AtomicBool::new(false))))
+            .map(|inputs| inputs.map(DocumentValue))
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
+    /// Freeze observed support against this owner's actual baseline, without a history lookup.
+    fn freeze_advice(&self, py: Python<'_>, metric: &[u8], observations: &[u8]) -> PyResult<DocumentValue<pse_model::strategy::advice::FrozenAdvice>> {
+        let PreparedOperation::Modeling(prepared) = &self.inner else {
+            return Err(invalid(py, "this operation has no established comparable advice cohort"));
+        };
+        let metric = documents::decode(py, "advice metric", metric, 256)?;
+        let observations = documents::decode(py, "advice observations", observations, 8 << 20)?;
+        let inputs = py.detach(|| prepared.solve.advice_inputs(&Arc::new(std::sync::atomic::AtomicBool::new(false))))
+            .map_err(|error| errors::diagnostic(py, &error))?
+            .ok_or_else(|| invalid(py, "original branch/profile equivalence is not established"))?;
+        pse_model::strategy::advice::FrozenAdvice::freeze(inputs.cohort, metric, inputs.candidates, observations, inputs.limits)
+            .map(DocumentValue)
+            .map_err(|error| errors::diagnostic(py, &error))
+    }
     fn dependency_analysis(&self, py: Python<'_>, controls: &[u8]) -> PyResult<NativeAnalysis> {
         let PreparedOperation::Modeling(prepared) = &self.inner else {
             return Err(invalid(

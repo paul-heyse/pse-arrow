@@ -404,6 +404,8 @@ mutates package declarations.
 
 ### 19.2 Results, qualification and diagnostics
 
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
 > Decision: ADR-0163 (proposed; authorized implementation).
 
 Completion retains immutable physical goal assessments, method, validity, strength and
@@ -434,6 +436,19 @@ evaluates or reclassifies the model. Durable consumers select compact canonical 
 rather than hydrating every joined native report. A failed or partial attempt can retain
 inspectable observations without a usable result. A preclaim refusal keeps its original
 diagnostic and cannot manufacture an attempt header.
+
+`RunResult::attempt_summary` shares one bounded retained-only product, with optional
+family-specific native facts, original physical violations, synchronous decisions and
+loss counts. Earlier native attempts share their compact immutable records; truncation
+and unavailable integration-adapter records are explicit. Custom detail bounds require
+an explicit allocation. Reading a summary performs no model or native work.
+
+`RunResult::replay` retains original input owners. Its bounded export includes authored
+objects, physical relations, exact provider descriptors, original constructors, effective
+settings, requested starts and actual decision/attempt evidence. Reconstruction requires
+the matching provider/build premises. A tolerant rerun creates a new execution and fresh
+admission/clock state through the original workflow supervisor; caller cancellation stays
+connected through drain. An exported seed is not a native continuation checkpoint.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.

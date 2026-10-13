@@ -63,6 +63,7 @@ SimulationSettings = _native.SimulationSettings
 _NativeRunHandle = _native.NativeRunHandle
 _NativeStudyHandle = _native.NativeStudyHandle
 _NativeRunResult = _native.NativeRunResult
+_NativeScientificReplay = _native.NativeScientificReplay
 _NativeStoredResult = _native.NativeStoredResult
 NativeStrategyAttempt = _native.NativeStrategyAttempt
 _NativeProgressStream = _native.NativeProgressStream

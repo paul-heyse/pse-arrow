@@ -250,6 +250,12 @@ pub struct AttemptSummary {
     pub requested_steps: usize,
     /// Retained bounded original steps.
     pub steps: Vec<AttemptStepSummary>,
+    /// Shared compact native records, bounded by the requested event capacity.
+    pub native_attempts: Vec<super::ReplayNativeAttempt>,
+    /// Compact native records omitted by the requested bound.
+    pub omitted_native_attempts: usize,
+    /// Actual producer availability; integration does not invent adapter records.
+    pub native_record_coverage: super::ReplayNativeRecordCoverage,
     /// Steps omitted by the requested bound.
     pub omitted_steps: usize,
     /// Actual terminal failure when retained.
@@ -294,7 +300,7 @@ impl RunResult {
     pub fn attempt_summary_with_limits(&self, limits: AttemptSummaryLimits) -> Result<AttemptSummary, WorkflowError> {
         let limits = limits.validate()?;
         let mut extent = limits.steps.saturating_mul(size_of::<AttemptStepSummary>() + 16384)
-            .saturating_add(limits.events.saturating_mul(size_of::<AttemptDecision>() + 64))
+            .saturating_add(limits.events.saturating_mul(size_of::<AttemptDecision>() + size_of::<super::ReplayNativeAttempt>() + 64))
             .saturating_add(limits.findings.saturating_mul(size_of::<AttemptFinding>() + 4096))
             .saturating_add(size_of::<AttemptSummary>() + 512);
         let requested_steps = match &self.request { RunRequest::Modeling(steps) => steps.len(), _ => 1 };
@@ -315,8 +321,17 @@ impl RunResult {
         }
         let owner = self.runtime.shared.math().reserve("attempt:retained-summary", extent)?;
         let mut summary = AttemptSummary { run_id: self.run_id, requested_steps, steps: Vec::new(),
-            omitted_steps: requested_steps.saturating_sub(limits.steps), failure: None,
+            omitted_steps: requested_steps.saturating_sub(limits.steps), native_attempts: Vec::new(),
+            omitted_native_attempts: 0, native_record_coverage: match &self.request {
+                RunRequest::Simulation(_) | RunRequest::Horizon(_) => super::ReplayNativeRecordCoverage::IntegrationReportOnly,
+                _ => super::ReplayNativeRecordCoverage::StrategyAttempts,
+            }, failure: None,
             usable: self.usable(), _owner: owner };
+        for (step, mechanism, record) in self.native_attempt_records() {
+            if summary.native_attempts.len() < limits.events {
+                summary.native_attempts.push(super::ReplayNativeAttempt { step, mechanism, record: record.clone() });
+            } else { summary.omitted_native_attempts += 1; }
+        }
         let mut events = limits.events;
         let mut findings = limits.findings;
         for step in 0..requested_steps.min(limits.steps) {

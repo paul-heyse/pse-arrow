@@ -98,6 +98,9 @@ pub(crate) struct DocumentValue<T>(pub(crate) T);
 pub(crate) trait DocumentType {
     const NAME: &'static str;
 }
+impl<T: DocumentType> DocumentType for std::sync::Arc<T> {
+    const NAME: &'static str = T::NAME;
+}
 impl DocumentType for pse_model::diagnostic::BoundaryDiagnostic {
     const NAME: &'static str = "BoundaryDiagnostic";
 }
@@ -136,6 +139,18 @@ impl DocumentType for pse_runtime::workflow::ProgressEventDocument {
 }
 impl DocumentType for pse_runtime::workflow::ProgressCoverage {
     const NAME: &'static str = "ProgressCoverage";
+}
+impl DocumentType for pse_runtime::workflow::AttemptSummary {
+    const NAME: &'static str = "AttemptSummary";
+}
+impl DocumentType for pse_runtime::workflow::ReplayDocument {
+    const NAME: &'static str = "ReplayDocument";
+}
+impl DocumentType for pse_runtime::math::solves::SolverAdviceInputs {
+    const NAME: &'static str = "SolverAdviceInputs";
+}
+impl DocumentType for pse_model::strategy::advice::FrozenAdvice {
+    const NAME: &'static str = "FrozenAdvice";
 }
 impl DocumentType for pse_runtime::workflow::SourceSettlement {
     const NAME: &'static str = "SourceSettlement";

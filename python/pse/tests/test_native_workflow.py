@@ -70,6 +70,37 @@ def declaration(n: int) -> DeclarationId:
     return DeclarationId(identity(n))
 
 
+@pytest.mark.unit
+def test_retained_attempt_summary_and_replay_use_original_inputs(
+    runtime: pse.Runtime, physical: pse.PhysicalContext
+) -> None:
+    prepared = revision(runtime, physical).prepare_solve(
+        declaration(101), pse.SolveSettings(intent=NativeSolveIntent.ROOT)
+    )
+    result = prepared.start().wait()
+    summary = result.attempt_summary
+    assert summary.usable == result.usable
+    assert summary.requested_steps == 1
+    assert summary.omitted_steps == 0
+    assert result.attempt_summary == summary
+    # This original root has no established equivalent convex optimization cohort.
+    assert prepared.advice_inputs is None
+    replay = result.replay()
+    document = replay.document(bytes=128 * 1024 * 1024)
+    assert document.coverage.usable == result.usable
+    assert not document.native_continuation
+    assert document.sources and document.case_constructors
+    assert codec.decode_json(codec.encode_json(document), documents.ReplayDocument) == document
+    with pytest.raises(pse.InspectionError, match="checkpoint"):
+        replay.native_continuation()
+    with pytest.raises(pse.InspectionError, match="allocation"):
+        replay.document(bytes=1)
+    repeated = replay.rerun().wait()
+    assert repeated.run_id != result.run_id
+    assert repeated.usable == result.usable
+    assert result.attempt_summary == summary
+
+
 @pytest.mark.component
 def test_runtime_startup_allows_python_thread_progress_inside_native_constructor(
     inspection_settings: pse.EngineSettings,

@@ -17,7 +17,7 @@ pub use replay::{
     ReplayCaseInputs, ReplayVariableState, ReplayBoundOverride, ReplaySimulationConstructor,
     ReplayFitConstructor, ReplayHorizonConstructor, ReplayHorizonController,
     ReplayHorizonEstimator, ReplayHorizonSignal,
-    ReplayDecisionDocument, ReplayNativeAttempt, ReplaySubmittedStart,
+    ReplayDecisionDocument, ReplayNativeAttempt, ReplayNativeRecordCoverage, ReplayScreenedStart,
 };
 #[cfg(feature = "solver-diffsol")]
 pub use replay::{ReplayShootingConstructor, ReplayShootingBound};

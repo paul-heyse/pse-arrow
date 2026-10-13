@@ -1751,6 +1751,7 @@ impl NativeStudyReport {
         match result {
             Some(native::StudyOccurrenceResult::Ephemeral(inner)) => Ok(Some(NativeRunResult {
                 inner: inner.clone(),
+                owner: self.owner.clone(),
             })),
             Some(native::StudyOccurrenceResult::Compact(_)) => Err(invalid(
                 py,

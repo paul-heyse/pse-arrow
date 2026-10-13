@@ -424,11 +424,53 @@ async fn admitted(signal: Option<tokio::sync::oneshot::Receiver<()>>) -> Result<
         None => Ok(()),
     }
 }
+/// The existing supervisor keeps ownership through cancellation and native drain.
+async fn supervised_with_cancel(
+    work: impl Future<Output = ()>,
+    stop: impl FnOnce(),
+    parent: Option<crate::CancelSource>,
+) {
+    tokio::pin!(work);
+    if let Some(parent) = parent {
+        tokio::select! {
+            () = &mut work => {},
+            () = parent.cancelled() => { stop(); work.await; },
+        }
+    } else { work.await; }
+}
+
+#[cfg(test)]
+mod cancellation_tests {
+    #[tokio::test]
+    async fn replay_parent_cancellation_reaches_pending_supervisor_and_keeps_drain_owned() {
+        let parent = crate::CancelSource::new();
+        let native = pse_columnar::flight::FlightCancellation::default();
+        let flight = native.clone();
+        let (observed, cancellation) = tokio::sync::oneshot::channel();
+        let (release, drain) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(super::supervised_with_cancel(async move {
+            flight.cancelled().await;
+            observed.send(()).unwrap();
+            drain.await.unwrap();
+        }, move || native.cancel(), Some(parent.clone())));
+        parent.cancel();
+        cancellation.await.unwrap();
+        assert!(!task.is_finished(), "the supervisor must own drain after cancellation");
+        release.send(()).unwrap();
+        task.await.unwrap();
+    }
+}
 
 impl super::ModelingSimulation {
     /// Start the authored simulation through the shared joined run and durable lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None, self.admission_deadline()?)
+        self.start_owned(None, self.admission_deadline()?, None)
+    }
+    /// Start with caller cancellation linked through pending admission and native drain.
+    pub fn start_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
+        let deadline = self.admission_deadline()?;
+        self.start_owned(None, cancel.deadline().map_or(deadline, |parent| deadline.min(parent)), Some(cancel.clone()))
     }
     pub(crate) async fn start_attempt(
         &self,
@@ -454,7 +496,7 @@ impl super::ModelingSimulation {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline)
+                self.start_owned(Some(attempt), deadline, None)
             })
             .await
     }
@@ -467,6 +509,7 @@ impl super::ModelingSimulation {
         &self,
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
+        parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
@@ -479,6 +522,7 @@ impl super::ModelingSimulation {
                 .unwrap_or(run_id);
             let progress = progress_for(256, durable.as_ref());
             let cancel = FlightCancellation::default();
+            let forwarding = cancel.clone();
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             let dispatch_source = self.clone();
             let mut dispatch = Some(move || dispatch_source.submit(run_id, submission));
@@ -497,7 +541,7 @@ impl super::ModelingSimulation {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let prepared = self.clone();
-            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
                 let request = RunRequest::Simulation(Box::new(prepared.clone()));
                 let stop = cancel.clone();
                 let registered = async {
@@ -569,7 +613,7 @@ impl super::ModelingSimulation {
                     .finished(durable, cancelled)
                     .await;
                 sender.send_replace(Some(Arc::new(result)));
-            }));
+            }, move || forwarding.cancel(), parent)));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -586,7 +630,7 @@ impl super::ModelingSimulation {
 impl super::ShootingProblem {
     /// Start under the runtime's shared resource, cancellation and joined run lifecycle.
     pub fn start(self: &Arc<Self>) -> Result<RunHandle, WorkflowError> {
-        self.start_requested(None)
+        self.start_requested(None, None)
     }
     /// Admit an explicit original-coordinate initial vector before native dispatch.
     pub fn start_with_initial(
@@ -598,11 +642,20 @@ impl super::ShootingProblem {
                 "shooting initial coordinate extent or nonfinite value",
             ));
         }
-        self.start_requested(Some(initial))
+        self.start_requested(Some(initial), None)
+    }
+    /// Preserve caller cancellation through the existing shooting supervisor.
+    pub fn start_replay_with_cancel(self: &Arc<Self>, initial: Option<Vec<f64>>, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
+        if initial.as_ref().is_some_and(|initial| initial.len() != self.initial_extent() || initial.iter().any(|v| !v.is_finite())) {
+            return Err(contract("shooting initial coordinate extent or nonfinite value"));
+        }
+        self.start_requested(initial, Some(cancel.clone()))
     }
     fn start_requested(
         self: &Arc<Self>,
         initial: Option<Vec<f64>>,
+        parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
@@ -611,9 +664,11 @@ impl super::ShootingProblem {
             let mut durable = attempt_for(&runtime, None)?;
             let progress = progress_for(256, durable.as_ref());
             let cancel = FlightCancellation::default();
+            let forwarding = cancel.clone();
             let deadline = std::time::Instant::now()
                 .checked_add(self.solver.controls.time_limit)
                 .ok_or_else(|| contract("submitted task deadline extent"))?;
+            let deadline = parent.as_ref().and_then(crate::CancelSource::deadline).map_or(deadline, |outer| deadline.min(outer));
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             let prepared = self.clone();
             let mut declared_profile = self.solver.clone();
@@ -662,7 +717,7 @@ impl super::ShootingProblem {
                 problem: self.clone(),
                 initial,
             };
-            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
                 let stop = cancel.clone();
                 let registered = async {
                     if let Some(attempt) = durable.as_mut() {
@@ -730,7 +785,7 @@ impl super::ShootingProblem {
                     .finished(durable, cancelled)
                     .await;
                 sender.send_replace(Some(Arc::new(result)));
-            }));
+            }, move || forwarding.cancel(), parent)));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -746,7 +801,13 @@ impl super::ShootingProblem {
 impl super::PreparedFit {
     /// Start one native fitting attempt under the existing joined job lifecycle.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.start_owned(None, self.admission_deadline()?)
+        self.start_owned(None, self.admission_deadline()?, None)
+    }
+    /// Start with caller cancellation linked through pending admission and native drain.
+    pub fn start_with_cancel(&self, cancel: &crate::CancelSource) -> Result<RunHandle, WorkflowError> {
+        if cancel.token().is_cancelled() { return Err(MathRuntimeError::Cancelled.into()); }
+        let deadline = self.admission_deadline()?;
+        self.start_owned(None, cancel.deadline().map_or(deadline, |parent| deadline.min(parent)), Some(cancel.clone()))
     }
     pub(crate) async fn start_attempt(
         &self,
@@ -770,7 +831,7 @@ impl super::PreparedFit {
                         return Err(WorkflowError::Shared(error));
                     }
                 };
-                self.start_owned(Some(attempt), deadline)
+                self.start_owned(Some(attempt), deadline, None)
             })
             .await
     }
@@ -783,6 +844,7 @@ impl super::PreparedFit {
         &self,
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
+        parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.problem.runtime.admit_activity()?;
         activity.sync_scope(|| {
@@ -796,6 +858,7 @@ impl super::PreparedFit {
                 .unwrap_or(run_id);
             let progress = progress_for(256, durable.as_ref());
             let cancel = FlightCancellation::default();
+            let forwarding = cancel.clone();
             let (submission, signal) = submission(&cancel, &progress, durable.is_some(), deadline);
             // Estimation admits only its own demand. Profile teams acquire their next
             // stage after the estimate reaches the quiescent phase boundary.
@@ -839,7 +902,7 @@ impl super::PreparedFit {
                 .map(|attempt| attempt.canonical_keys(run_id));
             let (sender, receiver) = tokio::sync::watch::channel(None);
             let request = RunRequest::Fit(Box::new(self.clone()));
-            tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
+            tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
                 let stop = cancel.clone();
                 let registered = async {
                     if let Some(attempt) = durable.as_mut() {
@@ -907,7 +970,7 @@ impl super::PreparedFit {
                     .finished(durable, cancelled)
                     .await;
                 sender.send_replace(Some(Arc::new(result)));
-            }));
+            }, move || forwarding.cancel(), parent)));
             Ok(RunHandle {
                 lease,
                 receiver,
@@ -1001,7 +1064,7 @@ impl super::ModelingSolvePreparation {
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self) -> Result<RunHandle, WorkflowError> {
-        self.source.runtime.launch(vec![self.clone()], false, None)
+        self.source.runtime.launch(vec![self.clone()], false, None, None)
     }
 }
 
@@ -1020,7 +1083,7 @@ impl Runtime {
                 if cancel.token().is_cancelled() {
                     return Err(MathRuntimeError::Cancelled.into());
                 }
-                self.launch(steps, continue_independent, None)
+                self.launch(steps, continue_independent, None, Some(cancel.clone()))
             })
             .await
     }
@@ -1046,7 +1109,7 @@ impl Runtime {
                     let _ = attempt.abandon(&error).await;
                     return Err(WorkflowError::Shared(error));
                 }
-                self.launch(steps, false, Some(attempt))
+                self.launch(steps, false, Some(attempt), None)
             })
             .await
     }
@@ -1095,6 +1158,7 @@ impl Runtime {
         steps: Vec<super::ModelingSolvePreparation>,
         continue_independent: bool,
         attempt: Option<DurableAttempt>,
+        parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
         let activity = self.admit_activity()?;
         activity.sync_scope(|| {
@@ -1109,7 +1173,8 @@ impl Runtime {
             None => Some(super::staged::Staged::open(self, Some(progress.clone()))?),
             Some(_) => None,
         };
-        let cancel = crate::CancelSource::new();
+        let cancel = crate::CancelSource::new().with_deadline(parent.as_ref().and_then(crate::CancelSource::deadline));
+        let forwarding = cancel.clone();
         let checks = cancel.clone();
         let (sender, receiver) = tokio::sync::watch::channel(None);
         let runtime = self.clone();
@@ -1123,7 +1188,7 @@ impl Runtime {
             .as_ref()
             .map(|attempt| attempt.canonical_keys(run_id));
         let shared = progress.clone();
-        tokio::spawn(crate::workflow::inherit_runtime_activity(async move {
+        tokio::spawn(crate::workflow::inherit_runtime_activity(supervised_with_cancel(async move {
             let request = RunRequest::Modeling(steps.clone());
             let stop = cancel.clone();
             let session = async {
@@ -1131,7 +1196,8 @@ impl Runtime {
                     Some(staged) => Ok(staged),
                     None => tokio::select! {
                         staged=super::staged::Staged::open_queued(&runtime,Some(shared), &cancel,
-                            steps.iter().filter_map(|step| step.solve.task_scope().and_then(|scope| scope.deadline())).min())=>staged,
+                            steps.iter().filter_map(|step| step.solve.task_scope().and_then(|scope| scope.deadline()))
+                                .chain(cancel.deadline()).min())=>staged,
                         ()=cancel.cancelled()=>Err(MathRuntimeError::Cancelled.into()),
                     },
                 }
@@ -1207,7 +1273,7 @@ impl Runtime {
             result.modeling_failure = modeling_failure;
             let result = result.finished(durable, cancelled).await;
             sender.send_replace(Some(Arc::new(result)));
-        }));
+        }, move || forwarding.cancel(), parent)));
         Ok(RunHandle::staged(
             checks,
             receiver,

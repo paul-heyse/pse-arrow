@@ -17,6 +17,7 @@ from pse._build import (
     _NativeProgressStream,
     _NativeRunHandle,
     _NativeRunResult,
+    _NativeScientificReplay,
     _NativeStart,
     _NativeStoredResult,
     _NativeStudyHandle,
@@ -24,16 +25,22 @@ from pse._build import (
 from pse._inspection import TableStream
 from pse.contracts.documents import (
     AnalysisControls,
+    AdviceMetric,
+    AdviceObservation,
+    AttemptSummary,
     Completion,
     CompositionRequest,
     EligibilityDocument,
     FitProfileDocument,
+    FrozenAdvice,
     NumericalStrategyDocument,
     PointStatus,
     ProgressCoverage,
     ProgressEventDocument,
     RouteDocument,
+    ReplayDocument,
     RuntimeAccuracyGoalAssessmentsRow,
+    SolverAdviceInputs,
     StudyCancel,
     StudyResults,
     StudyStatus,
@@ -109,6 +116,19 @@ class PreparedOperation:
     """Immutable authored solve, simulation or fitting request."""
 
     _handle: _NativePreparedOperation
+
+    @property
+    def advice_inputs(self) -> SolverAdviceInputs | None:
+        """Actual comparable cohort and baseline, when original equivalence is known."""
+        return self._handle.advice_inputs
+
+    def freeze_advice(
+        self, metric: AdviceMetric, observations: Sequence[AdviceObservation]
+    ) -> FrozenAdvice:
+        """Freeze descriptive support with Rust's conservative fallback rules."""
+        return self._handle.freeze_advice(
+            codec.encode_json(metric), codec.encode_json(observations)
+        )
 
     def dependency_analysis(self, controls: AnalysisControls) -> Analysis:
         """Persist original incidence and execution dependencies before dispatch."""
@@ -190,6 +210,10 @@ class RunResult:
 
     _handle: _NativeRunResult
 
+    def replay(self) -> "ScientificReplay":
+        """Retain exact inputs and observed decisions independently of mutable history."""
+        return ScientificReplay(self._handle.replay())
+
     def available_start(self, step: int | None = None) -> _NativeStart | None:
         """Return available numerical seed data and its provenance."""
         return self._handle.available_start(step)
@@ -226,6 +250,11 @@ class RunResult:
         return codec.decode_json(self._handle.completion(), Completion)
 
     @property
+    def attempt_summary(self) -> AttemptSummary:
+        """Bounded retained observations and decisions; performs no numerical work."""
+        return self._handle.attempt_summary()
+
+    @property
     def accuracy_goals(
         self,
     ) -> tuple[RuntimeAccuracyGoalAssessmentsRow, ...]:
@@ -251,6 +280,25 @@ class RunResult:
     def table(self, name: str) -> TableStream:
         """Return a one-consumption stream owning its final Arrow buffers."""
         return TableStream(self._handle.table(name))
+
+
+@attrs.frozen
+class ScientificReplay:
+    """Immutable input export and tolerant rerun through the original supervisor."""
+
+    _handle: _NativeScientificReplay
+
+    def document(self, *, bytes: int = 16 * 1024 * 1024) -> ReplayDocument:
+        """Export complete inputs and observed coverage within the given allocation."""
+        return self._handle.document(bytes)
+
+    def rerun(self) -> "RunHandle":
+        """Start a new execution with its own identity and allowance."""
+        return RunHandle(self._handle.rerun())
+
+    def native_continuation(self) -> "RunHandle":
+        """Request an actual library checkpoint; currently refuses explicitly."""
+        return RunHandle(self._handle.native_continuation())
 
 
 @attrs.frozen
