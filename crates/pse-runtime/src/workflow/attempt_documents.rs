@@ -281,8 +281,8 @@ fn native_copy_extent(native: &pse_backend_native::solve::SolveReport) -> Option
     if let Some(start) = &native.start_receipt {
         extent = extent.checked_add(start.transformations.len().checked_mul(size_of::<pse_backend_native::solve::SeedTransformation>())?)?;
         for transform in &start.transformations {
-            if let pse_backend_native::solve::SeedTransformation::Presolve { passes, .. } = transform {
-                extent = extent.checked_add(passes.len().checked_mul(size_of::<pse_backend_native::presolve::Pass>())?)?;
+            if let pse_backend_native::solve::SeedTransformation::Presolve(value) = transform {
+                extent = extent.checked_add(value.passes.len().checked_mul(size_of::<pse_backend_native::presolve::Pass>())?)?;
             }
         }
     }

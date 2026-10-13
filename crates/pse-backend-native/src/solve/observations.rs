@@ -147,6 +147,7 @@ pub enum RawMapRole {
 }
 /// Typed failure class; the complete cause remains with the report's callback failure owner.
 #[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
 pub enum RawMapFailure {
     /// Recoverable trial refusal in the scientific producer.
     Trial,

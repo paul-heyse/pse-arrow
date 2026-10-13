@@ -449,6 +449,8 @@ settings, requested starts and actual decision/attempt evidence. Reconstruction 
 the matching provider/build premises. A tolerant rerun creates a new execution and fresh
 admission/clock state through the original workflow supervisor; caller cancellation stays
 connected through drain. An exported seed is not a native continuation checkpoint.
+A full-output horizon retains its original horizon input separately from the materialized
+solve prefix, so cancellation before the first step still permits faithful reconstruction.
 
 `ModelingTrajectory` is a clone-shared immutable completion snapshot. Read-only accessors
 expose the native outcome and retained checks; `accepted()` derives the composed permission.

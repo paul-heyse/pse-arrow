@@ -419,6 +419,7 @@ impl Controls {
 /// Raw native termination and the adapter's conservative interpretation.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "NativeTerminationRecord")]
 pub struct NativeTermination {
     /// Unmodified native numeric status, or `i64::MIN` when a contained Rust
     /// unwind prevented the native algorithm from returning any status.
@@ -1470,21 +1471,25 @@ pub struct WorkingSetTransfer {
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
 #[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
 pub enum SeedTransformation {
     /// Model coordinate normalization, by its identity.
     Normalization(ContentHash),
     /// Library presolve: its transformation identity and the passes it applied.
-    Presolve {
-        /// Native coordinate identity of the projection.
-        transformation: ContentHash,
-        /// Passes the library actually installed.
-        passes: Vec<crate::presolve::Pass>,
-    },
+    Presolve(PresolveSeedTransformation),
     /// An active-set working set checked against the native transformation.
     WorkingSet(WorkingSetTransfer),
     /// The interior-point restart the adapter applied to a primal-dual seed.
     InteriorRestart(AppliedRestart),
+}
+/// Actual presolve coordinate transform submitted with a seed.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PresolveSeedTransformation {
+    /// Native coordinate identity of the projection.
+    pub transformation: ContentHash,
+    /// Passes the library actually installed.
+    pub passes: Vec<crate::presolve::Pass>,
 }
 impl SeedTransformation {
     /// The path a seed takes: normalization, then presolve when the library applied a pass.
@@ -1501,10 +1506,10 @@ impl SeedTransformation {
                 .map(|(pass, _)| *pass)
                 .collect();
             if !passes.is_empty() {
-                path.push(Self::Presolve {
+                path.push(Self::Presolve(PresolveSeedTransformation {
                     transformation: report.transformation,
                     passes,
-                });
+                }));
             }
             if let Some(transfer) = report.working_set {
                 path.push(Self::WorkingSet(transfer));

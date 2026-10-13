@@ -422,10 +422,7 @@ impl SolveReport {
             extent.vector(&value.transformations)?;
             for transformation in &value.transformations {
                 match transformation {
-                    SeedTransformation::Presolve {
-                        transformation: _,
-                        passes,
-                    } => extent.vector(passes)?,
+                    SeedTransformation::Presolve(value) => extent.vector(&value.passes)?,
                     SeedTransformation::Normalization(_)
                     | SeedTransformation::WorkingSet(_)
                     | SeedTransformation::InteriorRestart(_) => {}

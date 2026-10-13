@@ -1467,7 +1467,7 @@ impl ReplayCaseConstructor {
 }
 /// Exact original horizon signal, preserving all trajectory value bits.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(tag = "kind", content = "value", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReplayHorizonSignal {
     /// Plant contract output.
     Measured(SemanticId),

@@ -1257,6 +1257,15 @@ requires genuine compatible compiler Second support, separately from First prepa
 
 Small pure governing preference/permission/transition functions live with pse-model strategy contracts and are consumed by native routing and the existing runtime walker. Adapters retain contextual capability, settings, representation and artifact meaning; scientific workflows retain their maps and original acceptance. Explicit profile/options and declared order constrain policy. Pending evidence, missing prepared products, incompatibility and placement remain distinct. Hard external/contract/infrastructure/resource/panic stops veto successors. Optional advice is frozen, reorders only permitted equivalent Auto choices, and falls back to baseline ties on absent/incompatible/partial comparisons. Native library-internal Auto options are not substitution permission.
 
+Current descriptive advice is bounded to complete matched observations for continuous,
+whole-problem convex optimization with established equivalent profiles. Supplied Original
+leaves must already be contextually Ready and match the original interpretation, physical
+acceptance, normalization, numerical policy, accuracy, output demand and runtime premises.
+Leaf profiles retain their exact options and local allowances; nested controllers, screened
+or inherited starts and historical execution scopes do not acquire equivalence by a hash
+match. The cohort binds the ordered actual inventory. Newly observed permitted recovery
+precedes historical preference; missing observations keep the declared baseline.
+
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
 > [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N5/N6/N8.
 

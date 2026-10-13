@@ -24,6 +24,7 @@ pub struct SubmittedStartRecord {
 /// No factor, actor, oracle, candidate or complete SolveReport is retained here.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+#[schemars(rename = "NativeAttemptRecord")]
 pub struct AttemptRecord {
     /// Actual executed adapter.
     pub backend: Backend,
@@ -141,8 +142,8 @@ impl Extent {
         if let Some(start) = &report.start_receipt {
             self.vector::<SeedTransformation>(start.transformations.capacity())?;
             for transform in &start.transformations {
-                if let SeedTransformation::Presolve { passes, .. } = transform {
-                    self.vector::<crate::presolve::Pass>(passes.capacity())?;
+                if let SeedTransformation::Presolve(value) = transform {
+                    self.vector::<crate::presolve::Pass>(value.passes.capacity())?;
                 }
             }
             if let Some(sparse) = &start.sparse_seed { self.tree::<SemanticId, u64>(sparse.len())?; }
@@ -230,8 +231,8 @@ mod tests {
                     bounds: Some((vec![1., 2.], vec![3., 4.])), rows: Some(vec![f64::INFINITY]),
                     barrier: Some(0.25), working: None } }),
             sparse_seed: Some(BTreeMap::from([(SemanticId::NIL, -0.)])),
-            transformations: vec![SeedTransformation::Presolve { transformation: ContentHash::from_bytes([7;32]),
-                passes: vec![crate::presolve::Pass::Fbbt] }], submitted: false });
+            transformations: vec![SeedTransformation::Presolve(PresolveSeedTransformation { transformation: ContentHash::from_bytes([7;32]),
+                passes: vec![crate::presolve::Pass::Fbbt] })], submitted: false });
         report.evidence.work.iterations = None;
         report.evidence.work.evaluations = Some(7);
         let record = AttemptRecord::capture(&report, Arc::new(())).unwrap();

@@ -68,7 +68,7 @@ pub struct AdviceObservation {
 }
 /// Descriptive support, not a causal estimator or a speed claim.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AdviceSupport {
     /// Every declared candidate has a complete metric for every matched exposure.
     CompleteMatched {
