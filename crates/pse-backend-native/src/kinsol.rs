@@ -1469,13 +1469,14 @@ impl Session {
         }
         let residual_calls = self.callback.state.counts
             .get(&crate::callback::CallbackKey::Named("residual")).copied().unwrap_or(0);
-        for (name, get, current) in [
-            ("KINGetFuncNorm", ffi::KINGetFuncNorm as unsafe extern "C" fn(*mut c_void, *mut f64) -> i32,
+        let real_getters: [(&str, unsafe extern "C" fn(*mut c_void, *mut f64) -> i32, bool); 2] = [
+            ("KINGetFuncNorm", ffi::KINGetFuncNorm,
                 code == ffi::KIN_INITIAL_GUESS_OK || iterations.is_some_and(|n|
                     n > 0 && !(method.strategy == Strategy::FixedPoint && n == 1 && code == ffi::KIN_SYSFUNC_FAIL))),
             ("KINGetStepLength", ffi::KINGetStepLength,
                 matches!(method.strategy, Strategy::Newton | Strategy::LineSearch) && residual_calls > 1),
-        ] {
+        ];
+        for (name, get, current) in real_getters {
             let mut value = 0.;
             // SAFETY: current-phase statistics query on this session's live memory.
             let observed = if current && unsafe { get(self.mem, &mut value) } == 0 { Metric::Real(value) }
