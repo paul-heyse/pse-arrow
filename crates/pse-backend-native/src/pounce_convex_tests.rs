@@ -121,7 +121,7 @@ fn pounce_convex_qp_matches_highs() {
 /// The steps of one batch (Plan 22 N5): four quadratic programs differing in their row
 /// bound run as one parallel batch on two threads, and each report equals the program's
 /// own single solve (declared tolerance 1e-7) and records the batch it ran in. A second
-/// batch of the same layout starts warm from the first batch's solutions.
+/// batch remains cold and retains no native state or numerical seed.
 #[test]
 fn pounce_convex_batch_matches_single_solves() {
     let snapshot = execution::Snapshot::observe(&execution::LINKED);
@@ -194,10 +194,11 @@ fn pounce_convex_batch_matches_single_solves() {
     let first = batch(&mut retained);
     let second = batch(&mut retained);
     assert_eq!(first.len(), 4);
-    for (k, ((single, cold), warm)) in singles.iter().zip(&first).zip(&second).enumerate() {
-        let (cold, warm) = (cold.as_ref().unwrap(), warm.as_ref().unwrap());
+    assert!(retained.is_empty());
+    for (k, ((single, cold), repeated)) in singles.iter().zip(&first).zip(&second).enumerate() {
+        let (cold, repeated) = (cold.as_ref().unwrap(), repeated.as_ref().unwrap());
         let s = solved(single);
-        for r in [cold, warm] {
+        for r in [cold, repeated] {
             let c = solved(r);
             for (a, b) in s.primal.iter().zip(&c.primal) {
                 near(*a, *b, 1e-7);
@@ -206,7 +207,70 @@ fn pounce_convex_batch_matches_single_solves() {
             assert_eq!(r.metrics["batch"], Metric::Integer(4), "{k}");
         }
         assert_eq!(cold.metrics["warm_started"], Metric::Bool(false), "{k}");
-        assert_eq!(warm.metrics["warm_started"], Metric::Bool(true), "{k}");
+        assert_eq!(repeated.metrics["warm_started"], Metric::Bool(false), "{k}");
+        assert_eq!(cold.metrics["iterations"], repeated.metrics["iterations"], "{k}");
+    }
+}
+
+#[test]
+fn pounce_convex_changed_qps_stay_cold_and_required_reuse_refuses() {
+    let snapshot = execution::Snapshot::observe(&execution::LINKED);
+    let settings = pounce_convex();
+    let accuracy = ResolvedAccuracy::verification();
+    let solve = |retained: &mut Retained, rhs, policy, threads, warm: Option<&WarmStart>| {
+        let (p, proof) = qp(rhs);
+        let t = budgets(&p, 1e-7);
+        let n = scaled(&p);
+        let mut original = Affine(&p);
+        let controls = Controls { reuse: policy, threads, ..Controls::default() };
+        execution::coefficients(Step {
+            snapshot: &snapshot,
+            structure: None,
+            adapter: execution::adapter(Backend::PounceConvex),
+            settings: &settings,
+            controls: &controls,
+            accuracy: &accuracy,
+            execution: Execution::new(Arc::new(AtomicBool::new(false)), &controls),
+            tolerances: &t,
+            normalization: &n,
+            compatibility: stamp(Backend::PounceConvex),
+            warm,
+        }, retained, Coefficients {
+            lowered: None,
+            problem: &p,
+            certificate: Some(&proof),
+            row_constants: &[0.0, 0.0],
+            row_bounds: p.bounds.clone(),
+            original: &mut original,
+        })
+    };
+    for threads in [1, 2] {
+        let mut retained = Retained::default();
+        for rhs in [1.2, 2.0, 1.2] {
+            let current = solve(&mut retained, rhs, ReusePolicy::AllowRebuild, threads, None).unwrap();
+            let fresh = solve(&mut Retained::default(), rhs, ReusePolicy::Fresh, threads, None).unwrap();
+            for r in [&current, &fresh] {
+                solved(r);
+                assert_eq!(r.metrics["warm_started"], Metric::Bool(false));
+                assert!(!r.evidence.reused_native_state);
+            }
+            let (c, f) = (solved(&current), solved(&fresh));
+            for (a, b) in c.primal.iter().zip(&f.primal) { near(*a, *b, 1e-7); }
+            near(c.objective.unwrap(), f.objective.unwrap(), 1e-7);
+            assert_eq!(current.metrics["iterations"], fresh.metrics["iterations"]);
+            assert!(retained.is_empty(), "no seed-only session may survive a solve");
+            assert!(matches!(solve(&mut retained, rhs, ReusePolicy::RequireReuse, threads, None),
+                Err(crate::ProblemError::Reuse { backend: Backend::PounceConvex,
+                    refusal: crate::ReuseRefusal::Structure })));
+        }
+        assert!(matches!(solve(&mut Retained::default(), 2.0, ReusePolicy::RequireReuse, threads, None),
+            Err(crate::ProblemError::Reuse { backend: Backend::PounceConvex,
+                refusal: crate::ReuseRefusal::Structure })));
+        let seed = WarmStart { origin: None, compatibility: stamp(Backend::PounceConvex),
+            payload: WarmPayload::Root(vec![0.5, 1.5]) };
+        assert!(matches!(solve(&mut retained, 2.0, ReusePolicy::AllowRebuild, threads, Some(&seed)),
+            Err(crate::ProblemError::Unsupported(_))));
+        assert!(retained.is_empty());
     }
 }
 

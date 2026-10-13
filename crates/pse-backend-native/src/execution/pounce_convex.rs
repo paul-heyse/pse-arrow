@@ -14,10 +14,10 @@
 //! generalized power cone has no POUNCE counterpart and is refused.
 //!
 //! **Batch.** A batch of programs whose cones are all zero or nonnegative (linear and
-//! quadratic programs) runs through `solve_qp_batch_parallel_warm`, each instance factored
+//! quadratic programs) runs through `solve_qp_batch_parallel`, each instance factored
 //! serially on one of the admitted threads; any other batch solves its instances in
-//! parallel through `solve_socp_ipm_warm`. Each report is built and later qualified on its
-//! own. The previous solutions of the same layout warm-start the next call.
+//! parallel through `solve_socp_ipm`. Each report is built and later qualified on its
+//! own. Every independent member starts cold; no native state or numerical seed is retained.
 //!
 //! **Cancellation.** POUNCE-convex exposes a solve-wide deadline and no interrupt: a stop
 //! request is honoured before a solve or batch starts, and a running solve stops at the
@@ -54,7 +54,7 @@ static CAPABILITY: Capability = Capability {
     lexicographic: &[],
     batch: true,
     sensitivities: false,
-    reuse: "the previous solutions of the same layout warm-start the interior point; no native state is retained",
+    reuse: "cold independent solves and batches; no native state or numerical seeds are retained; required reuse is unsupported",
     cancellation: "solve-wide deadline only: a stop request is honoured before a solve or batch starts; a running solve stops at the deadline, overshooting by at most one factorization",
     diagnostics: "native status, iterations and objective; primal, dual and gap residuals of the cone form",
 };
@@ -66,6 +66,15 @@ fn admit_cones(cones: &[crate::conic::Cone]) -> Result<(), ProblemError> {
         return Err(ProblemError::Unsupported(
             "POUNCE-convex has no generalized power cone".into(),
         ));
+    }
+    Ok(())
+}
+fn admit_reuse(controls: &Controls) -> Result<(), ProblemError> {
+    if controls.reuse == crate::solve::ReusePolicy::RequireReuse {
+        return Err(ProblemError::Reuse {
+            backend: Backend::PounceConvex,
+            refusal: crate::ReuseRefusal::Structure,
+        });
     }
     Ok(())
 }
@@ -89,9 +98,10 @@ impl BackendExecution for PounceConvex {
     fn admit_settings(
         &self,
         settings: &BackendSettings,
-        _controls: &Controls,
+        controls: &Controls,
         _snapshot: &super::Snapshot,
     ) -> Result<(), ProblemError> {
+        admit_reuse(controls)?;
         match settings {
             BackendSettings::Default | BackendSettings::PounceConvex(_) => Ok(()),
             _ => Err(super::foreign(Backend::PounceConvex)),
@@ -183,13 +193,13 @@ mod native {
     };
     use pounce_rs::{
         convex::{
-            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, QpWarmStart, Triplet,
-            solve_qp_batch_parallel_warm, solve_socp_ipm_warm,
+            ConeSpec, QpOptions, QpProblem, QpSolution, QpStatus, Triplet,
+            solve_qp_batch_parallel, solve_socp_ipm,
         },
         linsol::{FeralSolverInterface, SparseSymLinearSolverInterface},
     };
     use rayon::prelude::*;
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, num::NonZeroUsize};
 
     type Settings = crate::settings::pounce_convex::Settings;
 
@@ -208,30 +218,6 @@ mod native {
         /// Only zero and nonnegative cones: a quadratic program.
         quadratic: bool,
     }
-    /// The layout a warm start must match: coordinates, row and cone shapes.
-    #[derive(Clone, Debug, PartialEq)]
-    struct Layout {
-        coordinates: pse_ids::ContentHash,
-        n: usize,
-        rows: Vec<Target>,
-        specs: Vec<ConeSpec>,
-    }
-    /// The previous call's solutions, by position, as warm starts of the next.
-    #[derive(Debug, Default)]
-    struct Session {
-        warm: Vec<Option<(Layout, QpWarmStart)>>,
-    }
-    /// No warm start: the dimension mismatch makes POUNCE start the instance cold.
-    fn cold() -> QpWarmStart {
-        QpWarmStart {
-            x: vec![],
-            y: vec![],
-            z: vec![],
-            z_lb: vec![],
-            z_ub: vec![],
-        }
-    }
-
     /// Rows of the pse PSD triangle (upper, column by column) in POUNCE's order (lower,
     /// column by column): entry `q` is the pse row of POUNCE row `q`. Both scale
     /// off-diagonals by `√2`.
@@ -353,7 +339,7 @@ mod native {
         settings: Settings,
         form: Form,
         options: QpOptions,
-        layout: Layout,
+        pool_width: NonZeroUsize,
     }
 
     fn admit(input: Input<'_>) -> Result<Member<'_>, ProblemError> {
@@ -370,6 +356,14 @@ mod native {
             problem.contract.rows.len(),
         )?;
         input.controls.validate()?;
+        let pool_width = NonZeroUsize::new(input.controls.threads).ok_or_else(||
+            ProblemError::Contract("POUNCE-convex factor pool width must be positive".into()))?;
+        super::admit_reuse(input.controls)?;
+        if input.warm.is_some() {
+            return Err(ProblemError::Unsupported(
+                "POUNCE-convex does not accept numerical start seeds".into(),
+            ));
+        }
         let settings = match input.settings {
             BackendSettings::Default => Settings::default(),
             BackendSettings::PounceConvex(settings) => settings.clone(),
@@ -403,25 +397,18 @@ mod native {
             crossover: settings.crossover,
             ..QpOptions::default()
         };
-        let layout = Layout {
-            coordinates: input.compatibility.layout,
-            n: form.problem.n,
-            rows: form.rows.clone(),
-            specs: form.specs.clone(),
-        };
         Ok(Member {
             input,
             problem,
             settings,
             form,
             options,
-            layout,
+            pool_width,
         })
     }
 
     /// Solve every input: a stopped member reports its stop, the others run as one
-    /// parallel batch, each warm-started from the previous call's solution at its position
-    /// when the layouts agree.
+    /// parallel batch. Independent members always start cold.
     pub(super) fn solve(
         retained: &mut Retained,
         inputs: Vec<Input<'_>>,
@@ -445,69 +432,20 @@ mod native {
                 }
             }
         }
-        let Some(first) = members.iter().flatten().next() else {
+        if members.iter().all(Option::is_none) {
             return results.into_iter().flatten().collect();
-        };
-        let policy = first.input.controls.reuse;
-        let session = match retained.session(
-            Backend::PounceConvex,
-            policy,
-            |_: &mut Session| Ok(crate::execution::SessionUpdate::Compatible),
-            || Ok(Session::default()),
-        ) {
-            Ok((session, _)) => session,
-            Err(error) => {
-                let error = std::sync::Arc::new(error);
-                return (0..count)
-                    .map(|i| {
-                        results[i].take().unwrap_or_else(|| {
-                            Err(ProblemError::Internal(format!(
-                                "POUNCE-convex session: {error}"
-                            )))
-                        })
-                    })
-                    .collect();
-            }
-        };
-        let warm: Vec<QpWarmStart> = members
-            .iter()
-            .enumerate()
-            .map(|(i, member)| {
-                member
-                    .as_ref()
-                    .and_then(|m| {
-                        session
-                            .warm
-                            .get(i)
-                            .and_then(Option::as_ref)
-                            .filter(|(layout, _)| *layout == m.layout)
-                            .map(|(_, w)| w.clone())
-                    })
-                    .unwrap_or_else(cold)
-            })
-            .collect();
+        }
+        // This profile has no neutral native allocation to retain. Teardown of a
+        // predecessor precedes the independent cold batch and its backend factories.
+        retained.clear();
         let active: Vec<usize> = (0..count).filter(|i| members[*i].is_some()).collect();
-        let solutions = solve_members(&members, &warm, &active);
-        session.warm = (0..count)
-            .map(|i| {
-                let solved = active
-                    .iter()
-                    .position(|a| *a == i)
-                    .and_then(|k| solutions[k].as_ref());
-                match (&members[i], solved) {
-                    (Some(m), Some(solution)) if solution.x.iter().all(|v| v.is_finite()) => {
-                        Some((m.layout.clone(), QpWarmStart::from_solution(solution)))
-                    }
-                    _ => None,
-                }
-            })
-            .collect();
+        let solutions = solve_members(&members, &active);
         let batch = active.len();
         for (k, i) in active.into_iter().enumerate() {
             let (Some(member), Some(solution)) = (&members[i], &solutions[k]) else {
                 continue;
             };
-            results[i] = Some(report(member, solution, batch, !warm[i].x.is_empty()));
+            results[i] = Some(report(member, solution, batch));
         }
         results
             .into_iter()
@@ -522,21 +460,20 @@ mod native {
     }
 
     /// Solve the active members in parallel on the admitted pool: quadratic programs with
-    /// one options set through the library's warm batch, the others instance by instance.
+    /// one options set through the library's cold batch, the others instance by instance.
     /// A single member factors on the worker's threads; a batch factors each instance
     /// serially, its parallelism across instances.
     fn solve_members(
         members: &[Option<Member<'_>>],
-        warm: &[QpWarmStart],
         active: &[usize],
     ) -> Vec<Option<QpSolution>> {
         struct Job<'a> {
             problem: &'a QpProblem,
             specs: &'a [ConeSpec],
             quadratic: bool,
-            warm: &'a QpWarmStart,
             options: &'a QpOptions,
             linear: crate::settings::pounce::LinearSettings,
+            pool_width: NonZeroUsize,
         }
         let serial = active.len() > 1;
         let jobs: Vec<Job<'_>> = active
@@ -550,17 +487,17 @@ mod native {
                         problem: &m.form.problem,
                         specs: &m.form.specs,
                         quadratic: m.form.quadratic,
-                        warm: &warm[*i],
                         options: &m.options,
                         linear,
+                        pool_width: if serial { NonZeroUsize::MIN } else { m.pool_width },
                     }
                 })
             })
             .collect();
-        let backend = |linear: &crate::settings::pounce::LinearSettings| {
+        let backend = |linear: &crate::settings::pounce::LinearSettings, pool_width| {
             let linear = linear.clone();
             move || -> Box<dyn SparseSymLinearSolverInterface> {
-                Box::new(FeralSolverInterface::with_config(linear.clone()))
+                Box::new(FeralSolverInterface::with_config_and_pool_width(linear.clone(), pool_width))
             }
         };
         let uniform = jobs.first().is_some_and(|f| {
@@ -568,16 +505,15 @@ mod native {
                 j.quadratic
                     && format!("{:?}", j.options) == format!("{:?}", f.options)
                     && format!("{:?}", j.linear) == format!("{:?}", f.linear)
+                    && j.pool_width == f.pool_width
             })
         });
         if uniform && let Some(first) = jobs.first() {
             let problems: Vec<QpProblem> = jobs.iter().map(|j| j.problem.clone()).collect();
-            let warms: Vec<QpWarmStart> = jobs.iter().map(|j| j.warm.clone()).collect();
-            return solve_qp_batch_parallel_warm(
+            return solve_qp_batch_parallel(
                 &problems,
-                &warms,
                 first.options,
-                backend(&first.linear),
+                backend(&first.linear, first.pool_width),
             )
             .into_iter()
             .map(Some)
@@ -585,12 +521,11 @@ mod native {
         }
         jobs.par_iter()
             .map(|j| {
-                Some(solve_socp_ipm_warm(
+                Some(solve_socp_ipm(
                     j.problem,
                     j.specs,
-                    j.warm,
                     j.options,
-                    backend(&j.linear),
+                    backend(&j.linear, j.pool_width),
                 ))
             })
             .collect()
@@ -650,7 +585,6 @@ mod native {
         member: &Member<'_>,
         solution: &QpSolution,
         batch: usize,
-        warm: bool,
     ) -> Result<SolveReport, ProblemError> {
         let p = member.problem;
         let execution = &member.input.execution;
@@ -677,7 +611,7 @@ mod native {
                 "batch".into(),
                 Metric::Integer(i64::try_from(batch).unwrap_or(i64::MAX)),
             ),
-            ("warm_started".into(), Metric::Bool(warm)),
+            ("warm_started".into(), Metric::Bool(false)),
         ]);
         execution.progress.push(Event {
             phase: "pounce_convex.solve".into(),
