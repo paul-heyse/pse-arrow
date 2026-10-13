@@ -1916,7 +1916,11 @@ impl PreparedSolve {
             if rung.original_identity()? != original {
                 return Err(ProblemError::Contract("strategy rung must preserve the original binding, bounds, objective and frozen accuracy".into()));
             }
-            if rung.threads() != self.threads() {
+            #[cfg(feature = "solver-kinsol")]
+            let independently_admitted_block_team = matches!(rung, PreparedRung::Blocks(_));
+            #[cfg(not(feature = "solver-kinsol"))]
+            let independently_admitted_block_team = false;
+            if !independently_admitted_block_team && rung.threads() != self.threads() {
                 return Err(ProblemError::Contract(
                     "composed native profiles must use the task's admitted thread extent".into(),
                 ));

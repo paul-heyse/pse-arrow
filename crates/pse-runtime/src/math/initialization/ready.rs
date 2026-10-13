@@ -51,6 +51,16 @@ impl MathService {
                 while done.iter().any(|done| !done) {
                     if cancel.token().is_cancelled() || scope.check().is_err() { completed = false; break; }
                     let wave = ready_wave(prepared.boundaries(), &done, profile.solver.block_workers)?;
+                    let effective = wave.iter().map(|&index| {
+                        let native::routing::Route::Native(backend) = strategies[index] else {
+                            return Err(native::ProblemError::Contract("ready block requires native team".into()));
+                        };
+                        Ok((backend, profile.solver.block_profile(prepared.blocks[index].boundary.id)?.controls))
+                    }).collect::<Result<Vec<_>, native::ProblemError>>()?;
+                    // Complete-team capacity refusal precedes preparation/session dispatch.
+                    // Each session then acquires its own actual team under shared admission.
+                    let demand = BlockWaveDemand::new(effective.into_iter(), &service.policy)?;
+                    demand.admit(service.cores)?;
                     let allowance = remaining_iterations / u32::try_from(wave.len()).map_err(|_| MathRuntimeError::Limit("ready wave extent"))?;
                     if allowance == 0 { completed = false; break; }
                     let mut ready = Vec::with_capacity(wave.len());

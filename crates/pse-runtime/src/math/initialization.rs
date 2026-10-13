@@ -100,8 +100,7 @@ impl PreparedInitialization {
         {
             return Err(native::ProblemError::Contract("initialization uses declared guesses or previous accepted stages; blocks cannot require native reuse".into()).into());
         }
-        if solver.controls.threads != 1
-            || profile.stages.is_empty()
+        if profile.stages.is_empty()
             || profile
                 .stages
                 .len()
@@ -183,6 +182,40 @@ pub(super) fn ready_wave<'a>(
         return Err(native::ProblemError::Contract("incomplete or cyclic block dependency witness".into()));
     }
     Ok(wave)
+}
+/// Complete native and owner-thread demand of one genuinely independent ready wave.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct BlockWaveDemand {
+    pub(super) threads: usize,
+    pub(super) foreign: usize,
+    pub(super) stacks: usize,
+}
+impl BlockWaveDemand {
+    pub(super) fn new(
+        profiles: impl Iterator<Item = (Backend, Controls)>,
+        policy: &super::MathPolicy,
+    ) -> Result<Self, native::ProblemError> {
+        let mut demand = Self::default();
+        let mut owners = 0usize;
+        for (backend, controls) in profiles {
+            controls.validate()?;
+            owners = owners.checked_add(1).ok_or_else(|| native::ProblemError::memory("block owner extent"))?;
+            demand.threads = demand.threads.checked_add(controls.threads).ok_or_else(|| native::ProblemError::memory("block native team extent"))?;
+            demand.foreign = demand.foreign.checked_add(policy.foreign_allowance(&controls)).ok_or_else(|| native::ProblemError::memory("block foreign team extent"))?;
+            let stacks = execution::scope_stack_bytes(&[execution::adapter(backend)], controls.threads, policy.stack_bytes)?;
+            demand.stacks = demand.stacks.checked_add(stacks).ok_or_else(|| native::ProblemError::memory("block native stack extent"))?;
+        }
+        if owners > 1 {
+            demand.stacks = owners.checked_mul(policy.stack_bytes).and_then(|stacks| demand.stacks.checked_add(stacks)).ok_or_else(|| native::ProblemError::memory("block owner stack extent"))?;
+        }
+        Ok(demand)
+    }
+    pub(super) fn admit(&self, cores: usize) -> Result<(), MathRuntimeError> {
+        if self.threads == 0 || self.threads > cores || self.threads > u32::MAX as usize {
+            return Err(MathRuntimeError::Limit("complete ready native team capacity"));
+        }
+        Ok(())
+    }
 }
 pub(super) fn conditional_route(
     snapshot: &execution::Snapshot,
@@ -1235,7 +1268,7 @@ impl MathService {
         profile: InitializationProfile,
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
         let (strategies, numerics) = prepared.validate_profile(&values, &profile)?;
-        if profile.solver.block_workers > 1 {
+        if profile.solver.block_workers > 1 || profile.solver.controls.threads > 1 {
             return self.initialize_ready(prepared, values, providers, profile, strategies, numerics);
         }
         let controls = &profile.solver.controls;
@@ -2340,6 +2373,23 @@ mod tests {
         drop(result);
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+    #[test]
+    fn mixed_ready_native_profiles_admit_the_sum_of_complete_teams() {
+        let policy = super::super::MathPolicy { stack_bytes: 1024, foreign_bytes: 4096, ..Default::default() };
+        let profiles = || vec![
+            (Backend::Ipopt, Controls { threads: 4, foreign_bytes: Some(3000), ..Default::default() }),
+            (Backend::Ipopt, Controls { threads: 2, foreign_bytes: Some(2000), ..Default::default() }),
+        ];
+        let demand = BlockWaveDemand::new(profiles().into_iter(), &policy).unwrap();
+        assert_eq!(demand.threads, 6);
+        assert_eq!(demand.foreign, 5000);
+        assert_eq!(demand.stacks, 2048);
+        assert!(demand.admit(4).is_err(), "an impossible complete wave must refuse rather than silently serialize");
+        demand.admit(6).unwrap();
+        let one = BlockWaveDemand::new(profiles().into_iter().take(1), &policy).unwrap();
+        assert_eq!(one.threads, 4);
+        one.admit(4).unwrap();
     }
     #[test]
     fn ready_block_waves_obey_complete_dependency_inputs_and_canonical_capacity() {

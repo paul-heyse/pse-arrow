@@ -284,7 +284,7 @@ impl PreparedRung {
     pub(crate) fn threads(&self) -> usize {
         match self {
             #[cfg(feature = "solver-kinsol")]
-            Self::Blocks(p) => p.workers().max(p.original().profile.controls.threads),
+            Self::Blocks(p) => p.threads(),
             #[cfg(feature = "solver-kinsol")]
             Self::Causal(p) => p.original().threads(),
             Self::Surrogate(p) => p.threads(),

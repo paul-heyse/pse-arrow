@@ -15,6 +15,7 @@ pub struct PreparedBlocks {
     scope: ExecutionScope,
     backend: Backend,
     workers: usize,
+    threads: usize,
     backends: Vec<Backend>,
     foreign_bytes: usize,
     _owner: Arc<super::super::products::ProductOwner>,
@@ -38,6 +39,7 @@ impl PreparedBlocks {
     }
     /// Maximum admitted independent ready-block width.
     pub fn workers(&self) -> usize { self.workers }
+    pub(crate) fn threads(&self) -> usize { self.threads }
     /// Complete actual adapter inventory for the contextually resolved block profiles.
     pub fn backends(&self) -> &[Backend] { &self.backends }
     /// Effective profiles keyed by compiler identity, inspectable before execution.
@@ -343,13 +345,21 @@ impl MathService {
             key.hash(&step.preparation_identity()?);
             steps.push(step);
         }
-        let mut foreign: Vec<_> = steps.iter().map(|step| self.policy.foreign_allowance(&step.profile.controls)).collect();
-        foreign.sort_unstable_by(|a, b| b.cmp(a));
-        let native = foreign.into_iter().take(workers).try_fold(0usize, |total, bytes| total.checked_add(bytes))
-            .ok_or(MathRuntimeError::Limit("ready block foreign extent"))?;
-        let stacks = if workers > 1 { workers.checked_mul(self.policy.stack_bytes) } else { Some(0) }
-            .ok_or(MathRuntimeError::Limit("ready block stack extent"))?;
-        let foreign_bytes = native.checked_add(stacks).ok_or(MathRuntimeError::Limit("ready block resident extent"))?;
+        let mut done = vec![false; products.len()];
+        let mut threads = 0;
+        let mut foreign_bytes = 0;
+        while done.iter().any(|done| !done) {
+            let wave = super::super::initialization::ready_wave(products.iter().map(|block| &block.boundary), &done, workers)?;
+            let profiles = wave.iter().map(|&index| {
+                steps[index].backend().map(|backend| (backend, steps[index].profile.controls.clone()))
+                    .ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))
+            }).collect::<Result<Vec<_>, _>>()?;
+            let demand = super::super::initialization::BlockWaveDemand::new(profiles.into_iter(), &self.policy)?;
+            demand.admit(self.cores)?;
+            threads = threads.max(demand.threads);
+            foreign_bytes = foreign_bytes.max(demand.foreign.checked_add(demand.stacks).ok_or(MathRuntimeError::Limit("ready native resident extent"))?);
+            for index in wave { done[index] = true; }
+        }
         Ok(PreparedBlocks {
             original: Box::new(original),
             blocks: steps,
@@ -358,6 +368,7 @@ impl MathService {
             scope,
             backend,
             workers,
+            threads,
             backends,
             foreign_bytes,
             _owner: owner,
@@ -467,12 +478,19 @@ impl MathService {
                 }
                 // The enclosing operation owns the admitted CPU width. Each child owns
                 // its native state and destroys it before join; stacks remain charged.
-                let stack_bytes = if ready.len() > 1 { ready.len().checked_mul(self.policy.stack_bytes) } else { Some(0) }
-                    .ok_or(MathRuntimeError::Limit("ready block stack extent"))?;
-                let _stacks = self.reserve("math:block-wave-stacks", stack_bytes)?;
+                let profiles = ready.iter().map(|(_, step)| {
+                    step.backend().map(|backend| (backend, step.profile.controls.clone()))
+                        .ok_or_else(|| ProblemError::Internal("missing ready block team".into()))
+                }).collect::<Result<Vec<_>, _>>()?;
+                let demand = super::super::initialization::BlockWaveDemand::new(profiles.into_iter(), &self.policy)?;
+                demand.admit(self.cores)?;
+                if demand.threads > prepared.threads { return Err(ProblemError::Contract("ready wave exceeds prepared native team admission".into()).into()); }
+                let _stacks = self.reserve("math:block-wave-stacks", demand.stacks)?;
                 let (outcomes, spawn_failure) = if ready.len() == 1 {
                     let (index, step) = ready.remove(0);
-                    (vec![(index, self.run_step(step, execution.clone(), None, retained, budget))], None)
+                    let mut local_execution = execution.clone();
+                    local_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
+                    (vec![(index, self.run_step(step, local_execution, None, retained, budget))], None)
                 } else { std::thread::scope(|scope| {
                     let mut children = Vec::with_capacity(ready.len());
                     let mut spawn_error = None;
