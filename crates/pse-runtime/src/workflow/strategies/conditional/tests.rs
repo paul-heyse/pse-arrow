@@ -1999,7 +1999,7 @@ async fn block_admission_facts_match_actual_conditional_capabilities_and_matchin
             foreign.id = pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([92; 32]));
             assert!(source.structure.conditional_witness(&foreign).is_err());
         }
-        Ok(())
+        Ok(((), 0))
     }).unwrap().finish().await.unwrap();
 }
 
@@ -2011,12 +2011,14 @@ async fn small_block_override_validation_fits_without_all_block_construction() {
     let discovery = compiled.automatic_alternatives_allocation_bound().unwrap().unwrap();
     let replaced = compiled.initialization_allocation_bound().unwrap().unwrap();
     let selected_source = compiled.clone();
-    let (id, selected) = runtime.native().submit(1, discovery, move |flag, _| {
+    let ((id, selected), selected_owner) = runtime.native().submit(1, discovery, move |flag, _| {
         let pse_compiler::workspace::Alternative::Available(schedule) = selected_source.automatic_alternatives(&flag)?.initialization else { panic!("complete source inventory required"); };
         let block = schedule.blocks.iter().min_by_key(|block| block.members.rows.len()).unwrap();
         assert_eq!(block.members.rows.len(), 1, "control selects one small compiler block");
-        Ok((block.id, selected_source.block_admission_allocation_bound(block)?.unwrap()))
+        Ok(((block.id, selected_source.block_admission_allocation_bound(block)?.unwrap()),
+            size_of::<(pse_structural::incidence::BlockId, usize)>()))
     }).unwrap().finish().await.unwrap();
+    drop(selected_owner);
     let mut profile = SolverProfile { intent: SolveIntent::Initialize, ..Default::default() };
     profile.block_overrides.insert(id, crate::math::settings::BlockSolveOverride {
         backend: Some(Backend::Kinsol), settings: None, controls: None,
