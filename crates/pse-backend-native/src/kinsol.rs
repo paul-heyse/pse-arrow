@@ -2757,11 +2757,7 @@ mod tests {
         fn original_pattern(&self) -> faer::sparse::SymbolicSparseColMatRef<'_, usize> {
             self.inner.matrix.symbolic()
         }
-        /// Scientific producer's actual frozen context; opaque maps may leave it unavailable.
-    fn inner_context(&self) -> RawMapInnerContext {
-        RawMapInnerContext::default()
-    }
-    fn physical_tear_coordinates(&self) -> bool {
+        fn physical_tear_coordinates(&self) -> bool {
             true
         }
         fn map(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {

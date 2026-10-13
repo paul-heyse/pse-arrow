@@ -502,9 +502,9 @@ impl PreparedRecycle {
     }
     /// Frozen actual authored unit starts and effective inner accuracy. Inputs are
     /// rebound per sweep; solved roots are never promoted to future starts.
-    pub fn inner_context(&self) -> Result<native::solve::RawMapInnerContext, native::ProblemError> {
+    pub fn inner_context(&self) -> Result<RawMapInnerContext, native::ProblemError> {
         if self.programs.iter().all(|program| program.conditional.is_none()) {
-            return Ok(native::solve::RawMapInnerContext { kind: native::solve::RawMapContextKind::Inapplicable, ..Default::default() });
+            return Ok(RawMapInnerContext { kind: RawMapContextKind::Inapplicable, ..Default::default() });
         }
         let mut starts = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         let mut accuracy = FramedHasher::new(pse_ids::Frame::CausalMapV2);
@@ -520,8 +520,8 @@ impl PreparedRecycle {
                 branches.hash(&inner.view.boundary.id.0);
             }
         }
-        Ok(native::solve::RawMapInnerContext {
-            kind: native::solve::RawMapContextKind::Frozen,
+        Ok(RawMapInnerContext {
+            kind: RawMapContextKind::Frozen,
             tolerance: None, // Multiple physical inner row/variable budgets have no scalar summary.
             start: Some(starts.finish_hash()),
             branch: Some(branches.finish_hash()),

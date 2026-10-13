@@ -32,14 +32,20 @@ impl PreparedBlocks {
     pub fn scope(&self) -> &ExecutionScope {
         &self.scope
     }
-    /// Single admitted adapter shared by every conditional block.
+    /// Original solve adapter retained as the composition representative.
     pub fn backend(&self) -> Backend {
         self.backend
     }
-    /// Number of actual conditional native operations in the finite schedule.
-    pub(crate) fn workers(&self) -> usize { self.workers }
-    pub(crate) fn backends(&self) -> &[Backend] { &self.backends }
+    /// Maximum admitted independent ready-block width.
+    pub fn workers(&self) -> usize { self.workers }
+    /// Complete actual adapter inventory for the contextually resolved block profiles.
+    pub fn backends(&self) -> &[Backend] { &self.backends }
+    /// Effective profiles keyed by compiler identity, inspectable before execution.
+    pub fn profiles(&self) -> impl Iterator<Item = (pse_structural::incidence::BlockId, &SolverProfile)> {
+        self.boundaries.iter().zip(&self.blocks).map(|(block, step)| (block.boundary.id, &step.profile))
+    }
     pub(crate) fn foreign_bytes(&self) -> usize { self.foreign_bytes }
+    /// Number of actual conditional native operations in the finite schedule.
     pub fn block_count(&self) -> usize {
         self.blocks.len()
     }
