@@ -1680,7 +1680,7 @@ mod tests {
                 .session(
                     Backend::Pounce,
                     ReusePolicy::AllowRebuild,
-                    |_: &mut NativeWitness| Ok(true),
+                    |_: &mut NativeWitness| Ok(crate::execution::SessionUpdate::Compatible),
                     || Ok(NativeWitness),
                 )
                 .unwrap();

@@ -249,12 +249,15 @@ fn native_step_observations_preserve_segment_restart_and_terminal_mesh_time() {
         let mut oracle = Toy::new(false, true);
         oracle.c.events[0][0].terminal = true;
         p.schedule.clear();
+        // Keep the event away from requested IDAS stop/sample times so this control
+        // actually distinguishes an interpolated root from the internal mesh point.
+        p.samples = vec![0.0, 1.0];
         let report = integrate(&mut oracle, &p, &[2.0], Arc::default()).unwrap();
         assert_eq!(report.termination, Termination::Event, "{:?}", report.error);
         let observation = &report.statistics.last().unwrap()["native_step"];
         let returned = observation["returned_time"]["value"].as_f64().unwrap();
         let mesh = observation["internal_time"]["value"].as_f64().unwrap();
-        assert!((returned - 2.0f64.ln()/2.0).abs() < 1e-6);
+        assert!((returned - 0.25).abs() < 1e-8);
         assert_eq!(returned, report.completed_time);
         assert!(mesh > returned, "{method:?}: root return is interpolated inside accepted mesh step: {observation}");
     }

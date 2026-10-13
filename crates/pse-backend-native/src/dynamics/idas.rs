@@ -2205,7 +2205,7 @@ impl<'a> Session<'a> {
         let advanced = unsafe { ffi::IDAGetNumSteps(self.mem, &raw mut steps) } == 0 && steps > 0;
         macro_rules! output {
             ($get:ident, $type:ty) => {{
-                let mut result: $type = 0 as $type;
+                let mut result: $type = Default::default();
                 // SAFETY: the live session owns IDAS memory; the getter writes a local
                 // scalar of the exact native output type and retains no pointer.
                 (unsafe { ffi::$get(self.mem, &raw mut result) } == 0).then_some(result)

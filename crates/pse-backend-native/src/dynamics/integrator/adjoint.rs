@@ -298,11 +298,12 @@ impl<'o> Passes<'_, 'o> {
             record_start(shared, &solver, p, r, start)?;
             // The segment's own unwind catch records its statistics before an abort
             // continues to the outer boundary.
+            let mut observation = step_observation(&solver, None);
             let attempt = catch_unwind(AssertUnwindSafe(|| {
-                self.record(&mut solver, r, k, &mut steps, &mut out.checkpoints)
+                self.record(&mut solver, r, k, &mut steps, &mut out.checkpoints, &mut observation)
             }));
             r.statistics
-                .push(segment_statistics(solver.statistics(), &p.diffsol)?);
+                .push(segment_statistics(solver.statistics(), &p.diffsol, &observation)?);
             let checkpointing = match attempt {
                 Ok(result) => result?,
                 Err(payload) => resume_unwind(payload),
@@ -513,6 +514,7 @@ impl<'o> Passes<'_, 'o> {
         k: usize,
         steps: &mut usize,
         count: &mut usize,
+        observation: &mut crate::solve::NativeStepObservation,
     ) -> Result<Option<Recorded<'o, F::State>>, ProblemError>
     where
         F: OdeSolverMethod<'a, Equation<'o>>,
@@ -545,7 +547,14 @@ impl<'o> Passes<'_, 'o> {
                 return Ok(None);
             }
             *steps += 1;
-            let reason = s.step().map_err(native)?;
+            let result = s.step();
+            let returned_time = match &result {
+                Ok(OdeSolverStopReason::RootFound(time, _)) => Some(*time),
+                Ok(_) => Some(s.state().t),
+                Err(_) => None,
+            };
+            *observation = step_observation(s, returned_time);
+            let reason = result.map_err(native)?;
             if std::mem::take(&mut first) {
                 // A fresh solver's start rates leave the algebraic ones unsolved; the
                 // first step's interpolant has them.

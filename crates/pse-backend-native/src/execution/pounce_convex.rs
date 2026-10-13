@@ -452,7 +452,7 @@ mod native {
         let session = match retained.session(
             Backend::PounceConvex,
             policy,
-            |_: &mut Session| Ok(super::SessionUpdate::Compatible),
+            |_: &mut Session| Ok(crate::execution::SessionUpdate::Compatible),
             || Ok(Session::default()),
         ) {
             Ok((session, _)) => session,

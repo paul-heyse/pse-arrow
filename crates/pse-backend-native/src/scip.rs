@@ -2869,10 +2869,10 @@ pub(crate) fn solve(
             r.controls.reuse,
             |held: &mut Session| {
                 if held.system != system {
-                    return Ok(false);
+                    return Ok(crate::execution::SessionUpdate::Incompatible);
                 }
                 held.reoptimize(&plan, r.execution)?;
-                Ok(true)
+                Ok(crate::execution::SessionUpdate::Compatible)
             },
             || build(r, &plan, gap_absolute),
         )?
