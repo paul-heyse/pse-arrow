@@ -866,6 +866,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("seed_solution", text()).optional(),
                 column("policy", bytes()),
                 column("descriptor", bytes()),
+                column("admission", bytes()).optional(),
                 column("facts", bytes()),
                 column("outcome", bytes()).optional(),
                 column("run", text()),

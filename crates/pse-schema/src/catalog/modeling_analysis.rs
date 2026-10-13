@@ -352,7 +352,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
         ],
         "The lexicographic levels of a multi-objective solve (ADR-0111), in optimization order. A level's value is the weighted sum of its members' terms, in canonical units of `quantity_id`. On the `native` route one HiGHS solve optimizes every level; on the `staged` route `attempt` is the step that optimized the level, seeded from the previous level's accepted step, with `optimum` its value there and `bound` the value every later step held it to: optimum plus max(absolute, relative·|optimum|) when minimized, minus when maximized. `value` is the level's value at the final candidate; absent values are not zero.",
     );
-    enumeration(b, "StudySeedNeed", ["not_needed", "required"]);
+    enumeration(b, "StudySeedNeed", ["pending", "not_needed", "required"]);
     b.declare_enum(
         EnumDecl::platform(
             "StudyContinuationPermission",

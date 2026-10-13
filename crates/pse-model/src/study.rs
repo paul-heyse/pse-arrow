@@ -171,6 +171,10 @@ pub use crate::generated::enums::StudyRetryFailure as RetryFailure;
 )]
 #[serde(deny_unknown_fields)]
 pub struct PointFacts {
+    /// Selected lazy science has supplied its exact seed consumption capability.
+    /// Absence preserves pending admission; this never grants start permission.
+    #[serde(default)]
+    pub admitted_seed_need: Option<SeedNeed>,
     /// Occurrence identity.
     pub key: OccurrenceKey,
     /// Revision an executor must revalidate under its locks before applying the action.
@@ -270,6 +274,8 @@ pub enum Refusal {
 )]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WaitReason {
+    /// Dependencies permit selected source/overlay admission, before any native claim.
+    ScientificAdmission,
     /// Queue admission grants acquisition only; no native start has been chosen.
     SeedResolution {
         /// Consumer input role whose compatibility remains unresolved.

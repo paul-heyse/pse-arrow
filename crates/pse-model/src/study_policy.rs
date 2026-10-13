@@ -54,6 +54,12 @@ pub enum PolicyError {
         /// Invalid occurrence.
         key: OccurrenceKey,
     },
+    /// A deferred admission cannot assert pending or contradict an admitted capability.
+    #[error("invalid scientific admission for occurrence {key:?}")]
+    InvalidAdmission {
+        /// Occurrence whose admission facts are inconsistent.
+        key: OccurrenceKey,
+    },
     /// A snapshot must have one exact fact record per admitted occurrence.
     #[error("missing facts for occurrence {key:?}")]
     MissingFacts {
@@ -86,6 +92,7 @@ pse_diagnostics::impl_diagnostic! {
             PolicyError::NoAttempts { key } => ("no_attempts", Some(*key)),
             PolicyError::SeedNotConsumed { key } => ("seed_not_consumed", Some(*key)),
             PolicyError::MissingFacts { key } => ("missing_facts", Some(*key)),
+            PolicyError::InvalidAdmission { key } => ("invalid_admission", Some(*key)),
             PolicyError::UnknownFacts { key } => ("unknown_facts", Some(*key)),
         };
         facts.observe("kind", DiagnosticObservation::Text(kind.to_owned()));
@@ -416,9 +423,26 @@ fn action(
     if let Some(predecessor) = waiting {
         return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor }));
     }
+    if let StartPolicy::Continuation(edge) = &point.start {
+        if !predecessor_settled(policies, get_fact(snapshot, edge.predecessor)?, cancelled)? {
+            return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor: edge.predecessor }));
+        }
+    }
+    let seed_need = match (point.seed_need, fact.admitted_seed_need) {
+        (_, Some(SeedNeed::Pending)) => return Err(PolicyError::InvalidAdmission { key: point.key }),
+        (SeedNeed::Pending, None) => return Ok(ActionKind::Wait(WaitReason::ScientificAdmission)),
+        (SeedNeed::Pending, Some(need)) => need,
+        (need, Some(actual)) if need != actual => return Err(PolicyError::InvalidAdmission { key: point.key }),
+        (need, _) => need,
+    };
+    if seed_need == SeedNeed::NotNeeded && let StartPolicy::Explicit { role, .. } = &point.start {
+        return Ok(ActionKind::Refuse(Refusal::SeedUnavailable {
+            predecessor: None, role: *role, reason: SeedUnavailable::Incompatible,
+        }));
+    }
     match &point.start {
         StartPolicy::Fresh => Ok(ActionKind::Start(
-            if point.seed_need == SeedNeed::NotNeeded {
+            if seed_need == SeedNeed::NotNeeded {
                 StartProvenance::NotNeeded
             } else {
                 StartProvenance::Fresh
@@ -456,7 +480,7 @@ fn action(
             let permitted = previous.scientific.usable
                 || (edge.permission == ContinuationPermission::AllowSeedOnly
                     && previous.scientific.seed_permission);
-            if point.seed_need == SeedNeed::NotNeeded {
+            if seed_need == SeedNeed::NotNeeded {
                 return Ok(if permitted {
                     ActionKind::Start(StartProvenance::NotNeeded)
                 } else {
@@ -576,8 +600,36 @@ mod study_policy_unit {
             attempt_limit: 1,
         }
     }
+    #[test]
+    fn lazy_scientific_admission_preserves_dependencies_and_never_authorizes_pending_start() {
+        let mut first = point(0);
+        first.start = StartPolicy::Fresh;
+        first.seed_need = SeedNeed::Pending;
+        let mut observed = fact(0, StudyPointState::Pending, false);
+        let graph = OccurrenceGraph { points: vec![first.clone()] };
+        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
+            ActionKind::Wait(WaitReason::ScientificAdmission)));
+        observed.admitted_seed_need = Some(SeedNeed::Required);
+        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
+            ActionKind::Start(StartProvenance::Fresh)));
+        observed.admitted_seed_need = Some(SeedNeed::NotNeeded);
+        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
+            ActionKind::Start(StartProvenance::NotNeeded)));
+        observed.admitted_seed_need = Some(SeedNeed::Pending);
+        assert!(matches!(transition(&graph, &[observed], false), Err(PolicyError::InvalidAdmission { .. })));
+        let mut dependent = first.clone();
+        dependent.key = OccurrenceKey(1);
+        dependent.dependencies = vec![Dependency::Ordering(first.key)];
+        let graph = OccurrenceGraph { points: vec![first, dependent] };
+        let facts = [fact(0, StudyPointState::Pending, false), fact(1, StudyPointState::Pending, false)];
+        assert!(matches!(transition(&graph, &facts, false).unwrap().actions[1].kind,
+            ActionKind::Wait(WaitReason::Dependency { .. })));
+        assert!(matches!(transition(&graph, &facts, true).unwrap().actions[1].kind, ActionKind::Cancel));
+    }
+
     fn fact(key: u32, lifecycle: StudyPointState, usable: bool) -> PointFacts {
         PointFacts {
+            admitted_seed_need: None,
             key: OccurrenceKey(key),
             revision: 41 + u64::from(key),
             lifecycle,

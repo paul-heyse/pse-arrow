@@ -588,6 +588,7 @@ impl CanonicalStore {
                             }
                             let key = point_key(&row.key, point.policy.key);
                             let facts = PointFacts {
+                admitted_seed_need: None,
                                 key: point.policy.key,
                                 revision: 0,
                                 native_started: false,
@@ -609,6 +610,7 @@ impl CanonicalStore {
                                 },
                                 policy: encode(&point.policy)?.into(),
                                 descriptor: point.descriptor.clone().into(),
+                                admission: None,
                                 facts: encode(&facts)?.into(),
                                 outcome: None,
                                 run: point.run.key.clone(),

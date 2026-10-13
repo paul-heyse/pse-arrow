@@ -305,6 +305,7 @@ impl ModelingPackage {
             .points
             .iter()
             .map(|point| PointFacts {
+                admitted_seed_need: None,
                 key: point.key,
                 revision: 0,
                 native_started: false,
@@ -2550,6 +2551,7 @@ mod continuation_retention_tests {
     }
     pub(super) fn fact(point: &PointPolicy, lifecycle: StudyPointState) -> PointFacts {
         PointFacts {
+                admitted_seed_need: None,
             key: point.key,
             revision: 1,
             lifecycle,
