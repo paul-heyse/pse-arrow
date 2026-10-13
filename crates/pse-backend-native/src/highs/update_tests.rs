@@ -62,11 +62,11 @@ fn problem() -> CoefficientProblem {
 }
 fn new(p: &CoefficientProblem, execution: &Execution) -> Session {
     let certificate = p.hessian.as_ref().map(|h| crate::solver_tests::certify(h, 1.));
-    Session::new(p, certificate.as_ref().map(|c| c as &dyn pse_math::convexity::QuadraticEvidence), stamp(Backend::Highs), execution).unwrap()
+    Session::new(p, certificate.as_ref().map(|c| -> &dyn pse_math::convexity::QuadraticEvidence { c }), stamp(Backend::Highs), execution).unwrap()
 }
 fn update(s: &mut Session, p: &CoefficientProblem, execution: &Execution) -> Result<SessionUpdate, ProblemError> {
     let certificate = p.hessian.as_ref().map(|h| crate::solver_tests::certify(h, 1.));
-    s.update(p, certificate.as_ref().map(|c| c as &dyn pse_math::convexity::QuadraticEvidence), stamp(Backend::Highs), execution)
+    s.update(p, certificate.as_ref().map(|c| -> &dyn pse_math::convexity::QuadraticEvidence { c }), stamp(Backend::Highs), execution)
 }
 fn solve(s: &mut Session, p: &CoefficientProblem, controls: &Controls) -> Result<SolveReport, ProblemError> {
     s.solve(p, &pse_math::normalization::Normalization::identity(2, 1), controls,
