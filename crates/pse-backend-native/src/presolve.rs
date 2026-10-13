@@ -359,6 +359,51 @@ impl Policy {
             Self::Explicit { .. } => PolicyKind::Explicit,
         }
     }
+    /// Export every retained explicit native control for an immutable replay document.
+    /// Off/Auto have no explicit options. `certify_tol` records the retained native
+    /// field separately: it is not a registered presolve input and is not the
+    /// effective solver tolerance subsequently chosen by physical qualification.
+    /// Required passes remain the explicit policy's separately owned `required` set.
+    pub fn document_options(&self) -> crate::solve::Options {
+        use crate::solve::OptionValue as V;
+        let Self::Explicit { options, .. } = self else { return BTreeMap::new(); };
+        // Exhaustive native destructuring makes a library field addition require
+        // a deliberate export decision instead of silently producing hash-only replay.
+        let PresolveOptions { enabled, certify_tol, bound_tightening,
+            redundant_constraint_removal, linear_eq_reduction, licq_check,
+            print_level, max_passes, licq_action, warm_z_bounds, bound_mult_init_val,
+            auxiliary, auxiliary_tol, auxiliary_max_block_dim, auxiliary_wall_time_fraction,
+            auxiliary_coupling, auxiliary_diagnostics, fbbt, fbbt_tol,
+            fbbt_max_iter, fbbt_max_constraints } = *options;
+        let licq_action = match licq_action { LicqAction::Warn => "warn", LicqAction::AutoL1 => "auto_l1" };
+        let auxiliary_coupling = match auxiliary_coupling {
+            AuxiliaryCouplingPolicy::None => "none", AuxiliaryCouplingPolicy::Safe => "safe",
+            AuxiliaryCouplingPolicy::Aggressive => "aggressive",
+        };
+        [
+            ("presolve", V::Bool(enabled)),
+            ("certify_tol", V::Real(certify_tol)),
+            ("presolve_bound_tightening", V::Bool(bound_tightening)),
+            ("presolve_redundant_constraint_removal", V::Bool(redundant_constraint_removal)),
+            ("presolve_linear_eq_reduction", V::Bool(linear_eq_reduction)),
+            ("presolve_licq_check", V::Bool(licq_check)),
+            ("presolve_print_level", V::Integer(print_level)),
+            ("presolve_max_passes", V::Integer(max_passes)),
+            ("presolve_licq_action", V::Text(licq_action.into())),
+            ("presolve_warm_z_bounds", V::Bool(warm_z_bounds)),
+            ("presolve_bound_mult_init_val", V::Real(bound_mult_init_val)),
+            ("presolve_auxiliary", V::Bool(auxiliary)),
+            ("presolve_auxiliary_tol", V::Real(auxiliary_tol)),
+            ("presolve_auxiliary_max_block_dim", V::Integer(auxiliary_max_block_dim)),
+            ("presolve_auxiliary_wall_time_fraction", V::Real(auxiliary_wall_time_fraction)),
+            ("presolve_auxiliary_coupling", V::Text(auxiliary_coupling.into())),
+            ("presolve_auxiliary_diagnostics", V::Bool(auxiliary_diagnostics)),
+            ("presolve_fbbt", V::Bool(fbbt)),
+            ("fbbt_tol", V::Real(fbbt_tol)),
+            ("fbbt_max_iter", V::Integer(fbbt_max_iter)),
+            ("fbbt_max_constraints", V::Integer(fbbt_max_constraints)),
+        ].into_iter().map(|(key, value)| (key.into(), value)).collect()
+    }
     /// Resolve the pinned library's complete presolve option registry. Names, native
     /// types and ranges are library-owned; qualification still checks physical meaning.
     pub fn from_native_options(
