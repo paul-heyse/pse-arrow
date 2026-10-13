@@ -855,8 +855,8 @@ impl DurableAttempt {
             .physical;
         let mut inputs = packages
             .iter()
-            .map(|p| p.revision.canonical.clone())
-            .collect::<Vec<_>>();
+            .map(|p| p.recorded_revision().cloned())
+            .collect::<Result<Vec<_>,_>>()?;
         inputs.sort_by(|a, b| a.key.cmp(&b.key));
         inputs.dedup_by(|a, b| a.key == b.key);
         self.register_selection(
@@ -893,7 +893,7 @@ impl DurableAttempt {
         let mut sources = inputs.iter().skip(1).cloned().collect::<Vec<_>>();
         sources.extend(physical_rows.revisions.iter().cloned());
         let (run, _) = self.canonical_keys(run_id);
-        let attestation = runtime.canonical.attestation();
+        let attestation = runtime.canonical()?.attestation();
         let row = self
             .operations
             .store
@@ -1841,17 +1841,17 @@ fn request_inputs(request: &RunRequest) -> Result<Vec<Revision>, WorkflowError> 
         RunRequest::Horizon(horizon) => horizon
             .sources
             .iter()
-            .map(|source| source.revision.canonical.clone())
-            .collect(),
+            .map(|source| source.recorded_revision().cloned())
+            .collect::<Result<Vec<_>,_>>()?,
         RunRequest::Modeling(steps) => steps
             .iter()
-            .map(|s| s.source.revision.canonical.clone())
-            .collect(),
-        RunRequest::Simulation(s) => vec![s.source.revision.canonical.clone()],
-        RunRequest::Fit(f) => vec![f.source.revision.canonical.clone()],
+            .map(|s| s.source.recorded_revision().cloned())
+            .collect::<Result<Vec<_>,_>>()?,
+        RunRequest::Simulation(s) => vec![s.source.recorded_revision()?.clone()],
+        RunRequest::Fit(f) => vec![f.source.recorded_revision()?.clone()],
         #[cfg(feature = "solver-diffsol")]
         RunRequest::Shooting { problem, .. } => {
-            vec![problem.simulation.source.revision.canonical.clone()]
+            vec![problem.simulation.source.recorded_revision()?.clone()]
         }
     };
     revisions.sort_by(|a: &Revision, b| a.key.cmp(&b.key));
@@ -4034,7 +4034,7 @@ mod canonical_durable_codec {
         drop(handle);
         drop(package);
         runtime
-            .canonical_store()
+            .canonical_store()?
             .remove_isolated_fixture()
             .await
             .unwrap();
@@ -4928,7 +4928,7 @@ mod canonical_durable_codec {
         drop(handle);
         drop(package);
         runtime
-            .canonical_store()
+            .canonical_store()?
             .remove_isolated_fixture()
             .await
             .unwrap();

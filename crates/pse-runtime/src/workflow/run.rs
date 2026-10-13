@@ -408,7 +408,7 @@ impl super::ModelingSimulation {
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let admission = self.admission_deadline().and_then(|deadline| {
@@ -442,7 +442,7 @@ impl super::ModelingSimulation {
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.runtime.clone();
             let run_id: RunId = pse_operations::mint_id();
@@ -578,7 +578,7 @@ impl super::ShootingProblem {
         self: &Arc<Self>,
         initial: Option<Vec<f64>>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.runtime.clone();
             let run_id: RunId = pse_operations::mint_id();
@@ -726,7 +726,7 @@ impl super::PreparedFit {
         &self,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.problem.runtime.canonical_store().admit_activity()?;
+        let activity = self.problem.runtime.admit_activity()?;
         activity
             .scope(async {
                 let admission = self.admission_deadline().and_then(|deadline| {
@@ -758,7 +758,7 @@ impl super::PreparedFit {
         attempt: Option<DurableAttempt>,
         deadline: std::time::Instant,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.problem.runtime.canonical_store().admit_activity()?;
+        let activity = self.problem.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.problem.runtime.clone();
             let prepared = self.clone();
@@ -987,7 +987,7 @@ impl Runtime {
         continue_independent: bool,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.check_sequence(&steps)?;
@@ -1005,7 +1005,7 @@ impl Runtime {
         steps: Vec<super::ModelingSolvePreparation>,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let admission = self.check_sequence(&steps).and_then(|()| {
@@ -1070,7 +1070,7 @@ impl Runtime {
         continue_independent: bool,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.sync_scope(|| {
         let history = steps
             .iter()

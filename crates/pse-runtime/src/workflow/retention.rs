@@ -16,7 +16,7 @@ impl Runtime {
         &self,
         obligation: &HistoryObligation,
     ) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.operations()?
@@ -33,7 +33,7 @@ impl Runtime {
         &self,
         obligation: &HistoryObligation,
     ) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.operations()?
@@ -48,7 +48,7 @@ impl Runtime {
     /// Explicitly release detailed history after its payload and obligations settle.
     /// This is irreversible and preserves permanent replay and owner identities.
     pub async fn release_history(&self, owner: &HistoryOwner) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.operations()?.store().release_history(owner).await?;
@@ -64,7 +64,7 @@ impl Runtime {
         owner: &HistoryOwner,
         cancel: &CancellationToken,
     ) -> Result<HistoryReclamationPage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -81,7 +81,7 @@ impl Runtime {
     /// results. This preserves scientific occurrence receipts; each run remains
     /// retained until explicitly retired, and live readers still protect it.
     pub async fn forget_study_results(&self, study: &str) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.operations()?
@@ -95,7 +95,7 @@ impl Runtime {
     /// Retire and remove one bounded page of analysis state; repeat until true.
     /// False includes pending settlement of the immutable creation window.
     pub async fn forget_analysis_results(&self, analysis: &str) -> Result<bool, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 Ok(self
@@ -114,7 +114,7 @@ impl Runtime {
         run: &str,
         cancel: &CancellationToken,
     ) -> Result<ResultReclamationPage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;

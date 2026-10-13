@@ -136,7 +136,7 @@ impl AnalysisHandle {
     pub async fn header(
         &self,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analyses as rows;
@@ -145,7 +145,7 @@ impl AnalysisHandle {
                 owner
                     .try_grow(12 * 1024 * 1024)
                     .map_err(pse_engine::EngineError::from)?;
-                let row = self.runtime.canonical_store().analysis(&self.key).await?;
+                let row = self.runtime.canonical_store()?.analysis(&self.key).await?;
                 let validation = self.runtime.validation_context();
                 let mut builder =
                     rows::Builder::with_registry(self.runtime.registry(), 1, &validation)
@@ -164,7 +164,7 @@ impl AnalysisHandle {
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_nodes as rows;
@@ -175,7 +175,7 @@ impl AnalysisHandle {
                     .map_err(pse_engine::EngineError::from)?;
                 let page = self
                     .runtime
-                    .canonical_store()
+                    .canonical_store()?
                     .analysis_node_page(&self.key, after)
                     .await?;
                 let validation = self.runtime.validation_context();
@@ -198,7 +198,7 @@ impl AnalysisHandle {
         &self,
         after: Option<&str>,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_analysis_edges as rows;
@@ -209,7 +209,7 @@ impl AnalysisHandle {
                     .map_err(pse_engine::EngineError::from)?;
                 let page = self
                     .runtime
-                    .canonical_store()
+                    .canonical_store()?
                     .analysis_edge_page(&self.key, after)
                     .await?;
                 let validation = self.runtime.validation_context();
@@ -236,17 +236,17 @@ impl Runtime {
         run: &str,
         attempt: &str,
     ) -> Result<Arc<pse_columnar::Leased<super::durable::StoredCompletion>>, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async { self.operations()?.completion(run, attempt).await })
             .await
     }
     /// Reopen only an active, retained exact analysis; no latest-run substitution.
     pub async fn analysis(&self, key: &str) -> Result<AnalysisHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
-                self.canonical_store().analysis(key).await?;
+                self.canonical_store()?.analysis(key).await?;
                 Ok(AnalysisHandle {
                     runtime: self.clone(),
                     key: key.into(),
@@ -310,7 +310,7 @@ impl Runtime {
         }
         let input_digest = input_hash.finish_hash().to_hex();
         let mut header = self
-            .canonical_store()
+            .canonical_store()?
             .new_analysis(
                 revision,
                 method,
@@ -378,7 +378,7 @@ impl Runtime {
             &retained_nodes,
             &retained_edges,
         );
-        self.canonical_store()
+        self.canonical_store()?
             .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
             .await?;
         Ok(AnalysisHandle {
@@ -397,7 +397,7 @@ impl Runtime {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(async {
         controls.validate()?;
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -406,10 +406,10 @@ impl Runtime {
             .try_grow(128 * 1024 * 1024)
             .map_err(pse_engine::EngineError::from)?;
         let input = self
-            .canonical_store()
+            .canonical_store()?
             .read_results(run, attempt, Duration::from_secs(600))
             .await?;
-        let sources = self.canonical_store().analysis_run_sources(run).await?;
+        let sources = self.canonical_store()?.analysis_run_sources(run).await?;
         let revision = sources
             .iter()
             .find(|source| source.key == input.run().revision)
@@ -443,7 +443,7 @@ impl Runtime {
             }
         };
         let transfer_error=|source:WorkflowError,analysis:Option<String>,read:Option<String>|WorkflowError::ArtifactTransferUnsettled {analysis,artifact:Box::new(artifact.header().clone()),owner_kind:"audit".into(),owner:staging_owner.clone(),read,source:Box::new(source)};
-        let artifact_read=self.canonical_store().read_artifact(&artifact.header().key,Duration::from_secs(600)).await.map_err(|source|transfer_error(source.into(),None,None))?;
+        let artifact_read=self.canonical_store()?.read_artifact(&artifact.header().key,Duration::from_secs(600)).await.map_err(|source|transfer_error(source.into(),None,None))?;
         let read_key=artifact_read.read_key().to_owned();
         let graph_result:Result<AnalysisHandle,WorkflowError>=async {
         for ordinal in 0..artifact.header().block_count {
@@ -497,7 +497,7 @@ impl Runtime {
             let analysis=match &source {WorkflowError::Canonical(pse_operations::canonical::CanonicalError::AnalysisUnsettled{intent,..})=>Some(intent.key.clone()),_=>None};
             transfer_error(source,analysis,Some(read_key.clone()))
         })?;
-        self.canonical_store().release_artifact_intent(artifact.header(),"audit",&staging_owner).await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key.clone())))?;
+        self.canonical_store()?.release_artifact_intent(artifact.header(),"audit",&staging_owner).await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key.clone())))?;
         artifact_read.release().await.map_err(|source|transfer_error(source.into(),Some(handle.key().to_owned()),Some(read_key)))?;
         Ok(handle)
 
@@ -512,7 +512,7 @@ impl ModelingSolvePreparation {
         controls: &AnalysisControls,
         cancel: CancellationToken,
     ) -> Result<AnalysisHandle, WorkflowError> {
-        let activity = self.source.runtime.canonical_store().admit_activity()?;
+        let activity = self.source.runtime.admit_activity()?;
         activity
             .scope(async {
                 controls.validate()?;
@@ -597,12 +597,12 @@ impl ModelingSolvePreparation {
                 if let std::ops::ControlFlow::Break(error) = flow {
                     return Err(error);
                 }
-                let revision = self.source.canonical_revision().clone();
+                let revision = self.source.recorded_revision()?.clone();
                 let mut sources = vec![revision.clone()];
                 let operations = match runtime.durability() {
                     Durability::Durable(operations) => operations.as_ref().clone(),
                     Durability::Ephemeral => super::Operations::from_store(
-                        runtime.canonical_store().clone(),
+                        runtime.canonical_store()?.clone(),
                         "analysis",
                         super::LeasePolicy::default(),
                         runtime.shared.pool(),
@@ -671,7 +671,7 @@ mod canonical_analyses_server_unit {
             .dependency_analysis(&controls, CancellationToken::new())
             .await
             .unwrap();
-        let receipt = runtime.canonical_store().analysis(pre.key()).await.unwrap();
+        let receipt = runtime.canonical_store()?.analysis(pre.key()).await.unwrap();
         assert!(receipt.active);
         assert_eq!(
             receipt.method,
@@ -699,7 +699,7 @@ mod canonical_analyses_server_unit {
             .unwrap();
         assert_ne!(replay.key(), pre.key());
         let replay_receipt = runtime
-            .canonical_store()
+            .canonical_store()?
             .analysis(replay.key())
             .await
             .unwrap();
@@ -746,7 +746,7 @@ mod canonical_analyses_server_unit {
             .await
             .unwrap();
         let sources = runtime
-            .canonical_store()
+            .canonical_store()?
             .analysis_run_sources(run)
             .await
             .unwrap();
@@ -789,7 +789,7 @@ mod canonical_analyses_server_unit {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store()
+                .canonical_store()?
                 .forget_run_results(run)
                 .await
                 .is_ok()
@@ -804,7 +804,7 @@ mod canonical_analyses_server_unit {
             "independent graph evidence does not retain the producer run"
         );
         let final_read = runtime
-            .canonical_store()
+            .canonical_store()?
             .read_artifact(&final_state.header().key, Duration::from_secs(10))
             .await
             .unwrap();
@@ -871,7 +871,7 @@ mod canonical_analyses_server_unit {
         assert_ne!(changed.key(), pre.key());
         assert_eq!(
             runtime
-                .canonical_store()
+                .canonical_store()?
                 .analysis(pre.key())
                 .await
                 .unwrap()
@@ -880,7 +880,7 @@ mod canonical_analyses_server_unit {
         );
         assert_eq!(
             runtime
-                .canonical_store()
+                .canonical_store()?
                 .analysis(changed.key())
                 .await
                 .unwrap()
@@ -896,7 +896,7 @@ mod canonical_analyses_server_unit {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store()
+                .canonical_store()?
                 .forget_run_results(run)
                 .await
                 .is_ok()

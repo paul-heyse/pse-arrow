@@ -360,7 +360,7 @@ impl Runtime {
         source: &PhysicalSource,
         cancel: &crate::CancelSource,
     ) -> Result<PhysicalContext, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(async {
         checkpoint(cancel)?;
         let operations = self.operations()?;

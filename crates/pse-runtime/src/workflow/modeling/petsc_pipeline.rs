@@ -22,7 +22,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetscSource, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         if self.revision.identity() != original.source.revision.identity()
             || self.physical.key != original.source.physical.key
@@ -63,7 +63,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedPetsc, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let source = self.prepare_petsc_source(original, scope, driver).await?;

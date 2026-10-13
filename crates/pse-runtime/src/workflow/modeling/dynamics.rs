@@ -882,7 +882,7 @@ impl ModelingSimulation {
         &self,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingTrajectory, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let handle = self.start()?;
         let wait = handle.wait();
@@ -1159,7 +1159,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let execution = self
@@ -1189,7 +1189,7 @@ impl ModelingPackage {
         profile: Option<native::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(

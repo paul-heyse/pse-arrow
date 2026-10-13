@@ -138,7 +138,7 @@ impl ModelingPackage {
         obligations: Obligations,
         cancel: &crate::CancelSource,
     ) -> Result<Assessment, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let product = prepared.model.model.compiled();

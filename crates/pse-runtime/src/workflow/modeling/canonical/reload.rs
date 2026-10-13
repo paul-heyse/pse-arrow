@@ -139,7 +139,7 @@ enum ParsedOwner {
 /// Service-local, charged, evictable parser accelerator; canonical provenance is authority.
 #[derive(Debug)]
 pub(crate) struct RetainedIngress {
-    revision: Revision,
+    revision: String,
     source: ParsedOwner,
     bytes: usize,
     _lease: Arc<pse_columnar::AllocationLease>,
@@ -175,17 +175,11 @@ fn retain(
 ) -> Result<(), WorkflowError> {
     let math = package.runtime.shared.math();
     let generation = math.modeling_cache.generation();
-    let extent = package
-        .revision
-        .canonical
-        .owned_bytes()
-        .checked_mul(2)
-        .and_then(|n| n.checked_add(size_of::<RetainedIngress>() + 1024))
-        .ok_or_else(|| contract("retained ingress handle extent"))?;
+    let extent=package.revision_id().len().checked_mul(2).and_then(|n|n.checked_add(size_of::<RetainedIngress>()+1024)).ok_or_else(||contract("retained ingress handle extent"))?;
     // Source bodies have their independent loader leases. Charge only the new handle.
     let lease = math.reserve("modeling:retained-ingress", extent)?;
     let value = Arc::new(RetainedIngress {
-        revision: package.revision.canonical.clone(),
+        revision: package.revision_id().into(),
         source,
         bytes: bytes.saturating_add(extent),
         _lease: lease,
@@ -193,7 +187,7 @@ fn retain(
     let (validation, registry) = owners(package);
     math.modeling_cache.retain_ingress(
         generation,
-        package.revision.canonical.key.clone(),
+        package.revision_id().into(),
         validation,
         registry,
         package.physical.key,
@@ -216,7 +210,7 @@ pub(super) struct ParsedEdit {
 impl ParsedEdit {
     pub(super) fn origins(
         &self,
-        members: &BTreeMap<String, Membership>,
+        members: &BTreeMap<String, SourceMember>,
         edits: &BTreeMap<String, ObjectEdit>,
     ) -> Result<LoaderOrigins, WorkflowError> {
         let mut versions = members
@@ -254,7 +248,6 @@ fn source_rows(
 async fn cold_owner(
     package: &ModelingPackage,
     parent: &delta::Parent,
-    read: &mut SelectedRead,
     cancel: &crate::CancelSource,
 ) -> Result<Arc<ParsedReload>, WorkflowError> {
     let extent = parent
@@ -276,16 +269,7 @@ async fn cold_owner(
             text.as_bytes().to_vec()
         } else if let Some(hash) = parent.frame.data.get(&document.document_id) {
             let logical = format!("data:{}", document.document_id);
-            let mut values = objects(
-                &package.runtime,
-                read,
-                std::slice::from_ref(&logical),
-                cancel,
-            )
-            .await?;
-            let value = values
-                .remove(&logical)
-                .ok_or_else(|| contract("cold loader data source absent"))?;
+            let value=package.local_object(&logical)?;
             if pse_ids::encoding_checksum(value.payload.as_slice()).content_hash() != *hash {
                 return Err(contract("cold loader data bytes differ from ingress frame"));
             }
@@ -440,7 +424,7 @@ fn make_edit(
         }
     }
     let mut delta = crate::workflow::SourceDelta {
-        parent: package.revision.canonical.key.clone(),
+        parent: package.revision_id().into(),
         ..Default::default()
     };
     let old_rows = parent
@@ -555,49 +539,20 @@ impl ModelingPackage {
         sources: &[BTreeMap<String, Vec<u8>>],
         cancel: &crate::CancelSource,
     ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let deadline = super::super::preparation_deadline(cancel)?;
-                let scoped = cancel.with_deadline(Some(deadline));
-                let cancel = &scoped;
-                checkpoint(cancel)?;
-                let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
-                    let protection = self
-                        .runtime
-                        .canonical
-                        .store()
-                        .protect(
-                            self.revision.canonical.clone(),
-                            deadline.saturating_duration_since(std::time::Instant::now()),
-                        )
-                        .await?;
-                    let mut read = SelectedRead::new(protection);
-                    let result = self.reload_protected(sources, &mut read, cancel).await;
-                    Ok::<_, WorkflowError>((result, read))
-                })
-                .await?;
-                let release = read.finish().await;
-                let (package, parsed) = result?;
-                release?;
-                // Retention is optional after the issued source effect. Admission pressure
-                // may evict or refuse an accelerator without changing publication success.
-                let _ = retain(
-                    &package,
-                    ParsedOwner::Reload(parsed.clone()),
-                    parsed.retained_bytes(),
-                );
-                Ok(package)
-            })
-            .await
+        let activity=self.runtime.admit_activity()?;
+        activity.scope(async {
+            let deadline=super::super::preparation_deadline(cancel)?;let scoped=cancel.with_deadline(Some(deadline));checkpoint(&scoped)?;
+            let (package,parsed)=self.reload_protected(sources,&scoped).await?;
+            let _=retain(&package,ParsedOwner::Reload(parsed.clone()),parsed.retained_bytes());
+            Ok(package)
+        }).await
     }
     async fn reload_protected(
         &self,
         sources: &[BTreeMap<String, Vec<u8>>],
-        read: &mut SelectedRead,
-        cancel: &crate::CancelSource,
+            cancel: &crate::CancelSource,
     ) -> Result<(Self, Arc<ParsedReload>), WorkflowError> {
-        let parent = self.delta_parent(read, cancel).await?;
+        let parent = self.delta_parent(cancel).await?;
         let (validation, registry) = owners(self);
         let warm = self
             .runtime
@@ -605,17 +560,17 @@ impl ModelingPackage {
             .math()
             .modeling_cache
             .ingress(
-                &self.revision.canonical.key,
+                self.revision_id(),
                 validation,
                 registry,
                 self.physical.key,
             )
-            .filter(|owner| owner.revision == self.revision.canonical);
+            .filter(|owner| owner.revision == self.revision_id());
         let exact_texts = parent.documents.values().all(|document| {
             document.source_text.is_some() || parent.frame.data.contains_key(&document.document_id)
         });
         let cold = if warm.is_none() && (parent.frame.origins.is_none() || exact_texts) {
-            Some(cold_owner(self, &parent, read, cancel).await?)
+            Some(cold_owner(self, &parent, cancel).await?)
         } else {
             None
         };
@@ -650,7 +605,7 @@ impl ModelingPackage {
         )?);
         let (delta, extras) = make_edit(self, &parent, parsed.clone(), &origins, cancel)?;
         let result = self
-            .apply_delta_parent(delta, parent, read, cancel, Some(extras))
+            .apply_delta_parent(delta, parent, cancel, Some(extras))
             .await?;
         Ok((result, parsed))
     }
@@ -676,8 +631,7 @@ mod tests {
     async fn parent(package: &ModelingPackage) -> delta::Parent {
         let protection = package
             .runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .protect(
                 package.revision.canonical.clone(),
                 std::time::Duration::from_secs(30),
@@ -830,7 +784,7 @@ mod tests {
         );
         // Malformed syntax must still refuse the reload atomically.
         let invalid = sources("package minimal_named {def Root {var x:Scalar; eq e:;}}");
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let before = pse_operations::testing::source_problem_head(
             store,
             &unresolved.revision.canonical.problem,
@@ -916,8 +870,7 @@ mod tests {
         frame.origins = None;
         let operation = pse_operations::mint_id::<SemanticId>().to_string();
         let canonical = runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .edit(
                 &package.revision.canonical.problem,
                 Some(&package.revision.canonical.key),

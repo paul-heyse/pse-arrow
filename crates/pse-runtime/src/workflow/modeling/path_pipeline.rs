@@ -18,7 +18,7 @@ impl ModelingPackage {
         scope: ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<crate::math::solves::paths::PathCurvature, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         scope
             .check()

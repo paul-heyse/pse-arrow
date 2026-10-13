@@ -1216,7 +1216,7 @@ impl StudyPreparationLane {
             .as_mut()
             .ok_or_else(|| super::contract("study lane inputs absent"))?;
         let result = async {
-            current.scope.renew().await?;
+            current.scope.check_active().await?;
             current
                 .package
                 .prepare_bound_operation_with_admission(

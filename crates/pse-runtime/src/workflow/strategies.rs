@@ -127,7 +127,7 @@ impl PreparedConic {
     }
     /// Submit to the existing finite solve lifecycle, including native destruction and join.
     pub fn start(&self) -> Result<SolveHandle, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| Ok(self.runtime.native().solve(self.solve.clone())?))
     }
 }
@@ -139,7 +139,7 @@ impl Runtime {
         physical: &PhysicalContext,
         profile: SolverProfile,
     ) -> Result<PreparedConic, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_model::generated::enums::NumericalTarget;

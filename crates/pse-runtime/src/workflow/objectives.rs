@@ -219,7 +219,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLevelsReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         if analysis
             .bindings

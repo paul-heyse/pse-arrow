@@ -257,7 +257,7 @@ impl CanonicalResultReader {
                         let page = if let Some(filter) = &self.output {
                             let page = self
                                 .runtime
-                                .canonical_store()
+                                .canonical_store()?
                                 .result_output_page(
                                     &self.read,
                                     &self.set,
@@ -306,7 +306,7 @@ impl CanonicalResultReader {
                         } else {
                             let page = self
                                 .runtime
-                                .canonical_store()
+                                .canonical_store()?
                                 .result_block_page(
                                     &self.read,
                                     &self.set,
@@ -341,7 +341,7 @@ impl CanonicalResultReader {
             let block = pse_operations::canonical::response_ownership_scope(
                 owner.clone(),
                 self.runtime
-                    .canonical_store()
+                    .canonical_store()?
                     .result_block(&self.read, metadata),
             )
             .await?;
@@ -531,14 +531,14 @@ impl Runtime {
         &self,
         run: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_runs as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store().canonical_run(run),
+                    self.canonical_store()?.canonical_run(run),
                 )
                 .await?
                 .ok_or_else(|| contract("canonical run absent"))?;
@@ -559,14 +559,14 @@ impl Runtime {
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_attempts as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
                 let row = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store().canonical_attempt(attempt),
+                    self.canonical_store()?.canonical_attempt(attempt),
                 )
                 .await?
                 .ok_or_else(|| contract("canonical attempt absent"))?;
@@ -587,12 +587,12 @@ impl Runtime {
         &self,
         attempt: &str,
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_relations::generated::runtime::canonical_result_manifests as rows;
                 let extent = response_owner(self, "canonical:result-header")?;
-                let store = self.canonical_store();
+                let store = self.canonical_store()?;
                 let read =
                     pse_operations::canonical::response_ownership_scope(extent.clone(), async {
                         let selected = store
@@ -629,14 +629,14 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let extent = response_owner(self, "canonical:result-selection")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store()
+                    self.canonical_store()?
                         .latest_results(problem, classes, READ_LIFETIME),
                 )
                 .await?;
@@ -656,7 +656,7 @@ impl Runtime {
         end: u64,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
@@ -666,7 +666,7 @@ impl Runtime {
                 let extent = response_owner(self, "canonical:result-selection")?;
                 let read = pse_operations::canonical::response_ownership_scope(
                     extent.clone(),
-                    self.canonical_store()
+                    self.canonical_store()?
                         .read_results(run, attempt, READ_LIFETIME),
                 )
                 .await?;
@@ -753,7 +753,7 @@ impl Runtime {
         missing: Option<bool>,
         cancel: CancellationToken,
     ) -> Result<CanonicalResultReader, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 if minimum.is_some_and(|value| !value.is_finite())
@@ -847,7 +847,7 @@ mod canonical_connected_results_server_unit {
     async fn canonical_empty_demand_has_registry_schema_without_ipc_or_absent_membership() {
         use super::super::durable::{StoredCompletion, TerminationCause, TerminationDetail};
         let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store().clone();
+        let store = runtime.canonical_store()?.clone();
         let pool = runtime.shared.pool();
         let source = store
             .edit("empty-demand", None, "source", &[])
@@ -999,7 +999,7 @@ mod canonical_connected_results_server_unit {
     #[tokio::test]
     async fn canonical_decoded_arrow_survives_reader_drop_and_result_reclamation() {
         let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store().clone();
+        let store = runtime.canonical_store()?.clone();
         let pool = runtime.shared.pool();
         let source = store
             .edit("decoded-owner", None, "source", &[])
@@ -1161,7 +1161,7 @@ mod canonical_connected_results_server_unit {
     async fn canonical_output_indexes_read_original_rows_and_skip_unrelated_blocks() {
         use pse_relations::generated::runtime::{fit_parameters, simulation_samples};
         let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let source = store.edit("projection", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {
@@ -1502,7 +1502,7 @@ mod canonical_connected_results_server_unit {
     #[tokio::test]
     async fn canonical_connected_results_reopens_declared_arrow_exact_range_and_cancellation() {
         let runtime = super::super::tests::runtime();
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let source = store.edit("problem", None, "source", &[]).await.unwrap();
         store
             .begin_run(&RunRequest {

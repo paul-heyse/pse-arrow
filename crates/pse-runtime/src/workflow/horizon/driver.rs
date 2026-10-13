@@ -37,7 +37,7 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 if cancel.token().is_cancelled() {
@@ -65,7 +65,7 @@ impl Runtime {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async { self.start_horizon_owned(horizon, cancel, None).await })
             .await
@@ -76,7 +76,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.start_horizon_owned(horizon, cancel, Some(attempt))
@@ -90,7 +90,7 @@ impl Runtime {
         cancel: &crate::CancelSource,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let mut attempt = attempt;
@@ -392,7 +392,7 @@ impl Stage {
             .map_err(MathRuntimeError::from)?;
         let provenance = serde_json::to_value((
             1_u8,
-            package.canonical_revision().key.clone(),
+            package.source_attribution(),
             analysis.root,
             analysis.instance,
             &analysis.bindings.demand,
@@ -659,7 +659,7 @@ impl Admitted {
         }
         let result = async {
             for source in &held {
-                source.scope.renew().await?;
+                source.scope.check_active().await?;
             }
             for original in horizon.plant.original_preparations() {
                 horizon

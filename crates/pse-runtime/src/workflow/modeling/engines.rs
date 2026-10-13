@@ -264,7 +264,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_analysis_attempt(analysis, CaseOverrides::default(), cancel)
@@ -281,7 +281,7 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_solve_seed(
@@ -315,7 +315,7 @@ impl ModelingPackage {
         order: Option<usize>,
         cancel: &crate::CancelSource,
     ) -> Result<pse_backend_native::execution::sos::SosBound, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let prepared = self.prepare_analysis(analysis, cancel).await?;
@@ -338,7 +338,7 @@ impl ModelingPackage {
         policy: ModelingInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.initialize_model_with_prepared(analysis, policy, None, cancel)
@@ -354,7 +354,7 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         policy.validate()?;
         if analysis

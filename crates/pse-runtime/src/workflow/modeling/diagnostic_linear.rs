@@ -32,7 +32,7 @@ impl ModelingPackage {
         maximum_entries: usize,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingLinearDiagnostics, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         controls
             .validate()

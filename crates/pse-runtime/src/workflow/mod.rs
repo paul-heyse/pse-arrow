@@ -395,6 +395,15 @@ impl Runtime {
             physical_cache,
         })
     }
+    /// Attach an explicitly opened import/recording boundary to this same caller.
+    /// This creates no executor, model binding, budget or independent close authority.
+    pub fn with_canonical(&self, canonical: CanonicalDeployment) -> Result<Self, WorkflowError> {
+        let canonical=canonical.independent_caller()?;
+        let mut state=self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if state.closed {canonical.store().close();return Err(WorkflowError::CallerClosed);}
+        state.stores.push(canonical.store().clone());
+        Ok(Self {canonical:Some(canonical),..self.clone()})
+    }
     /// Local caller admission is independent of recording-service liveness.
     pub(crate) fn admit_activity(&self) -> Result<RuntimeActivity, WorkflowError> {
         self.caller.admit()
@@ -517,49 +526,44 @@ impl Runtime {
 #[derive(Debug)]
 struct RuntimeCaller {
     state: std::sync::Mutex<RuntimeCallerState>,
-    store: Option<pse_operations::canonical::CanonicalStore>,
 }
 #[derive(Debug, Default)]
 struct RuntimeCallerState {
     closed: bool,
     active: usize,
+    stores: Vec<pse_operations::canonical::CanonicalStore>,
 }
 impl RuntimeCaller {
     fn new(store: Option<pse_operations::canonical::CanonicalStore>) -> Self {
-        Self { state: std::sync::Mutex::new(RuntimeCallerState::default()), store }
+        Self { state: std::sync::Mutex::new(RuntimeCallerState { stores: store.into_iter().collect(), ..Default::default() }) }
     }
     fn admit(self: &Arc<Self>) -> Result<RuntimeActivity, WorkflowError> {
         if let Ok(activity) = RUNTIME_CONTINUATION.try_with(Clone::clone)
-            && Arc::ptr_eq(&activity.0, self) {
+            && Arc::ptr_eq(&activity.0.caller, self) {
             return Ok(activity);
         }
         let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         if state.closed { return Err(WorkflowError::CallerClosed); }
         state.active = state.active.checked_add(1).ok_or_else(|| contract("runtime activity extent"))?;
-        Ok(RuntimeActivity(self.clone()))
+        Ok(RuntimeActivity(Arc::new(RuntimeActivityOwner { caller: self.clone() })))
     }
     fn close(&self) {
         let mut state = self.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         state.closed = true;
-        if state.active == 0 && let Some(store) = &self.store { store.close(); }
+        if state.active == 0 { for store in &state.stores { store.close(); } }
     }
 }
 /// An admitted local continuation. Required children inherit it explicitly;
 /// idle Runtime aliases cannot use it to bypass close.
+#[derive(Clone, Debug)]
+pub(crate) struct RuntimeActivity(Arc<RuntimeActivityOwner>);
 #[derive(Debug)]
-pub(crate) struct RuntimeActivity(Arc<RuntimeCaller>);
-impl Clone for RuntimeActivity {
-    fn clone(&self) -> Self {
-        let mut state = self.0.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        state.active += 1;
-        Self(self.0.clone())
-    }
-}
-impl Drop for RuntimeActivity {
+struct RuntimeActivityOwner { caller: Arc<RuntimeCaller> }
+impl Drop for RuntimeActivityOwner {
     fn drop(&mut self) {
-        let mut state = self.0.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let mut state = self.caller.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         state.active -= 1;
-        if state.closed && state.active == 0 && let Some(store) = &self.0.store { store.close(); }
+        if state.closed && state.active == 0 { for store in &state.stores { store.close(); } }
     }
 }
 tokio::task_local! { static RUNTIME_CONTINUATION: RuntimeActivity; }

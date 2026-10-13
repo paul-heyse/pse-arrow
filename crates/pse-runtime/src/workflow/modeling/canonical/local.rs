@@ -142,8 +142,16 @@ impl Ord for LocalInventory {
 }
 impl LocalSourcePremises {
     pub(crate) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.logicals.iter().map(|(k,v)| k.capacity()+v.as_ref().map_or(0,|o| o.retained_bytes())+128).sum::<usize>()
-            + self.inventories.values().map(|v| v.capacity()*size_of::<Arc<LocalSourceObject>>()+v.iter().map(|o|o.retained_bytes()).sum::<usize>()+256).sum::<usize>()
+        size_of::<Self>() + self.logicals.keys().map(|k| k.capacity()+size_of::<Option<Arc<LocalSourceObject>>>()+128).sum::<usize>()
+            + self.inventories.iter().map(|(query,v)| {
+                let query_bytes = match query {
+                    LocalInventory::Scope(s) => s.capacity(),
+                    LocalInventory::Kind(s,k) => s.as_ref().map_or(0,String::capacity)+k.capacity(),
+                    LocalInventory::Name(s,n) => s.capacity()+n.capacity(),
+                    LocalInventory::References(s,n,k) => s.capacity()+n.capacity()+k.capacity(),
+                };
+                query_bytes+v.capacity()*size_of::<Arc<LocalSourceObject>>()+256
+            }).sum::<usize>()
     }
     pub(crate) fn matches(&self, source: &AdmittedModelRevision) -> bool {
         self.logicals.iter().all(|(logical,old)| source.objects.get(logical) == old.as_ref())

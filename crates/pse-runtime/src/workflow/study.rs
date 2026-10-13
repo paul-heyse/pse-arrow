@@ -374,7 +374,7 @@ impl Runtime {
         plan: StudyPlan,
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let operations = self.operations()?;
@@ -405,7 +405,7 @@ impl Runtime {
         definition: StudyDefinition,
         cancel: &crate::CancelSource,
     ) -> Result<StudyHandle, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 creation_checkpoint(cancel)?;
@@ -421,7 +421,7 @@ impl Runtime {
                 }
                 let revision = creation_input(
                     cancel,
-                    self.canonical_store()
+                    self.canonical_store()?
                         .revision(&definition.modeling_revision),
                 )
                 .await?
@@ -516,10 +516,10 @@ impl Runtime {
                 let run_id: RunId = pse_operations::mint_id();
                 let run = format!("run:{run_id}");
                 let physical_revision =
-                    creation_input(cancel, self.canonical_store().revision(&physical.revision))
+                    creation_input(cancel, self.canonical_store()?.revision(&physical.revision))
                         .await?
                         .ok_or_else(|| contract("canonical physical source absent"))?;
-                let attestation = self.canonical.attestation();
+                let attestation = self.canonical()?.attestation();
                 let attestation = document(&(attestation.source, attestation.build))?;
                 let source_selection = document(&(1_u8, &definition.modeling_revision, &physical))?;
                 let request = StoredRequest {
@@ -582,7 +582,7 @@ impl Runtime {
                         .await?;
                         creation_effect(
                             cancel,
-                            self.canonical_store().retain_study_input(
+                            self.canonical_store()?.retain_study_input(
                                 &key,
                                 &solution.to_string(),
                                 &artifact.key,
@@ -591,7 +591,7 @@ impl Runtime {
                         .await?;
                     }
                     let activated = self
-                        .canonical_store()
+                        .canonical_store()?
                         .create_study(&key, &request, &metadata, &points, &|| {
                             cancel.token().is_cancelled()
                         })
@@ -608,7 +608,7 @@ impl Runtime {
                     // study guard before permanent abandonment; a header is never
                     // inferred inactive or fabricated terminal by this route.
                     loop {
-                        match self.canonical_store().abandon_study_inputs(&key).await {
+                        match self.canonical_store()?.abandon_study_inputs(&key).await {
                             Ok(true) => return Err(source),
                             Ok(false) => continue,
                             Err(cleanup) => {
@@ -624,7 +624,7 @@ impl Runtime {
                 // Catch cancellation after the owner's final observation and before handing
                 // an active handle to the caller. Never interrupt the durable cancel write.
                 if cancel.token().is_cancelled() {
-                    self.canonical_store().cancel_study(&key).await?;
+                    self.canonical_store()?.cancel_study(&key).await?;
                 }
                 Ok(self.study(study_id))
             })
@@ -646,12 +646,12 @@ impl Runtime {
         lane: &mut StudyCandidateLane,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedStudyCandidate, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_model::study::{ActionKind, SeedAvailability, SeedFact, StartPolicy};
                 let point = self
-                    .canonical_store()
+                    .canonical_store()?
                     .canonical_study_point(&scope.point().key)
                     .await?
                     .ok_or_else(|| contract("study occurrence absent"))?;
@@ -676,7 +676,7 @@ impl Runtime {
                     return Err(contract("candidate is not structurally ready"));
                 }
                 let study = self
-                    .canonical_store()
+                    .canonical_store()?
                     .canonical_study(&point.study)
                     .await?
                     .ok_or_else(|| contract("study header absent"))?;
@@ -690,7 +690,7 @@ impl Runtime {
                     lane.close().await?;
                     let context = self.physical_source(&physical, cancel).await?;
                     let revision = self
-                        .canonical_store()
+                        .canonical_store()?
                         .revision(&study.revision)
                         .await?
                         .ok_or_else(|| contract("study revision absent"))?;
@@ -736,7 +736,7 @@ impl Runtime {
                         let (role, selected) = match start {
                             StartPolicy::Explicit { role, seed } => {
                                 let retained = self
-                                    .canonical_store()
+                                    .canonical_store()?
                                     .study_input(&point.study, &seed.to_string())
                                     .await?;
                                 let selected =
@@ -875,7 +875,7 @@ impl Runtime {
         prepared: &mut PreparedStudyCandidate,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let Some(input) = prepared.prediction.take() else {
@@ -956,7 +956,7 @@ impl Runtime {
                             predecessor,
                         );
                         let point = self
-                            .canonical_store()
+                            .canonical_store()?
                             .canonical_study_point(&key)
                             .await?
                             .ok_or_else(|| {
@@ -1038,7 +1038,7 @@ impl Runtime {
             ));
         }
         let full = self
-            .canonical_store()
+            .canonical_store()?
             .canonical_study_point(&point.key)
             .await?
             .ok_or_else(|| contract("prediction source occurrence absent"))?;
@@ -1103,7 +1103,7 @@ impl Runtime {
         action: &pse_model::study::PointAction,
         error: Option<WorkflowError>,
     ) -> Result<CanonicalPoint, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let diagnostic =
@@ -1120,7 +1120,7 @@ impl Runtime {
                             _ => None,
                         });
                 Ok(self
-                    .canonical_store()
+                    .canonical_store()?
                     .refuse_study_point(scope, action, diagnostic)
                     .await?)
             })
@@ -1134,11 +1134,11 @@ impl Runtime {
         reason = "owning recovery projects only admitted completion or truthful worker-loss facts"
     )]
     pub(crate) async fn recover_study_point(&self, key: &str) -> Result<bool, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let (point, actual, study, _run) =
-                    self.canonical_store().recovery_snapshot(key).await?;
+                    self.canonical_store()?.recovery_snapshot(key).await?;
                 let point = &point;
                 // Assigned-page discovery is only a hint. The original owner may have
                 // recorded this terminal attempt before this fresh snapshot, including
@@ -1215,7 +1215,7 @@ impl Runtime {
                 // SAFETY: facts and outcome derive from this exact attempt's admitted durable
                 // completion or truthful worker-loss receipt; shared policy alone decides retry.
                 unsafe {
-                    self.canonical_store()
+                    self.canonical_store()?
                         .observe_study_point(point, &facts, &outcome, settled)
                         .await
                 }?;
@@ -1231,14 +1231,14 @@ impl Runtime {
         reason = "owning study policy projects complete admitted occurrence observations"
     )]
     pub(crate) async fn finalize_canonical_study(&self, key: &str) -> Result<bool, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 use pse_model::study::{Availability, StudyLifecycle};
                 use pse_operations::canonical_execution::{
                     TerminalClass, result_batch_key, result_set_key,
                 };
-                let store = self.canonical_store();
+                let store = self.canonical_store()?;
                 let study = store
                     .canonical_study(key)
                     .await?
@@ -1490,7 +1490,7 @@ impl Runtime {
         start: &pse_model::study::StartProvenance,
         record: &super::DurableRecord,
     ) -> Result<CanonicalPoint, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let terminal = record.attempt.as_ref().map_err(|error| {
@@ -1544,7 +1544,7 @@ impl Runtime {
                 outcome.attempts.push(attempt);
                 let policy = point_policy(point)?;
                 let study = self
-                    .canonical_store()
+                    .canonical_store()?
                     .canonical_study(&point.study)
                     .await?
                     .ok_or_else(|| contract("study absent"))?;
@@ -1552,7 +1552,7 @@ impl Runtime {
                 // SAFETY: this owner projects the drained scientific result and its admitted
                 // durable completion after checking that the point names this exact attempt.
                 Ok(unsafe {
-                    self.canonical_store()
+                    self.canonical_store()?
                         .observe_study_point(point, &facts, &outcome, settled)
                         .await
                 }?)
@@ -1645,10 +1645,10 @@ impl StudyHandle {
     }
     /// Metadata and compact occurrence outcomes, fetched only on explicit request.
     pub async fn status(&self) -> Result<StudyStatus, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let store = self.runtime.canonical_store();
+                let store = self.runtime.canonical_store()?;
                 let study = store
                     .canonical_study(&self.study_id.to_string())
                     .await?
@@ -1696,10 +1696,10 @@ impl StudyHandle {
     /// Revoke study claims and every assigned writer through one guarded header;
     /// native renewal and ingestion observe this cancellation immediately.
     pub async fn cancel(&self) -> Result<StudyCancel, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let store = self.runtime.canonical_store();
+                let store = self.runtime.canonical_store()?;
                 let key = self.study_id.to_string();
                 let old = store
                     .canonical_study(&key)
@@ -1725,10 +1725,10 @@ impl StudyHandle {
     pub(in crate::workflow) async fn terminal_inventory(
         &self,
     ) -> Result<Option<TerminalStudyInventory>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let store = self.runtime.canonical_store();
+                let store = self.runtime.canonical_store()?;
                 let study = store
                     .canonical_study_summary(&self.study_id.to_string())
                     .await?
@@ -1872,7 +1872,7 @@ impl StudyHandle {
     }
     /// Sealed canonical handles; incomplete private staging is never returned as a result.
     pub async fn result(&self) -> Result<Option<StudyResults>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let Some(inventory) = self.terminal_inventory().await? else {
@@ -1909,7 +1909,7 @@ impl StudyHandle {
     }
     /// Wait for retained finalization, with optional managed workers continuing dispatch.
     pub async fn wait(&self, poll: Duration) -> Result<StudyResults, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if poll.is_zero() {
@@ -2074,11 +2074,11 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let operations = Operations::from_store(
-                    self.runtime.canonical_store().clone(),
+                    self.runtime.canonical_store()?.clone(),
                     Operations::process_worker("study-admission"),
                     super::LeasePolicy::default(),
                     self.runtime.shared.pool(),
@@ -2097,7 +2097,7 @@ impl super::ModelingPackage {
         output: &super::StudyOutputDemand,
         cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 output.validate(&self.runtime)?;
@@ -2165,7 +2165,7 @@ impl super::ModelingPackage {
                 let definition = StudyDefinition {
                     version: Version,
                     physical,
-                    modeling_revision: self.canonical_revision().key.clone(),
+                    modeling_revision: self.source_attribution().into(),
                     points: admitted,
                 };
                 pse_model::study_policy::admit(&definition.graph()).map_err(|error| {

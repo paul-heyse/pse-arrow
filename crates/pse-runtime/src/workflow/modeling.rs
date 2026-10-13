@@ -140,7 +140,6 @@ pub struct ModelingPackage {
 /// Process-local request context; scientific eligibility is independently rechecked.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) struct SelectedRequest {
-    problem: String,
     roots: Vec<DeclarationId>,
     physical: pse_ids::ContentHash,
     providers: Vec<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>,
@@ -150,7 +149,6 @@ pub(crate) struct SelectedRequest {
 impl SelectedRequest {
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()
-            + self.problem.capacity()
             + self.roots.capacity() * size_of::<DeclarationId>()
             + self.providers.capacity()
                 * size_of::<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>()
@@ -426,7 +424,7 @@ impl Runtime {
         physical: PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let token = cancel.token();
@@ -473,7 +471,7 @@ impl Runtime {
         rows: Vec<Declaration>,
         physical: PhysicalContext,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 self.modeling_package_registered(rows, physical, BTreeMap::new())
@@ -488,7 +486,7 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let scope = PhysicalScope {
@@ -528,9 +526,9 @@ impl Runtime {
             self, rows, &physical, scope, &documents, &sources, &fits, None, loader,
         )
         .await?;
-        self.package_from_canonical(revision, physical, providers)
+        self.package_from_revision(revision, physical, providers)
     }
-    fn package_from_canonical(
+    fn package_from_revision(
         &self,
         revision: canonical::SourceRevision,
         physical: PhysicalContext,
@@ -553,11 +551,13 @@ impl Runtime {
         physical: PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let source = canonical::SourceRevision::open(self, revision).await?;
-                self.package_from_canonical(source, physical, providers)
+                let package=self.package_from_revision(source,physical,providers)?;
+                package.delta_parent(&crate::CancelSource::new()).await?;
+                Ok(package)
             })
             .await
     }
@@ -670,7 +670,7 @@ impl ModelingPackage {
 
     /// Explicit full source inventory; ordinary preparation reads only its dependency closure.
     pub async fn declarations(&self) -> Result<OwnedDeclarations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async { self.declaration_inventory().await })
             .await
@@ -681,12 +681,18 @@ impl ModelingPackage {
     }
     /// Opaque exact parent token, distinct from semantic content and durable origin.
     pub fn revision_id(&self) -> &str { self.revision.revision_id() }
+    pub(crate) fn recorded_revision(&self) -> Result<&pse_model::generated::runtime::canonical_revisions::Row,WorkflowError> {
+        self.canonical_revision().ok_or(WorkflowError::RecordingUnavailable)
+    }
+    pub(crate) fn source_attribution(&self) -> &str {
+        self.canonical_revision().map_or_else(||self.revision_id(),|origin|origin.key.as_str())
+    }
     /// Generate full source tables only for an explicit export/publication request.
     pub async fn source_tables(
         &self,
     ) -> Result<BTreeMap<SemanticId, pse_relations::columnar::FieldCheckedBatch>, WorkflowError>
     {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async { self.encode_source_tables().await })
             .await
@@ -811,7 +817,7 @@ impl ModelingPackage {
         stages: Vec<BTreeMap<SemanticId, f64>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedInitializationStrategy, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let profile = crate::math::initialization::InitializationProfile {
@@ -863,7 +869,7 @@ impl ModelingPackage {
         selection: pse_compiler::workspace::ModelingFlowSelection,
         cancel: &crate::CancelSource,
     ) -> Result<crate::math::flows::PreparedFlow, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let deadline = preparation_deadline(cancel)?;
@@ -877,18 +883,7 @@ impl ModelingPackage {
                     let revision = selected.admission.revision.clone();
                     Ok::<_, WorkflowError>((workspace, revision))
                 })();
-                let (workspace, revision) = match prepared {
-                    Ok(value) => value,
-                    Err(error) => {
-                        let _ = self
-                            .runtime
-                            .canonical
-                            .store()
-                            .release(selected.read.selection())
-                            .await;
-                        return Err(error);
-                    }
-                };
+                let (workspace,revision)=prepared?;
                 let result = self
                     .runtime
                     .shared
@@ -903,14 +898,7 @@ impl ModelingPackage {
                         cancel,
                     )
                     .await;
-                let release = self
-                    .runtime
-                    .canonical
-                    .store()
-                    .release(selected.read.selection())
-                    .await;
-                let model = result?;
-                release?;
+                let model=result?;
                 Ok(self
                     .runtime
                     .native()
@@ -923,47 +911,23 @@ impl ModelingPackage {
     /// names and the package data documents. No old document text is retained as the source
     /// of the edited IR.
     pub async fn with_declarations(&self, rows: Vec<Declaration>) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
-                let (_, scope, mut documents, mut sources, _source_owners) =
-                    self.full_source().await?;
-                Arc::make_mut(&mut documents).field_spans.clear();
-                if let Some(batch) =
-                    sources.get_mut(&pse_relations::generated::authored::documents::RELATION_ID)
-                {
-                    use pse_relations::generated::authored::documents as wire;
-                    let rows = wire::Row::rows(batch).map_err(relation)?;
-                    let validation = self.runtime.validation_context();
-                    let mut builder = wire::Builder::with_registry(
-                        self.runtime.registry(),
-                        rows.len(),
-                        &validation,
-                    )
-                    .map_err(relation)?;
-                    for mut row in rows {
-                        row.source_text = None;
-                        builder.push(row).map_err(relation)?;
-                    }
-                    *batch = builder.finish().map_err(relation)?;
-                }
-                let revision = canonical::persist(
-                    &self.runtime,
-                    rows,
-                    &self.physical,
-                    scope,
-                    &documents,
-                    &sources,
-                    &Default::default(),
-                    Some(&self.revision),
-                    None,
-                )
-                .await?;
-                Ok(Self {
-                    revision,
-                    held_preparation: None,
-                    ..self.clone()
-                })
+                let cancel=crate::CancelSource::new();
+                let parent=self.delta_parent(&cancel).await?;
+                let old=parent.rows.iter().map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
+                let new=rows.iter().map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
+                if new.len()!=rows.len(){return Err(contract("complete declarations repeat an identity"));}
+                let delta=SourceDelta {
+                    parent:self.revision_id().into(),
+                    additions:rows.iter().filter(|row|!old.contains_key(&row.declaration_id)).cloned().collect(),
+                    replacements:rows.iter().filter(|row|old.get(&row.declaration_id).is_some_and(|old|*old!=*row)).cloned().collect(),
+                    removals:old.keys().filter(|id|!new.contains_key(id)).copied().collect(),
+                    ..Default::default()
+                };
+                self.apply_delta_parent_ordered(delta,parent,&cancel,None,Some(rows.iter().map(|row|row.declaration_id).collect())).await
+
             })
             .await
     }
@@ -976,7 +940,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingPreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if let Some(scope) = &self.held_preparation {

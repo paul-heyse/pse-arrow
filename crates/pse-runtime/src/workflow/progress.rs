@@ -32,16 +32,16 @@ impl Runtime {
         attempt: &str,
         cancel: CancellationToken,
     ) -> Result<ProgressStream, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                 let read = self
-                    .canonical_store()
+                    .canonical_store()?
                     .read_results(run, attempt, LIFETIME)
                     .await?;
                 let operations = super::Operations::from_store(
-                    self.canonical_store().clone(),
+                    self.canonical_store()?.clone(),
                     "progress-reader",
                     super::LeasePolicy::default(),
                     self.shared.pool(),
@@ -125,7 +125,7 @@ impl ProgressStream {
             .ok_or_else(|| super::contract("progress descriptor absent"))?;
         let payload = self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .result_payload(read, set, self.ordinal)
             .await?;
         if payload.batch.row_count > 512 {

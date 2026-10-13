@@ -334,15 +334,15 @@ fn workflow_composition_binds_same_owner_factory_to_canonical_deployment() {
     ));
     assert_eq!(
         checked.canonical.store().endpoint(),
-        runtime.canonical.store().endpoint()
+        runtime.canonical_store()?.endpoint()
     );
     assert_eq!(
         checked.canonical.store().namespace(),
-        runtime.canonical.store().namespace()
+        runtime.canonical_store()?.namespace()
     );
     assert_eq!(
         checked.canonical.store().database(),
-        runtime.canonical.store().database()
+        runtime.canonical_store()?.database()
     );
 }
 
@@ -368,15 +368,15 @@ fn workflow_durability_selection_uses_this_deployment() {
     assert!(Arc::ptr_eq(&operations.pool, &runtime.shared.pool()));
     assert_eq!(
         operations.store().endpoint(),
-        runtime.canonical.store().endpoint()
+        runtime.canonical_store()?.endpoint()
     );
     assert_eq!(
         operations.store().namespace(),
-        runtime.canonical.store().namespace()
+        runtime.canonical_store()?.namespace()
     );
     assert_eq!(
         operations.store().database(),
-        runtime.canonical.store().database()
+        runtime.canonical_store()?.database()
     );
     assert_eq!(operations.worker(), "checked-owner");
     assert_eq!(operations.policy(), policy);
@@ -388,7 +388,7 @@ fn workflow_durability_selection_uses_this_deployment() {
     assert!(Arc::ptr_eq(&ephemeral.shared, &runtime.shared));
     assert_eq!(
         ephemeral.canonical.store().database(),
-        runtime.canonical.store().database()
+        runtime.canonical_store()?.database()
     );
 }
 

@@ -360,7 +360,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnosticPreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let resolved = self
@@ -436,7 +436,7 @@ impl ModelingPackage {
         compiler: pse_compiler::workspace::Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingDiagnostics, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         policy.validate()?;
         prepared.validate_point(&values)?;
@@ -1569,7 +1569,7 @@ impl ModelingPackage {
         controls: pse_backend_native::solve::Controls,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingJacobianOptimization, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 controls

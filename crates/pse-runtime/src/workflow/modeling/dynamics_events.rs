@@ -28,7 +28,7 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_simulation_for(
@@ -65,7 +65,7 @@ impl ModelingPackage {
         exact_parameters: &BTreeSet<SemanticId>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_simulation_with_controls(
@@ -106,7 +106,7 @@ impl ModelingPackage {
         prepared: Option<ModelingPreparation>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSimulation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if bindings

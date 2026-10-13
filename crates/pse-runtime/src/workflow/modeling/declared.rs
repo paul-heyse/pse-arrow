@@ -219,7 +219,7 @@ impl DeclaredExecution {
         };
         if !same_scope
             || source.revision.identity() != package.revision.identity()
-            || source.revision.canonical != package.revision.canonical
+            || source.revision.revision_id() != package.revision.revision_id()
             || !Arc::ptr_eq(&source.runtime.shared, &package.runtime.shared)
             || !Arc::ptr_eq(source.runtime.sessions(), package.runtime.sessions())
             || !Arc::ptr_eq(source.runtime.registry(), package.runtime.registry())
@@ -317,7 +317,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.declared_execution_with_demand(
@@ -348,7 +348,7 @@ impl ModelingPackage {
         demand: Vec<String>,
         cancel: &crate::CancelSource,
     ) -> Result<DeclaredExecution, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let row = self.declaration(root).await?;
@@ -427,7 +427,7 @@ impl ModelingPackage {
                         .sum::<usize>();
                 let bytes = size_of::<DeclaredPreparation>()
                     + bindings_bytes
-                    + self.revision.canonical.heap_bytes()
+                    + self.revision.revision_id().len()
                     + self.physical.sources.len() * 256
                     + 512;
                 let owner = self
@@ -463,7 +463,7 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(execution.procedure, DeclaredProcedure::Solve) {
@@ -496,7 +496,7 @@ impl ModelingPackage {
         execution: &DeclaredExecution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingResult, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         match &execution.procedure {
             DeclaredProcedure::Solve => {
@@ -543,7 +543,7 @@ impl ModelingPackage {
         overrides: InitializationOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInitializationReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let policy = execution.initialization(overrides)?;
@@ -565,7 +565,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<(Bindings, ModelingCaseBindings), WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let execution = self

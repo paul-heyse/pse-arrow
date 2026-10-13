@@ -109,7 +109,7 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<(AdmittedBinding, pse_model::study::SeedNeed), WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 cancel
@@ -172,7 +172,7 @@ impl ModelingPackage {
         binding: &AdmittedBinding,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_bound_operation_with_admission(operation, binding, &mut None, cancel)
@@ -188,7 +188,7 @@ impl ModelingPackage {
         admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PreparedStudyOperation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 operation.source.check(self)?;

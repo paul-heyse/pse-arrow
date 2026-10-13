@@ -120,7 +120,7 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let (report, preparations) = crate::math::counted(async {
@@ -146,7 +146,7 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        if definition.modeling_revision != self.canonical_revision().key
+        if definition.modeling_revision != self.source_attribution()
             || maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
             || definition.points.len() > maximum_points
@@ -248,7 +248,7 @@ impl ModelingPackage {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        if definition.modeling_revision != self.canonical_revision().key {
+        if definition.modeling_revision != self.source_attribution() {
             return Err(super::contract(
                 "study definition canonical revision differs",
             ));

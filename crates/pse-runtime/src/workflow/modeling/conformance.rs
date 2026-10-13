@@ -1110,7 +1110,7 @@ impl ModelingPackage {
         policy: ModelingConformancePolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingConformanceReport, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if policy.maximum_fixtures == 0

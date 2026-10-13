@@ -249,7 +249,7 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
     }));
     let retained = handle.result().await.unwrap().unwrap();
     let run = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_run(&retained.run)
         .await
         .unwrap()
@@ -380,7 +380,7 @@ async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_lat
     );
     drop(filler);
     pse_operations::testing::invalidate_terminal_study_outcome(
-        runtime.canonical_store(),
+        runtime.canonical_store()?,
         &handle.study_id().to_string(),
         *expected.last().unwrap(),
     )
@@ -502,7 +502,7 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     assert!(status.points[1].outcome.as_ref().unwrap().scientific.usable);
     let retained = handle.result().await.unwrap().unwrap();
     let run = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_run(&retained.run)
         .await
         .unwrap()
@@ -538,9 +538,9 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             &handle.study_id().to_string(),
             OccurrenceKey(5),
         );
-        let scope = runtime.canonical_store().study_scope(&key).await.unwrap();
+        let scope = runtime.canonical_store()?.study_scope(&key).await.unwrap();
         let claim = runtime
-            .canonical_store()
+            .canonical_store()?
             .claim_study_point(
                 &scope,
                 None,
@@ -551,26 +551,26 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
             .await
             .unwrap();
         pse_operations::testing::expire_acknowledged_attempt(
-            runtime.canonical_store(),
+            runtime.canonical_store()?,
             &claim.fence,
         )
         .await
         .unwrap();
         let point = runtime
-            .canonical_store()
+            .canonical_store()?
             .canonical_study_point(&key)
             .await
             .unwrap()
             .unwrap();
         let assigned_hint = runtime
-            .canonical_store()
+            .canonical_store()?
             .study_assigned_page(&point.study, None)
             .await
             .unwrap();
         assert!(assigned_hint.iter().any(|hint| hint.key == point.key));
         assert!(runtime.recover_study_point(&point.key).await.unwrap());
         let actual = runtime
-            .canonical_store()
+            .canonical_store()?
             .canonical_attempt(claim.fence.attempt())
             .await
             .unwrap()
@@ -578,7 +578,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         assert!(actual.terminal);
         assert_eq!(actual.outcome.as_deref(), Some("failed"));
         let after = runtime
-            .canonical_store()
+            .canonical_store()?
             .canonical_study_point(&key)
             .await
             .unwrap()
@@ -592,7 +592,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         // normal policy has concluded it or may claim a genuinely new retry next.
         assert!(!runtime.recover_study_point(&point.key).await.unwrap());
         let unchanged = runtime
-            .canonical_store()
+            .canonical_store()?
             .canonical_study_point(&key)
             .await
             .unwrap()
@@ -942,14 +942,14 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
         seed: pse_operations::mint_id(),
     };
     let (physical, _) = sources(CASES);
-    let before = runtime.canonical_store().study_page(None).await.unwrap();
+    let before = runtime.canonical_store()?.study_page(None).await.unwrap();
     let failure = runtime
         .start_defined_study(physical, definition, &crate::CancelSource::new())
         .await
         .unwrap_err();
     assert!(matches!(failure, WorkflowError::SeedRead(_)), "{failure:?}");
     assert_eq!(
-        runtime.canonical_store().study_page(None).await.unwrap(),
+        runtime.canonical_store()?.study_page(None).await.unwrap(),
         before
     );
     assert!(matches!(
@@ -1014,7 +1014,7 @@ async fn canonical_study_explicit_retained_input_survives_producer_retirement_an
         .await
         .unwrap();
     let study = handle.study_id().to_string();
-    let store = runtime.canonical_store();
+    let store = runtime.canonical_store()?;
     let capsule = store
         .study_input(&study, &solution.to_string())
         .await
@@ -1146,7 +1146,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .await
         .unwrap();
     let key = handle.study_id().to_string();
-    let store = runtime.canonical_store();
+    let store = runtime.canonical_store()?;
     assert!(store.study_has_pending(&key).await.unwrap());
     let parent_key = store.canonical_study(&key).await.unwrap().unwrap().run;
     let before_parent = store.canonical_run(&parent_key).await.unwrap().unwrap();
@@ -1304,7 +1304,7 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         Processed::Ran { .. }
     ));
     let key = handle.study_id().to_string();
-    let store = runtime.canonical_store();
+    let store = runtime.canonical_store()?;
     let study = store.canonical_study(&key).await.unwrap().unwrap();
     let fence = store
         .begin_study_finalization(
@@ -1438,7 +1438,7 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     );
     let key = handle.study_id().to_string();
     let header = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_study(&key)
         .await
         .unwrap()
@@ -1447,7 +1447,7 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     assert_eq!(header.point_count, 1000);
     assert_eq!(header.next_ordinal, 1000);
     let first = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(0),
@@ -1456,7 +1456,7 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
         .unwrap()
         .unwrap();
     let repeated = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(20),
@@ -1465,7 +1465,7 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
         .unwrap()
         .unwrap();
     let last = runtime
-        .canonical_store()
+        .canonical_store()?
         .canonical_study_point(&pse_operations::canonical_studies::point_key(
             &key,
             OccurrenceKey(999),
@@ -2310,7 +2310,7 @@ impl ManagedStudyFixture {
         // This is the observer's separately placed pool. The managed primary retains
         // the exact 128 GiB/16 CPU/32 population profile recorded in the state.
         let runtime = tests::runtime_with_workspace(64 << 20);
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let context = managed_read_json(
             &store
                 .deployment_state()
@@ -2381,7 +2381,7 @@ impl ManagedStudyFixture {
                 .arg("--state")
                 .arg(&state)
                 .arg("--canonical-database")
-                .arg(fixture.runtime.canonical_store().database())
+                .arg(fixture.runtime.canonical_store()?.database())
                 .arg("--observer-pid")
                 .arg(std::process::id().to_string())
                 .arg("--qualification-native-entry")
@@ -2402,12 +2402,12 @@ impl ManagedStudyFixture {
         assert_eq!(ready["ready"], true);
         assert_eq!(
             ready["canonical_database"],
-            fixture.runtime.canonical_store().database()
+            fixture.runtime.canonical_store()?.database()
         );
         let marker = managed_read_json(&state.join("primary-receiver.json"));
         assert_eq!(
             marker["canonical_database"],
-            fixture.runtime.canonical_store().database()
+            fixture.runtime.canonical_store()?.database()
         );
         assert_eq!(marker["pool_memory_bytes"], 128_u64 << 30);
         assert_eq!(marker["cpu_threads"], 16);
@@ -2507,7 +2507,7 @@ impl ManagedStudyFixture {
                 assert_eq!(value["nonce"], self.nonce);
                 assert_eq!(
                     value["canonical_database"],
-                    self.runtime.canonical_store().database()
+                    self.runtime.canonical_store()?.database()
                 );
                 assert_eq!(value["pid"], self.worker_pid);
                 if predicate(&value) {
@@ -2566,7 +2566,7 @@ impl Drop for ManagedStudyFixture {
                 && let Ok(bytes) = std::fs::read(&observation)
                 && let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes)
                 && value["nonce"] == self.nonce
-                && value["canonical_database"] == self.runtime.canonical_store().database()
+                && value["canonical_database"] == self.runtime.canonical_store()?.database()
                 && let Some(pid) = value["pid"]
                     .as_u64()
                     .and_then(|pid| u32::try_from(pid).ok())
@@ -2597,7 +2597,7 @@ impl Drop for ManagedStudyFixture {
             let result = pse_operations::testing::record_fixture_controls_drain(
                 &self.controls_resource,
                 self.directory.parent().unwrap(),
-                self.runtime.canonical_store().database(),
+                self.runtime.canonical_store()?.database(),
             );
             if let Err(error) = result {
                 if std::thread::panicking() {
@@ -2790,7 +2790,7 @@ async fn managed_primary_publication_serves_exact_partial_history_and_escaped_ar
 
     let fixture = ManagedStudyFixture::start(true).await;
     let runtime = &fixture.runtime;
-    let store = runtime.canonical_store();
+    let store = runtime.canonical_store()?;
     let pool = runtime.shared.pool();
     let validation = runtime.validation_context();
     let transport_run = format!("serving-transport-{}", fixture.nonce);

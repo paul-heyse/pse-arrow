@@ -92,7 +92,7 @@ impl Runtime {
         documents: &pse_admission::authoring_driver::document::OwnedDocumentSet,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<PhysicalContext, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async { PhysicalContext::from_documents(documents, &self.model, cancel).await })
             .await

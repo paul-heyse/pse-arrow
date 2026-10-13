@@ -416,7 +416,7 @@ mod lane_tests {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
         use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let revision = store
             .edit("recovery-rotation", None, "source", &[])
             .await
@@ -487,7 +487,7 @@ mod lane_tests {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
         use pse_operations::{canonical_execution::RunRequest, canonical_studies::NewOccurrence};
         let runtime = crate::workflow::durable_tests::durable_runtime();
-        let store = runtime.canonical_store();
+        let store = runtime.canonical_store()?;
         let revision = store
             .edit("local-recovery", None, "source", &[])
             .await
@@ -1121,7 +1121,7 @@ impl Runtime {
         &self,
         cancel: &crate::CancelSource,
     ) -> Result<(), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(async {
         if cancel.token().is_cancelled() {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
@@ -1206,7 +1206,7 @@ impl Runtime {
         scope: &pse_operations::canonical_studies::StudyScope,
         action: &pse_model::study::PointAction,
     ) -> Result<Option<pse_operations::canonical_studies::StudyPoint>, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(async {
         let deadline = tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT;
         tokio::time::timeout_at(deadline, async {
@@ -1216,7 +1216,7 @@ impl Runtime {
                     if !matches!(&error, WorkflowError::Canonical(pse_operations::canonical::CanonicalError::Driver(driver)) if driver.details().is_thrown() && matches!(driver.message().strip_prefix("An error occurred: ").unwrap_or(driver.message()), "study decision generation changed" | "study candidate not available" | "study decision premise changed")) {
                         return Err(error);
                     }
-                    let current = self.canonical_store().study_scope(&scope.point().key).await?;
+                    let current = self.canonical_store()?.study_scope(&scope.point().key).await?;
                     if current.point().revision != scope.point().revision
                         || current.point().assigned != scope.point().assigned
                         || current.point().settled != scope.point().settled
@@ -1240,7 +1240,7 @@ impl Runtime {
 
     /// Claim a structurally ready candidate under its exact consumed revisions.
     pub async fn work_once(&self) -> Result<Processed, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async { Ok(self.work_once_with_result().await?.0) })
             .await
@@ -1249,7 +1249,7 @@ impl Runtime {
     pub async fn work_once_with_result(
         &self,
     ) -> Result<(Processed, Option<Arc<super::RunResult>>), WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let mut lane = super::study::StudyCandidateLane::new();
@@ -1643,7 +1643,7 @@ impl Runtime {
         settings: WorkerSettings,
         stop: &crate::CancelSource,
     ) -> Result<usize, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 if settings.poll.is_zero() || settings.recovery.is_zero() {
@@ -1724,7 +1724,7 @@ impl Runtime {
         sources: &BTreeMap<String, Vec<u8>>,
         cancel: &crate::CancelSource,
     ) -> Result<super::PhysicalContext, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let validation = self.validation_context();
@@ -1749,7 +1749,7 @@ impl Runtime {
         physical: super::PhysicalContext,
         cancel: &crate::CancelSource,
     ) -> Result<super::ModelingPackage, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity
             .scope(async {
                 let token = cancel.token();

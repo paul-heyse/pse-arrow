@@ -153,6 +153,57 @@ impl SourceRevision {
     pub(super) fn require_origin(&self) -> Result<&Revision, WorkflowError> {
         self.origin().ok_or(WorkflowError::RecordingUnavailable)
     }
+    pub(super) async fn open(runtime: &Runtime, canonical: Revision) -> Result<Self, WorkflowError> {
+        let store = runtime.canonical_store()?;
+        let protection = store.protect(canonical.clone(), std::time::Duration::from_secs(3600)).await?;
+        let mut read = SelectedRead::new(protection);
+        let result: Result<_,WorkflowError> = async {
+            let identity = context(runtime,&mut read).await?;
+            let cancel = crate::CancelSource::new();
+            let mut after = String::new();
+            let mut imported = Vec::new();
+            let mut leases = Vec::new();
+            loop {
+                let page = store.membership_page(read.selection(),None,&after).await?;
+                let Some(last) = page.last() else {break}; after = last.key.clone();
+                for chunk in page.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
+                    let versions=chunk.iter().map(|member|member.version.clone()).collect::<Vec<_>>();
+                    for (member,object) in chunk.iter().zip(selected_objects(runtime,&read,&versions,&cancel).await?) {
+                        if member.logical != object.logical || member.version != object.key { return Err(contract("imported source membership differs")); }
+                        leases.push(object.lease.clone());
+                        imported.push(ObjectEdit { logical:member.logical.clone(),scope:member.scope.clone(),name:member.name.clone(),version:Some(object.row),references:Vec::new() });
+                    }
+                }
+            }
+            let mut index=SourceIndex {roots_complete:true,..Default::default()};
+            for object in &imported {
+                if object.logical.starts_with("modeling:") && object.logical != CONTEXT_LOGICAL && object.logical != PHYSICAL_SCOPE_LOGICAL {
+                    let row:SourcePayload=decode(object.version.as_ref().ok_or_else(||contract("imported version absent"))?.payload.as_slice())?;
+                    index.parsed_fields.insert(row.0.declaration_id,parsed_fields(runtime,&row.0,row.1.as_ref())?);
+                    index.scopes.insert(row.0.declaration_id); index.imports.insert(row.0.declaration_id); index.insert(row)?;
+                }
+            }
+            index.requests.clear();
+            for object in &mut imported {
+                if object.logical.starts_with("modeling:") && object.logical != CONTEXT_LOGICAL && object.logical != PHYSICAL_SCOPE_LOGICAL {
+                    let (row,_):SourcePayload=decode(object.version.as_ref().ok_or_else(||contract("imported version absent"))?.payload.as_slice())?;
+                    object.references=index.references(&row)?.iter().map(|id| {let target=&index.rows[id];(scope(target.parent_id),target.name.clone())}).collect();
+                } else if object.logical.starts_with("record:") {
+                    let supplier:DeclarationId=decode(object.version.as_ref().ok_or_else(||contract("imported version absent"))?.payload.as_slice())?;
+                    let row=index.rows.get(&supplier).ok_or_else(||contract("imported record supplier absent"))?;
+                    object.references=vec![(scope(row.parent_id),row.name.clone())];
+                }
+                let version=object.version.as_ref().ok_or_else(||contract("imported version absent"))?;
+                let expected=edit(object.logical.clone(),object.scope.clone(),object.name.clone(),version.kind.clone(),version.payload.as_slice().to_vec(),object.references.clone());
+                if expected.version.as_ref() != Some(version) { return Err(contract("imported immutable source bytes or references differ")); }
+            }
+            let admitted=AdmittedModelRevision::apply(runtime,None,&imported)?;
+            Ok((admitted,identity))
+        }.await;
+        let release=read.finish().await;
+        let (admitted,identity)=result?; release?;
+        Self::admitted(admitted,identity,Some(canonical),None)
+    }
     fn admitted(
         admitted: Arc<AdmittedModelRevision>, identity: SourceRevisionHash,
         origin: Option<Revision>, previous: Option<&Self>,
@@ -234,7 +285,7 @@ async fn selected_object(
     read: &SelectedRead,
     version: &str,
 ) -> Result<OwnedObject, WorkflowError> {
-    let store = runtime.canonical.store();
+    let store = runtime.canonical_store()?;
     let extent = store
         .selected_object_extent(read.selection(), version)
         .await?
@@ -273,7 +324,7 @@ async fn selected_objects(
         "modeling:source-frontier-headers",
         SELECTED_OBJECT_HEADER_SCRATCH,
     )?;
-    let store = runtime.canonical.store();
+    let store = runtime.canonical_store()?;
     let batch = store
         .selected_object_batch(read.selection(), versions)
         .await?;
@@ -334,8 +385,7 @@ async fn object(
     name: &str,
 ) -> Result<Option<OwnedObject>, WorkflowError> {
     let members = runtime
-        .canonical
-        .store()
+        .canonical_store()?
         .resolve_logicals(read, &[name.into()])
         .await?;
     if members.len() > 1 {
@@ -364,8 +414,7 @@ async fn objects(
             pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
         )?;
         let members = runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .resolve_logicals(read, logicals)
             .await?;
         let versions = members
@@ -626,108 +675,40 @@ pub(super) async fn persist(
         Vec::new(),
     ));
     if let Some(previous) = previous {
-        let protection = runtime
-            .canonical
-            .store()
-            .protect(
-                previous.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let old: Result<_, WorkflowError> = async {
-            // This explicit complete-source replacement needs only membership metadata.
-            // Scientific preparation still resolves its selected closure separately.
-            let mut old = BTreeMap::new();
-            let mut after = String::new();
-            loop {
-                let scratch = runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:authoring-membership-page", 16 * 1024 * 1024)?;
-                let page = runtime
-                    .canonical
-                    .store()
-                    .membership_page(&protection, None, &after)
-                    .await?;
-                if page.is_empty() {
-                    break;
-                }
-                let extent = page
-                    .owned_bytes()
-                    .checked_mul(2)
-                    .ok_or_else(|| contract("authoring membership extent overflow"))?;
-                let owners = scratch
-                    .partition(&[extent])
-                    .map_err(|_| contract("authoring membership page exceeds admitted extent"))?;
-                membership_leases.extend(owners);
-                after = page
-                    .last()
-                    .map(|member| member.key.clone())
-                    .ok_or_else(|| contract("authoring membership page absent"))?;
-                for member in page {
-                    old.insert(member.logical.clone(), member);
-                }
-            }
-            Ok(old)
-        }
-        .await;
-        let release = protection.finish().await;
-        let old = old?;
-        release?;
-        let retained = edits
-            .iter()
-            .map(|edit| edit.logical.clone())
-            .collect::<BTreeSet<_>>();
-        edits.retain(|edit| {
-            old.get(&edit.logical).is_none_or(|member| {
-                member.scope != edit.scope
-                    || member.name != edit.name
-                    || edit
-                        .version
-                        .as_ref()
-                        .is_none_or(|version| member.version != version.key)
-            })
-        });
-        // Complete edits replace declarations; data documents retain original ownership.
-        edits.extend(
-            old.into_values()
-                .filter(|member| {
-                    (member.logical.starts_with("modeling:")
-                        || member.logical.starts_with("record:")
-                        || member.logical.starts_with("physical_scope_document:"))
-                        && !retained.contains(&member.logical)
-                })
-                .map(|member| ObjectEdit {
-                    logical: member.logical,
-                    scope: member.scope,
-                    name: member.name,
-                    version: None,
-                    references: Vec::new(),
-                }),
-        );
-        if edits.is_empty() && identity == previous.identity {
-            return Ok(previous.clone());
-        }
+        let retained = edits.iter().map(|edit|edit.logical.clone()).collect::<BTreeSet<_>>();
+        edits.retain(|edit| previous.admitted.objects.get(&edit.logical).is_none_or(|old| {
+            edit.version.as_ref().is_none_or(|version| old.scope != edit.scope || old.name != edit.name
+                || old.version != version.key || old.kind != version.kind
+                || old.payload.as_slice() != version.payload.as_slice() || old.references != edit.references)
+        }));
+        edits.extend(previous.admitted.objects.values().filter(|member| {
+            (member.logical.starts_with("modeling:") || member.logical.starts_with("record:") || member.logical.starts_with("physical_scope_document:"))
+                && !retained.contains(&member.logical)
+        }).map(|member| ObjectEdit { logical:member.logical.clone(),scope:member.scope.clone(),name:member.name.clone(),version:None,references:Vec::new() }));
+        if edits.is_empty() && identity == previous.identity { return Ok(previous.clone()); }
     }
-    let problem = previous.map_or_else(
-        || pse_operations::mint_id::<SemanticId>().to_string(),
-        |previous| previous.canonical.problem.clone(),
-    );
-    let operation = pse_operations::mint_id::<SemanticId>().to_string();
-    let revision = runtime
-        .canonical
-        .store()
-        .edit(
-            &problem,
-            previous.map(|previous| previous.canonical.key.as_str()),
-            &operation,
-            &edits,
-        )
-        .await?;
-    Ok(SourceRevision {
-        canonical: revision,
-        identity,
-    })
+    admit_revision(runtime, previous, identity, &edits).await
+}
+
+/// Stage complete local ownership before issuing the existing durable effect.
+async fn admit_revision(
+    runtime: &Runtime, previous: Option<&SourceRevision>, identity: SourceRevisionHash,
+    edits: &[ObjectEdit],
+) -> Result<SourceRevision, WorkflowError> {
+    let admitted = AdmittedModelRevision::apply(runtime, previous.map(|p|p.admitted.as_ref()), edits)?;
+    let origin = match runtime.durability() {
+        crate::workflow::Durability::Ephemeral => None,
+        crate::workflow::Durability::Durable(_) => {
+            let store = runtime.canonical_store()?;
+            let old = previous.map(SourceRevision::require_origin).transpose()?;
+            let problem = old.map_or_else(||pse_operations::mint_id::<SemanticId>().to_string(), |old|old.problem.clone());
+            let operation = pse_operations::mint_id::<SemanticId>().to_string();
+            let recorded = store.edit(&problem,old.map(|old|old.key.as_str()),&operation,edits).await
+                .map_err(|source|pse_operations::canonical::CanonicalError::SourceEditUnsettled {problem,operation,source:Box::new(source)})?;
+            Some(recorded)
+        }
+    };
+    SourceRevision::admitted(admitted,identity,origin,previous)
 }
 
 /// One compiler input, resolved entirely from immutable canonical records. Read
@@ -746,7 +727,6 @@ pub(super) struct SelectedSource {
 #[derive(Debug)]
 pub(super) struct CheckedSelection {
     pub(super) admission: Arc<super::SelectedAdmission>,
-    pub(super) read: SelectedRead,
     pub(super) _premises_metadata: Option<Arc<pse_columnar::AllocationLease>>,
 }
 
@@ -1256,1423 +1236,249 @@ impl LexicalLookup for SourceIndex {
 }
 
 impl ModelingPackage {
-    pub(super) async fn declaration_inventory(
-        &self,
-    ) -> Result<super::OwnedDeclarations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let read = SelectedRead::new(protection);
-                let result: Result<_, WorkflowError> = async {
-                    let mut rows = Vec::new();
-                    let mut leases = Vec::new();
-                    let mut after = String::new();
-                    loop {
-                        let page = store
-                            .membership_page(read.selection(), None, &after)
-                            .await?;
-                        let Some(last) = page.last() else {
-                            break;
-                        };
-                        after = last.key.clone();
-                        let versions = page
-                            .into_iter()
-                            .filter(|member| {
-                                member.logical.starts_with("modeling:")
-                                    && member.logical != CONTEXT_LOGICAL
-                                    && member.logical != PHYSICAL_SCOPE_LOGICAL
-                            })
-                            .map(|member| member.version)
-                            .collect::<Vec<_>>();
-                        for chunk in versions
-                            .chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                        {
-                            for value in selected_objects(
-                                &self.runtime,
-                                &read,
-                                chunk,
-                                &crate::CancelSource::new(),
-                            )
-                            .await?
-                            {
-                                let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                                leases.push(value.lease.clone());
-                                rows.push(row);
-                            }
-                        }
-                    }
-                    Ok(super::OwnedDeclarations {
-                        rows,
-                        _leases: leases,
-                    })
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
+    fn local_object(&self, logical: &str) -> Result<Arc<LocalSourceObject>, WorkflowError> {
+        self.revision.admitted.objects.get(logical).cloned().ok_or_else(||contract(format!("owned source object absent: {logical}")))
     }
-    /// Explicit full fitting inventory, retaining each generated row decode lease.
-    pub async fn fit_declarations(
-        &self,
-    ) -> Result<super::super::fitting::FitDeclarations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let result: Result<_, WorkflowError> = async {
-                    let mut fits = Vec::new();
-                    let mut leases = Vec::new();
-                    let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
-                    for chunk in
-                        members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                    {
-                        let versions = chunk
-                            .iter()
-                            .map(|member| member.version.clone())
-                            .collect::<Vec<_>>();
-                        for value in selected_objects(
-                            &self.runtime,
-                            &read,
-                            &versions,
-                            &crate::CancelSource::new(),
-                        )
-                        .await?
-                        {
-                            fits.push(decode(value.payload.as_slice())?);
-                            leases.push(value.lease.clone());
-                        }
-                    }
-                    Ok(super::super::fitting::FitDeclarations::from_owned_rows(
-                        fits, leases,
-                    ))
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
+    fn source_decode<T:serde::de::DeserializeOwned>(&self, object:&LocalSourceObject) -> Result<(T,Arc<pse_columnar::AllocationLease>),WorkflowError> {
+        let extent=object.payload.len().checked_mul(32).and_then(|n|n.checked_add(8192)).ok_or_else(||contract("owned source decode extent"))?;
+        let owner=self.runtime.shared.math().reserve("modeling:owned-source-decode",extent)?;
+        Ok((decode(&object.payload)?,owner))
     }
-    pub(in crate::workflow) async fn fit_declaration(
-        &self,
-        id: pse_model::generated::identities::FitId,
-    ) -> Result<pse_model::generated::authored::fit_cases::Row, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let result: Result<_, WorkflowError> = async {
-                    let value = object(&self.runtime, &mut read, &format!("fit:{id}"))
-                        .await?
-                        .ok_or_else(|| contract("unknown fitting declaration"))?;
-                    decode(value.payload.as_slice())
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
+    pub(super) async fn declaration_inventory(&self) -> Result<super::OwnedDeclarations,WorkflowError> {
+        let parent=self.delta_parent(&crate::CancelSource::new()).await?;
+        Ok(super::OwnedDeclarations {rows:parent.rows,_leases:parent._leases})
     }
-    pub(in crate::workflow) async fn replace_fits(
-        &self,
-        fits: &[pse_model::generated::authored::fit_cases::Row],
-    ) -> Result<SourceRevision, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let extent = fits
-                    .iter()
-                    .try_fold(size_of::<Vec<Declaration>>(), |n, row| {
-                        n.checked_add(row.owned_bytes())
-                    })
-                    .and_then(|n| n.checked_mul(8))
-                    .ok_or_else(|| contract("canonical fitting edit extent"))?;
-                let _scratch = self
-                    .runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:canonical-fit-edit", extent)?;
-                let validation = self.runtime.validation_context();
-                let mut builder =
-                    pse_relations::generated::authored::fit_cases::Builder::with_registry(
-                        self.runtime.registry(),
-                        fits.len(),
-                        &validation,
-                    )
-                    .map_err(super::super::relation)?;
-                for row in fits {
-                    builder.push(row.clone()).map_err(super::super::relation)?;
-                }
-                drop(builder.finish().map_err(super::super::relation)?);
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let old = store.resolve_kind_scope(&mut read, None, "fit").await;
-                let frame = object(&self.runtime, &mut read, INGRESS_FRAME).await;
-                let release = read.finish().await;
-                let old = old?;
-                let frame = frame?;
-                release?;
-                let mut edits = fits
-                    .iter()
-                    .map(|row| {
-                        Ok(edit(
-                            format!("fit:{}", row.fit_id),
-                            "fits".into(),
-                            row.fit_id.to_string(),
-                            "fit".into(),
-                            payload(row)?,
-                            Vec::new(),
-                        ))
-                    })
-                    .collect::<Result<Vec<_>, WorkflowError>>()?;
-                edits.extend(
-                    old.into_iter()
-                        .filter(|member| {
-                            !fits
-                                .iter()
-                                .any(|row| format!("fit:{}", row.fit_id) == member.logical)
-                        })
-                        .map(|member| ObjectEdit {
-                            logical: member.logical,
-                            scope: member.scope,
-                            name: member.name,
-                            version: None,
-                            references: Vec::new(),
-                        }),
-                );
-                if let Some(frame) = frame {
-                    let mut frame: IngressFrame = decode(frame.payload.as_slice())?;
-                    if let Some(origins) = &mut frame.origins {
-                        let changed = edits.iter().map(|edit| edit.logical.clone()).collect();
-                        origins.invalidate_fits(&changed);
-                        edits.push(edit(
-                            INGRESS_FRAME.into(),
-                            "context".into(),
-                            "ingress_frame".into(),
-                            "ingress_frame".into(),
-                            payload(&frame)?,
-                            Vec::new(),
-                        ));
-                    }
-                }
-                let operation = pse_operations::mint_id::<SemanticId>().to_string();
-                let canonical = store
-                    .edit(
-                        &self.revision.canonical.problem,
-                        Some(&self.revision.canonical.key),
-                        &operation,
-                        &edits,
-                    )
-                    .await?;
-                Ok(SourceRevision {
-                    canonical,
-                    identity: self.revision.identity,
-                })
-            })
-            .await
+    pub async fn fit_declarations(&self) -> Result<super::super::fitting::FitDeclarations,WorkflowError> {
+        let mut rows=Vec::new();let mut leases=Vec::new();
+        for object in self.revision.admitted.objects.values().filter(|o|o.kind=="fit") {
+            let (row,lease)=self.source_decode(object)?;rows.push(row);leases.push(lease);
+        }
+        Ok(super::super::fitting::FitDeclarations::from_owned_rows(rows,leases))
     }
-    /// Explicit full inventory/export request. This path is never a prerequisite
-    /// of a selected preparation and keeps no source rows on the package handle.
-    pub(super) async fn full_source(
-        &self,
-    ) -> Result<
-        (
-            Vec<Declaration>,
-            PhysicalScope,
-            Arc<pse_modeling::document::DocumentInventory>,
-            pse_admission::authoring_driver::document::Batches,
-            Vec<Arc<pse_columnar::AllocationLease>>,
-        ),
-        WorkflowError,
-    > {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                use pse_operations::canonical_staging::SELECTED_OBJECT_BATCH;
-                use pse_relations::generated::authored::{documents, fit_cases, packages};
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let result: Result<_, WorkflowError> = async {
-                    let (mut physical, physical_lease, _physical_version) =
-                        physical_context(&self.runtime, &mut read).await?;
-                    let mut index = SourceIndex::default();
-                    let mut leases = vec![physical_lease];
-                    let cancel = crate::CancelSource::new();
-                    if let Some(visible) = &mut physical.documents {
-                        let members = store
-                            .resolve_kind_scope(&mut read, None, "physical_scope_document")
-                            .await?;
-                        for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                            let versions = chunk
-                                .iter()
-                                .map(|member| member.version.clone())
-                                .collect::<Vec<_>>();
-                            for value in
-                                selected_objects(&self.runtime, &read, &versions, &cancel).await?
-                            {
-                                let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                                if entry.package != physical.package {
-                                    return Err(contract(
-                                        "canonical document physical package differs",
-                                    ));
-                                }
-                                visible.extend(entry.documents.ok_or_else(|| {
-                                    contract("canonical scoped physical entry is global")
-                                })?);
-                                leases.push(value.lease.clone());
-                            }
-                        }
-                    }
-                    let mut after = String::new();
-                    loop {
-                        let page = store
-                            .membership_page(read.selection(), None, &after)
-                            .await?;
-                        let Some(last) = page.last() else {
-                            break;
-                        };
-                        after = last.key.clone();
-                        let modeling = page
-                            .into_iter()
-                            .filter(|member| {
-                                member.logical.starts_with("modeling:")
-                                    && member.logical != CONTEXT_LOGICAL
-                                    && member.logical != PHYSICAL_SCOPE_LOGICAL
-                            })
-                            .collect();
-                        self.insert_members(&mut index, &mut read, modeling, &mut leases, &cancel)
-                            .await?;
-                    }
-                    let mut frames =
-                        objects(&self.runtime, &mut read, &[INGRESS_FRAME.into()], &cancel).await?;
-                    let declaration_order = if let Some(value) = frames.remove(INGRESS_FRAME) {
-                        let frame: IngressFrame = decode(value.payload.as_slice())?;
-                        leases.push(value.lease.clone());
-                        Some(frame.order)
-                    } else {
-                        None
-                    };
-                    let validation = self.runtime.validation_context();
-                    let mut document_builder =
-                        documents::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                            .map_err(super::super::relation)?;
-                    let mut inventory = pse_modeling::document::DocumentInventory {
-                        field_spans: index.fields,
-                        ..Default::default()
-                    };
-                    let members = store
-                        .resolve_kind_scope(&mut read, None, "document")
-                        .await?;
-                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                        let versions = chunk
-                            .iter()
-                            .map(|member| member.version.clone())
-                            .collect::<Vec<_>>();
-                        let mut rows = Vec::with_capacity(chunk.len());
-                        for value in
-                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
-                        {
-                            rows.push(decode::<pse_model::generated::authored::documents::Row>(
-                                value.payload.as_slice(),
-                            )?);
-                            leases.push(value.lease.clone());
-                        }
-                        let logicals = rows
-                            .iter()
-                            .map(|row| format!("data:{}", row.document_id))
-                            .collect::<Vec<_>>();
-                        let mut data =
-                            objects(&self.runtime, &mut read, &logicals, &cancel).await?;
-                        for (mut row, logical) in rows.into_iter().zip(logicals) {
-                            inventory
-                                .packages
-                                .insert(row.document_id, row.package_id.as_id());
-                            if let Some(data) = data.remove(&logical) {
-                                leases.push(data.lease.clone());
-                                let bytes = data.row.payload.into_vec();
-                                let (document, lease) =
-                            pse_admission::authoring_driver::document::decode_selected_data(
-                                row.document_id,
-                                row.path.clone(),
-                                bytes.clone().into(),
-                                Default::default(),
-                                &self.runtime.shared.pool(),
-                                &cancel.token(),
-                            )
-                            .map_err(WorkflowError::Authoring)?;
-                                inventory.documents.insert(row.document_id, document);
-                                leases.push(lease);
-                                row.content = Some(bytes.into());
-                            }
-                            document_builder.push(row).map_err(super::super::relation)?;
-                        }
-                    }
-                    let mut package_builder =
-                        packages::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                            .map_err(super::super::relation)?;
-                    let members = store.resolve_kind_scope(&mut read, None, "package").await?;
-                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                        let versions = chunk
-                            .iter()
-                            .map(|member| member.version.clone())
-                            .collect::<Vec<_>>();
-                        for value in
-                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
-                        {
-                            leases.push(value.lease.clone());
-                            package_builder
-                                .push(decode(value.payload.as_slice())?)
-                                .map_err(super::super::relation)?;
-                        }
-                    }
-                    let mut fit_builder =
-                        fit_cases::Builder::with_registry(self.runtime.registry(), 0, &validation)
-                            .map_err(super::super::relation)?;
-                    let members = store.resolve_kind_scope(&mut read, None, "fit").await?;
-                    for chunk in members.chunks(SELECTED_OBJECT_BATCH) {
-                        let versions = chunk
-                            .iter()
-                            .map(|member| member.version.clone())
-                            .collect::<Vec<_>>();
-                        for value in
-                            selected_objects(&self.runtime, &read, &versions, &cancel).await?
-                        {
-                            fit_builder
-                                .push(decode(value.payload.as_slice())?)
-                                .map_err(super::super::relation)?;
-                            leases.push(value.lease.clone());
-                        }
-                    }
-                    let sources = BTreeMap::from([
-                        (
-                            fit_cases::RELATION_ID,
-                            fit_builder.finish().map_err(super::super::relation)?,
-                        ),
-                        (
-                            documents::RELATION_ID,
-                            document_builder.finish().map_err(super::super::relation)?,
-                        ),
-                        (
-                            packages::RELATION_ID,
-                            package_builder.finish().map_err(super::super::relation)?,
-                        ),
-                    ]);
-                    let rows = if let Some(order) = declaration_order {
-                        let mut rows = Vec::with_capacity(order.len());
-                        for id in order {
-                            rows.push(index.rows.remove(&id).ok_or_else(|| {
-                                contract("source frame repeats or names an absent declaration")
-                            })?);
-                        }
-                        if !index.rows.is_empty() {
-                            return Err(contract("source frame omits declarations"));
-                        }
-                        rows
-                    } else {
-                        index.rows.into_values().collect()
-                    };
-                    for row in &rows {
-                        inventory.parsed_fields.insert(
-                            row.declaration_id,
-                            parsed_fields(
-                                &self.runtime,
-                                row,
-                                inventory.field_spans.get(&row.declaration_id),
-                            )?,
-                        );
-                    }
-                    Ok((rows, physical, Arc::new(inventory), sources, leases))
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
+    pub(in crate::workflow) async fn fit_declaration(&self,id:pse_model::generated::identities::FitId)->Result<pse_model::generated::authored::fit_cases::Row,WorkflowError> {
+        let object=self.local_object(&format!("fit:{id}"))?;
+        Ok(self.source_decode(&object)?.0)
     }
-    /// Read the exact fixture selection in canonical membership order.
-    pub(super) async fn selected_declarations(
-        &self,
-        selected: &BTreeSet<DeclarationId>,
-        cancel: &crate::CancelSource,
-    ) -> Result<super::OwnedDeclarations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                if selected.is_empty() {
-                    return Err(contract("a fixture selection names at least one test"));
-                }
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let result = async {
-                    let logicals = selected.iter().map(|id| logical(*id)).collect::<Vec<_>>();
-                    let mut members = Vec::new();
-                    for chunk in
-                        logicals.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                    {
-                        checkpoint(cancel)?;
-                        let _scratch = self.runtime.shared.math().reserve(
-                            "modeling:selected-fixture-membership",
-                            pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-                        )?;
-                        members.extend(store.resolve_logicals(&mut read, chunk).await?);
-                    }
-                    members.sort_by(|a, b| a.key.cmp(&b.key));
-                    let mut rows = Vec::new();
-                    let mut leases = Vec::new();
-                    for chunk in
-                        members.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                    {
-                        let versions = chunk
-                            .iter()
-                            .map(|member| member.version.clone())
-                            .collect::<Vec<_>>();
-                        for (member, value) in chunk
-                            .iter()
-                            .zip(selected_objects(&self.runtime, &read, &versions, cancel).await?)
-                        {
-                            if value.logical != member.logical || value.key != member.version {
-                                return Err(contract("selected fixture association differs"));
-                            }
-                            let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                            rows.push(row);
-                            leases.push(value.lease);
-                        }
-                    }
-                    Ok::<_, WorkflowError>(super::OwnedDeclarations {
-                        rows,
-                        _leases: leases,
-                    })
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
-    }
-    /// Read exactly one authored declaration for an operation's entry policy.
-    pub(super) async fn declaration(
-        &self,
-        id: DeclarationId,
-    ) -> Result<Declaration, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.runtime.canonical.store();
-                let protection = store
-                    .protect(
-                        self.revision.canonical.clone(),
-                        std::time::Duration::from_secs(3600),
-                    )
-                    .await?;
-                let mut read = SelectedRead::new(protection);
-                let result: Result<_, WorkflowError> = async {
-                    let value = object(&self.runtime, &mut read, &logical(id))
-                        .await?
-                        .ok_or_else(|| contract("canonical selected declaration absent"))?;
-                    let (row, _): SourcePayload = decode(value.payload.as_slice())?;
-                    Ok(row)
-                }
-                .await;
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
-    }
-    async fn qualified_selected_candidate(
-        &self,
-        request: &Arc<super::SelectedRequest>,
-        read: &mut SelectedRead,
-        cancel: &crate::CancelSource,
-        retained: &mut Option<SelectedCandidateWindow>,
-    ) -> Result<
-        Option<(
-            Arc<super::SelectedAdmission>,
-            Arc<pse_columnar::AllocationLease>,
-        )>,
-        WorkflowError,
-    > {
-        let math = self.runtime.shared.math();
-        let store = self.runtime.canonical.store();
-        let Some(candidates) = math.modeling_cache.selected(request) else {
-            *retained = None;
-            return Ok(None);
+    pub(in crate::workflow) async fn replace_fits(&self,fits:&[pse_model::generated::authored::fit_cases::Row])->Result<SourceRevision,WorkflowError> {
+        let existing=self.fit_declarations().await?;
+        let old=existing.fits.iter().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>();
+        let new=fits.iter().map(|row|(row.fit_id,row)).collect::<BTreeMap<_,_>>();
+        let delta=crate::workflow::SourceDelta {
+            parent:self.revision_id().into(),
+            fits:crate::workflow::SourceFitDelta {
+                additions:fits.iter().filter(|row|!old.contains_key(&row.fit_id)).cloned().collect(),
+                replacements:fits.iter().filter(|row|old.get(&row.fit_id).is_some_and(|old|*old!=*row)).cloned().collect(),
+                removals:old.keys().filter(|id|!new.contains_key(id)).copied().collect(),
+            },..Default::default()
         };
-        // rchunks visits every retained admission newest first, with no history
-        // truncation. Only one local window and the newest saved window coexist.
-        for (number, admissions) in candidates.rchunks(SELECTED_RECHECK_WINDOW).enumerate() {
-            checkpoint(cancel)?;
-            let handles = math.reserve(
-                "modeling:selected-window-handles",
-                SELECTED_RECHECK_WINDOW
-                    * size_of::<Arc<pse_operations::canonical_selection::SelectedDependencies>>()
-                    + 512,
-            )?;
-            let dependencies = admissions
-                .iter()
-                .rev()
-                .map(|a| a.dependencies.clone())
-                .collect::<Vec<_>>();
-            let newest = &admissions[admissions.len() - 1];
-            // Keep the thin exact-row adoption path for the first candidate. Do
-            // not leapfrog earlier candidates to adopt a later historical entry.
-            let metadata = math.reserve(
-                "modeling:selected-recheck",
-                newest.dependencies.retained_bytes(),
-            )?;
-            if store
-                .adopt_dependencies_from_same_revision(read, &newest.qualification)
-                .await?
-            {
+        Ok(self.with_delta(delta,&crate::CancelSource::new()).await?.revision)
+    }
+    pub(super) async fn full_source(&self)->Result<(Vec<Declaration>,PhysicalScope,Arc<pse_modeling::document::DocumentInventory>,pse_admission::authoring_driver::document::Batches,Vec<Arc<pse_columnar::AllocationLease>>),WorkflowError> {
+        use pse_relations::generated::authored::{documents,fit_cases,packages};
+        let parent=self.delta_parent(&crate::CancelSource::new()).await?;
+        let mut leases=parent._leases;
+        let validation=self.runtime.validation_context();
+        let mut inventory=pse_modeling::document::DocumentInventory {field_spans:parent.fields,..Default::default()};
+        let mut document_builder=documents::Builder::with_registry(self.runtime.registry(),parent.documents.len(),&validation).map_err(super::super::relation)?;
+        for mut row in parent.documents.into_values() {
+            inventory.packages.insert(row.document_id,row.package_id.as_id());
+            if let Some(data)=self.revision.admitted.objects.get(&format!("data:{}",row.document_id)) {
+                let (document,lease)=pse_admission::authoring_driver::document::decode_selected_data(row.document_id,row.path.clone(),data.payload.clone().into(),Default::default(),&self.runtime.shared.pool(),&crate::CancelSource::new().token())?;
+                inventory.documents.insert(row.document_id,document);leases.push(lease);row.content=Some(data.payload.clone().into());
+            }
+            document_builder.push(row).map_err(super::super::relation)?;
+        }
+        let mut package_builder=packages::Builder::with_registry(self.runtime.registry(),0,&validation).map_err(super::super::relation)?;
+        let mut fit_builder=fit_cases::Builder::with_registry(self.runtime.registry(),0,&validation).map_err(super::super::relation)?;
+        for object in self.revision.admitted.objects.values() {
+            match object.kind.as_str() {
+                "package"=>{let (row,lease)=self.source_decode(object)?;package_builder.push(row).map_err(super::super::relation)?;leases.push(lease);},
+                "fit"=>{let (row,lease)=self.source_decode(object)?;fit_builder.push(row).map_err(super::super::relation)?;leases.push(lease);},_=>{}
+            }
+        }
+        for row in &parent.rows {inventory.parsed_fields.insert(row.declaration_id,parsed_fields(&self.runtime,row,inventory.field_spans.get(&row.declaration_id))?);}
+        let sources=BTreeMap::from([(documents::RELATION_ID,document_builder.finish().map_err(super::super::relation)?),(packages::RELATION_ID,package_builder.finish().map_err(super::super::relation)?),(fit_cases::RELATION_ID,fit_builder.finish().map_err(super::super::relation)?)]);
+        Ok((parent.rows,parent.physical,Arc::new(inventory),sources,leases))
+    }
+    pub(super) async fn selected_declarations(&self,selected:&BTreeSet<DeclarationId>,cancel:&crate::CancelSource)->Result<super::OwnedDeclarations,WorkflowError> {
+        if selected.is_empty(){return Err(contract("a fixture selection names at least one test"));}
+        let parent=self.delta_parent(cancel).await?;
+        let rows=parent.rows.into_iter().filter(|row|selected.contains(&row.declaration_id)).collect::<Vec<_>>();
+        if rows.len()!=selected.len(){return Err(contract("selected declaration absent"));}
+        Ok(super::OwnedDeclarations {rows,_leases:parent._leases})
+    }
+    pub(super) async fn declaration(&self,id:DeclarationId)->Result<Declaration,WorkflowError> {
+        Ok(self.source_decode::<SourcePayload>(&self.local_object(&logical(id))?)?.0.0)
+    }
+    pub(super) async fn checked_selection(&self,roots:&[DeclarationId],cancel:&crate::CancelSource)->Result<CheckedSelection,WorkflowError> {
+        checkpoint(cancel)?;
+        let math=self.runtime.shared.math();
+        let request=Arc::new(super::SelectedRequest {
+            roots:roots.to_vec(),physical:self.physical.key,
+            providers:self.providers.iter().map(|(name,provider)|(name.clone(),provider.spec().key(),provider.configuration_key())).collect(),
+            validation:Arc::as_ptr(self.runtime.sessions()) as usize,registry:Arc::as_ptr(self.runtime.registry()) as usize,
+        });
+        if let Some(candidates)=math.modeling_cache.selected(&request) {
+            for admission in candidates.iter().rev().take(8) {
                 checkpoint(cancel)?;
-                return Ok(Some((newest.clone(), metadata)));
-            }
-            drop(metadata);
-            let reuse = number == 0
-                && retained
-                    .as_ref()
-                    .is_some_and(|saved| saved.observations.matches(read, &dependencies));
-            let mut local = if reuse {
-                retained
-                    .take()
-                    .ok_or_else(|| contract("selected candidate window disappeared"))?
-            } else {
-                if number == 0 {
-                    *retained = None;
+                if admission.dependencies.matches(&self.revision.admitted) {
+                    return Ok(CheckedSelection {admission:admission.clone(),_premises_metadata:None});
                 }
-                let scratch = math.reserve(
-                    "modeling:selected-window-observations",
-                    SelectedRecheckWindow::scratch_bytes(read, &dependencies)?,
-                )?;
-                SelectedCandidateWindow {
-                    observations: SelectedRecheckWindow::new(read, &dependencies)?,
-                    _scratch: scratch,
-                    _handles: handles,
-                }
-            };
-            let qualified = store
-                .qualify_selection_window(read, &mut local.observations)
-                .await
-                .map_err(|error| {
-                    super::super::diagnostics::operation_context(
-                        error.into(),
-                        "modeling.checked_selection.cached_dependency_recheck",
-                    )
-                })?;
-            checkpoint(cancel)?;
-            if let Some(index) = qualified {
-                let admission = &admissions[admissions.len() - 1 - index];
-                // Actual observations from rejected entries never enter this read.
-                // The complete winner is separately charged before cloning premises.
-                let metadata = math.reserve(
-                    "modeling:selected-recheck",
-                    admission.dependencies.retained_bytes(),
-                )?;
-                local.observations.merge_qualified(read, index)?;
-                return Ok(Some((admission.clone(), metadata)));
-            }
-            if number == 0 {
-                *retained = Some(local);
             }
         }
-        Ok(None)
-    }
-    pub(super) async fn checked_selection(
-        &self,
-        roots: &[DeclarationId],
-        cancel: &crate::CancelSource,
-    ) -> Result<CheckedSelection, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity.scope(async {
-        let deadline = super::preparation_deadline(cancel)?;
-        let store = self.runtime.canonical.store();
-        let math = self.runtime.shared.math();
+        let generation=math.modeling_cache.generation();
+        let (index,physical,documents,leases,dependencies)=self.select_local(roots,cancel)?;
+        let dependencies=Arc::new(dependencies);
+        let extent=dependencies.retained_bytes().checked_add(request.retained_bytes()).and_then(|n|n.checked_add(index.versions.iter().map(|(k,v)|k.capacity()+v.capacity()+128).sum::<usize>())).and_then(|n|n.checked_add(size_of::<super::SelectedAdmission>()+512)).ok_or_else(||contract("local selected metadata extent"))?;
+        let metadata=math.reserve("modeling:local-selected-admission",extent)?;
+        let rows=index.rows.into_values().collect();let suppliers=index.record_sources;let versions=Arc::new(index.versions);
+        let inputs=super::compiler_context(&self.physical,&self.providers);let lineage=self.compiler_lineage()?;
+        let stamp=crate::math::modeling::LaneStamp::new(self.revision.generation(),self.revision.revision_id());
+        let physical_key=self.physical.key;let service=math.clone();let flight_metadata=metadata.clone();
+        let key=(request.clone(),dependencies.clone());let population=crate::math::PopulationScope::capture();
+        let operation=math.selected_flights.load_owned(key,move |control|population.run(async move {
+            let worker_service=service.clone();
+            let admitted=service.job(1,0,control,move |flag| {
+                let _sources=leases;let _metadata=flight_metadata;
+                if flag.load(std::sync::atomic::Ordering::Acquire){return Err(crate::math::MathRuntimeError::Cancelled);}
+                let workspace=worker_service.compiler_lane(lineage,inputs)?;
+                worker_service.modeling_revision_at(&workspace,rows,physical,Arc::new(documents),&physical_key,stamp,flag,&suppliers)
+            }).await?;Ok(Arc::new(admitted))
+        }));
+        tokio::pin!(operation);
+        let revision=tokio::select! {
+            result=&mut operation=>result.map_err(|error|match error {
+                pse_columnar::flight::FlightError::Load(error)=>crate::math::MathRuntimeError::Shared(error),
+                pse_columnar::flight::FlightError::Capacity=>crate::math::MathRuntimeError::Limit("selected admission flights"),
+                pse_columnar::flight::FlightError::Retiring=>crate::math::MathRuntimeError::Retiring,
+                pse_columnar::flight::FlightError::Panicked=>crate::math::MathRuntimeError::Panic("selected admission task panic".into()),
+            })?,
+            ()=cancel.cancelled()=>return Err(crate::math::MathRuntimeError::Cancelled.into()),
+        };
         checkpoint(cancel)?;
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await
-            .map_err(|error| {
-                super::super::diagnostics::operation_context(
-                    error.into(),
-                    "modeling.checked_selection.protect",
-                )
-            })?;
-        let mut read = SelectedRead::new(protection);
-        let mut premises_metadata = None;
-        let mut recheck_window = None;
-        let result: Result<_, WorkflowError> = async {
-            let generation = math.modeling_cache.generation();
-            let request_bytes = size_of::<super::SelectedRequest>() + self.revision.canonical.problem.len()
-                + size_of_val(roots) + 512
-                + self.providers.keys().map(|name| name.len() + size_of::<(String, pse_kernels::ProviderKey, pse_ids::ContentHash)>() + 128).sum::<usize>();
-            let request_lease = math.reserve("modeling:selected-request", request_bytes)?;
-            let request = super::SelectedRequest {
-                problem: self.revision.canonical.problem.clone(), roots: roots.to_vec(), physical: self.physical.key,
-                providers: self.providers.iter().map(|(name, provider)| (name.clone(), provider.spec().key(), provider.configuration_key())).collect(),
-                validation: Arc::as_ptr(self.runtime.sessions()) as usize,
-                registry: Arc::as_ptr(self.runtime.registry()) as usize,
-            };
-            // This request is bounded by the same admitted package/roots, and its owned
-            // extent is reserved before either cache insertion or flight publication.
-            let request = Arc::new(request);
-            if let Some((admission, scratch)) = self
-                .qualified_selected_candidate(&request, &mut read, cancel, &mut recheck_window)
-                .await?
-            {
-                premises_metadata = Some(scratch);
-                return Ok(admission);
-            }
-            // Current qualification is private. Waiting consumers acquire their own
-            // fresh pin, then qualify the leader's completed admission after its turn.
-            let turn = math.selected_qualification_turn(
-                request.clone(), read.selection().revision(),
-            )?;
-            let _qualification = turn.acquire(cancel, deadline).await?;
-            if let Some((admission, scratch)) = self
-                .qualified_selected_candidate(&request, &mut read, cancel, &mut recheck_window)
-                .await?
-            {
-                premises_metadata = Some(scratch);
-                return Ok(admission);
-            }
-            // Sharing ends after the second search; release observation scratch
-            // before acquiring fresh source or constructing a compiler workspace.
-            recheck_window = None;
-            #[cfg(test)]
-            math.selected_qualifications.record_hydration();
-            let (index, physical, documents, leases) = self
-                .select_into(roots, &mut read, cancel)
-                .await
-                .map_err(|error| {
-                    super::super::diagnostics::operation_context(
-                        error,
-                        "modeling.checked_selection.selected_hydration",
-                    )
-                })?;
+        let admission=Arc::new(super::SelectedAdmission {request,revision:revision.as_ref().clone(),dependencies,versions,metadata,_validation_owner:self.runtime.model.clone()});
+        math.modeling_cache.retain_selected(generation,admission.clone());
+        Ok(CheckedSelection {admission,_premises_metadata:None})
+    }
+    fn compiler_lineage(&self)->Result<crate::math::modeling::CompilerLineage,WorkflowError> {
+        Ok(crate::math::modeling::CompilerLineage::new(self.revision.lineage_id(),pse_operations::generated::surreal::INTERPRETATION,self.runtime.sessions(),self.runtime.registry().clone(),self.runtime.model.clone())?)
+    }
+    pub(super) fn pure_workspace(&self)->Result<crate::math::Workspace,WorkflowError> {
+        Ok(self.runtime.shared.math().compiler_lane(self.compiler_lineage()?,super::compiler_context(&self.physical,&self.providers))?)
+    }
+    pub(in crate::workflow) async fn selected_revision(&self,root:DeclarationId,cancel:&crate::CancelSource)->Result<crate::math::modeling::ModelingRevision,WorkflowError> {
+        Ok(self.checked_selection(&[root],cancel).await?.admission.revision.clone())
+    }
+    pub(in crate::workflow) async fn selected_revision_roots(&self,roots:&[DeclarationId],cancel:&crate::CancelSource)->Result<crate::math::modeling::ModelingRevision,WorkflowError> {
+        Ok(self.checked_selection(roots,cancel).await?.admission.revision.clone())
+    }
+    pub(in crate::workflow) async fn all_revision(&self)->Result<crate::math::modeling::ModelingRevision,WorkflowError> {
+        let parent=self.delta_parent(&crate::CancelSource::new()).await?;
+        let roots=parent.rows.iter().map(|row|row.declaration_id).collect::<Vec<_>>();
+        self.selected_revision_roots(&roots,&crate::CancelSource::new()).await
+    }
+    fn insert_local(&self,index:&mut SourceIndex,objects:Vec<Arc<LocalSourceObject>>,leases:&mut Vec<Arc<pse_columnar::AllocationLease>>,cancel:&crate::CancelSource)->Result<(),WorkflowError> {
+        for object in objects {
             checkpoint(cancel)?;
-            let bytes = read.snapshot_receipt_scratch_bytes()?.checked_add(request.retained_bytes())
-                .and_then(|n| n.checked_add(index.versions.iter().map(|(k,v)| k.capacity() + v.capacity() + 128).sum::<usize>()))
-                .and_then(|n| n.checked_add(size_of::<super::SelectedAdmission>() + 512))
-                .ok_or_else(|| contract("selected admission metadata extent"))?;
-            let metadata = math.reserve("modeling:selected-admission", bytes)?;
-            premises_metadata = Some(metadata.clone());
-            let qualification = Arc::new(read.snapshot_receipt()?);
-            let dependencies = qualification.dependencies().clone();
-            // A concurrent first loader may have completed while this request was
-            // resolving its fresh premises. The same complete receipt proves reuse.
-            if let Some(candidates) = math.modeling_cache.selected(&request)
-                && let Some(admission) = candidates.iter().find(|candidate| candidate.dependencies == dependencies) {
-                return Ok(admission.clone());
-            }
-            let rows = index.rows.into_values().collect();
-            let suppliers = index.record_sources;
-            let versions = Arc::new(index.versions);
-            let inputs = super::compiler_context(&self.physical, &self.providers);
-            let lineage=self.compiler_lineage()?;
-            let stamp=crate::math::modeling::LaneStamp::new(read.selection().revision());
-            let physical_key = self.physical.key;
-            let service = math.clone();
-            let flight_metadata = metadata.clone();
-            let key = (request.clone(), dependencies.clone());
-            let population = crate::math::PopulationScope::capture();
-            let operation = math.selected_flights.load_owned(key, move |control| population.run(async move {
-                let worker_service = service.clone();
-                let admitted = service.job(1, 0, control, move |flag| {
-                    let _sources = leases;
-                    let _metadata = flight_metadata;
-                    let _request = request_lease;
-                    if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
-                    let workspace = worker_service.compiler_lane(lineage, inputs)?;
-                    let revision = worker_service.modeling_revision_at(&workspace, rows, physical, Arc::new(documents), &physical_key, stamp, flag.clone(), &suppliers)?;
-                    if flag.load(std::sync::atomic::Ordering::Acquire) { return Err(crate::math::MathRuntimeError::Cancelled); }
-                    Ok(revision)
-                }).await?;
-                Ok(Arc::new(admitted))
-            }));
-            tokio::pin!(operation);
-            let revision = tokio::select! {
-                result = &mut operation => result.map_err(|error| match error {
-                    pse_columnar::flight::FlightError::Load(error) => crate::math::MathRuntimeError::Shared(error),
-                    pse_columnar::flight::FlightError::Capacity => crate::math::MathRuntimeError::Limit("selected admission flights"),
-                    pse_columnar::flight::FlightError::Retiring => crate::math::MathRuntimeError::Retiring,
-                    pse_columnar::flight::FlightError::Panicked => crate::math::MathRuntimeError::Panic("selected admission task panic".into()),
-                })?,
-                () = cancel.cancelled() => return Err(crate::math::MathRuntimeError::Cancelled.into()),
-            };
-            checkpoint(cancel)?;
-            let admission = Arc::new(super::SelectedAdmission {
-                request, revision: revision.as_ref().clone(), dependencies, qualification, versions, metadata,
-                _validation_owner: self.runtime.model.clone(),
-            });
-            math.modeling_cache.retain_selected(generation, admission.clone());
-            Ok(admission)
-        }.await;
-        // No transient observation owner survives selected-read cleanup.
-        drop(recheck_window);
-        match result {
-            Ok(admission) => Ok(CheckedSelection {
-                admission,
-                read,
-                _premises_metadata: premises_metadata,
-            }),
-            Err(error) => {
-                let _ = read.finish().await;
-                Err(error)
-            }
+            if index.versions.contains_key(&object.logical){continue;}
+            if !object.kind.starts_with("modeling:") || object.kind==CONTEXT {return Err(contract("local lexical scope contains foreign object kind"));}
+            let (source,lease)=self.source_decode::<SourcePayload>(&object)?;
+            if logical(source.0.declaration_id)!=object.logical || kind(&source.0)!=object.kind || scope(source.0.parent_id)!=object.scope || source.0.name!=object.name {return Err(contract("owned source metadata differs from generated declaration"));}
+            index.insert(source)?;index.versions.insert(object.logical.clone(),object.version.clone());leases.push(lease);
         }
-
-        }).await
+        Ok(())
     }
-    fn compiler_lineage(&self) -> Result<crate::math::modeling::CompilerLineage, WorkflowError> {
-        Ok(crate::math::modeling::CompilerLineage::new(
-            self.runtime.canonical.store(),
-            &self.revision.canonical.problem,
-            &self.revision.canonical.interpretation,
-            self.runtime.sessions(),
-            self.runtime.registry().clone(),
-            self.runtime.model.clone(),
-        )?)
-    }
-    pub(super) fn pure_workspace(&self) -> Result<crate::math::Workspace, WorkflowError> {
-        Ok(self.runtime.shared.math().compiler_lane(
-            self.compiler_lineage()?,
-            super::compiler_context(&self.physical, &self.providers),
-        )?)
-    }
-    pub(in crate::workflow) async fn selected_revision(
-        &self,
-        root: DeclarationId,
-        cancel: &crate::CancelSource,
-    ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let selected = self.checked_selection(&[root], cancel).await?;
-                let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-                let release = selected.read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
-    }
-    pub(in crate::workflow) async fn selected_revision_roots(
-        &self,
-        roots: &[DeclarationId],
-        cancel: &crate::CancelSource,
-    ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let selected = self.checked_selection(roots, cancel).await?;
-                let result = Ok::<_, WorkflowError>(selected.admission.revision.clone());
-                let release = selected.read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
-    }
-    pub(in crate::workflow) async fn all_revision(
-        &self,
-    ) -> Result<crate::math::modeling::ModelingRevision, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let (rows, physical, documents, _, _source_owners) = self.full_source().await?;
-                Ok(self.runtime.shared.math().modeling_revision(
-                    &self.numerical_workspace()?,
-                    rows,
-                    physical,
-                    documents,
-                    &self.physical.key,
-                )?)
-            })
-            .await
-    }
-    #[cfg(all(test, feature = "canonical-tests"))]
-    pub(super) async fn selected_source(
-        &self,
-        root: DeclarationId,
-        cancel: &crate::CancelSource,
-    ) -> Result<SelectedSource, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async { self.selected_sources(&[root], cancel).await })
-            .await
-    }
-    #[cfg(all(test, feature = "canonical-tests"))]
-    async fn selected_sources(
-        &self,
-        roots: &[DeclarationId],
-        cancel: &crate::CancelSource,
-    ) -> Result<SelectedSource, WorkflowError> {
-        let store = self.runtime.canonical.store();
-        checkpoint(cancel)?;
-        let protection = store
-            .protect(
-                self.revision.canonical.clone(),
-                std::time::Duration::from_secs(3600),
-            )
-            .await?;
-        let mut read = SelectedRead::new(protection);
-        let result = self.select_into(roots, &mut read, cancel).await;
-        match result {
-            Ok((index, physical, _documents, leases)) => Ok(SelectedSource {
-                record_sources: index.record_sources,
-                versions: index.versions,
-                rows: index.rows.into_values().collect(),
-                physical,
-                read,
-                _leases: leases,
-            }),
-            Err(error) => {
-                let _ = read.finish().await;
-                Err(error)
-            }
-        }
-    }
-    async fn select_into(
-        &self,
-        roots: &[DeclarationId],
-        read: &mut SelectedRead,
-        cancel: &crate::CancelSource,
-    ) -> Result<
-        (
-            SourceIndex,
-            PhysicalScope,
-            pse_modeling::document::DocumentInventory,
-            Vec<Arc<pse_columnar::AllocationLease>>,
-        ),
-        WorkflowError,
-    > {
-        let store = self.runtime.canonical.store();
-        let (mut physical, physical_lease, physical_version) =
-            physical_context(&self.runtime, read).await?;
-        let mut index = SourceIndex::default();
-        let mut leases = vec![physical_lease];
-        index
-            .versions
-            .insert(PHYSICAL_SCOPE_LOGICAL.into(), physical_version);
-        index
-            .requests
-            .extend(roots.iter().copied().map(Request::Logical));
-        let mut suppliers = BTreeSet::new();
+    fn select_local(&self,roots:&[DeclarationId],cancel:&crate::CancelSource)->Result<(SourceIndex,PhysicalScope,pse_modeling::document::DocumentInventory,Vec<Arc<pse_columnar::AllocationLease>>,LocalSourcePremises),WorkflowError> {
+        let source=&self.revision.admitted;let mut premises=LocalSourcePremises::default();
+        let physical_object=premises.logical(source,PHYSICAL_SCOPE_LOGICAL).ok_or_else(||contract("owned physical scope absent"))?;
+        let (mut physical,lease)=self.source_decode::<PhysicalScope>(&physical_object)?;
+        let mut leases=vec![lease];let mut index=SourceIndex::default();
+        index.versions.insert(physical_object.logical.clone(),physical_object.version.clone());
+        index.requests.extend(roots.iter().copied().map(Request::Logical));let mut suppliers=BTreeSet::new();
         loop {
-            checkpoint(cancel)?;
-            let prior_rows = index.rows.len();
-            let requests = std::mem::take(&mut index.requests);
-            let mut requests = requests.into_iter().collect::<Vec<_>>();
-            requests.sort_by_key(|request| match request {
-                Request::Members(_) => 0,
-                Request::Logical(_) => 1,
-                Request::Imports(_) => 2,
-                Request::Name(_, _) => 3,
-            });
-            let mut logicals = Vec::new();
-            let mut names = BTreeMap::<Option<DeclarationId>, Vec<String>>::new();
-            let mut inventories = Vec::new();
-            let requested_scopes = requests
-                .iter()
-                .filter_map(|request| match request {
-                    Request::Members(owner) => Some(*owner),
-                    _ => None,
-                })
-                .collect::<BTreeSet<_>>();
+            checkpoint(cancel)?;let prior_rows=index.rows.len();
+            let mut requests=std::mem::take(&mut index.requests).into_iter().collect::<Vec<_>>();
+            requests.sort_by_key(|request|match request {Request::Members(_)=>0,Request::Logical(_)=>1,Request::Imports(_)=>2,Request::Name(_,_)=>3});
+            let requested_scopes=requests.iter().filter_map(|request|match request {Request::Members(owner)=>Some(*owner),_=>None}).collect::<BTreeSet<_>>();
             for request in requests {
-                match request {
-                    Request::Logical(id) => logicals.push(id),
-                    Request::Name(parent, name) => {
-                        if index.needs_name(parent, &name) {
-                            names.entry(parent).or_default().push(name);
+                let objects=match request {
+                    Request::Logical(id) if !index.rows.contains_key(&id) && !index.record_sources.contains_key(&id)=>{
+                        if let Some(object)=premises.logical(source,&logical(id)){vec![object]}else{
+                            let object=premises.logical(source,&format!("record:{id}")).ok_or_else(||contract("selected modeling declaration, record or lexical ancestor absent"))?;
+                            let (supplier,lease)=self.source_decode::<DeclarationId>(&object)?;leases.push(lease);
+                            index.versions.insert(object.logical.clone(),object.version.clone());index.record_sources.insert(id,supplier);index.requests.insert(Request::Logical(supplier));Vec::new()
                         }
                     }
-                    Request::Imports(owner)
-                        if index.scopes.contains(&owner) || requested_scopes.contains(&owner) => {}
-                    Request::Imports(owner) if !index.rows.contains_key(&owner) => {
-                        logicals.push(owner);
-                        index.requests.insert(Request::Imports(owner));
+                    Request::Name(parent,name) if index.needs_name(parent,&name)=>{
+                        let objects=premises.inventory(source,LocalInventory::Name(scope(parent),name.clone()));index.names.insert((parent,name));objects
                     }
-                    request => inventories.push(request),
-                }
-            }
-            for requests in inventories.chunks(SELECTED_INVENTORY_BATCH) {
-                let mut cursors = requests
-                    .iter()
-                    .map(|request| match request {
-                        Request::Imports(owner) => {
-                            store.kind_pages(read, Some(&logical(*owner)), "modeling:import")
-                        }
-                        Request::Members(owner) => store.scope_pages(read, &logical(*owner)),
-                        _ => Err(pse_operations::canonical::CanonicalError::Configuration(
-                            "invalid inventory frontier".into(),
-                        )),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.insert_inventories(&mut index, read, &mut cursors, &mut leases, cancel)
-                    .await?;
-                // Package rules are semantic defaults, not named expression members.
-                // Select their typed marker metadata beside imports; target traversal
-                // then acquires each constant without hydrating the whole package.
-                let mut rules = requests
-                    .iter()
-                    .filter_map(|request| match request {
-                        Request::Imports(owner)
-                            if index.rows[owner].value.kind == Kind::Package =>
-                        {
-                            Some(*owner)
-                        }
-                        _ => None,
-                    })
-                    .map(|owner| store.kind_pages(read, Some(&logical(owner)), ENGINEERING_RULE))
-                    .collect::<Result<Vec<_>, _>>()?;
-                if !rules.is_empty() {
-                    self.insert_inventories(&mut index, read, &mut rules, &mut leases, cancel)
-                        .await?;
-                }
-                for request in requests {
-                    match request {
-                        Request::Imports(owner) => {
-                            index.imports.insert(*owner);
-                        }
-                        Request::Members(owner) => {
-                            index.scopes.insert(*owner);
-                            index.imports.insert(*owner);
-                        }
-                        _ => return Err(contract("invalid inventory frontier")),
+                    Request::Members(owner)=>{
+                        let objects=premises.inventory(source,LocalInventory::Scope(logical(owner)));index.scopes.insert(owner);index.imports.insert(owner);objects
                     }
-                }
-            }
-            logicals.retain(|id| {
-                !index.rows.contains_key(id) && !index.record_sources.contains_key(id)
-            });
-            for ids in logicals.chunks(64) {
-                checkpoint(cancel)?;
-                let scratch = self.runtime.shared.math().reserve(
-                    "modeling:logical-frontier-metadata",
-                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-                )?;
-                let members = store
-                    .resolve_logicals(read, &ids.iter().copied().map(logical).collect::<Vec<_>>())
-                    .await?;
-                let present = members
-                    .iter()
-                    .map(|member| member.logical.clone())
-                    .collect::<BTreeSet<_>>();
-                self.insert_members(&mut index, read, members, &mut leases, cancel)
-                    .await?;
-                let missing = ids
-                    .iter()
-                    .filter(|id| !present.contains(&logical(**id)))
-                    .copied()
-                    .collect::<Vec<_>>();
-                drop(present);
-                drop(scratch);
-                let mut records = objects(
-                    &self.runtime,
-                    read,
-                    &missing
-                        .iter()
-                        .map(|id| format!("record:{id}"))
-                        .collect::<Vec<_>>(),
-                    cancel,
-                )
-                .await?;
-                for id in missing {
-                    let supplier = records.remove(&format!("record:{id}")).ok_or_else(|| {
-                        contract("selected modeling declaration, record or lexical ancestor absent")
-                    })?;
-                    if supplier.kind != "record_supplier" {
-                        return Err(contract("canonical record supplier interpretation differs"));
+                    Request::Imports(owner) if index.scopes.contains(&owner) || requested_scopes.contains(&owner)=>Vec::new(),
+                    Request::Imports(owner) if !index.rows.contains_key(&owner)=>{index.requests.insert(Request::Logical(owner));index.requests.insert(Request::Imports(owner));Vec::new()},
+                    Request::Imports(owner)=>{
+                        let mut objects=premises.inventory(source,LocalInventory::Kind(Some(logical(owner)),"modeling:import".into()));
+                        if index.rows[&owner].value.kind==Kind::Package {objects.extend(premises.inventory(source,LocalInventory::Kind(Some(logical(owner)),ENGINEERING_RULE.into())));}
+                        index.imports.insert(owner);objects
                     }
-                    let origin: DeclarationId = decode(supplier.payload.as_slice())?;
-                    index
-                        .versions
-                        .insert(supplier.logical.clone(), supplier.key.clone());
-                    leases.push(supplier.lease.clone());
-                    index.record_sources.insert(id, origin);
-                    index.requests.insert(Request::Logical(origin));
-                }
+                    _=>Vec::new(),
+                };
+                self.insert_local(&mut index,objects,&mut leases,cancel)?;
             }
-            let names = names
-                .into_iter()
-                .flat_map(|(parent, names)| names.into_iter().map(move |name| (parent, name)))
-                .filter(|(parent, name)| index.needs_name(*parent, name))
-                .collect::<Vec<_>>();
-            for names in names.chunks(64) {
-                checkpoint(cancel)?;
-                let _scratch = self.runtime.shared.math().reserve(
-                    "modeling:lexical-pair-metadata",
-                    pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-                )?;
-                let pairs = names
-                    .iter()
-                    .map(|(parent, name)| (scope(*parent), name.clone()))
-                    .collect::<Vec<_>>();
-                let members = store.resolve_name_pairs(read, &pairs).await?;
-                self.insert_members(&mut index, read, members, &mut leases, cancel)
-                    .await?;
-                index.names.extend(names.iter().cloned());
-            }
-            let new_rows = std::mem::take(&mut index.new_rows);
-            let mut supplier_demands = Vec::new();
+            let new_rows=std::mem::take(&mut index.new_rows);let mut supplier_demands=Vec::new();
             for id in new_rows {
-                checkpoint(cancel)?;
-                let row = index.rows[&id].clone();
-                if index.needs_name(row.parent_id, &row.name) {
-                    index
-                        .requests
-                        .insert(Request::Name(row.parent_id, row.name.clone()));
-                }
-                if selected_source::requires_members(&row) && !index.scopes.contains(&id) {
-                    index.requests.insert(Request::Members(id));
-                } else if selected_source::owns_namespace(&row)
-                    && !index.imports.contains(&id)
-                    && !index.scopes.contains(&id)
-                {
-                    index.requests.insert(Request::Imports(id));
-                }
-                if row.value.import.is_some() && index.needs_name(None, &row.name) {
-                    index.requests.insert(Request::Name(None, row.name.clone()));
-                }
-                // The source-local grammar owner is shared with contextual checking;
-                // binding and physical admission are rebuilt for this exact closure.
-                let parsed = parsed_fields(&self.runtime, &row, index.fields.get(&id))?;
-                let references = selected_source::declaration_references_parsed(&row, &parsed)
-                    .map_err(super::super::modeling_error)?;
-                index.parsed_fields.insert(id, parsed);
-                let reference_lease = self
-                    .runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:source-reference-paths", references.owned_bytes())?;
-                index.pending_references.insert(id, references);
-                leases.push(reference_lease);
+                checkpoint(cancel)?;let row=index.rows[&id].clone();
+                if index.needs_name(row.parent_id,&row.name){index.requests.insert(Request::Name(row.parent_id,row.name.clone()));}
+                if selected_source::requires_members(&row) && !index.scopes.contains(&id){index.requests.insert(Request::Members(id));}
+                else if selected_source::owns_namespace(&row) && !index.imports.contains(&id) && !index.scopes.contains(&id){index.requests.insert(Request::Imports(id));}
+                if row.value.import.is_some() && index.needs_name(None,&row.name){index.requests.insert(Request::Name(None,row.name.clone()));}
+                let parsed=parsed_fields(&self.runtime,&row,index.fields.get(&id))?;
+                let references=selected_source::declaration_references_parsed(&row,&parsed).map_err(super::super::modeling_error)?;
+                let lease=self.runtime.shared.math().reserve("modeling:local-reference-paths",references.owned_bytes())?;
+                index.parsed_fields.insert(id,parsed);index.pending_references.insert(id,references);leases.push(lease);
                 if selected_source::requires_suppliers(&row) && suppliers.insert(id) {
-                    let source_kinds: &[&str] = match row.value.kind {
-                        Kind::IdentifierScheme => &["modeling:attribute"],
-                        Kind::EntityKind => &[
-                            "modeling:dataset",
-                            "modeling:entity",
-                            "modeling:entity_kind",
-                        ],
-                        _ => &["modeling:dataset"],
-                    };
-                    for source_kind in source_kinds {
-                        supplier_demands.push((
-                            scope(row.parent_id),
-                            row.name.clone(),
-                            *source_kind,
-                        ));
-                    }
+                    let kinds:&[&str]=match row.value.kind {Kind::IdentifierScheme=>&["modeling:attribute"],Kind::EntityKind=>&["modeling:dataset","modeling:entity","modeling:entity_kind"],_=>&["modeling:dataset"]};
+                    for kind in kinds {supplier_demands.push(LocalInventory::References(scope(row.parent_id),row.name.clone(),(*kind).into()));}
                 }
             }
-            for demands in supplier_demands.chunks(SELECTED_INVENTORY_BATCH) {
-                let mut cursors = demands
-                    .iter()
-                    .map(|(scope, name, kind)| store.reference_pages(read, scope, name, kind))
-                    .collect::<Result<Vec<_>, _>>()?;
-                self.insert_inventories(&mut index, read, &mut cursors, &mut leases, cancel)
-                    .await?;
-            }
-            for (owner, references) in std::mem::take(&mut index.pending_references) {
-                checkpoint(cancel)?;
-                index.pending(owner, references);
-            }
-            let mut requests = std::mem::take(&mut index.requests);
-            requests.retain(|request| match request {
-                Request::Logical(id) => {
-                    !index.rows.contains_key(id) && !index.record_sources.contains_key(id)
-                }
-                Request::Name(parent, name) => index.needs_name(*parent, name),
-                Request::Imports(id) => !index.imports.contains(id) && !index.scopes.contains(id),
-                Request::Members(id) => !index.scopes.contains(id),
-            });
-            index.requests = requests;
-            if index.requests.is_empty() && index.rows.len() == prior_rows {
-                break;
-            }
+            for query in supplier_demands {let objects=premises.inventory(source,query);self.insert_local(&mut index,objects,&mut leases,cancel)?;}
+            for (owner,references) in std::mem::take(&mut index.pending_references){checkpoint(cancel)?;index.pending(owner,references);}
+            let mut requests=std::mem::take(&mut index.requests);
+            requests.retain(|request|match request {Request::Logical(id)=>!index.rows.contains_key(id)&&!index.record_sources.contains_key(id),Request::Name(parent,name)=>index.needs_name(*parent,name),Request::Imports(id)=>!index.imports.contains(id)&&!index.scopes.contains(id),Request::Members(id)=>!index.scopes.contains(id)});
+            index.requests=requests;
+            if index.requests.is_empty() && index.rows.len()==prior_rows {break;}
         }
-        if roots
-            .iter()
-            .any(|root| !index.rows.contains_key(root) && !index.record_sources.contains_key(root))
-        {
-            return Err(contract("selected modeling root absent"));
-        }
-        let document_ids = index
-            .rows
-            .values()
-            .map(|row| row.document_id)
-            .collect::<BTreeSet<_>>();
-        let mut metadata_ids = document_ids
-            .iter()
-            .map(|id| format!("document:{id}"))
-            .collect::<Vec<_>>();
-        if physical.documents.is_some() {
-            metadata_ids.extend(
-                document_ids
-                    .iter()
-                    .map(|id| format!("physical_scope_document:{id}")),
-            );
-        }
-        let mut metadata_objects = objects(&self.runtime, read, &metadata_ids, cancel).await?;
-        let mut documents = pse_modeling::document::DocumentInventory {
-            field_spans: index.fields.clone(),
-            parsed_fields: index.parsed_fields.clone(),
-            ..Default::default()
-        };
-        let mut metadata_by_document = BTreeMap::new();
+        if roots.iter().any(|root|!index.rows.contains_key(root)&&!index.record_sources.contains_key(root)){return Err(contract("selected modeling root absent"));}
+        let document_ids=index.rows.values().map(|row|row.document_id).collect::<BTreeSet<_>>();
+        let mut documents=pse_modeling::document::DocumentInventory {field_spans:index.fields.clone(),parsed_fields:index.parsed_fields.clone(),..Default::default()};
+        let mut metadata_by_document=BTreeMap::new();
         for id in document_ids {
-            if let Some(visible) = &mut physical.documents
-                && let Some(value) =
-                    metadata_objects.remove(&format!("physical_scope_document:{id}"))
-            {
-                let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                if value.kind != "physical_scope_document"
-                    || entry.package != physical.package
-                    || entry.documents != Some(BTreeSet::from([id]))
-                {
-                    return Err(contract("canonical document physical scope differs"));
-                }
-                visible.insert(id);
-                index
-                    .versions
-                    .insert(value.logical.clone(), value.key.clone());
-                leases.push(value.lease.clone());
+            if physical.documents.is_some() && let Some(object)=premises.logical(source,&format!("physical_scope_document:{id}")) {
+                let (entry,lease)=self.source_decode::<PhysicalScope>(&object)?;
+                if entry.package!=physical.package || entry.documents!=Some(BTreeSet::from([id])) {return Err(contract("owned document physical scope differs"));}
+                if let Some(visible)=&mut physical.documents {visible.insert(id);}
+                index.versions.insert(object.logical.clone(),object.version.clone());leases.push(lease);
             }
-            if let Some(metadata) = metadata_objects.remove(&format!("document:{id}")) {
-                if metadata.kind != "document" {
-                    return Err(contract(
-                        "canonical document metadata interpretation differs",
-                    ));
-                }
-                index
-                    .versions
-                    .insert(metadata.logical.clone(), metadata.key.clone());
-                leases.push(metadata.lease.clone());
-                let metadata: pse_model::generated::authored::documents::Row =
-                    decode(metadata.payload.as_slice())?;
-                documents.packages.insert(id, metadata.package_id.as_id());
-                metadata_by_document.insert(id, metadata);
+            if let Some(object)=premises.logical(source,&format!("document:{id}")) {
+                let (row,lease)=self.source_decode::<pse_model::generated::authored::documents::Row>(&object)?;
+                documents.packages.insert(id,row.package_id.as_id());metadata_by_document.insert(id,row);
+                index.versions.insert(object.logical.clone(),object.version.clone());leases.push(lease);
             }
         }
-        let mut data_documents = BTreeMap::new();
+        let mut data_documents=BTreeMap::new();
         for row in index.rows.values() {
-            if let Some(path) = row
-                .value
-                .dataset
-                .as_ref()
-                .and_then(|dataset| dataset.document.as_ref())
-            {
-                let metadata = metadata_by_document.get(&row.document_id).ok_or_else(|| {
-                    contract("selected dataset declaring document metadata absent")
-                })?;
-                let id = pse_ids::named_id(metadata.package_id.as_id(), path);
-                data_documents.insert(id, path.clone());
+            if let Some(path)=row.value.dataset.as_ref().and_then(|dataset|dataset.document.as_ref()) {
+                let owner=metadata_by_document.get(&row.document_id).ok_or_else(||contract("selected dataset declaring document metadata absent"))?;
+                data_documents.insert(pse_ids::named_id(owner.package_id.as_id(),path),path.clone());
             }
         }
-        let mut data_objects = objects(
-            &self.runtime,
-            read,
-            &data_documents
-                .keys()
-                .map(|id| format!("data:{id}"))
-                .collect::<Vec<_>>(),
-            cancel,
-        )
-        .await?;
-        for (id, path) in data_documents {
-            checkpoint(cancel)?;
-            let bytes = data_objects
-                .remove(&format!("data:{id}"))
-                .ok_or_else(|| contract("selected dataset data document absent"))?;
-            if bytes.kind != "data" {
-                return Err(contract(
-                    "canonical dataset document interpretation differs",
-                ));
-            }
-            index
-                .versions
-                .insert(bytes.logical.clone(), bytes.key.clone());
-            leases.push(bytes.lease.clone());
-            let (document, lease) =
-                pse_admission::authoring_driver::document::decode_selected_data(
-                    id,
-                    path,
-                    bytes.row.payload.into_vec().into(),
-                    Default::default(),
-                    &self.runtime.shared.pool(),
-                    &cancel.token(),
-                )
-                .map_err(WorkflowError::Authoring)?;
-            documents.documents.insert(id, document);
-            leases.push(lease);
+        for (id,path) in data_documents {
+            checkpoint(cancel)?;let object=premises.logical(source,&format!("data:{id}")).ok_or_else(||contract("selected data document absent"))?;
+            let (document,lease)=pse_admission::authoring_driver::document::decode_selected_data(id,path,object.payload.clone().into(),Default::default(),&self.runtime.shared.pool(),&cancel.token())?;
+            documents.documents.insert(id,document);index.versions.insert(object.logical.clone(),object.version.clone());leases.push(lease);
         }
-        Ok((index, physical, documents, leases))
-    }
-    async fn insert_inventories(
-        &self,
-        index: &mut SourceIndex,
-        read: &mut SelectedRead,
-        cursors: &mut Vec<pse_operations::canonical_selection::SelectedMemberships>,
-        leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
-        cancel: &crate::CancelSource,
-    ) -> Result<(), WorkflowError> {
-        while !cursors.is_empty() {
-            checkpoint(cancel)?;
-            let scratch = self.runtime.shared.math().reserve(
-                "modeling:namespace-page",
-                pse_operations::canonical_staging::SELECTED_OBJECT_HEADER_SCRATCH,
-            )?;
-            let pages = self
-                .runtime
-                .canonical
-                .store()
-                .next_membership_pages(read, cursors)
-                .await?;
-            checkpoint(cancel)?;
-            let completed = pages.iter().map(Vec::is_empty).collect::<Vec<_>>();
-            let members = pages.into_iter().flatten().collect::<Vec<_>>();
-            // Every cursor records its own exact complete premise, while shared
-            // source objects are decoded just once across overlapping suppliers.
-            let extent = members
-                .owned_bytes()
-                .checked_mul(4)
-                .and_then(|bytes| bytes.checked_add(4096))
-                .ok_or_else(|| contract("selected namespace metadata extent overflow"))?;
-            leases.push(
-                self.runtime
-                    .shared
-                    .math()
-                    .reserve("modeling:namespace-identities", extent)?,
-            );
-            self.insert_members(index, read, members, leases, cancel)
-                .await?;
-            let mut position = 0;
-            cursors.retain(|_| {
-                let retain = !completed[position];
-                position += 1;
-                retain
-            });
-            drop(scratch);
-        }
-        Ok(())
-    }
-    async fn insert_members(
-        &self,
-        index: &mut SourceIndex,
-        read: &mut SelectedRead,
-        members: Vec<Membership>,
-        leases: &mut Vec<Arc<pse_columnar::AllocationLease>>,
-        cancel: &crate::CancelSource,
-    ) -> Result<(), WorkflowError> {
-        let mut unread = BTreeMap::<String, Membership>::new();
-        for member in members {
-            checkpoint(cancel)?;
-            if let Some(version) = index.versions.get(&member.logical) {
-                if version != &member.version {
-                    return Err(contract("one selected logical has incompatible versions"));
-                }
-                continue;
-            }
-            if let Some(previous) = unread.get(&member.logical) {
-                if previous.version != member.version {
-                    return Err(contract("one selected logical has incompatible versions"));
-                }
-            } else {
-                unread.insert(member.logical.clone(), member);
-            }
-        }
-        let unread = unread.into_values().collect::<Vec<_>>();
-        for members in unread.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH) {
-            let versions = members
-                .iter()
-                .map(|member| member.version.clone())
-                .collect::<Vec<_>>();
-            let objects = selected_objects(&self.runtime, read, &versions, cancel).await?;
-            for (member, object) in members.iter().zip(objects) {
-                checkpoint(cancel)?;
-                if !object.kind.starts_with("modeling:") || object.kind == CONTEXT {
-                    return Err(contract(
-                        "canonical lexical scope contains foreign object kind",
-                    ));
-                }
-                let lease = object.lease.clone();
-                let source: SourcePayload = decode(object.payload.as_slice())?;
-                if logical(source.0.declaration_id) != object.logical
-                    || kind(&source.0) != object.kind
-                    || member.logical != object.logical
-                    || member.scope != scope(source.0.parent_id)
-                    || member.name != source.0.name
-                {
-                    return Err(contract(
-                        "canonical source metadata differs from generated declaration",
-                    ));
-                }
-                if source.0.owned_bytes().saturating_add(1024) > lease.size() {
-                    return Err(contract("canonical source decode extent insufficient"));
-                }
-                index.insert(source)?;
-                index
-                    .versions
-                    .insert(member.logical.clone(), member.version.clone());
-                leases.push(lease);
-            }
-        }
-        Ok(())
+        Ok((index,physical,documents,leases,premises))
     }
 }
 
@@ -2860,7 +1666,7 @@ mod tests {
                 Vec::new(),
             ));
         }
-        let store = runtime.canonical.store();
+        let store = runtime.canonical_store()?;
         let revision = store
             .edit(
                 &package.revision.canonical.problem,
@@ -3054,8 +1860,7 @@ mod tests {
         );
         let selected_versions = selected.versions.clone();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3202,8 +2007,7 @@ mod tests {
         let mut pending = selected.read.clone();
         let mut cursors = vec![
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .scope_pages(&mut pending, &logical(root))
                 .unwrap(),
         ];
@@ -3250,8 +2054,7 @@ mod tests {
         assert!(index.rows.is_empty() && leases.is_empty());
         assert_eq!(runtime.shared.pool().reserved(), before);
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3265,7 +2068,7 @@ mod tests {
             read: &SelectedRead,
             request: &[u8],
         ) -> pse_operations::canonical_selection::ProductCandidate {
-            let store = runtime.canonical.store();
+            let store = runtime.canonical_store()?;
             let producer = "engineering-rule-frontier-fixture";
             store
                 .publish_product(
@@ -3346,16 +2149,14 @@ mod tests {
             .unwrap();
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
                 .await
                 .unwrap()
                 .is_some()
         );
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3364,8 +2165,7 @@ mod tests {
         let selected = package.selected_source(root, &cancel).await.unwrap();
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
                 .await
                 .unwrap()
@@ -3416,8 +2216,7 @@ mod tests {
             .unwrap();
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &marked_candidate)
                 .await
                 .unwrap()
@@ -3426,8 +2225,7 @@ mod tests {
         );
         let marked_versions = selected.versions.clone();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3456,8 +2254,7 @@ mod tests {
         );
         let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
@@ -3474,8 +2271,7 @@ mod tests {
         );
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &marked_candidate)
                 .await
                 .unwrap()
@@ -3483,8 +2279,7 @@ mod tests {
             "changed package source provenance invalidates exact reuse"
         );
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3512,8 +2307,7 @@ mod tests {
         );
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &marked_candidate)
                 .await
                 .unwrap()
@@ -3521,8 +2315,7 @@ mod tests {
             "unrelated relation growth preserves the actual reuse premises"
         );
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3533,8 +2326,7 @@ mod tests {
         let selected = removed.selected_source(root, &cancel).await.unwrap();
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &marked_candidate)
                 .await
                 .unwrap()
@@ -3543,8 +2335,7 @@ mod tests {
         );
         assert!(
             runtime
-                .canonical
-                .store()
+                .canonical_store()?
                 .qualify_product(&mut selected.read.clone(), &unmarked_candidate)
                 .await
                 .unwrap()
@@ -3563,8 +2354,7 @@ mod tests {
             .unwrap();
         assert!(prepared.compiled().model.engineering_rules.is_empty());
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3592,8 +2382,7 @@ mod tests {
         // Only its source interpretation differs; no fixture bypass changes open.
         let old_operation = pse_operations::mint_id::<SemanticId>().to_string();
         let old = runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .edit(
                 &current.problem,
                 Some(&current.key),
@@ -3624,8 +2413,7 @@ mod tests {
         );
         let current_operation = pse_operations::mint_id::<SemanticId>().to_string();
         let restaged = runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .edit(
                 &current.problem,
                 Some(&old.key),
@@ -3679,16 +2467,14 @@ mod tests {
         let checked = package.checked_selection(&[root], &cancel).await.unwrap();
         let admitted = checked.admission.revision.clone();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
         assert!(admitted.checked().entry("p.D").is_some());
         assert!(admitted.checked().entry("p.Unrelated").is_none());
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3718,14 +2504,12 @@ mod tests {
         assert_eq!(selected.rows.len(), 6);
         let checked = revised.checked_selection(&[root], &cancel).await.unwrap();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3787,15 +2571,13 @@ mod tests {
             .unwrap();
         let revision = checked.admission.revision.clone();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
         assert_eq!(revision.checked().resolve(root, "outer"), Some(inner));
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3872,8 +2654,7 @@ mod tests {
             .unwrap();
         let admitted = checked.admission.revision.clone();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
@@ -3889,8 +2670,7 @@ mod tests {
             matches!(admitted.checked().record(record).unwrap().values["value"], pse_modeling::specialize::Value::Number { bits, .. } if f64::from_bits(bits) == 2.0)
         );
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();
@@ -3949,14 +2729,12 @@ mod tests {
             .await
             .unwrap();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(checked.read.selection())
             .await
             .unwrap();
         runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .release(selected.read.selection())
             .await
             .unwrap();

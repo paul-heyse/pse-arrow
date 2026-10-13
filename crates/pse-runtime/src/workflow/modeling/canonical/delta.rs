@@ -12,7 +12,7 @@ pub(super) struct Parent {
     pub(super) frame: IngressFrame,
     pub(super) physical: PhysicalScope,
     pub(super) documents: BTreeMap<SemanticId, document_wire::Row>,
-    pub(super) members: BTreeMap<String, Membership>,
+    pub(super) members: BTreeMap<String, SourceMember>,
     pub(super) fields: BTreeMap<DeclarationId, FieldSpans>,
     pub(super) _leases: Vec<Arc<pse_columnar::AllocationLease>>,
 }
@@ -93,203 +93,60 @@ fn data_documents(
 }
 
 impl ModelingPackage {
-    pub(super) async fn delta_parent(
-        &self,
-        read: &mut SelectedRead,
-        cancel: &crate::CancelSource,
-    ) -> Result<Parent, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                let store = self.runtime.canonical.store();
-                let mut frame_objects =
-                    objects(&self.runtime, read, &[INGRESS_FRAME.into()], cancel).await?;
-                let frame_object = frame_objects.remove(INGRESS_FRAME).ok_or_else(|| contract(
-            "this source has no recoverable ordered ingress frame; restage it before delta editing",
-        ))?;
-                let frame: IngressFrame = decode(frame_object.payload.as_slice())?;
-                let (mut physical, physical_lease, _) =
-                    physical_context(&self.runtime, read).await?;
-                let mut leases = vec![frame_object.lease.clone(), physical_lease];
-                let mut members = BTreeMap::new();
-                let mut index = SourceIndex::default();
-                let mut documents = BTreeMap::new();
-                let mut after = String::new();
-                loop {
-                    checkpoint(cancel)?;
-                    let scratch = self
-                        .runtime
-                        .shared
-                        .math()
-                        .reserve("modeling:delta-membership-page", 16 * 1024 * 1024)?;
-                    let page = store
-                        .membership_page(read.selection(), None, &after)
-                        .await?;
-                    let Some(last) = page.last() else { break };
-                    after = last.key.clone();
-                    let extent = page
-                        .owned_bytes()
-                        .checked_mul(2)
-                        .ok_or_else(|| contract("delta membership extent"))?;
-                    leases.extend(
-                        scratch
-                            .partition(&[extent])
-                            .map_err(|_| contract("delta membership page exceeds admission"))?,
-                    );
-                    let declarations = page
-                        .iter()
-                        .filter(|member| {
-                            member.logical.starts_with("modeling:")
-                                && member.logical != CONTEXT_LOGICAL
-                                && member.logical != PHYSICAL_SCOPE_LOGICAL
-                        })
-                        .cloned()
-                        .collect();
-                    self.insert_members(&mut index, read, declarations, &mut leases, cancel)
-                        .await?;
-                    let metadata = page
-                        .iter()
-                        .filter(|member| {
-                            member.logical.starts_with("document:")
-                                || member.logical.starts_with("physical_scope_document:")
-                        })
-                        .map(|member| member.version.clone())
-                        .collect::<Vec<_>>();
-                    for chunk in
-                        metadata.chunks(pse_operations::canonical_staging::SELECTED_OBJECT_BATCH)
-                    {
-                        for value in selected_objects(&self.runtime, read, chunk, cancel).await? {
-                            if value.kind == "document" {
-                                let row: document_wire::Row = decode(value.payload.as_slice())?;
-                                if row.content.is_some() {
-                                    return Err(contract(
-                                        "document metadata unexpectedly contains data bytes",
-                                    ));
-                                }
-                                documents.insert(row.document_id, row);
-                            } else {
-                                let entry: PhysicalScope = decode(value.payload.as_slice())?;
-                                if entry.package != physical.package {
-                                    return Err(contract("delta physical package differs"));
-                                }
-                                physical
-                                    .documents
-                                    .as_mut()
-                                    .ok_or_else(|| {
-                                        contract("scoped entry in global physical context")
-                                    })?
-                                    .extend(entry.documents.ok_or_else(|| {
-                                        contract("global entry in scoped physical context")
-                                    })?);
-                            }
-                            leases.push(value.lease.clone());
-                        }
-                    }
-                    for member in page {
-                        members.insert(member.logical.clone(), member);
-                    }
-                }
-                let mut rows = Vec::with_capacity(frame.order.len());
-                let mut unique = BTreeSet::new();
-                for id in &frame.order {
-                    if !unique.insert(*id) {
-                        return Err(contract("ordered parent frame repeats a declaration"));
-                    }
-                    rows.push(index.rows.remove(id).ok_or_else(|| {
-                        contract("ordered parent frame names an absent declaration")
-                    })?);
-                }
-                if !index.rows.is_empty() {
-                    return Err(contract("ordered parent frame omits declarations"));
-                }
-                let names =
-                    selected_source::physical_bindings(&rows, &physical, &self.physical.quantities);
-                let identity = crate::math::modeling::source_revision_frame(
-                    &rows,
-                    frame.data.iter().map(|(id, hash)| (*id, *hash)),
-                    &self.physical.key,
-                    &names,
-                );
-                if identity != self.revision.identity {
-                    return Err(contract(
-                        "ordered parent metadata does not reproduce its V4 identity",
-                    ));
-                }
-                Ok(Parent {
-                    rows,
-                    frame,
-                    physical,
-                    documents,
-                    members,
-                    fields: index.fields,
-                    _leases: leases,
-                })
-            })
-            .await
+    pub(super) async fn delta_parent(&self,cancel:&crate::CancelSource)->Result<Parent,WorkflowError> {
+        checkpoint(cancel)?;
+        let (frame,frame_lease)=self.source_decode::<IngressFrame>(&self.local_object(INGRESS_FRAME)?)?;
+        let (mut physical,physical_lease)=self.source_decode::<PhysicalScope>(&self.local_object(PHYSICAL_SCOPE_LOGICAL)?)?;
+        let mut leases=vec![frame_lease,physical_lease];let mut members=BTreeMap::new();let mut documents=BTreeMap::new();let mut index=SourceIndex::default();
+        for object in self.revision.admitted.objects.values() {
+            checkpoint(cancel)?;
+            if object.logical.starts_with("modeling:") && object.logical!=CONTEXT_LOGICAL && object.logical!=PHYSICAL_SCOPE_LOGICAL {
+                let (source,lease)=self.source_decode::<SourcePayload>(object)?;index.insert(source)?;leases.push(lease);
+            }else if object.kind=="document" {
+                let (row,lease)=self.source_decode::<document_wire::Row>(object)?;
+                if row.content.is_some(){return Err(contract("document metadata unexpectedly contains data bytes"));}
+                documents.insert(row.document_id,row);leases.push(lease);
+            }else if object.kind=="physical_scope_document" {
+                let (entry,lease)=self.source_decode::<PhysicalScope>(object)?;
+                if entry.package!=physical.package{return Err(contract("delta physical package differs"));}
+                physical.documents.as_mut().ok_or_else(||contract("scoped entry in global physical context"))?.extend(entry.documents.ok_or_else(||contract("global entry in scoped physical context"))?);leases.push(lease);
+            }
+            members.insert(object.logical.clone(),SourceMember::from(object.as_ref()));
+        }
+        let mut rows=Vec::with_capacity(frame.order.len());let mut unique=BTreeSet::new();
+        for id in &frame.order {
+            if !unique.insert(*id){return Err(contract("ordered parent frame repeats a declaration"));}
+            rows.push(index.rows.remove(id).ok_or_else(||contract("ordered parent frame names absent declaration"))?);
+        }
+        if !index.rows.is_empty(){return Err(contract("ordered parent frame omits declarations"));}
+        let names=selected_source::physical_bindings(&rows,&physical,&self.physical.quantities);
+        let identity=crate::math::modeling::source_revision_frame(&rows,frame.data.iter().map(|(id,hash)|(*id,*hash)),&self.physical.key,&names);
+        if identity!=self.revision.identity{return Err(contract("ordered parent metadata differs from semantic source identity"));}
+        Ok(Parent {rows,frame,physical,documents,members,fields:index.fields,_leases:leases})
+    }
+    /// Stage an exact local parent edit; durable recording is a separate CAS effect.
+    pub async fn with_delta(&self,delta:SourceDelta,cancel:&crate::CancelSource)->Result<Self,WorkflowError> {
+        let activity=self.runtime.admit_activity()?;
+        activity.scope(async {
+            if delta.parent!=self.revision_id(){return Err(contract("source delta names a different local parent"));}
+            let deadline=super::super::preparation_deadline(cancel)?;let scoped=cancel.with_deadline(Some(deadline));
+            let parent=self.delta_parent(&scoped).await?;
+            self.apply_delta_parent(delta,parent,&scoped,None).await
+        }).await
     }
 
-    /// Publish an atomic, explicit edit of this exact parent. Missing objects are
-    /// inherited, and numerical assignment remains the separate `solve_bound` intent.
-    pub async fn with_delta(
-        &self,
-        delta: SourceDelta,
-        cancel: &crate::CancelSource,
-    ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
-        activity
-            .scope(async {
-                if delta.parent != self.revision.canonical.key {
-                    return Err(contract("source delta names a different canonical parent"));
-                }
-                let deadline = super::super::preparation_deadline(cancel)?;
-                let scoped = cancel.with_deadline(Some(deadline));
-                let cancel = &scoped;
-                checkpoint(cancel)?;
-                let (result, read) = pse_operations::canonical::operation_scope(deadline, async {
-                    let protection = self
-                        .runtime
-                        .canonical
-                        .store()
-                        .protect(
-                            self.revision.canonical.clone(),
-                            deadline.saturating_duration_since(std::time::Instant::now()),
-                        )
-                        .await?;
-                    let mut read = SelectedRead::new(protection);
-                    let result = self.apply_delta(delta, &mut read, cancel).await;
-                    Ok::<_, WorkflowError>((result, read))
-                })
-                .await?;
-                // Release is cleanup of an issued protection, with its own bounded drain;
-                // an expired caller clock must not prevent attempting that cleanup.
-                let release = read.finish().await;
-                let result = result?;
-                release?;
-                Ok(result)
-            })
-            .await
+    pub(super) async fn apply_delta_parent(&self,delta:SourceDelta,parent:Parent,cancel:&crate::CancelSource,parsed:Option<reload::ParsedEdit>)->Result<Self,WorkflowError> {
+        self.apply_delta_parent_ordered(delta,parent,cancel,parsed,None).await
     }
-
-    async fn apply_delta(
-        &self,
-        delta: SourceDelta,
-        read: &mut SelectedRead,
-        cancel: &crate::CancelSource,
-    ) -> Result<Self, WorkflowError> {
-        let parent = self.delta_parent(read, cancel).await?;
-        self.apply_delta_parent(delta, parent, read, cancel, None)
-            .await
-    }
-
-    pub(super) async fn apply_delta_parent(
+    pub(super) async fn apply_delta_parent_ordered(
         &self,
         delta: SourceDelta,
         mut parent: Parent,
-        read: &mut SelectedRead,
         cancel: &crate::CancelSource,
         parsed: Option<reload::ParsedEdit>,
+        order: Option<Vec<DeclarationId>>,
     ) -> Result<Self, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let original_physical = parent.physical.clone();
         let fit_intents = delta
@@ -472,6 +329,11 @@ impl ModelingPackage {
             }
         }
         parent.rows.extend(delta.additions);
+        if let Some(order)=order {
+            let mut rows=parent.rows.drain(..).map(|row|(row.declaration_id,row)).collect::<BTreeMap<_,_>>();
+            for id in order {parent.rows.push(rows.remove(&id).ok_or_else(||contract("complete row order repeats or names absent declaration"))?);}
+            if !rows.is_empty(){return Err(contract("complete row order omits declarations"));}
+        }
         if let Some(parsed) = &parsed {
             let mut rows = parent
                 .rows
@@ -670,19 +532,7 @@ impl ModelingPackage {
                         {
                             version.payload.as_slice().to_vec()
                         } else {
-                            let mut values = objects(
-                                &self.runtime,
-                                read,
-                                std::slice::from_ref(&logical),
-                                cancel,
-                            )
-                            .await?;
-                            let value = values
-                                .remove(&logical)
-                                .ok_or_else(|| contract("data supplier bytes absent"))?;
-                            let bytes = value.payload.as_slice().to_vec();
-                            parent._leases.push(value.lease.clone());
-                            bytes
+                            self.local_object(&logical)?.payload.clone()
                         };
                         let (document, lease) =
                             pse_admission::authoring_driver::document::decode_selected_data(
@@ -872,56 +722,23 @@ impl ModelingPackage {
                 edits.insert(member.logical.clone(), removal(member));
             }
         }
-        let edits = edits
-            .into_values()
-            .filter(|edit| {
-                parent.members.get(&edit.logical).is_none_or(|member| {
-                    edit.version.as_ref().is_none_or(|version| {
-                        version.key != member.version
-                            || edit.scope != member.scope
-                            || edit.name != member.name
-                    })
-                })
-            })
-            .collect::<Vec<_>>();
+        let edits=edits.into_values().filter(|edit|match (&edit.version,self.revision.admitted.objects.get(&edit.logical)) {
+            (None,None)=>false,
+            (Some(version),Some(old))=>old.scope!=edit.scope || old.name!=edit.name || old.version!=version.key || old.kind!=version.kind || old.payload.as_slice()!=version.payload.as_slice() || old.references!=edit.references,
+            _=>true,
+        }).collect::<Vec<_>>();
         if edits.is_empty() && identity == self.revision.identity {
             return Ok(self.clone());
         }
         checkpoint(cancel)?;
-        let operation = pse_operations::mint_id::<SemanticId>().to_string();
-        // Once issued, keep the same operation identity and await its bounded
-        // settlement even if cancellation arrives. Never replay under a fresh ID.
-        let canonical = self
-            .runtime
-            .canonical
-            .store()
-            .edit(
-                &self.revision.canonical.problem,
-                Some(&self.revision.canonical.key),
-                &operation,
-                &edits,
-            )
-            .await
-            .map_err(
-                |source| pse_operations::canonical::CanonicalError::SourceEditUnsettled {
-                    problem: self.revision.canonical.problem.clone(),
-                    operation,
-                    source: Box::new(source),
-                },
-            )?;
-        Ok(Self {
-            revision: SourceRevision {
-                canonical,
-                identity,
-            },
-            ..self.clone()
-        })
+        let revision=admit_revision(&self.runtime,Some(&self.revision),identity,&edits).await?;
+        Ok(Self {revision,held_preparation:None,..self.clone()})
 
         }).await
     }
 }
 
-fn removal(member: &Membership) -> ObjectEdit {
+fn removal(member: &SourceMember) -> ObjectEdit {
     ObjectEdit {
         logical: member.logical.clone(),
         scope: member.scope.clone(),
@@ -966,8 +783,7 @@ mod tests {
     async fn parent_metadata(package: &ModelingPackage) -> Parent {
         let protection = package
             .runtime
-            .canonical
-            .store()
+            .canonical_store()?
             .protect(
                 package.revision.canonical.clone(),
                 std::time::Duration::from_secs(30),

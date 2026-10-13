@@ -86,7 +86,7 @@ impl ModelingPackage {
         policy: ModelingNonlinearPolicy,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingNonlinearExplanation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         if policy.maximum_attempts == 0
             || policy.maximum_attempts > 10000
@@ -361,7 +361,7 @@ impl ModelingPackage {
         analysis: &ModelingAnalysis,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingInfeasibilityCertificate, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 use pse_backend_native::{

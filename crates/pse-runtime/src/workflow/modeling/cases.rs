@@ -282,7 +282,7 @@ impl ModelingPackage {
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let providers = self
@@ -312,7 +312,7 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let service = self.runtime.shared.math();
@@ -385,7 +385,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<(CaseValues, BTreeMap<SemanticId, StartSource>), WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
@@ -578,7 +578,7 @@ impl ModelingPackage {
         policy: &DiscreteInitialization,
         cancel: &crate::CancelSource,
     ) -> Result<BTreeMap<SemanticId, f64>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         use DiscreteInitialization as Policy;
         use pse_modeling::DomainRefusal;
@@ -709,7 +709,7 @@ impl ModelingPackage {
         numerical: NumericalInputs,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 self.prepare_solve_seed(
@@ -747,7 +747,7 @@ impl ModelingPackage {
         overrides: CaseOverrides,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let resolution = self
@@ -765,7 +765,7 @@ impl ModelingPackage {
         resolution: ModelingCaseResolution,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingSolvePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let ModelingCaseResolution {
             compiler,
@@ -953,7 +953,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 bindings
@@ -996,7 +996,7 @@ impl ModelingPackage {
         allow_missing_free: bool,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCaseResolution, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let model = if (solver.composition.policy == pse_model::strategy::CompositionPolicy::Auto
             || solver.reconstruction.is_some()

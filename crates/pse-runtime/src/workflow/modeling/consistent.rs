@@ -264,7 +264,7 @@ impl ModelingSimulation {
         scope: ExecutionScope,
         cancellation: FlightCancellation,
     ) -> Result<ConsistentInitializationResult, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let submission = Submission {

@@ -211,7 +211,7 @@ impl super::ModelingPackage {
         limits: pse_modeling::Limits,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let execution = self
@@ -229,7 +229,7 @@ impl super::ModelingPackage {
         profile: Option<native::dynamics::Profile>,
         cancel: &crate::CancelSource,
     ) -> Result<ShootingProblem, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 if !matches!(

@@ -24,7 +24,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingCasePreparation, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let product = model.compiled();
@@ -77,7 +77,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let structure = prepared.case.compiled().plan.structure();
         let declared: BTreeSet<_> = structure.parameters().iter().map(|p| p.id).collect();
@@ -125,7 +125,7 @@ impl ModelingPackage {
         compiler: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<ExecutableCase>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let generation = self.runtime.shared.math().modeling_cache.generation();

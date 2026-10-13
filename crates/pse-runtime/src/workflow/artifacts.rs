@@ -23,7 +23,7 @@ impl ArtifactSettlement {
     pub async fn release(&self, kind: &str, owner: &str) -> Result<(), WorkflowError> {
         Ok(self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .release_artifact_intent(&self.intent, kind, owner)
             .await?)
     }
@@ -31,7 +31,7 @@ impl ArtifactSettlement {
     pub async fn collect(&self) -> Result<bool, WorkflowError> {
         Ok(self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .collect_artifact(&self.intent)
             .await?)
     }
@@ -107,7 +107,7 @@ impl ScientificArtifact {
             .map_err(pse_engine::EngineError::from)?;
         let row = self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .artifact(&self.header.key)
             .await?;
         let validation = self.runtime.validation_context();
@@ -140,7 +140,7 @@ impl ScientificArtifact {
             .map_err(pse_engine::EngineError::from)?;
         let read = self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .read_artifact(&self.header.key, Duration::from_secs(60))
             .await?;
         let block = read.block(ordinal).await?;
@@ -181,7 +181,7 @@ impl ScientificArtifact {
     pub async fn retain(&self, kind: &str, owner: &str) -> Result<(), WorkflowError> {
         Ok(self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .retain_artifact(&self.header.key, kind, owner)
             .await?)
     }
@@ -189,7 +189,7 @@ impl ScientificArtifact {
     pub async fn release(&self, kind: &str, owner: &str) -> Result<(), WorkflowError> {
         Ok(self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .release_artifact(&self.header.key, kind, owner)
             .await?)
     }
@@ -197,7 +197,7 @@ impl ScientificArtifact {
     pub async fn collect(&self) -> Result<bool, WorkflowError> {
         Ok(self
             .runtime
-            .canonical_store()
+            .canonical_store()?
             .collect_artifact(&self.header)
             .await?)
     }
@@ -342,7 +342,7 @@ impl Runtime {
         &self,
         key: &str,
     ) -> Result<ScientificArtifact, WorkflowError> {
-        let header = self.canonical_store().artifact(key).await?;
+        let header = self.canonical_store()?.artifact(key).await?;
         if ![
             "seed",
             "final-state",
@@ -371,18 +371,18 @@ impl Runtime {
         owner: &str,
         cancel: CancellationToken,
     ) -> Result<ScientificArtifact, WorkflowError> {
-        let activity = self.canonical_store().admit_activity()?;
+        let activity = self.admit_activity()?;
         activity.scope(async {
             let memory=MemoryConsumer::new("canonical:scientific-artifact-promotion").register(&self.shared.pool());
             memory.try_grow(128*1024*1024).map_err(pse_engine::EngineError::from)?;
-            let input=self.canonical_store().read_results(run,attempt,Duration::from_secs(600)).await?;
+            let input=self.canonical_store()?.read_results(run,attempt,Duration::from_secs(600)).await?;
             let mut names=vec!["runtime.scientific_contexts","runtime.candidate_assessments","runtime.run_lineage","runtime.resolved_numerics","runtime.modeling_checks","runtime.modeling_reports","runtime.modeling_findings"];
             match kind {
                 ScientificArtifactKind::FinalState=>names.extend(["runtime.trajectory_endpoints","runtime.computation_runs","runtime.solve_variables","runtime.solve_runs"]),
                 ScientificArtifactKind::Trajectory=>names.extend(["runtime.trajectory_endpoints","runtime.simulation_samples","runtime.simulation_events","runtime.modeling_trajectory_modes","runtime.response_sensitivities","runtime.computation_runs"]),
                 ScientificArtifactKind::LocalAnalysis=>names.extend(["runtime.local_validity","runtime.parametric_sensitivities","runtime.response_sensitivities","runtime.reduced_hessians","runtime.parameter_covariances","runtime.parameter_intervals","runtime.profile_points","runtime.response_directions","runtime.propagated_covariances","runtime.fit_parameters","runtime.fit_observations","runtime.solve_runs","runtime.computation_runs","runtime.solve_metrics"]),
             }
-            let sources=self.canonical_store().analysis_run_sources(run).await?;
+            let sources=self.canonical_store()?.analysis_run_sources(run).await?;
             let revision=sources.iter().find(|source|source.key==input.run().revision).ok_or_else(||contract("artifact primary source unavailable"))?;
             let mut copied=Vec::new();
             let mut contexts=Vec::new();
@@ -401,7 +401,7 @@ impl Runtime {
                 for ordinal in 0..set.batch_count {
                     cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
                     input.renew(Duration::from_secs(600)).await?;
-                    let payload=self.canonical_store().result_payload(&input,&set.key,ordinal).await?;
+                    let payload=self.canonical_store()?.result_payload(&input,&set.key,ordinal).await?;
                     let schema=pse_schema::arrow::relation_schema_ref(self.registry(),spec).map_err(|error|contract(error.to_string()))?;
                     let decoded=super::result_blocks::decode_result_block(payload.batch.payload.as_slice(),schema,usize::try_from(payload.batch.row_count).map_err(|_|contract("scientific artifact row extent"))?)?;
                     let checked=pse_relations::columnar::FieldCheckedBatch::admit(self.registry(),spec,decoded,&self.validation_context(),&cancel).map_err(pse_engine::EngineError::from)?;
@@ -432,10 +432,10 @@ impl Runtime {
             }
             let provenance=serde_json::to_vec(&(1u8,run,attempt,&input.run().revision,input.run().sequence,input.attempt().generation,&input.attempt().outcome,input.manifest(),&selected)).map_err(|error|contract(error.to_string()))?;
             let bytes=copied.iter().map(|(_,payload,_,_)|payload.len() as u64).sum();
-            let mut header=self.canonical_store().new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes).await?;
+            let mut header=self.canonical_store()?.new_artifact(revision,kind.name(),provenance,copied.len() as u64,bytes).await?;
             let blocks=copied.into_iter().enumerate().map(|(ordinal,(name,payload,rows,digest))|pse_operations::canonical_artifacts::artifact_block(&header.key,ordinal as u64,name,payload,&digest,rows)).collect::<Vec<_>>();
             pse_operations::canonical_artifacts::seal_artifact_request(&mut header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner);
-            self.canonical_store().persist_artifact(&header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner).await?;
+            self.canonical_store()?.persist_artifact(&header,&sources,std::slice::from_ref(&input),&blocks,owner_kind,owner).await?;
             Ok(ScientificArtifact {runtime:self.clone(),header})
         }).await
     }
@@ -537,7 +537,7 @@ mod tests {
         let mut retired = false;
         for _ in 0..32 {
             if runtime
-                .canonical_store()
+                .canonical_store()?
                 .forget_run_results(run)
                 .await
                 .is_ok()
@@ -554,7 +554,7 @@ mod tests {
                 .await
                 .unwrap();
             let read = runtime
-                .canonical_store()
+                .canonical_store()?
                 .read_artifact(&artifact.header().key, Duration::from_secs(10))
                 .await
                 .unwrap();

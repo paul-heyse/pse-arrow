@@ -41,7 +41,7 @@ impl PreparedInitializationStrategy {
     }
     /// Execute with this revision's original values and provider bindings.
     pub fn start(&self) -> Result<SolveHandle<InitializationReport>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             Ok(self.runtime.native().initialize(
                 self.prepared.clone(),
@@ -475,7 +475,7 @@ impl PreparedRecycle {
     }
     /// Execute only the explicitly requested map strategy; no automatic fallback follows failure.
     pub fn start(&self) -> Result<SolveHandle<DeclaredRootReport>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let factory_bytes = self.factory_allocation_bound()?;
             let prepared = self.clone();
@@ -781,7 +781,7 @@ impl ModelingPackage {
         request: RecycleRequest,
         cancel: &crate::CancelSource,
     ) -> Result<PreparedRecycle, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity.scope(async {
         let profile = analysis.solver.clone();
         let compiler = analysis.compiler;
