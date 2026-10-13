@@ -50,6 +50,7 @@ use value::{Evaluator, value_type};
 
 /// Explicit limits checked before expansion/allocation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Limits {
     /// Maximum nested definitions.
     pub depth: usize,
@@ -111,6 +112,7 @@ impl Realization {
 }
 /// Root structural bindings and demands. Numeric runtime values have a separate owner.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Bindings {
     /// Immutable equation omission and elastic policy, applied after source specialization.
     pub formulation: Formulation,
@@ -128,6 +130,7 @@ pub struct Bindings {
 }
 /// Generic analysis overlay over selected semantic equations. Science remains in source.
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Formulation {
     /// Remove these outer equations from this attempt only.
     pub omitted: BTreeSet<SemanticId>,

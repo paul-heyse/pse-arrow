@@ -960,14 +960,16 @@ impl ModelingPackage {
         let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
+                let original = engagement::OriginalPreparationInputs::capture(self, root, instance, &bindings, limits)?;
                 bindings
                     .demand
                     .extend(case.values.keys().chain(case.variables.keys()).cloned());
                 bindings.demand.sort();
                 bindings.demand.dedup();
-                let model = self
+                let mut model = self
                     .prepare(root, instance, bindings, limits, cancel)
                     .await?;
+                model.original = Some(original);
                 self.resolve_prepared_case(
                     model,
                     case,

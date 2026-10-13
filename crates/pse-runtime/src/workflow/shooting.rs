@@ -286,9 +286,12 @@ impl ShootingProblem {
         mut request: ShootingProfile,
         cancel: &AtomicBool,
     ) -> Result<Self, WorkflowError> {
-        let original_owner = simulation.runtime.shared.math().reserve("replay:original-shooting-constructor",
-            65536usize.saturating_add(request.nodes.len().saturating_mul(16))
-                .saturating_add((request.controls.len() + request.path.len()).saturating_mul(128)))?;
+        let original_extent = size_of::<ShootingProfile>().saturating_add(1024)
+            .saturating_add(crate::workflow::replay::profile_extent(&request.solver)?)
+            .saturating_add(request.nodes.len().saturating_mul(16))
+            .saturating_add((request.controls.len() + request.path.len()).saturating_mul(128))
+            .saturating_add((request.objective.terminal.len() + request.objective.integral.len()).saturating_mul(192));
+        let original_owner = simulation.runtime.shared.math().reserve("replay:original-shooting-constructor", original_extent)?;
         let original_inputs = Arc::new(request.clone());
         let profile = simulation.profile();
         let c = simulation.contract();
@@ -2009,3 +2012,13 @@ mod conservation_tests {
 #[cfg(feature = "solver-ipopt")]
 #[path = "shooting_tests.rs"]
 mod tests;
+
+impl ShootingProblem {
+    pub(super) fn execution_snapshot(&self) -> &pse_backend_native::execution::Snapshot {
+        &self.snapshot
+    }
+}
+
+impl ShootingProblem {
+    pub(super) fn replay_constructor_extent(&self) -> usize { self._original_owner.size() }
+}

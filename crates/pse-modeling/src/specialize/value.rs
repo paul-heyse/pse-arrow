@@ -15,6 +15,7 @@ mod structure;
 
 /// A fully explicit structural value.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub enum Value {
     /// Predicate.
     Boolean(bool),

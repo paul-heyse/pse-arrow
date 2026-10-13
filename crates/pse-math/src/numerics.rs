@@ -53,6 +53,7 @@ impl<'a> TargetAccess<'a> {
 
 /// Exact admitted coordinate; declared representation is retained through normalization.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TargetSpec {
     /// Source identity, NIL only for the single objective.
     pub id: SemanticId,
@@ -69,6 +70,7 @@ pub struct TargetSpec {
 }
 /// Selection supplies precedence; declarations cannot promote themselves to analysis overrides.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SourcedRequirement {
     /// Selected source category.
     pub source: NumericalSource,

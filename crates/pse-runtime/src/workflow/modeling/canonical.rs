@@ -2315,6 +2315,18 @@ mod tests {
 }
 
 impl ModelingPackage {
+    pub(in crate::workflow) fn replay_source_extent(&self) -> usize {
+        let providers = self.providers.iter().map(|(name, provider)| {
+            let spec = provider.spec();
+            name.len().saturating_add((spec.inputs.len() + spec.outputs.len()).saturating_mul(256))
+                .saturating_add(spec.shapes.inputs.iter().chain(&spec.shapes.outputs).map(|shape| {
+                    (shape.axes.len() + shape.cells.len() + shape.coordinates.iter().map(Vec::len).sum::<usize>())
+                        .saturating_mul(64).saturating_add(shape.coordinates.len().saturating_mul(128)).saturating_add(512)
+                }).sum::<usize>()).saturating_add(1024)
+        }).sum::<usize>();
+        self.revision.admitted.retained_bytes().saturating_add(self.physical.retained_bytes())
+            .saturating_mul(16).saturating_add(providers).saturating_add(65536)
+    }
     /// Export owned immutable inputs; physical sources are actual admitted bytes.
     pub(in crate::workflow) fn replay_source(
         &self,
@@ -2339,6 +2351,8 @@ impl ModelingPackage {
         &self,
         runtime: &Runtime,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let bytes = self.replay_source_extent();
+        let _scratch = runtime.shared.math().reserve("replay:retained-source-reconstruction", bytes)?;
         self.replay_source()?.reconstruct(runtime, self.physical.clone(), self.providers.as_ref().clone())
     }
 }
@@ -2349,6 +2363,8 @@ impl Runtime {
         physical: super::PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
+        let _scratch = self.shared.math().reserve("replay:source-reconstruction",
+            crate::workflow::replay::source_reconstruction_extent(document)?)?;
         if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
             || document.build != pse_backend_native::execution::LINKED.build_identity()
             || document.physical_identity != physical.identity()

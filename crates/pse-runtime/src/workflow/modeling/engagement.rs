@@ -501,6 +501,7 @@ pub(crate) struct OriginalPreparationInputs {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl OriginalPreparationInputs {
+    pub(crate) fn retained_bytes(&self) -> usize { self._owner.size() }
     pub(in crate::workflow) fn capture(
         source: &ModelingPackage,
         root: DeclarationId,
