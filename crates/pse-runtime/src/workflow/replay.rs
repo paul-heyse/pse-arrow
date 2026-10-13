@@ -439,7 +439,7 @@ impl RunResult {
         let (requested, observed, completed_time) = match &self.request {
             RunRequest::Modeling(steps) => {
                 let mut count = 0;
-                for index in 0..steps.len() { if let Some(result) = self.modeling_result(index) {
+                for index in 0..steps.len() { if self.modeling_result(index).is_some() {
                     count += 1;
                 }}
                 (steps.len(), count, None)
