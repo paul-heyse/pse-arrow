@@ -896,6 +896,9 @@ impl ReplayCaseConstructor {
                 prepared.solve = prepared.solve.with_strategy(declaration.clone(), products(&node.rungs)?)
                     .map_err(crate::math::MathRuntimeError::from)?;
             }
+            if prepared.solve.execution_snapshot() != &node.runtime {
+                return Err(contract("reconstructed original profile requires its exact recorded build/runtime admission premises"));
+            }
             if prepared.solve.original_identity().map_err(crate::math::MathRuntimeError::from)? != node.original
                 || prepared.solve.strategy_profile().map_err(crate::math::MathRuntimeError::from)? != node.profile {
                 return Err(contract("reconstructed exact original profile differs; effective operational precision requires its producer rebind"));
