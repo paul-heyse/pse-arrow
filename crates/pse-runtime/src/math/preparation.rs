@@ -117,9 +117,6 @@ pub(crate) struct OwnedModelingFrontier {
     generation: u64,
 }
 impl OwnedModelingFrontier {
-    pub(crate) fn body_requests(&self) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> {
-        self.product.body_requests()
-    }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>() + self.product.retained_bytes()
     }
@@ -152,9 +149,6 @@ impl PreparedBasis {
             source_premises,
             _metadata: metadata,
         })
-    }
-    pub(crate) fn compiled(&self) -> &PreparedModeling {
-        &self.product
     }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>()

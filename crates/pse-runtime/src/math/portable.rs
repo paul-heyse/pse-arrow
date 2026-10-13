@@ -1308,35 +1308,6 @@ pub(crate) struct BodyDescription {
     _content_owner: Arc<pse_columnar::AllocationLease>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }
-impl BodyDescription {
-    pub(crate) fn has_producer(&self, producer: &str) -> bool {
-        self.producer.as_str() == producer
-    }
-    pub(super) fn retained_bytes(&self) -> usize {
-        size_of::<Self>() + self.description.exclusive_retained_bytes() + self.producer.capacity()
-    }
-    /// A once-checked equivalent receipt changes only the current selected binding.
-    /// Original blob/content ownership and exact ACK provenance remain shared.
-    pub(crate) fn rebind_selection(
-        &self,
-        service: &super::MathService,
-        read: &SelectedRead,
-        binding: &pse_operations::canonical_selection::SelectionRebinding,
-    ) -> Result<Arc<Self>, PortableError> {
-        let owner = reserve_portable(
-            service,
-            "math:canonical-description-binding",
-            size_of::<Self>() + 128,
-        )?;
-        Ok(Arc::new(Self {
-            description: self.description.rebind_selection(read, binding)?,
-            semantic_identity: self.semantic_identity,
-            producer: self.producer.clone(),
-            _content_owner: self._content_owner.clone(),
-            _owner: owner,
-        }))
-    }
-}
 /// Precharge and capture the complete post-merge receipt once for a body inventory.
 pub(crate) fn selection_material(
     service: &super::MathService,

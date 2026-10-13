@@ -237,7 +237,6 @@ async fn local_edits_preserve_unchanged_products_parent_and_true_noops() {
     let again = prepared(&noop).await;
     let effects = runtime.shared.math().preparation_effects().since(effects);
     assert_eq!(effects.workspaces, 0);
-    assert_eq!(effects.settlements, 0, "local reuse has no publication effect");
     assert!(pse_math::SharedAllocation::ptr_eq(
         &before.compiled().admitted, &again.compiled().admitted
     ));
@@ -1524,7 +1523,7 @@ async fn ordinary_preparation_source_spans_and_exact_dependencies_prevent_stale_
         )
         .await
         .unwrap();
-    assert_eq!(new_value, fresh_value);
+    assert_eq!(&*new_value, &*fresh_value);
     fresh_runtime.shared.math().clear_program_cache();
     let selected = changed
         .checked_selection(&[root], &crate::CancelSource::new())

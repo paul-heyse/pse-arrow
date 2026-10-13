@@ -47,21 +47,6 @@ impl ModelingPackage {
             scoped(&phase, deadline, self.checked_selection(roots, &phase)).await
         }).await
     }
-    #[cfg(test)]
-    #[expect(clippy::too_many_arguments, reason = "exact request carries context, stop and original clock")]
-    pub(super) async fn prepare_selected(
-        &self,
-        selected: &mut canonical::CheckedSelection,
-        root: DeclarationId,
-        instance: InstanceId,
-        bindings: Bindings,
-        limits: Limits,
-        cancel: &crate::CancelSource,
-        deadline: Instant,
-    ) -> Result<ModelingPreparation, WorkflowError> {
-        self.prepare_selected_basis(selected, root, instance, bindings, limits, cancel, deadline)
-            .await.map(|(model, _)| model)
-    }
     #[expect(clippy::too_many_arguments, reason = "the complete local specialization returns its held basis")]
     pub(super) async fn prepare_selected_basis(
         &self,

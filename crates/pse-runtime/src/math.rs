@@ -362,8 +362,6 @@ struct PreparationEffects {
     workspaces: AtomicUsize,
     frontiers: AtomicUsize,
     completions: AtomicUsize,
-    settlements: AtomicUsize,
-    publications: AtomicUsize,
 }
 #[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -371,8 +369,6 @@ pub(crate) struct PreparationEffectCounts {
     pub(crate) workspaces: usize,
     pub(crate) frontiers: usize,
     pub(crate) completions: usize,
-    pub(crate) settlements: usize,
-    pub(crate) publications: usize,
 }
 #[cfg(test)]
 impl PreparationEffectCounts {
@@ -381,8 +377,6 @@ impl PreparationEffectCounts {
             workspaces: self.workspaces - before.workspaces,
             frontiers: self.frontiers - before.frontiers,
             completions: self.completions - before.completions,
-            settlements: self.settlements - before.settlements,
-            publications: self.publications - before.publications,
         }
     }
 }
@@ -395,20 +389,9 @@ impl MathService {
             workspaces: effects.workspaces.load(Relaxed),
             frontiers: effects.frontiers.load(Relaxed),
             completions: effects.completions.load(Relaxed),
-            settlements: effects.settlements.load(Relaxed),
-            publications: effects.publications.load(Relaxed),
         }
     }
-    pub(crate) fn record_preparation_settlement(&self) {
-        self.preparation_effects
-            .settlements
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }
-    pub(crate) fn record_preparation_publication(&self) {
-        self.preparation_effects
-            .publications
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    }
+
 }
 /// Compiler preparations and value rebinds this service performed (A6). Observation only:
 /// nothing decides on them.

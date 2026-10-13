@@ -635,21 +635,6 @@ impl ModelingBodyRetention for BodyRetention {
     }
 }
 
-impl MathService {
-    /// Transfer an explicitly received sealed body through the same pure retention
-    /// and allocation owner used by compiler preparation. A clear fences late fills.
-    pub(crate) fn retain_received_body(
-        self: &Arc<Self>,
-        generation: u64,
-        key: SemanticBodyHash,
-        body: Arc<pse_compiler::typed_math::AdmittedBody>,
-    ) -> Result<Arc<pse_compiler::typed_math::AdmittedBody>, MathRuntimeError> {
-        BodyRetention(Arc::downgrade(self))
-            .retain(generation, key, body)
-            .map_err(MathRuntimeError::from)
-    }
-}
-
 #[cfg(test)]
 mod pressure_tests {
     use super::*;

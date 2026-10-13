@@ -100,6 +100,7 @@ pub(crate) fn runtime_on_threads(
     Runtime::from_shared_local(shared,sessions.bind_model(registry).unwrap()).unwrap()
 }
 /// Genuine store-effect fixtures explicitly request durable source/run acknowledgement.
+#[cfg(feature = "canonical-tests")]
 pub(crate) fn durable_runtime() -> Runtime {
     let local=runtime();
     Runtime::from_shared(local.shared.clone(),local.model.clone(),canonical_deployment()).unwrap()

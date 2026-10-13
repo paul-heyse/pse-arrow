@@ -126,7 +126,6 @@ mod tests {
             .await
             .unwrap();
         let math = runtime.shared.math();
-        let before = math.preparation_effects();
         let cancel = crate::CancelSource::new();
         let engagement = package
             .engage(
@@ -138,7 +137,6 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(math.preparation_effects().since(before).settlements, 0);
         let original = engagement.model().compiled().model.allocation_identity();
         math.clear_program_cache();
         for _ in 0..20 {
@@ -158,11 +156,6 @@ mod tests {
                 .unwrap();
             assert_eq!(actual, original);
         }
-        assert_eq!(
-            math.preparation_effects().since(before).settlements,
-            0,
-            "local use establishes no canonical acknowledgment or receiving permission"
-        );
         let mut foreign = package.clone();
         foreign.providers = Arc::new((*package.providers).clone());
         assert!(

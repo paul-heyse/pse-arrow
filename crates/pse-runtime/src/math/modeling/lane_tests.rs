@@ -131,7 +131,7 @@ fn concurrent_protected_writers_publish_monotonic_complete_head() {
                 admit(
                     &service,
                     &workspace,
-                    sequence,
+                    sequence.try_into().unwrap(),
                     &format!("main-{sequence}"),
                     sequence,
                 )
