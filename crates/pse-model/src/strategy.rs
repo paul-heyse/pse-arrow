@@ -40,9 +40,6 @@ pub struct StartRules {
     /// Permitted replacement origins. A fresh task-produced proposal may precede
     /// a non-explicit entry; inherited products still obey the entry policy.
     pub recovery: Vec<StartOrigin>,
-    /// Full frozen descriptive body; absent leaves the complete baseline policy.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub advice: Option<advice::FrozenAdvice>,
 }
 impl StartRules {
     /// Origin permission only. Compatibility, result permission and explicit identity are
@@ -435,6 +432,9 @@ pub struct CompositionRequest {
     pub limits: Option<WorkLimits>,
     /// Permitted later start origins. Empty grants no replacement origin.
     pub recovery: Vec<StartOrigin>,
+    /// Full frozen descriptive body; absent leaves the complete baseline policy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub advice: Option<advice::FrozenAdvice>,
 }
 impl Default for CompositionRequest {
     fn default() -> Self {
