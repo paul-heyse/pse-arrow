@@ -189,7 +189,7 @@ def test_solve_settings_enum_types() -> None:
         default.controls.start,
     ) == (
         HessianMode.AUTO,
-        ReusePolicy.FRESH,
+        ReusePolicy.ALLOW_REBUILD,
         NativeStartPolicy.NO_PRIOR_START,
     )
     assert default.controls.iterations > 0

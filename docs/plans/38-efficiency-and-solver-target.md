@@ -285,27 +285,22 @@ reconciliation remains deferred until the series is implemented.
 
 ## Execution checkpoint — Plan 38c, 2026-10-13
 
-At the maintainer's request, finish the immediate native integration/verification tasks,
-integrate owned worker changes, remove the owned worktrees and stop. [38c's Outcome](38c-native-methods-reuse-and-parallelism.md#outcome)
-owns the resulting packet state, exact support decisions and targeted acceptance;
-[its Verification](38c-native-methods-reuse-and-parallelism.md#verification) owns the commands
-and results. Proposed ADR-0185 and architecture revision 162 carry enduring reset, reuse,
-resource, mutation and selected-method contracts. ADR status remains proposed.
+The maintainer authorized the entirety of the remaining 38c scope after the prior closeout
+and testing stop. [38c's Outcome](38c-native-methods-reuse-and-parallelism.md#outcome) now records
+completed C1–C6 and I-C1–I-C4 within their targeted acceptance and explicit support decisions;
+[its Verification](38c-native-methods-reuse-and-parallelism.md#verification) owns the exact
+commands, results and exclusions. The final linked Python correctness extension/API refresh
+and settings/local-runtime consumer controls passed. No selected 38c task remains open.
+Proposed ADR-0185 and architecture revision 162 carry the enduring contracts; ADR status
+remains proposed. The companion is retained for active dependents and qualification readers.
 
-38a/38b retain their completed bounded outcomes. C1–C6 and I-C1–I-C4 now have implemented
-deliveries or explicit method/support decisions. 38c remains in-progress for the final linked
-Python extension refresh and consumer tests, which were not run before the maintainer stopped
-further testing. Final native selections passed 66 and 39 tests, runtime lifecycle/consumer
-controls passed 17, and the actual child selection passed 10; these are overlapping scoped
-invocations, not assembled qualification. Shared review findings and assembled
+38a/38b retain their completed bounded outcomes. Shared review findings and assembled
 qualification remain open at this coordinator and 38g. Remaining scientific/workflow,
-storage/analytics and development scope stays with 38d–38f. None is started by this handoff.
+storage/analytics and development scope stays with 38d–38f; none is started by this handoff.
+The completed native/Rust/Python selections are scoped evidence, not whole-product or
+comparative performance qualification.
 
-The current-work index now points here instead of the superseded Plan36. This is a navigation
-and stop checkpoint; substantive reconciliation of other plan contracts/statuses and historical
-campaigns remains deferred until series completion. Do not resume a historical campaign or
-infer whole-product qualification from 38c's targeted controls.
-
-The maintainer explicitly ceased further testing at closeout. No tests, builds or qualification
-checks should resume from this checkpoint without a new instruction. Owned worker changes are
-integrated on main and their worktrees removed; the companion retains the exact stop boundary.
+All prior owned worker changes are integrated on main and their worktrees removed. The
+current-work index points here instead of the superseded Plan36. Substantive reconciliation
+of other plan contracts/statuses and historical campaigns remains deferred until series
+completion. Do not infer acceptance of a historical stopped campaign from this handoff.

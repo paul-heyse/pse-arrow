@@ -1,6 +1,6 @@
 ---
 title: Native methods, reuse and parallelism
-status: in-progress
+status: done
 date: 2026-10-13
 adrs: [ADR-0185]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
@@ -22,8 +22,8 @@ Current contracts are blueprint §15–§18 and named native ADRs. Accepted RC06
 
 | Packet | Prerequisites | Delivery and retirement | State |
 |---|---|---|---|
-| <a id="c1"></a>C1 | Existing native profiles/quality seam; B1 request meaning | Per-profile compatibility/start/stop/counter contracts, corrected claims and compact callback ownership | Implemented; Rust controls passed; final Python consumer acceptance open |
-| <a id="c2"></a>C2 | C1; I-C1 for affected Auto policies; RC06/ARC01 | Lane-owned compatible allocation/structure with explicit numeric/heuristic policy; accidental worker-history reuse removed | Implemented; Rust controls passed; final Python consumer acceptance open |
+| <a id="c1"></a>C1 | Existing native profiles/quality seam; B1 request meaning | Per-profile compatibility/start/stop/counter contracts, corrected claims and compact callback ownership | Implemented; Rust and compiled Python consumer controls passed |
+| <a id="c2"></a>C2 | C1; I-C1 for affected Auto policies; RC06/ARC01 | Lane-owned compatible allocation/structure with explicit numeric/heuristic policy; accidental worker-history reuse removed | Implemented; Rust and compiled Python consumer controls passed |
 | <a id="c3"></a>C3 | B1/B2 permission; I-C2/I-C3; C1 actual contracts | Selected complete methods/getters/stop snapshots integrated with scientific consumers; remaining families have explicit support/trigger decisions | Implemented; targeted controls passed |
 | <a id="c4"></a>C4 | C1 actual transitive profiles; RC07 | Scoped pools, bounded private child, exclusions and charged capacity through actual drain | Implemented within stated profile/reconstruction limits; targeted controls passed |
 | <a id="c5"></a>C5 | Existing retained HiGHS coefficient path | Bulk vectors, optional value deltas and transactional invalidation; redundant scalar loops removed | Implemented; targeted controls passed |
@@ -330,10 +330,17 @@ Final native/lifecycle verification before the maintainer's stop instruction:
 | `PSE_MEMORY_MAX=24G scripts/pse-env --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m scripts.arrow_validation build -p xtask --bin pse-native-lane --no-default-features --features native-solvers --locked` | Final child executable build passed, without warnings, after the scope-history and native-profile corrections. |
 | `PSE_NATIVE_LANE_EXECUTABLE=<checkout>/target/debug/pse-native-lane just unit-native-capability-package pse-runtime native-solvers solver,klu,isolation,uno,petsc 'test(math::native_child::tests)'` | 10 passed, 831 skipped, zero failures in 46.398 s. Actual native child and owned fake-process controls include foreign native fingerprint, attempt/response mismatch, death, malformed/oversize/truncated output, cancellation/original deadline, original residual screening and kill/reap accounting. The run had finished before the stop handler searched for its authenticated nextest owner; no further test was launched. |
 
-**Not run:** final `just py-sync-native-correctness` and store-free Python settings/local-runtime
-consumer tests after the default activation. Generated Python/schema defaults are regenerated,
-but the installed extension has not been refreshed/qualified against this final source. This
-is an open 38c closeout prerequisite, not evidence of a failing or passing Python consumer.
+Final Python consumer acceptance after the maintainer authorized the entire remaining scope:
+
+| Command / selected conditions | Result and established boundary |
+|---|---|
+| `PSE_MEMORY_MAX=24G just py-sync-native-correctness` with a fresh task-owned resource registry | Passed: rebuilt and installed the linked editable extension with `force-validate,native-solvers`; regenerated the API stub from the actual compiled metadata. No generated-source hand edits or dependency/pin changes. |
+| `scripts/pse-env --native=solver,klu,isolation,uno,petsc -- .venv/bin/python -m scripts.python_tests --unit-only python/pse/tests/test_solve_settings_projection.py::test_backend_settings_typed python/pse/tests/test_solve_settings_projection.py::test_solve_settings_enum_types python/pse/tests/test_local_runtime.py --basetemp <task-owned>/pytest -q` with a fresh task-owned resource registry | **Tested:** 8 passed in 2.36 s, zero failures, errors or skips against a zero-failure baseline. The wrapper and pytest independently checked the imported binary path/hash and compiled feature flags. Exercises generated settings/defaults, ephemeral source edits and close behavior, absence of substrate opening, native solve/retained summary/replay/rerun and frozen advice. No canonical fixture/profile was opened. |
+
+The final Python readback found a stale tuple assertion still expecting Fresh in the same
+settings test that now checked AllowRebuild. Correcting that expectation to the accepted
+Rust/generated default was the only additional source change needed. No production behavior
+or admission/acceptance barrier was relaxed.
 
 No representative difficult-root/globalization or nominal-versus-gradient NLP performance
 campaign, large-population throughput/RSS campaign, full dynamics/fitting journey, canonical
@@ -342,6 +349,8 @@ SPQR nor a complete opaque native-memory bound is qualified. These limits preser
 and the method-specific support decisions rather than changing acceptance thresholds.
 
 ## Outcome
+
+### What was built
 
 **Implemented:** C1–C6 and I-C1–I-C4 deliver the selected contracts described above. Ordinary
 controls now use AllowRebuild with NoPriorStart, with per-profile neutral reset or explicit
@@ -394,24 +403,27 @@ is preserved; width changes cannot turn discarded native state into a pristine s
 The initial runtime consumer check also caught an incorrect local type alias; the import
 was repaired before executing the selection.
 
-### Maintainer stop and remaining acceptance
+### Stop, resumption and completion
 
-On 2026-10-13 the maintainer requested immediate task/worktree/document closeout, then explicitly
-instructed: "please cease any further testing". No additional testing is authorized by this
-checkpoint. The final child run above had already completed when cancellation was attempted;
-there was no matching live owned nextest process to signal. All owned execution sessions have
-completed. Integration and worktree cleanup proceed without additional tests, builds or
-qualification checks. A later explicit instruction is required before resuming testing.
-The root's `just turn-end` completed its ADR-index regeneration and formatting only; no
-functional test, build, hygiene or manual qualification suite ran after that instruction.
-All product worker deltas are integrated on main. The clean `p38c-highs`, `p38c-methods`
-and `p38c-native-reset` worktrees were removed; local alignment-only commits were not
-reapplied as product changes. Their branch history remains in Git. No owned workload
-process remained at cleanup; no canonical profile or shared test directory was changed.
+On 2026-10-13 the maintainer requested immediate task/worktree/document closeout, then
+instructed: "please cease any further testing". The final child run above had already
+completed when cancellation was attempted; there was no matching live owned nextest process
+to signal. No further test or build ran during that closeout. The root's `just turn-end`
+performed only ADR-index regeneration and formatting.
 
-This companion remains **in-progress** for final compiled Python consumer acceptance
-and any defects it exposes. The scoped native/Rust deliveries and investigation support
-decisions are integrated; no additional product package is started during closeout.
+All product worker deltas were integrated on main at `307e38f16`. The clean `p38c-highs`,
+`p38c-methods` and `p38c-native-reset` worktrees were removed; local alignment-only commits
+were not reapplied as product changes. Their branch history remains in Git. No owned
+workload process remained at cleanup; no canonical profile or shared test directory changed.
+
+The maintainer subsequently authorized implementation of the entirety of this companion's
+remaining scope, explicitly superseding the testing stop for that work. The linked Python
+correctness extension and actual compiled API stub are now refreshed, the stale default
+assertion is corrected, and all eight selected compiled consumer controls passed.
+**Implemented / Tested:** C1–C6 and I-C1–I-C4 are complete within the documented targeted
+acceptance and support decisions. No selected 38c implementation or acceptance task remains.
+
+### Deliberate scope choices and remaining acceptance
 
 All selected additional methods have either a consumed implementation or an explicit current
 support decision with a concrete unmet-request trigger. New native NLP batches, general coupled
@@ -421,5 +433,5 @@ No comparative speedup or whole-model O(changes) claim is made.
 Broader workflow/controllers and topology scope remains 38d–38f. Assembled native/scientific,
 integration, Python/durable and performance campaigns, hygiene and manual scope-end checks
 remain 38g after the selected functional series. Existing-plan/status/index reconciliation
-and retirement remain deferred until series completion. This in-progress companion is retained
+and retirement remain deferred until series completion. This completed companion is retained
 for those active dependents and its qualification conditions.
