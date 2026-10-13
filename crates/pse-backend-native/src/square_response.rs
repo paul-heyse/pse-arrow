@@ -124,12 +124,14 @@ impl Response {
         self
     }
 }
-/// Peak declared matrix and library scratch capacity, checked before allocation.
+/// Known dense workspaces plus an opaque LU reservation, checked before allocation.
+/// This is not a complete producer-owned bound on private symbolic/numeric LU fill.
 pub fn workspace_bytes(n: usize, np: usize) -> Option<usize> {
     use faer::linalg::temp_mat_scratch;
     n.checked_mul(np)?.checked_mul(5 * size_of::<f64>())?;
     // Dense spectrum is explicitly bounded by the admitted workspace. Opaque
-    // sparse LU fill retains its conservative quadratic allowance independently.
+    // sparse LU fill retains a shape-based opaque reservation independently. Strict
+    // storage admission refuses that unknown producer extent before derivatives.
     SparseFactor::allowance(n)?
         .checked_add(temp_mat_scratch::<f64>(n, n).size_bytes())?
         .checked_add(temp_mat_scratch::<f64>(n, np).size_bytes().checked_mul(5)?)?
@@ -211,7 +213,7 @@ pub fn products(
     if parameter_values.len() != np || parameter_values.iter().any(|value| !value.is_finite()) {
         return Products::withheld(Withheld::Numerical("parameter base values".into()), retain);
     }
-    if let Err(cause) = SparseFactor::check(&SparseRequest {
+    if let Err(cause) = SparseFactor::admit(&SparseRequest {
         scope: request.scope,
         point: request.point,
         values: request.residual_values,
@@ -219,7 +221,7 @@ pub fn products(
         normalization: request.normalization,
         key,
         bytes: request.bytes,
-    }) {
+    }, execution) {
         return Products::withheld(cause, retain);
     }
     let (fx, fp) = match evaluate() {
@@ -698,6 +700,48 @@ mod tests {
             );
             Ok(())
         }
+    }
+    #[test]
+    fn strict_products_refuse_unknown_sparse_fill_before_shared_oracle() {
+        #[derive(Debug, Default)]
+        struct StrictStorage {
+            storage: std::sync::atomic::AtomicUsize,
+            work: std::sync::atomic::AtomicUsize,
+        }
+        impl crate::solve::WorkAdmission for StrictStorage {
+            fn admit(&self, _: crate::solve::WorkEvidence) -> Result<(), ProblemError> {
+                self.work.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Ok(())
+            }
+            fn observe(&self, _: crate::solve::WorkEvidence) -> Result<(), ProblemError> { Ok(()) }
+            fn admit_storage(&self, scope: crate::solve::NativeStorageScope, _: &str, _: usize, opaque: bool) -> Result<(), ProblemError> {
+                assert_eq!(scope, crate::solve::NativeStorageScope::Linear);
+                assert!(opaque);
+                self.storage.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                Err(ProblemError::Unsupported("strict linear storage requires a complete producer-owned bound".into()))
+            }
+        }
+        let scope = scope();
+        let tolerance = crate::quality::Tolerances { variables: vec![1e-8; 2], rows: vec![1e-8; 2], integrality: 1e-8 };
+        let normalization = pse_math::normalization::Normalization::identity(2, 2);
+        let request = Request {
+            scope: &scope, point: &[2., 1.], residual_values: &[0., 0.], tolerances: &tolerance,
+            normalization: &normalization, parameters: &[id(5)], parameter_scales: &[1.], rank_tolerance: 1e-12, bytes: 1 << 20,
+        };
+        let source = key(&request);
+        let evaluated = std::cell::Cell::new(0);
+        let admission = std::sync::Arc::new(StrictStorage::default());
+        let mut execution = crate::solve::Execution::new(std::sync::Arc::default(), &crate::solve::Controls::default());
+        execution.work_admission = Some(admission.clone());
+        let result = products(request, source, &[3.], true, || {
+            evaluated.set(evaluated.get() + 1);
+            Ok((sparse(&faer::mat![[4., 3.], [1., 1.]]), sparse(&faer::mat![[1.], [-1.]])))
+        }, &execution);
+        assert!(matches!(result.response, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
+        assert!(matches!(result.predictor.unwrap(), Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
+        assert_eq!(evaluated.get(), 0);
+        assert_eq!(admission.storage.load(std::sync::atomic::Ordering::Relaxed), 1);
+        assert_eq!(admission.work.load(std::sync::atomic::Ordering::Relaxed), 0);
     }
     #[test]
     fn same_point_products_evaluate_once_and_share_factor_for_multi_rhs_and_prediction() {

@@ -6,7 +6,7 @@ use super::{SquareScope, Withheld};
 use crate::{
     ProblemError,
     quality::Tolerances,
-    solve::{Execution, WorkEvidence},
+    solve::{Execution, NativeStorageScope, WorkEvidence},
 };
 use faer::{
     Accum, Conj, Mat, Par,
@@ -39,7 +39,8 @@ pub struct SparseRequest<'a> {
     pub normalization: &'a Normalization,
     /// Producer key, including the actual point, parameter, source/order and normalization.
     pub key: SemanticProductKey,
-    /// Finite retained/scratch and opaque factor allowance, not measured allocation bytes.
+    /// Finite opaque factor reservation and explicit scratch allowance. This is neither
+    /// a complete producer-owned fill bound nor measured allocation bytes.
     pub bytes: usize,
 }
 /// Evidence of the performed sparse action, in scaled coordinates.
@@ -82,7 +83,7 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<Self, Withheld> {
         execution.check().map_err(partial)?;
-        let allowance = Self::check(&request)?;
+        let allowance = Self::admit(&request, execution)?;
         let n = request.scope.contract.variables.len();
         let physical = evaluate().map_err(partial)?;
         execution.check().map_err(partial)?;
@@ -127,7 +128,7 @@ impl SparseFactor {
                     .map_err(sparse_failure)?;
                 let scratch =
                     symbolic.factorize_numeric_lu_scratch::<f64>(Par::Seq, Default::default());
-                if scratch.size_bytes() > request.bytes.saturating_sub(allowance / 2) {
+                if scratch.size_bytes() > request.bytes {
                     return Err(ProblemError::memory(
                         "fresh sparse factor scratch allowance",
                     ));
@@ -232,13 +233,19 @@ impl SparseFactor {
         {
             return Err(Withheld::Numerical("fresh sparse factor key does not bind point, normalization and derivative accuracy".into()));
         }
-        // Conservative shape reservation for private library fill; this is not an
-        // observation of opaque factor allocation, nor an allocator-enforced hard cap.
+        // Shape-based deployment reservation for private library fill. Neither this
+        // estimate nor the separate MemStack scratch describes all live heap storage.
         Self::allowance(n)
             .filter(|bytes| *bytes <= request.bytes)
             .ok_or(Withheld::Memory)
     }
-    /// Conservative opaque-library allowance. Dense response matrices are not allocated.
+    pub(super) fn admit(request: &SparseRequest<'_>, execution: &Execution) -> Result<usize, Withheld> {
+        let allowance = Self::check(request)?;
+        admit_storage(execution).map_err(partial)?;
+        Ok(allowance)
+    }
+    /// Shape-based opaque-library reservation, not a complete fill/peak bound.
+    /// Strict storage admission refuses this producer before evaluating derivatives.
     pub fn allowance(n: usize) -> Option<usize> {
         n.checked_mul(n)?
             .checked_mul(64)?
@@ -280,6 +287,7 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
         execution.check()?;
+        admit_storage(execution)?;
         if rhs.len() != self.held.point.len() || rhs.iter().any(|value| !value.is_finite()) {
             return Err(ProblemError::Contract(
                 "sparse response action shape or nonfinite values".into(),
@@ -297,6 +305,7 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<(Mat<f64>, ActionEvidence), ProblemError> {
         execution.check()?;
+        admit_storage(execution)?;
         let n = self.held.point.len();
         if rhs.nrows() != n
             || rhs.ncols() == 0
@@ -413,6 +422,7 @@ impl SparseFactor {
         execution: &Execution,
     ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
         execution.check()?;
+        admit_storage(execution)?;
         let n = self.held.point.len();
         if rhs.len() != n || rhs.iter().any(|x| !x.is_finite()) {
             return Err(ProblemError::Contract(
@@ -639,6 +649,7 @@ impl SparsePredictor {
         execution: &Execution,
     ) -> Result<(Vec<f64>, ActionEvidence), ProblemError> {
         execution.check()?;
+        admit_storage(execution)?;
         let values = parameters
             .iter()
             .copied()
@@ -688,6 +699,15 @@ pub fn point_key(values: &[f64]) -> ContentHash {
 fn partial(e: ProblemError) -> Withheld {
     Withheld::Cause(Arc::new(e))
 }
+fn admit_storage(execution: &Execution) -> Result<(), ProblemError> {
+    if let Some(admission) = &execution.work_admission {
+        // faer 0.24.4's scratch API covers MemStack, while symbolic preparation and
+        // pivot-dependent NumericLu fill grow private heap Vecs. Do not present the
+        // deployment estimate as known bytes or a complete bound, including for retained-factor actions.
+        admission.admit_storage(NativeStorageScope::Linear, "square-response-faer-lu", 0, true)?;
+    }
+    Ok(())
+}
 fn sparse_failure(error: faer::sparse::FaerError) -> ProblemError {
     match error {
         faer::sparse::FaerError::OutOfMemory => {
@@ -715,6 +735,15 @@ mod tests {
         point: &[f64],
         execution: &Execution,
         values: Vec<f64>,
+    ) -> Result<SparseFactor, Withheld> {
+        factor_evaluations(bytes, point, execution, values, &std::cell::Cell::new(0))
+    }
+    fn factor_evaluations(
+        bytes: usize,
+        point: &[f64],
+        execution: &Execution,
+        values: Vec<f64>,
+        evaluated: &std::cell::Cell<usize>,
     ) -> Result<SparseFactor, Withheld> {
         let scope = super::super::tests::scope();
         let scales = Normalization {
@@ -749,17 +778,29 @@ mod tests {
                 key,
                 bytes,
             },
-            || Ok(SparseColMat::new(scope.pattern.clone(), values)),
+            || {
+                evaluated.set(evaluated.get() + 1);
+                Ok(SparseColMat::new(scope.pattern.clone(), values))
+            },
             execution,
         )
     }
     #[derive(Debug, Default)]
     struct Admission {
         seen: std::sync::Mutex<Vec<WorkEvidence>>,
+        storage: std::sync::Mutex<Vec<(NativeStorageScope, usize, bool)>>,
+        strict_storage: bool,
         factors: Option<u64>,
         iterations: Option<u64>,
     }
     impl crate::solve::WorkAdmission for Admission {
+        fn admit_storage(&self, scope: NativeStorageScope, _: &str, bytes: usize, opaque: bool) -> Result<(), ProblemError> {
+            self.storage.lock().unwrap().push((scope, bytes, opaque));
+            if self.strict_storage && scope == NativeStorageScope::Linear && opaque {
+                return Err(ProblemError::Unsupported("strict linear storage requires complete producer-owned fill bound".into()));
+            }
+            Ok(())
+        }
         fn admit(&self, work: WorkEvidence) -> Result<(), ProblemError> {
             let seen = self.seen.lock().unwrap();
             let factors: u64 = seen.iter().map(|w| w.factorizations.unwrap()).sum();
@@ -787,6 +828,33 @@ mod tests {
         let mut execution = Execution::new(Arc::default(), &crate::solve::Controls::default());
         execution.work_admission = Some(admission);
         execution
+    }
+    #[test]
+    fn opaque_sparse_fill_refuses_strict_before_derivatives_and_retained_actions() {
+        let admission = Arc::new(Admission { strict_storage: true, ..Default::default() });
+        let execution = admitted(admission.clone());
+        let evaluated = std::cell::Cell::new(0);
+        let result = factor_evaluations(1 << 20, &[2., 1.], &execution, vec![4., 1., 3., 1.], &evaluated);
+        assert!(matches!(result, Err(Withheld::Cause(cause)) if matches!(&*cause, ProblemError::Unsupported(_))));
+        assert_eq!(evaluated.get(), 0);
+        assert!(admission.seen.lock().unwrap().is_empty());
+        assert_eq!(*admission.storage.lock().unwrap(), [(NativeStorageScope::Linear, 0, true)]);
+
+        let ordinary = admitted(Arc::new(Admission::default()));
+        let held = factor(1 << 20, &[2., 1.], &ordinary).unwrap();
+        assert!(matches!(held.action(&[-1., 1.], &execution), Err(ProblemError::Unsupported(_))));
+        assert!(matches!(held.transpose_action(&[1., 2.], &execution), Err(ProblemError::Unsupported(_))));
+        let rhs = faer::mat![[-1., -2.], [1., -3.]];
+        assert!(matches!(held.actions(rhs.as_ref(), 1 << 20, &execution), Err(ProblemError::Unsupported(_))));
+        assert!(admission.seen.lock().unwrap().is_empty(), "refused actions must not execute a backsolve");
+        let (values, evidence) = held.actions(rhs.as_ref(), 1 << 20, &ordinary).unwrap();
+        let expected = faer::mat![[-4., 7.], [5., -10.]];
+        for column in 0..2 {
+            for row in 0..2 {
+                assert!((values[(row, column)] - expected[(row, column)]).abs() < 1e-11);
+            }
+        }
+        assert_eq!(evidence.backsolves, 1);
     }
     #[test]
     fn fresh_factor_admission_counts_failed_construction_and_never_recharges_actions() {
