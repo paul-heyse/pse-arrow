@@ -1001,6 +1001,12 @@ mod tests {
         edge_owner.references.push(edge_owner.references[0].clone());
         assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
         let mut document = original.clone();
+        document.providers.push(ReplayProvider { name: "required-executable-provider".into(), implementation: SemanticId::NIL,
+            revision: document.identity, data: document.identity, configuration: document.identity,
+            inputs: vec![], outputs: vec![], input_shapes: vec![], output_shapes: vec![],
+            derivative_source: ExternalDerivativeSource::Supplied, derivatives: 0, smoothness: 0 });
+        assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
+        let mut document = original.clone();
         document.physical_identity = pse_ids::encoding_checksum(b"missing physical premise").content_hash();
         assert!(document.reconstruct(&runtime, physical.clone(), BTreeMap::new()).is_err());
         let mut document = original;
@@ -1060,6 +1066,13 @@ mod tests {
         assert_eq!(graph.nodes[graph.root].declaration.as_ref(), Some(&declaration));
         assert_eq!(graph.nodes[1].settings.controls.iterations, 17);
         assert_eq!(constructor.requested_start.as_ref().unwrap().restore().unwrap().content_key(), identity);
+        let mut malformed = constructor.clone();
+        malformed.prepared_graph.as_mut().unwrap().root = usize::MAX;
+        assert!(malformed.reconstruct(&package, &crate::CancelSource::new()).await.is_err());
+        let mut missing = constructor.clone();
+        let graph = missing.prepared_graph.as_mut().unwrap();
+        graph.nodes[graph.root].rungs[0].required_producer = Some(ReplayProducerPremise::Derived);
+        assert!(missing.reconstruct(&package, &crate::CancelSource::new()).await.is_err());
         drop(held);
         let sources = replay.reconstruct_sources(&runtime).unwrap();
         let restored = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
