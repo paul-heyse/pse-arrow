@@ -15,7 +15,7 @@ enum pse_ipopt_sequence_status { PSE_IPOPT_SEQUENCE_OK = 0, PSE_IPOPT_SEQUENCE_I
     PSE_IPOPT_SEQUENCE_EXCEPTION = 2, PSE_IPOPT_SEQUENCE_MEMORY = 3,
     PSE_IPOPT_SEQUENCE_TERMINAL = 4, PSE_IPOPT_SEQUENCE_CANCEL = 5,
     PSE_IPOPT_SEQUENCE_DEADLINE = 6, PSE_IPOPT_SEQUENCE_ABANDON = 7,
-    PSE_IPOPT_SEQUENCE_NO_RESULT = 8 };
+    PSE_IPOPT_SEQUENCE_NO_RESULT = 8, PSE_IPOPT_SEQUENCE_INCOMPATIBLE = 9 };
 /* Evaluations: 0 success, 1 recoverable trial, 2 terminal. Poll: 0 continue,
  * 1 cancelled, 2 absolute deadline, 3 abandoned, 4 terminal typed scope cause. */
 typedef int32_t (*pse_ipopt_sequence_objective)(int32_t, const double*, double*, void*);
@@ -50,7 +50,8 @@ typedef struct { int32_t application_status; int32_t solver_status;
     int32_t gradient_evaluations; int32_t jacobian_evaluations; int32_t hessian_evaluations;
     double cpu_seconds; double system_seconds; double wall_seconds;
     } pse_ipopt_sequence_result;
-/* Structure, bounds and callbacks are copied and immutable. Rust context must
+/* Structure and callbacks are copied and immutable; bound values may change only
+ * through checked update_bounds. Rust context must
  * outlive destroy. COO is unique, zero-based; Hessian uses the lower triangle.
  * Caller owns exclusive access and admits semantic/profile/structure compatibility
  * before retaining/reusing a handle. No foreign object crosses this boundary. */
@@ -65,6 +66,17 @@ int32_t pse_ipopt_sequence_create(int32_t n, int32_t m, int32_t jac_nnz, int32_t
 int32_t pse_ipopt_sequence_set_string(pse_ipopt_sequence_handle*, const char*, const char*, char*, size_t) PSE_IPOPT_NOEXCEPT;
 int32_t pse_ipopt_sequence_set_double(pse_ipopt_sequence_handle*, const char*, double, char*, size_t) PSE_IPOPT_NOEXCEPT;
 int32_t pse_ipopt_sequence_set_integer(pse_ipopt_sequence_handle*, const char*, int32_t, char*, size_t) PSE_IPOPT_NOEXCEPT;
+/* Update numeric bounds only after a successful solve on this handle. Dimensions,
+ * fixed/free, finite/infinite (using configured native infinity thresholds), and
+ * equality/inequality maps must remain unchanged. Enabled dependency detection
+ * refuses changed bounds because its numeric row-removal map is not established.
+ * Every input is validated before nonthrowing copies; refusal leaves all bounds
+ * unchanged. A successful upload clears predecessor result availability while
+ * retaining the ReOptimizeTNLP permission. INCOMPATIBLE permits an owning caller
+ * to rebuild rather than reuse. */
+int32_t pse_ipopt_sequence_update_bounds(pse_ipopt_sequence_handle*, int32_t n,
+    const double* lower, const double* upper, int32_t m, const double* row_lower,
+    const double* row_upper, char*, size_t) PSE_IPOPT_NOEXCEPT;
 /* Reset only the six per-attempt restart options to their registered defaults. */
 int32_t pse_ipopt_sequence_reset_restart(pse_ipopt_sequence_handle*, char*, size_t) PSE_IPOPT_NOEXCEPT;
 /* reoptimize=0 requires a fresh handle; 1 requires a prior successful OptimizeTNLP

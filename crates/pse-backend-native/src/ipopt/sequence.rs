@@ -120,6 +120,26 @@ struct Owned {
     handle: Handle,
     slot: Box<Slot>,
 }
+/// Native TNLPAdapter treatment maps depend on equality first, then strict
+/// comparisons against the configured infinity thresholds for non-equalities.
+#[derive(Debug, PartialEq, Eq)]
+enum BoundClass {
+    Equal,
+    Interval { lower: bool, upper: bool },
+}
+fn bound_classes(lower: &[f64], upper: &[f64], lower_inf: f64, upper_inf: f64) -> Result<Vec<BoundClass>, ProblemError> {
+    if lower.len() != upper.len() || !lower_inf.is_finite() || !upper_inf.is_finite() || lower_inf >= upper_inf {
+        return Err(ProblemError::Contract("Ipopt bound map dimensions or infinity thresholds".into()));
+    }
+    lower.iter().zip(upper).map(|(&lower, &upper)| {
+        if lower.is_nan() || upper.is_nan() || lower > upper || lower == f64::INFINITY || upper == f64::NEG_INFINITY {
+            return Err(ProblemError::Contract("invalid Ipopt bounds".into()));
+        }
+        Ok(if lower == upper { BoundClass::Equal } else {
+            BoundClass::Interval { lower: lower > lower_inf, upper: upper < upper_inf }
+        })
+    }).collect()
+}
 #[derive(PartialEq)]
 struct Signature {
     layout: pse_ids::ContentHash,
@@ -127,7 +147,8 @@ struct Signature {
     sense: ObjectiveSense,
     jac: Pattern,
     hess: Pattern,
-    bounds: Vec<u64>,
+    variable_bounds: Vec<BoundClass>,
+    row_bounds: Vec<BoundClass>,
     options: Options,
 }
 /// An optional compatible persistent C++ TNLP and application, confined to its worker.
@@ -399,18 +420,31 @@ impl Sequence {
                 sense,
                 jac: jac.clone(),
                 hess: hess.clone(),
-                bounds: lower
-                    .iter()
-                    .chain(&upper)
-                    .chain(&row_lower)
-                    .chain(&row_upper)
-                    .map(|v| v.to_bits())
-                    .collect(),
+                variable_bounds: bound_classes(&lower, &upper, -super::INFINITY, super::INFINITY)?,
+                row_bounds: bound_classes(&row_lower, &row_upper, -super::INFINITY, super::INFINITY)?,
                 options: structural_options.clone(),
             };
-            let reused = self.owned.is_some()
+            let mut reused = self.owned.is_some()
                 && self.signature.as_ref() == Some(&signature)
                 && controls.reuse != ReusePolicy::Fresh;
+            let mut bounds_updated = false;
+            if reused {
+                let owned = self.owned.as_ref().ok_or_else(|| ProblemError::internal("lost Ipopt bound update owner"))?;
+                let mut error: [c_char; 512] = [0; 512];
+                // SAFETY: exclusive live handle; all native vectors have checked
+                // dimensions and remain readable through this transactional copy.
+                // No borrowed callback context is active during a bound update.
+                let code = unsafe { ffi::pse_ipopt_sequence_update_bounds(
+                    owned.handle.pointer.as_ptr(), native_n, lower.as_ptr(), upper.as_ptr(),
+                    native_m, row_lower.as_ptr(), row_upper.as_ptr(), error.as_mut_ptr(), error.len()) };
+                if code == ffi::INCOMPATIBLE {
+                    reused = false;
+                } else if code != ffi::OK {
+                    return Err(failure(code, text(&error)));
+                } else {
+                    bounds_updated = true;
+                }
+            }
             if !reused {
                 if self.owned.is_some() && controls.reuse == ReusePolicy::RequireReuse {
                     return Err(ProblemError::Reuse {
@@ -570,6 +604,7 @@ impl Sequence {
             report
                 .metrics
                 .insert("reuse.native_model".into(), Metric::Bool(reused));
+            report.metrics.insert("reuse.bounds_update".into(), Metric::Bool(bounds_updated));
             report.metrics.insert(
                 "reuse.reoptimize_tnlp".into(),
                 Metric::Bool(native_known && result.reoptimized == 1),
@@ -792,6 +827,77 @@ mod tests {
             rows: vec![1e-7],
             integrality: 1e-7,
         }
+    }
+    #[test]
+    fn native_bound_maps_classify_thresholds_and_equalities_without_value_identity() {
+        assert_eq!(bound_classes(&[-2.0, 1.0], &[2.0, 1.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-4.0, 8.0], &[4.0, 8.0], -10.0, 10.0).unwrap());
+        assert_ne!(bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-10.0], &[9.0], -10.0, 10.0).unwrap());
+        assert_ne!(bound_classes(&[-9.0], &[9.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[-9.0], &[10.0], -10.0, 10.0).unwrap());
+        assert_ne!(bound_classes(&[0.0], &[0.0], -10.0, 10.0).unwrap(),
+            bound_classes(&[0.0], &[1.0], -10.0, 10.0).unwrap());
+        assert!(bound_classes(&[2.0], &[1.0], -10.0, 10.0).is_err());
+        assert!(bound_classes(&[0.0], &[f64::NAN], -10.0, 10.0).is_err());
+        assert!(bound_classes(&[0.0], &[], -10.0, 10.0).is_err());
+    }
+    fn bounded_oracle(lower: f64, upper: f64, rows: (f64, f64)) -> crate::solver_tests::Polynomial {
+        let mut oracle = crate::solver_tests::Polynomial::new();
+        oracle.c.variables[0].lower = lower;
+        oracle.c.variables[0].upper = upper;
+        oracle.bounds[0] = rows;
+        oracle
+    }
+    fn solve_bound_fixture(sequence: &mut Sequence, oracle: &mut dyn NlpOracle, reuse: ReusePolicy) -> Result<SolveReport, ProblemError> {
+        let controls = Controls { reuse, time_limit: std::time::Duration::from_secs(5), iterations: 50, ..Default::default() };
+        sequence.solve(oracle, &[1.5], ObjectiveSense::Minimize, &controls,
+            &ResolvedAccuracy::verification(), &Settings::default(), Execution::new(Arc::default(), &controls),
+            &tolerance(), None, crate::solver_tests::stamp(Backend::Ipopt))
+    }
+    #[test]
+    fn compatible_numeric_variable_and_equality_bounds_update_before_real_reoptimize() {
+        let mut sequence = Sequence::new();
+        let first = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert_eq!(first.termination.category, Termination::Success);
+        let pointer = sequence.owned.as_ref().unwrap().handle.pointer;
+        let second = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)), ReusePolicy::RequireReuse).unwrap();
+        assert_eq!(second.termination.category, Termination::Success, "{second:?}");
+        assert_eq!(sequence.owned.as_ref().unwrap().handle.pointer, pointer);
+        assert_eq!(second.metrics["reuse.reoptimize_tnlp"], Metric::Bool(true));
+        assert_eq!(second.metrics["reuse.bounds_update"], Metric::Bool(true));
+        let fresh = solve_bound_fixture(&mut Sequence::new(), &mut bounded_oracle(-5.0, 5.0, (8.0, 8.0)), ReusePolicy::Fresh).unwrap();
+        assert_eq!(fresh.termination.category, Termination::Success);
+        let actual = &second.candidate.as_ref().unwrap().primal;
+        let reference = &fresh.candidate.as_ref().unwrap().primal;
+        assert!((actual[0] - 2.0).abs() < 1e-6);
+        assert!((actual[0] - reference[0]).abs() < 1e-7);
+    }
+    #[test]
+    fn changed_bound_classification_refuses_required_reuse_and_rebuilds_when_allowed() {
+        let mut sequence = Sequence::new();
+        let first = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert_eq!(first.termination.category, Termination::Success);
+        let result = solve_bound_fixture(&mut sequence, &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 1.0)), ReusePolicy::RequireReuse);
+        assert!(matches!(result, Err(ProblemError::Reuse { refusal: ReuseRefusal::Structure, .. })));
+        assert!(sequence.owned.is_none());
+        let baseline = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert_eq!(baseline.termination.category, Termination::Success);
+        assert!(sequence.owned.is_some());
+        let rebuilt = solve_bound_fixture(&mut sequence, &mut bounded_oracle(f64::NEG_INFINITY, 4.0, (1.0, 2.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert_eq!(rebuilt.termination.category, Termination::Success);
+        assert_eq!(rebuilt.metrics["reuse.reoptimize_tnlp"], Metric::Bool(false));
+        assert_eq!(rebuilt.metrics["reuse.bounds_update"], Metric::Bool(false));
+    }
+    #[test]
+    fn invalid_numeric_bounds_invalidate_retained_owner_before_any_reoptimize() {
+        let mut sequence = Sequence::new();
+        solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert!(solve_bound_fixture(&mut sequence, &mut bounded_oracle(-5.0, 5.0, (f64::NAN, 1.0)), ReusePolicy::AllowRebuild).is_err());
+        assert!(sequence.owned.is_none());
+        let rebuilt = solve_bound_fixture(&mut sequence, &mut bounded_oracle(-4.0, 4.0, (1.0, 1.0)), ReusePolicy::AllowRebuild).unwrap();
+        assert_eq!(rebuilt.termination.category, Termination::Success);
+        assert_eq!(rebuilt.metrics["reuse.reoptimize_tnlp"], Metric::Bool(false));
     }
     #[test]
     fn native_observations_survive_zero_telemetry_and_use_structured_ipopt_statistics() {

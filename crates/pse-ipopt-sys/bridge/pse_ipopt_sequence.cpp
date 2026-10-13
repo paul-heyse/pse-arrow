@@ -13,11 +13,15 @@
 #include <new>
 #include <set>
 #include <stdexcept>
+#include <string>
 #include <utility>
 #include <vector>
 static_assert(sizeof(Ipopt::Index) == sizeof(int32_t), "Ipopt sequence requires 32-bit indices");
 static_assert(sizeof(Ipopt::Number) == sizeof(double), "Ipopt sequence requires double precision");
 namespace {
+struct Incompatible final : std::exception {
+    const char* what() const noexcept override { return "bound update changes retained native treatment maps"; }
+};
 struct Terminal final : std::exception {
     const char* what() const noexcept override { return "terminal callback or execution scope failure"; }
 };
@@ -149,6 +153,7 @@ namespace {
 template<class Function> int32_t shield(pse_ipopt_sequence_handle* h, char* error, size_t capacity, Function function) noexcept {
     message(error, capacity, "");
     try { function(); return PSE_IPOPT_SEQUENCE_OK; }
+    catch (const Incompatible& exception) { message(error, capacity, exception.what()); return PSE_IPOPT_SEQUENCE_INCOMPATIBLE; }
     catch (const Terminal& exception) { message(error, capacity, exception.what());
         return h && Ipopt::IsValid(h->problem) && h->problem->terminal ? h->problem->terminal : PSE_IPOPT_SEQUENCE_TERMINAL; }
     catch (const std::bad_alloc&) { message(error, capacity, "native allocation failed"); return PSE_IPOPT_SEQUENCE_MEMORY; }
@@ -205,6 +210,55 @@ extern "C" int32_t pse_ipopt_sequence_set_integer(pse_ipopt_sequence_handle* h, 
     char* error, size_t capacity) noexcept {
     return shield(h, error, capacity, [&] { option_allowed(h, key);
         accepted(h->application->Options()->SetIntegerValue(key, value)); });
+}
+extern "C" int32_t pse_ipopt_sequence_update_bounds(pse_ipopt_sequence_handle* h, int32_t n,
+    const double* lower, const double* upper, int32_t m, const double* row_lower,
+    const double* row_upper, char* error, size_t capacity) noexcept {
+    return shield(h, error, capacity, [&] {
+        require(h, "missing bound update handle");
+        auto& p = *h->problem;
+        require(p.started && p.reusable && !p.terminal, "bound update requires a successful reusable solve");
+        require(n == p.n && m == p.m, "bound update dimensions changed");
+        bounds(n, lower, upper); bounds(m, row_lower, row_upper);
+        double lower_inf = 0., upper_inf = 0.;
+        // Get*Value returns false for an unset option while still supplying its
+        // registered default. Successful initialization established this registry.
+        h->application->Options()->GetNumericValue("nlp_lower_bound_inf", lower_inf, "");
+        h->application->Options()->GetNumericValue("nlp_upper_bound_inf", upper_inf, "");
+        require(std::isfinite(lower_inf) && std::isfinite(upper_inf) && lower_inf < upper_inf,
+            "invalid native infinity thresholds");
+        // Ipopt 3.14.20 TNLPAdapter::GetSpaces classifies equality/fixed entries
+        // first, then retains lower and upper maps using these strict comparisons.
+        auto compatible = [&](int32_t length, const double* lo, const double* up,
+            const std::vector<double>& old_lo, const std::vector<double>& old_up) {
+            for (int32_t i = 0; i < length; ++i) {
+                bool equal = lo[i] == up[i], old_equal = old_lo[i] == old_up[i];
+                if (equal != old_equal || (!equal && ((lo[i] > lower_inf) != (old_lo[i] > lower_inf)
+                    || (up[i] < upper_inf) != (old_up[i] < upper_inf)))) throw Incompatible{};
+            }
+        };
+        compatible(n, lower, upper, p.lower, p.upper);
+        compatible(m, row_lower, row_upper, p.row_lower, p.row_upper);
+        bool changed = !std::equal(lower, lower + n, p.lower.begin())
+            || !std::equal(upper, upper + n, p.upper.begin())
+            || (m && (!std::equal(row_lower, row_lower + m, p.row_lower.begin())
+                || !std::equal(row_upper, row_upper + m, p.row_upper.begin())));
+        std::string detector;
+        h->application->Options()->GetStringValue("dependency_detector", detector, "");
+        if (changed && detector != "none") throw Incompatible{};
+        // All shape, numeric, classification and option checks have completed.
+        // Existing vectors have exactly these lengths; copying doubles cannot
+        // allocate or throw, so a rejected update cannot leave a partial upload.
+        std::copy(lower, lower + n, p.lower.begin());
+        std::copy(upper, upper + n, p.upper.begin());
+        if (m) {
+            std::copy(row_lower, row_lower + m, p.row_lower.begin());
+            std::copy(row_upper, row_upper + m, p.row_upper.begin());
+        }
+        // Predecessor output is not a result for the newly uploaded bounds.
+        // Keep only the successful-solve permission needed by ReOptimizeTNLP.
+        p.returned = false; p.finalized = false; p.result = {};
+    });
 }
 extern "C" int32_t pse_ipopt_sequence_reset_restart(pse_ipopt_sequence_handle* h, char* error, size_t capacity) noexcept {
     return shield(h, error, capacity, [&] {
