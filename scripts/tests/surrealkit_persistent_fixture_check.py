@@ -24,7 +24,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from unittest.mock import patch
 
 from scripts import host_admission, native_operation
@@ -91,7 +91,7 @@ class Fixture:
     def checked(self, condition: bool, name: str) -> None:
         if not condition:
             raise RuntimeError(name)
-        self.report["checks"].append({"name": name, "outcome": "passed"})
+        cast("list[dict[str, object]]", self.report["checks"]).append({"name": name, "outcome": "passed"})
         self.checkpoint()
         print("PASS " + name, flush=True)
 
@@ -103,7 +103,7 @@ class Fixture:
             server.SupervisorError,
             producer.ProducerError,
         ) as error:
-            self.report["checks"].append(
+            cast("list[dict[str, object]]", self.report["checks"]).append(
                 {"name": name, "outcome": "passed", "refusal": str(error)}
             )
             self.checkpoint()
@@ -114,7 +114,7 @@ class Fixture:
         state = self.directory / name
         self.states.append(state)
         # Publish exact creation authority before setup can acquire any service.
-        self.report["profiles"].append({"state": str(state), "creation": "requested"})
+        cast("list[dict[str, object]]", self.report["profiles"]).append({"state": str(state), "creation": "requested"})
         self.checkpoint()
         options = server.parser().parse_args(
             [
@@ -142,7 +142,7 @@ class Fixture:
             self.initialize(state)
         server.stop(state, server.config_for(state))
         config = server.config_for(state)
-        self.report["profiles"][-1].update(
+        cast("list[dict[str, object]]", self.report["profiles"])[-1].update(
             {
                 "creation": "owned",
                 "instance_id": config["instance_id"],
@@ -246,7 +246,7 @@ class Fixture:
 
     def phased(self, folder: Path) -> None:
         state = self.setup("phased")
-        identity = producer.load(folder, current=True)["rollouts"][-1]["id"]
+        identity = cast("str", cast("list[dict[str, object]]", producer.load(folder, current=True)["rollouts"])[-1]["id"])
         started = maintenance.execute(
             self.binary, state, folder, "start", rollout_id=identity
         )
@@ -270,7 +270,7 @@ class Fixture:
         settled = maintenance.settle_generated(state, nonce, folder, self.canonical)
         self.checked(
             settled["phase"] == "start_settled"
-            and settled["settlement"]["canonical"]["scope"] == "rollout-phase",
+            and cast("dict[str, object]", cast("dict[str, object]", settled["settlement"])["canonical"])["scope"] == "rollout-phase",
             "Exact start schema and beta acknowledgements settle independently",
         )
         self.refuses(
@@ -286,21 +286,24 @@ class Fixture:
             pending_nonce=nonce,
         )
         self.checked(
-            completed["nonce"] == nonce and len(completed["phase_history"]) == 1,
+            completed["nonce"] == nonce and len(cast("list[object]", completed["phase_history"])) == 1,
             "Start and complete retain one nonce and immutable phase history",
         )
         settled = maintenance.settle_generated(state, nonce, folder, self.canonical)
         self.checked(
             settled["phase"] == "settled"
-            and settled["settlement"]["phase_complete"] is True,
+            and cast("dict[str, object]", settled["settlement"])["phase_complete"] is True,
             "Final exact target and beta step checksums settle",
         )
         actual_tool = maintenance.canonical_tool
         lost: dict[str, object] = {}
 
-        def lost_ack(*args: object, **kwargs: object) -> dict[str, object]:
-            witness = actual_tool(*args, **kwargs)
-            if kwargs.get("activate"):
+        def lost_ack(
+            state: Path, endpoint: str, value: dict[str, object], binary: Path,
+            *, activate: bool = False, expected_schemas: tuple[Path, ...] = (),
+        ) -> dict[str, object]:
+            witness = actual_tool(state, endpoint, value, binary, activate=activate, expected_schemas=expected_schemas)
+            if activate:
                 lost.update(witness)
                 raise maintenance.MaintenanceError(
                     "Injected caller ACK loss after actual activation and child drain"
@@ -463,7 +466,7 @@ class Fixture:
             descriptor = os.pidfd_open(child.pid)
             try:
                 deadline = time.monotonic() + 30
-                observed = None
+                observed: dict[str, object] | None = None
                 while time.monotonic() < deadline and child.poll() is None:
                     config = server.config_for(state)
                     value = config.get(maintenance.PENDING)
@@ -510,19 +513,19 @@ class Fixture:
                     raise RuntimeError(
                         "Actual running caller-death barrier was not observed"
                     )
-                if observed["owner"].get(
+                if cast("dict[str, object]", observed["owner"]).get(
                     "pid"
-                ) != child.pid or not server.reservation_live(observed["owner"]):
+                ) != child.pid or not server.reservation_live(cast("dict[str, object]", observed["owner"])):
                     raise RuntimeError(
                         "Observed lifecycle owner is not this exact live child"
                     )
-                self.report["process_death"]["before_kill"] = observed
+                cast("dict[str, object]", self.report["process_death"])["before_kill"] = observed
                 self.checkpoint()
                 signal.pidfd_send_signal(descriptor, signal.SIGKILL)
                 child.wait(timeout=10)
                 self.checked(
                     child.returncode == -signal.SIGKILL
-                    and not server.reservation_live(observed["owner"]),
+                    and not server.reservation_live(cast("dict[str, object]", observed["owner"])),
                     "Actual lifecycle caller SIGKILL revokes exact process authority",
                 )
             finally:
@@ -548,7 +551,7 @@ class Fixture:
             server.drain_maintenance_listener(state)
         nonce = str(value["nonce"])
         self.checked(
-            server.config_for(state)[maintenance.PENDING]["sql_outcome"] == "unknown"
+            cast("dict[str, object]", server.config_for(state)[maintenance.PENDING])["sql_outcome"] == "unknown"
             and not server.active(state),
             "Actual tool scope and listener drain leave SQL unknown and admission closed",
         )

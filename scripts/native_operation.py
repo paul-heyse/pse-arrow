@@ -1787,7 +1787,7 @@ def run_child_scope(
         # transition under one cleanup clock, never extending cancellation.
         normal_deadline = time.monotonic() + 10
         cancellation_deadline: float | None = None
-        previous_mask: set[signal.Signals] | None = None
+        previous_mask: set[int | signal.Signals] | None = None
         try:
             while True:
                 if observation is not None:

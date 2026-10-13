@@ -22,7 +22,7 @@ import tomllib
 import urllib.request
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from scripts import native_operation, surreal_server, test_resources
 
@@ -310,7 +310,7 @@ def stage(resource: str, schema: Path) -> Path:
     (folder / "snapshots/catalog_snapshot.json").write_text(
         json.dumps({"version": 2, "entities": []}) + "\n"
     )
-    provenance = {
+    provenance: dict[str, object] = {
         "schema_sha256": hashlib.sha256(data).hexdigest(),
         "producer": str(GENERATED_SCHEMA),
         "files": {"canonical.surql": hashlib.sha256(data).hexdigest()},
@@ -400,7 +400,7 @@ def validate_input(
         raise ToolError("Only exact release built-in setup SQL is admitted")
     if (folder / "seed").exists() or (folder / "seeds").exists():
         raise ToolError("Seed SQL requires separate settlement qualification")
-    expected_rollouts = record.get("tool_rollouts", {}).get(folder.name, {})
+    expected_rollouts = cast("Mapping[str, object]", record.get("tool_rollouts", {})).get(folder.name, {})
     rollout_files = {
         str(path.relative_to(folder / "rollouts")): digest(path)
         for path in (folder / "rollouts").rglob("*")

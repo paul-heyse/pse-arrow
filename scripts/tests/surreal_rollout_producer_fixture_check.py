@@ -8,6 +8,7 @@ import argparse
 import json
 import tempfile
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 from scripts import surreal_rollout_producer as producer
@@ -38,9 +39,9 @@ def check(binary: Path, scratch: Path) -> None:
     assert codec["predecessor"] == third["id"]
     assert codec["steps"] == []
     assert [
-        step["phase"] for step in third["steps"] if step["phase"] != "rollback"
+        step["phase"] for step in cast("list[dict[str, object]]", third["steps"]) if step["phase"] != "rollback"
     ] == ["start", "complete"]
-    assert len(producer.load(folder)["rollouts"]) == 4
+    assert len(cast("list[object]", producer.load(folder)["rollouts"])) == 4
     assert (
         producer.publish(binary, folder, final_schema, "fixture.v2", "4" * 64)["id"]
         == codec["id"]
@@ -59,7 +60,7 @@ def check(binary: Path, scratch: Path) -> None:
             pass
         else:
             raise AssertionError("Changed declaration was admitted")
-    target = folder / first["target_sql"]
+    target = folder / cast("str", first["target_sql"])
     original = target.read_bytes()
     for replacement in (b"-- falsified\n", None):
         if replacement is None:

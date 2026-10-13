@@ -21,6 +21,7 @@ import sys
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import cast
 
 from scripts import surrealkit
 
@@ -61,15 +62,15 @@ def beta6_step_checksum(step: dict[str, object]) -> str:
     schema actions emitted by run_plan are admitted here; arbitrary SQL is not.
     EntityKey's absent scope deserializes to None and serializes as JSON null.
     """
-    normalized = {"id": step["id"], "phase": step["phase"], "kind": step["kind"]}
+    normalized: dict[str, object] = {"id": step["id"], "phase": step["phase"], "kind": step["kind"]}
     kind = step["kind"]
     if kind == "apply_files":
         normalized["files"] = [
             {"path": file["path"], "hash": file["hash"]}
-            for file in step["files"]
+            for file in cast("list[dict[str, object]]", step["files"])
             if isinstance(file, dict) and set(file) == {"path", "hash"}
         ]
-        if len(normalized["files"]) != len(step["files"]):
+        if len(cast("list[object]", normalized["files"])) != len(cast("list[object]", step["files"])):
             raise ProducerError("Only frozen schema files are admitted")
     elif kind in {"remove_entities", "restore_definitions"}:
         normalized["entities"] = [
@@ -78,7 +79,7 @@ def beta6_step_checksum(step: dict[str, object]) -> str:
                 "scope": entity.get("scope"),
                 "name": entity["name"],
             }
-            for entity in step["entities"]
+            for entity in cast("list[dict[str, object]]", step["entities"])
         ]
     else:
         raise ProducerError("Only beta-planned schema actions are admitted")
@@ -204,8 +205,9 @@ def load(folder: Path, *, current: bool = False) -> dict[str, object]:
 def step_bindings(
     spec: dict[str, object], source: str, target: str
 ) -> list[dict[str, object]]:
-    bindings = []
-    for step in spec["steps"]:
+    # The pinned beta planner owns these TOML schema-action records.
+    bindings: list[dict[str, object]] = []
+    for step in cast("list[dict[str, object]]", spec["steps"]):
         phase = step["phase"]
         bindings.append(
             {
@@ -246,7 +248,7 @@ def publish(
         fcntl.flock(lock, fcntl.LOCK_EX)
         if folder.exists():
             previous = load(folder)
-            head = previous["rollouts"][-1]
+            head = cast("list[dict[str, object]]", previous["rollouts"])[-1]
             if (sha(schema), interpretation, schema_digest) == (
                 head["schema_sha256"],
                 head["interpretation"],
@@ -299,7 +301,7 @@ def publish(
             source_sql = "rollouts/" + identity + "/source-schema.surql"
             target_sql = "rollouts/" + identity + "/target-schema.surql"
             (candidate / source_sql).write_bytes(
-                (folder / head["target_sql"]).read_bytes() if head else b""
+                (folder / cast("str", head["target_sql"])).read_bytes() if head else b""
             )
             (candidate / target_sql).write_bytes(schema)
             for name in ("schema_snapshot.json", "catalog_snapshot.json"):
@@ -337,7 +339,7 @@ def publish(
                     for name, digest in inventory(owned).items()
                 }
             )
-            releases = list(previous["releases"]) if previous else []
+            releases = list(cast("list[dict[str, object]]", previous["releases"])) if previous else []
             releases.append({"id": identity, "files": new_files})
             head_files = {
                 name: digest

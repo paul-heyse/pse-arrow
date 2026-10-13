@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import tomllib
 from pathlib import Path
+from typing import cast
 
 from scripts import surreal_server as server
 from scripts import surrealkit as tool
@@ -111,20 +112,20 @@ def wrong_namespace(
     record: resources.ResourceRecord,
     other: resources.ResourceRecord,
 ) -> None:
-    secret = server.read_json(Path(record["directory"]) / "credentials.json")
+    secret = server.read_json(Path(cast("str", record["directory"])) / "credentials.json")
     env = {
         key: value
         for key, value in os.environ.items()
         if not key.startswith(("SURREAL", "DATABASE_"))
     }
-    env.update(SURREAL_USER=secret["username"], SURREAL_PASS=secret["password"])
-    with tempfile.TemporaryDirectory(dir=Path(record["directory"])) as directory:
+    env.update(SURREAL_USER=cast("str", secret["username"]), SURREAL_PASS=cast("str", secret["password"]))
+    with tempfile.TemporaryDirectory(dir=Path(cast("str", record["directory"]))) as directory:
         result = subprocess.run(
             [
-                config["server"]["binary"],
+                cast("dict[str, str]", config["server"])["binary"],
                 "sql",
                 "--endpoint",
-                config["endpoint"],
+                cast("str", config["endpoint"]),
                 "--auth-level",
                 "namespace",
                 "--namespace",
@@ -159,7 +160,7 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
     resource = tool.provision(state, test="generated_contract")
     other = tool.provision(state, test="other_fixture")
     folder = tool.stage(resource, tool.ROOT / tool.GENERATED_SCHEMA)
-    proof = {
+    proof: dict[str, object] = {
         "resource": resource,
         "other": other,
         "invocation": str(invocation),
@@ -194,9 +195,9 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         assert other in eligible
         assert resources.reclaim(resource) == "removed"
         # Exact namespace removal must leave the independently registered owner.
-        catalog = resources.namespace_sql(config, "INFO FOR ROOT;")[0]["namespaces"]
-        assert record["namespace"] not in catalog
-        assert resources.resource_status(other)["namespace"] in catalog
+        catalog = cast("dict[str, object]", resources.namespace_sql(config, "INFO FOR ROOT;")[0])["namespaces"]
+        assert record["namespace"] not in cast("dict[str, object]", catalog)
+        assert resources.resource_status(other)["namespace"] in cast("dict[str, object]", catalog)
         assert resources.reclaim(other) == "removed"
         (evidence / "disposal.json").write_text(
             json.dumps(
