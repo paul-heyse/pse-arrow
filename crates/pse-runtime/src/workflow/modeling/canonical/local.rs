@@ -52,6 +52,7 @@ impl LocalSourceObject {
         let parsed=declaration.as_ref().map(|(row,fields)|parsed_fields(runtime,row,fields.as_ref())).transpose()?;
         Ok(Some(Arc::new(Self { value, lease, declaration, parsed })))
     }
+    #[cfg(test)]
     pub(crate) fn edit(&self) -> ObjectEdit {
         ObjectEdit {
             logical: self.logical.clone(), scope: self.scope.clone(), name: self.name.clone(),
@@ -173,9 +174,7 @@ impl LocalSourcePremises {
         let objects = source.objects.values().filter(|object|query.matches(object)).cloned().collect::<Vec<_>>();
         self.inventories.insert(query,objects.clone()); objects
     }
-    pub(crate) fn versions(&self) -> BTreeMap<String,String> {
-        self.logicals.values().flatten().chain(self.inventories.values().flatten()).map(|o|(o.logical.clone(),o.version.clone())).collect()
-    }
+
 }
 #[derive(Debug)]
 pub(super) struct LocalHead { pub(super) revision: String, pub(super) generation: i64 }

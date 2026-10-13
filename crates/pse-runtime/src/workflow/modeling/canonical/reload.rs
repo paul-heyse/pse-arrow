@@ -197,7 +197,7 @@ fn retain(
 }
 
 /// Trusted loader extras, unavailable to public IR edit intent.
-pub(super) struct ParsedEdit {
+pub(in crate::workflow::modeling) struct ParsedEdit {
     pub(super) order: Vec<DeclarationId>,
     pub(super) fields: BTreeMap<DeclarationId, FieldSpans>,
     pub(super) documents: BTreeMap<SemanticId, pse_model::generated::authored::documents::Row>,

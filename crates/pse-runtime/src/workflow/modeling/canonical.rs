@@ -1166,6 +1166,7 @@ impl ModelingPackage {
         let parent=self.delta_parent(&crate::CancelSource::new()).await?;
         Ok(super::OwnedDeclarations {rows:parent.rows,_leases:parent._leases})
     }
+    /// Explicit fitting inventory from the owned immutable source and its allocations.
     pub async fn fit_declarations(&self) -> Result<super::super::fitting::FitDeclarations,WorkflowError> {
         let activity=self.runtime.admit_activity()?;
         activity.scope(async {
