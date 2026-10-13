@@ -2876,7 +2876,7 @@ mod tests {
         let run = |starts: Vec<Vec<f64>>, cap, cancel_at, shape| {
             let controls = Controls { iterations: cap, history: 3, ..Default::default() };
             let mut execution = execution();
-            let method = Method { strategy: Strategy::FixedPoint, anderson: 2, anderson_delay: 1, damping: fraction(0.75), ..Default::default() };
+            let method = Method { strategy: Strategy::FixedPoint, anderson: 1, anderson_delay: 1, damping: fraction(0.75), ..Default::default() };
             execution.memory = Some(anderson_storage(1, method).unwrap().0);
             let oracle = ObservedMap { inner: crate::solver_tests::Polynomial::new(), shape, calls: 0, cancel_at, cancel: execution.cancel.clone(), original_nonfinite: None };
             let mut session = Session::new(Function::FixedPoint(Box::new(oracle)), Settings { method, ..settings() }, execution.clone(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
