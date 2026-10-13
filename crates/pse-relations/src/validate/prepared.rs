@@ -208,6 +208,8 @@ impl ValidationContext {
             immutable: Arc::new(PreparedLocalContract {
                 native_owner: self.shared.native_owner.clone(),
                 scope: None,
+                immutable: None,
+                logical_scoped: Vec::new(),
                 schema,
                 predicates: Arc::new(predicates),
                 nodes: Arc::new(nodes),
@@ -232,6 +234,8 @@ impl ValidationContext {
         Ok(Arc::new(PreparedLocalContract {
             native_owner: base.native_owner.clone(),
             scope: Some(self.scope.clone()),
+            immutable: Some(base.clone()),
+            logical_scoped: template.scoped.iter().map(|(_, expression)| expression.clone()).collect(),
             schema: base.schema.clone(),
             predicates: Arc::new(predicates),
             nodes: base.nodes.clone(),
@@ -283,6 +287,8 @@ struct PreparedPredicate {
 pub struct PreparedLocalContract {
     native_owner: Arc<()>,
     scope: Option<AdmissionScope>,
+    immutable: Option<Arc<PreparedLocalContract>>,
+    logical_scoped: Vec<Expr>,
     schema: SchemaRef,
     predicates: Arc<Vec<PreparedPredicate>>,
     nodes: Arc<Vec<super::occurrences::Node>>,
@@ -304,9 +310,31 @@ impl PreparedLocalContract {
     pub(crate) fn scope_checks(&self) -> std::collections::BTreeSet<String> {
         self.predicates.iter().filter(|predicate| predicate.scoped).map(|predicate| predicate.rule.clone()).collect()
     }
-    /// Bind this prepared implementation as a visible native logical-plan predicate.
-    pub fn predicate(self: &Arc<Self>, arguments: Vec<Expr>) -> Expr {
-        predicate::expression(Arc::clone(self), arguments)
+    /// Bind immutable obligations plus visible invocation-relative logical checks.
+    /// Stable checks remain native expressions so prepared-query freshness can see
+    /// them and physical planning uses the actual execution timestamp.
+    /// # Errors
+    /// Argument extent or a bound column differs from the exact prepared schema.
+    pub fn predicate(self: &Arc<Self>, arguments: Vec<Expr>) -> datafusion_common::Result<Expr> {
+        use datafusion_common::tree_node::{Transformed, TreeNode};
+        if arguments.len() != self.schema.fields().len() {
+            return Err(DataFusionError::Plan("local contract argument extent differs".into()));
+        }
+        let immutable = self.immutable.as_ref().unwrap_or(self);
+        let mut result = predicate::expression(Arc::clone(immutable), arguments.clone());
+        for expression in &self.logical_scoped {
+            let projected = expression.clone().transform_up(|expression| {
+                if let Expr::Column(column) = expression {
+                    let index = self.schema.index_of(&column.name)?;
+                    let argument = arguments.get(index).ok_or_else(|| DataFusionError::Plan("local contract argument absent".into()))?;
+                    Ok(Transformed::yes(argument.clone()))
+                } else {
+                    Ok(Transformed::no(expression))
+                }
+            })?.data;
+            result = result.and(projected);
+        }
+        Ok(result)
     }
     /// Exact declared input schema.
     pub fn schema(&self) -> &SchemaRef {

@@ -671,3 +671,28 @@ fn immutable_contracts_share_across_scopes_and_nested_volatile_checks_still_refu
         HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(), r#"{"bad":"n > 0 AND random() > 0.1"}"#.into())])));
     assert!(context.prepare(&registry, volatile).is_err());
 }
+
+#[test]
+fn scoped_logical_contract_keeps_stable_checks_visible_and_uses_native_execution_clock() {
+    let registry = RegistryBuilder::new().build().unwrap();
+    let owner = ValidationContext::new(&registry, SessionContext::new().state());
+    let now = owner.admission_scope().execution_props().query_execution_start_time.unwrap();
+    let mut earlier = owner.admission_scope().execution_props().clone();
+    earlier.query_execution_start_time = Some(now - std::time::Duration::from_secs(60));
+    let earlier = owner.for_scope(AdmissionScope::from_execution_props(&earlier));
+    let schema = Arc::new(Schema::new_with_metadata(vec![Field::new("n", DataType::Int64, false)],
+        HashMap::from([(pse_schema::arrow::KEY_CHECKS.into(), r#"{"clock":"to_timestamp_seconds(n) <= now()"}"#.into())])));
+    let prepared = earlier.prepare(&registry, schema.clone()).unwrap();
+    let input = RecordBatch::try_new(schema.clone(), vec![Arc::new(Int64Array::from(vec![now.timestamp()]))]).unwrap();
+    let cancel = pse_columnar::CancellationToken::new();
+    assert!(!prepared.evaluate(&input, 8, &cancel).unwrap().is_valid());
+    let expression = prepared.predicate(vec![Expr::Column(datafusion_common::Column::from_name("n"))]).unwrap();
+    assert!(scope_sensitive(&expression).unwrap(), "the actual Stable function stays visible");
+    assert!(!expression.is_volatile());
+    let native = DFSchema::try_from(schema.as_ref().clone()).unwrap();
+    let physical = super::super::planner::ValidationPlanner::prepare_in_scope(
+        &SessionContext::new().state(), expression, &native, owner.admission_scope(),
+    ).unwrap();
+    let value = physical.evaluate(&input).unwrap().into_array(1).unwrap();
+    assert!(value.as_any().downcast_ref::<BooleanArray>().unwrap().value(0));
+}

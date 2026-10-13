@@ -214,7 +214,7 @@ fn local_values(
             .into_iter()
             .map(Expr::Column)
             .collect(),
-    );
+    )?;
     violation(
         LogicalPlanBuilder::from(input)
             .filter(predicate.is_not_true())?
