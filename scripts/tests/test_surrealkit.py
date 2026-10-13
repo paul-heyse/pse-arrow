@@ -10,6 +10,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 from scripts import surreal_server as server
@@ -24,7 +25,7 @@ class NamespaceTests(unittest.TestCase):
         self.root = Path(temporary.name)
         self.state = self.root / "state"
         self.state.mkdir()
-        self.config = {
+        self.config: dict[str, object] = {
             "instance_id": "fixture-generation",
             "namespace": "pse",
             "admission": "open",
@@ -259,7 +260,7 @@ class NamespaceTests(unittest.TestCase):
         resources.record_drain(resource)
 
         def failed(*_args: object, **kwargs: object) -> int:
-            kwargs["observation"].update(owned_drain="complete")
+            cast('dict[str, object]', kwargs["observation"]).update(owned_drain="complete")
             return 1
 
         with (
@@ -285,10 +286,10 @@ class NamespaceTests(unittest.TestCase):
 
 class DispatchTests(unittest.TestCase):
     def test_beta_clone_capacity_is_explicit_and_fixture_specific(self) -> None:
-        config = {
+        config: dict[str, object] = {
             "resources": server.resources(4 * server.GIB, 2 * server.GIB, 2, server.GIB)
         }
-        credentials = {"username": "user", "password": "secret"}
+        credentials: dict[str, object] = {"username": "user", "password": "secret"}
         self.assertEqual(
             server.server_environment(config, credentials)[
                 "SURREAL_WEBSOCKET_MAX_ATTACHED_SESSIONS"
