@@ -1202,3 +1202,48 @@ def test_capped_related_root_study_charges_prediction_and_screening(
     assert all(value is not None for value in charged)
     # The target original-screening callbacks share its native task's finite counter.
     assert 2 <= sum(value for value in charged if value is not None) <= 500
+
+
+@pytest.mark.component
+def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_science(
+    inspection_settings: pse.EngineSettings, canonical_substrate: CanonicalFixture
+) -> None:
+    from pse.contracts.documents import (
+        SelectedStudyVariant,
+        SourceChoice,
+        SourceDelta,
+        StudyInputsLazy,
+        StudyOutputDemandFull,
+        StudyVariants,
+    )
+
+    runtime = canonical_substrate.runtime(inspection_settings)
+    package, case = _package(runtime)
+    variants = StudyVariants(
+        version=1,
+        source=package.operation_source,
+        choices=(
+            SourceChoice(
+                alternatives=(
+                    SourceDelta(parent=package.revision_id, removals=("0" * 32,)),
+                )
+            ),
+        ),
+        selected=(
+            SelectedStudyVariant(ordinal=0, point=point(case, pse.SolveSettings(), 17)),
+        ),
+    )
+    definition = package.admit_study(
+        StudyRequest(
+            version=6,
+            output=StudyOutputDemandFull(),
+            inputs=StudyInputsLazy(value=variants),
+        )
+    )
+    assert definition.points == ()
+    assert definition.variants is not None
+    retained = definition.variants.variants
+    assert retained.source == package.operation_source
+    assert retained.selected[0].point.policy.key == 17
+    assert retained.choices[0].alternatives[0].parent == package.canonical_revision
+    assert codec.decode_json(codec.encode_json(definition), type(definition)) == definition

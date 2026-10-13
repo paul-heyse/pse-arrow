@@ -52,6 +52,7 @@ from pse.contracts.documents import (
     LinearDiagnosticControls,
     ModelingInspection,
     ModelingNonlinearPolicy,
+    OperationSource,
     PointOutcome,
     PointOverlay,
     PreparationCounts,
@@ -584,6 +585,11 @@ class ModelingPackage:
     def revision_id(self) -> str:
         """Opaque exact parent token for edits of this admitted receiver."""
         return self._handle.revision_id
+
+    @property
+    def operation_source(self) -> OperationSource:
+        """Exact admitted source and physical identity for reconstructible study inputs."""
+        return codec.decode_json(self._handle.operation_source, OperationSource)
 
     @property
     def canonical_revision(self) -> str | None:

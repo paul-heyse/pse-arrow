@@ -187,6 +187,11 @@ impl NativeModelingPackage {
     fn revision_id(&self) -> String {
         self.inner.revision_id().to_owned()
     }
+    /// Exact immutable modeling and physical source identity for lazy study inputs.
+    #[getter]
+    fn operation_source(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
+        documents::encode(py, &native::OperationSource::of(&self.inner))
+    }
     #[getter]
     fn canonical_revision(&self) -> Option<String> {
         self.inner

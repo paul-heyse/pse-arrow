@@ -746,6 +746,7 @@ impl Runtime {
             let owner = self.shared.math().reserve("study:lazy-input-owner", extent)?;
             let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
             let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
+            lazy.variants.check_retained_parent(&study.revision)?;
             let physical = self.physical_source(&metadata.physical, cancel).await?;
             let base_revision = store.revision(&study.revision).await?.ok_or_else(|| contract("lazy base revision absent"))?;
             let package = self.modeling_revision(base_revision, physical, BTreeMap::new()).await?;
@@ -2183,6 +2184,7 @@ impl StudyDefinition {
     pub fn validate_roles(&self) -> Result<(), WorkflowError> {
         if let Some(lazy) = &self.variants {
             if !self.points.is_empty() { return Err(contract("study input forms are exclusive")); }
+            lazy.variants.check_retained_parent(&self.modeling_revision)?;
             return lazy.variants.validate();
         }
         pse_model::study_policy::admit(&self.graph()).map_err(|error| {
@@ -2247,8 +2249,10 @@ impl super::ModelingPackage {
                 creation_checkpoint(cancel)?;
                 output.validate(&self.runtime)?;
                 variants.check_parent(self)?;
+                let mut retained = variants.clone();
+                retained.retain_parent(self.source_attribution());
                 Ok(StudyDefinition { version: Version, physical, modeling_revision: self.source_attribution().into(),
-                    points: vec![], variants: Some(super::LazyStudyDefinition { variants: variants.clone(), output: output.clone() }) })
+                    points: vec![], variants: Some(super::LazyStudyDefinition { variants: retained, output: output.clone() }) })
             }
         }
     }

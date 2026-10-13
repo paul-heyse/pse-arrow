@@ -129,6 +129,17 @@ impl StudyVariants {
         }
         Ok(())
     }
+    pub(in crate::workflow) fn retain_parent(&mut self, revision: &str) {
+        for delta in self.choices.iter_mut().flat_map(|choice| &mut choice.alternatives) {
+            delta.parent = revision.into();
+        }
+    }
+    pub(in crate::workflow) fn check_retained_parent(&self, revision: &str) -> Result<(), WorkflowError> {
+        if self.choices.iter().flat_map(|choice| &choice.alternatives).any(|delta| delta.parent != revision) {
+            return Err(contract("lazy descriptor differs from its retained base revision"));
+        }
+        Ok(())
+    }
     pub(in crate::workflow) fn selected_policy(&self, selection: usize) -> Result<PointPolicy, WorkflowError> {
         self.selected.get(selection).map(|selected| policy(&selected.point.policy))
             .ok_or_else(|| contract("selected structural occurrence absent"))
