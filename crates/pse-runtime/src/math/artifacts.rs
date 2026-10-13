@@ -13,7 +13,7 @@ use pse_ids::ContentHash;
 use pse_math::guarded::CompiledBody;
 use std::sync::{Arc, atomic::Ordering};
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub(super) struct Key(pub ContentHash, pub bool);
+pub(super) enum Key { Artifact(ContentHash), Scalars(ContentHash) }
 impl CacheKey for Key {
     fn size(&self) -> usize {
         128
@@ -60,7 +60,7 @@ impl MathService {
         self.pressure.clear();
     }
     async fn scalar_products(self: &Arc<Self>, request: ArtifactRequest) -> Result<Arc<pse_math::library::ScalarProducts>, MathRuntimeError> {
-        let key = Key(request.scalar_key(), true);
+        let key = Key::Scalars(request.scalar_key());
         if let Some(Value::Scalars(products)) = self.entries.get(&key) { return Ok(products); }
         let service = self.clone();
         let epoch = self.retention.generation();
@@ -99,7 +99,7 @@ impl MathService {
         {
             return Err(MathRuntimeError::Limit("artifact profile"));
         }
-        let key = Key(request.key(), false);
+        let key = Key::Artifact(request.key());
         if let Some(Value::Artifact(v)) = self.entries.get(&key) {
             self.hits.fetch_add(1, Ordering::Relaxed);
             return Ok(v);
@@ -116,6 +116,7 @@ impl MathService {
                         return Ok(v);
                     }
                     let scalars = service.scalar_products(request.clone()).await?;
+                    let scalar_key = Key::Scalars(request.scalar_key());
                     let cores = request.cores();
                     let construction = super::jobs::ConstructionEstimate::from_bound(
                         request.construction_allocation_bound()?,
@@ -145,6 +146,9 @@ impl MathService {
                         program: Arc::new(program.with_owner(lease.clone())),
                         lease,
                     });
+                    // Keep order-specific provider-lift scalars as seeds for later
+                    // upgrades too; every borrowed entry retains its first lease.
+                    service.pressure.publish_artifact(epoch, &scalar_key, Value::Scalars(Arc::new(artifact.program.scalar_products().clone())));
                     service
                         .pressure
                         .publish_artifact(epoch, &key, Value::Artifact(artifact.clone()));
@@ -211,7 +215,7 @@ impl CacheComponent for MathService {
         {
             rows.push(CacheEntryReport {
                 cache: self.entries.name(),
-                key: key.0.to_string(),
+                key: match key { Key::Artifact(hash) => hash.to_string(), Key::Scalars(hash) => format!("scalar:{hash}") },
                 bytes: e.size_bytes,
                 hits: e.hits,
             });
@@ -254,7 +258,7 @@ mod tests {
         let second = second.unwrap();
         assert!(Arc::ptr_eq(&first, &second));
         assert!(!first.is_empty());
-        let scalar_key = Key(request.scalar_key(), true);
+        let scalar_key = Key::Scalars(request.scalar_key());
         assert!(matches!(service.entries.get(&scalar_key), Some(Value::Scalars(_))));
         let artifact = service.artifact(request).await.unwrap();
         let worker = artifact.program.worker();

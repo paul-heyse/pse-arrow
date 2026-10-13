@@ -201,7 +201,13 @@ impl Pressure {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         if *demands == 0 {
             self.artifact_fence
-                .admit(generation, || self.artifacts.put(key, value));
+                .admit(generation, || {
+                    if let Value::Scalars(incoming) = &value
+                        && let Some(Value::Scalars(existing)) = self.artifacts.get(key)
+                        && existing.len() > incoming.len()
+                    { return false; }
+                    self.artifacts.put(key, value)
+                });
         }
     }
     pub(super) fn clear(&self) {
@@ -639,7 +645,7 @@ mod pressure_tests {
     use crate::math::{artifacts::Key as ArtifactKey, tests};
     use datafusion::execution::memory_pool::MemoryConsumer;
     fn key(value: u8) -> ArtifactKey {
-        ArtifactKey(pse_ids::ContentHash::from_bytes([value; 32]), false)
+        ArtifactKey::Artifact(pse_ids::ContentHash::from_bytes([value; 32]))
     }
     fn retained_artifact(service: &Arc<MathService>, value: u8) -> Arc<Artifact> {
         let (preparation, _, _) = tests::component_fixture(service);
