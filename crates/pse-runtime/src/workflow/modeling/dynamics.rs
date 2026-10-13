@@ -80,7 +80,7 @@ impl native::SampleObserver for LiveSampleAdapter<'_> {
         if let Some(worker) = &mut self.original {
             if let Err(error) = worker.check(ordinal, sample, None, false, &mut self.checks) {
                 self.checks.error = Some(error.boundary_diagnostic());
-                return Err(ProblemError::Contract(format!("original live sample assessment: {error}")));
+                return Err(original_check_failure(error));
             }
             if self.diagnostic_times.contains(&sample.time) { self.diagnostics.push(sample.clone()); }
         }
@@ -88,6 +88,18 @@ impl native::SampleObserver for LiveSampleAdapter<'_> {
         let delivered = self.observer.sample(self.attempt, ordinal, sample, self.execution);
         let resumed = pse_backend_native::execution::resume_compute(self.execution);
         delivered.and(resumed)
+    }
+}
+#[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
+fn original_check_failure(error: WorkflowError) -> ProblemError {
+    match error {
+        WorkflowError::Math(error) => error.into_problem(),
+        other => {
+            let diagnostic = other.boundary_diagnostic();
+            let retained = size_of::<pse_model::diagnostic::BoundaryDiagnostic>() + diagnostic.heap_bytes();
+            ProblemError::Math(pse_math::MathError::Typed { retained,
+                cause: pse_model::diagnostic::DiagnosticCause::new(diagnostic) })
+        }
     }
 }
 /// Authored integration controls retain the factory's provisional physical slots until
@@ -815,7 +827,7 @@ impl ModelingSimulation {
         };
         let compact = retention == native::SampleRetention::Compact;
         let original = if compact { Some(self.sample_check_worker(run_id, &self.parameters, scope)
-            .map_err(|error| ProblemError::Contract(error.to_string()))?) } else { None };
+            .map_err(original_check_failure)?) } else { None };
         let mut adapter = LiveSampleAdapter {
             attempt, observer, execution: &execution, original,
             checks: checks::SampleChecks { rows: Vec::new(), reports: Vec::new(), complete: false, error: None },

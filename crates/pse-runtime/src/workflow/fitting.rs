@@ -3,6 +3,7 @@
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
 mod covariance;
 mod documents;
+mod experiments;
 pub use documents::{FitPreparationDocument, FitProfileDocument};
 mod modeling;
 mod oracle;

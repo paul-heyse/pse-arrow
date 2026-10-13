@@ -2370,3 +2370,34 @@ async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficien
         .await;
     }
 }
+
+/// Both admitted lanes must enter each actual wave together. Independent affine
+/// science checks value/gradient order, then changed IVPs reuse their original workers.
+#[tokio::test]
+async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
+    let (package, mut profile) = source(true, 73.).await;
+    profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
+    let (problem, _) = package.prepare_fit_problem(id(73).into(), profile,
+        compiler_profile(), Default::default(), &crate::CancelSource::new()).await.unwrap();
+    with_admitted_fit_oracle(problem.into(), |oracle| {
+        let team = oracle.team.as_mut().expect("fixture admits two independent lanes");
+        team.require_concurrent_test_wave();
+        let value = oracle.objective(&[2.5]).unwrap();
+        assert!((value - 1.25).abs() < 1e-6);
+        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
+        let mut gradient = [0.];
+        oracle.gradient(&[2.5], &mut gradient).unwrap();
+        assert!((gradient[0] - 2.).abs() < 1e-6);
+        let predictions = &oracle.point.as_ref().unwrap().predictions;
+        assert!((predictions[0] - 73.5).abs() < 1e-6);
+        assert_eq!(predictions[1], 2.5);
+        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
+        assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
+        oracle.gradient(&[0.7], &mut gradient).unwrap();
+        assert!((gradient[0] + 1.6).abs() < 1e-6);
+        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
+        oracle.execution.cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert!(oracle.objective(&[1.0]).is_err());
+        assert!(oracle.point.is_none());
+    }).await;
+}
