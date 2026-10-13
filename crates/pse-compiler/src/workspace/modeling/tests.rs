@@ -1530,6 +1530,7 @@ fn kernel_nested_implicit_provider_projects_values_and_ift_derivatives() {
     for policy in [
         "nested",
         "accelerated(cubic_roots)",
+        "accelerated(toms748)",
         "accelerated(test_polynomial)",
     ] {
         let (mut workspace, _, _, root) = setup(

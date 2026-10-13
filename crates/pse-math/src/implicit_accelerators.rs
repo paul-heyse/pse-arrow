@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit registrations of form-recognizing inner-solver capabilities.
-use super::{CubicRoots, InnerSolver};
+use super::{BracketedRoot, CubicRoots, InnerSolver};
 use crate::{MathError, guarded::PreparedBody, jets::EvaluationLimits};
 use std::{
     collections::BTreeMap,
@@ -35,8 +35,12 @@ impl Accelerators {
     /// inventory or register independent capabilities without compiler changes.
     pub fn standard() -> Self {
         let cubic: Arc<dyn Accelerator> = Arc::new(Cubic);
+        let bracketed: Arc<dyn Accelerator> = Arc::new(Bracketed);
         Self {
-            entries: BTreeMap::from([("cubic_roots".into(), cubic)]),
+            entries: BTreeMap::from([
+                ("cubic_roots".into(), cubic),
+                ("toms748".into(), bracketed),
+            ]),
         }
     }
     /// Add a unique, bounded reference; duplicates never replace existing authority.
@@ -75,6 +79,24 @@ impl Accelerators {
                 MathError::Contract(format!("unregistered implicit accelerator: {reference}"))
             })?
             .admit(body, unknowns, limits, cancel)
+    }
+}
+/// A continuous scalar polynomial on the caller's explicit finite branch interval.
+#[derive(Debug)]
+pub struct Bracketed;
+impl Accelerator for Bracketed {
+    fn admit(
+        &self,
+        body: &PreparedBody,
+        unknowns: usize,
+        limits: EvaluationLimits,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Arc<dyn InnerSolver>, MathError> {
+        if unknowns != 1 {
+            return Err(MathError::Contract("bracketed accelerator requires one unknown".into()));
+        }
+        limits.check()?;
+        Ok(Arc::new(BracketedRoot::new(body, cancel)?))
     }
 }
 /// Symbolica-certified polynomial roots, with the existing cubic form admission.

@@ -17,6 +17,8 @@ pub mod reconstruction;
 mod regimes;
 #[path = "implicit_selection.rs"]
 mod selection;
+#[path = "implicit_scalar.rs"]
+mod scalar;
 use crate::{
     MathError,
     guarded::{CompiledBody, Evaluation, Worker},
@@ -25,6 +27,7 @@ pub use affine::Affine;
 use configuration::ConfigurationWorker;
 pub use configuration::{Configuration, HintResolver};
 pub use cubic::CubicRoots;
+pub use scalar::BracketedRoot;
 use faer::{
     Conj, Mat, Par,
     dyn_stack::{MemBuffer, MemStack},
