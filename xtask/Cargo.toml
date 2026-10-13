@@ -128,3 +128,8 @@ required-features = ["canonical-tools"]
 name = "pse-worker"
 path = "src/bin/pse-worker.rs"
 required-features = ["package-fixtures"]
+
+[[bin]]
+name = "pse-native-lane"
+path = "src/bin/pse-native-lane.rs"
+required-features = ["package-fixtures", "native-solvers"]

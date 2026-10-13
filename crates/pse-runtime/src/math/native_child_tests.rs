@@ -29,7 +29,8 @@ fn portable_registry_declarations_roundtrip_and_changed_context_is_distinct() {
 }
 
 fn source() -> PortableRootSource {
-    use pse_compiler::typed_math::{BodyLimits, Formal, Request};
+    use pse_compiler::typed_math::{Formal, Request};
+    use pse_math::typed::BodyLimits;
     pse_math::initialize().unwrap();
     let registry = Arc::new(pse_quantity::generated::standard_registry().unwrap());
     let preconditions = Arc::new(pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions()).unwrap());
@@ -87,7 +88,7 @@ fn private_native_fake_process() {
     let marker = std::env::var_os("PSE_PRIVATE_NATIVE_TEST_MARKER").unwrap();
     std::fs::write(marker, std::process::id().to_string()).unwrap();
     if mode == "death" { std::process::exit(17); }
-    let mut channel = UnixStream::from(std::io::stdin().as_fd().try_clone_to_owned().unwrap());
+    let mut channel = UnixStream::from(io::stdin().as_fd().try_clone_to_owned().unwrap());
     let scope = ExecutionScope::new(Arc::default(), None);
     let attempt = SemanticId::parse_hex(&std::env::var("PSE_PRIVATE_NATIVE_TEST_ATTEMPT").unwrap()).unwrap();
     let parent_record = std::fs::read_to_string("/proc/self/status").unwrap();

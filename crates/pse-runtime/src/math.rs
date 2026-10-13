@@ -7,6 +7,8 @@ mod functions;
 #[cfg(feature = "solver-kinsol")]
 pub mod initialization;
 mod jobs;
+#[cfg(all(unix, feature = "solver-kinsol"))]
+pub mod native_child;
 pub mod modeling;
 pub(crate) mod numerics;
 pub mod portable;

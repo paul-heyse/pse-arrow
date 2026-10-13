@@ -649,6 +649,11 @@ fn serve(
             Ok(None) => return,
             Ok(Some(next)) => scope = next,
             Err(error) => {
+                // The requested scope never became a live reusable owner. Publish its
+                // departure before replying/releasing dispatch to the next claimant.
+                *current.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Scope {
+                    backends: Vec::new(), threads: 1,
+                };
                 // The scope could not be entered: refuse the step that needed it and serve
                 // on outside every adapter scope, which cannot fail to enter.
                 if let Some(request) = pending.take() {

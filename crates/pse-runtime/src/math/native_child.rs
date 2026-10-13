@@ -256,7 +256,7 @@ fn launch(child: &NativeChild, payload: Vec<u8>, scope: &ExecutionScope) -> Resu
     if actual.sha256 != child.observation.sha256 || actual.canonical != child.observation.canonical {
         return Err(contract("native child executable changed after qualification"));
     }
-    let attempt = pse_operations::mint_id();
+    let attempt: SemanticId = pse_operations::mint_id();
     let (channel, inherited) = UnixStream::pair().map_err(infrastructure)?;
     let mut command = Command::new(&child.executable);
     #[cfg(test)]
@@ -355,7 +355,7 @@ fn receive<T: serde::de::DeserializeOwned>(channel: &mut UnixStream, limit: usiz
 /// retain the original deadline and charges, screen original coordinates, and reap the child.
 #[allow(unsafe_code, reason = "ADR-0185 trusted private child composition root forwards direct admitted-source authority")]
 pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), MathRuntimeError> {
-    let mut channel = UnixStream::from(std::io::stdin().as_fd().try_clone_to_owned().map_err(infrastructure)?);
+    let mut channel = UnixStream::from(io::stdin().as_fd().try_clone_to_owned().map_err(infrastructure)?);
     // A public pipe/file/terminal cannot stand in for the private inherited socket.
     channel.peer_addr().map_err(infrastructure)?;
     let parent_record = std::fs::read_to_string("/proc/self/status").map_err(infrastructure)?;
