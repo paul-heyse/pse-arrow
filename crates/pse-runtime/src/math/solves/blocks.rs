@@ -133,20 +133,7 @@ impl PreparedSolve {
         &self,
         cancel: &Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<usize, MathRuntimeError> {
-        if self.profile.controls.start != StartPolicy::NoPriorStart
-            || self.profile.sensitivity.is_some()
-            || !matches!(self.profile.convexity, ConvexityPolicy::Exact)
-            || matches!(
-                self.profile.presolve,
-                native::presolve::Policy::Explicit { .. }
-            )
-            || self.backend().is_none_or(|backend| {
-                !matches!(
-                    execution::adapter(backend).representation(),
-                    execution::Representation::Roots | execution::Representation::Nlp
-                )
-            })
-        {
+        if !pse_model::strategy::permits_automatic_blocks(self.automatic_operation_facts()) {
             return Ok(0);
         }
         let Representation::Algebraic(source) = &self.representation else {

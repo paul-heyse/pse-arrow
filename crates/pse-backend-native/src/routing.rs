@@ -970,6 +970,37 @@ pub fn assess_static(
     }
     assessment
 }
+/// Project contextual adapter facts onto governing preference. Native classes, settings,
+/// support and baseline ranks remain supplied by their existing owners.
+pub fn policy_candidates(
+    table: &Table,
+    classes: &[ProblemClass],
+    sensitivity: bool,
+    choices: &[Eligibility],
+) -> Vec<pse_model::strategy::PolicyCandidate> {
+    use pse_model::strategy::{CandidatePreference, PolicyCandidate};
+    choices.iter().map(|entry| {
+        let adapter = table.get(entry.backend);
+        let class = adapter.and_then(|adapter| classes.iter().position(|class| {
+            adapter.capability().automatic_classes.contains(class)
+        }));
+        let rank = adapter.and_then(|adapter| adapter.automatic());
+        let supported = class.is_some() && rank.is_some();
+        let priority = class.map(|index| {
+            index + if sensitivity && adapter.is_some_and(|adapter| !adapter.capability().sensitivities) {
+                classes.len()
+            } else { 0 }
+        }).and_then(|index| u32::try_from(index).ok()).unwrap_or(u32::MAX);
+        PolicyCandidate {
+            state: if supported { entry.state } else { AssessmentState::Refused },
+            preference: CandidatePreference {
+                priority,
+                baseline_rank: u32::from(rank.unwrap_or(u8::MAX)),
+                ..Default::default()
+            },
+        }
+    }).collect()
+}
 impl Requirements<'_> {
     /// Assess every exposed algebraic adapter through the one eligibility rule.
     pub fn eligibility(&self) -> Vec<Eligibility> {
@@ -1017,42 +1048,21 @@ impl Requirements<'_> {
         eligibility: Vec<Eligibility>,
         lexicographic: Option<Lexicographic>,
     ) -> Decision {
-        // Candidates needing evidence keep their class/rank position. They cannot be
-        // silently skipped in favour of a lower-class or already-prepared candidate.
-        let ordered = |sensitivities: bool| {
-            let mut classes = self.context.pending_classes.to_vec();
-            for class in problem_classes(self.facts, self.intent, self.numerical_psd) {
-                if !classes.contains(&class) {
-                    classes.push(class);
-                }
+        // Whole contextual assessments supply facts to the shared preference rule.
+        let mut classes = self.context.pending_classes.to_vec();
+        for class in problem_classes(self.facts, self.intent, self.numerical_psd) {
+            if !classes.contains(&class) {
+                classes.push(class);
             }
-            classes.into_iter().find_map(|class| {
-                self.table
-                    .adapters()
-                    .filter(|a| a.capability().automatic_classes.contains(&class))
-                    .filter(|a| !sensitivities || a.capability().sensitivities)
-                    .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
-                    .filter(|(_, backend)| {
-                        eligibility.iter().any(|entry| {
-                            entry.backend == *backend && entry.state != AssessmentState::Refused
-                        })
-                    })
-                    .min_by_key(|(rank, _)| *rank)
-                    .map(|(_, backend)| backend)
-            })
-        };
-        // A point evaluation consumes original source/structure, not native solver
-        // evidence. Native pending candidates must not prevent its own admission.
+        }
+        let candidates = policy_candidates(self.table, &classes, self.sensitivity, &eligibility);
         let preferred = if self.facts.variables == 0 {
             None
         } else {
             match selection {
                 SolverSelection::Explicit(backend) => Some(backend),
-                SolverSelection::Auto => self
-                    .sensitivity
-                    .then(|| ordered(true))
-                    .flatten()
-                    .or_else(|| ordered(false)),
+                SolverSelection::Auto => pse_model::strategy::candidate_order(&candidates, None, false)
+                    .first().map(|&index| eligibility[index].backend),
             }
         };
         let preferred_entry =
@@ -1065,7 +1075,7 @@ impl Requirements<'_> {
         } else if pending {
             None
         } else {
-            Some(self.select_assessed(selection, &eligibility))
+            Some(self.select_assessed(selection, preferred, &eligibility))
         };
         let (selected, mut refusal) = match result {
             None => (None, None),
@@ -1201,6 +1211,7 @@ impl Requirements<'_> {
     fn select_assessed(
         &self,
         selection: SolverSelection,
+        preferred: Option<Backend>,
         choices: &[Eligibility],
     ) -> Result<Route, ProblemError> {
         self.controls.validate()?;
@@ -1242,36 +1253,9 @@ impl Requirements<'_> {
         }
         let selected = match selection {
             SolverSelection::Explicit(b) => b,
-            SolverSelection::Auto => {
-                // Classes most specific first; the first class with an eligible automatic
-                // owner decides, and its owners' preference orders them (ADR-0121). A
-                // sensitivity request first looks only among the adapters whose candidate
-                // the KKT-point analysis differentiates (ADR-0118).
-                let pick = |sensitivities: bool| {
-                    problem_classes(self.facts, self.intent, self.numerical_psd)
-                        .into_iter()
-                        .find_map(|class| {
-                            self.table
-                                .adapters()
-                                .filter(|a| a.capability().automatic_classes.contains(&class))
-                                .filter(|a| !sensitivities || a.capability().sensitivities)
-                                .filter_map(|a| a.automatic().map(|rank| (rank, a.backend())))
-                                .filter(|(_, b)| admitted(*b))
-                                .min_by_key(|(rank, _)| *rank)
-                                .map(|(_, b)| b)
-                        })
-                };
-                self.sensitivity
-                    .then(|| pick(true))
-                    .flatten()
-                    .or_else(|| pick(false))
-                    .ok_or_else(|| {
-                        ProblemError::Unsupported(format!(
-                            "no eligible native route: {}",
-                            assessed(choices)
-                        ))
-                    })?
-            }
+            SolverSelection::Auto => preferred.ok_or_else(|| {
+                ProblemError::Unsupported(format!("no eligible native route: {}", assessed(choices)))
+            })?,
         };
         if !self.available(selected) {
             return Err(ProblemError::Unavailable {

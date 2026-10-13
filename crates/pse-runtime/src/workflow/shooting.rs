@@ -286,9 +286,8 @@ impl ShootingProblem {
     ) -> Result<Self, WorkflowError> {
         let profile = simulation.profile();
         let c = simulation.contract();
-        if request.solver.controls.hessian == HessianMode::Auto {
-            request.solver.controls.hessian = HessianMode::LimitedMemory;
-        }
+        request.solver.controls.hessian = pse_model::strategy::resolve_curvature(
+            request.solver.controls.hessian, pse_model::strategy::CurvatureFacts::default());
         if !matches!(
             request.solver.controls.hessian,
             HessianMode::LimitedMemory | HessianMode::Partitioned | HessianMode::FiniteDifference

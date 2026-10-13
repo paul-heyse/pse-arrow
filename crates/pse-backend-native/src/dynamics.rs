@@ -1432,11 +1432,20 @@ impl Profile {
                 state,
             });
         }
-        // Diffsol remains the preferred Auto method when its whole mandatory contract is supported.
-        let selected = candidates
-            .iter()
-            .find(|candidate| candidate.state != AssessmentState::Refused)
-            .map(|candidate| candidate.method);
+        // Native assessment owns support; the governing rule preserves explicit selection
+        // and deterministic automatic preference without treating missing artifacts as refusal.
+        let inventory = candidates.iter().enumerate().map(|(index, candidate)| {
+            pse_model::strategy::PolicyCandidate {
+                state: candidate.state,
+                preference: pse_model::strategy::CandidatePreference {
+                    baseline_rank: u32::try_from(index).unwrap_or(u32::MAX),
+                    ..Default::default()
+                },
+            }
+        }).collect::<Vec<_>>();
+        let selected = pse_model::strategy::candidate_order(&inventory, None, self.method != Method::Auto)
+            .first().filter(|&&index| candidates[index].state != AssessmentState::Refused)
+            .map(|&index| candidates[index].method);
         Ok(DynamicDecision {
             requested: self.method,
             selected,

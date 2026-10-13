@@ -1422,6 +1422,23 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
         AutoDecision::Stop { .. }
     ));
 }
+#[test]
+fn automatic_hard_terminal_veto_cannot_be_reversed_by_original_satisfaction() {
+    let request = pse_model::strategy::CompositionRequest::default();
+    let starts = pse_model::strategy::StartRules {
+        policy: pse_model::strategy::StartPolicy::NoPriorStart,
+        recovery: Vec::new(),
+    };
+    let work = WorkObservation { attempts: 0, evaluations: None, iterations: None,
+        factorizations: None, proof_steps: None };
+    for native in [Observation::Cancelled, Observation::ResourceExhausted,
+        Observation::ContractFailure, Observation::Panic, Observation::OperationalFailure] {
+        let last = AutoObservation { awaiting_assessment:false, native,
+            original:Some(OriginalConclusion::Satisfied), permission:Some(CandidateUse::Usable) };
+        assert!(matches!(next_automatic(&request,&starts,&[],&BTreeSet::new(),Some(&last),work,false),
+            AutoDecision::Stop {..}));
+    }
+}
 #[tokio::test]
 async fn preparation_refusal_does_not_consume_first_actual_execution_allowance() {
     let mut only = limits();

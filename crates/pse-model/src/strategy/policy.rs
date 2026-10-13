@@ -196,6 +196,22 @@ pub fn permits_automatic_supplier(facts: AutomaticOperationFacts) -> bool {
     facts.start == StartPolicy::NoPriorStart && facts.backend == Some(Backend::Kinsol)
         && !facts.sensitivity && facts.root_intent && facts.single_thread && facts.default_settings
 }
+/// Cheap owner-issued facts for demand-driven affine preprocessing evidence.
+#[derive(Clone, Copy, Debug)]
+pub struct AffinePreparationFacts {
+    /// Automatic preprocessing policy grants the ordinary affine evidence request.
+    pub automatic: bool,
+    /// An enabled explicit pass consumes affine or redundant-row evidence.
+    pub explicitly_requested: bool,
+    /// An allowed native NLP representation could consume this evidence.
+    pub nlp_possible: bool,
+    /// The immutable original evidence is not yet complete.
+    pub missing: bool,
+}
+/// Demand evidence before effects; native pass/options admissibility remains adapter-owned.
+pub fn requires_affine_preparation(facts: AffinePreparationFacts) -> bool {
+    (facts.automatic || facts.explicitly_requested) && facts.nlp_possible && facts.missing
+}
 
 #[cfg(test)]
 mod tests {
@@ -241,5 +257,33 @@ mod tests {
         assert_eq!(resolve_curvature(HessianMode::Auto,CurvatureFacts {exact:true,least_squares_response:false}),HessianMode::Exact);
         assert_eq!(resolve_curvature(HessianMode::Auto,CurvatureFacts {exact:true,least_squares_response:true}),HessianMode::GaussNewton);
         assert_eq!(resolve_curvature(HessianMode::Partitioned,CurvatureFacts::default()),HessianMode::Partitioned);
+    }
+    #[test]
+    fn structural_alternatives_preserve_original_entry_and_request_permissions() {
+        let facts=AutomaticOperationFacts {start:StartPolicy::NoPriorStart,backend:Some(Backend::Kinsol),roots_or_nlp:true,root_intent:true,sensitivity:false,exact_convexity:true,explicit_presolve:false,default_settings:true,single_thread:true};
+        assert!(permits_automatic_blocks(facts));
+        assert!(permits_automatic_supplier(facts));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {start:StartPolicy::Explicit,..facts}));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {explicit_presolve:true,..facts}));
+        assert!(!permits_automatic_blocks(AutomaticOperationFacts {exact_convexity:false,..facts}));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {root_intent:false,..facts}));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {default_settings:false,..facts}));
+        assert!(!permits_automatic_supplier(AutomaticOperationFacts {single_thread:false,..facts}));
+        let rules=StartRules {policy:StartPolicy::NoPriorStart,recovery:vec![StartOrigin::Auxiliary]};
+        assert!(!permits_candidate_start(&rules,&[],StartOrigin::Auxiliary,true,false));
+        assert!(permits_candidate_start(&rules,&rules.recovery,StartOrigin::Auxiliary,true,false));
+        assert!(!permits_candidate_start(&rules,&rules.recovery,StartOrigin::Auxiliary,true,true));
+        let explicit=StartRules {policy:StartPolicy::Explicit,recovery:vec![StartOrigin::Auxiliary]};
+        assert!(!permits_candidate_start(&explicit,&[],StartOrigin::Specification,false,false));
+        assert!(permits_candidate_start(&explicit,&[],StartOrigin::Explicit,false,true));
+    }
+    #[test]
+    fn affine_evidence_is_demanded_only_for_a_consuming_representation() {
+        let facts=AffinePreparationFacts {automatic:true,explicitly_requested:false,nlp_possible:true,missing:true};
+        assert!(requires_affine_preparation(facts));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {nlp_possible:false,..facts}));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {missing:false,..facts}));
+        assert!(!requires_affine_preparation(AffinePreparationFacts {automatic:false,..facts}));
+        assert!(requires_affine_preparation(AffinePreparationFacts {automatic:false,explicitly_requested:true,..facts}));
     }
 }

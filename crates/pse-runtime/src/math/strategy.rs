@@ -91,28 +91,25 @@ pub(crate) fn next_automatic(
         if last.awaiting_assessment {
             return AutoDecision::Assess;
         }
-        if last
-            .original
-            .as_ref()
-            .is_some_and(OriginalConclusion::satisfied)
-        {
-            // Output-goal permission is composed independently. An unresolved
-            // output cannot trigger an unrelated original-solver tournament.
-            return AutoDecision::Finish;
-        }
-        if !permits_numerical_continuation(last.native)
-            || last
-                .original
-                .as_ref()
-                .and_then(OriginalConclusion::cause)
-                .as_deref()
-                .is_some_and(|cause| !permits_numerical_continuation(failure(cause)))
-        {
+        let facts = pse_model::strategy::TransitionFacts {
+            observation: last.native,
+            original_satisfied: last.original.as_ref().is_some_and(OriginalConclusion::satisfied),
+            original_cause: last.original.as_ref().and_then(OriginalConclusion::cause)
+                .as_deref().map(failure),
+            auxiliary: false,
+            seed_permitted: false,
+        };
+        if facts.terminal() {
             return AutoDecision::Stop {
                 cause: last.original.as_ref().and_then(OriginalConclusion::cause),
             };
         }
+        if facts.original_satisfied {
+            // Output-goal permission remains independently composed by its owner.
+            return AutoDecision::Finish;
+        }
     }
+
     let limits = request.limits.unwrap_or(WorkLimits {
         attempts: candidates
             .iter()
@@ -132,17 +129,25 @@ pub(crate) fn next_automatic(
         factorizations: None,
         proof_steps: None,
     });
-    for (index, candidate) in candidates.iter().enumerate() {
-        if attempted.contains(&index) {
-            continue;
+    let inventory = candidates.iter().enumerate().map(|(index, candidate)| {
+        pse_model::strategy::PolicyCandidate {
+            state: if candidate.prepared {
+                pse_model::generated::enums::NativeAssessmentState::Ready
+            } else {
+                pse_model::generated::enums::NativeAssessmentState::SupportedPendingArtifacts
+            },
+            preference: pse_model::strategy::CandidatePreference {
+                baseline_rank: u32::try_from(index).unwrap_or(u32::MAX),
+                ..Default::default()
+            },
         }
-        if candidate.replacement {
-            if !request.recovery.contains(&candidate.start)
-                || !start.permits_recovery(candidate.start, inherited)
-            {
-                continue;
-            }
-        } else if !start.permits_entry(candidate.start, inherited) {
+    }).collect::<Vec<_>>();
+    for index in pse_model::strategy::candidate_order(&inventory, None,
+        request.policy == pse_model::strategy::CompositionPolicy::Declared) {
+        let candidate = &candidates[index];
+        if attempted.contains(&index) || !pse_model::strategy::permits_candidate_start(
+            start, &request.recovery, candidate.start, candidate.replacement, inherited,
+        ) {
             continue;
         }
         if work.attempts >= limits.attempts {
@@ -475,48 +480,14 @@ pub(crate) struct Assessment {
 }
 /// Terminal semantics are independent of the declaration's numerical recovery permissions.
 pub(crate) fn transition(mechanism: &Mechanism, assessment: &Assessment) -> Transition {
-    use Observation as O;
-    if matches!(
-        assessment.observation,
-        O::ContractFailure
-            | O::ResourceExhausted
-            | O::Cancelled
-            | O::Panic
-            | O::OperationalFailure
-            | O::Infeasible
-    ) {
-        return Transition::Stop;
-    }
-    if assessment.retention.candidate.permits_seed()
-        && assessment.original.satisfied()
-        && !assessment.auxiliary
-    {
-        return Transition::Finish;
-    }
-    if !assessment.auxiliary && !assessment.original.satisfied() {
-        let original = assessment.original.cause();
-        if original
-            .as_deref()
-            .is_some_and(|cause| !permits_numerical_continuation(failure(cause)))
-        {
-            return Transition::Stop;
-        }
-    }
-    let preferred = match assessment.observation {
-        O::Auxiliary if assessment.auxiliary => Transition::Continue,
-        O::NumericalFailure | O::Stalled => Transition::Recover,
-        O::Limited => Transition::Continue,
-        _ => Transition::Stop,
-    };
-    if mechanism.transitions.contains(&preferred) {
-        preferred
-    } else if preferred == Transition::Recover
-        && mechanism.transitions.contains(&Transition::Subdivide)
-    {
-        Transition::Subdivide
-    } else {
-        Transition::Stop
-    }
+    pse_model::strategy::governing_transition(&mechanism.transitions,
+        pse_model::strategy::TransitionFacts {
+            observation: assessment.observation,
+            original_satisfied: assessment.original.satisfied(),
+            original_cause: assessment.original.cause().as_deref().map(failure),
+            auxiliary: assessment.auxiliary,
+            seed_permitted: assessment.retention.candidate.permits_seed(),
+        })
 }
 
 fn limit(detail: &str) -> ProblemError {
@@ -1917,18 +1888,7 @@ pub(crate) const fn boundary_failure(class: pse_model::diagnostic::BoundaryClass
         }
     }
 }
-/// A later scientific target may use a completed/partial numerical trajectory, while
-/// terminal failures remain terminal regardless of the outer consumer's retry policy.
-pub(crate) const fn permits_numerical_continuation(observation: Observation) -> bool {
-    matches!(
-        observation,
-        Observation::Converged
-            | Observation::Auxiliary
-            | Observation::Limited
-            | Observation::Stalled
-            | Observation::NumericalFailure
-    )
-}
+pub(crate) use pse_model::strategy::permits_numerical_continuation;
 
 #[cfg(test)]
 mod tests;

@@ -269,13 +269,11 @@ impl ModelingPackage {
         // curvature, which a transient experiment takes from IDAS forward-over-adjoint
         // second-order sensitivities over dynamic functions compiled to second order
         // (ADR-0110 item 4).
-        if profile.solver.controls.hessian == HessianMode::Auto {
-            profile.solver.controls.hessian = if profile.derivatives == FitDerivatives::Gradient {
-                HessianMode::LimitedMemory
-            } else {
-                HessianMode::GaussNewton
-            };
-        }
+        profile.solver.controls.hessian = pse_model::strategy::resolve_curvature(
+            profile.solver.controls.hessian, pse_model::strategy::CurvatureFacts {
+                exact: false,
+                least_squares_response: profile.derivatives != FitDerivatives::Gradient,
+            });
         let hessian = profile.solver.controls.hessian;
         // An adjoint gradient carries no response Jacobian, so no supplied Hessian can be
         // formed from it (ADR-0110 item 3).

@@ -106,13 +106,11 @@ impl SolverProfile {
     /// Resolve request-only curvature from the original producer's actual capability.
     /// Native adapters receive only a concrete acting method.
     pub(crate) fn resolve_curvature(&mut self, available: pse_kernels::DerivativeOrder) {
-        if self.controls.hessian == HessianMode::Auto {
-            self.controls.hessian = if available >= pse_kernels::DerivativeOrder::Second {
-                HessianMode::Exact
-            } else {
-                HessianMode::LimitedMemory
-            };
-        }
+        self.controls.hessian = pse_model::strategy::resolve_curvature(self.controls.hessian,
+            pse_model::strategy::CurvatureFacts {
+                exact: available >= pse_kernels::DerivativeOrder::Second,
+                least_squares_response: false,
+            });
     }
 }
 /// A compiled case with its selected values, providers and convexity evidence.
@@ -510,15 +508,25 @@ impl PreparedSolve {
     }
     #[cfg(feature = "solver-kinsol")]
     fn applicable_causal_supplier(&self) -> Option<&Arc<dyn causal::CausalSupplier>> {
-        (self.profile.controls.start == StartPolicy::NoPriorStart
-            && self.backend() == Some(Backend::Kinsol)
-            && self.profile.sensitivity.is_none()
-            && self.profile.intent == SolveIntent::Root
-            && self.profile.controls.threads == 1
-            && matches!(self.profile.backend, BackendSettings::Default))
-        .then_some(self.causal_supplier.as_ref())
-        .flatten()
+        pse_model::strategy::permits_automatic_supplier(self.automatic_operation_facts())
+            .then_some(self.causal_supplier.as_ref()).flatten()
     }
+    pub(crate) fn automatic_operation_facts(&self) -> pse_model::strategy::AutomaticOperationFacts {
+        pse_model::strategy::AutomaticOperationFacts {
+            start: self.profile.controls.start,
+            backend: self.backend(),
+            roots_or_nlp: self.backend().is_some_and(|backend| matches!(
+                execution::adapter(backend).representation(),
+                execution::Representation::Roots | execution::Representation::Nlp)),
+            root_intent: self.profile.intent == SolveIntent::Root,
+            sensitivity: self.profile.sensitivity.is_some(),
+            exact_convexity: matches!(self.profile.convexity, ConvexityPolicy::Exact),
+            explicit_presolve: matches!(self.profile.presolve, native::presolve::Policy::Explicit { .. }),
+            default_settings: matches!(self.profile.backend, BackendSettings::Default),
+            single_thread: self.profile.controls.threads == 1,
+        }
+    }
+
     pub(crate) fn controls(&self) -> &Controls {
         &self.profile.controls
     }
@@ -727,7 +735,7 @@ impl PreparedSolve {
                     source.prepared.prepared.plan.columns(),
                     &source.providers,
                 );
-                let adapter = execution::LINKED
+                let adapters = execution::LINKED
                     .adapters()
                     .filter(|adapter| {
                         adapter.linked()
@@ -742,7 +750,16 @@ impl PreparedSolve {
                                 .backend()
                                 .is_none_or(|backend| adapter.backend() == backend)
                     })
-                    .min_by_key(|adapter| adapter.automatic().unwrap_or(u8::MAX));
+                    .collect::<Vec<_>>();
+                let inventory = adapters.iter().map(|adapter| pse_model::strategy::PolicyCandidate {
+                    state: routing::AssessmentState::Ready,
+                    preference: pse_model::strategy::CandidatePreference {
+                        baseline_rank: u32::from(adapter.automatic().unwrap_or(u8::MAX)),
+                        ..Default::default()
+                    },
+                }).collect::<Vec<_>>();
+                let adapter = pse_model::strategy::candidate_order(&inventory, None, false)
+                    .first().map(|&index| adapters[index]);
                 // A complete reconstruction has no outer unknowns and needs no NLP backend.
                 // The actual binder still checks every named supplier, dependency and row.
                 if complete || adapter.is_some() {
@@ -755,9 +772,8 @@ impl PreparedSolve {
                     }
                     if !complete && let Some(adapter) = adapter {
                         profile.selection = SolverSelection::Explicit(adapter.backend());
-                        if self.requested_hessian == HessianMode::Auto {
-                            profile.controls.hessian = HessianMode::LimitedMemory;
-                        }
+                        profile.controls.hessian = pse_model::strategy::resolve_curvature(
+                            self.requested_hessian, pse_model::strategy::CurvatureFacts::default());
                     }
                     profile.sensitivity = None;
                     operations.push(AutomaticOperation {
@@ -892,43 +908,17 @@ impl PreparedSolve {
         }) else {
             return Vec::new();
         };
-        let mut ranked = execution::LINKED
-            .adapters()
-            .filter(|adapter| adapter.capability().automatic_classes.contains(class))
-            .filter_map(|adapter| adapter.automatic().map(|rank| (rank, adapter.backend())))
-            .collect::<Vec<_>>();
-        ranked.sort_by_key(|(rank, backend)| (*rank, backend.as_str()));
-        let Some(current_index) = ranked.iter().position(|(_, backend)| *backend == current) else {
+        let choices = decision.eligibility.iter().filter(|entry| {
+            execution::LINKED.get(entry.backend).is_some_and(|adapter| {
+                adapter.capability().automatic_classes.contains(class)
+            })
+        }).cloned().collect::<Vec<_>>();
+        let inventory = routing::policy_candidates(&execution::LINKED, &[*class], false, &choices);
+        let Some(current_index) = choices.iter().position(|entry| entry.backend == current) else {
             return Vec::new();
         };
-        // A higher-ranked unresolved candidate makes the retained selection stale or
-        // incomplete. Never skip it in search of an apparently ready lower-ranked route.
-        if ranked[..current_index].iter().any(|(_, backend)| {
-            decision
-                .eligibility
-                .iter()
-                .find(|entry| entry.backend == *backend)
-                .is_some_and(|entry| entry.state != routing::AssessmentState::Refused)
-        }) {
-            return Vec::new();
-        }
-        let mut alternatives = Vec::new();
-        for (_, backend) in ranked.into_iter().skip(current_index + 1) {
-            let state = decision
-                .eligibility
-                .iter()
-                .find(|entry| entry.backend == backend)
-                .map(|entry| entry.state);
-            match state {
-                Some(routing::AssessmentState::Refused) => {}
-                Some(routing::AssessmentState::Ready)
-                | Some(routing::AssessmentState::SupportedPendingArtifacts) => {
-                    alternatives.push(backend);
-                }
-                Some(routing::AssessmentState::PendingEvidence) | None => break,
-            }
-        }
-        alternatives
+        pse_model::strategy::candidate_successors(&inventory, current_index)
+            .into_iter().map(|index| choices[index].backend).collect()
     }
 
     fn profile_for_automatic_backend(
@@ -2507,7 +2497,7 @@ impl MathService {
         };
         let affine_requested = match &profile.presolve {
             native::presolve::Policy::Off => false,
-            native::presolve::Policy::Auto => true,
+            native::presolve::Policy::Auto => false,
             native::presolve::Policy::Explicit { options, .. } => {
                 options.enabled
                     && (options.linear_eq_reduction || options.redundant_constraint_removal)
@@ -2528,10 +2518,12 @@ impl MathService {
                         == execution::Representation::Nlp
             }
         };
-        if affine_requested
-            && nlp_possible
-            && result.prepared.presolve.affine.iter().any(Option::is_none)
-        {
+        if pse_model::strategy::requires_affine_preparation(pse_model::strategy::AffinePreparationFacts {
+            automatic: matches!(profile.presolve, native::presolve::Policy::Auto),
+            explicitly_requested: affine_requested,
+            nlp_possible,
+            missing: result.prepared.presolve.affine.iter().any(Option::is_none),
+        }) {
             let source = result.prepared.clone();
             let construction = super::jobs::ConstructionEstimate::from_bound(
                 source.class_allocation_bound(&values)?,
