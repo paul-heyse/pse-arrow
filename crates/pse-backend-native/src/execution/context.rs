@@ -8,7 +8,8 @@ use pse_ids::{ContentHash, FramedHasher};
 use std::collections::BTreeMap;
 
 /// The build/linkage fact for one registered adapter.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct BuildObservation {
     /// This binary links the native implementation.
     pub linked: bool,
@@ -16,7 +17,8 @@ pub struct BuildObservation {
     pub identity: Option<ContentHash>,
 }
 /// One immutable build/runtime observation supplied by the composition boundary.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Snapshot {
     /// Registered adapter observations, including absent native implementations.
     pub adapters: BTreeMap<Backend, BuildObservation>,

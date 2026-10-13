@@ -1355,7 +1355,7 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
         recovery: Vec::new(),
     };
     let candidates = vec![
-        AutoCandidate {
+        AutoCandidate { observed: None,
             identity: hash(1),
             kind: MechanismKind::ReducedSpace,
             start: StartOrigin::Auxiliary,
@@ -1364,7 +1364,7 @@ async fn automatic_next_preserves_empty_start_grants_and_terminal_scientific_ref
             reservation: None,
             prepared: false,
         },
-        AutoCandidate {
+        AutoCandidate { observed: None,
             identity: hash(2),
             kind: MechanismKind::Direct,
             start: StartOrigin::Specification,
@@ -1455,7 +1455,7 @@ async fn automatic_preparation_is_named_and_its_execution_requires_remaining_all
         policy: pse_model::strategy::StartPolicy::NoPriorStart,
         recovery: Vec::new(),
     };
-    let mut candidates = [AutoCandidate {
+    let mut candidates = [AutoCandidate { observed: None,
         identity: hash(1),
         kind: MechanismKind::ReducedSpace,
         start: StartOrigin::Specification,
@@ -1662,7 +1662,7 @@ async fn abandoned_block_native_refusal_reaches_direct_through_production_projec
     declaration.mechanisms[0]
         .transitions
         .push(Transition::Continue);
-    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate { observed: None,
         identity: if kind == MechanismKind::Block {
             hash(3)
         } else {
@@ -1962,7 +1962,7 @@ async fn effective_original_failure_controls_commit_auto_and_explicit_terminal_p
         .push(Transition::Continue);
     declaration.mechanisms[1].starts = vec![StartOrigin::Specification];
     declaration.start.recovery.push(StartOrigin::Specification);
-    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate {
+    let candidates = [MechanismKind::Block, MechanismKind::Direct].map(|kind| AutoCandidate { observed: None,
         identity: if kind == MechanismKind::Block {
             hash(3)
         } else {
@@ -2238,7 +2238,7 @@ async fn exhausted_owned_catalog_preserves_actual_conclusion_while_available_bin
         policy: StartPolicy::NoPriorStart,
         recovery: Vec::new(),
     };
-    let candidate = AutoCandidate {
+    let candidate = AutoCandidate { observed: None,
         identity: hash(1),
         kind: MechanismKind::Direct,
         start: StartOrigin::Specification,
@@ -2325,7 +2325,7 @@ fn automatic_advice_requires_actual_cohort_and_preserves_declared_or_missing_evi
         }).collect(),limits).unwrap();
     let mut request=pse_model::strategy::CompositionRequest {limits:Some(limits),advice:Some(advice),..Default::default()};
     let starts=pse_model::strategy::StartRules {policy:pse_model::strategy::StartPolicy::NoPriorStart,recovery:vec![]};
-    let candidates=(1..=2).map(|index| AutoCandidate {identity:hash(index),kind:MechanismKind::Direct,
+    let candidates=(1..=2).map(|index| AutoCandidate { observed: None,identity:hash(index),kind:MechanismKind::Direct,
         start:StartOrigin::Specification,replacement:false,support:BTreeSet::new(),reservation:None,prepared:true}).collect::<Vec<_>>();
     let work=WorkObservation {attempts:0,evaluations:None,iterations:None,factorizations:None,proof_steps:None};
     let next=|request:&pse_model::strategy::CompositionRequest,actual:Option<&AdviceCohort>| {

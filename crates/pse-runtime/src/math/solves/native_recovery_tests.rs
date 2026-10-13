@@ -117,7 +117,7 @@ async fn explicit_entry_then_screened_native_recovery_dispatches_and_retains_ori
     let mut profile = original.profile.clone();
     profile.controls.iterations += 1;
     let operation = AutomaticOperation {
-        candidate: super::super::strategy::AutoCandidate {
+        candidate: super::super::strategy::AutoCandidate { observed: None,
             identity: original.request_identity().unwrap().as_id(),
             kind: MechanismKind::NativeGlobalization,
             start: StartOrigin::Auxiliary,

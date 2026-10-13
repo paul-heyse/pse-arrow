@@ -30,7 +30,7 @@ use pse_backend_native::{
     solve::*,
 };
 use pse_columnar::flight::FlightCancellation;
-use pse_ids::{ContentHash, FramedHasher};
+use pse_ids::FramedHasher;
 use pse_kernels::ProviderFactory;
 pub use pse_math::convexity::ConvexityPolicy;
 /// Shared immutable driver history; cloning retains one admitted allocation.
@@ -279,12 +279,13 @@ pub(crate) struct PreparedComposition {
     _owner: Arc<pse_columnar::AllocationLease>,
 }
 /// Actual owner-issued premises for optional descriptive advice over equivalent convex choices.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SolverAdviceInputs {
     /// Complete problem/profile/branch/accuracy/exposure comparison premises.
     pub cohort: pse_model::strategy::advice::AdviceCohort,
     /// Advice-independent operation identities in baseline order.
-    pub candidates: Vec<ContentHash>,
+    pub candidates: Vec<pse_ids::ContentHash>,
     /// Original finite allowances; advice cannot replace these.
     pub limits: pse_model::strategy::WorkLimits,
 }
@@ -521,6 +522,7 @@ impl PreparedSolve {
         pse_model::strategy::permits_automatic_supplier(self.automatic_operation_facts())
             .then_some(self.causal_supplier.as_ref()).flatten()
     }
+    #[cfg(feature = "solver-kinsol")]
     pub(crate) fn automatic_operation_facts(&self) -> pse_model::strategy::AutomaticOperationFacts {
         pse_model::strategy::AutomaticOperationFacts {
             start: self.profile.controls.start,
@@ -667,7 +669,7 @@ impl PreparedSolve {
     }
     /// Exclude only optional advice from comparison identities, avoiding a recursive
     /// order/body identity. Effective request/profile/decision keys retain the full body.
-    fn automatic_comparison_identity(&self) -> Result<ContentHash, ProblemError> {
+    fn automatic_comparison_identity(&self) -> Result<pse_ids::ContentHash, ProblemError> {
         let mut baseline = self.clone();
         baseline.profile.composition.advice = None;
         Ok(baseline.request_identity()?.as_id())
@@ -720,12 +722,36 @@ impl PreparedSolve {
     ) -> Result<Option<SolverAdviceInputs>, MathRuntimeError> {
         let Some(cohort) = self.advice_cohort(self.entry_origin(false), false)? else { return Ok(None); };
         let Some(limits) = self.profile.composition.limits else { return Ok(None); };
+        let candidates = self.advice_comparison_operations(cancel)?.into_iter()
+            .map(|operation| operation.candidate.identity).collect();
+        Ok(Some(SolverAdviceInputs { cohort, candidates, limits }))
+    }
+    /// Actual immutable process/build observations consumed during contextual admission.
+    pub fn execution_snapshot(&self) -> &execution::Snapshot { &self.snapshot }
+    fn advice_comparison_operations(
+        &self, cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Vec<AutomaticOperation>, MathRuntimeError> {
         let mut operations = self.automatic_operations(None, cancel)?;
         operations.extend(self.automatic_native_route_operations()?);
         let mut seen = std::collections::BTreeSet::new();
-        let candidates = operations.into_iter().map(|operation| operation.candidate.identity)
-            .filter(|identity| seen.insert(*identity)).collect();
-        Ok(Some(SolverAdviceInputs { cohort, candidates, limits }))
+        operations.retain(|operation| seen.insert(operation.candidate.identity));
+        Ok(operations)
+    }
+    /// Offer the full equivalent inventory before the first dispatch only when a
+    /// complete frozen comparison applies. Missing/foreign advice preserves baseline recovery.
+    pub(crate) fn automatic_entry_operations(
+        &self, start: pse_model::strategy::StartOrigin, inherited: bool,
+        cancel: &Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Vec<AutomaticOperation>, MathRuntimeError> {
+        if let Some(advice) = &self.profile.composition.advice
+            && matches!(advice.support, pse_model::strategy::advice::AdviceSupport::CompleteMatched { .. })
+            && let Some(cohort) = self.advice_cohort(start, inherited)?
+            && let Some(limits) = self.profile.composition.limits {
+            let operations = self.advice_comparison_operations(cancel)?;
+            let baseline = operations.iter().map(|operation| operation.candidate.identity).collect::<Vec<_>>();
+            if advice.applies(&cohort, &baseline, limits) { return Ok(operations); }
+        }
+        self.automatic_operations(None, cancel)
     }
     /// Produce descriptions only. Optional artifacts are prepared after one decision.
     pub(crate) fn automatic_operations(
@@ -748,7 +774,7 @@ impl PreparedSolve {
                 .hash(&original_request)
                 .hash(&comparison_profile_key(profile)?)
                 .str(kind.as_str());
-            Ok(super::strategy::AutoCandidate {
+            Ok(super::strategy::AutoCandidate { observed: None,
                 identity: binding.finish_hash(),
                 kind,
                 start: if replacement {
@@ -892,16 +918,19 @@ impl PreparedSolve {
             operations.extend(
                 descriptions
                     .into_iter()
-                    .map(|description| {
+                    .enumerate()
+                    .map(|(observed_rank, description)| {
                         let mut profile = baseline.clone();
                         profile.controls = description.controls;
                         profile.backend = BackendSettings::Pounce(description.settings);
-                        Ok(AutomaticOperation {
-                            candidate: candidate(
+                        let mut observed = candidate(
                                 MechanismKind::NativeGlobalization,
                                 description.replaces_start,
                                 &profile,
-                            )?,
+                            )?;
+                        observed.observed = Some(u32::try_from(observed_rank).unwrap_or(u32::MAX));
+                        Ok(AutomaticOperation {
+                            candidate: observed,
                             binding: AutomaticBinding::NativeProfile {
                                 original: Box::new(self.clone()),
                                 profile: Box::new(profile),
@@ -930,7 +959,7 @@ impl PreparedSolve {
                     .hash(&comparison_profile_key(&profile)?)
                     .str(MechanismKind::NativeGlobalization.as_str());
                 Ok(AutomaticOperation {
-                    candidate: super::strategy::AutoCandidate {
+                    candidate: super::strategy::AutoCandidate { observed: None,
                         identity: binding.finish_hash(),
                         kind: MechanismKind::NativeGlobalization,
                         start,
@@ -5445,7 +5474,7 @@ impl execution::OriginalModel for OriginalCase<'_> {
 }
 
 /// Advice comparison projection; actual effective keys retain the complete body.
-pub(crate) fn comparison_profile_key(profile: &SolverProfile) -> Result<ContentHash, ProblemError> {
+pub(crate) fn comparison_profile_key(profile: &SolverProfile) -> Result<pse_ids::ContentHash, ProblemError> {
     let mut baseline = profile.clone();
     baseline.composition.advice = None;
     Ok(profile_key(&baseline)?.as_id())

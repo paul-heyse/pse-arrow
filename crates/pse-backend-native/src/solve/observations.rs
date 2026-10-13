@@ -40,6 +40,7 @@ pub enum NativePhase {
 }
 /// One submitted-oracle coordinate with lossless numeric observation encoding.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NativeCoordinate {
     /// Submitted variable identity.
     pub variable: SemanticId,
@@ -50,6 +51,7 @@ pub struct NativeCoordinate {
 }
 /// Latest callback point in its submitted coordinate authority, not a resumable state.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NativeSnapshot {
     /// Actual native iteration ordinal.
     pub iteration: Option<u64>,
@@ -65,6 +67,7 @@ pub struct NativeSnapshot {
 /// Family-specific native meanings; these counters are not interchangeable cost units.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(deny_unknown_fields)]
 pub enum NativeCounters {
     /// Ipopt's structured SolveStatistics, absent after unsupported/serious exits.
     Ipopt {
@@ -115,6 +118,7 @@ pub enum NativeCounters {
 }
 /// Exact profile and problem witness for native facts; unknown counters remain absent.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct NativeObservations {
     /// Actual native adapter.
     pub backend: Backend,
@@ -153,6 +157,7 @@ pub enum RawMapFailure {
 }
 /// One physical tear quantity, or an explicitly submitted-oracle quantity.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RawMapCoordinate {
     /// Tear destination variable ID.
     pub variable: SemanticId,
@@ -177,6 +182,7 @@ pub struct RawMapCoordinate {
 }
 /// A bounded diagnostic map sample; missing fields are unknown, never zero.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RawMapSample {
     /// Evaluation ordinal within this attempt, including failures.
     pub ordinal: u64,
@@ -201,6 +207,7 @@ pub struct RawMapSample {
 }
 /// Shared bounded history, independent of lossy progress events.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct RawMapHistory {
     /// Submitted map contract.
     pub problem: ContentHash,

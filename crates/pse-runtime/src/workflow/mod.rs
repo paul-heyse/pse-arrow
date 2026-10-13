@@ -8,6 +8,23 @@ pub use controls::{
     InventoryControls, ProgressControls, RunControls, StudyRunControls, StudyWaitControls,
 };
 mod completion;
+mod attempt_documents;
+mod replay;
+pub use replay::{
+    ScientificReplay, ReplayDocument, ReplaySourceDocument, ReplaySourceObject,
+    ReplayPhysicalSource, ReplayProvider, ReplayProviderPort, ReplayProviderShape,
+    ReplaySolverSettings, ReplayDecisions, ReplayCoverage, ReplayCaseConstructor,
+    ReplayCaseInputs, ReplayVariableState, ReplayBoundOverride, ReplaySimulationConstructor,
+    ReplayFitConstructor, ReplayHorizonConstructor, ReplayHorizonController,
+    ReplayHorizonEstimator, ReplayHorizonSignal,
+    ReplayDecisionDocument, ReplayNativeAttempt, ReplaySubmittedStart,
+};
+#[cfg(feature = "solver-diffsol")]
+pub use replay::{ReplayShootingConstructor, ReplayShootingBound};
+pub use attempt_documents::{
+    AttemptDecision, AttemptFailureSummary, AttemptFinding, AttemptOriginalConclusion,
+    AttemptIntervals, AttemptStartSummary, AttemptStepSummary, AttemptSummary, AttemptSummaryLimits,
+};
 mod connected_results;
 pub mod result_blocks;
 pub(crate) mod result_export;

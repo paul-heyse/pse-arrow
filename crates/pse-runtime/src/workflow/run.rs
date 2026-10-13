@@ -155,6 +155,8 @@ pub enum RunRequest {
 /// Immutable joined outcome. Table encoding and retention never invoke a solver again.
 #[derive(Debug)]
 pub struct RunResult {
+    pub(super) modeling_continue_independent: bool,
+    pub(super) attempt_summary: std::sync::OnceLock<Arc<super::AttemptSummary>>,
     pub(super) modeling_origin: usize,
     pub(super) original_completion_captured: bool,
     pub(super) horizon_output: Option<Arc<super::HorizonOutcome>>,
@@ -199,6 +201,8 @@ impl RunResult {
         let projection_owner =
             super::result_export::ProjectionOwner::new(&runtime, result_validation.clone());
         Self {
+            modeling_continue_independent: false,
+            attempt_summary: Default::default(),
             result_validation,
             projection_owner,
             modeling_origin: 0,
@@ -221,7 +225,12 @@ impl RunResult {
             horizon: None,
         }
     }
+    fn with_modeling_policy(mut self, continue_independent: bool) -> Self {
+        self.modeling_continue_independent = continue_independent;
+        self
+    }
     fn reset_result_projection(&mut self) {
+        self.attempt_summary.take();
         self.result_validation = Arc::new(self.runtime.validation_context().new_scope());
         self.projection_owner = super::result_export::ProjectionOwner::new(
             &self.runtime,
@@ -1140,6 +1149,7 @@ impl Runtime {
                 Err(error) => {
                     let refused =
                         RunResult::joined(run_id, runtime, request, None, Err(Arc::new(error)))
+                            .with_modeling_policy(continue_independent)
                             .refused(durable)
                             .await;
                     sender.send_replace(Some(Arc::new(refused)));
@@ -1193,6 +1203,7 @@ impl Runtime {
             };
             let cancelled = cancel.token().is_cancelled();
             let mut result = RunResult::joined(run_id, runtime, request, None, report);
+            result.modeling_continue_independent = continue_independent;
             result.modeling_failure = modeling_failure;
             let result = result.finished(durable, cancelled).await;
             sender.send_replace(Some(Arc::new(result)));

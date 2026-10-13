@@ -456,9 +456,6 @@ impl CompositionRequest {
         }
         if let Some(advice) = &self.advice {
             advice.validate()?;
-            if self.limits != Some(advice.limits) {
-                return Err(crate::malformed("frozen advice requires the exact original composition allowances"));
-            }
         }
         unique(&self.recovery, "duplicate composition recovery origin")
     }

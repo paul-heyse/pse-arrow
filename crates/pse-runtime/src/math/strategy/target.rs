@@ -144,7 +144,7 @@ pub(crate) fn callable<T>(
                 if let Some(point) = source.start_identity {
                     binding.hash(&point);
                 }
-                Ok(strategy::AutoCandidate {
+                Ok(strategy::AutoCandidate { observed: None,
                     identity: binding.finish_hash(),
                     kind: if index == 0 {
                         pse_model::strategy::MechanismKind::Direct

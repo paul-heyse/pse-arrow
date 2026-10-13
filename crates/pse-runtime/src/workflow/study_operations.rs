@@ -1359,6 +1359,40 @@ mod study_operation_unit {
     }
 
     #[test]
+    fn durable_descriptor_materializes_advice_and_identity_tracks_its_support() {
+        use pse_model::strategy::{advice::{AdviceCohort, AdviceMetric, AdviceObservation, AdviceOutcome, FrozenAdvice}, WorkLimits};
+        let hash = |value| ContentHash::from_bytes([value; 32]);
+        let cohort = AdviceCohort {
+            original: hash(10), profiles: hash(11), branch_start: hash(12),
+            accuracy: hash(13), exposure: hash(14),
+        };
+        let limits = WorkLimits {
+            attempts: 2, evaluations: None, iterations: None,
+            factorizations: None, proof_steps: None,
+        };
+        let observations = [20, 21].into_iter().enumerate().map(|(ordinal, value)| AdviceObservation {
+            cohort: cohort.clone(), matched: hash(30), candidate: hash(value),
+            attempt: hash(value + 20), outcome: AdviceOutcome::Complete,
+            value: Some(if ordinal == 0 { 2.0 } else { 1.0 }),
+        }).collect();
+        let advice = FrozenAdvice::freeze(cohort, AdviceMetric::NativeExecutionNanoseconds,
+            vec![hash(20), hash(21)], observations, limits).unwrap();
+        let mut selected = case();
+        selected.settings.composition.limits = Some(limits);
+        selected.settings.composition.advice = Some(advice.clone());
+        let descriptor = operation(OperationRequest::DeclaredCase(selected));
+        let identity = pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &descriptor).unwrap();
+        let bytes = serde_json::to_vec(&descriptor).unwrap();
+        // Recovery consumes the materialized descriptor, without consulting a history service.
+        let mut recovered: StudyOperation = serde_json::from_slice(&bytes).unwrap();
+        let OperationRequest::DeclaredCase(ref mut selected) = recovered.operation else { panic!("declared case"); };
+        assert_eq!(selected.settings.composition.advice.as_ref(), Some(&advice));
+        selected.settings.clone().profile().unwrap();
+        selected.settings.composition.advice.as_mut().unwrap().observations[0].attempt = hash(99);
+        assert_ne!(pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &recovered).unwrap(), identity);
+    }
+
+    #[test]
     fn operation_role_admission_refuses_cross_kind_seeds_before_dispatch() {
         let solve = operation(OperationRequest::DeclaredCase(case()));
         assert!(solve.admit_seed_role(SeedRole::PrimalSolution).is_ok());

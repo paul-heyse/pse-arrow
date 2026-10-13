@@ -483,7 +483,7 @@ impl<D: Dispatch> StepDriver<'_, D> {
         let assess = Arc::new(std::sync::Mutex::new(assess));
         let initial = step.entry_origin(previous.is_some());
         let inherited = previous.is_some() && initial == pse_model::strategy::StartOrigin::Accepted;
-        let mut original_operations = step.automatic_operations(None, scope.cancellation())?;
+        let mut original_operations = step.automatic_entry_operations(initial, inherited, scope.cancellation())?;
         for operation in &mut original_operations {
             if !operation.candidate.replacement {
                 operation.candidate.start = initial;

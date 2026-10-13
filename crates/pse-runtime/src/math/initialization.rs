@@ -2870,7 +2870,7 @@ mod tests {
             let last = strategy::AutoObservation { awaiting_assessment: false,
                 native: strategy::observe(&outcome), original: Some(assessed.original),
                 permission: Some(assessed.retention.candidate.usability) };
-            let recovery = strategy::AutoCandidate {
+            let recovery = strategy::AutoCandidate { observed: None,
                 identity: pse_ids::ContentHash::from_bytes([91; 32]),
                 kind: pse_model::strategy::MechanismKind::Direct,
                 start: pse_model::strategy::StartOrigin::Specification,

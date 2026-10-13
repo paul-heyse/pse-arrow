@@ -1052,7 +1052,8 @@ pub(crate) const RESTART_OPTIONS: [&str; 6] = [
     "warm_start_mult_bound_push",
 ];
 /// The interior-point restart an adapter applied to a submitted primal-dual seed.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AppliedRestart {
     /// Initial barrier parameter set, in native coordinates; `None` left the native default.
     pub mu_init: Option<f64>,
@@ -1454,7 +1455,8 @@ impl WorkingSet {
 }
 /// What became of a submitted working set at the presolve boundary: it reaches the native
 /// solver only under the transformation that produced it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct WorkingSetTransfer {
     /// The transformation the working set was produced under.
     pub transformation: ContentHash,
@@ -1463,8 +1465,8 @@ pub struct WorkingSetTransfer {
 }
 /// One transformation a submitted seed passed through between its source coordinates and
 /// the native API, recorded from what actually ran (F25).
-#[derive(Clone, Debug, PartialEq, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum SeedTransformation {
     /// Model coordinate normalization, by its identity.
     Normalization(ContentHash),

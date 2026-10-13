@@ -8,9 +8,45 @@ use pse_model::{diagnostic::{BoundaryClass, DiagnosticCode}, generated::{enums::
     NumericalAttemptObservation as Observation, NumericalEventKind}, identities::RunId},
     strategy::{Phase, Transition, WorkCharge, WorkObservation}};
 use std::sync::Arc;
+use pse_model::diagnostic::Observation as NumberObservation;
+
+/// Actual submitted-start provenance. Full portable coordinates belong to replay.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttemptStartSummary {
+    /// Prior attempt selected by the original start owner.
+    pub previous_attempt: Option<usize>,
+    /// Actual compatible source layout, when a complete seed was supplied.
+    pub layout: Option<ContentHash>,
+    /// Actual seed numeric data identity, distinct from native session compatibility.
+    pub data: Option<ContentHash>,
+    /// Transformations actually traversed before native submission.
+    pub transformations: Vec<pse_backend_native::solve::SeedTransformation>,
+    /// Number of explicitly supplied sparse start variables.
+    pub sparse_variables: usize,
+    /// Whether the adapter submitted a seed to the native API.
+    pub submitted: bool,
+}
+
+/// Disjoint phase observations are absent until their actual owner measures them.
+#[derive(Clone, Debug, Default, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AttemptIntervals {
+    /// Preparation wall seconds; unavailable at this reporting boundary.
+    pub preparation_seconds: Option<NumberObservation>,
+    /// Admission queue wall seconds; unavailable at this reporting boundary.
+    pub queue_seconds: Option<NumberObservation>,
+    /// Native algorithm wall seconds, including callbacks; overlaps callback work.
+    pub native_including_callbacks_seconds: Option<NumberObservation>,
+    /// Independent original assessment wall seconds; unavailable unless separately observed.
+    pub assessment_seconds: Option<NumberObservation>,
+    /// Publication wall seconds; unavailable at this reporting boundary.
+    pub publication_seconds: Option<NumberObservation>,
+}
 
 /// Admission bounds for automatic retained-only explanation.
 #[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptSummaryLimits {
     /// Retained bounded original steps.
     pub steps: usize,
@@ -43,6 +79,7 @@ pub enum AttemptOriginalConclusion {
 }
 /// Compact synchronous decision record. Charging identity preserves inclusive work meaning.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptDecision {
     /// Declared mechanism ordinal.
     pub mechanism: usize,
@@ -77,16 +114,18 @@ impl From<&Event> for AttemptDecision {
 }
 /// A retained original-coordinate violation. IDs and physical tolerance belong to the producer.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptFinding {
     /// Original authored row or variable identity.
     pub source: SemanticId,
     /// Physical violation in original declared units.
-    pub violation: f64,
+    pub violation: NumberObservation,
     /// Explicit tolerance in the same original units.
-    pub tolerance: f64,
+    pub tolerance: NumberObservation,
 }
 /// Compact failure explanation over final accepted evidence only.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptFailureSummary {
     /// Typed native or boundary observation.
     pub observation: Observation,
@@ -99,6 +138,7 @@ pub struct AttemptFailureSummary {
 }
 /// One original requested step; missing native facts remain absent.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptStepSummary {
     /// Original zero-based step ordinal.
     pub step: usize,
@@ -115,7 +155,15 @@ pub struct AttemptStepSummary {
     /// Whether actual native state was reused.
     pub reused_native_state: Option<bool>,
     /// Maximum original physical violation divided by its declared tolerance.
-    pub normalized_physical_violation: Option<f64>,
+    pub normalized_physical_violation: Option<NumberObservation>,
+    /// Actual options submitted by the adapter, separate from queried native defaults.
+    pub effective_options: pse_backend_native::solve::Options,
+    /// Defaults only when the native library supplies a readback API.
+    pub native_defaults: pse_backend_native::solve::Options,
+    /// Actual submitted seed transformations and source identity.
+    pub start: Option<AttemptStartSummary>,
+    /// Available interval observations; overlapping native/callback costs are never added.
+    pub intervals: AttemptIntervals,
     /// Retained synchronous decision prefix.
     pub decisions: Vec<AttemptDecision>,
     /// Decisions outside the requested prefix.
@@ -135,6 +183,8 @@ impl AttemptStepSummary {
     fn empty(step: usize) -> Self {
         Self { step, backend: None, observation: None, accepted: None, work: None,
             start_submitted: None, reused_native_state: None, normalized_physical_violation: None,
+            effective_options: Default::default(), native_defaults: Default::default(), start: None,
+            intervals: Default::default(),
             decisions: Vec::new(), omitted_decisions: 0, findings: Vec::new(),
             omitted_findings: 0, dropped_progress: None, native_observations: None, raw_map: None }
     }
@@ -152,6 +202,20 @@ impl AttemptStepSummary {
         self.reused_native_state = Some(native.evidence.reused_native_state);
         self.dropped_progress = Some(native.dropped_events);
         self.native_observations = native.evidence.native_observations.clone();
+        self.effective_options = native.options.clone();
+        self.native_defaults = native.native_defaults.clone();
+        self.start = native.start_receipt.as_ref().map(|start| AttemptStartSummary {
+            previous_attempt: start.previous_attempt,
+            layout: start.seed.as_ref().map(|seed| seed.compatibility.layout),
+            data: start.seed.as_ref().map(|seed| seed.compatibility.data),
+            transformations: start.transformations.clone(),
+            sparse_variables: start.sparse_seed.as_ref().map_or(0, |seed| seed.len()),
+            submitted: start.submitted,
+        });
+        if let Some(observations) = &native.evidence.native_observations
+            && let pse_backend_native::solve::NativeCounters::Ipopt { wall_seconds, .. } = &observations.counters {
+            self.intervals.native_including_callbacks_seconds = wall_seconds.map(NumberObservation::number);
+        }
         if let Some(raw) = &native.evidence.raw_map {
             let count = raw.samples.len().min(*remaining);
             self.raw_map = Some(pse_backend_native::solve::RawMapHistory {
@@ -163,13 +227,13 @@ impl AttemptStepSummary {
             *remaining -= count;
         }
         if let Some(quality) = &native.quality {
-            self.normalized_physical_violation = quality.normalized_max.is_finite().then_some(quality.normalized_max);
+            self.normalized_physical_violation = Some(NumberObservation::number(quality.normalized_max));
             let findings = quality.rows.iter().chain(&quality.bounds).chain(&quality.integrality)
                 .filter(|finding| finding.physical > finding.tolerance);
             for finding in findings {
                 if *remaining > 0 {
-                    self.findings.push(AttemptFinding { source: finding.id, violation: finding.physical,
-                        tolerance: finding.tolerance });
+                    self.findings.push(AttemptFinding { source: finding.id, violation: NumberObservation::number(finding.physical),
+                        tolerance: NumberObservation::number(finding.tolerance) });
                     *remaining -= 1;
                 } else { self.omitted_findings += 1; }
             }
@@ -178,6 +242,7 @@ impl AttemptStepSummary {
 }
 /// Bounded automatic summary. Partial evidence and truncation are explicit.
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AttemptSummary {
     /// Original execution identity.
     pub run_id: RunId,
@@ -195,20 +260,60 @@ pub struct AttemptSummary {
     #[schemars(skip)]
     _owner: Arc<pse_columnar::AllocationLease>,
 }
+fn native_copy_extent(native: &pse_backend_native::solve::SolveReport) -> Option<usize> {
+    let mut extent = 0usize;
+    for options in [&native.options, &native.native_defaults] {
+        // Bound every occupied BTree node plus owned option key/value strings.
+        extent = extent.checked_add(options.len().checked_mul(2048)?)?;
+        for (key, value) in options {
+            extent = extent.checked_add(key.len())?;
+            if let pse_backend_native::solve::OptionValue::Text(value) = value {
+                extent = extent.checked_add(value.len())?;
+            }
+        }
+    }
+    if let Some(start) = &native.start_receipt {
+        extent = extent.checked_add(start.transformations.len().checked_mul(size_of::<pse_backend_native::solve::SeedTransformation>())?)?;
+        for transform in &start.transformations {
+            if let pse_backend_native::solve::SeedTransformation::Presolve { passes, .. } = transform {
+                extent = extent.checked_add(passes.len().checked_mul(size_of::<pse_backend_native::presolve::Pass>())?)?;
+            }
+        }
+    }
+    Some(extent)
+}
 impl RunResult {
     /// Automatic compact retained-only diagnosis, including after cancellation/deadline.
-    pub fn attempt_summary(&self) -> Result<AttemptSummary, WorkflowError> {
-        self.attempt_summary_with_limits(AttemptSummaryLimits::default())
+    pub fn attempt_summary(&self) -> Result<Arc<AttemptSummary>, WorkflowError> {
+        if let Some(summary) = self.attempt_summary.get() { return Ok(summary.clone()); }
+        let summary = Arc::new(self.attempt_summary_with_limits(AttemptSummaryLimits::default())?);
+        let _ = self.attempt_summary.set(summary.clone());
+        Ok(self.attempt_summary.get().cloned().unwrap_or(summary))
     }
     /// Explicit bounded detail. This never evaluates a model, prepares a solver or queries history.
     pub fn attempt_summary_with_limits(&self, limits: AttemptSummaryLimits) -> Result<AttemptSummary, WorkflowError> {
         let limits = limits.validate()?;
-        let extent = limits.steps.saturating_mul(size_of::<AttemptStepSummary>() + 16384)
+        let mut extent = limits.steps.saturating_mul(size_of::<AttemptStepSummary>() + 16384)
             .saturating_add(limits.events.saturating_mul(size_of::<AttemptDecision>() + 64))
             .saturating_add(limits.findings.saturating_mul(size_of::<AttemptFinding>() + 4096))
             .saturating_add(size_of::<AttemptSummary>() + 512);
-        let owner = self.runtime.shared.math().reserve("attempt:retained-summary", extent)?;
         let requested_steps = match &self.request { RunRequest::Modeling(steps) => steps.len(), _ => 1 };
+        // Admit copies of actual variable-size option/start payloads before cloning them.
+        for step in 0..requested_steps.min(limits.steps) {
+            let native = self.modeling_result(step).and_then(|result| match &result.outcome {
+                crate::math::solves::Outcome::Native(native) => Some(native.as_ref()), _ => None,
+            }).or_else(|| match &self.report {
+                Ok(RunReport::Fit(report)) => report.solve.as_ref(),
+                #[cfg(feature = "solver-diffsol")]
+                Ok(RunReport::Shooting(report)) => report.solve.as_ref(),
+                _ => None,
+            });
+            if let Some(native) = native {
+                extent = native_copy_extent(native).and_then(|copied| extent.checked_add(copied))
+                    .ok_or_else(|| contract("attempt summary option/start extent overflow"))?;
+            }
+        }
+        let owner = self.runtime.shared.math().reserve("attempt:retained-summary", extent)?;
         let mut summary = AttemptSummary { run_id: self.run_id, requested_steps, steps: Vec::new(),
             omitted_steps: requested_steps.saturating_sub(limits.steps), failure: None,
             usable: self.usable(), _owner: owner };
@@ -260,6 +365,40 @@ impl RunResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn default_summary_is_one_shared_product_and_custom_bounds_are_explicit() {
+        let result = RunResult::joined(RunId::from_bytes([91; 16]), crate::workflow::tests::runtime(),
+            RunRequest::Modeling(vec![]), None, Ok(RunReport::Modeling(vec![]))).completed();
+        let first = result.attempt_summary().unwrap();
+        let second = result.attempt_summary().unwrap();
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(first.requested_steps, 0);
+        assert!(result.attempt_summary_with_limits(AttemptSummaryLimits {
+            steps: 1, events: usize::MAX, findings: 0,
+        }).is_err());
+    }
+    #[test]
+    fn retained_nonfinite_physical_violation_is_observed_not_missing() {
+        use pse_backend_native::solve::{Assurance, Backend, Controls, Execution, NativeTermination, SolveReport, Termination};
+        let contract = pse_backend_native::OracleContract {
+            identity: ContentHash::from_bytes([92; 32]), variables: vec![], rows: vec![],
+            derivatives: pse_kernels::DerivativeOrder::Value, smoothness: pse_kernels::DerivativeOrder::Value,
+        };
+        let execution = Execution::new(Arc::new(std::sync::atomic::AtomicBool::new(false)), &Controls::default());
+        let mut report = SolveReport::new(Backend::Kinsol, &contract, NativeTermination {
+            code: -1, name: "retained_failure".into(), message: None,
+            category: Termination::Numerical, assurance: Assurance::None,
+        }, &execution);
+        report.quality = Some(pse_backend_native::quality::Quality {
+            rows: vec![pse_backend_native::quality::Violation { id: SemanticId::NIL,
+                physical: f64::INFINITY, tolerance: 1.0 }], bounds: vec![], integrality: vec![], normalized_max: f64::INFINITY,
+        });
+        let mut step = AttemptStepSummary::empty(0);
+        step.native(&report, &mut 1);
+        let json = serde_json::to_value(step).unwrap();
+        assert_eq!(json["normalized_physical_violation"]["kind"], "nonfinite");
+        assert_eq!(json["findings"][0]["violation"]["value"], "positive_infinity");
+    }
     #[test]
     fn explanation_admission_is_finite_and_zero_is_explicit() {
         assert!(AttemptSummaryLimits { steps: 0, events: 0, findings: 0 }.validate().is_ok());

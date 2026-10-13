@@ -17,7 +17,8 @@ use pse_model::scalar;
 use pse_model::scalars::{Fraction, Tolerance};
 
 /// Process state that linear-solver admission depends on, observed on the calling thread.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Runtime {
     /// Linear solvers the linked Ipopt was built with (`IpoptGetAvailableLinearSolvers`);
     /// the runtime library loader is excluded.

@@ -25,6 +25,8 @@ pub(crate) mod target;
 /// Cheap owner-issued applicability facts beside one immutable operation binding.
 #[derive(Clone, Debug)]
 pub(crate) struct AutoCandidate {
+    /// Reliable synchronous producer preference, before optional historical advice.
+    pub(crate) observed: Option<u32>,
     /// Exact immutable original/profile/reconstruction binding supplied by its owner.
     pub(crate) identity: ContentHash,
     pub(crate) kind: pse_model::strategy::MechanismKind,
@@ -90,6 +92,8 @@ pub(crate) fn next_automatic(
     }
     if let Some(last) = last {
         if last.awaiting_assessment {
+            // Classification stays with the original owner; this grants no successor.
+            // The walker checks the enclosing scope before any assessment effect.
             return AutoDecision::Assess;
         }
         let facts = pse_model::strategy::TransitionFacts {
@@ -144,6 +148,7 @@ pub(crate) fn next_automatic(
             },
             preference: pse_model::strategy::CandidatePreference {
                 baseline_rank: u32::try_from(index).unwrap_or(u32::MAX),
+                observed: candidate.observed,
                 advisory: advice.and_then(|advice| advice.rank(candidate.identity))
                     .and_then(|rank| u32::try_from(rank).ok()),
                 ..Default::default()
@@ -194,6 +199,8 @@ pub(crate) fn automatic_decision_key(
             .str(candidate.kind.as_str())
             .str(candidate.start.as_str())
             .bool(candidate.replacement);
+        h.bool(candidate.observed.is_some());
+        if let Some(rank) = candidate.observed { h.u64(u64::from(rank)); }
         h.bool(candidate.prepared);
         for key in &candidate.support {
             h.hash(key);
