@@ -152,11 +152,12 @@ impl BackendExecution for Highs {
                 _ => return Err(super::foreign(Backend::Highs)),
             };
             let stamp = input.compatibility;
+            let outcome = (|| {
             let (session, reused) = retained.session(
                 Backend::Highs,
                 input.controls.reuse,
                 |session: &mut highs::Session| {
-                    Ok(session.update(problem, certificate, stamp.clone()).is_ok())
+                    session.update(problem, certificate, stamp.clone(), &input.execution)
                 },
                 || highs::Session::new(problem, certificate, stamp.clone(), &input.execution),
             )?;
@@ -193,12 +194,7 @@ impl BackendExecution for Highs {
             let requested = &settings.diagnostics;
             if requested.any() {
                 let request = transport::diagnostic_request(requested, normalization)?;
-                let mut diagnostics = session
-                    .diagnose(problem, &request, &input.execution)
-                    .unwrap_or_else(|e| highs::diagnostics::Report {
-                        unavailable: BTreeMap::from([("operation".into(), e.to_string())]),
-                        ..Default::default()
-                    });
+                let mut diagnostics = session.diagnose(problem, &request, &input.execution)?;
                 // The fixed-commitment LP prices the MIP candidate, conditional on its
                 // commitment (ADR-0118 item 9); both are still native coordinates.
                 if let Some(fixed) = &diagnostics.fixed_lp {
@@ -233,6 +229,11 @@ impl BackendExecution for Highs {
                 .insert("reuse.native_model".into(), Metric::Bool(reused));
             report.evidence.reused_native_state = reused;
             Ok(report)
+            })();
+            if outcome.is_err() {
+                retained.clear();
+            }
+            outcome
         }
         #[cfg(not(feature = "highs"))]
         {

@@ -400,8 +400,14 @@ pub fn analyze(
             };
             let mut session = match current.take() {
                 Some(mut s) => {
-                    s.update(&p, None, stamp)?;
-                    s
+                    match s.update(&p, None, stamp.clone(), &execution)? {
+                        crate::execution::SessionUpdate::Compatible => s,
+                        crate::execution::SessionUpdate::Incompatible => {
+                            drop(s);
+                            report.sessions += 1;
+                            highs::Session::new(&p, None, stamp, &execution)?
+                        }
+                    }
                 }
                 None => {
                     report.sessions += 1;

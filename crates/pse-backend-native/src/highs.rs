@@ -35,6 +35,45 @@ macro_rules! native {
 pub mod diagnostics;
 #[cfg(test)]
 mod mip_tests;
+#[cfg(test)]
+mod update_tests;
+
+#[cfg(test)]
+mod test_mutations {
+    use super::ProblemError;
+    use std::{cell::RefCell, collections::BTreeMap};
+    #[derive(Default)]
+    struct Control {
+        fail: Option<String>,
+        calls: BTreeMap<String, usize>,
+    }
+    thread_local! {
+        static CONTROL: RefCell<Control> = RefCell::default();
+    }
+    pub(super) fn reset(fail: Option<&str>) {
+        CONTROL.with(|control| *control.borrow_mut() = Control {
+            fail: fail.map(str::to_owned),
+            ..Default::default()
+        });
+    }
+    pub(super) fn count(operation: &str) -> usize {
+        CONTROL.with(|control| control.borrow().calls.get(operation).copied().unwrap_or(0))
+    }
+    pub(super) fn observe(operation: &str) -> Result<(), ProblemError> {
+        CONTROL.with(|control| {
+            let mut control = control.borrow_mut();
+            *control.calls.entry(operation.to_owned()).or_default() += 1;
+            if control.fail.as_deref() == Some(operation) {
+                control.fail = None;
+                // Inject after the real native operation succeeded: native content may
+                // already have changed, so the original typed error must invalidate it.
+                Err(ProblemError::Contract(format!("injected HiGHS {operation} failure")))
+            } else {
+                Ok(())
+            }
+        })
+    }
+}
 
 pub use crate::settings::highs::{Method, Settings};
 
@@ -44,12 +83,69 @@ pub struct Session {
     gate: Option<RwLockReadGuard<'static, ()>>,
     compatibility: Compatibility,
     structure: (Vec<usize>, Vec<usize>, Vec<ModelingVariableDomain>),
+    /// Exact content of the last completely verified upload, under its storage grant.
+    uploaded: Option<Uploaded>,
     pending_sparse: Option<BTreeMap<pse_ids::SemanticId, f64>>,
     /// The root cut pool of the last solve, when requested.
     cut_pool: Option<diagnostics::CutPool>,
     /// Solves run on this native model; a later one reuses its allocation.
     solves: u64,
     _local: PhantomData<Rc<()>>,
+}
+struct Uploaded {
+    a: Vec<u64>,
+    h: Option<UploadedHessian>,
+    _storage: std::sync::Arc<dyn std::any::Any + Send + Sync>,
+}
+struct UploadedHessian {
+    start: Vec<usize>,
+    rows: Vec<usize>,
+    values: Vec<u64>,
+}
+impl Uploaded {
+    fn prepare(p: &CoefficientProblem, execution: &Execution) -> Result<Option<Self>, ProblemError> {
+        let Some(admission) = &execution.work_admission else {
+            return Ok(None);
+        };
+        // The old witness retains its separate grant while its replacement is prepared.
+        // Include the simultaneous bulk-bound scratch in this replacement's grant.
+        let mut bytes = size_of::<Self>();
+        let mut add = |count: usize, width: usize| -> Result<(), ProblemError> {
+            bytes = count.checked_mul(width).and_then(|n| bytes.checked_add(n))
+                .ok_or_else(|| ProblemError::memory("HiGHS upload witness extent overflow"))?;
+            Ok(())
+        };
+        add(p.constraints.val().len(), size_of::<u64>())?;
+        add(p.contract.variables.len(), 2 * size_of::<f64>())?;
+        add(p.bounds.len(), 2 * size_of::<f64>())?;
+        if let Some(h) = &p.hessian {
+            add(h.col_ptr().len(), size_of::<usize>())?;
+            add(h.row_idx().len(), size_of::<usize>())?;
+            add(h.val().len(), size_of::<u64>())?;
+        }
+        let Some(storage) = admission.reserve_retained_storage("highs-upload", bytes)? else {
+            return Ok(None);
+        };
+        Ok(Some(Self {
+            a: p.constraints.val().iter().map(|v| v.to_bits()).collect(),
+            h: p.hessian.as_ref().map(|h| UploadedHessian {
+                start: h.col_ptr().to_vec(),
+                rows: h.row_idx().to_vec(),
+                values: h.val().iter().map(|v| v.to_bits()).collect(),
+            }),
+            _storage: storage,
+        }))
+    }
+    fn same_hessian(&self, p: &CoefficientProblem) -> bool {
+        match (&self.h, &p.hessian) {
+            (None, None) => true,
+            (Some(old), Some(h)) => old.start == h.col_ptr()
+                && old.rows == h.row_idx()
+                && old.values.len() == h.val().len()
+                && old.values.iter().zip(h.val()).all(|(a, b)| *a == b.to_bits()),
+            _ => false,
+        }
+    }
 }
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -68,6 +164,10 @@ impl Drop for Session {
     }
 }
 fn check(code: i32, operation: &str) -> Result<(), ProblemError> {
+    #[cfg(test)]
+    if code == ffi::STATUS_OK {
+        test_mutations::observe(operation)?;
+    }
     if code != ffi::STATUS_OK {
         Err(ProblemError::Contract(format!(
             "HiGHS {operation} returned {code}; upload/options warnings are not silently accepted"
@@ -215,6 +315,7 @@ fn pass_objectives(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), Probl
 /// model's costs cleared and the last level's sense and offset, so the native model equals
 /// the admitted problem again.
 fn restore_objective(ptr: *mut c_void, p: &CoefficientProblem) -> Result<(), ProblemError> {
+    native!(ffi::Highs_clearLinearObjectives(ptr), "restore linear objectives")?;
     native!(
         ffi::Highs_changeObjectiveSense(
             ptr,
@@ -494,6 +595,7 @@ impl Session {
         execution: &Execution,
     ) -> Result<Self, ProblemError> {
         admit(p, certificate)?;
+        let uploaded = Uploaded::prepare(p, execution)?;
         let gate = crate::highs_lifecycle::read(execution)?;
         let mut session = Self {
             model: None,
@@ -504,18 +606,46 @@ impl Session {
                 p.constraints.row_idx().to_vec(),
                 p.domains.clone(),
             ),
+            uploaded: None,
             pending_sparse: None,
             cut_pool: None,
             solves: 0,
             _local: PhantomData,
         };
         session.model = Some(upload(p)?);
+        verify_upload(session.model()?, p)?;
+        session.uploaded = uploaded;
         Ok(session)
     }
     fn model(&mut self) -> Result<&mut highs::Model, ProblemError> {
         self.model
             .as_mut()
             .ok_or_else(|| ProblemError::Internal("destroyed HiGHS model".into()))
+    }
+    fn invalidate(&mut self) {
+        // Keep the lifecycle guard until normal Session destruction, but release every
+        // native object and its content premise immediately on an uncertain mutation.
+        self.model = None;
+        self.uploaded = None;
+        self.pending_sparse = None;
+        self.cut_pool = None;
+    }
+    /// Retire request-owned starts, solver state and options before an independent
+    /// application parks this owner. The verified coefficient model and grants survive.
+    pub fn reset_for_new_application(&mut self) -> Result<(), ProblemError> {
+        let result = (|| {
+            let ptr = self.model()?.as_mut_ptr();
+            native!(ffi::Highs_clearSolver(ptr), "reset independent solver state")?;
+            native!(ffi::Highs_clearLinearObjectives(ptr), "reset independent linear objectives")?;
+            native!(ffi::Highs_resetOptions(ptr), "reset independent options")?;
+            self.pending_sparse = None;
+            self.cut_pool = None;
+            Ok(())
+        })();
+        if result.is_err() {
+            self.invalidate();
+        }
+        result
     }
     /// Update compatible costs, bounds, matrix values and Hessian. Numeric factors are
     /// refreshed by HiGHS; retaining allocation/basis does not promise factor reuse.
@@ -524,21 +654,41 @@ impl Session {
         p: &CoefficientProblem,
         certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
         compatibility: Compatibility,
-    ) -> Result<(), ProblemError> {
+        execution: &Execution,
+    ) -> Result<crate::execution::SessionUpdate, ProblemError> {
+        let result = self.update_inner(p, certificate, compatibility, execution);
+        if result.is_err() {
+            self.invalidate();
+        }
+        result
+    }
+    fn update_inner(
+        &mut self,
+        p: &CoefficientProblem,
+        certificate: Option<&dyn pse_math::convexity::QuadraticEvidence>,
+        compatibility: Compatibility,
+        execution: &Execution,
+    ) -> Result<crate::execution::SessionUpdate, ProblemError> {
         admit(p, certificate)?;
         if !compatibility.same_session(&self.compatibility)
             || compatibility.backend != Backend::Highs
-            || self.structure
-                != (
-                    p.constraints.col_ptr().to_vec(),
-                    p.constraints.row_idx().to_vec(),
-                    p.domains.clone(),
-                )
+            || self.structure.0 != p.constraints.col_ptr()
+            || self.structure.1 != p.constraints.row_idx()
+            || self.structure.2 != p.domains
         {
-            return Err(ProblemError::Unsupported(
-                "HiGHS update changes layout".into(),
-            ));
+            return Ok(crate::execution::SessionUpdate::Incompatible);
         }
+        let uploaded = Uploaded::prepare(p, execution)?;
+        // Without an admitted replacement, perform the complete checked update.
+        let delta = uploaded.is_some() && self.uploaded.is_some();
+        let same_hessian = delta && self.uploaded.as_ref().is_some_and(|old| old.same_hessian(p));
+        let lower: Vec<_> = (0..p.domains.len()).map(|c| domain_bounds(p, c).0).collect();
+        let upper: Vec<_> = (0..p.domains.len()).map(|c| domain_bounds(p, c).1).collect();
+        let row_lower: Vec<_> = p.bounds.iter().map(|v| v.0).collect();
+        let row_upper: Vec<_> = p.bounds.iter().map(|v| v.1).collect();
+        // Move the predecessor out before borrowing the model mutably. Its grant stays
+        // live until the new model has passed complete readback verification.
+        let previous = if delta { self.uploaded.take() } else { None };
         let ptr = self.model()?.as_mut_ptr();
         native!(
             ffi::Highs_changeObjectiveSense(
@@ -551,34 +701,31 @@ impl Session {
             ),
             "update objective sense",
         )?;
+        if !p.objective.is_empty() {
+            native!(
+                ffi::Highs_changeColsCostByRange(ptr, 0, index(p.objective.len() - 1)?, p.objective.as_ptr()),
+                "update costs",
+            )?;
+            native!(
+                ffi::Highs_changeColsBoundsByRange(ptr, 0, index(lower.len() - 1)?, lower.as_ptr(), upper.as_ptr()),
+                "update column bounds",
+            )?;
+        }
         for c in 0..p.contract.variables.len() {
-            native!(
-                ffi::Highs_changeColCost(ptr, index(c)?, p.objective[c]),
-                "update cost",
-            )?;
-            native!(
-                ffi::Highs_changeColBounds(
-                    ptr,
-                    index(c)?,
-                    domain_bounds(p, c).0,
-                    domain_bounds(p, c).1,
-                ),
-                "update bound",
-            )?;
-            for (r, &value) in p
-                .constraints
-                .row_idx_of_col(c)
-                .zip(p.constraints.val_of_col(c))
-            {
+            for k in p.constraints.col_ptr()[c]..p.constraints.col_ptr()[c + 1] {
+                let value = p.constraints.val()[k];
+                if previous.as_ref().is_some_and(|old| old.a[k] == value.to_bits()) {
+                    continue;
+                }
                 native!(
-                    ffi::Highs_changeCoeff(ptr, index(r)?, index(c)?, value),
+                    ffi::Highs_changeCoeff(ptr, index(p.constraints.row_idx()[k])?, index(c)?, value),
                     "update coefficient",
                 )?;
             }
         }
-        for (r, &(l, u)) in p.bounds.iter().enumerate() {
+        if !p.bounds.is_empty() {
             native!(
-                ffi::Highs_changeRowBounds(ptr, index(r)?, l, u),
+                ffi::Highs_changeRowsBoundsByRange(ptr, 0, index(p.bounds.len() - 1)?, row_lower.as_ptr(), row_upper.as_ptr()),
                 "update row bounds",
             )?;
         }
@@ -586,9 +733,13 @@ impl Session {
             ffi::Highs_changeObjectiveOffset(ptr, p.objective_constant),
             "update offset",
         )?;
-        hessian(self.model()?, p)?;
+        if !same_hessian {
+            hessian(self.model()?, p)?;
+        }
+        verify_upload(self.model()?, p)?;
         self.compatibility = compatibility;
-        Ok(())
+        self.uploaded = uploaded;
+        Ok(crate::execution::SessionUpdate::Compatible)
     }
     /// Run the native model and recover original coefficients, sense and source maps. The
     /// settings' method and node budget apply; its sparse start and diagnostics go through
@@ -600,6 +751,27 @@ impl Session {
         reason = "one native solve binds its problem, coordinates, controls, accuracy, settings, execution, tolerances and seed"
     )]
     pub fn solve(
+        &mut self,
+        p: &CoefficientProblem,
+        normalization: &pse_math::normalization::Normalization,
+        controls: &Controls,
+        accuracy: &ResolvedAccuracy,
+        settings: &Settings,
+        execution: Execution,
+        tolerances: &Tolerances,
+        warm: Option<&WarmStart>,
+    ) -> Result<SolveReport, ProblemError> {
+        let result = self.solve_inner(p, normalization, controls, accuracy, settings, execution, tolerances, warm);
+        if result.is_err() {
+            self.invalidate();
+        }
+        result
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "one native solve binds its problem, coordinates, controls, accuracy, settings, execution, tolerances and seed"
+    )]
+    fn solve_inner(
         &mut self,
         p: &CoefficientProblem,
         normalization: &pse_math::normalization::Normalization,
@@ -1017,6 +1189,7 @@ impl Session {
                 Metric::Integer(p.objectives.len() as i64),
             );
             restore_objective(ptr, p)?;
+            verify_upload(self.model()?, p)?;
         }
         Ok(report)
     }
