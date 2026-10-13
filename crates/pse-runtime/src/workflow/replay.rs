@@ -440,7 +440,9 @@ impl ScientificReplay {
                         return Err(contract("replay of a requested screened start requires producer re-screening under the fresh task; historical screening does not grant new permission"));
                     }
                     if let Some(start) = step.solve.requested_start() {
-                        prepared = prepared.with_start(start.clone())?;
+                        let owner = self.result.runtime.shared.math().reserve("replay:requested-start", warm_start_extent(start))?;
+                        prepared.solve = prepared.solve.with_start_owned(start.clone(), owner).map_err(crate::math::MathRuntimeError::from)?;
+                        prepared.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
                     }
                     fresh.push(prepared);
                 }
@@ -711,10 +713,23 @@ impl ReplayCaseConstructor {
         let order = match self.order { 0 => pse_kernels::DerivativeOrder::Value,
             1 => pse_kernels::DerivativeOrder::First, 2 => pse_kernels::DerivativeOrder::Second,
             _ => return Err(contract("replay derivative order outside actual library contract")) };
-        package.prepare_solve_seed(self.root, self.instance, self.bindings.clone(), self.preparation.limits,
+        if self.requested_screened_start.is_some() {
+            return Err(contract("portable requested screened input requires fresh original-owner screening; historical screening is not reusable permission"));
+        }
+        let start_owner = self.requested_start.as_ref().map(|start| {
+            let bytes = start.restore_extent().map_err(crate::math::MathRuntimeError::from)?;
+            package.runtime.shared.math().reserve("replay:restored-requested-start", bytes).map_err(WorkflowError::from)
+        }).transpose()?;
+        let mut prepared = package.prepare_solve_seed(self.root, self.instance, self.bindings.clone(), self.preparation.limits,
             self.case.restore(), order, self.preparation.compiler, self.settings.profile()?,
             crate::math::solves::NumericalInputs { declarations: self.declarations.clone(), targets: self.targets.clone(), implicit: BTreeMap::new() },
-            super::modeling::cases::CaseOverrides { seed: unbits(&self.seed), parameters: unbits(&self.parameters), fixes: unbits(&self.fixes) }, cancel).await
+            super::modeling::cases::CaseOverrides { seed: unbits(&self.seed), parameters: unbits(&self.parameters), fixes: unbits(&self.fixes) }, cancel).await?;
+        if let (Some(start), Some(owner)) = (&self.requested_start, start_owner) {
+            prepared.solve = prepared.solve.with_start_owned(start.restore().map_err(crate::math::MathRuntimeError::from)?, owner)
+                .map_err(crate::math::MathRuntimeError::from)?;
+            prepared.profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
+        }
+        Ok(prepared)
     }
 }
 impl ReplaySolverSettings {
