@@ -813,7 +813,7 @@ impl FitProblem {
                             threads,
                             stack,
                             || -> Result<(), ProblemError> {
-                                super::experiments::borrowed_capacity(chain_cores, || {
+                                experiments::borrowed_capacity(chain_cores, || {
                                     match &constructor {
                                         Some(owner) => pse_math::construction::scoped(owner.clone(), work),
                                         None => work(),

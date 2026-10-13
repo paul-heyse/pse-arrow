@@ -26,6 +26,7 @@ use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput
 use pse_ids::{ContentHash, FramedHasher};
 use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
+use pse_model::HeapUsage;
 use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
 use pse_model::HeapUsage;

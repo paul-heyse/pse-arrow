@@ -64,7 +64,7 @@ pub(super) struct FitOracle {
     #[cfg(feature = "solver-diffsol")]
     transient_workers: Vec<Option<crate::workflow::dynamics::DynamicWorker>>,
     execution: Execution,
-    team: Option<super::experiments::ExperimentTeam>,
+    team: Option<experiments::ExperimentTeam>,
     /// The derivative source: the prepared profile's, until the final assessment reruns
     /// the forward sensitivities for rank.
     derivatives: FitDerivatives,
@@ -90,7 +90,7 @@ impl FitOracle {
         execution: Execution,
     ) -> Result<Self, ProblemError> {
         let p = p.into();
-        let team = super::experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
+        let team = experiments::ExperimentTeam::new(p.clone(), execution.clone())?;
         let workers = p
             .experiments
             .iter()
@@ -772,8 +772,6 @@ impl FitProblem {
     /// Preserve a completed value observation when rank/derivatives are unavailable.
     fn install_final_point(&self, report: &mut FitReport, x: &[f64], point: &Point)
         -> Result<bool, crate::math::MathRuntimeError> {
-                    report.trajectories = point.trajectories.clone();
-                    report.constraint_values = point.constraints.clone();
                     let residuals = self
                         .measurements
                         .iter()
@@ -790,21 +788,24 @@ impl FitProblem {
                         ));
                         return Ok(false);
                     }
-                    report.objective = Some(objective);
-                    report.quality = Some(native::quality::observed(
+                    let quality = native::quality::observed(
                         &self.contract,
                         &self.bounds,
                         x,
                         &point.constraints,
                         &self.tolerances,
-                    )?);
-                    report.predictions = point
+                    )?;
+                    let predictions = point
                         .predictions
                         .iter()
                         .zip(&self.measurements)
                         .map(|(v, o)| o.included.then_some(*v))
                         .collect();
-
+                    report.trajectories = point.trajectories.clone();
+                    report.constraint_values = point.constraints.clone();
+                    report.objective = Some(objective);
+                    report.quality = Some(quality);
+                    report.predictions = predictions;
         Ok(true)
     }
 

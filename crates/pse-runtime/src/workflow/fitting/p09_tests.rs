@@ -40,6 +40,12 @@ async fn with_admitted_fit_oracle(
     problem: Arc<FitProblem>,
     check: impl FnOnce(&mut FitOracle) + Send + 'static,
 ) {
+    with_admitted_fit_oracle_outcome(problem, check).await.unwrap();
+}
+async fn with_admitted_fit_oracle_outcome(
+    problem: Arc<FitProblem>,
+    check: impl FnOnce(&mut FitOracle) + Send + 'static,
+) -> Result<(), crate::math::MathRuntimeError> {
     let service = problem.runtime.native().clone();
     let controls = problem.profile.solver.controls.clone();
     let deadline = std::time::Instant::now()
@@ -68,7 +74,6 @@ async fn with_admitted_fit_oracle(
             },
         )
         .await
-        .unwrap();
 }
 
 /// The fixture's affine y has unit physical gain from x. The retained production
@@ -2379,7 +2384,7 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     let (problem, _) = package.prepare_fit_problem(id(73).into(), profile,
         compiler_profile(), Default::default(), &crate::CancelSource::new()).await.unwrap();
-    with_admitted_fit_oracle(problem.into(), |oracle| {
+    let outcome = with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
         let team = oracle.team.as_mut().expect("fixture admits two independent lanes");
         team.require_concurrent_test_wave();
         let value = oracle.objective(&[2.5]).unwrap();
@@ -2400,4 +2405,7 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());
     }).await;
+    // The actual enclosing operation must also report its original cancellation
+    // after all actor threads and native states have joined.
+    assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)));
 }
