@@ -402,7 +402,6 @@ impl MathService {
                 let mut ready = Vec::with_capacity(wave.len());
                 for &index in &wave {
                     let template = &prepared.blocks[index];
-                    let block = &prepared.boundaries[index];
                 execution.check()?;
                 let mut step = template.clone();
                 step.profile.controls.iterations = step.profile.controls.iterations.min(per_block_iterations);

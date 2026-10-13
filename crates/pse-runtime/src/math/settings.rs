@@ -326,6 +326,11 @@ mod tests {
         profile.block_overrides.insert(id, BlockSolveOverride { backend: Some(Backend::Kinsol), settings: None, controls: None });
         assert!(profile.validate_block_ids(std::iter::empty()).is_err());
         profile.validate_block_ids(std::iter::once(id)).unwrap();
+        let document = SolveSettings { block_overrides: profile.block_overrides.clone(), block_workers: 2, ..Default::default() };
+        let wire = serde_json::to_string(&document).unwrap();
+        let roundtrip: SolveSettings = serde_json::from_str(&wire).unwrap();
+        assert!(roundtrip.block_overrides.contains_key(&id));
+        assert_eq!(roundtrip.block_workers, 2);
         let effective = profile.block_profile(id).unwrap();
         assert_eq!(effective.selection, SolverSelection::Explicit(Backend::Kinsol));
         assert_eq!(effective.numerics.key(), profile.numerics.key());

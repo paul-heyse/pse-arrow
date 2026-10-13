@@ -199,6 +199,8 @@ pub enum RawMapRole {
     OriginalAssessment,
     /// A producer cannot establish the role.
     Unknown,
+    /// An explicitly authorized restart start screened against the actual map.
+    RestartScreening,
 }
 /// Typed failure class; the complete cause remains with the report's callback failure owner.
 #[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
@@ -259,6 +261,8 @@ pub struct RawMapSample {
     pub partial: bool,
     /// Failure of this evaluation; partial native outputs are never captured as G.
     pub failure: Option<RawMapFailure>,
+    /// Availability of actual inner-solve context, distinct from no inner solve.
+    pub inner_context: RawMapContextKind,
     /// Inner tolerance is absent when a compound map has no single observed value.
     pub inner_tolerance: Option<f64>,
     /// Observed inner start identity, when supplied by the scientific producer.
@@ -268,10 +272,24 @@ pub struct RawMapSample {
     /// Exact inner accuracy identity, including compound heterogeneous budgets.
     pub inner_accuracy: Option<ContentHash>,
 }
+/// Whether an actual inner solve has a supplied frozen scientific context.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RawMapContextKind {
+    /// An opaque producer did not supply the fact.
+    #[default]
+    Unavailable,
+    /// The producer has no inner numerical solve.
+    Inapplicable,
+    /// Actual authored starts, branch permission and effective accuracy are frozen.
+    Frozen,
+}
 /// Actual scientific inner context supplied by a composed map owner. Identities
 /// describe frozen authored permission/settings, not a uniqueness proof or achieved branch.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct RawMapInnerContext {
+    /// Distinguish an opaque map from a map without inner solves.
+    pub kind: RawMapContextKind,
     /// A scalar inner tolerance only when the producer has exactly one such budget.
     pub tolerance: Option<f64>,
     /// Frozen authored inner starts, independent of previous solved roots.
@@ -387,13 +405,13 @@ impl RawMapCapture {
         if !retain {
             self.history.omitted = self.history.omitted.saturating_add(1);
         }
-        let successful_map =
-            failure.is_none() && values.is_some() && role == RawMapRole::FixedPointEvaluation;
+        let map_role = matches!(role, RawMapRole::FixedPointEvaluation | RawMapRole::RestartScreening);
+        let successful_map = failure.is_none() && values.is_some() && map_role;
         let length = x.len().min(SAMPLE_COORDINATES);
         let mut captured = Vec::with_capacity(length);
         for (i, input) in x.iter().copied().take(length).enumerate() {
             let observed = values.and_then(|v| v.get(i)).copied();
-            let mapped = (role == RawMapRole::FixedPointEvaluation)
+            let mapped = map_role
                 .then_some(observed)
                 .flatten()
                 .filter(|value| value.is_finite());
@@ -423,6 +441,7 @@ impl RawMapCapture {
             total_coordinates: x.len(),
             partial: length < x.len(),
             failure,
+            inner_context: self.inner.kind,
             inner_tolerance: self.inner.tolerance,
             inner_start: self.inner.start,
             inner_branch: self.inner.branch,
@@ -448,6 +467,7 @@ mod tests {
     fn raw_map_context_survives_truncation_and_failed_latest_sample() {
         let contract = crate::solver_tests::contract();
         let context = RawMapInnerContext {
+            kind: RawMapContextKind::Frozen,
             tolerance: None,
             start: Some(ContentHash::from_bytes([31; 32])),
             branch: Some(ContentHash::from_bytes([32; 32])),

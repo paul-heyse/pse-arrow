@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Serializable causal requests remain available independently of native backend selection.
 use pse_ids::SemanticId;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Preserve unique-items refusal before an operation receives its set product.
 fn distinct_ids<'de, D>(deserializer: D) -> Result<BTreeSet<SemanticId>, D::Error>
@@ -63,10 +63,25 @@ pub struct RecycleRequest {
     pub tears: BTreeSet<SemanticId>,
     /// Complete admitted causal unit inventory.
     pub units: Vec<CausalUnitRequest>,
+    /// Native Anderson delay; zero keeps the existing default.
+    #[serde(default)]
+    pub anderson_delay: usize,
+    /// Explicit finite screened restarts; omission never restarts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restarts: Option<RecycleRestartRequest>,
     /// Native Anderson history; zero means unaccelerated fixed point.
     pub anderson: usize,
     /// Native fixed-point damping in (0,1].
     pub damping: pse_model::scalars::Fraction,
+}
+/// Authorized replacement starts and a bounded native iteration slice.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RecycleRestartRequest {
+    /// Exact physical tear coordinates for each authorized candidate, keyed by identity.
+    pub starts: Vec<BTreeMap<SemanticId, f64>>,
+    /// Positive per-attempt slice within the original aggregate native iteration cap.
+    pub iterations: u32,
 }
 impl RecycleRequest {
     /// Bind a complete compiler-issued causal inventory and a checked tear witness.
@@ -121,6 +136,8 @@ impl RecycleRequest {
         Ok(Self {
             tears,
             units,
+            anderson_delay: 0,
+            restarts: None,
             anderson: 0,
             damping: pse_model::scalars::Fraction::try_new(1.0)
                 .map_err(|cause| super::contract(cause.to_string()))?,

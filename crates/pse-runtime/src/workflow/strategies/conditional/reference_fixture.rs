@@ -196,6 +196,8 @@ pub(in crate::workflow) async fn actual_reference_recycle_fixture(
         request: RecycleRequest {
             tears: BTreeSet::from([tear]),
             units,
+            anderson_delay: 0,
+            restarts: None,
             anderson: 0,
             damping: pse_model::scalars::Fraction::try_new(1.0)
                 .map_err(|e| contract(e.to_string()))?,

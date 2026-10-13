@@ -15,7 +15,7 @@ pub(crate) use observations::SNAPSHOT_COORDINATES;
 pub use observations::{
     NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
     NativeStepObservation, ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory,
-    RawMapInnerContext, RawMapRole, RawMapSample, StopFidelity,
+    RawMapContextKind, RawMapInnerContext, RawMapRole, RawMapSample, StopFidelity,
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{

@@ -125,6 +125,8 @@ async fn construction_source(runtime: Runtime, internal_rows: usize) -> Prepared
                 }),
             },
         }],
+        anderson_delay: 0,
+        restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
@@ -856,6 +858,8 @@ async fn explicit_map_admission_requires_free_branch_controls_without_promoting_
                 outputs: BTreeSet::from([port("outlet")]),
                 realization: CausalUnitRealization::ExplicitMap,
             }],
+            anderson_delay: 0,
+            restarts: None,
             anderson: 0,
             damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
         };
@@ -1072,6 +1076,8 @@ async fn conditional_retention_control(ambiguous: bool) {
                 solver: Box::new(solver),
             },
         }],
+        anderson_delay: 0,
+        restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
@@ -1388,6 +1394,8 @@ async fn conditional_unit_derived_boundary_solves_constituent_variables() {
                 solver: Box::new(solver),
             },
         }],
+        anderson_delay: 0,
+        restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
@@ -1562,6 +1570,8 @@ fn conditional_unit_admission_diagnostic_retains_sources_and_original_cause() {
     let request = RecycleRequest {
         tears: BTreeSet::new(),
         units: vec![unit.clone()],
+        anderson_delay: 0,
+        restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };
@@ -1800,6 +1810,8 @@ async fn conditional_unit_affine_boundary_retains_difference_magnitudes_and_poin
                 }),
             },
         }],
+        anderson_delay: 0,
+        restarts: None,
         anderson: 0,
         damping: pse_model::scalars::Fraction::try_new(1.0).unwrap(),
     };

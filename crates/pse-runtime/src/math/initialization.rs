@@ -902,6 +902,7 @@ impl MathService {
         contract: native::OracleContract,
         initial: Vec<f64>,
         settings: kinsol::Settings,
+        restarts: Option<kinsol::RestartSchedule>,
         controls: Controls,
         accuracy: ResolvedAccuracy,
         tolerances: Tolerances,
@@ -1058,13 +1059,14 @@ impl MathService {
                                 )?;
                                 // The declared root runs and qualifies with the budgets its caller
                                 // resolved from the numerical policy (F20).
-                                let mut report = session.solve(
+                                let mut report = session.solve_with_restarts(
                                     &initial,
                                     &controls,
                                     &accuracy,
                                     execution,
                                     &tolerances,
                                     None,
+                                    restarts.as_ref(),
                                 )?;
                                 native::quality::qualify(&mut report, &accuracy);
                                 drop(session);
@@ -2107,6 +2109,7 @@ mod tests {
             contract,
             vec![0.],
             settings,
+            None,
             controls,
             accuracy,
             tolerances,

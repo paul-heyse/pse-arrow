@@ -360,6 +360,7 @@ pub struct PreparedRecycle {
     initial: Vec<f64>,
     fixed: BTreeMap<SemanticId, f64>,
     settings: kinsol::Settings,
+    restarts: Option<kinsol::RestartSchedule>,
     controls: Controls,
     profile_key: pse_ids::ContentHash,
     /// Stopping budgets resolved from the map's numerical policy.
@@ -485,6 +486,7 @@ impl PreparedRecycle {
                 self.contract.clone(),
                 self.initial.clone(),
                 self.settings.clone(),
+                self.restarts.clone(),
                 self.controls.clone(),
                 self.accuracy.clone(),
                 self.tolerances.clone(),
@@ -501,6 +503,9 @@ impl PreparedRecycle {
     /// Frozen actual authored unit starts and effective inner accuracy. Inputs are
     /// rebound per sweep; solved roots are never promoted to future starts.
     pub fn inner_context(&self) -> Result<native::solve::RawMapInnerContext, native::ProblemError> {
+        if self.programs.iter().all(|program| program.conditional.is_none()) {
+            return Ok(native::solve::RawMapInnerContext { kind: native::solve::RawMapContextKind::Inapplicable, ..Default::default() });
+        }
         let mut starts = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         let mut accuracy = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         let mut branches = FramedHasher::new(pse_ids::Frame::CausalMapV2);
@@ -516,6 +521,7 @@ impl PreparedRecycle {
             }
         }
         Ok(native::solve::RawMapInnerContext {
+            kind: native::solve::RawMapContextKind::Frozen,
             tolerance: None, // Multiple physical inner row/variable budgets have no scalar summary.
             start: Some(starts.finish_hash()),
             branch: Some(branches.finish_hash()),
@@ -591,30 +597,32 @@ impl PreparedRecycle {
                     "nonfinite original recycle objective",
                 ));
             }
-            if rows
-                .iter()
-                .zip(structure.rows())
-                .zip(&original_tolerances.rows)
-                .any(|((value, row), tolerance)| {
-                    !value.is_finite()
-                        || *value < row.lower - tolerance
-                        || *value > row.upper + tolerance
-                })
-            {
-                return Err(native::ProblemError::Contract(
-                    "full original recycle equations refuse candidate".into(),
-                ));
+            if rows.len() != structure.rows().len() {
+                return Err(native::ProblemError::Contract("incomplete original recycle rows".into()));
             }
-            if structure.variables().iter().any(|v| {
-                candidate.scalars.get(&v.port.id).is_none_or(|value| {
-                    !value.is_finite()
-                        || v.lower.is_some_and(|lower| *value < lower)
-                        || v.upper.is_some_and(|upper| *value > upper)
-                })
-            }) {
-                return Err(native::ProblemError::Contract(
-                    "full original recycle bounds refuse candidate".into(),
-                ));
+            for ((value, row), tolerance) in rows.iter().zip(structure.rows()).zip(&original_tolerances.rows) {
+                if !value.is_finite() {
+                    return Err(native::ProblemError::numerical("nonfinite original recycle row"));
+                }
+                if *value < row.lower - tolerance || *value > row.upper + tolerance {
+                    return Err(pse_math::MathError::OutsideRange {
+                        source_id: row.id, target: row.id, value: *value,
+                        lower: row.lower.is_finite().then_some(row.lower - tolerance),
+                        upper: row.upper.is_finite().then_some(row.upper + tolerance),
+                    }.into());
+                }
+            }
+            for variable in structure.variables() {
+                let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| native::ProblemError::Contract("incomplete original recycle coordinates".into()))?;
+                if !value.is_finite() {
+                    return Err(native::ProblemError::numerical("nonfinite original recycle coordinate"));
+                }
+                if variable.lower.is_some_and(|lower| *value < lower) || variable.upper.is_some_and(|upper| *value > upper) {
+                    return Err(pse_math::MathError::OutsideRange {
+                        source_id: variable.port.id, target: variable.port.id, value: *value,
+                        lower: variable.lower, upper: variable.upper,
+                    }.into());
+                }
             }
             execution.check()?;
             *observed.lock().map_err(|_| {
@@ -687,13 +695,14 @@ impl crate::math::solves::causal::CausalExecution for PreparedRecycle {
         };
         let mut session =
             kinsol::Session::new(function, self.settings.clone(), execution.clone(), stamp)?;
-        let mut report = session.solve(
+        let mut report = session.solve_with_restarts(
             &self.initial,
             &self.controls,
             &self.accuracy,
             execution.clone(),
             &self.tolerances,
             None,
+            self.restarts.as_ref(),
         )?;
         native::quality::qualify(&mut report, &self.accuracy);
         capture_component(&report)?;
@@ -1328,6 +1337,7 @@ impl ModelingPackage {
             kinsol::Method {
                 strategy: kinsol::Strategy::FixedPoint,
                 anderson: request.anderson,
+                anderson_delay: request.anderson_delay,
                 damping: request.damping,
                 ..kinsol::Method::default()
             },
@@ -1338,13 +1348,28 @@ impl ModelingPackage {
         settings
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
             .map_err(MathRuntimeError::from)?;
+        let restarts = request.restarts.as_ref().map(|request| {
+            if request.starts.is_empty() || request.starts.len() > 32
+                || request.starts.len().checked_mul(contract.variables.len()).is_none_or(|n| n > 4096)
+                || request.starts.iter().any(|point| point.len() != contract.variables.len()
+                    || contract.variables.iter().any(|variable| !point.contains_key(&variable.id))) {
+                return Err(native::ProblemError::Contract("finite exact recycle restart inventory".into()));
+            }
+            let schedule = kinsol::RestartSchedule {
+                starts: request.starts.iter().map(|point| contract.variables.iter().map(|variable| point[&variable.id]).collect()).collect(),
+                iterations: request.iterations,
+            };
+            schedule.validate(&contract, &profile.controls)?;
+            Ok::<_, native::ProblemError>(schedule)
+        }).transpose().map_err(MathRuntimeError::from)?;
         let mut effective_profile = profile.clone();
         effective_profile.selection = SolverSelection::Explicit(Backend::Kinsol);
         effective_profile.backend = native::execution::BackendSettings::Kinsol(settings.method);
         effective_profile.numerics = numerics.policy.clone();
-        let profile_key = crate::math::solves::profile_key(&effective_profile)
-            .map_err(MathRuntimeError::from)?
-            .as_id();
+        let mut profile_identity = FramedHasher::new(pse_ids::Frame::CausalMapV2);
+        profile_identity.hash(&crate::math::solves::profile_key(&effective_profile).map_err(MathRuntimeError::from)?.as_id());
+        pse_ids::document::frame(&mut profile_identity, &request.restarts).map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+        let profile_key = profile_identity.finish_hash();
         let original = self
             .runtime
             .native()
@@ -1375,6 +1400,7 @@ impl ModelingPackage {
             initial,
             fixed,
             settings,
+            restarts,
             controls: profile.controls,
             profile_key,
             accuracy,
