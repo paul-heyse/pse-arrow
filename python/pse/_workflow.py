@@ -54,7 +54,7 @@ SolverCapability = result_contracts.RuntimeSolverCapabilitiesRow
 
 @attrs.frozen(init=False)
 class Runtime:
-    """One native deployment budget over canonical scientific storage."""
+    """One native deployment budget with explicit local or durable composition."""
 
     _handle: _NativeRuntime
 
@@ -62,7 +62,7 @@ class Runtime:
         self,
         settings: EngineSettings,
         *,
-        substrate: str,
+        substrate: str | None = None,
         database: str | None = None,
         producer: str | None = None,
         ephemeral: bool = False,
@@ -72,10 +72,12 @@ class Runtime:
         Args:
             settings: The deployment budget shared by compilation, native work
                 and reads.
-            substrate: Supervisor state directory for canonical scientific storage.
+            substrate: Supervisor state directory for canonical scientific storage;
+                optional for explicit ephemeral computation.
             database: Optional explicitly selected existing canonical database.
             producer: Optional qualified mathematical producer receipt path.
-            ephemeral: Explicitly retain numerical outcomes only in this process.
+            ephemeral: Explicitly admit models and retain outcomes locally, without
+                connecting during construction.
                 Application execution durably records outcomes in canonical storage.
         """
         object.__setattr__(

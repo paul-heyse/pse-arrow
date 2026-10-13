@@ -1,24 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Live selected permission belongs to an explicit consumer, independently of pure caches.
+//! Held local preparation owns exact source/context and joins its actual consumers.
 use super::*;
 use crate::math::modeling::PreparedBasis;
 use std::{
     future::Future,
     sync::atomic::{AtomicU8, AtomicUsize, Ordering},
-    time::Duration,
 };
 
 const ESTABLISHING: u8 = 0;
 const ACTIVE: u8 = 1;
 const CLOSING: u8 = 2;
 const RELEASED: u8 = 3;
-const HEARTBEAT: Duration = Duration::from_secs(10);
-// Source read protection is independent of the durable attempt's execution lease.
-const SOURCE_LEASE: Duration = Duration::from_secs(3600);
-
-/// One exact settled preparation and its actual live source permission. Its lane
-/// explicitly closes it after dispatched work drains; it is never a cache entry.
+/// One exact locally admitted preparation. Its lane closes admission and joins
+/// actual consumers; immutable products retain their own source and byte owners.
 #[derive(Debug)]
 pub(in crate::workflow) struct PreparationEngagement {
     source: ModelingPackage,
@@ -26,7 +21,7 @@ pub(in crate::workflow) struct PreparationEngagement {
     instance: InstanceId,
     bindings: Bindings,
     limits: Limits,
-    selected: canonical::CheckedSelection,
+    _selected: canonical::CheckedSelection,
     model: ModelingPreparation,
     _basis: Arc<PreparedBasis>,
     _owner: Arc<pse_columnar::AllocationLease>,
@@ -73,18 +68,9 @@ impl PreparationEngagement {
         if self.state.load(Ordering::Acquire) != ACTIVE {
             return Err(contract("preparation engagement closed during admission"));
         }
-        if let Err(error) = self.selected.read.selection().renew(SOURCE_LEASE).await {
-            self.state.store(CLOSING, Ordering::Release);
-            return Err(error.into());
-        }
-        if self.state.load(Ordering::Acquire) != ACTIVE {
-            return Err(contract("preparation engagement closed during renewal"));
-        }
         Ok(admission)
     }
-    /// Join renewal with the actual operation. On lease loss, stop new admission,
-    /// signal this operation's child cancellation and await its private/native drain.
-    /// Every operation retains its own clock; renewal changes no issued effect expiry.
+    /// Hold exact source/product ownership through an admitted operation.
     #[cfg(test)]
     pub(in crate::workflow) async fn during<T>(
         self: &Arc<Self>,
@@ -95,23 +81,10 @@ impl PreparationEngagement {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
         let _admission = self.admit().await?;
-        tokio::pin!(operation);
-        loop {
-            tokio::select! {
-                result=&mut operation => return result,
-                ()=tokio::time::sleep(HEARTBEAT) => {
-                    if let Err(error)=self.selected.read.selection().renew(SOURCE_LEASE).await {
-                        self.state.store(CLOSING, Ordering::Release);
-                        cancel.cancel();
-                        let _=operation.await;
-                        return Err(error.into());
-                    }
-                }
-            }
-        }
+        operation.await
     }
     /// Stop admission, await actual in-flight consumer drain, then release this
-    /// exact pin. No detached renewal or release task owns this lifecycle.
+    /// held owner. No detached renewal or release task owns this lifecycle.
     pub(in crate::workflow) async fn close(&self) -> Result<(), WorkflowError> {
         if self.state.load(Ordering::Acquire) == RELEASED {
             return Ok(());
@@ -124,12 +97,6 @@ impl PreparationEngagement {
             }
             notified.await;
         }
-        self.source
-            .runtime
-            .canonical
-            .store()
-            .release(self.selected.read.selection())
-            .await?;
         self.state.store(RELEASED, Ordering::Release);
         Ok(())
     }
@@ -139,7 +106,7 @@ impl PreparationEngagement {
 mod tests {
     use super::*;
     #[tokio::test]
-    async fn live_engagement_settles_once_and_retains_actual_owners_through_cache_pressure() {
+    async fn local_engagement_retains_actual_owners_through_cache_pressure() {
         let runtime = crate::workflow::tests::runtime();
         let rows = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq a:x*x==1; eq b:x==2; } }",
@@ -171,7 +138,7 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(math.preparation_effects().since(before).settlements, 1);
+        assert_eq!(math.preparation_effects().since(before).settlements, 0);
         let original = engagement.model().compiled().model.allocation_identity();
         math.clear_program_cache();
         for _ in 0..20 {
@@ -193,8 +160,8 @@ mod tests {
         }
         assert_eq!(
             math.preparation_effects().since(before).settlements,
-            1,
-            "live use never repeats B-body acknowledgment or receiving establishment"
+            0,
+            "local use establishes no canonical acknowledgment or receiving permission"
         );
         let mut foreign = package.clone();
         foreign.providers = Arc::new((*package.providers).clone());
@@ -266,159 +233,6 @@ mod tests {
         let entries = scope.entries.lock().await;
         assert!(entries.views.is_empty() && entries.owners.is_empty());
     }
-    #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
-    #[tokio::test]
-    async fn joined_preentry_refusals_abandon_and_drain_actual_started_attempts() {
-        use crate::workflow::{Durability, durable::DurableAttempt};
-        for refusal in 0..3 {
-            let runtime = crate::workflow::durable_tests::durable_runtime();
-            let (package, scope) = held_fixture(runtime.clone()).await;
-            let Durability::Durable(operations) = runtime.durability() else {
-                panic!("durable fixture");
-            };
-            let mut attempt = DurableAttempt::new(operations).unwrap();
-            attempt
-                .register_horizon(
-                    pse_operations::mint_id(),
-                    &runtime,
-                    std::slice::from_ref(&package),
-                    pse_ids::ContentHash::from_bytes([refusal; 32]),
-                    b"{}",
-                )
-                .await
-                .unwrap();
-            let cancel = crate::CancelSource::new();
-            let stop = cancel.clone();
-            attempt
-                .start(Arc::new(move || stop.cancel()))
-                .await
-                .unwrap();
-            let pool = runtime.shared.pool();
-            let filler = if refusal == 1 {
-                // Pressure may evict idle compiler/cache allocations. Remove those
-                // before filling the pool so this fixture actually refuses entry.
-                runtime.shared.math().clear_program_cache();
-                let filler = pse_columnar::MemoryConsumer::new("test:held-preentry-pressure")
-                    .register(&pool);
-                filler
-                    .try_grow(runtime.shared.budget().memory_limit_bytes.get() - pool.reserved())
-                    .unwrap();
-                Some(filler)
-            } else {
-                None
-            };
-            if refusal == 0 {
-                cancel.cancel();
-            }
-            if refusal == 2 {
-                let view = scope.entries.lock().await.views[0].clone();
-                runtime
-                    .canonical_store()
-                    .release(view.selected.read.selection())
-                    .await
-                    .unwrap();
-            }
-            let (record, source_refusal) = scope
-                .joined(&cancel, async {
-                    assert!(cancel.token().is_cancelled(), "preentry refusal {refusal}");
-                    drop(filler);
-                    attempt
-                        .abandon(&Arc::new(WorkflowError::from(
-                            crate::math::MathRuntimeError::Cancelled,
-                        )))
-                        .await
-                })
-                .await;
-            assert!(
-                source_refusal.is_some(),
-                "actual cancellation/pool/released-pin refusal is observed"
-            );
-            assert!(
-                record.attempt.is_ok() && record.completion.is_some(),
-                "original claim settlement joins stream and heartbeat: {record:?}"
-            );
-            scope.close().await.unwrap();
-        }
-    }
-
-    #[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
-    #[tokio::test]
-    async fn joined_source_renewal_spans_actual_completion_export_and_drain() {
-        use crate::workflow::{Durability, durable::DurableAttempt};
-        let runtime = crate::workflow::durable_tests::durable_runtime();
-        let (package, scope) = held_fixture(runtime.clone()).await;
-        let Durability::Durable(operations) = runtime.durability() else {
-            panic!("durable fixture");
-        };
-        let mut attempt = DurableAttempt::new(operations).unwrap();
-        attempt
-            .register_horizon(
-                pse_operations::mint_id(),
-                &runtime,
-                std::slice::from_ref(&package),
-                pse_ids::ContentHash::from_bytes([44; 32]),
-                b"{}",
-            )
-            .await
-            .unwrap();
-        let cancel = crate::CancelSource::new();
-        let stop = cancel.clone();
-        attempt
-            .start(Arc::new(move || stop.cancel()))
-            .await
-            .unwrap();
-        let (reached, release) = attempt.pause_completion_export();
-        let view = scope.entries.lock().await.views[0].clone();
-        let operation = scope.joined(&cancel, async {
-            attempt
-                .abandon(&Arc::new(contract(
-                    "test:completion export before source loss",
-                )))
-                .await
-        });
-        let observer = async {
-            reached.await.unwrap();
-            assert_eq!(
-                view.active.load(Ordering::Acquire),
-                1,
-                "source admission still belongs to the actual final publication owner"
-            );
-            runtime
-                .canonical_store()
-                .release(view.selected.read.selection())
-                .await
-                .unwrap();
-            tokio::time::timeout(HEARTBEAT * 2, cancel.cancelled())
-                .await
-                .unwrap();
-            assert_eq!(
-                view.state.load(Ordering::Acquire),
-                CLOSING,
-                "joined source heartbeat observes the exact released pin during publication"
-            );
-            let close = scope.close();
-            tokio::pin!(close);
-            assert!(
-                tokio::time::timeout(Duration::from_millis(20), &mut close)
-                    .await
-                    .is_err(),
-                "source close joins actual publication rather than releasing its owner early"
-            );
-            release.send(()).unwrap();
-            close.await.unwrap();
-        };
-        let ((record, refusal), ()) = tokio::join!(operation, observer);
-        assert!(
-            refusal.is_some(),
-            "publication-time source loss closes further admission"
-        );
-        assert!(
-            record.attempt.is_ok() && record.completion.is_some(),
-            "the original rooted completion and heartbeat are drained: {record:?}"
-        );
-        assert_eq!(view.active.load(Ordering::Acquire), 0);
-        assert!(scope.entries.lock().await.views.is_empty());
-    }
 }
 impl ModelingPackage {
     pub(in crate::workflow) async fn engage(
@@ -429,7 +243,7 @@ impl ModelingPackage {
         limits: Limits,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<PreparationEngagement>, WorkflowError> {
-        let activity = self.runtime.canonical_store().admit_activity()?;
+        let activity = self.runtime.admit_activity()?;
         activity
             .scope(async {
                 let state = AtomicU8::new(ESTABLISHING);
@@ -465,13 +279,6 @@ impl ModelingPackage {
                     Ok(value) => value,
                     Err(error) => {
                         state.store(CLOSING, Ordering::Release);
-                        let release = self
-                            .runtime
-                            .canonical
-                            .store()
-                            .release(selected.read.selection())
-                            .await;
-                        release?;
                         return Err(error);
                     }
                 };
@@ -484,7 +291,7 @@ impl ModelingPackage {
                     instance,
                     bindings,
                     limits,
-                    selected,
+                    _selected: selected,
                     model,
                     _basis: basis,
                     _owner: owner,
@@ -497,8 +304,8 @@ impl ModelingPackage {
     }
 }
 
-/// An explicit lane's finite set of settled views. Membership belongs to the
-/// operation admission; this owner retains only actual source permissions.
+/// An explicit lane's finite set of locally admitted views. Membership belongs
+/// to operation admission; retained immutable products own their actual bytes.
 #[derive(Debug)]
 pub(in crate::workflow) struct HeldPreparationScope {
     entries: tokio::sync::Mutex<HeldEntries>,
@@ -556,7 +363,7 @@ impl HeldPreparationScope {
             return Err(contract("held preparation scope is closing"));
         }
         for view in &entries.views {
-            // Earlier views remain protected throughout multi-view establishment.
+            // Earlier views remain owned throughout multi-view establishment.
             let _admission = view.admit().await?;
         }
         if let Some(view) = entries
@@ -585,7 +392,7 @@ impl HeldPreparationScope {
         entries.owners.push(owner);
         Ok(model)
     }
-    pub(in crate::workflow) async fn renew(&self) -> Result<(), WorkflowError> {
+    pub(in crate::workflow) async fn check_active(&self) -> Result<(), WorkflowError> {
         if !self.is_open() {
             return Err(contract("held preparation scope is closing"));
         }
@@ -599,7 +406,7 @@ impl HeldPreparationScope {
         Ok(())
     }
     /// Cleanup always owns its future, including preentry cancellation, memory
-    /// refusal and renewal refusal. No issued attempt is discarded unpolled.
+    /// refusal and admission refusal. No issued attempt is discarded unpolled.
     pub(in crate::workflow) async fn joined<T>(
         &self,
         cancel: &crate::CancelSource,
@@ -636,23 +443,12 @@ impl HeldPreparationScope {
                 return (operation.await, Some(error));
             }
         };
-        tokio::pin!(operation);
-        loop {
-            tokio::select! {
-                result = &mut operation => return (result, None),
-                () = tokio::time::sleep(HEARTBEAT) => {
-                    for view in &views {
-                        if let Err(error) = view.selected.read.selection().renew(SOURCE_LEASE).await {
-                            view.state.store(CLOSING, Ordering::Release);
-                            self.state.store(CLOSING, Ordering::Release);
-                            cancel.cancel();
-                            return (operation.await, Some(error.into()));
-                        }
-                    }
-                }
-            }
-        }
+        // The admission guards retain the selected local products until the
+        // actual operation drains. There is no store source heartbeat to renew.
+        let _views = views;
+        (operation.await, None)
     }
+
     pub(in crate::workflow) async fn during<T>(
         &self,
         cancel: &crate::CancelSource,
@@ -739,7 +535,7 @@ pub(in crate::workflow) fn same_source(
     source: &ModelingPackage,
     current: &ModelingPackage,
 ) -> bool {
-    source.revision.canonical == current.revision.canonical
+    source.revision.revision_id() == current.revision.revision_id()
         && source.revision.identity() == current.revision.identity()
         && Arc::ptr_eq(&source.runtime.shared, &current.runtime.shared)
         && Arc::ptr_eq(source.runtime.sessions(), current.runtime.sessions())

@@ -12,7 +12,7 @@ use pse_columnar::{
 use pse_compiler::workspace::{ModelingPreparationFrontier, PreparedModeling};
 use pse_model::lineage::Solved;
 use pse_modeling::{Bindings, DeclarationId, InstanceId, Limits};
-use pse_operations::canonical_selection::SelectedDependencies;
+use crate::workflow::modeling::LocalSourcePremises;
 use std::{
     collections::BTreeMap,
     hash::{Hash, Hasher},
@@ -24,7 +24,7 @@ use std::{
 #[derive(Debug)]
 pub(crate) struct BasisKey {
     request: Arc<crate::workflow::modeling::SelectedRequest>,
-    dependencies: Arc<SelectedDependencies>,
+    dependencies: Arc<LocalSourcePremises>,
     root: DeclarationId,
     instance: InstanceId,
     bindings: Bindings,
@@ -125,17 +125,14 @@ impl OwnedModelingFrontier {
     }
 }
 
-/// Complete mathematics plus reusable description requirements. These premises and bytes
-/// carry no protection or acknowledgment; each current consumer rechecks and settles them.
+/// Complete local mathematics and its consumed source premises. Pure ownership conveys
+/// no durable publication permission; actual import/recording adapters own that boundary.
 #[derive(Debug)]
 pub(crate) struct PreparedBasis {
     product: PreparedModeling,
     root: DeclarationId,
     instance: InstanceId,
-    pub(crate) acquisition_dependencies: Arc<SelectedDependencies>,
-    pub(crate) descriptions: Vec<Arc<super::portable::BodyDescription>>,
-    pub(crate) selection_material:
-        Option<Arc<pse_operations::canonical_selection::SelectionMaterial>>,
+    pub(crate) source_premises: Arc<LocalSourcePremises>,
     owner: Arc<super::products::ProductOwner>,
     _metadata: Arc<AllocationLease>,
 }
@@ -143,18 +140,16 @@ impl PreparedBasis {
     fn new(
         service: &MathService,
         preparation: ModelingPreparation,
-        acquisition_dependencies: Arc<SelectedDependencies>,
+        source_premises: Arc<LocalSourcePremises>,
     ) -> Result<Self, MathRuntimeError> {
-        let bytes = size_of::<Self>() + 128 + acquisition_dependencies.retained_bytes();
+        let bytes = size_of::<Self>() + 128 + source_premises.retained_bytes();
         let metadata = service.reserve("math:prepared-basis-metadata", bytes)?;
         Ok(Self {
             root: preparation.solved.model(),
             instance: preparation.solved.instance(),
             product: preparation.product,
             owner: preparation._owner,
-            acquisition_dependencies,
-            descriptions: Vec::new(),
-            selection_material: None,
+            source_premises,
             _metadata: metadata,
         })
     }
@@ -165,63 +160,7 @@ impl PreparedBasis {
         size_of::<Self>()
             + 128
             + self.product.retained_bytes()
-            + self.acquisition_dependencies.retained_bytes()
-            + self
-                .selection_material
-                .as_ref()
-                .map_or(0, |material| material.retained_bytes())
-            + self.descriptions.capacity() * size_of::<Arc<super::portable::BodyDescription>>()
-            + self
-                .descriptions
-                .iter()
-                .map(|description| description.retained_bytes())
-                .sum::<usize>()
-    }
-    /// Attach caller-produced immutable material while sharing the mathematical owner once.
-    pub(crate) fn with_descriptions(
-        &self,
-        service: &MathService,
-        selection_material: Arc<pse_operations::canonical_selection::SelectionMaterial>,
-        mut descriptions: Vec<Arc<super::portable::BodyDescription>>,
-    ) -> Result<Self, MathRuntimeError> {
-        descriptions.sort_unstable_by_key(|description| description.semantic_identity);
-        if descriptions.iter().any(|description| {
-            !Arc::ptr_eq(
-                &selection_material,
-                description.description.selection_material(),
-            )
-        }) {
-            return Err(pse_backend_native::ProblemError::Contract(
-                "body inventory has inconsistent selected material".into(),
-            )
-            .into());
-        }
-        let metadata = service.reserve(
-            "math:prepared-basis-description-inventory",
-            size_of::<Self>()
-                + 128
-                + self.acquisition_dependencies.retained_bytes()
-                + descriptions.capacity() * size_of::<Arc<super::portable::BodyDescription>>(),
-        )?;
-        Ok(Self {
-            product: self.product.clone(),
-            root: self.root,
-            instance: self.instance,
-            acquisition_dependencies: self.acquisition_dependencies.clone(),
-            descriptions,
-            selection_material: Some(selection_material),
-            owner: self.owner.clone(),
-            _metadata: metadata,
-        })
-    }
-    pub(crate) fn description(
-        &self,
-        identity: pse_ids::roles::SemanticBodyHash,
-    ) -> Option<&Arc<super::portable::BodyDescription>> {
-        self.descriptions
-            .binary_search_by_key(&identity, |description| description.semantic_identity)
-            .ok()
-            .map(|index| &self.descriptions[index])
+            + self.source_premises.retained_bytes()
     }
     /// Bind the current revision's lineage; consumed source versions are supplied afterward.
     pub(crate) fn bind(
@@ -476,7 +415,7 @@ impl MathService {
     pub(crate) async fn complete_frontier_keyed(
         self: &Arc<Self>,
         key: Arc<BasisKey>,
-        acquisition_dependencies: Arc<SelectedDependencies>,
+        source_premises: Arc<LocalSourcePremises>,
         workspace: Workspace,
         frontier: Arc<OwnedModelingFrontier>,
         driver: &crate::CancelSource,
@@ -492,7 +431,7 @@ impl MathService {
             .into());
         }
         if let Some(basis) = self.modeling_cache.basis(&key)
-            && basis.acquisition_dependencies == acquisition_dependencies
+            && basis.source_premises == source_premises
         {
             return Ok(basis);
         }
@@ -500,11 +439,11 @@ impl MathService {
         let generation = frontier.generation;
         let population = super::PopulationScope::capture();
         let operation = self.basis_flights.load_owned(
-            (key.clone(), acquisition_dependencies.clone()),
+            (key.clone(), source_premises.clone()),
             move |control| {
                 population.run(async move {
                     if let Some(basis) = service.modeling_cache.basis(&key)
-                        && basis.acquisition_dependencies == acquisition_dependencies
+                        && basis.source_premises == source_premises
                     {
                         return Ok(basis);
                     }
@@ -514,10 +453,10 @@ impl MathService {
                     let basis = Arc::new(PreparedBasis::new(
                         &service,
                         model,
-                        acquisition_dependencies,
+                        source_premises,
                     )?);
-                    // This is immutable mathematics only. A current caller still qualifies and
-                    // publishes every required description under its own selected read.
+                    // Immutable local mathematics retains complete source premises. Durable
+                    // import/recording permissions remain with their actual adapters.
                     service
                         .modeling_cache
                         .retain_basis(generation, key, basis.clone());

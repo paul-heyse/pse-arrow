@@ -1177,14 +1177,11 @@ pub(super) fn retained_construction(
         .ok_or_else(|| MathRuntimeError::Infrastructure("local construction lease missing".into()))
 }
 
-/// Exact issuing-store and local interpretation owners of a live compiler lineage.
+/// Local lineage and exact interpretation owners of a live compiler lane.
+/// Store placement and publication ordering are independent effect attribution.
 #[derive(Clone, Debug)]
 pub(crate) struct CompilerLineage {
-    endpoint: String,
-    namespace: String,
-    database: String,
-    issuing_store: String,
-    problem: String,
+    lineage: String,
     interpretation: String,
     validation: usize,
     registry: Arc<pse_schema::Registry>,
@@ -1192,11 +1189,7 @@ pub(crate) struct CompilerLineage {
 }
 impl PartialEq for CompilerLineage {
     fn eq(&self, other: &Self) -> bool {
-        self.endpoint == other.endpoint
-            && self.namespace == other.namespace
-            && self.database == other.database
-            && self.issuing_store == other.issuing_store
-            && self.problem == other.problem
+        self.lineage == other.lineage
             && self.interpretation == other.interpretation
             && self.validation == other.validation
             && Arc::ptr_eq(&self.registry, &other.registry)
@@ -1204,22 +1197,14 @@ impl PartialEq for CompilerLineage {
 }
 impl CompilerLineage {
     pub(crate) fn new(
-        store: &pse_operations::canonical::CanonicalStore,
-        problem: &str,
+        lineage: &str,
         interpretation: &str,
         validation: &Arc<pse_engine::session::EngineFactory>,
         registry: Arc<pse_schema::Registry>,
         owner: pse_engine::session::BoundModel,
     ) -> Result<Self, MathRuntimeError> {
         Ok(Self {
-            endpoint: store.endpoint().into(),
-            namespace: store.namespace().into(),
-            database: store.database().into(),
-            issuing_store: store
-                .issuing_store()
-                .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
-                .into(),
-            problem: problem.into(),
+            lineage: lineage.into(),
             interpretation: interpretation.into(),
             validation: Arc::as_ptr(validation) as usize,
             registry,
@@ -1227,28 +1212,18 @@ impl CompilerLineage {
         })
     }
     fn retained_bytes(&self) -> usize {
-        size_of::<Self>()
-            + self.endpoint.capacity()
-            + self.namespace.capacity()
-            + self.database.capacity()
-            + self.issuing_store.capacity()
-            + self.problem.capacity()
-            + self.interpretation.capacity()
-            + 256
+        size_of::<Self>() + self.lineage.capacity() + self.interpretation.capacity() + 256
     }
 }
-/// Protected canonical ordering, separate from source/mathematical equality.
+/// Local head ordering, separate from semantic equality and durable head CAS.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct LaneStamp {
-    sequence: u64,
+    sequence: i64,
     revision: String,
 }
 impl LaneStamp {
-    pub(crate) fn new(revision: &pse_operations::canonical::Revision) -> Self {
-        Self {
-            sequence: revision.sequence,
-            revision: revision.key.clone(),
-        }
+    pub(crate) fn new(generation: i64, revision_id: &str) -> Self {
+        Self { sequence: generation, revision: revision_id.into() }
     }
     fn precedes(&self, head: &Self) -> bool {
         self.sequence < head.sequence
@@ -1374,7 +1349,7 @@ impl MathService {
         compiler.publish_modeling_revision(revision.admitted.clone())?;
         operation(&mut compiler)
     }
-    /// Admit a freshly protected source without letting an older/branch request rewind the live head.
+    /// Admit an owned local source without letting an older/branch request rewind the live head.
     #[expect(
         clippy::too_many_arguments,
         reason = "protected source admission carries its complete context, ordering, cancellation and supplier obligations"

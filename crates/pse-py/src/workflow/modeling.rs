@@ -184,12 +184,16 @@ impl ModelingLimits {
 #[pymethods]
 impl NativeModelingPackage {
     #[getter]
-    fn canonical_revision(&self) -> String {
-        self.inner.canonical_revision().key.clone()
+    fn revision_id(&self) -> String {
+        self.inner.revision_id().to_owned()
     }
     #[getter]
-    fn canonical_problem(&self) -> String {
-        self.inner.canonical_revision().problem.clone()
+    fn canonical_revision(&self) -> Option<String> {
+        self.inner.canonical_revision().map(|origin| origin.key.clone())
+    }
+    #[getter]
+    fn canonical_problem(&self) -> Option<String> {
+        self.inner.canonical_revision().map(|origin| origin.problem.clone())
     }
     fn with_declarations(&self, py: Python<'_>, source: &[u8]) -> PyResult<Self> {
         let edit: native::DeclarationEdit = documents::decode(

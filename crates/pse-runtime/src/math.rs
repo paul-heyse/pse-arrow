@@ -328,7 +328,7 @@ pub struct MathService {
     pub(crate) selected_flights: Flights<
         (
             Arc<crate::workflow::modeling::SelectedRequest>,
-            Arc<pse_operations::canonical_selection::SelectedDependencies>,
+            Arc<crate::workflow::modeling::LocalSourcePremises>,
         ),
         modeling::ModelingRevision,
         MathRuntimeError,
@@ -339,7 +339,7 @@ pub struct MathService {
     pub(crate) basis_flights: Flights<
         (
             Arc<modeling::BasisKey>,
-            Arc<pse_operations::canonical_selection::SelectedDependencies>,
+            Arc<crate::workflow::modeling::LocalSourcePremises>,
         ),
         modeling::PreparedBasis,
         MathRuntimeError,

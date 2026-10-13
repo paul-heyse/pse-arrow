@@ -14,12 +14,12 @@ pub struct DeclarationEdit {
     #[doc = "Declarations from the selected authored revision."]
     pub declarations: Vec<pse_authoring::language::Declaration>,
 }
-/// An atomic source edit against one exact canonical parent. Omission retains
+/// An atomic source edit against one exact locally admitted receiver. Omission retains
 /// inherited objects; deletion must be named explicitly.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SourceDelta {
-    /// Exact canonical revision key of the receiver, also used for publication CAS.
+    /// Exact revision_id of the receiver; actual publication separately checks its canonical origin.
     pub parent: String,
     /// New declarations, appended in this order after retained parent rows.
     #[serde(default)]

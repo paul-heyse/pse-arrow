@@ -581,12 +581,17 @@ class ModelingPackage:
     _handle: _NativeModelingPackage
 
     @property
-    def canonical_revision(self) -> str:
+    def revision_id(self) -> str:
+        """Opaque exact parent token for edits of this admitted receiver."""
+        return self._handle.revision_id
+
+    @property
+    def canonical_revision(self) -> str | None:
         """Immutable retained source selection, suitable for reopening after restart."""
         return self._handle.canonical_revision
 
     @property
-    def canonical_problem(self) -> str:
+    def canonical_problem(self) -> str | None:
         """Canonical problem identity shared by this source's revisions."""
         return self._handle.canonical_problem
 
