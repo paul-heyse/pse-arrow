@@ -298,6 +298,10 @@ solution. The rolling horizon's advanced-step controller is its consumer
 
 ### 15.6 Reports
 
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
+Failure summaries are automatic bounded projections of retained final/best evidence, with exact original coordinates and partial/unavailable fields. Richer numerical diagnosis is explicitly admitted; cancellation/deadline and exhausted work never cause hidden numerical analysis. The existing model diagnostic catalog and boundary diagnostics remain.
+
 Structural refusals and native failures reach callers as structured values, not prose.
 Every public error carries a `pse-diagnostics` code and failure class
 ([§23.2](operations-and-validation.md#section-23-2)); workflow boundary diagnostics
@@ -443,6 +447,10 @@ policy. Block and causal/recycle projections carry original units, physical boun
 integrality and provenance; they cannot manufacture a second default interpretation.
 
 ### 16.5 Identity, provenance and persistence
+
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
+Replay distinguishes immutable input reconstruction, recorded-decision replay, tolerant numerical rerun and actual native continuation. Export retains effective settings, decisions, frozen advice, starts/transforms, physical/provider/mapping and required build premises. Missing premises refuse. New reruns own new execution identities; existing occurrence recovery preserves original budgets and unsettled effects. Native continuation requires a real library-owned checkpoint.
 
 > Decision: ADR-0163 (proposed; authorized implementation).
 
@@ -1105,6 +1113,10 @@ regularization is derived from the requested gap
 
 ### 18.6 Truthful outcomes
 
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
+One bounded typed attempt product extends native WorkEvidence/reports and strategy trace. It retains actual method meanings, absent counters, effective controls, original assessment, start/reuse and actual phase intervals. Synchronous decision evidence is independent of lossy ordinary progress; the existing nonblocking optional writer and explicit coverage remain. Raw recycle history records actual G(x)-x and known sample roles, not accelerated step norm or inferred iteration history.
+
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md), Plan 25n N2/N3.
 
 Original assessment transports its scientific conclusion, typed cause, composed permission,
@@ -1240,6 +1252,10 @@ Path events carry actual localization and rank observations; a nondegeneracy con
 requires genuine compatible compiler Second support, separately from First preparation.
 
 ### 18.7 Capability, eligibility and selection
+
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
+Small pure governing preference/permission/transition functions live with pse-model strategy contracts and are consumed by native routing and the existing runtime walker. Adapters retain contextual capability, settings, representation and artifact meaning; scientific workflows retain their maps and original acceptance. Explicit profile/options and declared order constrain policy. Pending evidence, missing prepared products, incompatibility and placement remain distinct. Hard external/contract/infrastructure/resource/panic stops veto successors. Optional advice is frozen, reorders only permitted equivalent Auto choices, and falls back to baseline ties on absent/incompatible/partial comparisons. Native library-internal Auto options are not substitution permission.
 
 > Proposed amendment: [ADR-0154](../../adr/0154-declared-numerical-strategy.md),
 > [ADR-0158](../../adr/0158-observed-pounce-execution.md), Plan 25n N5/N6/N8.

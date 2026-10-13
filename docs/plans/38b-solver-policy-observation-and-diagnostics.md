@@ -1,8 +1,8 @@
 ---
 title: Common solver policy, observation and diagnostics
-status: draft
+status: in-progress
 date: 2026-10-13
-adrs: []
+adrs: [ADR-0184]
 review_sources: [docs/design_review/reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md]
 doc_owner: docs/plans/38-efficiency-and-solver-target.md
 doc_topics: [architecture, preparation, validation]
@@ -87,3 +87,22 @@ Finite budgets do not guarantee every admitted candidate runs. Record allocation
 I-B1 maps every current Auto/preference owner to the consumed seam and chooses the minimum shared contract; it must identify missing/pending evidence and preserve explicit control, not merely replace enum names. I-B2 settles per-method observation/stop fidelity with C1/C3. I-B3 states actual advice/replay/branch comparison requirements and either selects a conservative fitting summary or records an explicit deferral until sufficient comparable records exist. No journal/service is prerequisite.
 
 Each investigation ends with owned meaning, source/interface evidence, the selected/retained alternative and affected dependents. C/D consumer migration and original scientific checks are required parts of B1/B2 completion. Targeted compilation/scripted tests accompany implementation; assembled and independent-science scope belongs G1–G3 at functional scope end. Rule acceptance is not implementation acceptance.
+
+
+## Execution checkpoint — 2026-10-13
+
+The maintainer authorized B1–B5 and I-B1–I-B3, including minimum C1/C3 native-fact adapters
+and D2 raw-map samples and bounded optional advice. Proposed ADR-0184 and architecture
+revision161 install the concrete governing boundaries before dependent product changes.
+The independent bounded target review accepted the amendment before product changes. The existing audit/foundation is not restarted.
+
+I-B1 selects small pure governing functions with existing model strategy contracts; native
+adapters retain contextual/settings admission and the existing runtime walker retains effects,
+original assessment and aggregate budget ownership. All current Auto consumers migrate. I-B2
+checks actual selected-profile counters/stop fidelity; unavailable facts remain absent. I-B3
+selects opt-in descriptive matched-cohort advice and immutable effective replay dependencies;
+partial/censored comparisons retain baseline ties, and automatic numeric tuning is excluded.
+
+Ordinary durable progress is already nonblocking and loss-accounted. B3 extends synchronous
+decision evidence and compact summaries, preserving that writer. Broader C/D methods, reuse,
+parallelism and scientific controllers remain separately owned. Assembled qualification is38g.

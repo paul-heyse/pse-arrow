@@ -1050,6 +1050,10 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
+> Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
+
+Rust-owned generated documents expose bounded attempt/failure summaries, frozen optional advice and explicit replay levels. Python adds no policy, numerical estimator or counter inference. Required recording and optional ordinary telemetry retain separate outcomes; default local computation needs neither history nor a store.
+
 > Decision: [ADR-0183](../../adr/0183-local-model-authority-and-scoped-validity.md) (proposed; maintainer-authorized Plan38a target).
 
 `Runtime(settings, ephemeral=True)` may omit `substrate` and never connects at construction.
