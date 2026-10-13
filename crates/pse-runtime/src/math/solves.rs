@@ -1381,11 +1381,12 @@ impl PreparedSolve {
                 bytes = bytes.checked_add(entries.checked_mul(1024).ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?)
                     .ok_or_else(|| ProblemError::memory("replay binding metadata extent"))?;
             }
-            for product in &input.automatic_products {
+            for product in input.automatic_products.iter().chain(input.replay_rungs().unwrap_or_default()) {
                 let PreparedRung::Original(child) = product else {
                     return Err(ProblemError::Unsupported("opaque replay metadata requires its original product producer".into()));
                 };
-                bytes = bytes.checked_add(size_of::<PreparedRung>()).and_then(|bytes| bytes.checked_add(extent(child, depth + 1, count).ok()?))
+                let child_bytes = extent(child, depth + 1, count)?;
+                bytes = bytes.checked_add(size_of::<PreparedRung>()).and_then(|bytes| bytes.checked_add(child_bytes))
                     .ok_or_else(|| ProblemError::memory("replay nested original metadata extent"))?;
             }
             Ok(bytes)
@@ -1398,6 +1399,11 @@ impl PreparedSolve {
             input.replay_metadata_owner = Some(owner.clone());
             for product in &mut input.automatic_products {
                 if let PreparedRung::Original(child) = product { retain(child, owner); }
+            }
+            if let Some(composition) = &mut input.composition && let Some(composition) = Arc::get_mut(composition) {
+                for product in &mut composition.rungs {
+                    if let PreparedRung::Original(child) = product { retain(child, owner); }
+                }
             }
         }
         retain(&mut self, &owner);
