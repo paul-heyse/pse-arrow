@@ -1091,6 +1091,18 @@ mod tests {
         assert!(original.report().is_ok());
         let replay = original.replay();
         let document = replay.document().unwrap();
+        let permits = package.runtime.shared.compiler_cpu();
+        let width = permits.available_permits();
+        assert!(width > 0);
+        let held = permits.acquire_many(width as u32).await.unwrap();
+        let parent = crate::CancelSource::new();
+        let pending = replay.rerun_with_cancel(&parent).await.unwrap();
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(20), pending.wait()).await.is_err());
+        parent.cancel();
+        let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), pending.wait()).await.unwrap().unwrap();
+        assert!(stopped.report().is_err());
+        assert_eq!(stopped.replay().document().unwrap().fit_constructor.as_ref().unwrap().max_cells, profile.max_cells);
+        drop(held);
         let constructor = document.fit_constructor.as_ref().unwrap();
         assert_eq!(constructor.max_cells, profile.max_cells);
         assert_eq!(constructor.derivatives, profile.derivatives);
