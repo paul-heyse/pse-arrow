@@ -147,6 +147,7 @@ pub(in crate::workflow) fn profile(
         rank_tolerance: 1e-8,
         max_cells: 100_000,
         derivatives: FitDerivatives::Responses,
+        experiment_workers: pse_model::scalar!(PositiveCount(1)),
         uncertainty,
     }
 }

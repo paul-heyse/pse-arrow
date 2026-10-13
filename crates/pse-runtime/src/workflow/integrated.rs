@@ -194,10 +194,19 @@ fn attempt(
 
 #[cfg(feature = "solver-diffsol")]
 impl IntegratedExperiment {
+    /// Construct neutral compiled scratch once on the experiment's owning lane. Each
+    /// parameter trial still starts a fresh native IVP; no native history crosses trials.
+    pub(crate) fn worker(
+        &self,
+        execution: &Execution,
+    ) -> Result<super::dynamics::DynamicWorker, ProblemError> {
+        self.program.worker(execution.scope()?, self.snapshots.clone())
+    }
     /// Integrate once at the consumer's values, with forward sensitivities or none.
     /// Integrations borrow the admitted outer worker; they never enqueue nested native jobs.
     pub(crate) fn integrate(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         value: &dyn Fn(usize) -> f64,
         execution: &Execution,
         sensitivity: DynamicSensitivity,
@@ -208,11 +217,8 @@ impl IntegratedExperiment {
             ));
         }
         let profile = attempt(&self.profile, execution, sensitivity);
-        let mut worker = self
-            .program
-            .worker(execution.scope()?, self.snapshots.clone())?;
         let report = native::dynamics::integrate_with_progress_observed(
-            &mut worker,
+            worker,
             &profile,
             &self.bind(value),
             execution.cancel.clone(),
@@ -226,15 +232,12 @@ impl IntegratedExperiment {
     /// enclosure inferred from the native integration controls.
     pub(crate) fn prediction_allowances(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         value: &dyn Fn(usize) -> f64,
-        execution: &Execution,
         report: &native::dynamics::Report,
     ) -> Result<Vec<Vec<f64>>, ProblemError> {
         use native::dynamics::Oracle;
         let parameters = self.bind(value);
-        let mut worker = self
-            .program
-            .worker(execution.scope()?, self.snapshots.clone())?;
         report
             .samples
             .iter()
@@ -304,6 +307,7 @@ impl IntegratedExperiment {
     /// foreign allowance.
     pub(crate) fn gradient(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         value: &dyn Fn(usize) -> f64,
         execution: &Execution,
         cotangent: native::dynamics::Cotangent<'_>,
@@ -314,13 +318,10 @@ impl IntegratedExperiment {
             )
         })?;
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self
-            .program
-            .worker(execution.scope()?, self.snapshots.clone())?;
         let native::dynamics::Gradient {
             report, gradient, ..
         } = native::dynamics::gradient_observed(
-            &mut worker,
+            worker,
             &profile,
             &self.bind(value),
             cotangent,
@@ -359,6 +360,7 @@ impl IntegratedExperiment {
     /// allowance.
     pub(crate) fn hessian(
         &self,
+        worker: &mut super::dynamics::DynamicWorker,
         value: &dyn Fn(usize) -> f64,
         execution: &Execution,
         selected: &[usize],
@@ -381,16 +383,13 @@ impl IntegratedExperiment {
         directions.sort_unstable();
         directions.dedup();
         let profile = attempt(&self.profile, execution, DynamicSensitivity::Adjoint);
-        let mut worker = self
-            .program
-            .worker(execution.scope()?, self.snapshots.clone())?;
         let native::dynamics::Gradient {
             report,
             gradient,
             hessian,
             ..
         } = native::dynamics::hessian_observed(
-            &mut worker,
+            worker,
             &profile,
             &self.bind(value),
             &directions,

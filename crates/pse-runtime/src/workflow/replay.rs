@@ -2609,6 +2609,7 @@ impl OriginalFitInputs {
                 rank_tolerance: profile.rank_tolerance,
                 max_cells: profile.max_cells,
                 derivatives: profile.derivatives,
+                experiment_workers: profile.experiment_workers,
                 uncertainty: profile.uncertainty.clone(),
             },
             _owner: owner,
@@ -2641,6 +2642,8 @@ pub struct ReplayFitConstructor {
     pub max_cells: usize,
     /// Original derivative evidence policy.
     pub derivatives: super::FitDerivatives,
+    /// Finite independent experiment lanes.
+    pub experiment_workers: pse_model::scalars::PositiveCount,
     /// Complete requested uncertainty/propagation controls.
     pub uncertainty: Option<super::FitUncertainty>,
 }
@@ -2660,6 +2663,7 @@ impl ReplayFitConstructor {
                     rank_tolerance: self.rank_tolerance,
                     max_cells: self.max_cells,
                     derivatives: self.derivatives,
+                    experiment_workers: self.experiment_workers,
                     uncertainty: self.uncertainty.clone(),
                 },
                 self.preparation.compiler,

@@ -146,8 +146,14 @@ pub struct FitOperationSettings {
     pub max_cells: usize,
     /// Existing fit derivative source vocabulary.
     pub derivatives: FitDerivatives,
+    /// Finite independent experiment lanes.
+    #[serde(default = "default_experiment_workers")]
+    pub experiment_workers: pse_model::scalars::PositiveCount,
     /// Existing uncertainty/interval request.
     pub uncertainty: Option<FitUncertainty>,
+}
+fn default_experiment_workers() -> pse_model::scalars::PositiveCount {
+    pse_model::scalar!(PositiveCount(1))
 }
 impl FitOperationSettings {
     /// Project into the fitting owner's profile; its preparation performs admission.
@@ -160,6 +166,7 @@ impl FitOperationSettings {
             rank_tolerance: self.rank_tolerance,
             max_cells: self.max_cells,
             derivatives: self.derivatives,
+            experiment_workers: self.experiment_workers,
             uncertainty: self.uncertainty.clone(),
         })
     }
@@ -1339,6 +1346,7 @@ mod study_operation_unit {
                     rank_tolerance: 1e-6,
                     max_cells: 12_345,
                     derivatives: FitDerivatives::Responses,
+                    experiment_workers: pse_model::scalar!(PositiveCount(1)),
                     uncertainty: None,
                 },
             }),

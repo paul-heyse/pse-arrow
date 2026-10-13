@@ -200,7 +200,8 @@ impl PreparedExperiments {
         );
         h.f64(profile.rank_tolerance)
             .u64(profile.max_cells as u64)
-            .str(profile.derivatives.as_str());
+            .str(profile.derivatives.as_str())
+            .u64(profile.experiment_workers.into_inner() as u64);
         for (id, p) in &profile.simulations {
             h.id(&id.as_id()).hash(
                 &crate::workflow::dynamics::profile_identity(p)

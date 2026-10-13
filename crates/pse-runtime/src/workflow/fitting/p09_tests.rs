@@ -295,6 +295,7 @@ async fn source_case(
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
+        experiment_workers: pse_model::scalar!(PositiveCount(1)),
         uncertainty: None,
     };
     let case_id = root(case);
@@ -855,6 +856,7 @@ async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_pr
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
+        experiment_workers: pse_model::scalar!(PositiveCount(1)),
         uncertainty: None,
     };
     let cancel = crate::CancelSource::new();
@@ -1263,6 +1265,7 @@ async fn curved_source(
         rank_tolerance: 1e-8,
         max_cells: 100000,
         derivatives: FitDerivatives::Responses,
+        experiment_workers: pse_model::scalar!(PositiveCount(1)),
         uncertainty: None,
     };
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
@@ -1683,6 +1686,9 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         let earlier = oracle.objective(&[0.7]).unwrap();
         assert_eq!(oracle.transient_passes, (2, 1));
         assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
+        assert!(oracle.point.as_ref().unwrap().trajectories.values().all(|r|
+            r.samples.iter().all(|s| s.state_sensitivities.is_empty()
+                && s.output_sensitivities.is_empty())));
         let prior = oracle
             .point
             .as_ref()

@@ -67,6 +67,9 @@ pub struct FitProfile {
     /// alone (with the limited-memory Hessian), whose final assessment reruns the forward
     /// sensitivities once for rank (PS-12).
     pub derivatives: FitDerivatives,
+    /// Independent experiments evaluated concurrently. Each lane owns its compiled
+    /// scratch; the existing runtime admits its compute, construction and stacks.
+    pub experiment_workers: PositiveCount,
     /// The confidence intervals to derive from the estimate beyond its covariance (Plan 22
     /// S3); absent derives the covariance alone.
     pub uncertainty: Option<FitUncertainty>,

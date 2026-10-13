@@ -15,8 +15,28 @@ use native::{
 use pse_math::{assembly::CaseWorker, sparse::AssemblyMatrix};
 #[cfg(test)]
 use std::sync::atomic::AtomicBool;
+/// Products actually requested at an exact trial point. Native integration still
+/// computes the Jacobians its numerical method requires, independently of fit output demand.
+#[derive(Clone, Copy, Debug, Default)]
+struct Demand {
+    jacobian: bool,
+    responses: bool,
+    adjoint: bool,
+}
+impl Demand {
+    fn includes(self, other: Self) -> bool {
+        (!other.jacobian || self.jacobian) && (!other.responses || self.responses)
+            && (!other.adjoint || self.adjoint || self.responses)
+    }
+    fn union(self, other: Self) -> Self {
+        Self { jacobian: self.jacobian || other.jacobian,
+            responses: self.responses || other.responses, adjoint: !(self.responses || other.responses) && (self.adjoint || other.adjoint) }
+    }
+    fn responses() -> Self { Self { responses: true, ..Self::default() } }
+}
 #[derive(Debug)]
 struct Point {
+    achieved: Demand,
     x: Vec<f64>,
     predictions: Vec<f64>,
     responses: AssemblyMatrix,
@@ -31,6 +51,8 @@ struct Point {
 pub(super) struct FitOracle {
     prepared: Arc<FitProblem>,
     workers: Vec<Option<CaseWorker>>,
+    #[cfg(feature = "solver-diffsol")]
+    transient_workers: Vec<Option<crate::workflow::dynamics::DynamicWorker>>,
     execution: Execution,
     /// The derivative source: the prepared profile's, until the final assessment reruns
     /// the forward sensitivities for rank.
@@ -72,6 +94,11 @@ impl FitOracle {
                 Experiment::Transient(_) => Ok(None),
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
+        #[cfg(feature = "solver-diffsol")]
+        let transient_workers = p.experiments.iter().map(|experiment| match experiment {
+            Experiment::Steady(_) => Ok(None),
+            Experiment::Transient(s) => s.worker(&execution).map(Some),
+        }).collect::<Result<Vec<_>, ProblemError>>()?;
         let hessian = p.layout.hessian.clone();
         let gram = p
             .layout
@@ -83,6 +110,8 @@ impl FitOracle {
             derivatives: p.profile.derivatives,
             prepared: p,
             workers,
+            #[cfg(feature = "solver-diffsol")]
+            transient_workers,
             execution,
             hessian,
             gram,
@@ -92,9 +121,9 @@ impl FitOracle {
         })
     }
     fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
-        self.evaluate_demand(x, false)
+        self.evaluate_demand(x, Demand { jacobian: true, responses: true, adjoint: false })
     }
-    fn evaluate_demand(&mut self, x: &[f64], gradient: bool) -> Result<&Point, ProblemError> {
+    fn evaluate_demand(&mut self, x: &[f64], mut demand: Demand) -> Result<&Point, ProblemError> {
         if let Some(stop) = self.execution.stopped() {
             self.point = None;
             return Err(ProblemError::stopped(stop, "fit evaluation deadline"));
@@ -105,16 +134,18 @@ impl FitOracle {
             self.point = None;
             return Err(ProblemError::numerical("fit trial coordinates"));
         }
-        let gradient = gradient && self.derivatives == FitDerivatives::Gradient;
         let same = self
             .point
             .as_ref()
             .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()));
-        if same && (!gradient || self.point.as_ref().is_some_and(|p| p.adjoint.is_some())) {
+        if same && self.point.as_ref().is_some_and(|p| p.achieved.includes(demand)) {
             return self
                 .point
                 .as_ref()
                 .ok_or_else(|| ProblemError::internal("fit point cache"));
+        }
+        if same && let Some(point) = &self.point {
+            demand = demand.union(point.achieved);
         }
         // An upgrade is recomputed with checkpoints. Keep the earlier observation only
         // for physical comparison; publish predictions and derivatives together.
@@ -125,6 +156,7 @@ impl FitOracle {
             self.point = None;
         }
         let mut point = Point {
+            achieved: demand,
             x: x.to_vec(),
             predictions: vec![0.0; p.measurements.len()],
             responses: p.layout.responses.clone(),
@@ -132,7 +164,7 @@ impl FitOracle {
             jacobian: p.layout.constraints.clone(),
             blocks: Vec::new(),
             trajectories: BTreeMap::new(),
-            adjoint: gradient.then(|| vec![0.; x.len()]),
+            adjoint: demand.adjoint.then(|| vec![0.; x.len()]),
         };
         for (ei, e) in p.experiments.iter().enumerate() {
             let mapping = &p.layout.mappings[ei];
@@ -146,24 +178,29 @@ impl FitOracle {
                         values.scalars.insert(id, x[col.get()]);
                     }
                     let outputs = worker.constraints(&values)?;
-                    let j = worker.jacobian(&values)?;
                     for &(row, global) in &s.constraints {
                         point.constraints[global.get()] = outputs[row.get()];
                     }
-                    for &(source, target) in &mapping.constraints {
-                        point.jacobian.add(target, j.val()[source])?;
-                    }
-                    for term in &mapping.responses {
-                        debug_assert!(p.measurements[term.observation].included);
-                        point
-                            .responses
-                            .add(term.contribution, j.val()[term.local])?;
+                    let j = if demand.jacobian || demand.responses || demand.adjoint {
+                        Some(worker.jacobian(&values)?.to_owned())
+                    } else { None };
+                    if let Some(j) = &j {
+                        if demand.jacobian {
+                            for &(source, target) in &mapping.constraints {
+                                point.jacobian.add(target, j.val()[source])?;
+                            }
+                        }
+                        if demand.responses || demand.adjoint {
+                            for term in &mapping.responses {
+                                point.responses.add(term.contribution, j.val()[term.local])?;
+                            }
+                        }
                     }
                     for &i in &mapping.observations {
                         let o = &p.measurements[i];
                         point.predictions[i] = outputs[o.row];
                     }
-                    point.blocks.push(Some(j.to_owned()));
+                    point.blocks.push(j);
                 }
                 Experiment::Transient(s) => {
                     if mapping.observations.is_empty() {
@@ -172,16 +209,18 @@ impl FitOracle {
                     }
                     #[cfg(feature = "solver-diffsol")]
                     {
-                        let forward = self.derivatives == FitDerivatives::Responses
+                        let forward = demand.responses
                             && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
-                        let combined = gradient && !mapping.free_bindings.is_empty();
+                        let combined = demand.adjoint && !mapping.free_bindings.is_empty();
                         #[cfg(test)]
                         {
                             self.transient_passes.0 += 1;
                             self.transient_passes.1 += usize::from(combined);
                         }
                         let report = if combined {
-                            let (report, contributions) = self.transient_gradient(p, ei, s, x)?;
+                            let (report, contributions) = Self::transient_gradient(p, ei, s, x, &self.execution,
+                                self.transient_workers[ei].as_mut().ok_or_else(||
+                                    ProblemError::internal("missing transient worker"))?)?;
                             let total = point
                                 .adjoint
                                 .as_mut()
@@ -191,19 +230,36 @@ impl FitOracle {
                                     total[column.get()] += value;
                                 }
                             }
-                            if let Some(previous) = &previous {
+
+                            report
+                        } else {
+                            s.integrate(
+                                self.transient_workers[ei].as_mut().ok_or_else(||
+                                    ProblemError::internal("missing transient worker"))?,
+                                &|k| Self::value(p, x, k),
+                                &self.execution,
+                                if forward {
+                                    native::dynamics::DynamicSensitivity::Forward
+                                } else {
+                                    native::dynamics::DynamicSensitivity::None
+                                },
+                            )?
+                        };
+                        if let Some(previous) = &previous {
                                 let key = p.declaration.experiments[ei].experiment_id;
                                 let prior = previous.get(&key).ok_or_else(|| {
                                     ProblemError::internal("fit prior trajectory")
                                 })?;
                                 let before = s.prediction_allowances(
+                                    self.transient_workers[ei].as_mut().ok_or_else(||
+                                        ProblemError::internal("missing transient worker"))?,
                                     &|k| Self::value(p, x, k),
-                                    &self.execution,
                                     prior,
                                 )?;
                                 let after = s.prediction_allowances(
+                                    self.transient_workers[ei].as_mut().ok_or_else(||
+                                        ProblemError::internal("missing transient worker"))?,
                                     &|k| Self::value(p, x, k),
-                                    &self.execution,
                                     &report,
                                 )?;
                                 for &i in &mapping.observations {
@@ -238,18 +294,6 @@ impl FitOracle {
                                     Self::admit_upgrade(old, new, allowance)?;
                                 }
                             }
-                            report
-                        } else {
-                            s.integrate(
-                                &|k| Self::value(p, x, k),
-                                &self.execution,
-                                if forward {
-                                    native::dynamics::DynamicSensitivity::Forward
-                                } else {
-                                    native::dynamics::DynamicSensitivity::None
-                                },
-                            )?
-                        };
                         for &i in &mapping.observations {
                             let o = &p.measurements[i];
                             let sample = o
@@ -353,16 +397,17 @@ impl FitOracle {
     /// pass, whose cotangent is the weighted residual of each included observation.
     #[cfg(feature = "solver-diffsol")]
     fn transient_gradient(
-        &self,
         p: &FitProblem,
         ei: usize,
         s: &IntegratedExperiment,
         x: &[f64],
+        execution: &Execution,
+        worker: &mut crate::workflow::dynamics::DynamicWorker,
     ) -> Result<(native::dynamics::Report, Vec<(usize, f64)>), ProblemError> {
         let outputs = s.program.contract.outputs.len();
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
-        s.gradient(&|k| Self::value(p, x, k), &self.execution, &mut cotangent)
+        s.gradient(worker, &|k| Self::value(p, x, k), execution, &mut cotangent)
     }
     #[cfg(feature = "solver-diffsol")]
     /// The cotangent of the fit objective's transient part: each included observation's
@@ -393,7 +438,7 @@ impl FitOracle {
     /// bindings, as the dense block the layout's transient Hessian sources index; absent
     /// for steady experiments and for transient ones without an included observation or
     /// a free parameter.
-    fn transient_curvatures(&self, x: &[f64]) -> Result<Vec<Option<Vec<f64>>>, ProblemError> {
+    fn transient_curvatures(&mut self, x: &[f64]) -> Result<Vec<Option<Vec<f64>>>, ProblemError> {
         let p = self.prepared.clone();
         p.experiments
             .iter()
@@ -413,7 +458,7 @@ impl FitOracle {
     }
     #[cfg(feature = "solver-idas")]
     fn transient_curvature(
-        &self,
+        &mut self,
         p: &FitProblem,
         ei: usize,
         s: &IntegratedExperiment,
@@ -424,6 +469,8 @@ impl FitOracle {
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         s.hessian(
+            self.transient_workers[ei].as_mut().ok_or_else(||
+                ProblemError::internal("missing transient worker"))?,
             &|k| Self::value(p, x, k),
             &self.execution,
             free,
@@ -433,7 +480,7 @@ impl FitOracle {
     }
     #[cfg(not(feature = "solver-idas"))]
     fn transient_curvature(
-        &self,
+        &mut self,
         _: &FitProblem,
         _: usize,
         _: &IntegratedExperiment,
@@ -466,7 +513,7 @@ impl NlpOracle for FitOracle {
         &self.prepared.bounds
     }
     fn objective(&mut self, x: &[f64]) -> Result<f64, ProblemError> {
-        self.evaluate(x)?;
+        self.evaluate_demand(x, Demand::default())?;
         let point = self
             .point
             .as_ref()
@@ -487,7 +534,7 @@ impl NlpOracle for FitOracle {
         Ok(sum)
     }
     fn constraints(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        let p = self.evaluate(x)?;
+        let p = self.evaluate_demand(x, Demand::default())?;
         if out.len() != p.constraints.len() {
             return Err(ProblemError::internal("fit constraint extent"));
         }
@@ -495,7 +542,10 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.evaluate_demand(x, true)?;
+        self.evaluate_demand(x, match self.derivatives {
+            FitDerivatives::Responses => Demand::responses(),
+            FitDerivatives::Gradient => Demand { adjoint: true, ..Demand::default() },
+        })?;
         if out.len() != x.len() {
             return Err(ProblemError::internal("fit gradient extent"));
         }
@@ -529,10 +579,7 @@ impl NlpOracle for FitOracle {
         // A gradient-only fit's transient rows carry no responses; their part is the
         // adjoint product.
         let adjoint = if self.derivatives == FitDerivatives::Gradient {
-            point
-                .adjoint
-                .clone()
-                .ok_or_else(|| ProblemError::internal("fit adjoint point"))?
+            point.adjoint.clone().unwrap_or_else(|| vec![0.0; x.len()])
         } else {
             vec![0.0; x.len()]
         };
@@ -546,7 +593,7 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.evaluate(x)?;
+        self.evaluate_demand(x, Demand { jacobian: true, ..Demand::default() })?;
         let values = self
             .point
             .as_ref()
@@ -1342,8 +1389,28 @@ mod tests {
             rank_tolerance: 1e-8,
             max_cells: 100000,
             derivatives: FitDerivatives::Responses,
+            experiment_workers: pse_model::scalar!(PositiveCount(1)),
             uncertainty: None,
         }
+    }
+    #[tokio::test]
+    async fn fitting_value_demand_omits_steady_jacobian_and_upgrades_coherently() {
+        let p = source(false).await.prepare_fit_problem(id(32).into(), profile(false),
+            compiler_profile(), Default::default(), &crate::CancelSource::new())
+            .await.unwrap().0;
+        let execution = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let mut oracle = FitOracle::new(p, execution).unwrap();
+        let objective = oracle.objective(&[2.0]).unwrap();
+        let point = oracle.point.as_ref().unwrap();
+        assert!(!point.achieved.responses && !point.achieved.jacobian);
+        assert!(point.blocks.iter().all(Option::is_none));
+        let mut gradient = [0.0];
+        oracle.gradient(&[2.0], &mut gradient).unwrap();
+        assert!((gradient[0] - 4.0).abs() < 1e-12);
+        assert!(oracle.point.as_ref().unwrap().achieved.responses);
+        assert_eq!(objective, oracle.objective(&[2.0]).unwrap());
+        oracle.objective(&[3.0]).unwrap();
+        assert!(oracle.point.as_ref().unwrap().blocks.iter().all(Option::is_none));
     }
     #[tokio::test]
     async fn prepared_fit_clones_share_the_original_reservation() {

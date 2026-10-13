@@ -25,11 +25,17 @@ pub struct FitPreparationDocument {
     #[serde(default = "FitPreparationDocument::default_derivatives")]
     #[doc = "Requested derivative evidence policy."]
     pub derivatives: super::FitDerivatives,
+    #[serde(default = "FitPreparationDocument::default_experiment_workers")]
+    #[doc = "Finite independent experiment workers, separately from profile chains."]
+    pub experiment_workers: pse_model::scalars::PositiveCount,
     #[serde(default)]
     #[doc = "Optional fit uncertainty request."]
     pub uncertainty: Option<super::FitUncertainty>,
 }
 impl FitPreparationDocument {
+    const fn default_experiment_workers() -> pse_model::scalars::PositiveCount {
+        pse_model::scalar!(PositiveCount(1))
+    }
     const fn default_rank_tolerance() -> f64 {
         1e-8
     }
@@ -47,6 +53,7 @@ impl FitPreparationDocument {
             rank_tolerance: self.rank_tolerance,
             max_cells: self.max_cells,
             derivatives: self.derivatives,
+            experiment_workers: self.experiment_workers,
             uncertainty: self.uncertainty,
         })
     }
