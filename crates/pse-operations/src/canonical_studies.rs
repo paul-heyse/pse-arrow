@@ -1309,7 +1309,6 @@ impl CanonicalStore {
             .await
     }
 
-    /// Recompute shared policy then atomically fence every consumed premise and claim.
     /// Claim only the input-admission phase, under the existing writer and lease fences.
     pub async fn claim_study_admission(
         &self, scope: &StudyScope, worker: &str, lifetime: Duration,
@@ -1391,6 +1390,7 @@ impl CanonicalStore {
         }).await }).await
     }
 
+    /// Recompute shared policy then atomically fence every consumed premise and claim.
     pub async fn claim_study_point(
         &self,
         scope: &StudyScope,

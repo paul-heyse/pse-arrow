@@ -398,7 +398,7 @@ impl ModelingPackage {
                                 Ok((operation, requested, source)) => {
                                     facts[index].admitted_seed_need = Some(requested.policy.seed_need);
                                     if definition.variants.is_some() {
-                                        let extent = serde_json::to_vec(&requested).map_err(|e| super::contract(e.to_string()))?.len()
+                                        let extent = super::study_variants::document_extent(&requested, 512 * 1024)?
                                             .checked_mul(4).and_then(|n| n.checked_add(1024)).ok_or_else(|| super::contract("selected admission extent"))?;
                                         admission_owners.insert(index, self.runtime.shared.math().reserve("study:selected-admission", extent)?);
                                         resolved.insert(index, requested);

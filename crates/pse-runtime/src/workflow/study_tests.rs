@@ -3798,7 +3798,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let invalid_key = pse_operations::canonical_studies::point_key(&study, OccurrenceKey(3));
     let scope = runtime.canonical_store().unwrap().study_scope(&valid_key).await.unwrap();
     assert!(runtime.canonical_store().unwrap().claim_study_point(&scope, None, "pending-native", "worker", Duration::from_secs(60)).await.is_err());
-    assert!(runtime.admit_study_candidate(&scope, &cancel).await.unwrap());
+    assert!(runtime.admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel).await.unwrap());
     let selected = runtime.canonical_store().unwrap().canonical_study_point(&valid_key).await.unwrap().unwrap();
     assert_eq!(selected.ordinal, 0, "visible order is selection order, not Cartesian ordinal or key order");
     assert_eq!(pse_operations::canonical_studies::point_facts(&selected).unwrap().attempt_count, 0);
@@ -3810,7 +3810,7 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     let recorded = constructor.record_study_variant(&valid_key, &cancel).await.unwrap();
     assert_eq!(recorded.canonical_revision().unwrap().key, science.revision);
     let scope = runtime.canonical_store().unwrap().study_scope(&invalid_key).await.unwrap();
-    assert!(runtime.admit_study_candidate(&scope, &cancel).await.unwrap());
+    assert!(runtime.admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel).await.unwrap());
     let invalid = runtime.canonical_store().unwrap().canonical_study_point(&invalid_key).await.unwrap().unwrap();
     assert!(invalid.settled);
     assert!(invalid.attempt.is_none());

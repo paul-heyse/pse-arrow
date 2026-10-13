@@ -707,12 +707,12 @@ impl Runtime {
     /// Resolve a selected lazy occurrence under its separate execution lease. Publication
     /// acknowledgements are retained before the immutable point admission is exposed.
     pub(in crate::workflow) async fn admit_study_candidate(
-        &self, scope: &StudyScope, cancel: &crate::CancelSource,
+        &self, scope: &StudyScope, lane: &mut StudyCandidateLane, cancel: &crate::CancelSource,
     ) -> Result<bool, WorkflowError> {
         let operations = self.operations()?;
         let Some(fence) = self.canonical_store()?.claim_study_admission(scope, operations.worker(), operations.policy().lease).await? else { return Ok(false); };
         let child = cancel.child_with_deadline(None);
-        let work = self.resolve_study_candidate_admission(scope, &fence, &child);
+        let work = self.resolve_study_candidate_admission(scope, &fence, lane, &child);
         tokio::pin!(work);
         let renewal = (operations.policy().lease / 3).max(Duration::from_millis(1));
         let mut renewal_error = None;
@@ -732,34 +732,42 @@ impl Runtime {
     }
     async fn resolve_study_candidate_admission(
         &self, scope: &StudyScope, fence: &pse_operations::canonical_execution::AttemptFence,
-        cancel: &crate::CancelSource,
+        lane: &mut StudyCandidateLane, cancel: &crate::CancelSource,
     ) -> Result<bool, WorkflowError> {
         let store = self.canonical_store()?;
         let point = store.canonical_study_point(&scope.point().key).await?.ok_or_else(|| contract("lazy occurrence absent"))?;
         if point.admission.is_some() || point.settled { return Ok(false); }
         let selected: VariantOccurrence = serde_json::from_slice(point.descriptor.as_slice()).map_err(|e| contract(e.to_string()))?;
         if selected.variant as u64 != point.ordinal { return Err(contract("lazy selected occurrence ordinal differs")); }
-        let study = store.canonical_study(&point.study).await?.ok_or_else(|| contract("lazy study absent"))?;
-        let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
-        let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
-        lazy.variants.validate()?;
-        if lazy.variants.graph().points.get(selected.variant) != Some(&point_policy(&point)?) {
+        if !lane.input.as_ref().is_some_and(|input| input.study == point.study) {
+            let study = store.canonical_study(&point.study).await?.ok_or_else(|| contract("lazy study absent"))?;
+            let extent = study.metadata.len().checked_mul(4).and_then(|n| n.checked_add(4096))
+                .filter(|_| study.metadata.len() <= 16 * 1024 * 1024).ok_or_else(|| contract("lazy descriptor extent"))?;
+            let owner = self.shared.math().reserve("study:lazy-input-owner", extent)?;
+            let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
+            let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
+            let physical = self.physical_source(&metadata.physical, cancel).await?;
+            let base_revision = store.revision(&study.revision).await?.ok_or_else(|| contract("lazy base revision absent"))?;
+            let package = self.modeling_revision(base_revision, physical, BTreeMap::new()).await?;
+            lazy.variants.source.check(&package)?;
+            lane.input = Some(StudyVariantOwner { study: point.study.clone(), lazy,
+                physical: metadata.physical, package, _owner: owner });
+        }
+        let input = lane.input.as_ref().ok_or_else(|| contract("lazy input owner absent"))?;
+        if input.lazy.variants.selected_policy(selected.variant)? != point_policy(&point)? {
             return Err(contract("lazy selected policy differs from the immutable occurrence"));
         }
-        let physical = self.physical_source(&metadata.physical, cancel).await?;
-        let base_revision = store.revision(&study.revision).await?.ok_or_else(|| contract("lazy base revision absent"))?;
-        let base = self.modeling_revision(base_revision, physical, BTreeMap::new()).await?;
-        let admitted = lazy.admit_selected(&base, selected.variant, Some(&point.key), cancel).await;
+        let admitted = input.lazy.admit_selected(&input.package, selected.variant, Some(&point.key), cancel).await;
         let (admission, seed_need, diagnostic) = match admitted {
             Ok((package, definition)) => {
                 let revision = package.recorded_revision()?.clone();
-                let physical_revision = store.revision(&metadata.physical.revision).await?.ok_or_else(|| contract("lazy physical receipt absent"))?;
+                let physical_revision = store.revision(&input.physical.revision).await?.ok_or_else(|| contract("lazy physical receipt absent"))?;
                 let admitted = StudyAdmission { version: Version, definition: Some(definition.clone()), revision: Some(revision.key.clone()), diagnostic: None };
                 let input_run = store.canonical_run(fence.run()).await?.ok_or_else(|| contract("lazy admission run absent"))?;
                 let request = StoredRequest { key: point.run.clone(), revision, sources: vec![physical_revision],
                     request: document(&(2_u8, &point.run, &point.study, definition.policy.key,
                         pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition).map_err(|e| contract(e.to_string()))?))?,
-                    source_selection: document(&(2_u8, &admitted.revision, &metadata.physical))?,
+                    source_selection: document(&(2_u8, &admitted.revision, &input.physical))?,
                     attestation: input_run.attestation.as_slice().to_vec(),
                 };
                 creation_effect(cancel, store.begin_run(&request)).await?;
@@ -830,7 +838,8 @@ impl Runtime {
                     revision == actual_revision && receipt == &physical
                 });
                 if !same_source {
-                    lane.close().await?;
+                    lane.preparation.close().await?;
+                    lane.source = None;
                     let context = self.physical_source(&physical, cancel).await?;
                     let revision = self
                         .canonical_store()?
@@ -2353,8 +2362,17 @@ impl super::ModelingPackage {
     }
 }
 
+struct StudyVariantOwner {
+    study: String,
+    lazy: super::LazyStudyDefinition,
+    physical: super::PhysicalSource,
+    package: super::ModelingPackage,
+    _owner: Arc<pse_columnar::AllocationLease>,
+}
+
 /// Durable worker lane inputs survive adjacent points only until explicit drain.
 pub(in crate::workflow) struct StudyCandidateLane {
+    input: Option<StudyVariantOwner>,
     source: Option<(
         String,
         super::worker::PhysicalSource,
@@ -2365,6 +2383,7 @@ pub(in crate::workflow) struct StudyCandidateLane {
 impl StudyCandidateLane {
     pub(in crate::workflow) fn new() -> Self {
         Self {
+            input: None,
             source: None,
             preparation: super::study_operations::StudyPreparationLane::new(),
         }
@@ -2377,6 +2396,7 @@ impl StudyCandidateLane {
     pub(in crate::workflow) async fn close(&mut self) -> Result<(), WorkflowError> {
         self.preparation.close().await?;
         self.source = None;
+        self.input = None;
         Ok(())
     }
 }

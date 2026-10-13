@@ -4,7 +4,23 @@
 use super::{ModelingPackage, OperationSource, SourceDelta, StudyPoint, StudyPointDefinition,
     StudyPointPolicy, StudyOutputDemand, WorkflowError, contract};
 use pse_model::{document::Version, study::{OccurrenceGraph, PointPolicy, SeedNeed}};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, io::{self, Write}};
+
+/// Count serialization without retaining a second descriptor, and stop at the bound.
+pub(in crate::workflow) fn document_extent(value: &impl serde::Serialize, limit: usize) -> Result<usize, WorkflowError> {
+    struct Counter { bytes: usize, limit: usize }
+    impl Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.bytes = self.bytes.checked_add(bytes.len()).filter(|n| *n <= self.limit)
+                .ok_or_else(|| io::Error::other("bounded study descriptor bytes"))?;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> io::Result<()> { Ok(()) }
+    }
+    let mut counter = Counter { bytes: 0, limit };
+    serde_json::to_writer(&mut counter, value).map_err(|error| contract(error.to_string()))?;
+    Ok(counter.bytes)
+}
 
 /// A finite structural dimension. Alternatives are edits against the one admitted base.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -56,6 +72,7 @@ pub struct LazyStudyDefinition {
 impl StudyVariants {
     /// Validate finite descriptor/cardinality and ordinals without constructing a variant.
     pub(in crate::workflow) fn validate(&self) -> Result<(), WorkflowError> {
+        document_extent(self, 16 * 1024 * 1024)?;
         if self.choices.is_empty() || self.choices.len() > 64 || self.selected.is_empty()
             || self.selected.len() > super::MAXIMUM_STUDY_POINTS {
             return Err(contract("bounded lazy study dimensions and selected occurrences"));
@@ -100,8 +117,6 @@ impl StudyVariants {
                 return Err(contract("selected structural ordinal is out of range or repeated"));
             }
         }
-        let bytes = serde_json::to_vec(self).map_err(|e| contract(e.to_string()))?;
-        if bytes.len() > 16 * 1024 * 1024 { return Err(contract("bounded lazy descriptor bytes")); }
         pse_model::study_policy::admit(&self.graph()).map_err(|e|
             WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(e)))?;
         Ok(())
@@ -113,6 +128,10 @@ impl StudyVariants {
             return Err(contract("structural alternative names a different admitted base token"));
         }
         Ok(())
+    }
+    pub(in crate::workflow) fn selected_policy(&self, selection: usize) -> Result<PointPolicy, WorkflowError> {
+        self.selected.get(selection).map(|selected| policy(&selected.point.policy))
+            .ok_or_else(|| contract("selected structural occurrence absent"))
     }
     pub(in crate::workflow) fn graph(&self) -> OccurrenceGraph {
         OccurrenceGraph { points: self.selected.iter().map(|selection| policy(&selection.point.policy)).collect() }
@@ -196,6 +215,15 @@ mod tests {
         let reopened: StudyVariants = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(reopened.delta(0).unwrap().removals, delta.removals);
         assert_eq!(reopened.graph(), variants.graph());
+    }
+    #[test]
+    fn lazy_descriptor_counting_refuses_at_bound_without_a_serialized_copy() {
+        assert_eq!(document_extent(&vec![1_u8,2,3], 7).unwrap(), 7);
+        assert!(document_extent(&vec![1_u8,2,3], 6).is_err());
+        let variants = descriptor();
+        let length = serde_json::to_vec(&variants).unwrap().len();
+        assert_eq!(document_extent(&variants, length).unwrap(), length);
+        assert!(document_extent(&variants, length - 1).is_err());
     }
     #[test]
     fn lazy_descriptor_refuses_overlap_duplicates_out_of_range_and_overflow() {
