@@ -28,7 +28,7 @@ fn source(value: u64) -> Vec<Declaration> {
 fn admit(
     service: &Arc<MathService>,
     workspace: &Workspace,
-    sequence: u64,
+    sequence: i64,
     key: &str,
     value: u64,
 ) -> ModelingRevision {
@@ -252,11 +252,7 @@ async fn dynamic_snapshot_pressure_evicts_idle_lane_but_retains_historical_sourc
     );
     let owner = factory.bind_model(registry.clone()).unwrap();
     let lineage = CompilerLineage {
-        endpoint: "memory://pressure-control".into(),
-        namespace: "pressure-control".into(),
-        database: "pressure-control".into(),
-        issuing_store: "pressure-control".into(),
-        problem: "problem".into(),
+        lineage: "local-pressure-control".into(),
         interpretation: "local".into(),
         validation: Arc::as_ptr(&factory) as usize,
         registry,

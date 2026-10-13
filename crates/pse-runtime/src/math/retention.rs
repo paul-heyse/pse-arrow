@@ -205,7 +205,7 @@ impl Pressure {
                     if let Value::Scalars(incoming) = &value
                         && let Some(Value::Scalars(existing)) = self.artifacts.get(key)
                         && existing.len() > incoming.len()
-                    { return false; }
+                    { return None; }
                     self.artifacts.put(key, value)
                 });
         }

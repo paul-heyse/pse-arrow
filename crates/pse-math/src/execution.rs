@@ -5131,7 +5131,6 @@ mod compact_tests {
     fn retained_scalar_products_survive_order_upgrades_and_keep_their_first_owner() {
         #[derive(Debug)]
         struct Owner;
-        impl crate::AllocationOwner for Owner {}
         let cancel = Arc::new(AtomicBool::new(false));
         let body = analytic_body(4096);
         let value = body.prepare_support(&[0], &[Y, X], DerivativeOrder::Value, &cancel).unwrap();
