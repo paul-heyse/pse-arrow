@@ -235,6 +235,12 @@ impl BackendExecution for Kinsol {
     fn linked(&self) -> bool {
         cfg!(feature = "kinsol")
     }
+    fn build(&self) -> Option<pse_ids::ContentHash> {
+        #[cfg(feature = "kinsol")]
+        { crate::kinsol::build() }
+        #[cfg(not(feature = "kinsol"))]
+        { None }
+    }
     fn work_coverage(&self, execution: &crate::solve::Execution) -> crate::solve::WorkCoverage {
         crate::solve::WorkCoverage {
             evaluations: self.linked()
