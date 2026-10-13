@@ -1827,7 +1827,7 @@ pub struct RuntimeStudyOutcomesRow {
     ///case_id
     pub r#case_id: Option<crate::generated::identities::DeclarationId>,
     ///binding_hash
-    pub r#binding_hash: pse_ids::ContentHash,
+    pub r#binding_hash: Option<pse_ids::ContentHash>,
     ///state
     pub r#state: crate::generated::enums::StudyPointState,
     ///attempt_id

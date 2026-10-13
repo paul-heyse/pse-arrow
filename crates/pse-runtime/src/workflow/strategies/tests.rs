@@ -449,6 +449,8 @@ async fn authored_causal_recycle_retains_topology_and_refuses_hidden_inputs() {
         .unwrap();
     assert_eq!(witness.cost, 2.0);
     let request = RecycleRequest {
+        anderson_delay: 0,
+        restarts: None,
         tears: witness.decisions,
         units: vec![CausalUnitRequest {
             node: root.as_id(),

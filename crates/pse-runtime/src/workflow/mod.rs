@@ -106,7 +106,7 @@ mod strategies;
 mod time;
 pub use strategies::{
     AnalysisPort, CausalUnitRealization, CausalUnitRequest, ConicRequest, InitializationDocument,
-    InitializationStageDocument, PreparedConic, RecycleRequest,
+    InitializationStageDocument, PreparedConic, RecycleRequest, RecycleRestartRequest,
 };
 #[cfg(feature = "solver-kinsol")]
 pub use strategies::{PreparedInitializationStrategy, PreparedRecycle};

@@ -1442,7 +1442,13 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
             fn::pse_execution_v1::touch($rpc_expiry,'study-association:'+$point.run);
             SELECT * FROM ONLY type::record('canonical_study_points',$point.key) FOR UPDATE;
             LET $run = SELECT * FROM ONLY type::record('canonical_runs', $point.run);
-            IF $run = NONE OR $run.problem != $s.problem OR $run.revision != $s.revision { THROW 'study occurrence source run unavailable'; };
+            LET $admission_run = SELECT * FROM ONLY type::record('canonical_runs', 'study-admission:'+$point.key);
+            IF $run=NONE {
+                IF $admission_run=NONE OR $admission_run.problem!=$s.problem OR $admission_run.revision!=$s.revision { THROW 'study lazy admission source run unavailable'; };
+                LET $locator='admission:'+$point.key;
+                LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
+                CREATE ONLY type::record('canonical_history_locators',$locator) SET key=$locator,study=$study,run=$admission_run.key,point=$point.key,issuing_store=$issuing;
+            } ELSE IF $run.problem != $s.problem OR $run.revision != $s.revision { THROW 'study occurrence source run unavailable'; };
             fn::pse_history_v1::associate($rpc_expiry,$study,$point.run,$point.key);
         };
     };
@@ -1521,7 +1527,14 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $p = fn::pse_study_v1::guard($rpc_expiry, $study,$generation,$cancelled,$point,$expected);
     LET $rpc_result = UPDATE ONLY type::record('canonical_study_points',$point) SET revision += 1dec, facts=$facts,outcome=$outcome,settled=true;
-    IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
+    IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
+        LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
+        IF $run=NONE {
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            IF $input=NONE { THROW 'unadmitted occurrence input owner unavailable'; };
+            fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
+        } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
+    };
     fn::pse_study_v1::readiness_invalidate($rpc_expiry,$rpc_result,false);
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -1595,6 +1608,63 @@ DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: s
     RETURN $rpc_result;
 };
 
+// Input admission uses a separate run. Its lease never increments native point attempts.
+DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
+    LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
+    IF $p.admission!=NONE { RETURN NONE; };
+    LET $run='study-admission:'+$point;
+    fn::pse_execution_v1::current_writer($rpc_expiry,$run);
+    LET $r=SELECT * FROM ONLY type::record('canonical_runs',$run) FOR UPDATE;
+    IF $r=NONE { THROW 'scientific admission run unavailable'; };
+    IF $r.current_attempt!=NONE {
+        LET $old=SELECT * FROM ONLY type::record('canonical_attempts',$r.current_attempt) FOR UPDATE;
+        IF $old!=NONE AND !$old.terminal {
+            IF $old.expires_at>time::micros() { RETURN NONE; };
+            // This phase owns no native execution, callbacks, result ingestion or solver history.
+            // Expiry fences the old source admission; actual published source receipts remain immutable.
+            UPDATE ONLY type::record('canonical_attempts',$old.key) SET closed=true,ingestion_open=false,terminal=true,outcome='failed';
+            fn::pse_execution_v1::register($rpc_expiry,'retention:'+$r.problem);
+            SELECT * FROM ONLY type::record('canonical_roots','active_attempt:'+$old.key) FOR UPDATE;
+            DELETE ONLY type::record('canonical_roots','active_attempt:'+$old.key);
+        };
+    };
+    LET $s=SELECT interpretation FROM ONLY type::record('canonical_studies',$study);
+    LET $claimed=fn::pse_execution_v1::claim($rpc_expiry,$run,$operation,$request,$attempt,$worker,$lifetime,$s.interpretation,NONE);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    fn::pse_execution_v1::lease($rpc_expiry,$claimed.expires_at);
+    RETURN $claimed;
+};
+
+DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:string,$generation:decimal,$point:string,$expected:array<object>,$run:string,$attempt:string,$authority:decimal,$operation:string,$request:bytes,$admission:bytes,$facts:bytes,$outcome:option<bytes>) -> object {
+    fn::pse_history_v1::point($rpc_expiry,$point);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    LET $op=fn::pse_execution_v1::operation($rpc_expiry,$operation,'study-admission',$request);
+    LET $saved=SELECT * FROM ONLY type::record('canonical_study_points',$point);
+    IF $saved.admission!=NONE {
+        IF $saved.admission!=$admission OR $op=NONE { THROW 'immutable scientific admission differs'; };
+        RETURN $saved;
+    };
+    IF $run!='study-admission:'+$point { THROW 'scientific admission owner differs'; };
+    LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
+    LET $a=fn::pse_execution_v1::fence($rpc_expiry,$run,$attempt,$authority);
+    IF $outcome=NONE {
+        LET $science=SELECT key FROM ONLY type::record('canonical_runs',$p.run);
+        IF $science=NONE { THROW 'selected scientific source run unavailable'; };
+    };
+    LET $result=UPDATE ONLY type::record('canonical_study_points',$point) SET admission=$admission,facts=$facts,outcome=$outcome,settled=($outcome!=NONE),revision+=1dec;
+    UPDATE ONLY type::record('canonical_attempts',$attempt) SET terminal=true,closed=true,ingestion_open=false,outcome='succeeded',completion=$admission;
+    UPDATE ONLY type::record('canonical_runs',$run) SET terminal_attempt=$attempt,terminal_class='succeeded';
+    fn::pse_execution_v1::register($rpc_expiry,'retention:'+(SELECT problem FROM ONLY type::record('canonical_runs',$run)).problem);
+    SELECT * FROM ONLY type::record('canonical_roots','active_attempt:'+$attempt) FOR UPDATE;
+    DELETE ONLY type::record('canonical_roots','active_attempt:'+$attempt);
+    IF $result.settled { fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$p.run,$p.run); };
+    fn::pse_study_v1::readiness_invalidate($rpc_expiry,$result,false);
+    fn::pse_history_v1::record_operation($rpc_expiry,$operation,$run,$attempt,'study-admission',$request,$admission,$study,$point);
+    fn::pse_execution_v1::deadline($rpc_expiry);
+    fn::pse_execution_v1::lease($rpc_expiry,$a.expires_at);
+    RETURN $result;
+};
+
 DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $generation: decimal, $point: string, $expected: array<object>, $start: bytes, $operation: string, $request: bytes, $claim_request: bytes, $attempt: string, $worker: string, $lifetime: int, $facts: bytes) -> object {
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -1642,7 +1712,14 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
         IF $a = NONE OR $a.run != $p.run OR $a.terminal = false { THROW 'study result attempt not admitted'; };
     };
     LET $rpc_result = UPDATE ONLY type::record('canonical_study_points', $point) SET revision += 1dec, assigned = false, settled = $settled, facts = $facts, outcome = $outcome;
-    IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
+    IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
+        LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
+        IF $run=NONE {
+            LET $input=SELECT key FROM ONLY type::record('canonical_runs','study-admission:'+$point);
+            IF $input=NONE { THROW 'unadmitted occurrence input owner unavailable'; };
+            fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
+        } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
+    };
     fn::pse_study_v1::readiness_invalidate($rpc_expiry,$rpc_result,false);
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;

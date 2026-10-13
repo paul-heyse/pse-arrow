@@ -60,9 +60,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 2u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    131u8, 13u8, 110u8, 44u8, 104u8, 21u8, 219u8, 110u8, 153u8, 101u8, 20u8, 246u8, 0u8,
-    44u8, 196u8, 32u8, 102u8, 76u8, 225u8, 163u8, 47u8, 154u8, 114u8, 137u8, 163u8, 32u8,
-    209u8, 8u8, 88u8, 8u8, 186u8, 36u8,
+    107u8, 23u8, 152u8, 228u8, 169u8, 200u8, 120u8, 221u8, 253u8, 13u8, 158u8, 240u8,
+    47u8, 41u8, 90u8, 73u8, 87u8, 49u8, 247u8, 242u8, 241u8, 64u8, 204u8, 61u8, 230u8,
+    113u8, 65u8, 38u8, 187u8, 253u8, 37u8, 142u8,
 ]);
 impl crate::columnar::ArrowValue for RuntimeStudyOutcomesFieldStart {
     fn append(
@@ -4569,9 +4569,9 @@ impl crate::columnar::ArrowValue for RuntimeStudyOutcomesRow {
         <Option<
             crate::generated::identities::DeclarationId,
         > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
-        <pse_ids::ContentHash as crate::columnar::ArrowValue>::append_null(
-            children[3usize].as_mut(),
-        )?;
+        <Option<
+            pse_ids::ContentHash,
+        > as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
         <crate::generated::enums::StudyPointState as crate::columnar::ArrowValue>::append_null(
             children[4usize].as_mut(),
         )?;
@@ -4625,7 +4625,9 @@ impl crate::columnar::ArrowValue for RuntimeStudyOutcomesRow {
                 input.column(2usize).as_ref(),
                 index,
             )?,
-            r#binding_hash: <pse_ids::ContentHash as crate::columnar::ArrowValue>::read(
+            r#binding_hash: <Option<
+                pse_ids::ContentHash,
+            > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
                 index,
             )?,
@@ -4848,7 +4850,14 @@ impl crate::columnar::RelationRow for RuntimeStudyOutcomesRow {
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,
-            Ok::<usize, crate::RelationError>(32usize)?,
+            if (self.r#binding_hash).is_some() {
+                crate::columnar::allocation_add(
+                    1,
+                    Ok::<usize, crate::RelationError>(32usize)?,
+                )
+            } else {
+                Ok::<usize, crate::RelationError>(1)
+            }?,
         )?;
         bytes = crate::columnar::allocation_add(
             bytes,

@@ -28,6 +28,7 @@ use pse_kernels::DerivativeOrder;
 use pse_math::binding::CaseValues;
 use pse_model::generated::enums::{NumericalSource, NumericalTarget};
 use pse_model::generated::identities::RunId;
+use pse_model::HeapUsage;
 use std::{collections::BTreeSet, sync::Arc};
 
 /// Completed attempt metadata is independent of output persistence and final selection.
@@ -947,7 +948,7 @@ impl ModelingSimulation {
                             checks
                                 .reports
                                 .iter()
-                                .map(pse_model::HeapUsage::owned_bytes)
+                                .map(HeapUsage::owned_bytes)
                                 .sum::<usize>(),
                         )
                     })

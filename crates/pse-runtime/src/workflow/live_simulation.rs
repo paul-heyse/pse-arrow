@@ -42,9 +42,15 @@ pub enum LiveSimulationEvent {
     /// Actual native attempt completion and original-check summary.
     AttemptFinished(Arc<LiveSampleAttempt>),
     /// Accuracy producer has selected this attempt; joined completion is still separate.
-    Selected { accuracy_attempt: u64 },
+    Selected {
+        /// Actual selected accuracy pass, after all requested refinement decisions.
+        accuracy_attempt: u64,
+    },
     /// Actual append ACK covers this many original live-relation rows.
-    Recorded { rows: u64 },
+    Recorded {
+        /// Acknowledged prefix extent in original live-relation row order.
+        rows: u64,
+    },
     /// An append or prefix close could not be established; prior ACKs remain facts.
     RecordingUnknown(Arc<WorkflowError>),
     /// All provisional rows were acknowledged and the live relation producer closed.
@@ -217,7 +223,7 @@ mod tests {
 
     async fn prepared() -> ModelingSimulation {
         let rows = pse_authoring::language::parse(
-            "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check positive(x[1{s}] > 0{s}); } }",
+            "package p { def Root { domain t: Time from 0{s} to 1{s}; discretize grid on t using integrated(elements=1,order=1); var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == -x[i]/1{s}; eq initial: x[0{s}] == 1{s}; annotation check x(x[i] > 0{s}); } }",
             pse_ids::SemanticId::NIL, pse_authoring::language::IdentityPolicy::Named,
             pse_authoring::ParseBudget::default(),
         ).unwrap();

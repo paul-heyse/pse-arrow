@@ -1497,7 +1497,7 @@ mod canonical_result_blocks_unit {
             study_id: pse_operations::mint_id(),
             point_index: 0,
             case_id: None,
-            binding_hash: pse_ids::ContentHash::from_bytes([1; 32]),
+            binding_hash: Some(pse_ids::ContentHash::from_bytes([1; 32])),
             state: StudyPointState::Failed,
             attempt_id: None,
             attempt_state: None,
