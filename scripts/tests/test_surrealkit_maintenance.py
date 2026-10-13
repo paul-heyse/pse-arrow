@@ -500,7 +500,9 @@ class MaintenanceTests(unittest.TestCase):
         value = self.run_tool()
         for proof in [True, {**self.evidence(value), "input_sha256": "wrong"}]:
             with self.assertRaisesRegex(tool.MaintenanceError, "structured operation"):
-                tool.settle(self.state, str(value["nonce"]), lambda *_, proof=proof: proof)
+                tool.settle(
+                    self.state, str(value["nonce"]), lambda *_, proof=proof: proof
+                )
             self.assertEqual(self.current()["nonce"], value["nonce"])
         self.assertFalse((self.state / ".maintenance-listener.json").exists())
 
@@ -610,7 +612,9 @@ class MaintenanceTests(unittest.TestCase):
 
     def generated_fixture(
         self, status: str = "completed", *, acknowledged: bool = True
-    ) -> tuple[dict[str, object], dict[str, object], dict[str, object], dict[str, object]]:
+    ) -> tuple[
+        dict[str, object], dict[str, object], dict[str, object], dict[str, object]
+    ]:
         value = self.run_tool()
         step = {
             "id": "definition",
@@ -654,7 +658,9 @@ class MaintenanceTests(unittest.TestCase):
         }
         return value, item, row, witness
 
-    def test_generated_settlement_joins_exact_ack_and_canonical_postconditions(self) -> None:
+    def test_generated_settlement_joins_exact_ack_and_canonical_postconditions(
+        self,
+    ) -> None:
         value, item, row, witness = self.generated_fixture()
         with (
             patch.object(tool, "publication", return_value={"rollouts": [item]}),

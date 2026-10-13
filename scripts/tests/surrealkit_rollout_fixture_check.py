@@ -342,8 +342,11 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
                     "forward",
                     "RETURN (SELECT VALUE value FROM ONLY plan37_rollout_probe:kept); UPDATE plan37_rollout_probe:kept SET extra='expanded'; RETURN (SELECT `value`,extra FROM ONLY plan37_rollout_probe:kept);",
                 )
-                assert proof['forward_data'][0] == 'preserved'
-                assert proof['forward_data'][-1] == {'value': 'preserved', 'extra': 'expanded'}
+                assert proof["forward_data"][0] == "preserved"
+                assert proof["forward_data"][-1] == {
+                    "value": "preserved",
+                    "extra": "expanded",
+                }
         proof["offline_controls"] = offline_controls(binary, resource, folder)
         proof["commands"].append(
             beta(
@@ -357,8 +360,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         catalogs = sql(
             resource, "catchup", "INFO FOR DB; INFO FOR TABLE plan37_rollout_probe;"
         )
-        assert 'canonical_runs' in catalogs[0]['tables']
-        assert 'canonical_interpretations' in catalogs[0]['tables']
+        assert "canonical_runs" in catalogs[0]["tables"]
+        assert "canonical_interpretations" in catalogs[0]["tables"]
         assert {"value", "extra"} <= catalogs[1]["fields"].keys()
         proof["catchup_data"] = sql(
             resource,

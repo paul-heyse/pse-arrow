@@ -54,11 +54,11 @@ def oracle(
         assert len(values) == 1, case["name"]
         if case["allow"]:
             for assertion in case.get("assertions", []):
-                assert assertion['path'] == '', (case['name'], values)
-                assert values[0] == assertion['equals'], (case['name'], values)
+                assert assertion["path"] == "", (case["name"], values)
+                assert values[0] == assertion["equals"], (case["name"], values)
         else:
-            assert isinstance(values[0], str), (case['name'], values)
-            assert case['error_contains'] in values[0], (case['name'], values)
+            assert isinstance(values[0], str), (case["name"], values)
+            assert case["error_contains"] in values[0], (case["name"], values)
     # Populate an actual readiness selection; compare indexed and full-scan paths.
     checked_sql(
         config,
@@ -170,8 +170,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         assert tool.execute(binary, resource, folder, "plan") == 0
         assert tool.execute(binary, resource, folder, "test-both") == 0
         report = json.loads((folder / "test-both.json").read_text())
-        assert report['cases_total'] == 15
-        assert report['cases_failed'] == 0
+        assert report["cases_total"] == 15
+        assert report["cases_failed"] == 0
         record, config, _ = tool.fixture(resource)
         with tool.activity(resource):
             proof["oracle"] = oracle(config, record)
@@ -195,8 +195,8 @@ def run(state: Path, tool_root: Path, evidence: Path) -> None:
         assert resources.reclaim(resource) == "removed"
         # Exact namespace removal must leave the independently registered owner.
         catalog = resources.namespace_sql(config, "INFO FOR ROOT;")[0]["namespaces"]
-        assert record['namespace'] not in catalog
-        assert resources.resource_status(other)['namespace'] in catalog
+        assert record["namespace"] not in catalog
+        assert resources.resource_status(other)["namespace"] in catalog
         assert resources.reclaim(other) == "removed"
         (evidence / "disposal.json").write_text(
             json.dumps(

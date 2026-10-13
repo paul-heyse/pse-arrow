@@ -1715,7 +1715,9 @@ class NativeOperationTests(unittest.TestCase):
         with (
             patch.object(host_admission, "inherit", return_value=allocation),
             patch.object(
-                host_admission, "acquire", side_effect=AssertionError("second allocation")
+                host_admission,
+                "acquire",
+                side_effect=AssertionError("second allocation"),
             ),
             patch.object(operation, "scope_owner", return_value={"unit": "parent"}),
             patch.object(
@@ -1994,7 +1996,9 @@ class NativeOperationTests(unittest.TestCase):
                             _record: Mapping[str, object],
                             *,
                             deadline: float | None,
-                            observations: list[tuple[float | None, bool]] = observations,
+                            observations: list[
+                                tuple[float | None, bool]
+                            ] = observations,
                             opaque: subprocess.Popen[bytes] = opaque,
                             order: str = order,
                             original: float = original,
@@ -2037,7 +2041,9 @@ class NativeOperationTests(unittest.TestCase):
                             )
 
                         with (
-                            patch.object(host_admission, "inherit", return_value=allocation),
+                            patch.object(
+                                host_admission, "inherit", return_value=allocation
+                            ),
                             patch.object(
                                 operation,
                                 "scope_owner",
@@ -2148,7 +2154,9 @@ class NativeOperationTests(unittest.TestCase):
                         ),
                     ) as drain,
                     patch.object(
-                        operation.time, "monotonic", side_effect=lambda elapsed=elapsed: elapsed[0]
+                        operation.time,
+                        "monotonic",
+                        side_effect=lambda elapsed=elapsed: elapsed[0],
                     ),
                     patch.object(operation.time, "sleep", side_effect=advance) as pause,
                     self.assertRaises(

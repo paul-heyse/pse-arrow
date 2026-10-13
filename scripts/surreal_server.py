@@ -6333,7 +6333,11 @@ def recover_maintenance(state: Path, initializer: list[str]) -> dict[str, object
             raise SupervisorError(
                 "Maintenance source/target identity differs; admission remains closed"
             )
-        if kind == "rebuild" and phase in {"accounts", "initializing"} and not initializer:
+        if (
+            kind == "rebuild"
+            and phase in {"accounts", "initializing"}
+            and not initializer
+        ):
             raise SupervisorError(
                 "Interrupted initializer requires explicit current initializer command"
             )
