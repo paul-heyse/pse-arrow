@@ -1,6 +1,7 @@
 ---
 title: Authoring, preparation and validity
-status: in-progress
+status: abandoned
+superseded-by: docs/plans/38-efficiency-and-solver-target.md
 date: 2026-10-11
 adrs: [ADR-0178]
 review_sources:
@@ -13,6 +14,9 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 ---
 
 # Plan 36a: Authoring, preparation and validity
+
+> **Superseded 2026-10-13 by [Plan 38](38-efficiency-and-solver-target.md).** Remaining execution and acceptance obligations now belong to the [new series transfer](38-efficiency-and-solver-target.md#plan-36-transfer-and-supersession). The inactive `abandoned` lifecycle value records replacement of this execution plan, not completion or loss of its delivered work. All packet statuses, running notes, decisions and checkpoints below are historical; failed/interrupted evidence is unchanged. Do not resume this plan.
+
 
 Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Original authoring baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`. Bounded investigations executed **2026-10-11** against clean-main baseline **`2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466`**, preserving subsequent concurrent investigation edits. [Preparation evidence](36-investigation-evidence/preparation.md) records exact source, pinned libraries, commands, results and exclusions. Diagnoses and interfaces are **Interface-checked**; selected product designs remain **Proposed**. The **Tested** mechanism fixtures and scoped surrogate access plans do not establish product implementation, enclosing qualification or closure of any original finding.
 

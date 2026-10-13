@@ -1,6 +1,7 @@
 ---
 title: Build, test and development
-status: in-progress
+status: abandoned
+superseded-by: docs/plans/38-efficiency-and-solver-target.md
 date: 2026-10-11
 adrs: [ADR-0174, ADR-0175]
 review_sources:
@@ -13,6 +14,9 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 ---
 
 # Plan 36e: Build, test and development
+
+> **Superseded 2026-10-13 by [Plan 38](38-efficiency-and-solver-target.md).** Remaining execution and acceptance obligations now belong to the [new series transfer](38-efficiency-and-solver-target.md#plan-36-transfer-and-supersession). The inactive `abandoned` lifecycle value records replacement of this execution plan, not completion or loss of its delivered work. All packet statuses, running notes, decisions and checkpoints below are historical; failed/interrupted evidence is unchanged. Do not resume this plan.
+
 
 Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline: `b01a45d71a5f5ab29991ad193679f5588ac3662f`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. No product implementation, tests or measurements are established by plan authoring.
 

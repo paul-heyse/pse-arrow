@@ -1,6 +1,7 @@
 ---
 title: Relational and Python boundaries
-status: in-progress
+status: abandoned
+superseded-by: docs/plans/38-efficiency-and-solver-target.md
 date: 2026-10-11
 adrs: []
 review_sources:
@@ -13,6 +14,9 @@ doc_topics: [architecture, preparation, storage, validation, environment]
 ---
 
 # Plan 36d: Relational and Python boundaries
+
+> **Superseded 2026-10-13 by [Plan 38](38-efficiency-and-solver-target.md).** Remaining execution and acceptance obligations now belong to the [new series transfer](38-efficiency-and-solver-target.md#plan-36-transfer-and-supersession). The inactive `abandoned` lifecycle value records replacement of this execution plan, not completion or loss of its delivered work. All packet statuses, running notes, decisions and checkpoints below are historical; failed/interrupted evidence is unchanged. Do not resume this plan.
+
 
 Part of [Plan 36](36-efficiency-alignment.md). The coordinator owns the combined target, accepted rule decisions, finding dispositions and assembled acceptance. This document owns the contracts and progress of its packages. Source baseline refreshed to `2d6bf6ae7d03a8a9f6f109696bfe3d9cc8455466`, inspected 2026-10-11. Diagnoses are **Interface-checked**; targets and acceptance controls are **Proposed**. Isolated exact-pin/prototype discriminators are **Tested** in the [boundary investigation evidence](36-investigation-evidence/boundaries.md); no product implementation or product qualification is established.
 

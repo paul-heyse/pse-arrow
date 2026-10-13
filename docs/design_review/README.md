@@ -15,6 +15,37 @@ findings have one disposition owner in the relevant plan. A review stays here wh
 or a pending decision depends on it and then retires to Git history (ADR-0096); retained ADRs
 cite retired reviews as `git:<commit>:<path>`.
 
+The [independent efficiency and solver target audit](reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md)
+assesses every finding and principal/nested rule impact in the consolidated review. It supports
+local immutable preparation and a common solver-policy seam while correcting existing-capability
+and native-library claims, separating topology choices from numerical prerequisites, and adding
+native update-grain and retained-policy qualifications. Its [supporting inquiries](evidence/efficiency-and-solver-target-audit-2026-10-12/README.md)
+include a fresh independent target challenge and comparative coverage of all Plan 36 packets.
+The verdict is Revise; rule decisions and disposition remain for later plan creation.
+
+The [efficiency and solver target review](reviews/design_review_efficiency-and-solver-target_2026-10-12.md)
+consolidates three bodies of work after Plan 37:
+- the efficiency alignment review, audit and remaining Plan 36 scope;
+- the solver methods review;
+- the SurrealDB functionality that now exists.
+
+It assesses the whole simulator holistically, from workload obligations and the capabilities of
+the libraries already in use. A clean-sheet allocation and two independent challenges informed
+its Revise verdict. It records fourteen findings and eleven proposed rule impacts, the central
+ones being:
+- where the working authority lives: a live model, a local journal and an immutable record;
+- how many processes write durable state;
+- reuse and structure ownership;
+- lane-owned allocation reuse with declared warm edges;
+- placement by shared native resources.
+
+Its [supporting evidence](evidence/efficiency-and-solver-target-2026-10-12/README.md) holds the
+obligations ledgers, library-responsibility surveys, clean-sheet allocations, challenges and the
+detailed [solver target](evidence/efficiency-and-solver-target-2026-10-12/solver-target.md). That
+target restates the solver review below for the post-efficiency codebase. Disposition awaits plan
+creation. The review classifies the remaining Plan 36 packets and maps the earlier findings
+without editing their owners.
+
 The [solver methods, selection logic and diagnostics review](reviews/design_review_solver-methods-selection-and-diagnostics_2026-10-12.md)
 assesses how the solve pipeline chooses mathematical methods across classes, blocks, recycles and
 dynamics, and how solver observations serve switching, diagnosis and measurement. It works from

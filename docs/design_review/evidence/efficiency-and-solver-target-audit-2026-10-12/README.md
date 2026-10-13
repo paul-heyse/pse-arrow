@@ -1,0 +1,21 @@
+# Efficiency and solver target audit evidence
+
+Supporting material for the [independent principal audit](../../reviews/design_review_efficiency-and-solver-target-audit_2026-10-12.md) of the [consolidated review](../../reviews/design_review_efficiency-and-solver-target_2026-10-12.md) and its [solver companion](../efficiency-and-solver-target-2026-10-12/solver-target.md).
+
+Baseline: `6c368c88acda548d421b44e8fc4f457c95bcec7e`, examined 2026-10-12. The source review/evidence and its design-review index edit were already uncommitted work by another author. The audit preserved them, apart from adding its own separate index entry. Criteria: Core 3.4/template 3.4, Efficient Architecture 1.0, Process Simulator 1.5 and the pse-arrow binding's functional target. Current ADRs, plans, product choices and pins describe the subject and potential rule impacts.
+
+The principal owns the integrated decision and evidence limits. These independently useful inquiries contain bounded source reasoning and exact-library corrections; their local judgments are neither separate product acceptance nor disposition ledgers.
+
+| Inquiry | Role and evidence |
+|---|---|
+| [State, reuse and boundaries](state-reuse-and-boundaries.md) | Local authority, immutable preparation, actual Salsa lineage/identity semantics, existing compiled validation and structure use, complete writer/catalog/file alternatives and preservation. |
+| [Pipeline, diagnostics and advice](pipeline-diagnostics-and-advice.md) | Contextual eligibility versus preference/placement, existing block routing, typed stops/observations, recycle history, diagnosis, replay and advice. Independently traces the retained HiGHS production update path and partial-failure boundary. |
+| [Native contracts and methods](native-contracts-and-methods.md) | Exact pinned/fork sources for allocation, native symbolic/numeric retention, bounds, restoration, continuation, inertia, solver methods and resource/pool scope. Distinguishes actual project POUNCE retention from upstream defaults. |
+| [Parallelism and prior-scope coverage](parallelism-and-coverage.md) | Coordinator's source investigation of admitted profile chains, shared budget/counters/pools, native bulk-update opportunity, all thirty-nine Plan 36 packet scopes and limits of historical failure counts. |
+| [Fresh independent target challenge](independent-target-assessment.md) | Complete fresh assessment returned to the coordinator, including every finding/impact, common pipeline, additional opportunities, preservation and priorities. It challenged whole-target prerequisites and value-sensitive retained FERAL policy. The principal reconciles it with the other evidence. |
+
+Current paths and interfaces are **Interface-checked**. Remedies and expected benefits are **Proposed**. No probe, product build, test, service, benchmark or measurement was run. Source inspection does not certify convergence superiority, speed, ABI/runtime behavior, writer contention, crash safety or assembled scientific acceptance. Proposed verification cases in these inquiries are future settling evidence, not executed results.
+
+Library questions used the relevant local capability skills and Context7 resolve/query discovery, followed by exact sources where version/fork semantics matter: Salsa 0.28.4, DataFusion 55.1, SurrealDB 3.3, Ipopt 3.14.20, SUNDIALS 7.1.1, PETSc 3.24.0 MPIUNI, POUNCE fork `ff6386944421e8037069e521222ada9f22d457e3`/FERAL 0.18, HiGHS 1.15.0, faer 0.24.4/spindle 0.2.6, Rayon 1.12.0 and Symbolica 3.0.1. Current SQLite primary docs support only the same-host WAL comparator; no exact binding/version was selected. Source identities, primary links and unverified runtime/configuration premises appear in the relevant inquiry. Stale capability maps and the utilization journal were not consulted.
+
+The source review's proposals were tested against contrary source evidence and legitimate consumers rather than accepted by vote. Material reconciliation includes already-present local validation/routes/native updates/parallel chains, actual retained FERAL factors, conditional retained numerical-policy history, hard-stop precedence, foreign-data trust and writer/reader/backup contracts. No original finding, rule impact, plan status or stopped campaign was amended by publishing this audit.
