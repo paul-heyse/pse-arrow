@@ -788,6 +788,56 @@ mod tests {
         document.objects.retain(|object| (object.scope.clone(), object.name.clone()) != referenced);
         assert!(document.reconstruct(&runtime, physical, BTreeMap::new()).is_err());
     }
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn plan38b_fit_replay_reconstructs_original_constructor_and_new_allowance() {
+        use crate::workflow::fitting::regression;
+        let package = regression::package(regression::declared(), [1.; 4]).await;
+        let profile = regression::profile(pse_backend_native::solve::HessianMode::LimitedMemory, None);
+        let original = regression::fit(&package, profile.clone()).await;
+        assert!(original.report().is_ok());
+        let replay = original.replay();
+        let document = replay.document().unwrap();
+        let constructor = document.fit_constructor.as_ref().unwrap();
+        assert_eq!(constructor.max_cells, profile.max_cells);
+        assert_eq!(constructor.derivatives, profile.derivatives);
+        assert_eq!(constructor.rank_tolerance.to_bits(), profile.rank_tolerance.to_bits());
+        assert_eq!(crate::math::solves::profile_key(&constructor.solver.profile().unwrap()).unwrap(),
+            crate::math::solves::profile_key(&profile.solver).unwrap());
+        let sources = replay.reconstruct_sources(&package.runtime).unwrap();
+        let reconstructed = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
+        let restored = reconstructed.start().unwrap().wait().await.unwrap();
+        assert!(restored.report().is_ok());
+        let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
+        assert_ne!(fresh.run_id, original.run_id);
+        assert!(fresh.report().is_ok(), "{:?}", fresh.report());
+        assert!(!fresh.replay().document().unwrap().native_attempts.is_empty());
+    }
+    #[tokio::test]
+    async fn original_simulation_capture_refuses_long_paths_and_large_sets_before_copy() {
+        let runtime = crate::workflow::tests::runtime_on(16 << 20, crate::math::MathPolicy {
+            worker_bytes: 1 << 20, workspace_bytes: 1 << 20, foreign_bytes: 1 << 20, ..Default::default() });
+        let rows = rows();
+        let root = rows.iter().find(|row| row.name == "Root").unwrap().declaration_id;
+        let package = runtime.modeling_package(rows, crate::workflow::tests::physical()).await.unwrap();
+        let pool = runtime.shared.pool();
+        let remaining = runtime.shared.budget().memory_limit_bytes.get() - pool.reserved();
+        let held = runtime.shared.math().reserve("test:replay-input-headroom", remaining - (128 << 10)).unwrap();
+        let baseline = pool.reserved();
+        let mut case = pse_compiler::workspace::ModelingCaseBindings::default();
+        case.values.insert("x".repeat(1 << 20), 1.0);
+        let capture = |case: &pse_compiler::workspace::ModelingCaseBindings, exact: &BTreeSet<SemanticId>, quadratures: &BTreeSet<SemanticId>| {
+            OriginalSimulationInputs::capture(&package, root, pse_modeling::specialize::root_instance(root),
+                &Default::default(), Default::default(), case, crate::workflow::tests::compiler_profile(),
+                &Default::default(), pse_kernels::DerivativeOrder::First, exact, quadratures)
+        };
+        assert!(capture(&case, &BTreeSet::new(), &BTreeSet::new()).is_err());
+        assert_eq!(pool.reserved(), baseline);
+        let demand = (0u128..4096).map(|id| SemanticId::from_bytes(id.to_le_bytes())).collect();
+        assert!(capture(&Default::default(), &demand, &demand).is_err());
+        assert_eq!(pool.reserved(), baseline);
+        drop(held);
+    }
     #[test]
     fn original_case_bits_preserve_removed_bounds_infinity_and_negative_zero() {
         let mut case = pse_compiler::workspace::ModelingCaseBindings::default();

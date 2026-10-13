@@ -1316,3 +1316,64 @@ async fn authored_shooting_fixture_solves() {
         2
     );
 }
+
+#[tokio::test]
+async fn plan38b_simulation_replay_reconstructs_original_inputs_and_cancels_pending_admission() {
+    let simulation = tracking(Method::Diffsol).await;
+    let original = simulation.start().unwrap().wait().await.unwrap();
+    assert!(original.report().is_ok());
+    let replay = original.replay();
+    let document = replay.document().unwrap();
+    assert_eq!(document.simulation_constructors.len(), 1);
+    let constructor = &document.simulation_constructors[0];
+    assert_eq!(constructor.profile.samples, simulation.profile().samples);
+    assert_eq!(constructor.profile.schedule, simulation.profile().schedule);
+    assert_eq!(constructor.profile.end.to_bits(), simulation.profile().end.to_bits());
+    let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
+    let reconstructed = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(reconstructed.contract().parameters, simulation.contract().parameters);
+    assert_eq!(reconstructed.profile().samples, simulation.profile().samples);
+
+    let permits = simulation.runtime.shared.compiler_cpu();
+    let width = permits.available_permits();
+    assert!(width > 0);
+    let held = permits.acquire_many(width as u32).await.unwrap();
+    let cancel = crate::CancelSource::new();
+    let pending = replay.rerun_with_cancel(&cancel).await.unwrap();
+    assert!(tokio::time::timeout(std::time::Duration::from_millis(20), pending.wait()).await.is_err());
+    cancel.cancel();
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(2), pending.wait()).await.unwrap().unwrap();
+    assert!(stopped.report().is_err());
+    assert_ne!(stopped.run_id, original.run_id);
+    drop(held);
+    let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
+    assert_ne!(fresh.run_id, original.run_id);
+    assert!(fresh.report().is_ok(), "{:?}", fresh.report());
+    let coverage = fresh.replay().document().unwrap().coverage;
+    assert_eq!(coverage.observed, simulation.profile().samples.len());
+}
+
+#[tokio::test]
+async fn plan38b_shooting_replay_preserves_constructor_initial_and_fresh_allowance() {
+    let simulation = tracking(Method::Diffsol).await;
+    let requested = request(&simulation, ShootingMethod::Single, vec![], true);
+    let problem = Arc::new(simulation.shooting(requested.clone()).unwrap());
+    let initial = vec![0.8; problem.initial_extent()];
+    let handle = problem.start_with_initial(initial.clone()).unwrap();
+    handle.cancel();
+    let stopped = handle.wait().await.unwrap();
+    let replay = stopped.replay();
+    let document = replay.document().unwrap();
+    let constructor = document.shooting_constructor.as_ref().unwrap();
+    assert_eq!(constructor.initial, Some(initial.iter().map(|x| x.to_bits()).collect()));
+    assert_eq!(constructor.controls.len(), requested.controls.len());
+    assert_eq!(constructor.terminal, requested.objective.terminal.iter().map(|(id, x)| (*id, x.to_bits())).collect());
+    assert_eq!(constructor.simulation.profile.samples, simulation.profile().samples);
+    let sources = replay.reconstruct_sources(&simulation.runtime).unwrap();
+    let reconstructed = constructor.reconstruct(&sources[0], &crate::CancelSource::new()).await.unwrap();
+    assert_eq!(reconstructed.initial_extent(), problem.initial_extent());
+    let fresh = replay.rerun().await.unwrap().wait().await.unwrap();
+    assert_ne!(fresh.run_id, stopped.run_id);
+    assert!(fresh.report().is_ok(), "{:?}", fresh.report());
+    assert_eq!(fresh.replay().document().unwrap().shooting_constructor.unwrap().initial, constructor.initial);
+}

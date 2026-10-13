@@ -2363,8 +2363,31 @@ impl Runtime {
         physical: super::PhysicalContext,
         providers: BTreeMap<String, pse_kernels::Registration>,
     ) -> Result<ModelingPackage, WorkflowError> {
-        let _scratch = self.shared.math().reserve("replay:source-reconstruction",
-            crate::workflow::replay::source_reconstruction_extent(document)?)?;
+        // Refuse cheap identity mismatches before copying actual supplied premises.
+        if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
+            || document.build != pse_backend_native::execution::LINKED.build_identity()
+            || document.physical_identity != physical.identity()
+            || document.providers.len() != providers.len() {
+            return Err(contract("replay interpretation, native build, physical or provider premise differs"));
+        }
+        let actual_providers = providers.iter().try_fold(0usize, |bytes, (name, provider)| {
+            let spec = provider.spec();
+            let shapes = spec.shapes.inputs.iter().chain(&spec.shapes.outputs).try_fold(0usize, |bytes, shape| {
+                let coordinates = shape.coordinates.iter().try_fold(0usize, |n, coordinate| n.checked_add(coordinate.len()))?;
+                bytes.checked_add(shape.axes.len().checked_add(shape.cells.len())?.checked_add(coordinates)?.checked_mul(64)?)?
+                    .checked_add(shape.coordinates.len().checked_mul(128)?)?.checked_add(512)
+            })?;
+            bytes.checked_add(name.len())?.checked_add(spec.inputs.len().checked_add(spec.outputs.len())?.checked_mul(256)?)?
+                .checked_add(shapes)
+        }).ok_or_else(|| contract("actual replay provider premise extent overflow"))?;
+        let actual_bytes = physical.retained_bytes().checked_mul(16)
+            .and_then(|bytes| bytes.checked_add(actual_providers)).and_then(|bytes| bytes.checked_add(65536))
+            .filter(|bytes| *bytes <= 256 * 1024 * 1024)
+            .ok_or_else(|| contract("actual replay premises exceed finite reconstruction allocation"))?;
+        let bytes = crate::workflow::replay::source_reconstruction_extent(document)?.checked_add(actual_bytes)
+            .filter(|bytes| *bytes <= 256 * 1024 * 1024)
+            .ok_or_else(|| contract("complete replay premises exceed finite reconstruction allocation"))?;
+        let _scratch = self.shared.math().reserve("replay:source-reconstruction", bytes)?;
         if document.interpretation != pse_operations::generated::surreal::INTERPRETATION
             || document.build != pse_backend_native::execution::LINKED.build_identity()
             || document.physical_identity != physical.identity()
