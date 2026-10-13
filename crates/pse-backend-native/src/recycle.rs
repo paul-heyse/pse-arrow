@@ -34,7 +34,7 @@ pub trait CausalUnit: std::fmt::Debug {
     }
 }
 type OriginalObserver =
-    Box<dyn FnMut(&pse_math::binding::CaseValues, &Execution) -> Result<(), ProblemError>>;
+    Box<dyn FnMut(Option<&pse_math::binding::CaseValues>, &Execution) -> Result<(), ProblemError>>;
 /// Complete declared causal map in selected tear destination coordinates.
 #[derive(Debug)]
 pub struct CausalMap {
@@ -138,7 +138,8 @@ impl CausalMap {
         self.inner_context = context;
         self
     }
-    /// Attach independent complete-model validation after final tear reconstruction.
+    /// Attach independent complete-model validation. None begins a new assessment;
+    /// Some carries its complete reconstruction after a successful sweep.
     pub fn with_original_observer(mut self, observer: OriginalObserver) -> Self {
         self.original_observer = Some(OriginalObserverWrapper(observer));
         self
@@ -400,9 +401,12 @@ impl FixedPointOracle for CausalMap {
                 "connection residual dimensions".into(),
             ));
         }
+        if let Some(observer) = &mut self.original_observer {
+            (observer.0)(None, &self.execution)?;
+        }
         let (predicted, original) = self.sweep(x)?;
         if let Some(observer) = &mut self.original_observer {
-            (observer.0)(&original, &self.execution)?;
+            (observer.0)(Some(&original), &self.execution)?;
         }
         for ((out, p), x) in out.iter_mut().zip(predicted).zip(x) {
             *out = p - x;
@@ -507,7 +511,7 @@ mod tests {
         )
         .unwrap()
         .with_original_observer(Box::new(move |state, _| {
-            *final_state.borrow_mut() = Some(state.clone());
+            *final_state.borrow_mut() = state.cloned();
             Ok(())
         }));
         let mut out = [0.0];
@@ -521,5 +525,7 @@ mod tests {
         map.map(&[0.0], &mut out).unwrap();
         assert_eq!(out, [1.0]);
         assert_eq!(observed.borrow().as_ref().unwrap().scalars[&id(99)], 6.0);
+        assert!(map.original_residual(&[f64::NAN], &mut out).is_err());
+        assert!(observed.borrow().is_none(), "failed latest reconstruction cannot publish the preceding original candidate");
     }
 }
