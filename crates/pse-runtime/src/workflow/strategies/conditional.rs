@@ -574,6 +574,9 @@ impl PreparedRecycle {
         )?
         .with_inner_context(inner_context)
         .with_original_observer(Box::new(move |overlay, execution| {
+            // A failed later validation may retain raw last-successful G evidence,
+            // but cannot publish an earlier attempt as this terminal original candidate.
+            *observed.lock().map_err(|_| native::ProblemError::Internal("recycle candidate lock poisoned".into()))? = None;
             let mut candidate = original.clone();
             candidate
                 .scalars
