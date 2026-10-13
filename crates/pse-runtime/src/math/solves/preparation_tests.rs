@@ -916,3 +916,66 @@ async fn actual_convex_advice_selects_nonbaseline_backend_before_first_success()
     assert!(matches!(decision, super::super::strategy::AutoDecision::Prepare { candidate }
         if candidates[candidate].observed.is_some()), "actual observation-dependent recovery precedes ordinary alternatives");
 }
+
+#[cfg(feature = "solver-highs")]
+#[tokio::test]
+async fn fresh_replay_recursively_detaches_exhausted_original_graph_and_preserves_requested_start() {
+    use pse_model::strategy::{NumericalStrategy, Phase, Scope, WorkCharge, WorkObservation};
+    let prepared = prepare(LINEAR, SolveIntent::Optimize, SolverSelection::Auto).await;
+    let mut original = prepared.solve;
+    original.profile.controls.start = StartPolicy::Explicit;
+    let seed = WarmStart {
+        origin: None,
+        compatibility: original.compatibility.clone().unwrap(),
+        payload: WarmPayload::Highs { primal: Some(vec![1.0]), dual: None, basis: None },
+    };
+    let seed_identity = seed.content_key();
+    original = original.with_start(seed).unwrap();
+    let mut limits = original.numerical_strategy().limits;
+    limits.attempts = 1;
+    let flag = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let scope = pse_kernels::ExecutionScope::new(flag.clone(),
+        Some(std::time::Instant::now() + std::time::Duration::from_secs(30)));
+    let admission = super::super::strategy::admission::TaskAdmission::new(limits,
+        scope.clone(), Some(original.pool.clone()), false);
+    admission.charge(WorkCharge { phase:Phase::Native, scope:Scope::Task,
+        charging_owner:original.original_identity().unwrap(),
+        observed:WorkObservation {attempts:1,evaluations:Some(0),iterations:Some(0),factorizations:Some(0),proof_steps:Some(0)} }).unwrap();
+    assert!(admission.reserve_attempt().is_err());
+    original.task_scope = Some(scope.clone());
+    original.task_admission = Some(admission.clone());
+    let leaf = original.clone();
+    original.composition = Some(Arc::new(PreparedComposition {
+        declaration:NumericalStrategy::direct(StartPolicy::Explicit,limits),
+        rungs:vec![PreparedRung::Original(Box::new(leaf.clone()))],
+        _owner:original._owner.clone(),
+    }));
+    original.automatic_products = vec![PreparedRung::Original(Box::new(leaf))];
+    flag.store(true,std::sync::atomic::Ordering::Release);
+    assert!(original.task_scope().unwrap().check().is_err());
+    let request = original.request_identity().unwrap();
+    let replay = original.fresh_replay_copy().unwrap();
+    assert_eq!(replay.request_identity().unwrap(),request);
+    assert_eq!(replay.requested_start().unwrap().content_key(),seed_identity);
+    assert!(Arc::ptr_eq(&replay._owner,&original._owner));
+    assert_eq!(replay.replay_declaration(),original.replay_declaration());
+    for copied in std::iter::once(&replay)
+        .chain(replay.composition.as_ref().unwrap().rungs.iter().map(|rung| {
+            let PreparedRung::Original(original)=rung else {panic!("original-only graph");};
+            original.as_ref()
+        }))
+        .chain(replay.automatic_products.iter().map(|rung| {
+            let PreparedRung::Original(original)=rung else {panic!("original-only graph");};
+            original.as_ref()
+        })) {
+        assert!(copied.task_scope.is_none());
+        assert!(copied.task_admission.is_none());
+        assert!(copied.point_accuracy.is_none());
+        assert_eq!(copied.requested_start().unwrap().content_key(),seed_identity);
+    }
+    assert_eq!(admission.observation().unwrap().attempts,1);
+    assert!(original.task_scope().unwrap().check().is_err());
+    let new_scope=pse_kernels::ExecutionScope::new(Arc::default(),
+        Some(std::time::Instant::now()+std::time::Duration::from_secs(30)));
+    assert!(replay.within_task(new_scope).is_ok());
+}

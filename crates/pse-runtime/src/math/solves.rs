@@ -1296,6 +1296,59 @@ impl PreparedSolve {
     pub(crate) fn task_scope(&self) -> Option<pse_kernels::ExecutionScope> {
         self.task_scope.clone()
     }
+    /// Exact retained explicit input, including an input supplied before native dispatch.
+    /// This is independent of any start subsequently returned by a native attempt.
+    pub fn requested_start(&self) -> Option<&WarmStart> {
+        self.explicit_start.as_deref().map(std::ops::Deref::deref)
+    }
+    /// Exact original-screened input and its physical coordinates/source/target/branch.
+    /// Exporting this input grants neither a new screening permission nor native continuation.
+    pub fn requested_screened_start(&self) -> Option<&super::prediction::Screened> {
+        self.proposal_start.as_ref()
+    }
+    /// Actual postconstructor declaration, borrowed without copying the prepared graph.
+    pub fn replay_declaration(&self) -> Option<&pse_model::strategy::NumericalStrategy> {
+        self.composition.as_ref().map(|composition| &composition.declaration)
+    }
+    /// Copy immutable original preparations into a new execution, preserving the exact
+    /// declaration, requested settings and explicit input starts. Every original rung
+    /// loses its prior task clocks, ledger and pending point sink recursively. The
+    /// existing session supplies the new task scope and admission after this returns.
+    ///
+    /// # Errors
+    /// A retained screened input requires original-owner screening under the new scope,
+    /// or a supplied scoped/opaque controller needs its producer's reconstruction route.
+    /// Such controllers cannot be renewed by copying an outer preparation.
+    pub fn fresh_replay_copy(&self) -> Result<Self, ProblemError> {
+        if self.proposal_start.is_some() {
+            return Err(ProblemError::Unsupported(
+                "new execution requires re-screening the retained requested_screened_start proposal through MathService::screen_start under its new original task; historical screening scopes cannot be replayed".into(),
+            ));
+        }
+        #[cfg(feature = "solver-kinsol")]
+        if self.causal_supplier.is_some() {
+            return Err(ProblemError::Unsupported(
+                "new execution requires the authored recycle owner to reconstruct its automatic causal supplier from retained original case inputs; an opaque historical supplier cannot establish detached controller state".into(),
+            ));
+        }
+        let automatic_products = self.automatic_products.iter()
+            .map(PreparedRung::fresh_replay_copy).collect::<Result<Vec<_>, _>>()?;
+        let composition = self.composition.as_ref().map(|composition| {
+            Ok::<_, ProblemError>(Arc::new(PreparedComposition {
+                declaration: composition.declaration.clone(),
+                rungs: composition.rungs.iter().map(PreparedRung::fresh_replay_copy)
+                    .collect::<Result<Vec<_>, _>>()?,
+                _owner: composition._owner.clone(),
+            }))
+        }).transpose()?;
+        let mut replay = self.clone();
+        replay.automatic_products = automatic_products;
+        replay.composition = composition;
+        replay.task_scope = None;
+        replay.task_admission = None;
+        replay.point_accuracy = None;
+        Ok(replay)
+    }
     /// Private readonly source for the original prediction selector. The caller
     /// precharges its copy before entering here. No task, start permission, pending
     /// factor or prepared recovery work may survive merely to identify a source.
