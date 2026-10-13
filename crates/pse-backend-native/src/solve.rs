@@ -6,7 +6,7 @@ mod observations;
 mod retention;
 use crate::ProblemError;
 pub use exact_objective::ExactObjectiveTransport;
-pub use observations::{NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
+pub use observations::{NativeCoordinate, NativeCounters, NativeObservations, NativePhase, NativeSnapshot,
     ObservationCoordinates, RawMapCoordinate, RawMapFailure, RawMapHistory, RawMapRole,
     RawMapSample, StopFidelity};
 #[cfg(any(feature = "kinsol", test))]

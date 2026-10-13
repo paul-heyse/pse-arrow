@@ -13,7 +13,7 @@ fn serialize_optional_number<S: serde::Serializer>(value: &Option<f64>, serializ
 }
 
 /// Checkpoint coverage of the actual adapter, not a promise of native preemption.
-#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
 pub enum StopFidelity {
     /// Evaluations and native iteration callbacks poll the original execution scope.
     EvaluationAndIterationCheckpoints,
@@ -21,7 +21,7 @@ pub enum StopFidelity {
     EvaluationCheckpoints,
 }
 /// Coordinate authority of a captured point.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 pub enum ObservationCoordinates {
     /// Coordinates submitted to the oracle; an outer formulation may still transform them.
     SubmittedOracle,
@@ -29,7 +29,7 @@ pub enum ObservationCoordinates {
     PhysicalTears,
 }
 /// Native phase, without inventing internal restoration variables or slacks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 pub enum NativePhase {
     /// Ordinary native optimization.
     Main,
@@ -38,22 +38,32 @@ pub enum NativePhase {
     /// The callback did not establish the phase.
     Unknown,
 }
+/// One submitted-oracle coordinate with lossless numeric observation encoding.
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
+pub struct NativeCoordinate {
+    /// Submitted variable identity.
+    pub variable: SemanticId,
+    /// Observed IEEE value; nonfinite values retain their explicit tag.
+    #[serde(serialize_with = "serialize_number")]
+    #[schemars(with = "pse_model::diagnostic::Observation")]
+    pub value: f64,
+}
 /// Latest callback point in its submitted coordinate authority, not a resumable state.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct NativeSnapshot {
     /// Actual native iteration ordinal.
     pub iteration: Option<u64>,
     /// Actual callback phase.
     pub phase: NativePhase,
     /// Captured coordinate prefix, with source IDs.
-    pub values: Vec<(SemanticId, f64)>,
+    pub values: Vec<NativeCoordinate>,
     /// Full submitted coordinate count, including any omitted suffix.
     pub total_coordinates: usize,
     /// A suffix was omitted by the fixed capture allocation.
     pub partial: bool,
 }
 /// Family-specific native meanings; these counters are not interchangeable cost units.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum NativeCounters {
     /// Ipopt's structured SolveStatistics, absent after unsupported/serious exits.
@@ -71,10 +81,16 @@ pub enum NativeCounters {
         /// Native Lagrangian Hessian evaluations.
         hessian_evaluations: Option<u64>,
         /// CPU time including callbacks; overlaps wall and system time.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         cpu_seconds: Option<f64>,
         /// System time including callbacks; never summed with wall time.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         system_seconds: Option<f64>,
         /// Native algorithm wall time including callbacks.
+        #[serde(serialize_with = "serialize_optional_number")]
+        #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
         wall_seconds: Option<f64>,
     },
     /// KINSOL getters for this attempt, excluding independent original assessment.
@@ -98,7 +114,7 @@ pub enum NativeCounters {
     },
 }
 /// Exact profile and problem witness for native facts; unknown counters remain absent.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct NativeObservations {
     /// Actual native adapter.
     pub backend: Backend,
@@ -116,7 +132,7 @@ pub struct NativeObservations {
     pub current: Option<Arc<NativeSnapshot>>,
 }
 /// What the producer knows about a map call, never inferred from numeric proximity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, schemars::JsonSchema)]
 pub enum RawMapRole {
     /// Actual fixed-point callback; not evidence of accepted outer iterate status.
     FixedPointEvaluation,
@@ -126,7 +142,7 @@ pub enum RawMapRole {
     Unknown,
 }
 /// Typed failure class; the complete cause remains with the report's callback failure owner.
-#[derive(Clone, Copy, Debug, serde::Serialize)]
+#[derive(Clone, Copy, Debug, serde::Serialize, schemars::JsonSchema)]
 pub enum RawMapFailure {
     /// Recoverable trial refusal in the scientific producer.
     Trial,
@@ -136,7 +152,7 @@ pub enum RawMapFailure {
     Stopped(Termination),
 }
 /// One physical tear quantity, or an explicitly submitted-oracle quantity.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct RawMapCoordinate {
     /// Tear destination variable ID.
     pub variable: SemanticId,
@@ -144,20 +160,23 @@ pub struct RawMapCoordinate {
     pub row: SemanticId,
     /// Actual map input.
     #[serde(serialize_with = "serialize_number")]
+    #[schemars(with = "pse_model::diagnostic::Observation")]
     pub input: f64,
     /// Actual G output; absent for failed calls and residual-only assessments.
     pub mapped: Option<f64>,
     /// Raw G(x)-x, or fresh original residual for OriginalAssessment.
     #[serde(serialize_with = "serialize_optional_number")]
+    #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
     pub residual: Option<f64>,
     /// Original physical tolerance, present only with physical coordinate authority.
     pub physical_tolerance: Option<f64>,
     /// Physical abs(residual)/tolerance; never native scaling or accelerated step norm.
     #[serde(serialize_with = "serialize_optional_number")]
+    #[schemars(with = "Option<pse_model::diagnostic::Observation>")]
     pub physical_error_ratio: Option<f64>,
 }
 /// A bounded diagnostic map sample; missing fields are unknown, never zero.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct RawMapSample {
     /// Evaluation ordinal within this attempt, including failures.
     pub ordinal: u64,
@@ -181,7 +200,7 @@ pub struct RawMapSample {
     pub inner_branch: Option<ContentHash>,
 }
 /// Shared bounded history, independent of lossy progress events.
-#[derive(Clone, Debug, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct RawMapHistory {
     /// Submitted map contract.
     pub problem: ContentHash,
@@ -328,5 +347,23 @@ mod tests {
         assert_eq!(value["samples"][0]["values"][0]["residual"]["kind"], "nonfinite");
         assert_eq!(value["samples"][0]["values"][0]["residual"]["value"], "negative_infinity");
         assert_eq!(value["samples"][0]["values"][0]["physical_error_ratio"]["kind"], "nonfinite");
+    }
+    #[test]
+    fn native_observations_encode_nonfinite_coordinates_and_times_with_matching_schema() {
+        let snapshot = NativeSnapshot { iteration: Some(1), phase: NativePhase::Restoration,
+            values: vec![NativeCoordinate { variable: SemanticId::NIL, value: f64::NAN }],
+            total_coordinates: 1, partial: false };
+        let value = serde_json::to_value(&snapshot).unwrap();
+        assert_eq!(value["values"][0]["value"]["kind"], "nonfinite");
+        let schema = serde_json::to_value(schemars::schema_for!(NativeSnapshot)).unwrap();
+        assert!(schema.to_string().contains("DiagnosticNonfiniteObservation"));
+        let counters = NativeCounters::Ipopt { iterations: None, objective_evaluations: None,
+            constraint_evaluations: None, gradient_evaluations: None,
+            jacobian_evaluations: None, hessian_evaluations: None,
+            cpu_seconds: Some(f64::INFINITY), system_seconds: None, wall_seconds: Some(0.) };
+        let value = serde_json::to_value(&counters).unwrap();
+        assert_eq!(value["cpu_seconds"]["kind"], "nonfinite");
+        assert_eq!(value["system_seconds"], serde_json::Value::Null);
+        assert_eq!(value["wall_seconds"]["kind"], "real");
     }
 }

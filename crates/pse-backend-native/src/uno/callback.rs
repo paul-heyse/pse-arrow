@@ -351,12 +351,11 @@ pub(crate) unsafe extern "C" fn iteration(
         if valid.is_ok() && !current.is_null() {
             // SAFETY: the bridge supplies this callback's immutable checked extent.
             let point = unsafe { input(current, extent) };
-            if let Ok(point) = point
-                && point.iter().all(|value| value.is_finite())
-            {
+            if let Ok(point) = point {
                 let length = extent.min(crate::solve::SNAPSHOT_COORDINATES);
                 let values = c.oracle.contract().variables.iter().zip(point)
-                    .take(length).map(|(variable, value)| (variable.id, *value)).collect();
+                    .take(length).map(|(variable, value)| crate::solve::NativeCoordinate {
+                        variable: variable.id, value: *value }).collect();
                 c.current = Some(std::sync::Arc::new(crate::solve::NativeSnapshot {
                     iteration: u64::try_from(number).ok(),
                     phase: match mode { 0 => crate::solve::NativePhase::Main,

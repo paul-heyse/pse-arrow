@@ -579,7 +579,7 @@ impl Sequence {
             }
             let stats = native_known && result.statistics_available == 1;
             let count = |value| stats.then(|| u64::try_from(value).ok()).flatten();
-            let seconds = |value: f64| (stats && value.is_finite() && value >= 0.).then_some(value);
+            let observed_seconds = |value: f64| stats.then_some(value);
             report.evidence.native_observations = Some(Arc::new(NativeObservations {
                 backend: Backend::Ipopt, problem: context.oracle.contract().identity,
                 profile: compatibility.profile, coordinates: ObservationCoordinates::SubmittedOracle,
@@ -591,8 +591,8 @@ impl Sequence {
                     gradient_evaluations: count(result.gradient_evaluations),
                     jacobian_evaluations: count(result.jacobian_evaluations),
                     hessian_evaluations: count(result.hessian_evaluations),
-                    cpu_seconds: seconds(result.cpu_seconds), system_seconds: seconds(result.system_seconds),
-                    wall_seconds: seconds(result.wall_seconds),
+                    cpu_seconds: observed_seconds(result.cpu_seconds), system_seconds: observed_seconds(result.system_seconds),
+                    wall_seconds: observed_seconds(result.wall_seconds),
                 }, current: context.current.take(),
             }));
             let build = super::build();
@@ -814,7 +814,7 @@ mod tests {
         let current = native.current.as_ref().unwrap();
         assert_eq!(current.total_coordinates, 1);
         assert!(!current.partial);
-        assert_eq!(current.values[0].0, report.variables[0]);
+        assert_eq!(current.values[0].variable, report.variables[0]);
         assert!(report.completed_report_allowance().unwrap().is_some());
     }
     #[test]
