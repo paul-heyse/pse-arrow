@@ -2292,13 +2292,13 @@ async fn plan38b_replay_horizon_reconstructs_stages_and_reruns_after_cancelled_p
     let (package, [root, whole, _]) = package(runtime.clone()).await;
     let (plant, actuator, output) = plant(&package, whole, 0.0, 3).await;
     let original = Horizon {
-        output: StudyOutputDemand::Full {}, plant, period: PERIOD, steps: 3,
+        output: crate::workflow::StudyOutputDemand::Full {}, plant, period: PERIOD, steps: 3,
         inputs: vec![HorizonInput { parameter: actuator, initial: 0.5 }],
         estimator: None, controller: Some(controller(&package, root, output, vec![0.8, 1.0, 0.6])),
     };
     // Use the production horizon constructor owner before any worker; a retained
     // interrupted original input still carries every control/stage mapping.
-    let constructor = super::replay::ReplayHorizonConstructor::new(&original).unwrap();
+    let constructor = crate::workflow::ReplayHorizonConstructor::new(&original).unwrap();
     let sources = vec![package.clone(), package.clone()];
     let restored = constructor.reconstruct(&sources, &crate::CancelSource::new()).await.unwrap();
     assert_eq!(restored.steps, original.steps);

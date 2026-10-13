@@ -1366,10 +1366,6 @@ impl PreparedSolve {
     }
     /// Borrow the actual ordered caller/compiler automatic inventory.
     pub(crate) fn replay_automatic_products(&self) -> &[PreparedRung] { &self.automatic_products }
-    /// The immutable admission observation, without reobserving today's environment.
-    pub(crate) fn execution_snapshot(&self) -> &execution::Snapshot {
-        &self.snapshot
-    }
     /// Copy immutable original preparations into a new execution, preserving the exact
     /// declaration, requested settings and explicit input starts. Every original rung
     /// loses its prior task clocks, ledger and pending point sink recursively. The
