@@ -14,13 +14,19 @@ use pse_backend_native::{
 };
 use pse_math::convexity::ConvexityPolicy;
 use pse_model::{document::Version, numerics::NumericalPolicy, scalars::FiniteBound};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The settings of one solve. The version is required; every other field takes the
 /// default of [`SolverProfile::default`] when absent.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SolveSettings {
+    /// Compiler stable block identities and admitted native realization overrides.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, BlockSolveOverride>,
+    /// Maximum independent ready blocks; actual capacity is admitted by the existing owner.
+    #[serde(default = "defaults::block_workers")]
+    pub block_workers: usize,
     /// Document version.
     pub version: Version<4>,
     /// Requested composition; omission chooses automatic resolution without replacement starts.
@@ -182,9 +188,50 @@ impl SensitivityRequest {
     }
 }
 
+/// Native realization and finite work controls of one compiler-issued block.
+/// Physical numerical meaning, intent, branch permission and authored start stay inherited.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct BlockSolveOverride {
+    /// Explicit eligible backend; omission uses contextual Auto selection.
+    #[serde(default)]
+    pub backend: Option<Backend>,
+    /// Typed settings admitted against this actual block.
+    #[serde(default)]
+    pub settings: Option<BackendSettings>,
+    /// Optional finite controls within the original aggregate allowance.
+    #[serde(default)]
+    pub controls: Option<Controls>,
+}
+impl BlockSolveOverride {
+    pub(crate) fn apply(&self, original: &SolverProfile) -> Result<SolverProfile, ProblemError> {
+        let mut profile = original.clone();
+        profile.block_overrides.clear();
+        profile.block_workers = 1;
+        profile.selection = self.backend.map_or(SolverSelection::Auto, SolverSelection::Explicit);
+        profile.backend = BackendSettings::from_document(self.settings.clone());
+        if let Some(controls) = &self.controls {
+            controls.validate()?;
+            if controls.start != original.controls.start
+                || controls.reuse != original.controls.reuse
+                || controls.hessian != original.controls.hessian
+                || controls.time_limit > original.controls.time_limit
+                || controls.iterations > original.controls.iterations
+                || controls.history > original.controls.history
+                || controls.threads > original.controls.threads
+                || original.controls.foreign_bytes.is_some_and(|cap| controls.foreign_bytes.is_none_or(|bytes| bytes > cap))
+            {
+                return Err(ProblemError::Contract("block override changes original start/reuse/derivative permission or expands aggregate controls".into()));
+            }
+            profile.controls = controls.clone();
+        }
+        Ok(profile)
+    }
+}
 mod defaults {
     use super::{PolicyKind, SolveIntent, SolverProfile};
 
+    pub(super) fn block_workers() -> usize { SolverProfile::default().block_workers }
     pub(super) fn controls() -> super::Controls {
         SolverProfile::default().controls
     }
@@ -200,6 +247,8 @@ impl Default for SolveSettings {
     /// The document of [`SolverProfile::default`].
     fn default() -> Self {
         Self {
+            block_overrides: BTreeMap::new(),
+            block_workers: defaults::block_workers(),
             version: Version,
             composition: Default::default(),
             reconstruction: None,
@@ -229,6 +278,9 @@ impl SolveSettings {
     pub fn profile(self) -> Result<SolverProfile, MathRuntimeError> {
         let presolve = Policy::new(self.presolve, &self.presolve_options, self.required_passes)?;
         self.controls.validate()?;
+        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {
+            return Err(ProblemError::Contract("finite block execution extent".into()).into());
+        }
         if let Some(accuracy) = self.reconstruction {
             accuracy.validate()?;
         }
@@ -244,6 +296,8 @@ impl SolveSettings {
             request.admit(self.intent)?;
         }
         Ok(SolverProfile {
+            block_overrides: self.block_overrides,
+            block_workers: self.block_workers,
             presolve,
             numerics: self.numerics,
             convexity,
@@ -265,6 +319,26 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    #[test]
+    fn block_overrides_refuse_unknown_identity_and_expanded_or_changed_start_controls() {
+        let id = pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([61; 32]));
+        let mut profile = SolverProfile::default();
+        profile.block_overrides.insert(id, BlockSolveOverride { backend: Some(Backend::Kinsol), settings: None, controls: None });
+        assert!(profile.validate_block_ids(std::iter::empty()).is_err());
+        profile.validate_block_ids(std::iter::once(id)).unwrap();
+        let effective = profile.block_profile(id).unwrap();
+        assert_eq!(effective.selection, SolverSelection::Explicit(Backend::Kinsol));
+        assert_eq!(effective.numerics.key(), profile.numerics.key());
+        assert!(effective.block_overrides.is_empty());
+        for controls in [
+            Controls { iterations: profile.controls.iterations + 1, ..profile.controls.clone() },
+            Controls { start: pse_backend_native::solve::StartPolicy::PreviousAccepted, ..profile.controls.clone() },
+            Controls { time_limit: profile.controls.time_limit * 2, ..profile.controls.clone() },
+        ] {
+            profile.block_overrides.get_mut(&id).unwrap().controls = Some(controls);
+            assert!(profile.validate_block_ids(std::iter::once(id)).is_err());
+        }
+    }
     #[test]
     fn current_request_admits_version_before_body_and_preserves_start_grants() {
         let old = br#"{"settings":{"backend":"retired"},"version":1}"#;

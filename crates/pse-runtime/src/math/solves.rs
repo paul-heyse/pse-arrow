@@ -59,6 +59,10 @@ use std::{collections::BTreeMap, future::Future, sync::Arc};
 /// Unified solver request policy; physical tolerances are never inferred from trial magnitudes.
 #[derive(Clone, Debug)]
 pub struct SolverProfile {
+    /// Compiler stable block identity overrides, resolved contextually for actual blocks.
+    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, super::settings::BlockSolveOverride>,
+    /// Finite admitted ready-block concurrency; one preserves sequential execution.
+    pub block_workers: usize,
     /// Qualified library-owned NLP preprocessing policy.
     pub presolve: native::presolve::Policy,
     /// ID-keyed physical magnitudes and independent numerical requirements.
@@ -86,6 +90,8 @@ pub struct SolverProfile {
 impl Default for SolverProfile {
     fn default() -> Self {
         Self {
+            block_overrides: BTreeMap::new(),
+            block_workers: 1,
             presolve: native::presolve::Policy::default(),
             numerics: NumericalPolicy::default(),
             convexity: ConvexityPolicy::default(),
@@ -103,6 +109,28 @@ impl Default for SolverProfile {
     }
 }
 impl SolverProfile {
+    pub(crate) fn block_profile(&self, id: pse_structural::incidence::BlockId) -> Result<Self, ProblemError> {
+        let mut profile = match self.block_overrides.get(&id) {
+            Some(settings) => settings.apply(self)?,
+            None => self.clone(),
+        };
+        profile.block_overrides.clear();
+        profile.block_workers = 1;
+        Ok(profile)
+    }
+    pub(crate) fn validate_block_ids(&self, blocks: impl Iterator<Item = pse_structural::incidence::BlockId>) -> Result<(), ProblemError> {
+        let actual: BTreeSet<_> = blocks.collect();
+        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {
+            return Err(ProblemError::Contract("finite block execution extent".into()));
+        }
+        for (id, settings) in &self.block_overrides {
+            if !actual.contains(id) {
+                return Err(ProblemError::Contract(format!("unknown compiler block identity {}", id.0)));
+            }
+            settings.apply(self)?;
+        }
+        Ok(())
+    }
     /// Resolve request-only curvature from the original producer's actual capability.
     /// Native adapters receive only a concrete acting method.
     pub(crate) fn resolve_curvature(&mut self, available: pse_kernels::DerivativeOrder) {
@@ -2660,7 +2688,7 @@ impl PreparedSolve {
     }
     /// Native threads this step is admitted with.
     pub(crate) fn threads(&self) -> usize {
-        self.profile.controls.threads
+        self.profile.controls.threads.max(self.profile.block_workers)
     }
     /// The foreign allowance this step reserves while it runs, beyond the deployment
     /// allowance its native session holds: the one its controls declare, else none. A
@@ -5938,6 +5966,11 @@ pub(crate) fn comparison_profile_key(
 pub(crate) fn profile_key(p: &SolverProfile) -> Result<pse_ids::roles::ProfileHash, ProblemError> {
     let mut h = FramedHasher::new(pse_ids::Frame::SolverProfileV5);
     hash_session(&mut h, p)?;
+    if !p.block_overrides.is_empty() || p.block_workers != 1 {
+        h.str("block-execution").u64(p.block_workers as u64);
+        pse_ids::document::frame(&mut h, &p.block_overrides)
+            .map_err(|error| ProblemError::Internal(error.to_string()))?;
+    }
     pse_ids::document::frame(&mut h, &p.composition)
         .map_err(|error| ProblemError::Internal(error.to_string()))?;
     pse_ids::document::frame(&mut h, &p.reconstruction)

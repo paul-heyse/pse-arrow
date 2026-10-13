@@ -284,7 +284,7 @@ impl PreparedRung {
     pub(crate) fn threads(&self) -> usize {
         match self {
             #[cfg(feature = "solver-kinsol")]
-            Self::Blocks(p) => p.original().threads(),
+            Self::Blocks(p) => p.workers().max(p.original().profile.controls.threads),
             #[cfg(feature = "solver-kinsol")]
             Self::Causal(p) => p.original().threads(),
             Self::Surrogate(p) => p.threads(),
@@ -302,12 +302,14 @@ impl PreparedRung {
         if let Self::Causal(prepared) = self {
             return prepared.backends().to_vec();
         }
+        #[cfg(feature = "solver-kinsol")]
+        if let Self::Blocks(prepared) = self { return prepared.backends().to_vec(); }
         self.backend().into_iter().collect()
     }
     pub(crate) fn declared_foreign_bytes(&self) -> usize {
         match self {
             #[cfg(feature = "solver-kinsol")]
-            Self::Blocks(p) => p.original().declared_foreign_bytes(),
+            Self::Blocks(p) => p.foreign_bytes(),
             #[cfg(feature = "solver-kinsol")]
             Self::Causal(p) => p.declared_foreign_bytes(),
             Self::Surrogate(_) => 0,

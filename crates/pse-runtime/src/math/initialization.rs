@@ -48,81 +48,12 @@ impl PreparedInitialization {
         solver: &SolverProfile,
         numerics: &pse_model::numerics::ResolvedNumericalPolicy,
     ) -> Result<Vec<native::routing::Route>, native::ProblemError> {
+        solver.validate_block_ids(self.boundaries().map(|block| block.id))?;
         self.blocks
             .iter()
             .map(|block| {
-                let c = native::assembled::contract(&block.executable.assembly);
-                let mut facts = native::routing::oracle_facts(&c, false, true);
-                facts.derivatives = block.view.plan.available_order();
-                facts.prepared_derivatives = block.view.plan.order();
-                let rows: Vec<_> = block
-                    .view
-                    .plan
-                    .structure()
-                    .rows()
-                    .iter()
-                    .map(|row| row.id)
-                    .collect();
-                let normalization = pse_math::normalization::Normalization::from_policy(
-                    numerics,
-                    block.view.plan.columns(),
-                    &rows,
-                )?;
-                let tolerances =
-                    Tolerances::from_policy(numerics, block.view.plan.columns(), &rows)?;
-                let accuracy =
-                    ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-                native::routing::Requirements {
-                    table: &execution::LINKED,
-                    facts: &facts,
-                    intent: SolveIntent::Initialize,
-                    numerical_psd: false,
-                    least_squares: false,
-                    controls: &solver.controls,
-                    settings: &solver.backend,
-                    sensitivity: false,
-                    context: native::routing::Context {
-                        snapshot: self.snapshot.clone(),
-                        pending_classes: &[],
-                        structure: Some(native::routing::Structure {
-                            variables: block.view.plan.columns().to_vec(),
-                            equations: block
-                                .view
-                                .plan
-                                .structure()
-                                .rows()
-                                .iter()
-                                .map(|row| pse_structural::incidence::Constraint {
-                                    id: row.id,
-                                    lower: row.lower.is_finite().then_some(row.lower),
-                                    upper: row.upper.is_finite().then_some(row.upper),
-                                })
-                                .collect(),
-                            witness: block.view.structure.clone().into(),
-                        }),
-                        oracle: Some(&c),
-                        guards: &BTreeMap::new(),
-                        budgets: Some(execution::Budgets {
-                            tolerances: &tolerances,
-                            normalization: &normalization,
-                            accuracy: &accuracy,
-                        }),
-                        coefficients: None,
-                        cone: None,
-                        factorable: None,
-                        certificate: None,
-                        prepared: &[
-                            native::routing::ArtifactDemand::Representation(
-                                execution::Representation::Nlp,
-                            ),
-                            native::routing::ArtifactDemand::Representation(
-                                execution::Representation::Roots,
-                            ),
-                        ],
-                        refusals: &BTreeMap::new(),
-                    },
-                }
-                .select(solver.selection)
+                let solver = solver.block_profile(block.boundary.id)?;
+                conditional_route(&self.snapshot, &block.view, &block.executable, &solver, numerics)
             })
             .collect()
     }
@@ -144,6 +75,7 @@ impl PreparedInitialization {
     > {
         let solver = &profile.solver;
         solver.controls.validate()?;
+        solver.validate_block_ids(self.boundaries().map(|block| block.id))?;
         if !matches!(solver.intent, SolveIntent::Initialize | SolveIntent::Root) {
             return Err(native::ProblemError::Contract(
                 "initialization requires the root or initialize intent".into(),
@@ -220,6 +152,113 @@ impl PreparedInitialization {
     pub fn boundaries(&self) -> impl Iterator<Item = &pse_structural::initialization::Block> {
         self.blocks.iter().map(|b| &b.boundary)
     }
+}
+/// Canonical ready prefix from the complete compiler dependency product. Fixed inputs
+/// are already bound; every produced input waits for its owning block's commit.
+pub(super) fn ready_wave<'a>(
+    blocks: impl Iterator<Item = &'a pse_structural::initialization::Block>,
+    completed: &[bool],
+    width: usize,
+) -> Result<Vec<usize>, native::ProblemError> {
+    let blocks: Vec<_> = blocks.collect();
+    if width == 0 || blocks.len() != completed.len() {
+        return Err(native::ProblemError::Contract("ready block extent".into()));
+    }
+    let mut producers = BTreeMap::new();
+    for (index, block) in blocks.iter().enumerate() {
+        for column in &block.members.columns {
+            if producers.insert(*column, index).is_some() {
+                return Err(native::ProblemError::Contract("overlapping block output coordinates".into()));
+            }
+        }
+    }
+    let wave: Vec<_> = blocks.iter().enumerate().filter_map(|(index, block)| {
+        (!completed[index] && block.inputs.iter().all(|input| {
+            producers.get(input).is_none_or(|&producer| producer == index || completed[producer])
+        })).then_some(index)
+    }).take(width).collect();
+    if wave.is_empty() && completed.iter().any(|done| !done) {
+        return Err(native::ProblemError::Contract("incomplete or cyclic block dependency witness".into()));
+    }
+    Ok(wave)
+}
+pub(super) fn conditional_route(
+    snapshot: &execution::Snapshot,
+    view: &pse_compiler::workspace::PreparedBlock,
+    executable: &ExecutableCase,
+    solver: &SolverProfile,
+    numerics: &pse_model::numerics::ResolvedNumericalPolicy,
+) -> Result<native::routing::Route, native::ProblemError> {
+                let c = native::assembled::contract(&executable.assembly);
+                let mut facts = native::routing::oracle_facts(&c, false, true);
+                facts.derivatives = view.plan.available_order();
+                facts.prepared_derivatives = view.plan.order();
+                let rows: Vec<_> = view
+                    .plan
+                    .structure()
+                    .rows()
+                    .iter()
+                    .map(|row| row.id)
+                    .collect();
+                let normalization = pse_math::normalization::Normalization::from_policy(
+                    numerics,
+                    view.plan.columns(),
+                    &rows,
+                )?;
+                let tolerances =
+                    Tolerances::from_policy(numerics, view.plan.columns(), &rows)?;
+                let accuracy =
+                    ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+                native::routing::Requirements {
+                    table: &execution::LINKED,
+                    facts: &facts,
+                    intent: SolveIntent::Initialize,
+                    numerical_psd: false,
+                    least_squares: false,
+                    controls: &solver.controls,
+                    settings: &solver.backend,
+                    sensitivity: false,
+                    context: native::routing::Context {
+                        snapshot: snapshot.clone(),
+                        pending_classes: &[],
+                        structure: Some(native::routing::Structure {
+                            variables: view.plan.columns().to_vec(),
+                            equations: view
+                                .plan
+                                .structure()
+                                .rows()
+                                .iter()
+                                .map(|row| pse_structural::incidence::Constraint {
+                                    id: row.id,
+                                    lower: row.lower.is_finite().then_some(row.lower),
+                                    upper: row.upper.is_finite().then_some(row.upper),
+                                })
+                                .collect(),
+                            witness: view.structure.clone().into(),
+                        }),
+                        oracle: Some(&c),
+                        guards: &BTreeMap::new(),
+                        budgets: Some(execution::Budgets {
+                            tolerances: &tolerances,
+                            normalization: &normalization,
+                            accuracy: &accuracy,
+                        }),
+                        coefficients: None,
+                        cone: None,
+                        factorable: None,
+                        certificate: None,
+                        prepared: &[
+                            native::routing::ArtifactDemand::Representation(
+                                execution::Representation::Nlp,
+                            ),
+                            native::routing::ArtifactDemand::Representation(
+                                execution::Representation::Roots,
+                            ),
+                        ],
+                        refusals: &BTreeMap::new(),
+                    },
+                }
+                .select(solver.selection)
 }
 /// One source-attributed block attempt. A failed block never commits trial coordinates.
 #[derive(Clone, Debug)]
@@ -1495,7 +1534,7 @@ impl Blocks<'_, '_> {
         let profile = SolverProfile {
             presolve: native::presolve::Policy::Off,
             intent: SolveIntent::Initialize,
-            ..self.profile.solver.clone()
+            ..self.profile.solver.block_profile(block.boundary.id)?
         };
         let native::routing::Route::Native(selected) = self.strategies[index] else {
             return Err(native::ProblemError::Contract(
@@ -2046,6 +2085,8 @@ mod tests {
             ..Default::default()
         };
         let profile = SolverProfile {
+            block_overrides: BTreeMap::new(),
+            block_workers: 1,
             selection: SolverSelection::Explicit(Backend::Kinsol),
             backend: execution::BackendSettings::Kinsol(settings.method),
             controls: controls.clone(),
@@ -2291,6 +2332,26 @@ mod tests {
         drop(result);
         assert_eq!(service.pool.reserved(), baseline);
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+    #[test]
+    fn ready_block_waves_obey_complete_dependency_inputs_and_canonical_capacity() {
+        use pse_structural::{incidence::{BlockId, Part}, initialization::Block};
+        let block = |n, input: Vec<SemanticId>| Block {
+            id: BlockId(pse_ids::ContentHash::from_bytes([n; 32])),
+            members: Part { rows: vec![id(n + 10)], columns: vec![id(n)] },
+            inputs: input,
+        };
+        let blocks = [block(1, vec![]), block(2, vec![]), block(3, vec![id(1)]), block(4, vec![id(2), id(3)])];
+        assert_eq!(ready_wave(blocks.iter(), &[false; 4], 2).unwrap(), [0, 1]);
+        assert_eq!(ready_wave(blocks.iter(), &[false; 4], 1).unwrap(), [0]);
+        assert_eq!(ready_wave(blocks.iter(), &[true, false, false, false], 4).unwrap(), [1, 2]);
+        assert_eq!(ready_wave(blocks.iter(), &[true, true, true, false], 4).unwrap(), [3]);
+        let cyclic = [block(1, vec![id(2)]), block(2, vec![id(1)])];
+        assert!(ready_wave(cyclic.iter(), &[false; 2], 2).is_err());
+        assert!(ready_wave(blocks.iter(), &[false; 4], 0).is_err());
+        // Provider/validity-only input edges share this same complete producer witness.
+        let hidden = [block(1, vec![]), block(2, vec![id(1)])];
+        assert_eq!(ready_wave(hidden.iter(), &[false; 2], 2).unwrap(), [0]);
     }
     #[test]
     fn conditional_failure_preserves_shared_terminal_causes_and_actual_native_status() {
@@ -2779,6 +2840,8 @@ mod tests {
         drop(source);
         let profile = InitializationProfile {
             solver: SolverProfile {
+            block_overrides: BTreeMap::new(),
+            block_workers: 1,
                 selection: SolverSelection::Explicit(Backend::Kinsol),
                 backend: execution::BackendSettings::Kinsol(kinsol::Method::default()),
                 controls: Controls {

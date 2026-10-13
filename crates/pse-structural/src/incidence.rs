@@ -60,7 +60,8 @@ pub struct Part {
     pub columns: Vec<SemanticId>,
 }
 /// Stable identity of semantic block membership within an admitted scope.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(transparent)]
 pub struct BlockId(pub pse_ids::ContentHash);
 impl BlockId {
     /// Canonicalize membership before framing; layout order is not identity.

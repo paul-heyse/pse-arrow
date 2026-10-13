@@ -5,7 +5,7 @@ use super::*;
 use pse_kernels::ExecutionScope;
 use pse_model::strategy::{MechanismKind, WorkObservation};
 
-/// A complete structural schedule; every block uses the same admitted native backend.
+/// A complete structural schedule with contextually admitted per-block native profiles.
 #[derive(Clone, Debug)]
 pub struct PreparedBlocks {
     original: Box<PreparedSolve>,
@@ -14,6 +14,9 @@ pub struct PreparedBlocks {
     key: pse_ids::ContentHash,
     scope: ExecutionScope,
     backend: Backend,
+    workers: usize,
+    backends: Vec<Backend>,
+    foreign_bytes: usize,
     _owner: Arc<super::super::products::ProductOwner>,
 }
 impl PreparedBlocks {
@@ -34,6 +37,9 @@ impl PreparedBlocks {
         self.backend
     }
     /// Number of actual conditional native operations in the finite schedule.
+    pub(crate) fn workers(&self) -> usize { self.workers }
+    pub(crate) fn backends(&self) -> &[Backend] { &self.backends }
+    pub(crate) fn foreign_bytes(&self) -> usize { self.foreign_bytes }
     pub fn block_count(&self) -> usize {
         self.blocks.len()
     }
@@ -214,6 +220,9 @@ impl MathService {
         let backend = original
             .backend()
             .ok_or_else(|| ProblemError::Unsupported("blocks require native equations".into()))?;
+        original.profile.validate_block_ids(products.iter().map(|block| block.boundary.id))?;
+        let workers = original.profile.block_workers.min(products.len());
+        let mut backends = Vec::new();
         let mut steps = Vec::with_capacity(products.len());
         let mut key = FramedHasher::new(pse_ids::Frame::DerivedBindingV2);
         key.hash(&original.request_identity()?.as_id())
@@ -270,10 +279,17 @@ impl MathService {
                 lease,
                 Arc::new(std::sync::OnceLock::from(executable.clone())),
             )?;
-            let mut profile = original.profile.clone();
+            let mut profile = original.profile.block_profile(block.boundary.id)?;
             profile.presolve = native::presolve::Policy::Off;
             profile.intent = SolveIntent::Initialize;
             profile.controls.reuse = ReusePolicy::Fresh;
+            let route = super::super::initialization::conditional_route(
+                &original.snapshot, block, &executable, &profile, &original.numerics,
+            )?;
+            let Route::Native(actual_backend) = route else {
+                return Err(ProblemError::Unsupported("block requires admitted native equations".into()).into());
+            };
+            if !backends.contains(&actual_backend) { backends.push(actual_backend); }
             let step = self
                 .prepare_conditional(
                     preparation,
@@ -282,7 +298,7 @@ impl MathService {
                     source.providers.clone(),
                     profile,
                     original.numerics.clone(),
-                    Route::Native(backend),
+                    route,
                     original.snapshot.clone(),
                     &scope,
                     driver,
@@ -292,6 +308,13 @@ impl MathService {
             key.hash(&step.preparation_identity()?);
             steps.push(step);
         }
+        let mut foreign: Vec<_> = steps.iter().map(|step| self.policy.foreign_allowance(&step.profile.controls)).collect();
+        foreign.sort_unstable_by(|a, b| b.cmp(a));
+        let native = foreign.into_iter().take(workers).try_fold(0usize, |total, bytes| total.checked_add(bytes))
+            .ok_or(MathRuntimeError::Limit("ready block foreign extent"))?;
+        let stacks = if workers > 1 { workers.checked_mul(self.policy.stack_bytes) } else { Some(0) }
+            .ok_or(MathRuntimeError::Limit("ready block stack extent"))?;
+        let foreign_bytes = native.checked_add(stacks).ok_or(MathRuntimeError::Limit("ready block resident extent"))?;
         Ok(PreparedBlocks {
             original: Box::new(original),
             blocks: steps,
@@ -299,6 +322,9 @@ impl MathService {
             key: key.finish_hash(),
             scope,
             backend,
+            workers,
+            backends,
+            foreign_bytes,
             _owner: owner,
         })
     }
@@ -363,9 +389,23 @@ impl MathService {
             // Conditional data has a different compatibility stamp; the optional schedule
             // cannot reuse a state whose source/seed belongs to another block.
             retained.clear();
-            for (template, block) in prepared.blocks.iter().zip(prepared.boundaries.iter()) {
+            let mut completed = vec![false; prepared.blocks.len()];
+            let mut remaining_iterations = prepared.original.profile.controls.iterations;
+            while completed.iter().any(|done| !done) {
+                execution.check()?;
+                let wave = super::super::initialization::ready_wave(
+                    prepared.boundaries.iter().map(|block| &block.boundary),
+                    &completed, prepared.workers,
+                )?;
+                let per_block_iterations = remaining_iterations / u32::try_from(wave.len()).map_err(|_| MathRuntimeError::Limit("block wave extent"))?;
+                if per_block_iterations == 0 { return Err(ProblemError::Limit { kind: native::LimitKind::Work, detail: "aggregate block iteration allowance exhausted".into() }.into()); }
+                let mut ready = Vec::with_capacity(wave.len());
+                for &index in &wave {
+                    let template = &prepared.blocks[index];
+                    let block = &prepared.boundaries[index];
                 execution.check()?;
                 let mut step = template.clone();
+                step.profile.controls.iterations = step.profile.controls.iterations.min(per_block_iterations);
                 let Representation::Algebraic(local) = &mut step.representation else {
                     return Err(ProblemError::Internal(
                         "conditional representation changed".into(),
@@ -385,27 +425,71 @@ impl MathService {
                     &values,
                     &step.profile,
                     &step.numerics,
-                    prepared.backend,
+                    template.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?,
                     &local.providers,
                     &step.snapshot,
                 )?);
-                let outcome = self.run_step(step, execution.clone(), None, retained, budget);
-                retained.clear();
-                let outcome = match outcome {
-                    Ok(outcome) => outcome,
-                    Err(error) => {
-                        work = sum_work(work, WorkEvidence::default());
-                        return Err(error);
+                    ready.push((index, step));
+                }
+                // The enclosing operation owns the admitted CPU width. Each child owns
+                // its native state and destroys it before join; stacks remain charged.
+                let stack_bytes = if ready.len() > 1 { ready.len().checked_mul(self.policy.stack_bytes) } else { Some(0) }
+                    .ok_or(MathRuntimeError::Limit("ready block stack extent"))?;
+                let _stacks = self.reserve("math:block-wave-stacks", stack_bytes)?;
+                let outcomes = if ready.len() == 1 {
+                    let (index, step) = ready.remove(0);
+                    vec![(index, self.run_step(step, execution.clone(), None, retained, budget))]
+                } else { std::thread::scope(|scope| {
+                    let mut children = Vec::with_capacity(ready.len());
+                    let mut spawn_error = None;
+                    for (index, step) in ready {
+                        let mut child_execution = execution.clone();
+                        child_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
+                        let backend = step.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?;
+                        let threads = step.profile.controls.threads;
+                        match std::thread::Builder::new().name(format!("pse-block-{index}"))
+                            .stack_size(self.policy.stack_bytes)
+                            .spawn_scoped(scope, move || {
+                                execution::scoped(&[execution::adapter(backend)], threads, self.policy.stack_bytes, || {
+                                    let mut local_retained = Retained::default();
+                                    let result = self.run_step(step, child_execution, None, &mut local_retained, budget);
+                                    local_retained.clear();
+                                    local_retained.release();
+                                    result
+                                })
+                            }) {
+                            Ok(child) => children.push((index, child)),
+                            Err(error) => { spawn_error = Some(MathRuntimeError::Infrastructure(error.to_string())); break; }
+                        }
                     }
-                };
-                let Outcome::Native(report) = outcome else {
-                    work = sum_work(work, WorkEvidence::default());
-                    return Err(match outcome {
-                        Outcome::Rejected(error) => MathRuntimeError::Shared(error),
-                        _ => ProblemError::Internal("conditional native report unavailable".into())
-                            .into(),
-                    });
-                };
+                    let mut outcomes = Vec::with_capacity(children.len());
+                    for (index, child) in children {
+                        let result = child.join().unwrap_or_else(|_| Err(MathRuntimeError::Panic("ready block worker panicked".into())));
+                        outcomes.push((index, result));
+                    }
+                    if let Some(error) = spawn_error { return Err(error); }
+                    Ok::<_, MathRuntimeError>(outcomes)
+                })? };
+                retained.clear();
+                retained.release();
+                // Join/drain the complete wave before any error or overlay escapes.
+                for (index, outcome) in outcomes {
+                    let outcome = match outcome {
+                        Ok(outcome) => outcome,
+                        Err(error) => { work = sum_work(work, WorkEvidence::default()); return Err(error); }
+                    };
+                    let Outcome::Native(report) = outcome else {
+                        work = sum_work(work, WorkEvidence::default());
+                        return Err(match outcome {
+                            Outcome::Rejected(error) => MathRuntimeError::Shared(error),
+                            _ => ProblemError::Internal("conditional native report unavailable".into()).into(),
+                        });
+                    };
+                    let block = &prepared.boundaries[index];
+                let consumed = report.evidence.work.iterations.and_then(|count| u32::try_from(count).ok())
+                    .ok_or_else(|| ProblemError::Unsupported("block aggregate iteration coverage unavailable".into()))?;
+                remaining_iterations = remaining_iterations.checked_sub(consumed)
+                    .ok_or_else(|| ProblemError::Limit { kind: native::LimitKind::Work, detail: "aggregate block iteration allowance exceeded".into() })?;
                 work = sum_work(work, report.evidence.work);
                 capture_component(&report)?;
                 if let Err(cause) = super::super::initialization::commit_block(
@@ -422,6 +506,8 @@ impl MathService {
                     .into());
                 }
                 components.push(report);
+                    completed[index] = true;
+                }
             }
             execution.check()?;
             let mut original = source.clone();
