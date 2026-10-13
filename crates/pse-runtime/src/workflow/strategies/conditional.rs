@@ -503,16 +503,24 @@ impl PreparedRecycle {
     /// Frozen actual authored unit starts and effective inner accuracy. Inputs are
     /// rebound per sweep; solved roots are never promoted to future starts.
     pub fn inner_context(&self) -> Result<RawMapInnerContext, native::ProblemError> {
-        if self.programs.iter().all(|program| program.conditional.is_none()) {
-            return Ok(RawMapInnerContext { kind: RawMapContextKind::Inapplicable, ..Default::default() });
+        if self
+            .programs
+            .iter()
+            .all(|program| program.conditional.is_none())
+        {
+            return Ok(RawMapInnerContext {
+                kind: RawMapContextKind::Inapplicable,
+                ..Default::default()
+            });
         }
         let mut starts = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         let mut accuracy = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         let mut branches = FramedHasher::new(pse_ids::Frame::CausalMapV2);
         branches.hash(&self.original.assembly.structure().key());
         for program in &self.programs {
-            let authored = pse_ids::document::of(pse_ids::Frame::CausalMapV2, &program.values.scalars)
-                .map_err(|error| native::ProblemError::Internal(error.to_string()))?;
+            let authored =
+                pse_ids::document::of(pse_ids::Frame::CausalMapV2, &program.values.scalars)
+                    .map_err(|error| native::ProblemError::Internal(error.to_string()))?;
             starts.id(&program.declaration.node).hash(&authored);
             branches.id(&program.declaration.node).hash(&authored);
             if let Some(inner) = &program.conditional {
@@ -577,7 +585,9 @@ impl PreparedRecycle {
             // A failed later validation may retain raw last-successful G evidence,
             // but cannot publish an earlier attempt as this terminal original candidate.
             let Some(overlay) = overlay else {
-                *observed.lock().map_err(|_| native::ProblemError::Internal("recycle candidate lock poisoned".into()))? = None;
+                *observed.lock().map_err(|_| {
+                    native::ProblemError::Internal("recycle candidate lock poisoned".into())
+                })? = None;
                 return Ok(());
             };
             let mut candidate = original.clone();
@@ -604,30 +614,51 @@ impl PreparedRecycle {
                 ));
             }
             if rows.len() != structure.rows().len() {
-                return Err(native::ProblemError::Contract("incomplete original recycle rows".into()));
+                return Err(native::ProblemError::Contract(
+                    "incomplete original recycle rows".into(),
+                ));
             }
-            for ((value, row), tolerance) in rows.iter().zip(structure.rows()).zip(&original_tolerances.rows) {
+            for ((value, row), tolerance) in rows
+                .iter()
+                .zip(structure.rows())
+                .zip(&original_tolerances.rows)
+            {
                 if !value.is_finite() {
-                    return Err(native::ProblemError::numerical("nonfinite original recycle row"));
+                    return Err(native::ProblemError::numerical(
+                        "nonfinite original recycle row",
+                    ));
                 }
                 if *value < row.lower - tolerance || *value > row.upper + tolerance {
                     return Err(pse_math::MathError::OutsideRange {
-                        source_id: row.id, target: row.id, value: *value,
+                        source_id: row.id,
+                        target: row.id,
+                        value: *value,
                         lower: row.lower.is_finite().then_some(row.lower - tolerance),
                         upper: row.upper.is_finite().then_some(row.upper + tolerance),
-                    }.into());
+                    }
+                    .into());
                 }
             }
             for variable in structure.variables() {
-                let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| native::ProblemError::Contract("incomplete original recycle coordinates".into()))?;
+                let value = candidate.scalars.get(&variable.port.id).ok_or_else(|| {
+                    native::ProblemError::Contract("incomplete original recycle coordinates".into())
+                })?;
                 if !value.is_finite() {
-                    return Err(native::ProblemError::numerical("nonfinite original recycle coordinate"));
+                    return Err(native::ProblemError::numerical(
+                        "nonfinite original recycle coordinate",
+                    ));
                 }
-                if variable.lower.is_some_and(|lower| *value < lower) || variable.upper.is_some_and(|upper| *value > upper) {
+                if variable.lower.is_some_and(|lower| *value < lower)
+                    || variable.upper.is_some_and(|upper| *value > upper)
+                {
                     return Err(pse_math::MathError::OutsideRange {
-                        source_id: variable.port.id, target: variable.port.id, value: *value,
-                        lower: variable.lower, upper: variable.upper,
-                    }.into());
+                        source_id: variable.port.id,
+                        target: variable.port.id,
+                        value: *value,
+                        lower: variable.lower,
+                        upper: variable.upper,
+                    }
+                    .into());
                 }
             }
             execution.check()?;
@@ -1354,27 +1385,60 @@ impl ModelingPackage {
         settings
             .validate_contract(&contract, kinsol::Strategy::FixedPoint, &BTreeMap::new())
             .map_err(MathRuntimeError::from)?;
-        let restarts = request.restarts.as_ref().map(|request| {
-            if request.starts.is_empty() || request.starts.len() > 32
-                || request.starts.len().checked_mul(contract.variables.len()).is_none_or(|n| n > 4096)
-                || request.starts.iter().any(|point| point.len() != contract.variables.len()
-                    || contract.variables.iter().any(|variable| !point.contains_key(&variable.id))) {
-                return Err(native::ProblemError::Contract("finite exact recycle restart inventory".into()));
-            }
-            let schedule = kinsol::RestartSchedule {
-                starts: request.starts.iter().map(|point| contract.variables.iter().map(|variable| point[&variable.id]).collect()).collect(),
-                iterations: request.iterations,
-            };
-            schedule.validate(&contract, &profile.controls)?;
-            Ok::<_, native::ProblemError>(schedule)
-        }).transpose().map_err(MathRuntimeError::from)?;
+        let restarts = request
+            .restarts
+            .as_ref()
+            .map(|request| {
+                if request.starts.is_empty()
+                    || request.starts.len() > 32
+                    || request
+                        .starts
+                        .len()
+                        .checked_mul(contract.variables.len())
+                        .is_none_or(|n| n > 4096)
+                    || request.starts.iter().any(|point| {
+                        point.len() != contract.variables.len()
+                            || contract
+                                .variables
+                                .iter()
+                                .any(|variable| !point.contains_key(&variable.id))
+                    })
+                {
+                    return Err(native::ProblemError::Contract(
+                        "finite exact recycle restart inventory".into(),
+                    ));
+                }
+                let schedule = kinsol::RestartSchedule {
+                    starts: request
+                        .starts
+                        .iter()
+                        .map(|point| {
+                            contract
+                                .variables
+                                .iter()
+                                .map(|variable| point[&variable.id])
+                                .collect()
+                        })
+                        .collect(),
+                    iterations: request.iterations,
+                };
+                schedule.validate(&contract, &profile.controls)?;
+                Ok::<_, native::ProblemError>(schedule)
+            })
+            .transpose()
+            .map_err(MathRuntimeError::from)?;
         let mut effective_profile = profile.clone();
         effective_profile.selection = SolverSelection::Explicit(Backend::Kinsol);
         effective_profile.backend = native::execution::BackendSettings::Kinsol(settings.method);
         effective_profile.numerics = numerics.policy.clone();
         let mut profile_identity = FramedHasher::new(pse_ids::Frame::CausalMapV2);
-        profile_identity.hash(&crate::math::solves::profile_key(&effective_profile).map_err(MathRuntimeError::from)?.as_id());
-        pse_ids::document::frame(&mut profile_identity, &request.restarts).map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
+        profile_identity.hash(
+            &crate::math::solves::profile_key(&effective_profile)
+                .map_err(MathRuntimeError::from)?
+                .as_id(),
+        );
+        pse_ids::document::frame(&mut profile_identity, &request.restarts)
+            .map_err(|error| MathRuntimeError::Infrastructure(error.to_string()))?;
         let profile_key = profile_identity.finish_hash();
         let original = self
             .runtime

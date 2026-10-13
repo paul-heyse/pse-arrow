@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-issued conditional equations executed in one original task.
 use super::*;
-use std::collections::BTreeSet;
 use pse_kernels::ExecutionScope;
 use pse_model::strategy::{MechanismKind, WorkObservation};
+use std::collections::BTreeSet;
 
 /// A complete structural schedule with contextually admitted per-block native profiles.
 #[derive(Clone, Debug)]
@@ -39,15 +39,28 @@ impl PreparedBlocks {
         self.backend
     }
     /// Maximum admitted independent ready-block width.
-    pub fn workers(&self) -> usize { self.workers }
-    pub(crate) fn threads(&self) -> usize { self.threads }
-    /// Complete actual adapter inventory for the contextually resolved block profiles.
-    pub fn backends(&self) -> &[Backend] { &self.backends }
-    /// Effective profiles keyed by compiler identity, inspectable before execution.
-    pub fn profiles(&self) -> impl Iterator<Item = (pse_structural::incidence::BlockId, &SolverProfile)> {
-        self.boundaries.iter().zip(&self.blocks).map(|(block, step)| (block.boundary.id, &step.profile))
+    pub fn workers(&self) -> usize {
+        self.workers
     }
-    pub(crate) fn foreign_bytes(&self) -> usize { self.foreign_bytes }
+    pub(crate) fn threads(&self) -> usize {
+        self.threads
+    }
+    /// Complete actual adapter inventory for the contextually resolved block profiles.
+    pub fn backends(&self) -> &[Backend] {
+        &self.backends
+    }
+    /// Effective profiles keyed by compiler identity, inspectable before execution.
+    pub fn profiles(
+        &self,
+    ) -> impl Iterator<Item = (pse_structural::incidence::BlockId, &SolverProfile)> {
+        self.boundaries
+            .iter()
+            .zip(&self.blocks)
+            .map(|(block, step)| (block.boundary.id, &step.profile))
+    }
+    pub(crate) fn foreign_bytes(&self) -> usize {
+        self.foreign_bytes
+    }
     /// Number of actual conditional native operations in the finite schedule.
     pub fn block_count(&self) -> usize {
         self.blocks.len()
@@ -173,84 +186,220 @@ impl PreparedSolve {
 }
 impl MathService {
     pub(crate) async fn validate_prepared_block_overrides(
-        self: &Arc<Self>, prepared: &Preparation, profile: &SolverProfile,
+        self: &Arc<Self>,
+        prepared: &Preparation,
+        profile: &SolverProfile,
         numerics: &ResolvedNumericalPolicy,
     ) -> Result<(), MathRuntimeError> {
         let source = prepared.prepared.clone();
         let construction = super::super::jobs::ConstructionEstimate::from_bound(
-            source.automatic_alternatives_allocation_bound()?, self.policy.workspace_bytes,
+            source.automatic_alternatives_allocation_bound()?,
+            self.policy.workspace_bytes,
         );
         let requested = profile.clone();
-        let (boundaries, _inventory_lease) = self.job_retained_construction(1, construction, FlightCancellation::default(), None, move |flag| {
-            let pse_compiler::workspace::Alternative::Available(schedule) = source.automatic_alternatives(&flag)?.initialization else {
-                return Err(ProblemError::Unsupported("explicit block overrides require complete compiler block inventory".into()).into());
-            };
-            requested.validate_block_ids(schedule.blocks.iter().map(|block| block.id))?;
-            let mut boundaries = Vec::with_capacity(requested.block_overrides.len());
-            for block in schedule.blocks {
-                if requested.block_overrides.contains_key(&block.id) { boundaries.push(block); }
-            }
-            // Retain only authenticated requested boundaries. Discovery scratch and
-            // dependency sets die here, before the independently admitted fact job.
-            let overflow = || MathRuntimeError::Limit("block inventory retained extent");
-            let descriptors = boundaries.capacity().checked_mul(size_of::<pse_structural::initialization::Block>())
-                .and_then(|n| n.checked_add(size_of::<Vec<pse_structural::initialization::Block>>())).ok_or_else(overflow)?;
-            let bytes = boundaries.iter().try_fold(descriptors, |n, block| {
-                block.members.rows.capacity().checked_add(block.members.columns.capacity())?.checked_add(block.inputs.capacity())?
-                    .checked_mul(size_of::<pse_ids::SemanticId>()).and_then(|members| n.checked_add(members))
-            }).ok_or_else(overflow)?;
-            Ok((boundaries, bytes))
-        }).await?;
+        let (boundaries, _inventory_lease) = self
+            .job_retained_construction(
+                1,
+                construction,
+                FlightCancellation::default(),
+                None,
+                move |flag| {
+                    let pse_compiler::workspace::Alternative::Available(schedule) =
+                        source.automatic_alternatives(&flag)?.initialization
+                    else {
+                        return Err(ProblemError::Unsupported(
+                            "explicit block overrides require complete compiler block inventory"
+                                .into(),
+                        )
+                        .into());
+                    };
+                    requested.validate_block_ids(schedule.blocks.iter().map(|block| block.id))?;
+                    let mut boundaries = Vec::with_capacity(requested.block_overrides.len());
+                    for block in schedule.blocks {
+                        if requested.block_overrides.contains_key(&block.id) {
+                            boundaries.push(block);
+                        }
+                    }
+                    // Retain only authenticated requested boundaries. Discovery scratch and
+                    // dependency sets die here, before the independently admitted fact job.
+                    let overflow = || MathRuntimeError::Limit("block inventory retained extent");
+                    let descriptors = boundaries
+                        .capacity()
+                        .checked_mul(size_of::<pse_structural::initialization::Block>())
+                        .and_then(|n| {
+                            n.checked_add(size_of::<Vec<pse_structural::initialization::Block>>())
+                        })
+                        .ok_or_else(overflow)?;
+                    let bytes = boundaries
+                        .iter()
+                        .try_fold(descriptors, |n, block| {
+                            block
+                                .members
+                                .rows
+                                .capacity()
+                                .checked_add(block.members.columns.capacity())?
+                                .checked_add(block.inputs.capacity())?
+                                .checked_mul(size_of::<pse_ids::SemanticId>())
+                                .and_then(|members| n.checked_add(members))
+                        })
+                        .ok_or_else(overflow)?;
+                    Ok((boundaries, bytes))
+                },
+            )
+            .await?;
         let snapshot = execution::Snapshot::observe(&execution::LINKED);
         for boundary in boundaries {
             let source = prepared.prepared.clone();
             let id = boundary.id;
             let overflow = || MathRuntimeError::Limit("selected block oracle extent");
-            let oracle_bytes = boundary.members.columns.len().checked_mul(2 * (size_of::<native::Variable>() + size_of::<pse_ids::SemanticId>()))
-                .and_then(|n| boundary.members.rows.len().checked_mul(2 * (size_of::<pse_ids::SemanticId>() + size_of::<pse_structural::incidence::Constraint>())).and_then(|rows| n.checked_add(rows)))
-                .and_then(|n| n.checked_add(size_of::<native::OracleContract>() + size_of::<routing::Structure>() + 128)).ok_or_else(overflow)?;
-            let bound = source.block_admission_allocation_bound(&boundary)?
-                .map(|n| n.checked_add(oracle_bytes).ok_or_else(overflow)).transpose()?;
-            let construction = super::super::jobs::ConstructionEstimate::from_bound(bound, self.policy.workspace_bytes);
-            let ((contract, available, structure), _facts_lease) = self.job_retained_construction(1, construction, FlightCancellation::default(), None, move |flag| {
-                let rows = boundary.members.rows.iter().copied().collect::<BTreeSet<_>>();
-                let columns = boundary.members.columns.iter().copied().collect::<BTreeSet<_>>();
-                let available = source.plan.conditional_available_order(&rows, &columns, &flag)?;
-                let contract = native::OracleContract {
-                    identity: boundary.id.0,
-                    variables: source.plan.columns().iter().filter(|column| columns.contains(column))
-                        .map(|column| native::assembled::variable_contract(&source.plan, *column)).collect(),
-                    rows: source.plan.structure().rows().iter().filter(|row| rows.contains(&row.id)).map(|row| row.id).collect(),
-                    derivatives: source.plan.order(), smoothness: available,
-                };
-                let witness = source.structure.conditional_witness(&boundary)
-                    .map_err(|error| ProblemError::Contract(error.to_string()))?;
-                let structure = routing::Structure {
-                    variables: boundary.members.columns.clone(),
-                    equations: source.plan.structure().rows().iter().filter(|row| rows.contains(&row.id)).map(|row| pse_structural::incidence::Constraint {
-                        id: row.id, lower: row.lower.is_finite().then_some(row.lower), upper: row.upper.is_finite().then_some(row.upper),
-                    }).collect(),
-                    witness: Arc::new(witness).into(),
-                };
-                let scope_members = rows.len().checked_add(columns.len()).and_then(|n| n.checked_add(boundary.inputs.len()))
-                    .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
-                let scope_bytes = scope_members.checked_mul(11 * size_of::<pse_ids::SemanticId>() + 16 * size_of::<usize>())
-                    .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
-                let overflow = || MathRuntimeError::Limit("block admission retained extent");
-                let owned = [
-                    contract.variables.capacity().checked_mul(size_of::<native::Variable>()),
-                    contract.rows.capacity().checked_mul(size_of::<pse_ids::SemanticId>()),
-                    structure.variables.capacity().checked_mul(size_of::<pse_ids::SemanticId>()),
-                    structure.equations.capacity().checked_mul(size_of::<pse_structural::incidence::Constraint>()),
-                    Some(structure.witness.retained_bytes()), Some(scope_bytes),
-                ].into_iter().try_fold(size_of_val(&contract) + size_of_val(&structure) + 64,
-                    |n, bytes| n.checked_add(bytes?)).ok_or_else(overflow)?;
-                Ok(((contract, available, structure), owned))
-            }).await?;
+            let oracle_bytes = boundary
+                .members
+                .columns
+                .len()
+                .checked_mul(2 * (size_of::<native::Variable>() + size_of::<pse_ids::SemanticId>()))
+                .and_then(|n| {
+                    boundary
+                        .members
+                        .rows
+                        .len()
+                        .checked_mul(
+                            2 * (size_of::<pse_ids::SemanticId>()
+                                + size_of::<pse_structural::incidence::Constraint>()),
+                        )
+                        .and_then(|rows| n.checked_add(rows))
+                })
+                .and_then(|n| {
+                    n.checked_add(
+                        size_of::<native::OracleContract>() + size_of::<routing::Structure>() + 128,
+                    )
+                })
+                .ok_or_else(overflow)?;
+            let bound = source
+                .block_admission_allocation_bound(&boundary)?
+                .map(|n| n.checked_add(oracle_bytes).ok_or_else(overflow))
+                .transpose()?;
+            let construction = super::super::jobs::ConstructionEstimate::from_bound(
+                bound,
+                self.policy.workspace_bytes,
+            );
+            let ((contract, available, structure), _facts_lease) = self
+                .job_retained_construction(
+                    1,
+                    construction,
+                    FlightCancellation::default(),
+                    None,
+                    move |flag| {
+                        let rows = boundary
+                            .members
+                            .rows
+                            .iter()
+                            .copied()
+                            .collect::<BTreeSet<_>>();
+                        let columns = boundary
+                            .members
+                            .columns
+                            .iter()
+                            .copied()
+                            .collect::<BTreeSet<_>>();
+                        let available = source
+                            .plan
+                            .conditional_available_order(&rows, &columns, &flag)?;
+                        let contract = native::OracleContract {
+                            identity: boundary.id.0,
+                            variables: source
+                                .plan
+                                .columns()
+                                .iter()
+                                .filter(|column| columns.contains(column))
+                                .map(|column| {
+                                    native::assembled::variable_contract(&source.plan, *column)
+                                })
+                                .collect(),
+                            rows: source
+                                .plan
+                                .structure()
+                                .rows()
+                                .iter()
+                                .filter(|row| rows.contains(&row.id))
+                                .map(|row| row.id)
+                                .collect(),
+                            derivatives: source.plan.order(),
+                            smoothness: available,
+                        };
+                        let witness = source
+                            .structure
+                            .conditional_witness(&boundary)
+                            .map_err(|error| ProblemError::Contract(error.to_string()))?;
+                        let structure = routing::Structure {
+                            variables: boundary.members.columns.clone(),
+                            equations: source
+                                .plan
+                                .structure()
+                                .rows()
+                                .iter()
+                                .filter(|row| rows.contains(&row.id))
+                                .map(|row| pse_structural::incidence::Constraint {
+                                    id: row.id,
+                                    lower: row.lower.is_finite().then_some(row.lower),
+                                    upper: row.upper.is_finite().then_some(row.upper),
+                                })
+                                .collect(),
+                            witness: Arc::new(witness).into(),
+                        };
+                        let scope_members = rows
+                            .len()
+                            .checked_add(columns.len())
+                            .and_then(|n| n.checked_add(boundary.inputs.len()))
+                            .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
+                        let scope_bytes = scope_members
+                            .checked_mul(
+                                11 * size_of::<pse_ids::SemanticId>() + 16 * size_of::<usize>(),
+                            )
+                            .ok_or(MathRuntimeError::Limit("block scope fact extent"))?;
+                        let overflow =
+                            || MathRuntimeError::Limit("block admission retained extent");
+                        let owned = [
+                            contract
+                                .variables
+                                .capacity()
+                                .checked_mul(size_of::<native::Variable>()),
+                            contract
+                                .rows
+                                .capacity()
+                                .checked_mul(size_of::<pse_ids::SemanticId>()),
+                            structure
+                                .variables
+                                .capacity()
+                                .checked_mul(size_of::<pse_ids::SemanticId>()),
+                            structure
+                                .equations
+                                .capacity()
+                                .checked_mul(size_of::<pse_structural::incidence::Constraint>()),
+                            Some(structure.witness.retained_bytes()),
+                            Some(scope_bytes),
+                        ]
+                        .into_iter()
+                        .try_fold(
+                            size_of_val(&contract) + size_of_val(&structure) + 64,
+                            |n, bytes| n.checked_add(bytes?),
+                        )
+                        .ok_or_else(overflow)?;
+                        Ok(((contract, available, structure), owned))
+                    },
+                )
+                .await?;
             let mut effective = profile.block_profile(id)?;
             effective.intent = SolveIntent::Initialize;
             effective.presolve = native::presolve::Policy::Off;
-            super::super::initialization::conditional_contract_route(&snapshot, &contract, available, contract.derivatives, structure, &effective, numerics)?;
+            super::super::initialization::conditional_contract_route(
+                &snapshot,
+                &contract,
+                available,
+                contract.derivatives,
+                structure,
+                &effective,
+                numerics,
+            )?;
         }
         Ok(())
     }
@@ -377,12 +526,21 @@ impl MathService {
             profile.intent = SolveIntent::Initialize;
             profile.controls.reuse = ReusePolicy::Fresh;
             let route = super::super::initialization::conditional_route(
-                &original.snapshot, block, &executable, &profile, &original.numerics,
+                &original.snapshot,
+                block,
+                &executable,
+                &profile,
+                &original.numerics,
             )?;
             let Route::Native(actual_backend) = route else {
-                return Err(ProblemError::Unsupported("block requires admitted native equations".into()).into());
+                return Err(ProblemError::Unsupported(
+                    "block requires admitted native equations".into(),
+                )
+                .into());
             };
-            if !backends.contains(&actual_backend) { backends.push(actual_backend); }
+            if !backends.contains(&actual_backend) {
+                backends.push(actual_backend);
+            }
             let step = self
                 .prepare_conditional(
                     preparation,
@@ -405,16 +563,35 @@ impl MathService {
         let mut threads = 0;
         let mut foreign_bytes = 0;
         while done.iter().any(|done| !done) {
-            let wave = super::super::initialization::ready_wave(products.iter().map(|block| &block.boundary), &done, workers)?;
-            let profiles = wave.iter().map(|&index| {
-                steps[index].backend().map(|backend| (backend, steps[index].profile.controls.clone()))
-                    .ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))
-            }).collect::<Result<Vec<_>, _>>()?;
-            let demand = super::super::initialization::BlockWaveDemand::new(profiles.into_iter(), &self.policy)?;
+            let wave = super::super::initialization::ready_wave(
+                products.iter().map(|block| &block.boundary),
+                &done,
+                workers,
+            )?;
+            let profiles = wave
+                .iter()
+                .map(|&index| {
+                    steps[index]
+                        .backend()
+                        .map(|backend| (backend, steps[index].profile.controls.clone()))
+                        .ok_or_else(|| ProblemError::Internal("missing prepared block team".into()))
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let demand = super::super::initialization::BlockWaveDemand::new(
+                profiles.into_iter(),
+                &self.policy,
+            )?;
             demand.admit(self.cores)?;
             threads = threads.max(demand.threads);
-            foreign_bytes = foreign_bytes.max(demand.foreign.checked_add(demand.stacks).ok_or(MathRuntimeError::Limit("ready native resident extent"))?);
-            for index in wave { done[index] = true; }
+            foreign_bytes = foreign_bytes.max(
+                demand
+                    .foreign
+                    .checked_add(demand.stacks)
+                    .ok_or(MathRuntimeError::Limit("ready native resident extent"))?,
+            );
+            for index in wave {
+                done[index] = true;
+            }
         }
         Ok(PreparedBlocks {
             original: Box::new(original),
@@ -497,86 +674,144 @@ impl MathService {
                 execution.check()?;
                 let wave = super::super::initialization::ready_wave(
                     prepared.boundaries.iter().map(|block| &block.boundary),
-                    &completed, prepared.workers,
+                    &completed,
+                    prepared.workers,
                 )?;
-                let per_block_iterations = remaining_iterations / u32::try_from(wave.len()).map_err(|_| MathRuntimeError::Limit("block wave extent"))?;
-                if per_block_iterations == 0 { return Err(ProblemError::Limit { kind: native::LimitKind::Work, detail: "aggregate block iteration allowance exhausted".into() }.into()); }
+                let per_block_iterations = remaining_iterations
+                    / u32::try_from(wave.len())
+                        .map_err(|_| MathRuntimeError::Limit("block wave extent"))?;
+                if per_block_iterations == 0 {
+                    return Err(ProblemError::Limit {
+                        kind: native::LimitKind::Work,
+                        detail: "aggregate block iteration allowance exhausted".into(),
+                    }
+                    .into());
+                }
                 let mut ready = Vec::with_capacity(wave.len());
                 for &index in &wave {
                     let template = &prepared.blocks[index];
-                execution.check()?;
-                let mut step = template.clone();
-                step.profile.controls.iterations = step.profile.controls.iterations.min(per_block_iterations);
-                let Representation::Algebraic(local) = &mut step.representation else {
-                    return Err(ProblemError::Internal(
-                        "conditional representation changed".into(),
-                    )
-                    .into());
-                };
-                let bound = local.prepared.prepared.rebind(&values, &execution.cancel)?;
-                let bytes = bound.rebind_allocation_bytes(&local.prepared.prepared);
-                local.prepared = self.own_rebind(
-                    &local.prepared,
-                    bound,
-                    self.reserve("math:block-rebind", bytes)?,
-                )?;
-                local.values = values.clone();
-                step.compatibility = Some(compatibility(
-                    &local.prepared.prepared.plan,
-                    &values,
-                    &step.profile,
-                    &step.numerics,
-                    template.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?,
-                    &local.providers,
-                    &step.snapshot,
-                )?);
+                    execution.check()?;
+                    let mut step = template.clone();
+                    step.profile.controls.iterations =
+                        step.profile.controls.iterations.min(per_block_iterations);
+                    let Representation::Algebraic(local) = &mut step.representation else {
+                        return Err(ProblemError::Internal(
+                            "conditional representation changed".into(),
+                        )
+                        .into());
+                    };
+                    let bound = local.prepared.prepared.rebind(&values, &execution.cancel)?;
+                    let bytes = bound.rebind_allocation_bytes(&local.prepared.prepared);
+                    local.prepared = self.own_rebind(
+                        &local.prepared,
+                        bound,
+                        self.reserve("math:block-rebind", bytes)?,
+                    )?;
+                    local.values = values.clone();
+                    step.compatibility = Some(compatibility(
+                        &local.prepared.prepared.plan,
+                        &values,
+                        &step.profile,
+                        &step.numerics,
+                        template.backend().ok_or_else(|| {
+                            ProblemError::Internal("missing block backend".into())
+                        })?,
+                        &local.providers,
+                        &step.snapshot,
+                    )?);
                     ready.push((index, step));
                 }
                 // The enclosing operation owns the admitted CPU width. Each child owns
                 // its native state and destroys it before join; stacks remain charged.
-                let profiles = ready.iter().map(|(_, step)| {
-                    step.backend().map(|backend| (backend, step.profile.controls.clone()))
-                        .ok_or_else(|| ProblemError::Internal("missing ready block team".into()))
-                }).collect::<Result<Vec<_>, _>>()?;
-                let demand = super::super::initialization::BlockWaveDemand::new(profiles.into_iter(), &self.policy)?;
+                let profiles = ready
+                    .iter()
+                    .map(|(_, step)| {
+                        step.backend()
+                            .map(|backend| (backend, step.profile.controls.clone()))
+                            .ok_or_else(|| {
+                                ProblemError::Internal("missing ready block team".into())
+                            })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let demand = super::super::initialization::BlockWaveDemand::new(
+                    profiles.into_iter(),
+                    &self.policy,
+                )?;
                 demand.admit(self.cores)?;
-                if demand.threads > prepared.threads { return Err(ProblemError::Contract("ready wave exceeds prepared native team admission".into()).into()); }
+                if demand.threads > prepared.threads {
+                    return Err(ProblemError::Contract(
+                        "ready wave exceeds prepared native team admission".into(),
+                    )
+                    .into());
+                }
                 let _stacks = self.reserve("math:block-wave-stacks", demand.stacks)?;
                 let (outcomes, spawn_failure) = if ready.len() == 1 {
                     let (index, step) = ready.remove(0);
                     let mut local_execution = execution.clone();
-                    local_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
-                    (vec![(index, self.run_step(step, local_execution, None, retained, budget))], None)
-                } else { std::thread::scope(|scope| {
-                    let mut children = Vec::with_capacity(ready.len());
-                    let mut spawn_error = None;
-                    for (index, step) in ready {
-                        let mut child_execution = execution.clone();
-                        child_execution.memory = Some(self.policy.foreign_allowance(&step.profile.controls));
-                        let backend = step.backend().ok_or_else(|| ProblemError::Internal("missing block backend".into()))?;
-                        let threads = step.profile.controls.threads;
-                        match std::thread::Builder::new().name(format!("pse-block-{index}"))
-                            .stack_size(self.policy.stack_bytes)
-                            .spawn_scoped(scope, move || {
-                                execution::scoped(&[execution::adapter(backend)], threads, self.policy.stack_bytes, || {
-                                    let mut local_retained = Retained::default();
-                                    let result = self.run_step(step, child_execution, None, &mut local_retained, budget);
-                                    local_retained.clear();
-                                    local_retained.release();
-                                    result
-                                })
-                            }) {
-                            Ok(child) => children.push((index, child)),
-                            Err(error) => { spawn_error = Some(MathRuntimeError::Infrastructure(error.to_string())); break; }
+                    local_execution.memory =
+                        Some(self.policy.foreign_allowance(&step.profile.controls));
+                    (
+                        vec![(
+                            index,
+                            self.run_step(step, local_execution, None, retained, budget),
+                        )],
+                        None,
+                    )
+                } else {
+                    std::thread::scope(|scope| {
+                        let mut children = Vec::with_capacity(ready.len());
+                        let mut spawn_error = None;
+                        for (index, step) in ready {
+                            let mut child_execution = execution.clone();
+                            child_execution.memory =
+                                Some(self.policy.foreign_allowance(&step.profile.controls));
+                            let backend = step.backend().ok_or_else(|| {
+                                ProblemError::Internal("missing block backend".into())
+                            })?;
+                            let threads = step.profile.controls.threads;
+                            match std::thread::Builder::new()
+                                .name(format!("pse-block-{index}"))
+                                .stack_size(self.policy.stack_bytes)
+                                .spawn_scoped(scope, move || {
+                                    execution::scoped(
+                                        &[execution::adapter(backend)],
+                                        threads,
+                                        self.policy.stack_bytes,
+                                        || {
+                                            let mut local_retained = Retained::default();
+                                            let result = self.run_step(
+                                                step,
+                                                child_execution,
+                                                None,
+                                                &mut local_retained,
+                                                budget,
+                                            );
+                                            local_retained.clear();
+                                            local_retained.release();
+                                            result
+                                        },
+                                    )
+                                }) {
+                                Ok(child) => children.push((index, child)),
+                                Err(error) => {
+                                    spawn_error =
+                                        Some(MathRuntimeError::Infrastructure(error.to_string()));
+                                    break;
+                                }
+                            }
                         }
-                    }
-                    let mut outcomes = Vec::with_capacity(children.len());
-                    for (index, child) in children {
-                        let result = child.join().unwrap_or_else(|_| Err(MathRuntimeError::Panic("ready block worker panicked".into())));
-                        outcomes.push((index, result));
-                    }
-                    Ok::<_, MathRuntimeError>((outcomes, spawn_error))
-                })? };
+                        let mut outcomes = Vec::with_capacity(children.len());
+                        for (index, child) in children {
+                            let result = child.join().unwrap_or_else(|_| {
+                                Err(MathRuntimeError::Panic(
+                                    "ready block worker panicked".into(),
+                                ))
+                            });
+                            outcomes.push((index, result));
+                        }
+                        Ok::<_, MathRuntimeError>((outcomes, spawn_error))
+                    })?
+                };
                 retained.clear();
                 retained.release();
                 // Reconcile every joined child even when a sibling failed. No executed
@@ -585,28 +820,82 @@ impl MathService {
                 for (index, outcome) in outcomes {
                     let report = match outcome {
                         Ok(Outcome::Native(report)) => report,
-                        Ok(Outcome::Rejected(error)) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(MathRuntimeError::Shared(error)); } continue; }
-                        Ok(_) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(ProblemError::Internal("conditional native report unavailable".into()).into()); } continue; }
-                        Err(error) => { work = sum_work(work, WorkEvidence::default()); if wave_error.is_none() { wave_error = Some(error); } continue; }
+                        Ok(Outcome::Rejected(error)) => {
+                            work = sum_work(work, WorkEvidence::default());
+                            if wave_error.is_none() {
+                                wave_error = Some(MathRuntimeError::Shared(error));
+                            }
+                            continue;
+                        }
+                        Ok(_) => {
+                            work = sum_work(work, WorkEvidence::default());
+                            if wave_error.is_none() {
+                                wave_error = Some(
+                                    ProblemError::Internal(
+                                        "conditional native report unavailable".into(),
+                                    )
+                                    .into(),
+                                );
+                            }
+                            continue;
+                        }
+                        Err(error) => {
+                            work = sum_work(work, WorkEvidence::default());
+                            if wave_error.is_none() {
+                                wave_error = Some(error);
+                            }
+                            continue;
+                        }
                     };
                     work = sum_work(work, report.evidence.work);
-                    match report.evidence.work.iterations.and_then(|count| u32::try_from(count).ok()).and_then(|count| remaining_iterations.checked_sub(count)) {
+                    match report
+                        .evidence
+                        .work
+                        .iterations
+                        .and_then(|count| u32::try_from(count).ok())
+                        .and_then(|count| remaining_iterations.checked_sub(count))
+                    {
                         Some(remaining) => remaining_iterations = remaining,
-                        None if wave_error.is_none() => wave_error = Some(ProblemError::Unsupported("block aggregate iteration coverage unavailable or exceeded".into()).into()),
+                        None if wave_error.is_none() => {
+                            wave_error = Some(
+                                ProblemError::Unsupported(
+                                    "block aggregate iteration coverage unavailable or exceeded"
+                                        .into(),
+                                )
+                                .into(),
+                            )
+                        }
                         None => {}
                     }
-                    if let Err(error) = capture_component(&report) && wave_error.is_none() { wave_error = Some(error); }
-                    if let Err(cause) = super::super::initialization::commit_block(&mut values, &prepared.boundaries[index].boundary, Some(&report), &prepared.original.numerics.policy) {
+                    if let Err(error) = capture_component(&report)
+                        && wave_error.is_none()
+                    {
+                        wave_error = Some(error);
+                    }
+                    if let Err(cause) = super::super::initialization::commit_block(
+                        &mut values,
+                        &prepared.boundaries[index].boundary,
+                        Some(&report),
+                        &prepared.original.numerics.policy,
+                    ) {
                         if wave_error.is_none() {
-                            component_observation = Some(super::super::strategy::observe_native(&report));
+                            component_observation =
+                                Some(super::super::strategy::observe_native(&report));
                             failure_cause = Some(cause);
-                            wave_error = Some(ProblemError::Unsupported("conditional block candidate refused".into()).into());
+                            wave_error = Some(
+                                ProblemError::Unsupported(
+                                    "conditional block candidate refused".into(),
+                                )
+                                .into(),
+                            );
                         }
                     }
                     components.push((index, report));
                     completed[index] = true;
                 }
-                if let Some(error) = wave_error { return Err(error); }
+                if let Some(error) = wave_error {
+                    return Err(error);
+                }
             }
             execution.check()?;
             let mut original = source.clone();

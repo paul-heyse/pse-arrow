@@ -711,7 +711,12 @@ async fn submit_single(
                     physical,
                     modeling: vec![modeling],
                 },
-                inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(case, 0, settings, attempt_limit)]),
+                inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(
+                    case,
+                    0,
+                    settings,
+                    attempt_limit,
+                )]),
             },
             &CancelSource::new(),
         )
@@ -839,7 +844,12 @@ async fn worker_replays_same_authored_case_in_a_fresh_default_process() {
                         physical: physical.clone(),
                         modeling: vec![modeling.clone()],
                     },
-                    inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(case, 0, settings(), 1)]),
+                    inputs: pse_runtime::workflow::StudyInputs::Explicit(vec![occurrence(
+                        case,
+                        0,
+                        settings(),
+                        1,
+                    )]),
                 },
                 &CancelSource::new(),
             )

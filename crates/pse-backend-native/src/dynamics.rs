@@ -444,13 +444,24 @@ pub fn integrate_with_progress_observed(
     snapshot: &crate::execution::Snapshot,
 ) -> Result<Report, ProblemError> {
     let mut observer = IgnoreSamples;
-    integrate_with_samples_observed(oracle, profile, parameters, cancel, progress,
-        snapshot, SampleRetention::Full, &mut observer)
+    integrate_with_samples_observed(
+        oracle,
+        profile,
+        parameters,
+        cancel,
+        progress,
+        snapshot,
+        SampleRetention::Full,
+        &mut observer,
+    )
 }
 /// Execute with owner-affine completed-sample delivery. Delivery occurs between native
 /// calls; waiting never reinitializes native multistep history.
 #[cfg(any(feature = "diffsol", feature = "idas"))]
-#[allow(clippy::too_many_arguments, reason = "scientific input, original execution and output ownership have independent authorities")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "scientific input, original execution and output ownership have independent authorities"
+)]
 pub fn integrate_with_samples_observed(
     oracle: &mut dyn Oracle,
     profile: &Profile,
@@ -461,7 +472,10 @@ pub fn integrate_with_samples_observed(
     retention: SampleRetention,
     observer: &mut dyn SampleObserver,
 ) -> Result<Report, ProblemError> {
-    let mut output = SampleOutput { retention, observer };
+    let mut output = SampleOutput {
+        retention,
+        observer,
+    };
     let resolved = profile.resolve_for_retained(
         oracle.contract(),
         parameters,
@@ -483,9 +497,14 @@ pub fn integrate_with_samples_observed(
     profile.validate_retention(oracle.contract(), parameters, retention, 0)?;
     match profile.resolved_method()? {
         #[cfg(feature = "diffsol")]
-        Method::Diffsol => {
-            integrator::integrate_with_samples(oracle, profile, parameters, cancel, progress, &mut output)
-        }
+        Method::Diffsol => integrator::integrate_with_samples(
+            oracle,
+            profile,
+            parameters,
+            cancel,
+            progress,
+            &mut output,
+        ),
         #[cfg(feature = "idas")]
         Method::Idas => {
             idas::integrate_with_samples(oracle, profile, parameters, cancel, progress, &mut output)
@@ -1385,12 +1404,23 @@ impl Profile {
         prepared_order: pse_kernels::DerivativeOrder,
         directions: &[usize],
     ) -> Result<DynamicDecision, ProblemError> {
-        self.assess_method_retained(c, parameters, snapshot, demand, prepared_order,
-            directions, SampleRetention::Full, 0)
+        self.assess_method_retained(
+            c,
+            parameters,
+            snapshot,
+            demand,
+            prepared_order,
+            directions,
+            SampleRetention::Full,
+            0,
+        )
     }
     /// Assess actual selected output retention, or the minimum live context during
     /// preparation. Native capability and shape checks remain common to both modes.
-    #[allow(clippy::too_many_arguments, reason = "selected scientific, derivative and retained output demands have independent authorities")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "selected scientific, derivative and retained output demands have independent authorities"
+    )]
     pub fn assess_method_retained(
         &self,
         c: &Contract,
@@ -1513,13 +1543,31 @@ impl Profile {
     }
     /// Resolve against selected retained output demand; preparation may request
     /// Compact with no diagnostic points to establish only minimum live capability.
-    #[allow(clippy::too_many_arguments, reason = "retained output demand complements the existing native scientific and derivative inputs")]
-    pub fn resolve_for_retained(&self, c: &Contract, parameters: &[f64],
-        snapshot: &crate::execution::Snapshot, demand: DynamicDemand,
-        prepared_order: pse_kernels::DerivativeOrder, directions: &[usize],
-        retention: SampleRetention, diagnostic_samples: usize) -> Result<Self, ProblemError> {
-        let decision = self.assess_method_retained(c, parameters, snapshot, demand,
-            prepared_order, directions, retention, diagnostic_samples)?;
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "retained output demand complements the existing native scientific and derivative inputs"
+    )]
+    pub fn resolve_for_retained(
+        &self,
+        c: &Contract,
+        parameters: &[f64],
+        snapshot: &crate::execution::Snapshot,
+        demand: DynamicDemand,
+        prepared_order: pse_kernels::DerivativeOrder,
+        directions: &[usize],
+        retention: SampleRetention,
+        diagnostic_samples: usize,
+    ) -> Result<Self, ProblemError> {
+        let decision = self.assess_method_retained(
+            c,
+            parameters,
+            snapshot,
+            demand,
+            prepared_order,
+            directions,
+            retention,
+            diagnostic_samples,
+        )?;
         let mut profile = self.clone();
         profile.method = decision.candidate()?;
         Ok(profile)
@@ -1809,13 +1857,23 @@ impl Profile {
     /// the selected forward sensitivities. Coverage locators and Sample headers
     /// are separate allocations, not state/output scalar payload.
     pub fn sample_cells(&self, contract: &Contract, samples: usize) -> Result<usize, ProblemError> {
-        let width = contract.states.len().checked_add(contract.outputs.len())
+        let width = contract
+            .states
+            .len()
+            .checked_add(contract.outputs.len())
             .and_then(|n| n.checked_add(contract.quadratures.len()))
-            .and_then(|n| n.checked_mul(if self.forward() {
-                self.integration_width(contract.parameters.len()).checked_add(1)?
-            } else { 1 }))
+            .and_then(|n| {
+                n.checked_mul(if self.forward() {
+                    self.integration_width(contract.parameters.len())
+                        .checked_add(1)?
+                } else {
+                    1
+                })
+            })
             .ok_or_else(|| ProblemError::memory("dynamic sample payload extent"))?;
-        samples.checked_mul(width).ok_or_else(|| ProblemError::memory("dynamic sample payload extent"))
+        samples
+            .checked_mul(width)
+            .ok_or_else(|| ProblemError::memory("dynamic sample payload extent"))
     }
     /// Validate before allocation or native construction; arithmetic overflow is a refusal.
     pub fn validate(&self, c: &Contract, p: &[f64]) -> Result<usize, ProblemError> {
@@ -1824,13 +1882,25 @@ impl Profile {
     /// Validate the actual retained scalar-cell demand before native effects. Compact
     /// retains coverage, endpoint/events/closure, one current sample and explicitly
     /// requested diagnostic samples; it does not retain the complete sample payload.
-    pub fn validate_retention(&self, c: &Contract, p: &[f64], retention: SampleRetention,
-        diagnostic_samples: usize) -> Result<usize, ProblemError> {
-        if let Some(cause) = self.method_refusals(c).into_iter().next() { return Err(cause); }
+    pub fn validate_retention(
+        &self,
+        c: &Contract,
+        p: &[f64],
+        retention: SampleRetention,
+        diagnostic_samples: usize,
+    ) -> Result<usize, ProblemError> {
+        if let Some(cause) = self.method_refusals(c).into_iter().next() {
+            return Err(cause);
+        }
         self.validate_common(c, p, retention, diagnostic_samples)
     }
-    fn validate_common(&self, c: &Contract, p: &[f64], retention: SampleRetention,
-        diagnostic_samples: usize) -> Result<usize, ProblemError> {
+    fn validate_common(
+        &self,
+        c: &Contract,
+        p: &[f64],
+        retention: SampleRetention,
+        diagnostic_samples: usize,
+    ) -> Result<usize, ProblemError> {
         use pse_model::generated::enums::EndpointPolicy;
         match self.endpoint.kind {
             EndpointPolicy::FixedHorizon if self.endpoint.event.is_none() => {}
@@ -1961,7 +2031,8 @@ impl Profile {
         }
         let retained_samples = match retention {
             SampleRetention::Full => self.samples.len(),
-            SampleRetention::Compact => diagnostic_samples.checked_add(1)
+            SampleRetention::Compact => diagnostic_samples
+                .checked_add(1)
                 .ok_or_else(|| ProblemError::memory("compact sample extent"))?,
         };
         let cells = Some(self.sample_cells(c, retained_samples)?)
@@ -1988,9 +2059,11 @@ impl Profile {
                     .checked_add(c.quadratures.len())?;
                 points.checked_mul(width)?.checked_add(v)
             })
-            .and_then(|v| v.checked_add(self.sample_cells(c, 1).ok()?)?
-                .checked_add(n.checked_mul(2)?)?
-                .checked_add(c.parameters.len().checked_mul(2)?))
+            .and_then(|v| {
+                v.checked_add(self.sample_cells(c, 1).ok()?)?
+                    .checked_add(n.checked_mul(2)?)?
+                    .checked_add(c.parameters.len().checked_mul(2)?)
+            })
             .ok_or_else(|| contract("dynamic result extent overflow"))?;
         if cells > self.max_cells {
             return Err(ProblemError::memory("dynamic result cell allowance"));
@@ -2146,9 +2219,13 @@ pub struct SampleCoverage {
 }
 impl SampleCoverage {
     /// Number of physically completed requested samples, independent of recording ACK.
-    pub fn produced(&self) -> usize { self.points.len() }
+    pub fn produced(&self) -> usize {
+        self.points.len()
+    }
     /// Last completed requested sample time, absent before the first sample.
-    pub fn last_time(&self) -> Option<f64> { self.points.last().map(|p| p.0) }
+    pub fn last_time(&self) -> Option<f64> {
+        self.points.last().map(|p| p.0)
+    }
 }
 /// Borrowed delivery prevents a second full trajectory merely for streaming. An observer
 /// that retains payload must acquire its own finite ownership before copying it.
@@ -2160,7 +2237,9 @@ pub trait SampleObserver {
 struct IgnoreSamples;
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 impl SampleObserver for IgnoreSamples {
-    fn sample(&mut self, _: usize, _: &Sample) -> Result<(), ProblemError> { Ok(()) }
+    fn sample(&mut self, _: usize, _: &Sample) -> Result<(), ProblemError> {
+        Ok(())
+    }
 }
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 pub(super) struct SampleOutput<'a> {
@@ -2169,21 +2248,32 @@ pub(super) struct SampleOutput<'a> {
 }
 #[cfg(any(feature = "diffsol", feature = "idas"))]
 impl SampleOutput<'_> {
-    fn push(&mut self, report: &mut Report, profile: &Profile, sample: Sample) -> Result<(), ProblemError> {
+    fn push(
+        &mut self,
+        report: &mut Report,
+        profile: &Profile,
+        sample: Sample,
+    ) -> Result<(), ProblemError> {
         let ordinal = report.coverage.produced();
         if profile.samples.get(ordinal) != Some(&sample.time) {
-            return Err(ProblemError::internal("native sample ordinal or time differs from requested grid"));
+            return Err(ProblemError::internal(
+                "native sample ordinal or time differs from requested grid",
+            ));
         }
         report.coverage.retention = self.retention;
         report.coverage.points.push((sample.time, sample.mode));
         report.completed_time = report.completed_time.max(sample.time);
-        let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||
-            self.observer.sample(ordinal, &sample))).unwrap_or_else(|_| {
-                report.termination = Termination::Panic;
-                Err(ProblemError::internal("completed sample observer panicked"))
-            });
+        let delivered = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.observer.sample(ordinal, &sample)
+        }))
+        .unwrap_or_else(|_| {
+            report.termination = Termination::Panic;
+            Err(ProblemError::internal("completed sample observer panicked"))
+        });
         // Delivery/recording failure cannot erase physically completed Full data.
-        if self.retention == SampleRetention::Full { report.samples.push(sample); }
+        if self.retention == SampleRetention::Full {
+            report.samples.push(sample);
+        }
         delivered
     }
 }
@@ -2308,7 +2398,12 @@ impl Report {
             .copied()
             .collect::<Vec<_>>();
         let prefix_complete = self.coverage.points.len() == expected.len()
-            && self.coverage.points.iter().zip(expected).all(|(point, time)| point.0 == time);
+            && self
+                .coverage
+                .points
+                .iter()
+                .zip(expected)
+                .all(|(point, time)| point.0 == time);
         EndpointAssessment {
             satisfied,
             prefix_complete,
@@ -2382,8 +2477,15 @@ impl Report {
             endpoint: None,
             requested_initial: vec![],
             consistent_initial: vec![],
-            coverage: SampleCoverage { points: Vec::with_capacity(profile.samples.len()), retention },
-            samples: if retention == SampleRetention::Full { Vec::with_capacity(profile.samples.len()) } else { Vec::new() },
+            coverage: SampleCoverage {
+                points: Vec::with_capacity(profile.samples.len()),
+                retention,
+            },
+            samples: if retention == SampleRetention::Full {
+                Vec::with_capacity(profile.samples.len())
+            } else {
+                Vec::new()
+            },
             events: vec![],
             conservation: vec![],
             statistics: vec![],

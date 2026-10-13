@@ -243,7 +243,8 @@ fn serialize_bindings<S: serde::Serializer>(
 #[serde(deny_unknown_fields)]
 pub struct ReplaySolverSettings {
     /// Stable original structural block overrides, including their complete controls.
-    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, crate::math::settings::BlockSolveOverride>,
+    pub block_overrides:
+        BTreeMap<pse_structural::incidence::BlockId, crate::math::settings::BlockSolveOverride>,
     /// Original explicitly admitted independent block width.
     pub block_workers: usize,
     /// Original scientific analysis goal.

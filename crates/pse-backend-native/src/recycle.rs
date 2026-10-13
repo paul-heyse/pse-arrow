@@ -526,6 +526,9 @@ mod tests {
         assert_eq!(out, [1.0]);
         assert_eq!(observed.borrow().as_ref().unwrap().scalars[&id(99)], 6.0);
         assert!(map.original_residual(&[f64::NAN], &mut out).is_err());
-        assert!(observed.borrow().is_none(), "failed latest reconstruction cannot publish the preceding original candidate");
+        assert!(
+            observed.borrow().is_none(),
+            "failed latest reconstruction cannot publish the preceding original candidate"
+        );
     }
 }

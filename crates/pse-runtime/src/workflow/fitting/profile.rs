@@ -749,13 +749,19 @@ impl FitProblem {
             })
             .collect();
         let threads = self.profile.solver.controls.threads;
-        let experiment_cores = self.profile.experiment_workers.into_inner()
-            .min(self.experiments.len()).min(self.runtime.native().cores());
+        let experiment_cores = self
+            .profile
+            .experiment_workers
+            .into_inner()
+            .min(self.experiments.len())
+            .min(self.runtime.native().cores());
         // Native fitting and its mutable callback execute in phases. A chain's
         // admitted envelope covers either its NLP team or its experiment lanes.
         let chain_cores = threads.max(experiment_cores);
-        let workers = workers.min(tasks.len())
-            .min(self.runtime.native().cores() / chain_cores).max(1);
+        let workers = workers
+            .min(tasks.len())
+            .min(self.runtime.native().cores() / chain_cores)
+            .max(1);
         let chains = Chains {
             problem: self,
             backend,
@@ -805,44 +811,46 @@ impl FitProblem {
                 ProblemError::internal(format!("fit profile runtime: {error}")),
             )))
         })?;
-        let (mut result, started, scheduling) = self
-            .runtime
-            .native()
-            .quiescent_phase(cores, bytes, execution, || {
-                dispatch(
-                    tasks.len(),
-                    workers,
-                    stack,
-                    |index| chains.run(tasks[index]),
-                    |index, failure| chains.failed(tasks[index], failure),
-                    |work| {
-                        let _runtime = runtime.enter();
-                        native::execution::scoped(
-                            &[native::execution::adapter(backend)],
-                            threads,
-                            stack,
-                            || -> Result<(), ProblemError> {
-                                experiments::borrowed_capacity(chain_cores, || {
-                                    match &constructor {
-                                        Some(owner) => pse_math::construction::scoped(owner.clone(), work),
-                                        None => work(),
-                                    }
-                                });
-                                Ok(())
-                            },
-                        )
-                        .map_err(|error| {
-                            ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error)))
-                        })
-                    },
-                    |_| Ok(()),
-                )
-            })
-            .map_err(|error| {
-                FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
-                    error.into_problem(),
-                )))
-            })?;
+        let (mut result, started, scheduling) =
+            self.runtime
+                .native()
+                .quiescent_phase(cores, bytes, execution, || {
+                    dispatch(
+                        tasks.len(),
+                        workers,
+                        stack,
+                        |index| chains.run(tasks[index]),
+                        |index, failure| chains.failed(tasks[index], failure),
+                        |work| {
+                            let _runtime = runtime.enter();
+                            native::execution::scoped(
+                                &[native::execution::adapter(backend)],
+                                threads,
+                                stack,
+                                || -> Result<(), ProblemError> {
+                                    experiments::borrowed_capacity(chain_cores, || {
+                                        match &constructor {
+                                            Some(owner) => {
+                                                pse_math::construction::scoped(owner.clone(), work)
+                                            }
+                                            None => work(),
+                                        }
+                                    });
+                                    Ok(())
+                                },
+                            )
+                            .map_err(|error| {
+                                ProfileWorkerFailure::Environment(ProfileFailure(Arc::new(error)))
+                            })
+                        },
+                        |_| Ok(()),
+                    )
+                })
+                .map_err(|error| {
+                    FitWithheld::Local(Withheld::Analysis(native::kkt::Unavailable::from(
+                        error.into_problem(),
+                    )))
+                })?;
         for chain in &mut result {
             chain.actual_parallelism = started;
             chain.scheduling_failures = scheduling.clone();

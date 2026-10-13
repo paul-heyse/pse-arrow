@@ -143,9 +143,9 @@ between time points or deactivating a model at selected points have no counterpa
 
 ### 13.6 Native integrators and trajectories
 
-> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Proposed target:** live owner-affine history survives ordinary samples and safe output waits; changed IVP/parameter/mode/event/start resets or rebuilds under each backend contract. Opt-in preterminal output uses one bounded run-owned producer and existing cursor/append/close interfaces. Provisional samples, actual recording ACK and terminal complete/partial/unknown recording remain separate from scientific acceptance. No second full trajectory is retained merely to stream; terminal retention follows admitted demand. State-only restart is not native-history continuation.
+**Implemented:** live owner-affine history survives ordinary samples and safe output waits; changed IVP/parameter/mode/event/start resets or rebuilds under each backend contract. Opt-in preterminal output uses one bounded run-owned producer and existing cursor/append/close interfaces. Provisional samples, actual recording ACK and terminal complete/partial/unknown recording remain separate from scientific acceptance. No second full trajectory is retained merely to stream; terminal retention follows admitted demand. State-only restart is not native-history continuation. The single live cursor drains its bounded provisional queue, then reads the run's existing joined-result watch; early asynchronous refusal and cancellation do not need a terminal queue slot. Explicit cursor close detaches without cancelling the run. Full retains requested sample sensitivity products. Compact currently transports physical values only and refuses explicit sensitivity demand before dispatch; it retains coverage, original checks, events, endpoint and required private accuracy samples. Accuracy attempts keep their original locators and selected-attempt identity.
 
 > Decision: ADR-0163 (proposed; authorized implementation).
 
@@ -645,9 +645,9 @@ obligations does not release another owner's content or require producer payload
 
 ### 19.3 Studies and reuse
 
-> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Proposed target:** bounded immutable variant constructors use admitted source/revision operations and deterministic selected ordinals, avoiding Cartesian preparation at admission. Actual selected occurrences obtain complete physical/provider/source validation before dispatch. Explicit dependencies alone grant continuation/seed transfer; scheduling and recovery do not invent chains. Existing explicit-point inputs and lazy descriptors consume the same frontier and authoritative seed/effect owners.
+**Implemented:** bounded immutable variant constructors use admitted source/revision operations and deterministic selected ordinals, avoiding Cartesian preparation at admission. Actual selected occurrences obtain complete physical/provider/source validation before dispatch. Explicit dependencies alone grant continuation/seed transfer; scheduling and recovery do not invent chains. Existing explicit-point inputs and lazy descriptors consume the same frontier and authoritative seed/effect owners. Lazy points remain Pending until selected scientific admission resolves actual seed need; native run creation follows that admission. Source activation and run creation recheck the exact admission fence at their mutation owners. Deterministic occurrence-qualified source revisions recover by exact receipt without changing the base head.
 
 > Decision: [ADR-0180](../../adr/0180-demanded-result-coverage-and-acknowledgments.md) (proposed; maintainer-authorized Plan 36 target).
 
@@ -774,9 +774,9 @@ ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
 ### 19.4 Parameter estimation
 
-> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Proposed target:** fitting co-selects native internals and demanded scientific products. Value-only calls omit unused response Jacobians/sensitivities; exact-context upgrades retain original physical checks. Owner-affine experiment workers use qualified new-IVP reset or fresh native fallback. Independent parallel experiments reduce in declared order under existing admitted resources; causal profile chains, covariance withholding, exact/Gauss–Newton distinctions and surrogate RNG/snapshot ownership remain.
+**Implemented:** fitting co-selects native internals and demanded scientific products. Value-only calls omit unused response Jacobians/sensitivities; exact-context upgrades retain original physical checks. Owner-affine experiment workers retain compiled operations and allocations; every changed trial creates fresh native IVP state. This does not serialize or reuse multistep history across parameter trials. Independent parallel experiments reduce in declared order under existing admitted resources; causal profile chains, covariance withholding, exact/Gauss–Newton distinctions and surrogate RNG/snapshot ownership remain.
 
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
@@ -1081,9 +1081,9 @@ only, and robust optimization is not implemented.
 
 ## 21. The Python boundary
 
-> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d target).
+> Decision: [ADR-0186](../../adr/0186-workflow-scientific-context-and-demand.md) (proposed; maintainer-authorized Plan38d implementation).
 
-**Proposed target:** generated Rust/Python contracts expose reconstructible lazy study inputs, stable block-ID native overrides and opt-in bounded live samples. No arbitrary generator callback, wider scientific permission, new storage topology or serializable native-history checkpoint follows. Changed producers/consumers migrate together through their authoritative generators.
+**Implemented:** generated Rust/Python contracts expose reconstructible lazy study inputs, stable block-ID native overrides and opt-in bounded live samples. No arbitrary generator callback, wider scientific permission, new storage topology or serializable native-history checkpoint follows. Study request version 6 and definition version 10 distinguish explicit points from bounded lazy constructors. Stable BlockId keys select per-block backend/settings/control overrides; unknown keys and expanded start/branch/physics permission refuse. PreparedOperation.start_live binds its finite subscription before dispatch. Changed producers/consumers migrate together through their authoritative generators.
 
 > Decision: [ADR-0184](../../adr/0184-common-solver-policy-and-attempt-evidence.md) (proposed; maintainer-authorized Plan38b target).
 

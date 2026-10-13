@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 163
+revision: 164
 date: 2026-10-13
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 164 | 2026-10-13 | ADR-0186 / Plan38d implementation: owned lazy admission/effects, effective block profiles and complete team demand, frozen recycle context/restarts, live result-watch settlement and Full/Compact support, retained fitting workers/demand and bounded effort controls (§13.6/§17.1/§17.4/§17.5/§19.3/§19.4/§21). | Maintainer-authorized execution; PSE_DESIGN_EDIT=1; proposed ADR status unchanged; targeted evidence belongs Plan38d and assembled qualification remains Plan38g. |
 | 163 | 2026-10-13 | Proposed ADR-0186 / Plan38d G0: lazy reconstructible study variants, stable-block profiles/ready execution, frozen recycle context, live owned sample output, fitting demand/contexts and bounded effort adaptation (§13.6/§17.1/§17.4/§17.5/§19.3/§19.4/§21). | Maintainer-authorized full execution and four explicit target choices; PSE_DESIGN_EDIT=1; bounded target review precedes dependent code; assembled qualification remains Plan38g. |
 | 162 | 2026-10-13 | Proposed ADR-0185 / Plan38c G0: neutral native reuse and independent-request reset, bounded persistent lanes, explicit native widths/resources, typed mutation invalidation and qualified method/rank contracts (§15.4/§17.6/§18.6/§18.8/§18.9/§21). | Maintainer-authorized full execution and explicit fork/default selections; PSE_DESIGN_EDIT=1; bounded target review precedes product changes; default activation and scientific/assembled qualification remain conditional on actual acceptance. |
 | 161 | 2026-10-13 | Proposed ADR-0184 / Plan38b G0: shared effective preference/transition policy, truthful bounded attempt evidence, raw-map samples, retained diagnosis and explicit replay/advice (§15.6/§16.5/§18.6/§18.7/§19.2/§21). | Operator-confirmed solver rule changes and authorized execution; PSE_DESIGN_EDIT=1; bounded target review precedes product changes; native/scientific/assembled qualification remains separate; ADR status unchanged. |

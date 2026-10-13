@@ -113,12 +113,21 @@ impl StudyReport {
                 "study occurrence extent changed after execution".into(),
             ));
         }
-        let rows = self.outcomes.iter().zip(&self.results).enumerate().map(|(index, (outcome, result))| {
-            let point = self.admitted_points.get(&index).or_else(|| self.definition.points.get(index));
-            let mut row = outcome_row(study_id, point, outcome);
-            row.result_id = result.as_ref().map(|result| result.run_id());
-            row
-        }).collect();
+        let rows = self
+            .outcomes
+            .iter()
+            .zip(&self.results)
+            .enumerate()
+            .map(|(index, (outcome, result))| {
+                let point = self
+                    .admitted_points
+                    .get(&index)
+                    .or_else(|| self.definition.points.get(index));
+                let mut row = outcome_row(study_id, point, outcome);
+                row.result_id = result.as_ref().map(|result| result.run_id());
+                row
+            })
+            .collect();
         export::<RuntimeStudyOutcomesRow>(&self.runtime, rows)
     }
     /// Detailed diagnostics are projected independently of scientific member availability.

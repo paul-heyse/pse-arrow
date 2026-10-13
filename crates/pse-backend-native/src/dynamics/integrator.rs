@@ -735,14 +735,20 @@ fn native(error: diffsol::DiffsolError) -> ProblemError {
 
 /// Same owned integration using the caller's bounded progress source.
 pub(super) fn integrate_with_samples(
-    oracle: &mut dyn Oracle, profile: &Profile, parameters: &[f64], cancel: Cancellation,
-    progress: Arc<crate::solve::Progress>, output: &mut SampleOutput<'_>,
+    oracle: &mut dyn Oracle,
+    profile: &Profile,
+    parameters: &[f64],
+    cancel: Cancellation,
+    progress: Arc<crate::solve::Progress>,
+    output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
     profile.validate_retention(oracle.contract(), parameters, output.retention, 0)?;
     let shared = Shared::new(oracle, profile, parameters, cancel, progress)?;
     let mut report = Report::new(profile, output.retention);
     let result = catch_unwind(AssertUnwindSafe(|| match profile.diffsol.linear {
-        DiffsolLinear::FaerLu => run::<linear::FaerLu>(shared.clone(), profile, &mut report, output),
+        DiffsolLinear::FaerLu => {
+            run::<linear::FaerLu>(shared.clone(), profile, &mut report, output)
+        }
         DiffsolLinear::Klu => run::<linear::Klu>(shared.clone(), profile, &mut report, output),
     }));
     shared.contain(result, &mut report);
@@ -792,7 +798,10 @@ impl<'o> Shared<'o> {
                 if report.termination != Termination::Panic {
                     report.termination = match &e {
                         ProblemError::Cancelled => Termination::Cancelled,
-                        ProblemError::Limit { kind: crate::LimitKind::Time, .. } => Termination::TimeLimit,
+                        ProblemError::Limit {
+                            kind: crate::LimitKind::Time,
+                            ..
+                        } => Termination::TimeLimit,
                         _ => Termination::Failed,
                     };
                 }
@@ -1048,19 +1057,26 @@ fn run<LS: LinearSolver<M>>(
             });
             if e.terminal {
                 capture_endpoint(&shared, r, time, &state, Some(e.id))?;
-                if p.samples.get(r.coverage.produced()).is_some_and(|t| *t == time) {
+                if p.samples
+                    .get(r.coverage.produced())
+                    .is_some_and(|t| *t == time)
+                {
                     let outputs = shared
                         .evaluate(Function::Output, time, &state, false)
                         .values;
-                    output.push(r, p, Sample {
-                        mode: shared.mode.get(),
-                        integrals: shared.integrals.borrow().clone(),
-                        time,
-                        state: state.clone(),
-                        outputs,
-                        state_sensitivities: vec![],
-                        output_sensitivities: vec![],
-                    })?;
+                    output.push(
+                        r,
+                        p,
+                        Sample {
+                            mode: shared.mode.get(),
+                            integrals: shared.integrals.borrow().clone(),
+                            time,
+                            state: state.clone(),
+                            outputs,
+                            state_sensitivities: vec![],
+                            output_sensitivities: vec![],
+                        },
+                    )?;
                 }
                 r.termination = Termination::Event;
                 return Ok(());
@@ -1237,7 +1253,9 @@ fn record_start<'p, 'o: 'p, S: OdeSolverMethod<'p, Equation<'o>>>(
             return Err(contract("initial or post-reset root is ambiguous"));
         }
     }
-    if p.samples.get(r.coverage.produced()).is_some_and(|t| *t == time)
+    if p.samples
+        .get(r.coverage.produced())
+        .is_some_and(|t| *t == time)
         && *shared.columns.borrow() == p.columns_at(shared.contract.parameters.len(), time)
     {
         output.push(r, p, sample(shared, s, time, p.forward())?)?;

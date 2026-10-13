@@ -1356,7 +1356,13 @@ impl Runtime {
                         match &preliminary.kind {
                             ActionKind::Wait(WaitReason::ScientificAdmission) => {
                                 if self.admit_study_candidate(&scope, lane, cancel).await? {
-                                    return Ok((Processed::Maintenance { study: scope.point().study.clone(), examined: 1 }, None));
+                                    return Ok((
+                                        Processed::Maintenance {
+                                            study: scope.point().study.clone(),
+                                            examined: 1,
+                                        },
+                                        None,
+                                    ));
                                 }
                                 continue;
                             }

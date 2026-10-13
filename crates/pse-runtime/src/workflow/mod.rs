@@ -74,7 +74,9 @@ pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
 };
 mod study_variants;
-pub use study_variants::{LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants};
+pub use study_variants::{
+    LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants,
+};
 mod study;
 mod study_execution;
 mod study_tables;
@@ -166,7 +168,8 @@ pub use modeling::{
     ModelingInitializationReport, ModelingInitializationStep, ModelingKnowledge,
     ModelingNonlinearExplanation, ModelingNonlinearPolicy, ModelingObservations, ModelingPackage,
     ModelingReport, ModelingResult, ModelingSimulation, ModelingSolvePreparation,
-    ModelingTrajectory, SimulationSampleAttempt, SimulationSampleObserver, with_simulation_sample_wait, OwnedDeclarations, StartSource, conform_pure_documents,
+    ModelingTrajectory, OwnedDeclarations, SimulationSampleAttempt, SimulationSampleObserver,
+    StartSource, conform_pure_documents, with_simulation_sample_wait,
 };
 #[cfg(feature = "solver-highs")]
 pub use modeling::{ModelingJacobianOptimization, ModelingLinearDiagnostics};
@@ -194,7 +197,10 @@ use pse_engine::{
 };
 pub use run::{RunHandle, RunReport, RunRequest, RunResult, StoredStart};
 mod live_simulation;
-pub use live_simulation::{LiveSampleBatch, LiveSampleAttempt, LiveSimulationCursor, LiveSimulationEvent, LiveSimulationOptions};
+pub use live_simulation::{
+    LiveSampleAttempt, LiveSampleBatch, LiveSimulationCursor, LiveSimulationEvent,
+    LiveSimulationOptions,
+};
 use std::sync::Arc;
 mod canonical;
 mod source_settlement;

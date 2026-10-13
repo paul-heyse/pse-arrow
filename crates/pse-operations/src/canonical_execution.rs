@@ -3193,14 +3193,21 @@ impl CanonicalStore {
     }
     /// Publish actual selected scientific inputs under the original lazy admission capability.
     pub async fn begin_run_with_study_admission(
-        &self, request: &RunRequest, authority: &crate::canonical_studies::StudyAdmissionAuthority,
+        &self,
+        request: &RunRequest,
+        authority: &crate::canonical_studies::StudyAdmissionAuthority,
     ) -> Result<CanonicalRun, CanonicalError> {
         self.begin_run_authorized(request, Some(authority)).await
     }
     async fn begin_run_authorized(
-        &self, request: &RunRequest, authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
+        &self,
+        request: &RunRequest,
+        authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
     ) -> Result<CanonicalRun, CanonicalError> {
-        let admission = authority.map(|authority| authority.encode()).transpose()?.unwrap_or(Value::None);
+        let admission = authority
+            .map(|authority| authority.encode())
+            .transpose()?
+            .unwrap_or(Value::None);
         let activity = self.admit_activity()?;
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {

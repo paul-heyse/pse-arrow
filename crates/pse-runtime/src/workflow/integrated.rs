@@ -200,7 +200,8 @@ impl IntegratedExperiment {
         &self,
         execution: &Execution,
     ) -> Result<super::dynamics::DynamicWorker, ProblemError> {
-        self.program.worker(execution.scope()?, self.snapshots.clone())
+        self.program
+            .worker(execution.scope()?, self.snapshots.clone())
     }
     /// Integrate once at the consumer's values, with forward sensitivities or none.
     /// Integrations borrow the admitted outer worker; they never enqueue nested native jobs.

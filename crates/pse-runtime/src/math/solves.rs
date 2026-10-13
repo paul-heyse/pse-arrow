@@ -60,7 +60,8 @@ use std::{collections::BTreeMap, future::Future, sync::Arc};
 #[derive(Clone, Debug)]
 pub struct SolverProfile {
     /// Compiler stable block identity overrides, resolved contextually for actual blocks.
-    pub block_overrides: BTreeMap<pse_structural::incidence::BlockId, super::settings::BlockSolveOverride>,
+    pub block_overrides:
+        BTreeMap<pse_structural::incidence::BlockId, super::settings::BlockSolveOverride>,
     /// Finite admitted ready-block concurrency; one preserves sequential execution.
     pub block_workers: usize,
     /// Qualified library-owned NLP preprocessing policy.
@@ -110,7 +111,10 @@ impl Default for SolverProfile {
 }
 impl SolverProfile {
     #[cfg(any(feature = "solver-kinsol", test))]
-    pub(crate) fn block_profile(&self, id: pse_structural::incidence::BlockId) -> Result<Self, ProblemError> {
+    pub(crate) fn block_profile(
+        &self,
+        id: pse_structural::incidence::BlockId,
+    ) -> Result<Self, ProblemError> {
         let mut profile = match self.block_overrides.get(&id) {
             Some(settings) => settings.apply(self)?,
             None => self.clone(),
@@ -120,14 +124,23 @@ impl SolverProfile {
         Ok(profile)
     }
     #[cfg(any(feature = "solver-kinsol", test))]
-    pub(crate) fn validate_block_ids(&self, blocks: impl Iterator<Item = pse_structural::incidence::BlockId>) -> Result<(), ProblemError> {
+    pub(crate) fn validate_block_ids(
+        &self,
+        blocks: impl Iterator<Item = pse_structural::incidence::BlockId>,
+    ) -> Result<(), ProblemError> {
         let actual: std::collections::BTreeSet<_> = blocks.collect();
-        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {
-            return Err(ProblemError::Contract("finite block execution extent".into()));
+        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096
+        {
+            return Err(ProblemError::Contract(
+                "finite block execution extent".into(),
+            ));
         }
         for (id, settings) in &self.block_overrides {
             if !actual.contains(id) {
-                return Err(ProblemError::Contract(format!("unknown compiler block identity {}", id.0)));
+                return Err(ProblemError::Contract(format!(
+                    "unknown compiler block identity {}",
+                    id.0
+                )));
             }
             settings.apply(self)?;
         }
@@ -2694,7 +2707,10 @@ impl PreparedSolve {
     }
     /// Native threads this step is admitted with.
     pub(crate) fn threads(&self) -> usize {
-        self.profile.controls.threads.max(self.profile.block_workers)
+        self.profile
+            .controls
+            .threads
+            .max(self.profile.block_workers)
     }
     /// The foreign allowance this step reserves while it runs, beyond the deployment
     /// allowance its native session holds: the one its controls declare, else none. A
@@ -3178,9 +3194,13 @@ impl MathService {
         // direct native leaf is selected. Never silently admit an unknown override.
         if !profile.block_overrides.is_empty() {
             #[cfg(feature = "solver-kinsol")]
-            self.validate_prepared_block_overrides(&prepared, &profile, &numerics).await?;
+            self.validate_prepared_block_overrides(&prepared, &profile, &numerics)
+                .await?;
             #[cfg(not(feature = "solver-kinsol"))]
-            return Err(ProblemError::Unsupported("block override structural admission unavailable in this build".into()).into());
+            return Err(ProblemError::Unsupported(
+                "block override structural admission unavailable in this build".into(),
+            )
+            .into());
         }
         let requested_hessian = profile.controls.hessian;
         profile.resolve_curvature(prepared.prepared.plan.available_order());

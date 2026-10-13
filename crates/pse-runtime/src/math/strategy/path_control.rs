@@ -21,7 +21,10 @@ impl EffortObservation {
             | NativeCounters::Kinsol { iterations, .. } => (*iterations)?,
         };
         Some(Self {
-            profile: ProfileRef { backend: observed.backend, key: observed.profile },
+            profile: ProfileRef {
+                backend: observed.backend,
+                key: observed.profile,
+            },
             iterations,
         })
     }
@@ -66,9 +69,14 @@ impl StepControl {
             effort_profile: None,
         })
     }
-    pub(crate) fn with_effort(mut self, policy: Option<EffortPolicy>) -> Result<Self, ProblemError> {
+    pub(crate) fn with_effort(
+        mut self,
+        policy: Option<EffortPolicy>,
+    ) -> Result<Self, ProblemError> {
         if policy.is_some_and(|policy| !policy.is_valid()) {
-            return Err(ProblemError::Contract("positive continuation effort target required".into()));
+            return Err(ProblemError::Contract(
+                "positive continuation effort target required".into(),
+            ));
         }
         self.effort = policy;
         Ok(self)
@@ -108,14 +116,27 @@ impl StepControl {
         observed: Option<EffortObservation>,
     ) -> Result<(), ProblemError> {
         let previous = self.step;
-        if reset { self.accepted_reset(remaining)?; } else { self.accepted(remaining)?; }
-        let (Some(policy), Some(observed)) = (self.effort, observed) else { return Ok(()); };
-        if observed.iterations == 0 { return Ok(()); }
+        if reset {
+            self.accepted_reset(remaining)?;
+        } else {
+            self.accepted(remaining)?;
+        }
+        let (Some(policy), Some(observed)) = (self.effort, observed) else {
+            return Ok(());
+        };
+        if observed.iterations == 0 {
+            return Ok(());
+        }
         let bound = self.effort_profile.get_or_insert(observed.profile);
-        if *bound != observed.profile { return Ok(()); }
+        if *bound != observed.profile {
+            return Ok(());
+        }
         let factor = (f64::from(policy.target_iterations) / observed.iterations as f64)
             .clamp(0.5, if reset { 2. } else { self.growth });
-        self.step = (previous * factor).max(self.minimum).min(self.maximum).min(remaining);
+        self.step = (previous * factor)
+            .max(self.minimum)
+            .min(self.maximum)
+            .min(remaining);
         Ok(())
     }
     /// Numerical trajectory failure may consume one declared subdivision. A limited
@@ -182,26 +203,61 @@ mod tests {
     #[test]
     fn effort_is_opt_in_profile_scoped_and_preserves_finite_allowance() {
         use pse_model::strategy::Backend;
-        let profile = ProfileRef { backend: Backend::Ipopt, key: pse_ids::ContentHash::from_bytes([1; 32]) };
-        let observation = |iterations| Some(EffortObservation { profile, iterations });
-        let mut steps = StepControl::new(0.4, 0.1, 1., 2., 1).unwrap()
-            .with_effort(Some(EffortPolicy { target_iterations: 4 })).unwrap();
+        let profile = ProfileRef {
+            backend: Backend::Ipopt,
+            key: pse_ids::ContentHash::from_bytes([1; 32]),
+        };
+        let observation = |iterations| {
+            Some(EffortObservation {
+                profile,
+                iterations,
+            })
+        };
+        let mut steps = StepControl::new(0.4, 0.1, 1., 2., 1)
+            .unwrap()
+            .with_effort(Some(EffortPolicy {
+                target_iterations: 4,
+            }))
+            .unwrap();
         steps.accepted_effort(1., false, observation(16)).unwrap();
         assert_eq!(steps.step(), 0.2);
         steps.accepted_effort(1., false, observation(1)).unwrap();
         assert_eq!(steps.step(), 0.4);
         steps.accepted_effort(1., false, observation(0)).unwrap();
         assert_eq!(steps.step(), 0.8, "zero falls back to declared growth");
-        let foreign = Some(EffortObservation { profile: ProfileRef { key: pse_ids::ContentHash::from_bytes([2; 32]), ..profile }, iterations: 100 });
+        let foreign = Some(EffortObservation {
+            profile: ProfileRef {
+                key: pse_ids::ContentHash::from_bytes([2; 32]),
+                ..profile
+            },
+            iterations: 100,
+        });
         steps.accepted_effort(0.3, true, foreign).unwrap();
-        assert_eq!(steps.step(), 0.3, "foreign profile falls back to declared reset");
+        assert_eq!(
+            steps.step(),
+            0.3,
+            "foreign profile falls back to declared reset"
+        );
         assert!(steps.rejected(NumericalAttemptObservation::Stalled));
         steps.accepted_effort(0.02, false, observation(4)).unwrap();
-        assert_eq!(steps.step(), 0.02, "remaining endpoint may be below minimum");
+        assert_eq!(
+            steps.step(),
+            0.02,
+            "remaining endpoint may be below minimum"
+        );
         assert!(!steps.rejected(NumericalAttemptObservation::Stalled));
         let mut baseline = StepControl::new(0.4, 0.1, 1., 2., 1).unwrap();
-        baseline.accepted_effort(1., false, observation(100)).unwrap();
+        baseline
+            .accepted_effort(1., false, observation(100))
+            .unwrap();
         assert_eq!(baseline.step(), 0.8);
-        assert!(StepControl::new(0.4, 0.1, 1., 2., 1).unwrap().with_effort(Some(EffortPolicy { target_iterations: 0 })).is_err());
+        assert!(
+            StepControl::new(0.4, 0.1, 1., 2., 1)
+                .unwrap()
+                .with_effort(Some(EffortPolicy {
+                    target_iterations: 0
+                }))
+                .is_err()
+        );
     }
 }

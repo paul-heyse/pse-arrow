@@ -11,34 +11,46 @@ pub(in crate::workflow) struct SampleChecks {
     pub error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
 }
 impl ModelingSimulation {
-    pub(super) fn sample_check_worker<'a>(&'a self, run_id: RunId, parameters: &'a [f64],
-        scope: &'a pse_kernels::ExecutionScope) -> Result<SampleCheckWorker<'a>, WorkflowError> {
-            let create_worker =
-                |mode: &SimulationMode, program: &Option<Arc<crate::math::ExecutableCase>>| {
-                    program
-                        .as_ref()
-                        .map(|p| {
-                            let providers =
-                                crate::math::attempt_providers(&mode.context.providers, scope)
-                                    .map_err(|e| WorkflowError::Math(crate::math::MathRuntimeError::Solve(ProblemError::Provider(e))))?;
-                            Ok::<_, WorkflowError>(
-                                p.assembly.worker_scoped(providers, scope.clone()),
-                            )
-                        })
-                        .transpose()
-                };
-            let workers = self
-                .modes
-                .iter()
-                .map(|mode| {
-                    Ok::<_, WorkflowError>((
-                        create_worker(mode, &mode.check_program)?,
-                        create_worker(mode, &mode.terminal_check_program)?,
-                        mode.context.values.clone(),
-                    ))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-        Ok(SampleCheckWorker { simulation: self, run_id, parameters, scope, workers })
+    pub(super) fn sample_check_worker<'a>(
+        &'a self,
+        run_id: RunId,
+        parameters: &'a [f64],
+        scope: &'a pse_kernels::ExecutionScope,
+    ) -> Result<SampleCheckWorker<'a>, WorkflowError> {
+        let create_worker =
+            |mode: &SimulationMode, program: &Option<Arc<crate::math::ExecutableCase>>| {
+                program
+                    .as_ref()
+                    .map(|p| {
+                        let providers =
+                            crate::math::attempt_providers(&mode.context.providers, scope)
+                                .map_err(|e| {
+                                    WorkflowError::Math(crate::math::MathRuntimeError::Solve(
+                                        ProblemError::Provider(e),
+                                    ))
+                                })?;
+                        Ok::<_, WorkflowError>(p.assembly.worker_scoped(providers, scope.clone()))
+                    })
+                    .transpose()
+            };
+        let workers = self
+            .modes
+            .iter()
+            .map(|mode| {
+                Ok::<_, WorkflowError>((
+                    create_worker(mode, &mode.check_program)?,
+                    create_worker(mode, &mode.terminal_check_program)?,
+                    mode.context.values.clone(),
+                ))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(SampleCheckWorker {
+            simulation: self,
+            run_id,
+            parameters,
+            scope,
+            workers,
+        })
     }
 
     pub(in crate::workflow) fn update_sample_values(
@@ -89,8 +101,13 @@ impl ModelingSimulation {
     }
     /// Initial, closure and endpoint checks complement the already checked live samples.
     #[cfg(any(feature = "solver-diffsol", feature = "solver-idas"))]
-    pub(super) fn finish_live_checks(&self, run_id: RunId, report: &native::Report,
-        parameters: &[f64], scope: &pse_kernels::ExecutionScope) -> SampleChecks {
+    pub(super) fn finish_live_checks(
+        &self,
+        run_id: RunId,
+        report: &native::Report,
+        parameters: &[f64],
+        scope: &pse_kernels::ExecutionScope,
+    ) -> SampleChecks {
         self.check_samples_impl(run_id, report, parameters, scope, false)
     }
     fn check_samples_impl(
@@ -171,7 +188,9 @@ impl ModelingSimulation {
             let endpoint = report.endpoint.as_ref();
             let mut points = if include_samples {
                 report.samples.iter().map(|s| (s, None)).collect::<Vec<_>>()
-            } else { Vec::new() };
+            } else {
+                Vec::new()
+            };
             if let Some(end) = endpoint {
                 // Replace a coincident grid point's inputs; otherwise evaluate the separate endpoint.
                 if let Some(point) = points.iter_mut().find(|(s, _)| s.time == end.point.time) {
@@ -181,7 +200,11 @@ impl ModelingSimulation {
                 }
             }
             for (sample, endpoint_inputs) in points {
-                let index = report.coverage.points.iter().position(|p| p.0 == sample.time)
+                let index = report
+                    .coverage
+                    .points
+                    .iter()
+                    .position(|p| p.0 == sample.time)
                     .unwrap_or(report.coverage.produced());
                 let terminal = sample.time == self.profile.end
                     && report.termination == native::Termination::Completed;
@@ -226,135 +249,155 @@ pub(super) struct SampleCheckWorker<'a> {
     run_id: RunId,
     parameters: &'a [f64],
     scope: &'a pse_kernels::ExecutionScope,
-    workers: Vec<(Option<pse_math::assembly::CaseWorker>, Option<pse_math::assembly::CaseWorker>, CaseValues)>,
+    workers: Vec<(
+        Option<pse_math::assembly::CaseWorker>,
+        Option<pse_math::assembly::CaseWorker>,
+        CaseValues,
+    )>,
 }
 impl SampleCheckWorker<'_> {
-    pub(super) fn check(&mut self, index: usize, sample: &native::Sample,
-        endpoint_inputs: Option<&[f64]>, terminal: bool, result: &mut SampleChecks)
-        -> Result<(), WorkflowError> {
+    pub(super) fn check(
+        &mut self,
+        index: usize,
+        sample: &native::Sample,
+        endpoint_inputs: Option<&[f64]>,
+        terminal: bool,
+        result: &mut SampleChecks,
+    ) -> Result<(), WorkflowError> {
         let simulation = self.simulation;
         let run_id = self.run_id;
         let parameters = self.parameters;
-        let checkpoint = || self.scope.check().map_err(|error| WorkflowError::from(
-            crate::math::MathRuntimeError::from(ProblemError::Provider(error))));
-                let mode = simulation
-                    .modes
-                    .get(sample.mode)
-                    .ok_or_else(|| contract("trajectory sample mode absent"))?;
-                let product = mode.model.compiled();
-                let terminal = terminal && !product.model.integrals.is_empty();
-                let (worker, terminal_worker, point) = self.workers
-                    .get_mut(sample.mode)
-                    .ok_or_else(|| contract("trajectory check mode absent"))?;
-                checkpoint()?;
-                if let Some(inputs) = endpoint_inputs {
-                    simulation.update_point_values(sample, inputs, point)?;
-                } else {
-                    simulation.update_sample_values(sample, parameters, point)?;
-                }
-                if terminal {
-                    if sample.integrals.len() != simulation.contract.quadratures.len() {
-                        return Err(contract("terminal quadrature extent"));
-                    }
-                    for (id, value) in simulation.contract.quadratures.iter().zip(&sample.integrals) {
-                        point.scalars.insert(*id, *value);
-                    }
-                }
-                let (program, active_worker) = if terminal {
-                    (&mode.terminal_check_program, terminal_worker)
-                } else {
-                    (&mode.check_program, worker)
-                };
-                let mut applicability = Vec::new();
-                let observed = match (program, active_worker) {
-                    (Some(program), Some(worker)) => {
-                        let evaluated = worker.constraints(&*point).map_err(math)?;
-                        applicability = worker.applicability_observations();
-                        program
-                            .assembly
-                            .structure()
-                            .rows()
-                            .iter()
-                            .map(|r| r.id)
-                            .zip(evaluated)
-                            .collect::<BTreeMap<_, _>>()
-                    }
-                    _ => BTreeMap::new(),
-                };
-                let (mut sample_checks, reports) = results::assess_observations(
-                    run_id,
-                    product,
-                    point,
-                    &observed,
-                    &applicability,
-                    &mode.numerics,
-                    &simulation.quantities,
-                    terminal,
-                    if terminal {
-                        None
-                    } else {
-                        mode.sample_scope.as_ref()
-                    },
-                    // An integrated sample has no certified objective bound.
-                    None,
-                )?;
-                result.reports.extend(reports);
-                for target in mode
-                    .numerics
-                    .targets
+        let checkpoint = || {
+            self.scope.check().map_err(|error| {
+                WorkflowError::from(crate::math::MathRuntimeError::from(ProblemError::Provider(
+                    error,
+                )))
+            })
+        };
+        let mode = simulation
+            .modes
+            .get(sample.mode)
+            .ok_or_else(|| contract("trajectory sample mode absent"))?;
+        let product = mode.model.compiled();
+        let terminal = terminal && !product.model.integrals.is_empty();
+        let (worker, terminal_worker, point) = self
+            .workers
+            .get_mut(sample.mode)
+            .ok_or_else(|| contract("trajectory check mode absent"))?;
+        checkpoint()?;
+        if let Some(inputs) = endpoint_inputs {
+            simulation.update_point_values(sample, inputs, point)?;
+        } else {
+            simulation.update_sample_values(sample, parameters, point)?;
+        }
+        if terminal {
+            if sample.integrals.len() != simulation.contract.quadratures.len() {
+                return Err(contract("terminal quadrature extent"));
+            }
+            for (id, value) in simulation
+                .contract
+                .quadratures
+                .iter()
+                .zip(&sample.integrals)
+            {
+                point.scalars.insert(*id, *value);
+            }
+        }
+        let (program, active_worker) = if terminal {
+            (&mode.terminal_check_program, terminal_worker)
+        } else {
+            (&mode.check_program, worker)
+        };
+        let mut applicability = Vec::new();
+        let observed = match (program, active_worker) {
+            (Some(program), Some(worker)) => {
+                let evaluated = worker.constraints(&*point).map_err(math)?;
+                applicability = worker.applicability_observations();
+                program
+                    .assembly
+                    .structure()
+                    .rows()
                     .iter()
-                    .filter(|t| t.kind == NumericalTarget::Row)
-                {
-                    let value = observed
-                        .get(&target.id)
-                        .copied()
-                        .ok_or_else(|| contract("trajectory algebraic residual absent"))?;
-                    let row = product
-                        .model
-                        .equations
-                        .iter()
-                        .find(|r| r.id == target.id)
-                        .ok_or_else(|| contract("trajectory algebraic source absent"))?;
-                    sample_checks.push(ModelingCheck {
-                        step: 0,
-                        run_id,
-                        sample_index: 0,
-                        time: None,
-                        target_id: target.id,
-                        source_id: row.lineage.declaration,
-                        kind: pse_model::generated::enums::ModelingCheckKind::OriginalEquation,
-                        value: value.abs(),
-                        tolerance: Some(target.budget),
-                        satisfied: value.abs() <= target.budget,
-                        within_validity: None,
-                        extrapolation_allowed: None,
-                        basis: pse_model::generated::enums::ModelingCheckBasis::Point,
-                        layer: None,
-                        claim_id: None,
-                        claim_owner: None,
-                        claim_owner_lineage: Vec::new(),
-                        coverage_id: None,
-                        evidence_id: None,
-                        form_id: None,
-                        call_id: None,
-                        selected_records: Vec::new(),
-                        dependencies: Vec::new(),
-                        input_values: Vec::new(),
-                        applicability_outcome: None,
-                        applicability_basis: None,
-                        permission_ids: Vec::new(),
-                        unknown_allowed: None,
-                        observation_instance: None,
-                        applicability_required: None,
-                        applicability_reason: None,
-                        applicability_permissions: Vec::new(),
-                    });
-                }
-                for check in &mut sample_checks {
-                    check.sample_index = index as i64;
-                    check.time = Some(sample.time);
-                }
-                result.rows.extend(sample_checks);
+                    .map(|r| r.id)
+                    .zip(evaluated)
+                    .collect::<BTreeMap<_, _>>()
+            }
+            _ => BTreeMap::new(),
+        };
+        let (mut sample_checks, reports) = results::assess_observations(
+            run_id,
+            product,
+            point,
+            &observed,
+            &applicability,
+            &mode.numerics,
+            &simulation.quantities,
+            terminal,
+            if terminal {
+                None
+            } else {
+                mode.sample_scope.as_ref()
+            },
+            // An integrated sample has no certified objective bound.
+            None,
+        )?;
+        result.reports.extend(reports);
+        for target in mode
+            .numerics
+            .targets
+            .iter()
+            .filter(|t| t.kind == NumericalTarget::Row)
+        {
+            let value = observed
+                .get(&target.id)
+                .copied()
+                .ok_or_else(|| contract("trajectory algebraic residual absent"))?;
+            let row = product
+                .model
+                .equations
+                .iter()
+                .find(|r| r.id == target.id)
+                .ok_or_else(|| contract("trajectory algebraic source absent"))?;
+            sample_checks.push(ModelingCheck {
+                step: 0,
+                run_id,
+                sample_index: 0,
+                time: None,
+                target_id: target.id,
+                source_id: row.lineage.declaration,
+                kind: pse_model::generated::enums::ModelingCheckKind::OriginalEquation,
+                value: value.abs(),
+                tolerance: Some(target.budget),
+                satisfied: value.abs() <= target.budget,
+                within_validity: None,
+                extrapolation_allowed: None,
+                basis: pse_model::generated::enums::ModelingCheckBasis::Point,
+                layer: None,
+                claim_id: None,
+                claim_owner: None,
+                claim_owner_lineage: Vec::new(),
+                coverage_id: None,
+                evidence_id: None,
+                form_id: None,
+                call_id: None,
+                selected_records: Vec::new(),
+                dependencies: Vec::new(),
+                input_values: Vec::new(),
+                applicability_outcome: None,
+                applicability_basis: None,
+                permission_ids: Vec::new(),
+                unknown_allowed: None,
+                observation_instance: None,
+                applicability_required: None,
+                applicability_reason: None,
+                applicability_permissions: Vec::new(),
+            });
+        }
+        for check in &mut sample_checks {
+            check.sample_index = index as i64;
+            check.time = Some(sample.time);
+        }
+        result.rows.extend(sample_checks);
         Ok(())
     }
 }

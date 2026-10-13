@@ -8,7 +8,7 @@ level: decision
 principles: [AP-02, AP-03, AP-04, AP-06, AP-07, DP-09, DP-15, DP-20, PS-07, PS-08, PS-10, PS-11]
 blueprint: [§13.6, §17.1, §17.4, §17.5, §19.3, §19.4, §21]
 review: docs/design_review/reviews/design_review_plan38d-workflow-context-and-demand_2026-10-13.md
-evidence: Interface-checked
+evidence: Implemented
 supersedes: []
 superseded-by: null
 revisit: A supported workflow requires stateful inner-map continuation, arbitrary generator callbacks, portable native-history checkpoints or a different recording realization.
@@ -63,7 +63,17 @@ No scheduling decision grants scientific permission or new native resource capac
 
 ### Confirmation
 
-**Interface-checked:** source inspection of current study/frontier/seed, initialization/causal units, native integration, fitting and result seams establishes extension points, not target acceptance. **Proposed:** new interfaces and their controls. Plan38d owns implementation and investigation outcomes; Plan38g owns assembled qualification. No measured performance or convergence superiority is claimed. ADR status remains proposed.
+**Implemented:** bounded lazy study admission with mutation-owner fencing, stable block profiles
+and complete ready-wave resource demand, frozen recycle context and bounded native restarts,
+live cursor/ACK/close integration, demand-aware retained fitting workers and optional bounded
+effort control. Blueprint revision 164 records supported behavior. Plan38d owns targeted
+verification and investigation outcomes; Plan38g owns assembled qualification. Compact live
+transport currently delivers physical values and refuses explicit sensitivity demand before
+dispatch; Full preserves requested sample sensitivity products. Changed fitting trials retain
+compiled workers and construct fresh native IVP state. The live cursor drains its bounded
+queue and obtains the exact joined result from the existing run watch without requiring a
+terminal queue slot. No measured performance or convergence superiority is claimed. ADR
+status remains proposed.
 
 ## Pros and cons
 
@@ -76,3 +86,5 @@ Bounded descriptors, contextual execution and demanded products remove avoidable
 ## Status history
 
 - 2026-10-13 — proposed before dependent production changes under maintainer-authorized Plan38d execution and four explicit target selections. Decision status follows the decision-PR route.
+- 2026-10-13 — implementation and supported boundaries recorded with architecture revision 164;
+  Plan38d owns actual targeted acceptance, Plan38g the assembled campaign. Status unchanged.

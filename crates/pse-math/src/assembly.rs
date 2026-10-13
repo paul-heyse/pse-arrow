@@ -140,28 +140,77 @@ impl CasePlan {
             let body = &self.bodies[&binding.body];
             // First support is contained by the owner's second-support traversal
             // envelope; this does not compile second derivatives or evaluators.
-            let Some(scratch) = body.arithmetic_analysis_allocation_bound(Some(binding.slots.len()))? else { return Ok(None); };
-            let dimensions = binding.slots.len().checked_add(binding.contributions.len()).ok_or_else(overflow)?;
-            let metadata = dimensions.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>()).ok_or_else(overflow)?;
-            let dependencies = binding.contributions.len().checked_mul(size_of::<ContributionDependencies>()
-                .checked_add(binding.slots.len().checked_mul(2 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>())).ok_or_else(overflow)?).ok_or_else(overflow)?)
-                .and_then(|n| n.checked_mul(2)).ok_or_else(overflow)?;
-            bytes = bytes.checked_add(scratch).and_then(|n| n.checked_add(metadata)).and_then(|n| n.checked_add(dependencies)).ok_or_else(overflow)?;
+            let Some(scratch) =
+                body.arithmetic_analysis_allocation_bound(Some(binding.slots.len()))?
+            else {
+                return Ok(None);
+            };
+            let dimensions = binding
+                .slots
+                .len()
+                .checked_add(binding.contributions.len())
+                .ok_or_else(overflow)?;
+            let metadata = dimensions
+                .checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>())
+                .ok_or_else(overflow)?;
+            let dependencies = binding
+                .contributions
+                .len()
+                .checked_mul(
+                    size_of::<ContributionDependencies>()
+                        .checked_add(
+                            binding
+                                .slots
+                                .len()
+                                .checked_mul(
+                                    2 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>()),
+                                )
+                                .ok_or_else(overflow)?,
+                        )
+                        .ok_or_else(overflow)?,
+                )
+                .and_then(|n| n.checked_mul(2))
+                .ok_or_else(overflow)?;
+            bytes = bytes
+                .checked_add(scratch)
+                .and_then(|n| n.checked_add(metadata))
+                .and_then(|n| n.checked_add(dependencies))
+                .ok_or_else(overflow)?;
         }
         Ok(Some(bytes))
     }
     /// Capability traversal scratch for precisely the selected row contributors.
     /// The body owner includes compact stage copies and transitive provider demand;
     /// opaque regions use the caller's prepaid construction envelope.
-    pub fn conditional_capability_allocation_bound(&self, rows: &[SemanticId]) -> Result<Option<usize>, MathError> {
+    pub fn conditional_capability_allocation_bound(
+        &self,
+        rows: &[SemanticId],
+    ) -> Result<Option<usize>, MathError> {
         let overflow = || MathError::Limit("conditional capability extent");
         let mut bytes = 0usize;
         for binding in self.structure.instances() {
-            if !binding.contributions.iter().any(|c| matches!(c.target, Target::Row(row) if rows.contains(&row))) { continue; }
-            let Some(scratch) = self.bodies[&binding.body].arithmetic_analysis_allocation_bound(None)? else { return Ok(None); };
-            let metadata = binding.slots.len().checked_add(binding.contributions.len())
-                .and_then(|n| n.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>())).ok_or_else(overflow)?;
-            bytes = bytes.checked_add(scratch).and_then(|n| n.checked_add(metadata)).ok_or_else(overflow)?;
+            if !binding
+                .contributions
+                .iter()
+                .any(|c| matches!(c.target, Target::Row(row) if rows.contains(&row)))
+            {
+                continue;
+            }
+            let Some(scratch) =
+                self.bodies[&binding.body].arithmetic_analysis_allocation_bound(None)?
+            else {
+                return Ok(None);
+            };
+            let metadata = binding
+                .slots
+                .len()
+                .checked_add(binding.contributions.len())
+                .and_then(|n| n.checked_mul(11 * size_of::<usize>() + 16 * size_of::<usize>()))
+                .ok_or_else(overflow)?;
+            bytes = bytes
+                .checked_add(scratch)
+                .and_then(|n| n.checked_add(metadata))
+                .ok_or_else(overflow)?;
         }
         Ok(Some(bytes))
     }
@@ -849,24 +898,52 @@ impl CasePlan {
     /// including provider/transitive output demand. No conditional plan, sparse layout,
     /// evaluator request or native program is constructed by this query.
     pub fn conditional_available_order(
-        &self, rows: &BTreeSet<SemanticId>, columns: &BTreeSet<SemanticId>,
+        &self,
+        rows: &BTreeSet<SemanticId>,
+        columns: &BTreeSet<SemanticId>,
         cancel: &Arc<AtomicBool>,
     ) -> Result<DerivativeOrder, MathError> {
-        if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
-        if rows.is_empty() || rows.len() != columns.len()
+        if cancel.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
+        if rows.is_empty()
+            || rows.len() != columns.len()
             || rows.iter().any(|row| !self.rows.contains_key(row))
-            || columns.iter().any(|column| self.columns.binary_search(column).is_err()) {
-            return Err(MathError::Contract("conditional capability inventory".into()));
+            || columns
+                .iter()
+                .any(|column| self.columns.binary_search(column).is_err())
+        {
+            return Err(MathError::Contract(
+                "conditional capability inventory".into(),
+            ));
         }
         let mut available = DerivativeOrder::Second;
         for binding in self.structure.instances() {
-            if cancel.load(Ordering::Relaxed) { return Err(MathError::Cancelled); }
-            let outputs: Vec<_> = binding.contributions.iter().filter_map(|contribution| {
-                matches!(contribution.target, Target::Row(row) if rows.contains(&row)).then_some(contribution.output)
-            }).collect::<BTreeSet<_>>().into_iter().collect();
-            if outputs.is_empty() { continue; }
-            let coordinates: Vec<_> = binding.slots.iter().enumerate().filter_map(|(index, slot)| columns.contains(&slot.source()).then_some(index)).collect();
-            available = available.min(self.bodies[&binding.body].available_order_for_outputs(&outputs, &coordinates)?);
+            if cancel.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            let outputs: Vec<_> = binding
+                .contributions
+                .iter()
+                .filter_map(|contribution| {
+                    matches!(contribution.target, Target::Row(row) if rows.contains(&row))
+                        .then_some(contribution.output)
+                })
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            if outputs.is_empty() {
+                continue;
+            }
+            let coordinates: Vec<_> = binding
+                .slots
+                .iter()
+                .enumerate()
+                .filter_map(|(index, slot)| columns.contains(&slot.source()).then_some(index))
+                .collect();
+            available = available.min(
+                self.bodies[&binding.body].available_order_for_outputs(&outputs, &coordinates)?,
+            );
         }
         Ok(available)
     }

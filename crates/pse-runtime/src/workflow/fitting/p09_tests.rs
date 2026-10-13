@@ -40,7 +40,9 @@ async fn with_admitted_fit_oracle(
     problem: Arc<FitProblem>,
     check: impl FnOnce(&mut FitOracle) + Send + 'static,
 ) {
-    with_admitted_fit_oracle_outcome(problem, check).await.unwrap();
+    with_admitted_fit_oracle_outcome(problem, check)
+        .await
+        .unwrap();
 }
 async fn with_admitted_fit_oracle_outcome(
     problem: Arc<FitProblem>,
@@ -247,10 +249,20 @@ async fn source_case(
     expected: f64,
     case: &str,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
-    source_case_on(crate::workflow::tests::runtime_with_workspace(32 << 20), mixed, expected, case).await
+    source_case_on(
+        crate::workflow::tests::runtime_with_workspace(32 << 20),
+        mixed,
+        expected,
+        case,
+    )
+    .await
 }
-async fn source_case_on(runtime: crate::workflow::Runtime, mixed: bool, expected: f64, case: &str)
-    -> (crate::workflow::ModelingPackage, FitProfile) {
+async fn source_case_on(
+    runtime: crate::workflow::Runtime,
+    mixed: bool,
+    expected: f64,
+    case: &str,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
     let mut physical = crate::workflow::tests::physical();
     physical.preconditions = Arc::new(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
@@ -1700,9 +1712,19 @@ async fn transient_fit_demand_cache_and_coherent_upgrade() {
         let earlier = oracle.objective(&[0.7]).unwrap();
         assert_eq!(oracle.transient_passes, (2, 1));
         assert!(oracle.point.as_ref().unwrap().adjoint.is_none());
-        assert!(oracle.point.as_ref().unwrap().trajectories.values().all(|r|
-            r.samples.iter().all(|s| s.state_sensitivities.is_empty()
-                && s.output_sensitivities.is_empty())));
+        assert!(
+            oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .trajectories
+                .values()
+                .all(|r| {
+                    r.samples.iter().all(|s| {
+                        s.state_sensitivities.is_empty() && s.output_sensitivities.is_empty()
+                    })
+                })
+        );
         let prior = oracle
             .point
             .as_ref()
@@ -2385,32 +2407,59 @@ async fn prepared_fitting_relationships_keep_empty_experiments_and_rank_deficien
 async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
     let (package, mut profile) = source(true, 73.).await;
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
-    let (problem, _) = package.prepare_fit_problem(id(73).into(), profile,
-        compiler_profile(), Default::default(), &crate::CancelSource::new()).await.unwrap();
+    let (problem, _) = package
+        .prepare_fit_problem(
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     let outcome = with_admitted_fit_oracle_outcome(problem.into(), |oracle| {
-        let team = oracle.team.as_mut().expect("fixture admits two independent lanes");
+        let team = oracle
+            .team
+            .as_mut()
+            .expect("fixture admits two independent lanes");
         team.require_concurrent_test_wave();
         let value = oracle.objective(&[2.5]).unwrap();
         assert!((value - 1.25).abs() < 1e-6);
-        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
+        assert_eq!(
+            oracle.team.as_ref().unwrap().test_constructions(),
+            vec![1, 1]
+        );
         let mut gradient = [0.];
         oracle.gradient(&[2.5], &mut gradient).unwrap();
         assert!((gradient[0] - 2.).abs() < 1e-6);
         let predictions = &oracle.point.as_ref().unwrap().predictions;
         assert!((predictions[0] - 73.5).abs() < 1e-6);
         assert_eq!(predictions[1], 2.5);
-        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
+        assert_eq!(
+            oracle.team.as_ref().unwrap().test_constructions(),
+            vec![1, 1]
+        );
         assert!((oracle.objective(&[0.7]).unwrap() - 0.89).abs() < 1e-6);
         oracle.gradient(&[0.7], &mut gradient).unwrap();
         assert!((gradient[0] + 1.6).abs() < 1e-6);
-        assert_eq!(oracle.team.as_ref().unwrap().test_constructions(), vec![1, 1]);
-        oracle.execution.cancel.store(true, std::sync::atomic::Ordering::Release);
+        assert_eq!(
+            oracle.team.as_ref().unwrap().test_constructions(),
+            vec![1, 1]
+        );
+        oracle
+            .execution
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Release);
         assert!(oracle.objective(&[1.0]).is_err());
         assert!(oracle.point.is_none());
-    }).await;
+    })
+    .await;
     // The actual enclosing operation must also report its original cancellation
     // after all actor threads and native states have joined.
-    assert!(matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)));
+    assert!(matches!(
+        outcome,
+        Err(crate::math::MathRuntimeError::Cancelled)
+    ));
 }
 
 /// Existing profile chains admit their nested experiment footprint once. Both causal
@@ -2418,33 +2467,59 @@ async fn fitting_parallel_experiments_keep_order_and_owner_affine_workers() {
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn fitting_profile_chains_borrow_parallel_experiment_capacity() {
-    let runtime = crate::workflow::tests::runtime_on_threads(4 << 30,
-        crate::math::MathPolicy { worker_bytes: 1 << 30, workspace_bytes: 1 << 30,
-            foreign_bytes: 1 << 20, ..Default::default() }, 4);
+    let runtime = crate::workflow::tests::runtime_on_threads(
+        4 << 30,
+        crate::math::MathPolicy {
+            worker_bytes: 1 << 30,
+            workspace_bytes: 1 << 30,
+            foreign_bytes: 1 << 20,
+            ..Default::default()
+        },
+        4,
+    );
     let (package, mut profile) = source_case_on(runtime, true, 73., "Dynamic").await;
     profile.experiment_workers = pse_model::scalar!(PositiveCount(2));
     profile.uncertainty = Some(FitUncertainty {
         level: pse_model::scalar!(Fraction(0.9)),
-        profile: Some(ProfileControls { points: pse_model::scalar!(PositiveCount(20)),
-            workers: Some(pse_model::scalar!(PositiveCount(2))), ..Default::default() }),
+        profile: Some(ProfileControls {
+            points: pse_model::scalar!(PositiveCount(20)),
+            workers: Some(pse_model::scalar!(PositiveCount(2))),
+            ..Default::default()
+        }),
         predictions: false,
     });
-    let prepared = package.prepare_fit(id(73).into(), profile, compiler_profile(),
-        Default::default(), &crate::CancelSource::new()).await.unwrap();
+    let prepared = package
+        .prepare_fit(
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
     assert_eq!(prepared.problem.profile_workers(4), 2);
     let result = prepared.start().unwrap().wait().await.unwrap();
     let report = regression::report(&result);
     let chains = report.profiles.as_ref().unwrap().as_ref().unwrap();
     assert_eq!(chains.len(), 2, "{report:#?}");
-    assert!(chains.iter().all(|chain| chain.actual_parallelism == 2
-        && chain.worker_failure.is_none() && chain.scheduling_failures.is_empty()),
-        "nested experiment/profile admission: {chains:#?}");
+    assert!(
+        chains.iter().all(|chain| chain.actual_parallelism == 2
+            && chain.worker_failure.is_none()
+            && chain.scheduling_failures.is_empty()),
+        "nested experiment/profile admission: {chains:#?}"
+    );
     // The unit-weight residuals p-2 and p-1 give f=(p-1.5)^2+0.25.
     // At 90%, sqrt(2*(f-f*))=1.64485 gives ends near 0.3369 and 2.6631,
     // strictly inside the fixture's [0.1,10] bounds. Both chains must reach
     // Threshold; retain actual pinned outcomes/causes if this mechanism stops early.
-    assert!(chains.iter().all(|chain| chain.bound.outcome ==
-        pse_model::generated::enums::IntervalOutcome::Threshold),
+    assert!(
+        chains
+            .iter()
+            .all(|chain| chain.bound.outcome
+                == pse_model::generated::enums::IntervalOutcome::Threshold),
         "expected interior 90% profile thresholds; candidate={:?}, objective={:?}; actual chains={chains:#?}",
-        report.candidate, report.objective);
+        report.candidate,
+        report.objective
+    );
 }

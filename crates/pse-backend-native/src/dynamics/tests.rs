@@ -1100,15 +1100,35 @@ fn completed_samples_full_and_compact_preserve_values_and_prefix() {
     }
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
-        let profile = Profile { method, start: 0., end: 1., samples: vec![0., 0.2, 0.7, 1.],
-            atol: vec![1e-8], parameter_scales: vec![1.], ..Default::default() };
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
+        let profile = Profile {
+            method,
+            start: 0.,
+            end: 1.,
+            samples: vec![0., 0.2, 0.7, 1.],
+            atol: vec![1e-8],
+            parameter_scales: vec![1.],
+            ..Default::default()
+        };
         let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
         let mut full = Sink(Vec::new());
         let mut compact = Sink(Vec::new());
-        let run = |retention, sink: &mut Sink| integrate_with_samples_observed(
-            &mut Toy::new(false, false), &profile, &[1.], Arc::new(AtomicBool::new(false)),
-            Arc::new(crate::solve::Progress::new(16)), &snapshot, retention, sink).unwrap();
+        let run = |retention, sink: &mut Sink| {
+            integrate_with_samples_observed(
+                &mut Toy::new(false, false),
+                &profile,
+                &[1.],
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(crate::solve::Progress::new(16)),
+                &snapshot,
+                retention,
+                sink,
+            )
+            .unwrap()
+        };
         let full_report = run(SampleRetention::Full, &mut full);
         let compact_report = run(SampleRetention::Compact, &mut compact);
         assert_eq!(full_report.termination, Termination::Completed);
@@ -1128,18 +1148,40 @@ fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
     struct Stop;
     impl SampleObserver for Stop {
         fn sample(&mut self, ordinal: usize, _: &Sample) -> Result<(), ProblemError> {
-            if ordinal == 1 { Err(ProblemError::Cancelled) } else { Ok(()) }
+            if ordinal == 1 {
+                Err(ProblemError::Cancelled)
+            } else {
+                Ok(())
+            }
         }
     }
     for method in [Method::Diffsol, Method::Idas] {
         if method == Method::Diffsol && !cfg!(feature = "diffsol")
-            || method == Method::Idas && !cfg!(feature = "idas") { continue; }
-        let profile = Profile { method, start: 0., end: 1., samples: vec![0., 0.2, 0.7, 1.],
-            atol: vec![1e-8], parameter_scales: vec![1.], ..Default::default() };
+            || method == Method::Idas && !cfg!(feature = "idas")
+        {
+            continue;
+        }
+        let profile = Profile {
+            method,
+            start: 0.,
+            end: 1.,
+            samples: vec![0., 0.2, 0.7, 1.],
+            atol: vec![1e-8],
+            parameter_scales: vec![1.],
+            ..Default::default()
+        };
         let snapshot = crate::execution::Snapshot::observe(&crate::execution::LINKED);
-        let report = integrate_with_samples_observed(&mut Toy::new(false, false), &profile,
-            &[1.], Arc::new(AtomicBool::new(false)), Arc::new(crate::solve::Progress::new(16)),
-            &snapshot, SampleRetention::Full, &mut Stop).unwrap();
+        let report = integrate_with_samples_observed(
+            &mut Toy::new(false, false),
+            &profile,
+            &[1.],
+            Arc::new(AtomicBool::new(false)),
+            Arc::new(crate::solve::Progress::new(16)),
+            &snapshot,
+            SampleRetention::Full,
+            &mut Stop,
+        )
+        .unwrap();
         assert_eq!(report.termination, Termination::Cancelled);
         assert!(matches!(report.error, Some(ProblemError::Cancelled)));
         assert_eq!(report.samples.len(), 2);
@@ -1153,16 +1195,38 @@ fn failed_live_delivery_keeps_full_computed_prefix_and_typed_stop() {
 #[test]
 fn compact_max_cells_checks_selected_retained_payload_and_diagnostics() {
     let oracle = Toy::new(false, false);
-    let mut profile = Profile { method: Method::Diffsol, start:0., end:1.,
-        samples:(0..=100).map(|i| f64::from(i)/100.).collect(), atol:vec![1e-8],
-        parameter_scales:vec![1.], sensitivity:DynamicSensitivity::Forward,
-        max_events:2, max_cells:usize::MAX, ..Default::default() };
+    let mut profile = Profile {
+        method: Method::Diffsol,
+        start: 0.,
+        end: 1.,
+        samples: (0..=100).map(|i| f64::from(i) / 100.).collect(),
+        atol: vec![1e-8],
+        parameter_scales: vec![1.],
+        sensitivity: DynamicSensitivity::Forward,
+        max_events: 2,
+        max_cells: usize::MAX,
+        ..Default::default()
+    };
     let full = profile.validate(oracle.contract(), &[1.]).unwrap();
-    let compact = profile.validate_retention(oracle.contract(), &[1.], SampleRetention::Compact,0).unwrap();
+    let compact = profile
+        .validate_retention(oracle.contract(), &[1.], SampleRetention::Compact, 0)
+        .unwrap();
     assert!(compact < full);
-    assert_eq!(full-compact,profile.sample_cells(oracle.contract(),100).unwrap());
-    profile.max_cells=compact;
+    assert_eq!(
+        full - compact,
+        profile.sample_cells(oracle.contract(), 100).unwrap()
+    );
+    profile.max_cells = compact;
     assert!(profile.validate(oracle.contract(), &[1.]).is_err());
-    assert_eq!(profile.validate_retention(oracle.contract(), &[1.],SampleRetention::Compact,0).unwrap(),compact);
-    assert!(profile.validate_retention(oracle.contract(), &[1.],SampleRetention::Compact,1).is_err());
+    assert_eq!(
+        profile
+            .validate_retention(oracle.contract(), &[1.], SampleRetention::Compact, 0)
+            .unwrap(),
+        compact
+    );
+    assert!(
+        profile
+            .validate_retention(oracle.contract(), &[1.], SampleRetention::Compact, 1)
+            .is_err()
+    );
 }

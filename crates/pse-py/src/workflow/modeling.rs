@@ -729,8 +729,12 @@ impl NativeModelingPackage {
         let definition = blocking(
             py,
             &self.owner,
-            self.inner
-                .admit_study_input_sources(physical, &request.inputs, &request.output, &cancel),
+            self.inner.admit_study_input_sources(
+                physical,
+                &request.inputs,
+                &request.output,
+                &cancel,
+            ),
             || cancel.cancel(),
         )?;
         documents::encode(py, &definition)

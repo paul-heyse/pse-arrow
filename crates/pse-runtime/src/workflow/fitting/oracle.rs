@@ -25,14 +25,23 @@ pub(super) struct Demand {
 }
 impl Demand {
     fn includes(self, other: Self) -> bool {
-        (!other.jacobian || self.jacobian) && (!other.responses || self.responses)
+        (!other.jacobian || self.jacobian)
+            && (!other.responses || self.responses)
             && (!other.adjoint || self.adjoint || self.responses)
     }
     fn union(self, other: Self) -> Self {
-        Self { jacobian: self.jacobian || other.jacobian,
-            responses: self.responses || other.responses, adjoint: !(self.responses || other.responses) && (self.adjoint || other.adjoint) }
+        Self {
+            jacobian: self.jacobian || other.jacobian,
+            responses: self.responses || other.responses,
+            adjoint: !(self.responses || other.responses) && (self.adjoint || other.adjoint),
+        }
     }
-    fn responses() -> Self { Self { responses: true, ..Self::default() } }
+    fn responses() -> Self {
+        Self {
+            responses: true,
+            ..Self::default()
+        }
+    }
 }
 #[derive(Debug)]
 struct Point {
@@ -108,11 +117,15 @@ impl FitOracle {
             })
             .collect::<Result<Vec<_>, ProblemError>>()?;
         #[cfg(feature = "solver-diffsol")]
-        let transient_workers = p.experiments.iter().map(|experiment| match experiment {
-            Experiment::Steady(_) => Ok(None),
-            Experiment::Transient(_) if team.is_some() => Ok(None),
-            Experiment::Transient(s) => s.worker(&execution).map(Some),
-        }).collect::<Result<Vec<_>, ProblemError>>()?;
+        let transient_workers = p
+            .experiments
+            .iter()
+            .map(|experiment| match experiment {
+                Experiment::Steady(_) => Ok(None),
+                Experiment::Transient(_) if team.is_some() => Ok(None),
+                Experiment::Transient(s) => s.worker(&execution).map(Some),
+            })
+            .collect::<Result<Vec<_>, ProblemError>>()?;
         let hessian = p.layout.hessian.clone();
         let gram = p
             .layout
@@ -136,7 +149,14 @@ impl FitOracle {
         })
     }
     fn evaluate(&mut self, x: &[f64]) -> Result<&Point, ProblemError> {
-        self.evaluate_demand(x, Demand { jacobian: true, responses: true, adjoint: false })
+        self.evaluate_demand(
+            x,
+            Demand {
+                jacobian: true,
+                responses: true,
+                adjoint: false,
+            },
+        )
     }
     fn evaluate_demand(&mut self, x: &[f64], mut demand: Demand) -> Result<&Point, ProblemError> {
         if let Some(stop) = self.execution.stopped() {
@@ -153,7 +173,12 @@ impl FitOracle {
             .point
             .as_ref()
             .is_some_and(|v| v.x.iter().zip(x).all(|(a, b)| a.to_bits() == b.to_bits()));
-        if same && self.point.as_ref().is_some_and(|p| p.achieved.includes(demand)) {
+        if same
+            && self
+                .point
+                .as_ref()
+                .is_some_and(|p| p.achieved.includes(demand))
+        {
             return self
                 .point
                 .as_ref()
@@ -183,9 +208,12 @@ impl FitOracle {
         };
         #[cfg(all(test, feature = "solver-diffsol"))]
         for (ei, experiment) in p.experiments.iter().enumerate() {
-            if matches!(experiment, Experiment::Transient(_)) && !p.layout.mappings[ei].observations.is_empty() {
+            if matches!(experiment, Experiment::Transient(_))
+                && !p.layout.mappings[ei].observations.is_empty()
+            {
                 self.transient_passes.0 += 1;
-                self.transient_passes.1 += usize::from(demand.adjoint && !p.layout.mappings[ei].free_bindings.is_empty());
+                self.transient_passes.1 +=
+                    usize::from(demand.adjoint && !p.layout.mappings[ei].free_bindings.is_empty());
             }
         }
         #[cfg(not(feature = "solver-diffsol"))]
@@ -193,27 +221,53 @@ impl FitOracle {
         let products = if let Some(team) = &mut self.team {
             team.evaluate(x, demand, previous.as_ref())?
         } else {
-            p.experiments.iter().enumerate().map(|(ei, _)| {
-                evaluate_experiment(p, ei, x, demand, &self.execution,
-                    &mut self.workers[ei],
-                    #[cfg(feature = "solver-diffsol")]
-                    &mut self.transient_workers[ei],
-                    previous.as_ref().and_then(|v| v.get(&p.declaration.experiments[ei].experiment_id)).map(Arc::as_ref))
-            }).collect::<Result<Vec<_>, ProblemError>>()?
+            p.experiments
+                .iter()
+                .enumerate()
+                .map(|(ei, _)| {
+                    evaluate_experiment(
+                        p,
+                        ei,
+                        x,
+                        demand,
+                        &self.execution,
+                        &mut self.workers[ei],
+                        #[cfg(feature = "solver-diffsol")]
+                        &mut self.transient_workers[ei],
+                        previous
+                            .as_ref()
+                            .and_then(|v| v.get(&p.declaration.experiments[ei].experiment_id))
+                            .map(Arc::as_ref),
+                    )
+                })
+                .collect::<Result<Vec<_>, ProblemError>>()?
         };
         // Publication is atomic; reduction order is the authored experiment declaration
         // order, independent of lane scheduling and completion order.
         for (ei, product) in products.into_iter().enumerate() {
-            for (i, value) in product.predictions { point.predictions[i] = value; }
-            for (i, value) in product.constraints { point.constraints[i] = value; }
-            for (slot, value) in product.responses { point.responses.add(slot, value)?; }
-            for (slot, value) in product.jacobian { point.jacobian.add(slot, value)?; }
+            for (i, value) in product.predictions {
+                point.predictions[i] = value;
+            }
+            for (i, value) in product.constraints {
+                point.constraints[i] = value;
+            }
+            for (slot, value) in product.responses {
+                point.responses.add(slot, value)?;
+            }
+            for (slot, value) in product.jacobian {
+                point.jacobian.add(slot, value)?;
+            }
             if let Some(total) = &mut point.adjoint {
-                for (i, value) in product.adjoint { total[i] += value; }
+                for (i, value) in product.adjoint {
+                    total[i] += value;
+                }
             }
             point.blocks.push(product.block);
             if let Some(report) = product.trajectory {
-                point.trajectories.insert(p.declaration.experiments[ei].experiment_id, Arc::new(report));
+                point.trajectories.insert(
+                    p.declaration.experiments[ei].experiment_id,
+                    Arc::new(report),
+                );
             }
         }
         if point
@@ -346,13 +400,16 @@ impl FitOracle {
         x: &[f64],
         free: &[usize],
     ) -> Result<Vec<f64>, ProblemError> {
-        if self.transient_workers[ei].is_none() { self.transient_workers[ei] = Some(s.worker(&self.execution)?); }
+        if self.transient_workers[ei].is_none() {
+            self.transient_workers[ei] = Some(s.worker(&self.execution)?);
+        }
         let outputs = s.program.contract.outputs.len();
         let mut cotangent =
             |report: &native::dynamics::Report| Self::cotangent(p, ei, outputs, report);
         s.hessian(
-            self.transient_workers[ei].as_mut().ok_or_else(||
-                ProblemError::internal("missing transient worker"))?,
+            self.transient_workers[ei]
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
             &|k| Self::value(p, x, k),
             &self.execution,
             free,
@@ -424,10 +481,16 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
     fn gradient(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.evaluate_demand(x, match self.derivatives {
-            FitDerivatives::Responses => Demand::responses(),
-            FitDerivatives::Gradient => Demand { adjoint: true, ..Demand::default() },
-        })?;
+        self.evaluate_demand(
+            x,
+            match self.derivatives {
+                FitDerivatives::Responses => Demand::responses(),
+                FitDerivatives::Gradient => Demand {
+                    adjoint: true,
+                    ..Demand::default()
+                },
+            },
+        )?;
         if out.len() != x.len() {
             return Err(ProblemError::internal("fit gradient extent"));
         }
@@ -475,7 +538,13 @@ impl NlpOracle for FitOracle {
         Ok(())
     }
     fn jacobian(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), ProblemError> {
-        self.evaluate_demand(x, Demand { jacobian: true, ..Demand::default() })?;
+        self.evaluate_demand(
+            x,
+            Demand {
+                jacobian: true,
+                ..Demand::default()
+            },
+        )?;
         let values = self
             .point
             .as_ref()
@@ -582,9 +651,14 @@ impl NlpOracle for FitOracle {
                 values.scalars.insert(id, x[c.get()]);
             }
             if self.workers[ei].is_none() {
-                let providers = crate::math::attempt_providers(&s.providers, &self.execution.scope()?)
-                    .map_err(ProblemError::Provider)?;
-                self.workers[ei] = Some(s.case.assembly.worker_scoped(providers, self.execution.scope()?));
+                let providers =
+                    crate::math::attempt_providers(&s.providers, &self.execution.scope()?)
+                        .map_err(ProblemError::Provider)?;
+                self.workers[ei] = Some(
+                    s.case
+                        .assembly
+                        .worker_scoped(providers, self.execution.scope()?),
+                );
             }
             let local = self.workers[ei]
                 .as_mut()
@@ -748,11 +822,16 @@ impl FitProblem {
             match final_oracle.evaluate_demand(x, Demand::default()) {
                 Err(e) => report.diagnostic = Some(FitDiagnostic::new(FitRule::FinalEvaluation, e)),
                 Ok(point) => {
-                    if !self.install_final_point(report, x, point)? { return Ok(()); }
+                    if !self.install_final_point(report, x, point)? {
+                        return Ok(());
+                    }
                     match final_oracle.response_rank(x) {
                         Ok(diagnostic) => {
                             if let Some(point) = final_oracle.point.as_ref()
-                                && !self.install_final_point(report, x, point)? { return Ok(()); }
+                                && !self.install_final_point(report, x, point)?
+                            {
+                                return Ok(());
+                            }
 
                             report.responses = Some(diagnostic.responses);
                             report.singular_values = diagnostic.singular_values;
@@ -770,45 +849,47 @@ impl FitProblem {
     }
     /// Values and derivative products refer to the same physically compared trial.
     /// Preserve a completed value observation when rank/derivatives are unavailable.
-    fn install_final_point(&self, report: &mut FitReport, x: &[f64], point: &Point)
-        -> Result<bool, crate::math::MathRuntimeError> {
-                    let residuals = self
-                        .measurements
-                        .iter()
-                        .zip(&point.predictions)
-                        .filter(|(o, _)| o.included)
-                        .map(|(o, v)| FitOracle::residual(o, *v).map(|v| v.0))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    let objective =
-                        0.5 * faer::col::ColRef::from_slice(&residuals).squared_norm_l2();
-                    if !objective.is_finite() {
-                        report.diagnostic = Some(FitDiagnostic::new(
-                            FitRule::ObjectiveOverflow,
-                            ProblemError::numerical("fresh fitting objective overflow"),
-                        ));
-                        return Ok(false);
-                    }
-                    let quality = native::quality::observed(
-                        &self.contract,
-                        &self.bounds,
-                        x,
-                        &point.constraints,
-                        &self.tolerances,
-                    )?;
-                    let predictions = point
-                        .predictions
-                        .iter()
-                        .zip(&self.measurements)
-                        .map(|(v, o)| o.included.then_some(*v))
-                        .collect();
-                    report.trajectories = point.trajectories.clone();
-                    report.constraint_values = point.constraints.clone();
-                    report.objective = Some(objective);
-                    report.quality = Some(quality);
-                    report.predictions = predictions;
+    fn install_final_point(
+        &self,
+        report: &mut FitReport,
+        x: &[f64],
+        point: &Point,
+    ) -> Result<bool, crate::math::MathRuntimeError> {
+        let residuals = self
+            .measurements
+            .iter()
+            .zip(&point.predictions)
+            .filter(|(o, _)| o.included)
+            .map(|(o, v)| FitOracle::residual(o, *v).map(|v| v.0))
+            .collect::<Result<Vec<_>, _>>()?;
+        let objective = 0.5 * faer::col::ColRef::from_slice(&residuals).squared_norm_l2();
+        if !objective.is_finite() {
+            report.diagnostic = Some(FitDiagnostic::new(
+                FitRule::ObjectiveOverflow,
+                ProblemError::numerical("fresh fitting objective overflow"),
+            ));
+            return Ok(false);
+        }
+        let quality = native::quality::observed(
+            &self.contract,
+            &self.bounds,
+            x,
+            &point.constraints,
+            &self.tolerances,
+        )?;
+        let predictions = point
+            .predictions
+            .iter()
+            .zip(&self.measurements)
+            .map(|(v, o)| o.included.then_some(*v))
+            .collect();
+        report.trajectories = point.trajectories.clone();
+        report.constraint_values = point.constraints.clone();
+        report.objective = Some(objective);
+        report.quality = Some(quality);
+        report.predictions = predictions;
         Ok(true)
     }
-
 }
 /// The singular values of `a`, decreasing, and on request its full right singular basis:
 /// column `k` belongs to singular value `k`, and the columns beyond `min(rows, cols)` span
@@ -1283,8 +1364,8 @@ mod tests {
                 backend: native::execution::BackendSettings::Default,
                 sensitivity: None,
                 composition: Default::default(),
-            block_overrides: Default::default(),
-            block_workers: 1,
+                block_overrides: Default::default(),
+                block_workers: 1,
                 reconstruction: None,
             },
             simulations: BTreeMap::new(),
@@ -1297,10 +1378,20 @@ mod tests {
     }
     #[tokio::test]
     async fn fitting_value_demand_omits_steady_jacobian_and_upgrades_coherently() {
-        let p = source(false).await.prepare_fit_problem(id(32).into(), profile(false),
-            compiler_profile(), Default::default(), &crate::CancelSource::new())
-            .await.unwrap().0;
-        let execution = Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
+        let p = source(false)
+            .await
+            .prepare_fit_problem(
+                id(32).into(),
+                profile(false),
+                compiler_profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap()
+            .0;
+        let execution =
+            Execution::new(Arc::new(AtomicBool::new(false)), &p.profile.solver.controls);
         let mut oracle = FitOracle::new(p, execution).unwrap();
         let objective = oracle.objective(&[2.0]).unwrap();
         let point = oracle.point.as_ref().unwrap();
@@ -1312,7 +1403,15 @@ mod tests {
         assert!(oracle.point.as_ref().unwrap().achieved.responses);
         assert_eq!(objective, oracle.objective(&[2.0]).unwrap());
         oracle.objective(&[3.0]).unwrap();
-        assert!(oracle.point.as_ref().unwrap().blocks.iter().all(Option::is_none));
+        assert!(
+            oracle
+                .point
+                .as_ref()
+                .unwrap()
+                .blocks
+                .iter()
+                .all(Option::is_none)
+        );
     }
     #[tokio::test]
     async fn prepared_fit_clones_share_the_original_reservation() {
@@ -2290,10 +2389,15 @@ mod p09_tests;
 /// One independent experiment's scientific products. Mutable evaluator/provider scratch
 /// belongs to the caller's lane; changed coordinates always create a fresh native IVP.
 pub(super) fn evaluate_experiment(
-    p: &FitProblem, ei: usize, x: &[f64], demand: Demand, execution: &Execution,
+    p: &FitProblem,
+    ei: usize,
+    x: &[f64],
+    demand: Demand,
+    execution: &Execution,
     steady: &mut Option<CaseWorker>,
-    #[cfg(feature = "solver-diffsol")]
-    transient: &mut Option<crate::workflow::dynamics::DynamicWorker>,
+    #[cfg(feature = "solver-diffsol")] transient: &mut Option<
+        crate::workflow::dynamics::DynamicWorker,
+    >,
     previous: Option<&native::dynamics::Report>,
 ) -> Result<ExperimentProducts, ProblemError> {
     execution.check()?;
@@ -2302,156 +2406,170 @@ pub(super) fn evaluate_experiment(
     let mut result = ExperimentProducts::default();
     let e = &p.experiments[ei];
     let mapping = &p.layout.mappings[ei];
-            match e {
-                Experiment::Steady(s) => {
-                    if steady.is_none() {
-                        let providers = crate::math::attempt_providers(&s.providers, &execution.scope()?)
-                            .map_err(ProblemError::Provider)?;
-                        *steady = Some(s.case.assembly.worker_scoped(providers, execution.scope()?));
+    match e {
+        Experiment::Steady(s) => {
+            if steady.is_none() {
+                let providers = crate::math::attempt_providers(&s.providers, &execution.scope()?)
+                    .map_err(ProblemError::Provider)?;
+                *steady = Some(s.case.assembly.worker_scoped(providers, execution.scope()?));
+            }
+            let worker = steady
+                .as_mut()
+                .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
+            let mut values = s.values.clone();
+            for &(id, col) in &s.coordinates {
+                values.scalars.insert(id, x[col.get()]);
+            }
+            let outputs = worker.constraints(&values)?;
+            for &(row, global) in &s.constraints {
+                result.constraints.push((global.get(), outputs[row.get()]));
+            }
+            let j = if demand.jacobian || demand.responses || demand.adjoint {
+                Some(worker.jacobian(&values)?.to_owned())
+            } else {
+                None
+            };
+            if let Some(j) = &j {
+                if demand.jacobian {
+                    for &(source, target) in &mapping.constraints {
+                        result.jacobian.push((target, j.val()[source]));
                     }
-                    let worker = steady.as_mut().ok_or_else(|| ProblemError::internal("missing steady worker"))?;
-                    let mut values = s.values.clone();
-                    for &(id, col) in &s.coordinates {
-                        values.scalars.insert(id, x[col.get()]);
-                    }
-                    let outputs = worker.constraints(&values)?;
-                    for &(row, global) in &s.constraints {
-                        result.constraints.push((global.get(), outputs[row.get()]));
-                    }
-                    let j = if demand.jacobian || demand.responses || demand.adjoint {
-                        Some(worker.jacobian(&values)?.to_owned())
-                    } else { None };
-                    if let Some(j) = &j {
-                        if demand.jacobian {
-                            for &(source, target) in &mapping.constraints {
-                                result.jacobian.push((target, j.val()[source]));
-                            }
-                        }
-                        if demand.responses || demand.adjoint {
-                            for term in &mapping.responses {
-                                debug_assert!(p.measurements[term.observation].included);
-                                result.responses.push((term.contribution, j.val()[term.local]));
-                            }
-                        }
-                    }
-                    for &i in &mapping.observations {
-                        let o = &p.measurements[i];
-                        result.predictions.push((i, outputs[o.row]));
-                    }
-                    result.block = j;
                 }
-                Experiment::Transient(s) => {
-                    if mapping.observations.is_empty() {
-                        return Ok(result);
-                    }
-                    #[cfg(feature = "solver-diffsol")]
-                    {
-                        let forward = demand.responses
-                            && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
-                        let combined = demand.adjoint && !mapping.free_bindings.is_empty();
-                        if transient.is_none() { *transient = Some(s.worker(execution)?); }
-                        let report = if combined {
-                            let (report, contributions) = FitOracle::transient_gradient(p, ei, s, x, execution,
-                                transient.as_mut().ok_or_else(||
-                                    ProblemError::internal("missing transient worker"))?)?;
-                            for (parameter, value) in contributions {
-                                if let Some(column) = p.parameter_columns[parameter] {
-                                    result.adjoint.push((column.get(), value));
-                                }
-                            }
-
-                            report
-                        } else {
-                            s.integrate(
-                                transient.as_mut().ok_or_else(||
-                                    ProblemError::internal("missing transient worker"))?,
-                                &|k| FitOracle::value(p, x, k),
-                                execution,
-                                if forward {
-                                    native::dynamics::DynamicSensitivity::Forward
-                                } else {
-                                    native::dynamics::DynamicSensitivity::None
-                                },
-                            )?
-                        };
-                        if let Some(prior) = previous {
-                                let before = s.prediction_allowances(
-                                    transient.as_mut().ok_or_else(||
-                                        ProblemError::internal("missing transient worker"))?,
-                                    &|k| FitOracle::value(p, x, k),
-                                    prior,
-                                )?;
-                                let after = s.prediction_allowances(
-                                    transient.as_mut().ok_or_else(||
-                                        ProblemError::internal("missing transient worker"))?,
-                                    &|k| FitOracle::value(p, x, k),
-                                    &report,
-                                )?;
-                                for &i in &mapping.observations {
-                                    let o = &p.measurements[i];
-                                    let sample = o.sample_index.ok_or_else(|| {
-                                        ProblemError::internal("fit upgrade sample")
-                                    })?;
-                                    let old = prior
-                                        .samples
-                                        .get(sample)
-                                        .and_then(|v| v.outputs.get(o.row))
-                                        .copied()
-                                        .ok_or_else(|| {
-                                            ProblemError::internal("fit prior prediction")
-                                        })?;
-                                    let new = report
-                                        .samples
-                                        .get(sample)
-                                        .and_then(|v| v.outputs.get(o.row))
-                                        .copied()
-                                        .ok_or_else(|| {
-                                            ProblemError::internal("fit upgraded prediction")
-                                        })?;
-                                    let allowance = before
-                                        .get(sample)
-                                        .and_then(|v| v.get(o.row))
-                                        .zip(after.get(sample).and_then(|v| v.get(o.row)))
-                                        .map(|(a, b)| a + b)
-                                        .ok_or_else(|| {
-                                            ProblemError::internal("fit upgrade allowance")
-                                        })?;
-                                    FitOracle::admit_upgrade(old, new, allowance)?;
-                                }
-                            }
-                        for &i in &mapping.observations {
-                            let o = &p.measurements[i];
-                            let sample = o
-                                .sample_index
-                                .and_then(|i| report.samples.get(i))
-                                .ok_or_else(|| {
-                                    ProblemError::internal("missing prepared transient sample")
-                                })?;
-                            result.predictions.push((i, sample.outputs[o.row]));
-                        }
-                        if forward {
-                            // Each term directly names its measurement and local binding;
-                            // retain binding-major contribution order without relationship searches.
-                            for term in &mapping.responses {
-                                let o = &p.measurements[term.observation];
-                                let sample = o
-                                    .sample_index
-                                    .and_then(|i| report.samples.get(i))
-                                    .ok_or_else(|| {
-                                        ProblemError::internal("missing prepared transient sample")
-                                    })?;
-                                result.responses.push((term.contribution,
-                                    s.response(sample, o.row, &s.bindings[term.local])?));
-                            }
-                        }
-                        result.trajectory = Some(report);
-                    }
-                    #[cfg(not(feature = "solver-diffsol"))]
-                    {
-                        let _ = s;
-                        return Err(ProblemError::unsupported("Diffsol not linked"));
+                if demand.responses || demand.adjoint {
+                    for term in &mapping.responses {
+                        debug_assert!(p.measurements[term.observation].included);
+                        result
+                            .responses
+                            .push((term.contribution, j.val()[term.local]));
                     }
                 }
             }
+            for &i in &mapping.observations {
+                let o = &p.measurements[i];
+                result.predictions.push((i, outputs[o.row]));
+            }
+            result.block = j;
+        }
+        Experiment::Transient(s) => {
+            if mapping.observations.is_empty() {
+                return Ok(result);
+            }
+            #[cfg(feature = "solver-diffsol")]
+            {
+                let forward = demand.responses
+                    && s.profile.sensitivity != native::dynamics::DynamicSensitivity::None;
+                let combined = demand.adjoint && !mapping.free_bindings.is_empty();
+                if transient.is_none() {
+                    *transient = Some(s.worker(execution)?);
+                }
+                let report = if combined {
+                    let (report, contributions) = FitOracle::transient_gradient(
+                        p,
+                        ei,
+                        s,
+                        x,
+                        execution,
+                        transient
+                            .as_mut()
+                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
+                    )?;
+                    for (parameter, value) in contributions {
+                        if let Some(column) = p.parameter_columns[parameter] {
+                            result.adjoint.push((column.get(), value));
+                        }
+                    }
+
+                    report
+                } else {
+                    s.integrate(
+                        transient
+                            .as_mut()
+                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
+                        &|k| FitOracle::value(p, x, k),
+                        execution,
+                        if forward {
+                            native::dynamics::DynamicSensitivity::Forward
+                        } else {
+                            native::dynamics::DynamicSensitivity::None
+                        },
+                    )?
+                };
+                if let Some(prior) = previous {
+                    let before = s.prediction_allowances(
+                        transient
+                            .as_mut()
+                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
+                        &|k| FitOracle::value(p, x, k),
+                        prior,
+                    )?;
+                    let after = s.prediction_allowances(
+                        transient
+                            .as_mut()
+                            .ok_or_else(|| ProblemError::internal("missing transient worker"))?,
+                        &|k| FitOracle::value(p, x, k),
+                        &report,
+                    )?;
+                    for &i in &mapping.observations {
+                        let o = &p.measurements[i];
+                        let sample = o
+                            .sample_index
+                            .ok_or_else(|| ProblemError::internal("fit upgrade sample"))?;
+                        let old = prior
+                            .samples
+                            .get(sample)
+                            .and_then(|v| v.outputs.get(o.row))
+                            .copied()
+                            .ok_or_else(|| ProblemError::internal("fit prior prediction"))?;
+                        let new = report
+                            .samples
+                            .get(sample)
+                            .and_then(|v| v.outputs.get(o.row))
+                            .copied()
+                            .ok_or_else(|| ProblemError::internal("fit upgraded prediction"))?;
+                        let allowance = before
+                            .get(sample)
+                            .and_then(|v| v.get(o.row))
+                            .zip(after.get(sample).and_then(|v| v.get(o.row)))
+                            .map(|(a, b)| a + b)
+                            .ok_or_else(|| ProblemError::internal("fit upgrade allowance"))?;
+                        FitOracle::admit_upgrade(old, new, allowance)?;
+                    }
+                }
+                for &i in &mapping.observations {
+                    let o = &p.measurements[i];
+                    let sample = o
+                        .sample_index
+                        .and_then(|i| report.samples.get(i))
+                        .ok_or_else(|| {
+                            ProblemError::internal("missing prepared transient sample")
+                        })?;
+                    result.predictions.push((i, sample.outputs[o.row]));
+                }
+                if forward {
+                    // Each term directly names its measurement and local binding;
+                    // retain binding-major contribution order without relationship searches.
+                    for term in &mapping.responses {
+                        let o = &p.measurements[term.observation];
+                        let sample = o
+                            .sample_index
+                            .and_then(|i| report.samples.get(i))
+                            .ok_or_else(|| {
+                                ProblemError::internal("missing prepared transient sample")
+                            })?;
+                        result.responses.push((
+                            term.contribution,
+                            s.response(sample, o.row, &s.bindings[term.local])?,
+                        ));
+                    }
+                }
+                result.trajectory = Some(report);
+            }
+            #[cfg(not(feature = "solver-diffsol"))]
+            {
+                let _ = s;
+                return Err(ProblemError::unsupported("Diffsol not linked"));
+            }
+        }
+    }
     Ok(result)
 }

@@ -334,7 +334,9 @@ impl Runtime {
 }
 
 mod requests;
-pub use requests::{CausalUnitRealization, CausalUnitRequest, RecycleRequest, RecycleRestartRequest};
+pub use requests::{
+    CausalUnitRealization, CausalUnitRequest, RecycleRequest, RecycleRestartRequest,
+};
 #[cfg(feature = "solver-kinsol")]
 mod conditional;
 #[cfg(feature = "solver-kinsol")]

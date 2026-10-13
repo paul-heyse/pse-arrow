@@ -60,7 +60,18 @@ pub struct Part {
     pub columns: Vec<SemanticId>,
 }
 /// Stable identity of semantic block membership within an admitted scope.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
+)]
 #[serde(transparent)]
 pub struct BlockId(pub pse_ids::ContentHash);
 impl BlockId {
@@ -112,62 +123,155 @@ impl StructuralAnalysis {
     /// Checked selected-boundary peak extent for restricting the existing witness.
     /// This includes validation sets, block identity sorting, vector growth and
     /// conditional scope metadata, without rematching or copying unrelated blocks.
-    pub fn conditional_witness_allocation_bound(&self, boundary: &crate::initialization::Block) -> Result<usize, ProjectionError> {
+    pub fn conditional_witness_allocation_bound(
+        &self,
+        boundary: &crate::initialization::Block,
+    ) -> Result<usize, ProjectionError> {
         let rows = boundary.members.rows.len();
         let columns = boundary.members.columns.len();
-        let members = rows.checked_add(columns).and_then(|n| n.checked_add(boundary.inputs.len())).ok_or(ProjectionError::Limit)?;
-        let contributions = self.contributions.iter().filter(|edge| boundary.members.rows.contains(&edge.row) && boundary.members.columns.contains(&edge.column)).count();
-        members.checked_mul(8 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>()) + 8 * size_of::<SemanticId>())
-            .and_then(|n| rows.checked_mul(4 * size_of::<Block>() + 4 * size_of::<(SemanticId, SemanticId)>()).and_then(|blocks| n.checked_add(blocks)))
-            .and_then(|n| contributions.checked_mul(2 * size_of::<Incidence>()).and_then(|edges| n.checked_add(edges)))
-            .and_then(|n| n.checked_add(size_of::<Self>() + 128)).ok_or(ProjectionError::Limit)
+        let members = rows
+            .checked_add(columns)
+            .and_then(|n| n.checked_add(boundary.inputs.len()))
+            .ok_or(ProjectionError::Limit)?;
+        let contributions = self
+            .contributions
+            .iter()
+            .filter(|edge| {
+                boundary.members.rows.contains(&edge.row)
+                    && boundary.members.columns.contains(&edge.column)
+            })
+            .count();
+        members
+            .checked_mul(
+                8 * (11 * size_of::<SemanticId>() + 16 * size_of::<usize>())
+                    + 8 * size_of::<SemanticId>(),
+            )
+            .and_then(|n| {
+                rows.checked_mul(4 * size_of::<Block>() + 4 * size_of::<(SemanticId, SemanticId)>())
+                    .and_then(|blocks| n.checked_add(blocks))
+            })
+            .and_then(|n| {
+                contributions
+                    .checked_mul(2 * size_of::<Incidence>())
+                    .and_then(|edges| n.checked_add(edges))
+            })
+            .and_then(|n| n.checked_add(size_of::<Self>() + 128))
+            .ok_or(ProjectionError::Limit)
     }
     /// Restrict an existing complete matching/BTF witness to a compiler-issued union
     /// of whole square blocks. This preserves structural proof without rematching;
     /// the compiler remains owner of complete execution/validity input authentication.
     pub fn conditional_witness(
-        &self, boundary: &crate::initialization::Block,
+        &self,
+        boundary: &crate::initialization::Block,
     ) -> Result<Self, ProjectionError> {
         let rows: BTreeSet<_> = boundary.members.rows.iter().copied().collect();
         let columns: BTreeSet<_> = boundary.members.columns.iter().copied().collect();
         let inputs: BTreeSet<_> = boundary.inputs.iter().copied().collect();
-        if rows.is_empty() || rows.len() != columns.len()
-            || rows.len() != boundary.members.rows.len() || columns.len() != boundary.members.columns.len()
-            || inputs.len() != boundary.inputs.len() || !inputs.is_disjoint(&columns)
+        if rows.is_empty()
+            || rows.len() != columns.len()
+            || rows.len() != boundary.members.rows.len()
+            || columns.len() != boundary.members.columns.len()
+            || inputs.len() != boundary.inputs.len()
+            || !inputs.is_disjoint(&columns)
             || boundary.id != BlockId::new(&self.scope, &boundary.members)
-            || !self.over.rows.is_empty() || !self.over.columns.is_empty()
-            || !self.under.rows.is_empty() || !self.under.columns.is_empty() {
-            return Err(ProjectionError::Invalid("foreign or incomplete conditional witness boundary".into()));
+            || !self.over.rows.is_empty()
+            || !self.over.columns.is_empty()
+            || !self.under.rows.is_empty()
+            || !self.under.columns.is_empty()
+        {
+            return Err(ProjectionError::Invalid(
+                "foreign or incomplete conditional witness boundary".into(),
+            ));
         }
         let model = match &self.scope {
-            Scope::Whole(model) | Scope::Independent { model, .. } | Scope::Conditional { model, .. } => *model,
+            Scope::Whole(model)
+            | Scope::Independent { model, .. }
+            | Scope::Conditional { model, .. } => *model,
             Scope::Partial(_) => return Err(ProjectionError::Partial),
         };
         let mut blocks = Vec::new();
         for block in &self.blocks {
-            let selected_rows = block.members.rows.iter().filter(|row| rows.contains(row)).count();
-            let selected_columns = block.members.columns.iter().filter(|column| columns.contains(column)).count();
-            if selected_rows == 0 && selected_columns == 0 { continue; }
-            if selected_rows != block.members.rows.len() || selected_columns != block.members.columns.len() {
-                return Err(ProjectionError::Invalid("conditional boundary splits an established BTF block".into()));
+            let selected_rows = block
+                .members
+                .rows
+                .iter()
+                .filter(|row| rows.contains(row))
+                .count();
+            let selected_columns = block
+                .members
+                .columns
+                .iter()
+                .filter(|column| columns.contains(column))
+                .count();
+            if selected_rows == 0 && selected_columns == 0 {
+                continue;
+            }
+            if selected_rows != block.members.rows.len()
+                || selected_columns != block.members.columns.len()
+            {
+                return Err(ProjectionError::Invalid(
+                    "conditional boundary splits an established BTF block".into(),
+                ));
             }
             blocks.push(block.clone());
         }
-        let covered_rows: BTreeSet<_> = blocks.iter().flat_map(|block| block.members.rows.iter().copied()).collect();
-        let covered_columns: BTreeSet<_> = blocks.iter().flat_map(|block| block.members.columns.iter().copied()).collect();
-        if covered_rows != rows || covered_columns != columns
-            || self.contributions.iter().any(|edge| rows.contains(&edge.row) && !columns.contains(&edge.column) && !inputs.contains(&edge.column)) {
-            return Err(ProjectionError::Invalid("conditional boundary omits original members or predecessor inputs".into()));
+        let covered_rows: BTreeSet<_> = blocks
+            .iter()
+            .flat_map(|block| block.members.rows.iter().copied())
+            .collect();
+        let covered_columns: BTreeSet<_> = blocks
+            .iter()
+            .flat_map(|block| block.members.columns.iter().copied())
+            .collect();
+        if covered_rows != rows
+            || covered_columns != columns
+            || self.contributions.iter().any(|edge| {
+                rows.contains(&edge.row)
+                    && !columns.contains(&edge.column)
+                    && !inputs.contains(&edge.column)
+            })
+        {
+            return Err(ProjectionError::Invalid(
+                "conditional boundary omits original members or predecessor inputs".into(),
+            ));
         }
-        let matching: Vec<_> = self.matching.iter().filter(|(row, column)| rows.contains(row) && columns.contains(column)).copied().collect();
+        let matching: Vec<_> = self
+            .matching
+            .iter()
+            .filter(|(row, column)| rows.contains(row) && columns.contains(column))
+            .copied()
+            .collect();
         if matching.len() != rows.len() {
-            return Err(ProjectionError::Invalid("conditional boundary lacks the complete original matching".into()));
+            return Err(ProjectionError::Invalid(
+                "conditional boundary lacks the complete original matching".into(),
+            ));
         }
-        let scope = Scope::Conditional { model, rows, columns, inputs };
-        for block in &mut blocks { block.id = BlockId::new(&scope, &block.members); }
-        Ok(Self { scope, provenance: self.provenance, matching,
-            over: Part::default(), under: Part::default(), square: boundary.members.clone(), blocks,
-            contributions: self.contributions.iter().filter(|edge| covered_rows.contains(&edge.row) && covered_columns.contains(&edge.column)).cloned().collect(),
+        let scope = Scope::Conditional {
+            model,
+            rows,
+            columns,
+            inputs,
+        };
+        for block in &mut blocks {
+            block.id = BlockId::new(&scope, &block.members);
+        }
+        Ok(Self {
+            scope,
+            provenance: self.provenance,
+            matching,
+            over: Part::default(),
+            under: Part::default(),
+            square: boundary.members.clone(),
+            blocks,
+            contributions: self
+                .contributions
+                .iter()
+                .filter(|edge| {
+                    covered_rows.contains(&edge.row) && covered_columns.contains(&edge.column)
+                })
+                .cloned()
+                .collect(),
         })
     }
     /// Exact retained owned vector capacities; borrowed provenance and shared owners add no payload.

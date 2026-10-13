@@ -298,7 +298,9 @@ struct StudyMetadata {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-struct VariantOccurrence { variant: usize }
+struct VariantOccurrence {
+    variant: usize,
+}
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StudyAdmission {
@@ -310,9 +312,16 @@ struct StudyAdmission {
 type StoredPoint = (StudyOperation, pse_ids::roles::BindingHash, AdmittedBinding);
 fn definition_of(point: &CanonicalPoint) -> Result<StudyPointDefinition, WorkflowError> {
     let policy = point_policy(point)?;
-    let definition = optional_definition(point.descriptor.as_slice(), point.admission.as_ref(), policy)?
-        .ok_or_else(|| contract("selected scientific admission absent or refused"))?;
-    if point_facts(point)?.admitted_seed_need.is_some_and(|need| need != definition.policy.seed_need) {
+    let definition = optional_definition(
+        point.descriptor.as_slice(),
+        point.admission.as_ref(),
+        policy,
+    )?
+    .ok_or_else(|| contract("selected scientific admission absent or refused"))?;
+    if point_facts(point)?
+        .admitted_seed_need
+        .is_some_and(|need| need != definition.policy.seed_need)
+    {
         return Err(contract("stored scientific admission capability differs"));
     }
     Ok(definition)
@@ -335,20 +344,31 @@ fn definition_from_parts(
 }
 
 pub(in crate::workflow) fn optional_definition(
-    descriptor: &[u8], admission: Option<&pse_model::Bytes>, mut policy: PointPolicy,
+    descriptor: &[u8],
+    admission: Option<&pse_model::Bytes>,
+    mut policy: PointPolicy,
 ) -> Result<Option<StudyPointDefinition>, WorkflowError> {
     if policy.seed_need != pse_model::study::SeedNeed::Pending {
-        if admission.is_some() { return Err(contract("explicit study point has a lazy admission")); }
+        if admission.is_some() {
+            return Err(contract("explicit study point has a lazy admission"));
+        }
         return definition_from_parts(descriptor, policy).map(Some);
     }
-    let Some(bytes) = admission else { return Ok(None); };
-    let admitted: StudyAdmission = serde_json::from_slice(bytes.as_slice()).map_err(|e| contract(e.to_string()))?;
+    let Some(bytes) = admission else {
+        return Ok(None);
+    };
+    let admitted: StudyAdmission =
+        serde_json::from_slice(bytes.as_slice()).map_err(|e| contract(e.to_string()))?;
     match (admitted.definition, admitted.revision, admitted.diagnostic) {
         (Some(definition), Some(_), None) => {
             policy.seed_need = definition.policy.seed_need;
-            if policy.seed_need == pse_model::study::SeedNeed::Pending || policy != definition.policy
-                || definition.binding_hash != definition.binding.identity() {
-                return Err(contract("immutable selected science differs from occurrence policy or bindings"));
+            if policy.seed_need == pse_model::study::SeedNeed::Pending
+                || policy != definition.policy
+                || definition.binding_hash != definition.binding.identity()
+            {
+                return Err(contract(
+                    "immutable selected science differs from occurrence policy or bindings",
+                ));
             }
             Ok(Some(definition))
         }
@@ -458,7 +478,8 @@ impl Runtime {
                 creation_checkpoint(cancel)?;
                 let operations = self.study_creation_operations()?;
                 definition.validate_roles()?;
-                if definition.point_count() == 0 || definition.point_count() > MAXIMUM_STUDY_POINTS {
+                if definition.point_count() == 0 || definition.point_count() > MAXIMUM_STUDY_POINTS
+                {
                     return Err(contract("bounded admitted study extent"));
                 }
                 let revision = creation_input(
@@ -559,9 +580,12 @@ impl Runtime {
                 if let Some(lazy) = &definition.variants {
                     lazy.variants.source.check(&package)?;
                     for selected in &lazy.variants.selected {
-                        if let pse_model::study::StartPolicy::Explicit { seed, .. } = &selected.point.policy.start {
+                        if let pse_model::study::StartPolicy::Explicit { seed, .. } =
+                            &selected.point.policy.start
+                        {
                             if !admitted_seeds.contains_key(seed) {
-                                let selected_seed = creation_input(cancel, operations.seed(*seed)).await?;
+                                let selected_seed =
+                                    creation_input(cancel, operations.seed(*seed)).await?;
                                 admitted_seeds.insert(*seed, selected_seed);
                             }
                         }
@@ -600,24 +624,44 @@ impl Runtime {
                     variants: definition.variants.clone(),
                 })?;
                 let graph = definition.graph();
-                let points = graph.points.iter().enumerate().map(|(index, policy)| {
-                    creation_checkpoint(cancel)?;
-                    let point_run: RunId = pse_operations::mint_id();
-                    let descriptor = match &definition.variants {
-                        Some(_) => document(&VariantOccurrence { variant: index })?,
-                        None => {
-                            let point = &definition.points[index];
-                            document(&(&point.operation, point.binding_hash, &point.binding))?
-                        }
-                    };
-                    Ok(NewOccurrence { policy: policy.clone(), descriptor: descriptor.clone(), run: StoredRequest {
-                        key: format!("run:{point_run}"), revision: revision.clone(), sources: vec![physical_revision.clone()],
-                        request: document(&(2_u8, point_run, study_id, policy.key,
-                            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &(&descriptor, policy))
-                                .map_err(|e| contract(e.to_string()))?))?,
-                        source_selection: source_selection.clone(), attestation: attestation.clone(),
-                    } })
-                }).collect::<Result<Vec<_>, WorkflowError>>()?;
+                let points = graph
+                    .points
+                    .iter()
+                    .enumerate()
+                    .map(|(index, policy)| {
+                        creation_checkpoint(cancel)?;
+                        let point_run: RunId = pse_operations::mint_id();
+                        let descriptor = match &definition.variants {
+                            Some(_) => document(&VariantOccurrence { variant: index })?,
+                            None => {
+                                let point = &definition.points[index];
+                                document(&(&point.operation, point.binding_hash, &point.binding))?
+                            }
+                        };
+                        Ok(NewOccurrence {
+                            policy: policy.clone(),
+                            descriptor: descriptor.clone(),
+                            run: StoredRequest {
+                                key: format!("run:{point_run}"),
+                                revision: revision.clone(),
+                                sources: vec![physical_revision.clone()],
+                                request: document(&(
+                                    2_u8,
+                                    point_run,
+                                    study_id,
+                                    policy.key,
+                                    pse_ids::document::of(
+                                        pse_ids::Frame::DurableStudyRequestV5,
+                                        &(&descriptor, policy),
+                                    )
+                                    .map_err(|e| contract(e.to_string()))?,
+                                ))?,
+                                source_selection: source_selection.clone(),
+                                attestation: attestation.clone(),
+                            },
+                        })
+                    })
+                    .collect::<Result<Vec<_>, WorkflowError>>()?;
                 let creation = async {
                     for solution in admitted_seeds.keys() {
                         creation_checkpoint(cancel)?;
@@ -686,18 +730,30 @@ impl Runtime {
     }
 
     pub(in crate::workflow) async fn retained_study_admissions(
-        &self, study: &str,
+        &self,
+        study: &str,
     ) -> Result<BTreeMap<usize, StudyPointDefinition>, WorkflowError> {
         let mut result = BTreeMap::new();
         let mut after = None;
         loop {
-            let page = self.canonical_store()?.study_outcome_page(study, after).await?;
-            if page.is_empty() { break; }
+            let page = self
+                .canonical_store()?
+                .study_outcome_page(study, after)
+                .await?;
+            if page.is_empty() {
+                break;
+            }
             for point in page {
                 after = Some(point.ordinal);
                 let policy = point.policy()?;
-                if policy.seed_need != pse_model::study::SeedNeed::Pending { continue; }
-                if let Some(admission) = optional_definition(point.descriptor.as_slice(), point.admission.as_ref(), policy)? {
+                if policy.seed_need != pse_model::study::SeedNeed::Pending {
+                    continue;
+                }
+                if let Some(admission) = optional_definition(
+                    point.descriptor.as_slice(),
+                    point.admission.as_ref(),
+                    policy,
+                )? {
                     result.insert(point.ordinal as usize, admission);
                 }
             }
@@ -707,10 +763,19 @@ impl Runtime {
     /// Resolve a selected lazy occurrence under its separate execution lease. Publication
     /// acknowledgements are retained before the immutable point admission is exposed.
     pub(in crate::workflow) async fn admit_study_candidate(
-        &self, scope: &StudyScope, lane: &mut StudyCandidateLane, cancel: &crate::CancelSource,
+        &self,
+        scope: &StudyScope,
+        lane: &mut StudyCandidateLane,
+        cancel: &crate::CancelSource,
     ) -> Result<bool, WorkflowError> {
         let operations = self.operations()?;
-        let Some(fence) = self.canonical_store()?.claim_study_admission(scope, operations.worker(), operations.policy().lease).await? else { return Ok(false); };
+        let Some(fence) = self
+            .canonical_store()?
+            .claim_study_admission(scope, operations.worker(), operations.policy().lease)
+            .await?
+        else {
+            return Ok(false);
+        };
         let child = cancel.child_with_deadline(None);
         let work = self.resolve_study_candidate_admission(scope, &fence, lane, &child);
         tokio::pin!(work);
@@ -727,64 +792,156 @@ impl Runtime {
                 () = cancel.cancelled(), if !child.token().is_cancelled() => { child.cancel(); }
             }
         };
-        if let Some(error) = renewal_error { return Err(error.into()); }
+        if let Some(error) = renewal_error {
+            return Err(error.into());
+        }
         result
     }
     async fn resolve_study_candidate_admission(
-        &self, scope: &StudyScope, fence: &pse_operations::canonical_execution::AttemptFence,
-        lane: &mut StudyCandidateLane, cancel: &crate::CancelSource,
+        &self,
+        scope: &StudyScope,
+        fence: &pse_operations::canonical_execution::AttemptFence,
+        lane: &mut StudyCandidateLane,
+        cancel: &crate::CancelSource,
     ) -> Result<bool, WorkflowError> {
         let store = self.canonical_store()?;
-        let point = store.canonical_study_point(&scope.point().key).await?.ok_or_else(|| contract("lazy occurrence absent"))?;
-        if point.admission.is_some() || point.settled { return Ok(false); }
-        let selected: VariantOccurrence = serde_json::from_slice(point.descriptor.as_slice()).map_err(|e| contract(e.to_string()))?;
-        if selected.variant as u64 != point.ordinal { return Err(contract("lazy selected occurrence ordinal differs")); }
-        if !lane.input.as_ref().is_some_and(|input| input.study == point.study) {
-            let study = store.canonical_study(&point.study).await?.ok_or_else(|| contract("lazy study absent"))?;
-            let extent = study.metadata.len().checked_mul(4).and_then(|n| n.checked_add(4096))
-                .filter(|_| study.metadata.len() <= pse_operations::canonical::PAYLOAD_BYTES).ok_or_else(|| contract("lazy descriptor extent"))?;
-            let owner = self.shared.math().reserve("study:lazy-input-owner", extent)?;
-            let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice()).map_err(|e| contract(e.to_string()))?;
-            let lazy = metadata.variants.ok_or_else(|| contract("lazy descriptor absent"))?;
+        let point = store
+            .canonical_study_point(&scope.point().key)
+            .await?
+            .ok_or_else(|| contract("lazy occurrence absent"))?;
+        if point.admission.is_some() || point.settled {
+            return Ok(false);
+        }
+        let selected: VariantOccurrence = serde_json::from_slice(point.descriptor.as_slice())
+            .map_err(|e| contract(e.to_string()))?;
+        if selected.variant as u64 != point.ordinal {
+            return Err(contract("lazy selected occurrence ordinal differs"));
+        }
+        if !lane
+            .input
+            .as_ref()
+            .is_some_and(|input| input.study == point.study)
+        {
+            let study = store
+                .canonical_study(&point.study)
+                .await?
+                .ok_or_else(|| contract("lazy study absent"))?;
+            let extent = study
+                .metadata
+                .len()
+                .checked_mul(4)
+                .and_then(|n| n.checked_add(4096))
+                .filter(|_| study.metadata.len() <= pse_operations::canonical::PAYLOAD_BYTES)
+                .ok_or_else(|| contract("lazy descriptor extent"))?;
+            let owner = self
+                .shared
+                .math()
+                .reserve("study:lazy-input-owner", extent)?;
+            let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice())
+                .map_err(|e| contract(e.to_string()))?;
+            let lazy = metadata
+                .variants
+                .ok_or_else(|| contract("lazy descriptor absent"))?;
             lazy.variants.check_retained_parent(&study.revision)?;
             let physical = self.physical_source(&metadata.physical, cancel).await?;
-            let base_revision = store.revision(&study.revision).await?.ok_or_else(|| contract("lazy base revision absent"))?;
-            let package = self.modeling_revision(base_revision, physical, BTreeMap::new()).await?;
+            let base_revision = store
+                .revision(&study.revision)
+                .await?
+                .ok_or_else(|| contract("lazy base revision absent"))?;
+            let package = self
+                .modeling_revision(base_revision, physical, BTreeMap::new())
+                .await?;
             lazy.variants.source.check(&package)?;
-            lane.input = Some(StudyVariantOwner { study: point.study.clone(), lazy,
-                physical: metadata.physical, package, _owner: owner });
+            lane.input = Some(StudyVariantOwner {
+                study: point.study.clone(),
+                lazy,
+                physical: metadata.physical,
+                package,
+                _owner: owner,
+            });
         }
-        let input = lane.input.as_ref().ok_or_else(|| contract("lazy input owner absent"))?;
+        let input = lane
+            .input
+            .as_ref()
+            .ok_or_else(|| contract("lazy input owner absent"))?;
         if input.lazy.variants.selected_policy(selected.variant)? != point_policy(&point)? {
-            return Err(contract("lazy selected policy differs from the immutable occurrence"));
+            return Err(contract(
+                "lazy selected policy differs from the immutable occurrence",
+            ));
         }
-        let authority = pse_operations::canonical_studies::StudyAdmissionAuthority::new(scope, fence)?;
-        let admitted = input.lazy.admit_selected(&input.package, selected.variant, Some(&authority), cancel).await;
+        let authority =
+            pse_operations::canonical_studies::StudyAdmissionAuthority::new(scope, fence)?;
+        let admitted = input
+            .lazy
+            .admit_selected(&input.package, selected.variant, Some(&authority), cancel)
+            .await;
         let (admission, seed_need, diagnostic) = match admitted {
             Ok((package, definition)) => {
                 let revision = package.recorded_revision()?.clone();
-                let physical_revision = store.revision(&input.physical.revision).await?.ok_or_else(|| contract("lazy physical receipt absent"))?;
-                let admitted = StudyAdmission { version: Version, definition: Some(definition.clone()), revision: Some(revision.key.clone()), diagnostic: None };
-                let input_run = store.canonical_run(fence.run()).await?.ok_or_else(|| contract("lazy admission run absent"))?;
-                let request = StoredRequest { key: point.run.clone(), revision, sources: vec![physical_revision],
-                    request: document(&(2_u8, &point.run, &point.study, definition.policy.key,
-                        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition).map_err(|e| contract(e.to_string()))?))?,
+                let physical_revision = store
+                    .revision(&input.physical.revision)
+                    .await?
+                    .ok_or_else(|| contract("lazy physical receipt absent"))?;
+                let admitted = StudyAdmission {
+                    version: Version,
+                    definition: Some(definition.clone()),
+                    revision: Some(revision.key.clone()),
+                    diagnostic: None,
+                };
+                let input_run = store
+                    .canonical_run(fence.run())
+                    .await?
+                    .ok_or_else(|| contract("lazy admission run absent"))?;
+                let request = StoredRequest {
+                    key: point.run.clone(),
+                    revision,
+                    sources: vec![physical_revision],
+                    request: document(&(
+                        2_u8,
+                        &point.run,
+                        &point.study,
+                        definition.policy.key,
+                        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
+                            .map_err(|e| contract(e.to_string()))?,
+                    ))?,
                     source_selection: document(&(2_u8, &admitted.revision, &input.physical))?,
                     attestation: input_run.attestation.as_slice().to_vec(),
                 };
-                creation_effect(cancel, store.begin_run_with_study_admission(&request, &authority)).await?;
+                creation_effect(
+                    cancel,
+                    store.begin_run_with_study_admission(&request, &authority),
+                )
+                .await?;
                 (admitted, Some(definition.policy.seed_need), None)
             }
             Err(error) => {
                 let diagnostic = error.boundary_diagnostic();
-                if matches!(diagnostic.class, pse_model::diagnostic::BoundaryClass::Infrastructure | pse_model::diagnostic::BoundaryClass::Internal | pse_model::diagnostic::BoundaryClass::Cancelled) {
+                if matches!(
+                    diagnostic.class,
+                    pse_model::diagnostic::BoundaryClass::Infrastructure
+                        | pse_model::diagnostic::BoundaryClass::Internal
+                        | pse_model::diagnostic::BoundaryClass::Cancelled
+                ) {
                     return Err(error);
                 }
-                (StudyAdmission { version: Version, definition: None, revision: None, diagnostic: Some(diagnostic.clone()) }, None, Some(diagnostic))
+                (
+                    StudyAdmission {
+                        version: Version,
+                        definition: None,
+                        revision: None,
+                        diagnostic: Some(diagnostic.clone()),
+                    },
+                    None,
+                    Some(diagnostic),
+                )
             }
         };
         let admission = document(&admission)?;
-        creation_effect(cancel, store.complete_study_admission(scope, fence, &admission, seed_need, diagnostic)).await?;
+        creation_effect(
+            cancel,
+            store.complete_study_admission(scope, fence, &admission, seed_need, diagnostic),
+        )
+        .await?;
         Ok(true)
     }
 
@@ -805,9 +962,15 @@ impl Runtime {
                     .await?
                     .ok_or_else(|| contract("study occurrence absent"))?;
                 let definition = definition_of(&point)?;
-                let selected_revision = point.admission.as_ref().map(|bytes| {
-                    serde_json::from_slice::<StudyAdmission>(bytes.as_slice()).map_err(|e| contract(e.to_string()))
-                }).transpose()?.and_then(|admission| admission.revision);
+                let selected_revision = point
+                    .admission
+                    .as_ref()
+                    .map(|bytes| {
+                        serde_json::from_slice::<StudyAdmission>(bytes.as_slice())
+                            .map_err(|e| contract(e.to_string()))
+                    })
+                    .transpose()?
+                    .and_then(|admission| admission.revision);
                 let unresolved = match &definition.policy.start {
                     StartPolicy::Fresh => None,
                     StartPolicy::Explicit { role, .. } => Some(SeedFact {
@@ -1489,8 +1652,16 @@ impl Runtime {
                         after = Some(point.ordinal);
                         let outcome = point.outcome()?;
                         usable += u64::from(outcome.scientific.usable);
-                        let admitted = optional_definition(point.descriptor.as_slice(), point.admission.as_ref(), point.policy()?)?;
-                        rows.push(super::study_tables::outcome_row(study_id, admitted.as_ref(), &outcome));
+                        let admitted = optional_definition(
+                            point.descriptor.as_slice(),
+                            point.admission.as_ref(),
+                            point.policy()?,
+                        )?;
+                        rows.push(super::study_tables::outcome_row(
+                            study_id,
+                            admitted.as_ref(),
+                            &outcome,
+                        ));
                     }
                     let batch = super::study_tables::export::<
                         pse_model::generated::runtime::study_outcomes::Row,
@@ -2184,8 +2355,11 @@ impl StudyDefinition {
     /// Validate supported producer and consumer roles for every immutable descriptor.
     pub fn validate_roles(&self) -> Result<(), WorkflowError> {
         if let Some(lazy) = &self.variants {
-            if !self.points.is_empty() { return Err(contract("study input forms are exclusive")); }
-            lazy.variants.check_retained_parent(&self.modeling_revision)?;
+            if !self.points.is_empty() {
+                return Err(contract("study input forms are exclusive"));
+            }
+            lazy.variants
+                .check_retained_parent(&self.modeling_revision)?;
             return lazy.variants.validate();
         }
         pse_model::study_policy::admit(&self.graph()).map_err(|error| {
@@ -2212,11 +2386,15 @@ impl StudyDefinition {
     }
     /// Mechanically derive the shared policy graph from the one executable definition.
     pub fn point_count(&self) -> usize {
-        self.variants.as_ref().map_or(self.points.len(), |lazy| lazy.variants.selected.len())
+        self.variants
+            .as_ref()
+            .map_or(self.points.len(), |lazy| lazy.variants.selected.len())
     }
     /// Mechanically derive immutable scientific policies without constructing lazy variants.
     pub fn graph(&self) -> OccurrenceGraph {
-        if let Some(lazy) = &self.variants { return lazy.variants.graph(); }
+        if let Some(lazy) = &self.variants {
+            return lazy.variants.graph();
+        }
         OccurrenceGraph {
             points: self
                 .points
@@ -2230,56 +2408,108 @@ impl StudyDefinition {
 impl super::ModelingPackage {
     /// Admit the selected input form, without constructing lazy science.
     pub async fn admit_study_input_sources(
-        &self, sources: &BTreeMap<String, Vec<u8>>, inputs: &super::StudyInputs,
-        output: &super::StudyOutputDemand, cancel: &crate::CancelSource,
+        &self,
+        sources: &BTreeMap<String, Vec<u8>>,
+        inputs: &super::StudyInputs,
+        output: &super::StudyOutputDemand,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
         self.recorded_revision()?;
-        let operations = Operations::from_store(self.runtime.canonical_store()?.clone(),
-            Operations::process_worker("study-admission"), super::LeasePolicy::default(), self.runtime.shared.pool());
+        let operations = Operations::from_store(
+            self.runtime.canonical_store()?.clone(),
+            Operations::process_worker("study-admission"),
+            super::LeasePolicy::default(),
+            self.runtime.shared.pool(),
+        );
         let physical = creation_effect(cancel, operations.put_sources(sources)).await?;
-        self.admit_study_inputs(physical, inputs, output, cancel).await
+        self.admit_study_inputs(physical, inputs, output, cancel)
+            .await
     }
     /// Admit explicit science or a bounded descriptor under an already owned physical source.
     pub async fn admit_study_inputs(
-        &self, physical: super::PhysicalSource, inputs: &super::StudyInputs,
-        output: &super::StudyOutputDemand, cancel: &crate::CancelSource,
+        &self,
+        physical: super::PhysicalSource,
+        inputs: &super::StudyInputs,
+        output: &super::StudyOutputDemand,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyDefinition, WorkflowError> {
         match inputs {
-            super::StudyInputs::Explicit(points) => self.admit_study_points(physical, points, output, cancel).await,
+            super::StudyInputs::Explicit(points) => {
+                self.admit_study_points(physical, points, output, cancel)
+                    .await
+            }
             super::StudyInputs::Lazy(variants) => {
                 creation_checkpoint(cancel)?;
                 output.validate(&self.runtime)?;
                 variants.check_parent(self)?;
                 let mut retained = variants.clone();
                 retained.retain_parent(self.source_attribution());
-                Ok(StudyDefinition { version: Version, physical, modeling_revision: self.source_attribution().into(),
-                    points: vec![], variants: Some(super::LazyStudyDefinition { variants: retained, output: output.clone() }) })
+                Ok(StudyDefinition {
+                    version: Version,
+                    physical,
+                    modeling_revision: self.source_attribution().into(),
+                    points: vec![],
+                    variants: Some(super::LazyStudyDefinition {
+                        variants: retained,
+                        output: output.clone(),
+                    }),
+                })
             }
         }
     }
     pub(in crate::workflow) async fn admit_one_study_point(
-        &self, point: &StudyPoint, output: &super::StudyOutputDemand, cancel: &crate::CancelSource,
+        &self,
+        point: &StudyPoint,
+        output: &super::StudyOutputDemand,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyPointDefinition, WorkflowError> {
-        self.admit_one_study_point_reusing(point, output, &mut None, cancel).await
+        self.admit_one_study_point_reusing(point, output, &mut None, cancel)
+            .await
     }
     async fn admit_one_study_point_reusing(
-        &self, point: &StudyPoint, output: &super::StudyOutputDemand,
-        admission: &mut Option<super::study_operations::DeclaredStudyAdmission>, cancel: &crate::CancelSource,
+        &self,
+        point: &StudyPoint,
+        output: &super::StudyOutputDemand,
+        admission: &mut Option<super::study_operations::DeclaredStudyAdmission>,
+        cancel: &crate::CancelSource,
     ) -> Result<StudyPointDefinition, WorkflowError> {
-        let mut operation = StudyOperation { output: output.clone(), version: Version,
-            source: OperationSource::of(self), preparation: point.preparation.clone(),
-            operation: point.operation.clone(), admitted_horizon: None };
-        if !matches!(&operation.operation, OperationRequest::DeclaredCase(_)) { *admission = None; }
+        let mut operation = StudyOperation {
+            output: output.clone(),
+            version: Version,
+            source: OperationSource::of(self),
+            preparation: point.preparation.clone(),
+            operation: point.operation.clone(),
+            admitted_horizon: None,
+        };
+        if !matches!(&operation.operation, OperationRequest::DeclaredCase(_)) {
+            *admission = None;
+        }
         match &point.policy.start {
-            pse_model::study::StartPolicy::Continuation(edge) => operation.admit_seed_role(edge.role)?,
-            pse_model::study::StartPolicy::Explicit { role, .. } => operation.admit_seed_role(*role)?,
-            pse_model::study::StartPolicy::Fresh => {},
+            pse_model::study::StartPolicy::Continuation(edge) => {
+                operation.admit_seed_role(edge.role)?
+            }
+            pse_model::study::StartPolicy::Explicit { role, .. } => {
+                operation.admit_seed_role(*role)?
+            }
+            pse_model::study::StartPolicy::Fresh => {}
         }
         operation.admit_horizon_values(self, cancel).await?;
-        let (binding, seed_need) = self.admit_operation_overlay(&operation, &point.overlay, admission, cancel).await?;
-        let policy = PointPolicy { key: point.policy.key, dependencies: point.policy.dependencies.clone(),
-            start: point.policy.start.clone(), attempt_limit: point.policy.attempt_limit, seed_need };
-        Ok(StudyPointDefinition { binding_hash: binding.identity(), binding, operation, policy })
+        let (binding, seed_need) = self
+            .admit_operation_overlay(&operation, &point.overlay, admission, cancel)
+            .await?;
+        let policy = PointPolicy {
+            key: point.policy.key,
+            dependencies: point.policy.dependencies.clone(),
+            start: point.policy.start.clone(),
+            attempt_limit: point.policy.attempt_limit,
+            seed_need,
+        };
+        Ok(StudyPointDefinition {
+            binding_hash: binding.identity(),
+            binding,
+            operation,
+            policy,
+        })
     }
     /// Admit exact authored physical sources through their canonical owner before
     /// deriving occurrence descriptors. Adapters never fabricate a storage receipt.
@@ -2347,7 +2577,10 @@ impl super::ModelingPackage {
                 let mut admitted = Vec::with_capacity(points.len());
                 let mut admission = None;
                 for point in points {
-                    admitted.push(self.admit_one_study_point_reusing(point, output, &mut admission, cancel).await?);
+                    admitted.push(
+                        self.admit_one_study_point_reusing(point, output, &mut admission, cancel)
+                            .await?,
+                    );
                 }
                 drop(admission);
                 let definition = StudyDefinition {

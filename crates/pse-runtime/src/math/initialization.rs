@@ -55,7 +55,13 @@ impl PreparedInitialization {
             .iter()
             .map(|block| {
                 let solver = solver.block_profile(block.boundary.id)?;
-                conditional_route(&self.snapshot, &block.view, &block.executable, &solver, numerics)
+                conditional_route(
+                    &self.snapshot,
+                    &block.view,
+                    &block.executable,
+                    &solver,
+                    numerics,
+                )
             })
             .collect()
     }
@@ -169,17 +175,30 @@ pub(super) fn ready_wave<'a>(
     for (index, block) in blocks.iter().enumerate() {
         for column in &block.members.columns {
             if producers.insert(*column, index).is_some() {
-                return Err(native::ProblemError::Contract("overlapping block output coordinates".into()));
+                return Err(native::ProblemError::Contract(
+                    "overlapping block output coordinates".into(),
+                ));
             }
         }
     }
-    let wave: Vec<_> = blocks.iter().enumerate().filter_map(|(index, block)| {
-        (!completed[index] && block.inputs.iter().all(|input| {
-            producers.get(input).is_none_or(|&producer| producer == index || completed[producer])
-        })).then_some(index)
-    }).take(width).collect();
+    let wave: Vec<_> = blocks
+        .iter()
+        .enumerate()
+        .filter_map(|(index, block)| {
+            (!completed[index]
+                && block.inputs.iter().all(|input| {
+                    producers
+                        .get(input)
+                        .is_none_or(|&producer| producer == index || completed[producer])
+                }))
+            .then_some(index)
+        })
+        .take(width)
+        .collect();
     if wave.is_empty() && completed.iter().any(|done| !done) {
-        return Err(native::ProblemError::Contract("incomplete or cyclic block dependency witness".into()));
+        return Err(native::ProblemError::Contract(
+            "incomplete or cyclic block dependency witness".into(),
+        ));
     }
     Ok(wave)
 }
@@ -199,20 +218,40 @@ impl BlockWaveDemand {
         let mut owners = 0usize;
         for (backend, controls) in profiles {
             controls.validate()?;
-            owners = owners.checked_add(1).ok_or_else(|| native::ProblemError::memory("block owner extent"))?;
-            demand.threads = demand.threads.checked_add(controls.threads).ok_or_else(|| native::ProblemError::memory("block native team extent"))?;
-            demand.foreign = demand.foreign.checked_add(policy.foreign_allowance(&controls)).ok_or_else(|| native::ProblemError::memory("block foreign team extent"))?;
-            let stacks = execution::scope_stack_bytes(&[execution::adapter(backend)], controls.threads, policy.stack_bytes)?;
-            demand.stacks = demand.stacks.checked_add(stacks).ok_or_else(|| native::ProblemError::memory("block native stack extent"))?;
+            owners = owners
+                .checked_add(1)
+                .ok_or_else(|| native::ProblemError::memory("block owner extent"))?;
+            demand.threads = demand
+                .threads
+                .checked_add(controls.threads)
+                .ok_or_else(|| native::ProblemError::memory("block native team extent"))?;
+            demand.foreign = demand
+                .foreign
+                .checked_add(policy.foreign_allowance(&controls))
+                .ok_or_else(|| native::ProblemError::memory("block foreign team extent"))?;
+            let stacks = execution::scope_stack_bytes(
+                &[execution::adapter(backend)],
+                controls.threads,
+                policy.stack_bytes,
+            )?;
+            demand.stacks = demand
+                .stacks
+                .checked_add(stacks)
+                .ok_or_else(|| native::ProblemError::memory("block native stack extent"))?;
         }
         if owners > 1 {
-            demand.stacks = owners.checked_mul(policy.stack_bytes).and_then(|stacks| demand.stacks.checked_add(stacks)).ok_or_else(|| native::ProblemError::memory("block owner stack extent"))?;
+            demand.stacks = owners
+                .checked_mul(policy.stack_bytes)
+                .and_then(|stacks| demand.stacks.checked_add(stacks))
+                .ok_or_else(|| native::ProblemError::memory("block owner stack extent"))?;
         }
         Ok(demand)
     }
     pub(super) fn admit(&self, cores: usize) -> Result<(), MathRuntimeError> {
         if self.threads == 0 || self.threads > cores || self.threads > u32::MAX as usize {
-            return Err(MathRuntimeError::Limit("complete ready native team capacity"));
+            return Err(MathRuntimeError::Limit(
+                "complete ready native team capacity",
+            ));
         }
         Ok(())
     }
@@ -227,73 +266,83 @@ pub(super) fn conditional_route(
     let contract = native::assembled::contract(&executable.assembly);
     let structure = native::routing::Structure {
         variables: view.plan.columns().to_vec(),
-        equations: view.plan.structure().rows().iter().map(|row| pse_structural::incidence::Constraint {
-            id: row.id, lower: row.lower.is_finite().then_some(row.lower), upper: row.upper.is_finite().then_some(row.upper),
-        }).collect(),
+        equations: view
+            .plan
+            .structure()
+            .rows()
+            .iter()
+            .map(|row| pse_structural::incidence::Constraint {
+                id: row.id,
+                lower: row.lower.is_finite().then_some(row.lower),
+                upper: row.upper.is_finite().then_some(row.upper),
+            })
+            .collect(),
         witness: view.structure.clone().into(),
     };
-    conditional_contract_route(snapshot, &contract, view.plan.available_order(), view.plan.order(), structure, solver, numerics)
+    conditional_contract_route(
+        snapshot,
+        &contract,
+        view.plan.available_order(),
+        view.plan.order(),
+        structure,
+        solver,
+        numerics,
+    )
 }
 pub(super) fn conditional_contract_route(
-    snapshot: &execution::Snapshot, contract: &native::OracleContract,
-    available: pse_kernels::DerivativeOrder, prepared_order: pse_kernels::DerivativeOrder,
-    structure: native::routing::Structure, solver: &SolverProfile,
+    snapshot: &execution::Snapshot,
+    contract: &native::OracleContract,
+    available: pse_kernels::DerivativeOrder,
+    prepared_order: pse_kernels::DerivativeOrder,
+    structure: native::routing::Structure,
+    solver: &SolverProfile,
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
 ) -> Result<native::routing::Route, native::ProblemError> {
-                // Permission checks use the caller's request controls before this
-                // realization resolves Auto against this actual block capability.
-                let mut effective = solver.clone();
-                effective.resolve_curvature(available);
-                let solver = &effective;
-                let mut facts = native::routing::oracle_facts(contract, false, true);
-                facts.derivatives = available;
-                facts.prepared_derivatives = prepared_order;
-                let rows = &contract.rows;
-                let normalization = pse_math::normalization::Normalization::from_policy(
-                    numerics,
-                    &structure.variables,
-                    &rows,
-                )?;
-                let tolerances =
-                    Tolerances::from_policy(numerics, &structure.variables, &rows)?;
-                let accuracy =
-                    ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
-                native::routing::Requirements {
-                    table: &execution::LINKED,
-                    facts: &facts,
-                    intent: SolveIntent::Initialize,
-                    numerical_psd: false,
-                    least_squares: false,
-                    controls: &solver.controls,
-                    settings: &solver.backend,
-                    sensitivity: false,
-                    context: native::routing::Context {
-                        snapshot: snapshot.clone(),
-                        pending_classes: &[],
-                        structure: Some(structure),
-                        oracle: Some(contract),
-                        guards: &BTreeMap::new(),
-                        budgets: Some(execution::Budgets {
-                            tolerances: &tolerances,
-                            normalization: &normalization,
-                            accuracy: &accuracy,
-                        }),
-                        coefficients: None,
-                        cone: None,
-                        factorable: None,
-                        certificate: None,
-                        prepared: &[
-                            native::routing::ArtifactDemand::Representation(
-                                execution::Representation::Nlp,
-                            ),
-                            native::routing::ArtifactDemand::Representation(
-                                execution::Representation::Roots,
-                            ),
-                        ],
-                        refusals: &BTreeMap::new(),
-                    },
-                }
-                .select(solver.selection)
+    // Permission checks use the caller's request controls before this
+    // realization resolves Auto against this actual block capability.
+    let mut effective = solver.clone();
+    effective.resolve_curvature(available);
+    let solver = &effective;
+    let mut facts = native::routing::oracle_facts(contract, false, true);
+    facts.derivatives = available;
+    facts.prepared_derivatives = prepared_order;
+    let rows = &contract.rows;
+    let normalization =
+        pse_math::normalization::Normalization::from_policy(numerics, &structure.variables, &rows)?;
+    let tolerances = Tolerances::from_policy(numerics, &structure.variables, &rows)?;
+    let accuracy = ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?;
+    native::routing::Requirements {
+        table: &execution::LINKED,
+        facts: &facts,
+        intent: SolveIntent::Initialize,
+        numerical_psd: false,
+        least_squares: false,
+        controls: &solver.controls,
+        settings: &solver.backend,
+        sensitivity: false,
+        context: native::routing::Context {
+            snapshot: snapshot.clone(),
+            pending_classes: &[],
+            structure: Some(structure),
+            oracle: Some(contract),
+            guards: &BTreeMap::new(),
+            budgets: Some(execution::Budgets {
+                tolerances: &tolerances,
+                normalization: &normalization,
+                accuracy: &accuracy,
+            }),
+            coefficients: None,
+            cone: None,
+            factorable: None,
+            certificate: None,
+            prepared: &[
+                native::routing::ArtifactDemand::Representation(execution::Representation::Nlp),
+                native::routing::ArtifactDemand::Representation(execution::Representation::Roots),
+            ],
+            refusals: &BTreeMap::new(),
+        },
+    }
+    .select(solver.selection)
 }
 /// One source-attributed block attempt. A failed block never commits trial coordinates.
 #[derive(Clone, Debug)]
@@ -1269,7 +1318,8 @@ impl MathService {
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
         let (strategies, numerics) = prepared.validate_profile(&values, &profile)?;
         if profile.solver.block_workers > 1 || profile.solver.controls.threads > 1 {
-            return self.initialize_ready(prepared, values, providers, profile, strategies, numerics);
+            return self
+                .initialize_ready(prepared, values, providers, profile, strategies, numerics);
         }
         let controls = &profile.solver.controls;
         let size = prepared.blocks.iter().try_fold(
@@ -2376,16 +2426,39 @@ mod tests {
     }
     #[test]
     fn mixed_ready_native_profiles_admit_the_sum_of_complete_teams() {
-        let policy = super::super::MathPolicy { stack_bytes: 1024, foreign_bytes: 4096, ..Default::default() };
-        let profiles = || vec![
-            (Backend::Ipopt, Controls { threads: 4, foreign_bytes: Some(3000), ..Default::default() }),
-            (Backend::Ipopt, Controls { threads: 2, foreign_bytes: Some(2000), ..Default::default() }),
-        ];
+        let policy = super::super::MathPolicy {
+            stack_bytes: 1024,
+            foreign_bytes: 4096,
+            ..Default::default()
+        };
+        let profiles = || {
+            vec![
+                (
+                    Backend::Ipopt,
+                    Controls {
+                        threads: 4,
+                        foreign_bytes: Some(3000),
+                        ..Default::default()
+                    },
+                ),
+                (
+                    Backend::Ipopt,
+                    Controls {
+                        threads: 2,
+                        foreign_bytes: Some(2000),
+                        ..Default::default()
+                    },
+                ),
+            ]
+        };
         let demand = BlockWaveDemand::new(profiles().into_iter(), &policy).unwrap();
         assert_eq!(demand.threads, 6);
         assert_eq!(demand.foreign, 5000);
         assert_eq!(demand.stacks, 2048);
-        assert!(demand.admit(4).is_err(), "an impossible complete wave must refuse rather than silently serialize");
+        assert!(
+            demand.admit(4).is_err(),
+            "an impossible complete wave must refuse rather than silently serialize"
+        );
         demand.admit(6).unwrap();
         let one = BlockWaveDemand::new(profiles().into_iter().take(1), &policy).unwrap();
         assert_eq!(one.threads, 4);
@@ -2393,17 +2466,34 @@ mod tests {
     }
     #[test]
     fn ready_block_waves_obey_complete_dependency_inputs_and_canonical_capacity() {
-        use pse_structural::{incidence::{BlockId, Part}, initialization::Block};
+        use pse_structural::{
+            incidence::{BlockId, Part},
+            initialization::Block,
+        };
         let block = |n, input: Vec<SemanticId>| Block {
             id: BlockId(pse_ids::ContentHash::from_bytes([n; 32])),
-            members: Part { rows: vec![id(n + 10)], columns: vec![id(n)] },
+            members: Part {
+                rows: vec![id(n + 10)],
+                columns: vec![id(n)],
+            },
             inputs: input,
         };
-        let blocks = [block(1, vec![]), block(2, vec![]), block(3, vec![id(1)]), block(4, vec![id(2), id(3)])];
+        let blocks = [
+            block(1, vec![]),
+            block(2, vec![]),
+            block(3, vec![id(1)]),
+            block(4, vec![id(2), id(3)]),
+        ];
         assert_eq!(ready_wave(blocks.iter(), &[false; 4], 2).unwrap(), [0, 1]);
         assert_eq!(ready_wave(blocks.iter(), &[false; 4], 1).unwrap(), [0]);
-        assert_eq!(ready_wave(blocks.iter(), &[true, false, false, false], 4).unwrap(), [1, 2]);
-        assert_eq!(ready_wave(blocks.iter(), &[true, true, true, false], 4).unwrap(), [3]);
+        assert_eq!(
+            ready_wave(blocks.iter(), &[true, false, false, false], 4).unwrap(),
+            [1, 2]
+        );
+        assert_eq!(
+            ready_wave(blocks.iter(), &[true, true, true, false], 4).unwrap(),
+            [3]
+        );
         let cyclic = [block(1, vec![id(2)]), block(2, vec![id(1)])];
         assert!(ready_wave(cyclic.iter(), &[false; 2], 2).is_err());
         assert!(ready_wave(blocks.iter(), &[false; 4], 0).is_err());
@@ -2898,8 +2988,8 @@ mod tests {
         drop(source);
         let profile = InitializationProfile {
             solver: SolverProfile {
-            block_overrides: BTreeMap::new(),
-            block_workers: 1,
+                block_overrides: BTreeMap::new(),
+                block_workers: 1,
                 selection: SolverSelection::Explicit(Backend::Kinsol),
                 backend: execution::BackendSettings::Kinsol(kinsol::Method::default()),
                 controls: Controls {

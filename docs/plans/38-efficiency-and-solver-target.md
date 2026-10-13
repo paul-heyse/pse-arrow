@@ -304,3 +304,27 @@ All prior owned worker changes are integrated on main and their worktrees remove
 current-work index points here instead of the superseded Plan36. Substantive reconciliation
 of other plan contracts/statuses and historical campaigns remains deferred until series
 completion. Do not infer acceptance of a historical stopped campaign from this handoff.
+
+## Execution checkpoint — Plan 38d, 2026-10-13
+
+[38d's Outcome](38d-studies-recycles-dynamics-and-fitting.md#outcome) records complete D1–D5
+and I-D1–I-D3 within their selected support and targeted acceptance; its
+[Verification](38d-studies-recycles-dynamics-and-fitting.md#verification--bounded-implementation-acceptance-2026-10-13)
+owns actual commands, partial failed invocations, repaired controls and exclusions. Lazy
+selected source/seed admission, effective block profiles and complete ready teams, frozen
+recycle context/bounded restarts, live sample ACK/close/joined ownership, demanded retained
+fitting workers/nested teams and optional effort adaptation are integrated. Final native,
+canonical retained-seed and compiled Python consumer controls passed. ADR-0186 remains
+proposed; architecture revision 164 owns enduring supported contracts.
+
+Only the required current E2/E3 occurrence/prefix slices were delivered. Remaining 38e–38f
+scope and assembled 38g qualification stay open, as do shared finding obligations at this
+coordinator. Compact live output currently delivers physical values and refuses explicit
+sensitivities before dispatch; Full retains admitted sensitivity products. Changed fitting
+trials retain compiled operations and use fresh native IVPs. No measured method superiority,
+new default acceleration, native-history serialization or storage topology was selected.
+
+All worker changes are integrated on main and the three owned worktrees removed. The owned
+private test store is stopped/drained; the quiesced primary profile, shared temporary storage
+and other owners' work were preserved. No selected task remains in 38d. Substantive updates
+to other active plans and historical campaigns remain deferred until series completion.

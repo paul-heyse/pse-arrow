@@ -2326,7 +2326,12 @@ impl<'a> Session<'a> {
     }
     /// The segment loop: roots, resets and scheduled changes restart the same native
     /// memory; every transition is recorded with its settled post-transition state.
-    fn run(&mut self, p: &Profile, r: &mut Report, output: &mut SampleOutput<'_>) -> Result<(), ProblemError> {
+    fn run(
+        &mut self,
+        p: &Profile,
+        r: &mut Report,
+        output: &mut SampleOutput<'_>,
+    ) -> Result<(), ProblemError> {
         let n = self.callback.contract.states.len();
         let max_steps: c_long = p
             .max_steps
@@ -3236,10 +3241,23 @@ fn corrector(method: SensitivityCorrector) -> i32 {
 
 /// Execute the IDAS profile on its owning worker. The caller validated the profile.
 pub(super) fn integrate_with_samples(
-    oracle: &mut dyn Oracle, p: &Profile, integration: &[f64], cancel: Cancellation,
-    progress: Arc<Progress>, output: &mut SampleOutput<'_>,
+    oracle: &mut dyn Oracle,
+    p: &Profile,
+    integration: &[f64],
+    cancel: Cancellation,
+    progress: Arc<Progress>,
+    output: &mut SampleOutput<'_>,
 ) -> Result<Report, ProblemError> {
-    let (report, _, _) = attempt(oracle, p, integration, &[], cancel, progress, output, |_, _| Ok(()));
+    let (report, _, _) = attempt(
+        oracle,
+        p,
+        integration,
+        &[],
+        cancel,
+        progress,
+        output,
+        |_, _| Ok(()),
+    );
     Ok(report)
 }
 /// One IDACalcIC call, with no physical step, sensitivity, quadrature or event setup.
@@ -3570,7 +3588,10 @@ fn backward_route(
     progress: Arc<Progress>,
 ) -> Result<Gradient, ProblemError> {
     let mut observer = IgnoreSamples;
-    let mut output = SampleOutput { retention: SampleRetention::Full, observer: &mut observer };
+    let mut output = SampleOutput {
+        retention: SampleRetention::Full,
+        observer: &mut observer,
+    };
     let (mut report, outcome, checkpoints) = attempt(
         oracle,
         p,

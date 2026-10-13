@@ -160,7 +160,10 @@ mod tests {
             }),
             requested_initial: vec![1.],
             consistent_initial: vec![1.],
-            coverage: native::SampleCoverage { points: vec![(0.5, 0)], retention: native::SampleRetention::Full },
+            coverage: native::SampleCoverage {
+                points: vec![(0.5, 0)],
+                retention: native::SampleRetention::Full,
+            },
             samples: vec![sample(0.5, 0)],
             events: Vec::new(),
             conservation: Vec::new(),
@@ -739,7 +742,13 @@ fn trajectory_shape(report: &native::Report) -> TrajectoryShape {
         endpoint_event: report.endpoint.as_ref().and_then(|endpoint| endpoint.event),
         samples: if report.coverage.retention == native::SampleRetention::Compact {
             report.coverage.points.clone()
-        } else { report.samples.iter().map(|sample| (sample.time, sample.mode)).collect() },
+        } else {
+            report
+                .samples
+                .iter()
+                .map(|sample| (sample.time, sample.mode))
+                .collect()
+        },
     }
 }
 #[cfg(all(
@@ -2027,7 +2036,8 @@ impl ModelingSimulation {
             return Ok((report, checks, unavailable(Unavailable::Failed)));
         }
         let attempt_bytes = self.admission_bytes(*retention)?;
-        let budget = crate::math::WorkerBudget::new(attempt_bytes).with_admission(admission.clone());
+        let budget =
+            crate::math::WorkerBudget::new(attempt_bytes).with_admission(admission.clone());
         let base_capture =
             match self.capture_dynamic_goals(&report, &self.profile, 0, scope, &budget, charges) {
                 Ok(captured) => captured,
@@ -2069,8 +2079,8 @@ impl ModelingSimulation {
             .reserve("math:dynamic-goal-comparator", attempt_bytes)?;
         let started = std::time::Instant::now();
         let mut integrate = |profile: &native::Profile,
-                         occurrence: i64,
-                         ratio: f64|
+                             occurrence: i64,
+                             ratio: f64|
          -> Result<
             (
                 Result<(native::Report, checks::SampleChecks), ProblemError>,
@@ -2094,8 +2104,15 @@ impl ModelingSimulation {
                 incumbent: None,
             });
             admission.reserve_attempt()?;
-            let outcome = self.integrate_sample_attempt(run_id, profile, occurrence as u64,
-                scope, progress.clone(), *retention, observer);
+            let outcome = self.integrate_sample_attempt(
+                run_id,
+                profile,
+                occurrence as u64,
+                scope,
+                progress.clone(),
+                *retention,
+                observer,
+            );
             let charge = complete_dynamic_attempt(&admission, self.key, occurrence as u64)?;
             Ok((outcome, charge))
         };

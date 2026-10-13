@@ -303,7 +303,9 @@ impl PreparedRung {
             return prepared.backends().to_vec();
         }
         #[cfg(feature = "solver-kinsol")]
-        if let Self::Blocks(prepared) = self { return prepared.backends().to_vec(); }
+        if let Self::Blocks(prepared) = self {
+            return prepared.backends().to_vec();
+        }
         self.backend().into_iter().collect()
     }
     pub(crate) fn declared_foreign_bytes(&self) -> usize {

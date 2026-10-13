@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Profile evidence preserves execution failures separately from scientific intervals.
-use pse_model::scalars::PositiveCount;
 use super::{FitReport, ProfileChain};
 use pse_model::generated::enums::WithheldReason;
+use pse_model::scalars::PositiveCount;
 
 /// Decoded fit preparation. Native fitting resolves its selected model and experiments.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]

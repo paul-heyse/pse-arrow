@@ -4,7 +4,9 @@
 //! scientific permission or a replacement for the enclosing finite allowance.
 
 /// Opt-in adaptation from comparable native nonlinear iteration counts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+)]
 #[serde(deny_unknown_fields)]
 pub struct EffortPolicy {
     /// Desired iterations at the next qualified continuation endpoint.

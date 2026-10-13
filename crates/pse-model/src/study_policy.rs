@@ -425,29 +425,37 @@ fn action(
     }
     if let StartPolicy::Continuation(edge) = &point.start {
         if !predecessor_settled(policies, get_fact(snapshot, edge.predecessor)?, cancelled)? {
-            return Ok(ActionKind::Wait(WaitReason::Dependency { predecessor: edge.predecessor }));
+            return Ok(ActionKind::Wait(WaitReason::Dependency {
+                predecessor: edge.predecessor,
+            }));
         }
     }
     let seed_need = match (point.seed_need, fact.admitted_seed_need) {
-        (_, Some(SeedNeed::Pending)) => return Err(PolicyError::InvalidAdmission { key: point.key }),
+        (_, Some(SeedNeed::Pending)) => {
+            return Err(PolicyError::InvalidAdmission { key: point.key });
+        }
         (SeedNeed::Pending, None) => return Ok(ActionKind::Wait(WaitReason::ScientificAdmission)),
         (SeedNeed::Pending, Some(need)) => need,
-        (need, Some(actual)) if need != actual => return Err(PolicyError::InvalidAdmission { key: point.key }),
+        (need, Some(actual)) if need != actual => {
+            return Err(PolicyError::InvalidAdmission { key: point.key });
+        }
         (need, _) => need,
     };
-    if seed_need == SeedNeed::NotNeeded && let StartPolicy::Explicit { role, .. } = &point.start {
+    if seed_need == SeedNeed::NotNeeded
+        && let StartPolicy::Explicit { role, .. } = &point.start
+    {
         return Ok(ActionKind::Refuse(Refusal::SeedUnavailable {
-            predecessor: None, role: *role, reason: SeedUnavailable::Incompatible,
+            predecessor: None,
+            role: *role,
+            reason: SeedUnavailable::Incompatible,
         }));
     }
     match &point.start {
-        StartPolicy::Fresh => Ok(ActionKind::Start(
-            if seed_need == SeedNeed::NotNeeded {
-                StartProvenance::NotNeeded
-            } else {
-                StartProvenance::Fresh
-            },
-        )),
+        StartPolicy::Fresh => Ok(ActionKind::Start(if seed_need == SeedNeed::NotNeeded {
+            StartProvenance::NotNeeded
+        } else {
+            StartProvenance::Fresh
+        })),
         StartPolicy::Explicit {
             role,
             seed: requested,
@@ -606,25 +614,55 @@ mod study_policy_unit {
         first.start = StartPolicy::Fresh;
         first.seed_need = SeedNeed::Pending;
         let mut observed = fact(0, StudyPointState::Pending, false);
-        let graph = OccurrenceGraph { points: vec![first.clone()] };
-        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
-            ActionKind::Wait(WaitReason::ScientificAdmission)));
+        let graph = OccurrenceGraph {
+            points: vec![first.clone()],
+        };
+        assert!(matches!(
+            transition(&graph, &[observed.clone()], false)
+                .unwrap()
+                .actions[0]
+                .kind,
+            ActionKind::Wait(WaitReason::ScientificAdmission)
+        ));
         observed.admitted_seed_need = Some(SeedNeed::Required);
-        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
-            ActionKind::Start(StartProvenance::Fresh)));
+        assert!(matches!(
+            transition(&graph, &[observed.clone()], false)
+                .unwrap()
+                .actions[0]
+                .kind,
+            ActionKind::Start(StartProvenance::Fresh)
+        ));
         observed.admitted_seed_need = Some(SeedNeed::NotNeeded);
-        assert!(matches!(transition(&graph, &[observed.clone()], false).unwrap().actions[0].kind,
-            ActionKind::Start(StartProvenance::NotNeeded)));
+        assert!(matches!(
+            transition(&graph, &[observed.clone()], false)
+                .unwrap()
+                .actions[0]
+                .kind,
+            ActionKind::Start(StartProvenance::NotNeeded)
+        ));
         observed.admitted_seed_need = Some(SeedNeed::Pending);
-        assert!(matches!(transition(&graph, &[observed], false), Err(PolicyError::InvalidAdmission { .. })));
+        assert!(matches!(
+            transition(&graph, &[observed], false),
+            Err(PolicyError::InvalidAdmission { .. })
+        ));
         let mut dependent = first.clone();
         dependent.key = OccurrenceKey(1);
         dependent.dependencies = vec![Dependency::Ordering(first.key)];
-        let graph = OccurrenceGraph { points: vec![first, dependent] };
-        let facts = [fact(0, StudyPointState::Pending, false), fact(1, StudyPointState::Pending, false)];
-        assert!(matches!(transition(&graph, &facts, false).unwrap().actions[1].kind,
-            ActionKind::Wait(WaitReason::Dependency { .. })));
-        assert!(matches!(transition(&graph, &facts, true).unwrap().actions[1].kind, ActionKind::Cancel));
+        let graph = OccurrenceGraph {
+            points: vec![first, dependent],
+        };
+        let facts = [
+            fact(0, StudyPointState::Pending, false),
+            fact(1, StudyPointState::Pending, false),
+        ];
+        assert!(matches!(
+            transition(&graph, &facts, false).unwrap().actions[1].kind,
+            ActionKind::Wait(WaitReason::Dependency { .. })
+        ));
+        assert!(matches!(
+            transition(&graph, &facts, true).unwrap().actions[1].kind,
+            ActionKind::Cancel
+        ));
     }
 
     fn fact(key: u32, lifecycle: StudyPointState, usable: bool) -> PointFacts {

@@ -1219,21 +1219,36 @@ impl CanonicalStore {
         operation: &str,
         edits: &[ObjectEdit],
     ) -> Result<Revision, CanonicalError> {
-        self.edit_authorized(problem, expected, operation, edits, None).await
+        self.edit_authorized(problem, expected, operation, edits, None)
+            .await
     }
     /// Publish a selected variant under its original source-admission capability.
     pub async fn edit_with_study_admission(
-        &self, problem: &str, expected: Option<&str>, operation: &str, edits: &[ObjectEdit],
+        &self,
+        problem: &str,
+        expected: Option<&str>,
+        operation: &str,
+        edits: &[ObjectEdit],
         authority: &crate::canonical_studies::StudyAdmissionAuthority,
     ) -> Result<Revision, CanonicalError> {
-        if expected.is_some() || problem != format!("study-variant:{}", authority.point_key())
-            || operation != format!("study-variant-source:{}", authority.point_key()) {
-            return Err(CanonicalError::Configuration("selected source effect must use its original independent occurrence identity".into()));
+        if expected.is_some()
+            || problem != format!("study-variant:{}", authority.point_key())
+            || operation != format!("study-variant-source:{}", authority.point_key())
+        {
+            return Err(CanonicalError::Configuration(
+                "selected source effect must use its original independent occurrence identity"
+                    .into(),
+            ));
         }
-        self.edit_authorized(problem, expected, operation, edits, Some(authority)).await
+        self.edit_authorized(problem, expected, operation, edits, Some(authority))
+            .await
     }
     async fn edit_authorized(
-        &self, problem: &str, expected: Option<&str>, operation: &str, edits: &[ObjectEdit],
+        &self,
+        problem: &str,
+        expected: Option<&str>,
+        operation: &str,
+        edits: &[ObjectEdit],
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
     ) -> Result<Revision, CanonicalError> {
         let activity = self.admit_activity()?;
@@ -1251,10 +1266,17 @@ impl CanonicalStore {
                         crate::canonical_staging::StageOutcome::Closed(stage) => stage,
                     };
                     let result = match authority {
-                        Some(authority) => self.activate_source_stage_authorized(&stage, Some(authority)).await,
+                        Some(authority) => {
+                            self.activate_source_stage_authorized(&stage, Some(authority))
+                                .await
+                        }
                         None => self.activate_source_stage(&stage).await,
                     };
-                    if authority.is_some() && result.as_ref().is_err_and(CanonicalError::proves_source_refusal) {
+                    if authority.is_some()
+                        && result
+                            .as_ref()
+                            .is_err_and(CanonicalError::proves_source_refusal)
+                    {
                         self.abandon_source_stage(&stage).await?;
                     }
                     result
@@ -1271,10 +1293,14 @@ impl CanonicalStore {
         self.activate_source_stage_authorized(stage, None).await
     }
     pub(crate) async fn activate_source_stage_authorized(
-        &self, stage: &crate::canonical_staging::ClosedStage,
+        &self,
+        stage: &crate::canonical_staging::ClosedStage,
         authority: Option<&crate::canonical_studies::StudyAdmissionAuthority>,
     ) -> Result<Revision, CanonicalError> {
-        let admission = authority.map(|authority| authority.encode()).transpose()?.unwrap_or(Value::None);
+        let admission = authority
+            .map(|authority| authority.encode())
+            .transpose()?
+            .unwrap_or(Value::None);
         let activity = self.admit_activity()?;
         activity.scope(async {
         let deadline = original_deadline(ACTIVATION_REQUEST_TIMEOUT);

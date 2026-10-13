@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite owner-affine experiment lanes; the existing runtime owns active admission.
-use super::*;
 use super::oracle::{Demand, ExperimentProducts, evaluate_experiment};
+use super::*;
 use native::{ProblemError, solve::Execution};
 use std::{
     panic::{AssertUnwindSafe, catch_unwind},
@@ -16,7 +16,9 @@ thread_local! {
 }
 struct RestoreCapacity(Option<usize>);
 impl Drop for RestoreCapacity {
-    fn drop(&mut self) { BORROWED_CAPACITY.with(|owner| owner.set(self.0)); }
+    fn drop(&mut self) {
+        BORROWED_CAPACITY.with(|owner| owner.set(self.0));
+    }
 }
 /// The profile owner calls this only inside its admitted quiescent team. Each
 /// profile lane owns this many active cores, including its nested experiment work.
@@ -43,7 +45,9 @@ struct Lane {
 impl Drop for Lane {
     fn drop(&mut self) {
         self.request.take();
-        if let Some(joined) = self.joined.take() { let _ = joined.join(); }
+        if let Some(joined) = self.joined.take() {
+            let _ = joined.join();
+        }
     }
 }
 /// Idle threads keep their original evaluator/provider owners and charged resident
@@ -59,26 +63,43 @@ pub(super) struct ExperimentTeam {
 }
 impl std::fmt::Debug for ExperimentTeam {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ExperimentTeam").field("lanes", &self.lanes.len()).finish_non_exhaustive()
+        f.debug_struct("ExperimentTeam")
+            .field("lanes", &self.lanes.len())
+            .finish_non_exhaustive()
     }
 }
 impl ExperimentTeam {
-    pub(super) fn new(problem: Arc<FitProblem>, execution: Execution) -> Result<Option<Self>, ProblemError> {
+    pub(super) fn new(
+        problem: Arc<FitProblem>,
+        execution: Execution,
+    ) -> Result<Option<Self>, ProblemError> {
         let requested = problem.profile.experiment_workers.into_inner();
-        if requested <= 1 || problem.experiments.len() <= 1 { return Ok(None); }
+        if requested <= 1 || problem.experiments.len() <= 1 {
+            return Ok(None);
+        }
         let service = problem.runtime.native().clone();
-        let count = requested.min(problem.experiments.len()).min(service.cores());
-        if count <= 1 { return Ok(None); }
+        let count = requested
+            .min(problem.experiments.len())
+            .min(service.cores());
+        if count <= 1 {
+            return Ok(None);
+        }
         let borrowed = BORROWED_CAPACITY.with(std::cell::Cell::get);
         if borrowed.is_some_and(|cores| count > cores) {
-            return Err(ProblemError::memory("fit experiment exceeds its admitted profile envelope"));
+            return Err(ProblemError::memory(
+                "fit experiment exceeds its admitted profile envelope",
+            ));
         }
         let stack = service.stack_bytes();
         // Parent fit state remains charged. Additional lane scratch and stacks remain
         // charged even while active compute is lent and every lane is waiting.
-        let bytes = stack.checked_mul(count).and_then(|s| s.checked_add(problem.bytes))
+        let bytes = stack
+            .checked_mul(count)
+            .and_then(|s| s.checked_add(problem.bytes))
             .ok_or_else(|| ProblemError::memory("fit experiment resident extent"))?;
-        let owner = service.reserve("fit:experiment-lanes", bytes).map_err(|e| e.into_problem())?;
+        let owner = service
+            .reserve("fit:experiment-lanes", bytes)
+            .map_err(|e| e.into_problem())?;
         let runtime = tokio::runtime::Handle::try_current()
             .map_err(|e| ProblemError::internal(format!("fit experiment runtime: {e}")))?;
         let constructor = pse_math::construction::current();
@@ -94,17 +115,22 @@ impl ExperimentTeam {
                 let constructions = Arc::new(std::sync::atomic::AtomicUsize::new(0));
                 #[cfg(test)]
                 let observed_constructions = constructions.clone();
-                let joined = std::thread::Builder::new().name(format!("pse-fit-{lane}"))
-                    .stack_size(stack).spawn(move || {
+                let joined = std::thread::Builder::new()
+                    .name(format!("pse-fit-{lane}"))
+                    .stack_size(stack)
+                    .spawn(move || {
                         let _runtime = runtime.enter();
                         let mut steady: Vec<Option<pse_math::assembly::CaseWorker>> =
                             (0..problem.experiments.len()).map(|_| None).collect();
                         #[cfg(feature = "solver-diffsol")]
-                        let mut transient: Vec<Option<crate::workflow::dynamics::DynamicWorker>> =
-                            (0..problem.experiments.len()).map(|_| None).collect();
+                        let mut transient: Vec<
+                            Option<crate::workflow::dynamics::DynamicWorker>,
+                        > = (0..problem.experiments.len()).map(|_| None).collect();
                         while let Ok(request) = rx.recv() {
                             #[cfg(test)]
-                            if let Some(gate) = &request.gate { let _ = gate.wait(); }
+                            if let Some(gate) = &request.gate {
+                                let _ = gate.wait();
+                            }
                             for (ei, previous) in request.experiments {
                                 #[cfg(test)]
                                 let constructing = match &problem.experiments[ei] {
@@ -114,44 +140,79 @@ impl ExperimentTeam {
                                     #[cfg(not(feature = "solver-diffsol"))]
                                     Experiment::Transient(_) => false,
                                 };
-                                let mut work = || evaluate_experiment(&problem, ei, &request.x,
-                                    request.demand, &execution, &mut steady[ei],
-                                    #[cfg(feature = "solver-diffsol")]
-                                    &mut transient[ei], previous.as_deref());
-                                let result = catch_unwind(AssertUnwindSafe(||
+                                let mut work = || {
+                                    evaluate_experiment(
+                                        &problem,
+                                        ei,
+                                        &request.x,
+                                        request.demand,
+                                        &execution,
+                                        &mut steady[ei],
+                                        #[cfg(feature = "solver-diffsol")]
+                                        &mut transient[ei],
+                                        previous.as_deref(),
+                                    )
+                                };
+                                let result = catch_unwind(AssertUnwindSafe(|| {
                                     native::execution::original_scoped(&execution, || {
                                         match &constructor {
-                                            Some(owner) => pse_math::construction::scoped(owner.clone(), work),
+                                            Some(owner) => {
+                                                pse_math::construction::scoped(owner.clone(), work)
+                                            }
                                             None => work(),
                                         }
-                                    })))
-                                    .unwrap_or_else(|_| Err(ProblemError::internal("fit experiment lane panicked")));
+                                    })
+                                }))
+                                .unwrap_or_else(|_| {
+                                    Err(ProblemError::internal("fit experiment lane panicked"))
+                                });
                                 #[cfg(test)]
                                 if constructing && result.is_ok() {
-                                    observed_constructions.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                                    observed_constructions
+                                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                                 }
                                 if result.is_err() {
                                     steady[ei] = None;
                                     #[cfg(feature = "solver-diffsol")]
-                                    { transient[ei] = None; }
+                                    {
+                                        transient[ei] = None;
+                                    }
                                 }
-                                if request.reply.send((ei, result)).is_err() { break; }
+                                if request.reply.send((ei, result)).is_err() {
+                                    break;
+                                }
                             }
                         }
                         // All native sessions have already returned; compiled/provider scratch
                         // is destroyed here on its actual owning lane before join completes.
-                    }).map_err(|e| ProblemError::internal(format!("fit experiment lane creation: {e}")))?;
-                lanes.push(Lane { request: Some(tx), joined: Some(joined),
-                    #[cfg(test)] constructions });
+                    })
+                    .map_err(|e| {
+                        ProblemError::internal(format!("fit experiment lane creation: {e}"))
+                    })?;
+                lanes.push(Lane {
+                    request: Some(tx),
+                    joined: Some(joined),
+                    #[cfg(test)]
+                    constructions,
+                });
             }
             Ok::<_, ProblemError>(lanes)
         };
         let lanes = match borrowed {
             Some(_) => launch()?,
-            None => service.quiescent_phase(count, 0, &execution, launch).map_err(|e| e.into_problem())??,
+            None => service
+                .quiescent_phase(count, 0, &execution, launch)
+                .map_err(|e| e.into_problem())??,
         };
-        Ok(Some(Self { problem, execution, lanes, borrowed, _owner: owner,
-            #[cfg(test)] wave_gate: None }))
+        Ok(Some(Self {
+            problem,
+            execution,
+            lanes,
+            borrowed,
+            _owner: owner,
+            #[cfg(test)]
+            wave_gate: None,
+        }))
     }
     #[cfg(test)]
     pub(super) fn require_concurrent_test_wave(&mut self) {
@@ -159,11 +220,20 @@ impl ExperimentTeam {
     }
     #[cfg(test)]
     pub(super) fn test_constructions(&self) -> Vec<usize> {
-        self.lanes.iter().map(|lane| lane.constructions.load(std::sync::atomic::Ordering::Relaxed)).collect()
+        self.lanes
+            .iter()
+            .map(|lane| {
+                lane.constructions
+                    .load(std::sync::atomic::Ordering::Relaxed)
+            })
+            .collect()
     }
-    pub(super) fn evaluate(&mut self, x: &[f64], demand: Demand,
-        previous: Option<&BTreeMap<InstanceId, Arc<native::dynamics::Report>>>)
-        -> Result<Vec<ExperimentProducts>, ProblemError> {
+    pub(super) fn evaluate(
+        &mut self,
+        x: &[f64],
+        demand: Demand,
+        previous: Option<&BTreeMap<InstanceId, Arc<native::dynamics::Report>>>,
+    ) -> Result<Vec<ExperimentProducts>, ProblemError> {
         let service = self.problem.runtime.native().clone();
         let count = self.problem.experiments.len();
         let x: Arc<[f64]> = Arc::from(x);
@@ -173,15 +243,34 @@ impl ExperimentTeam {
             let mut results: Vec<Option<Result<ExperimentProducts, ProblemError>>> =
                 (0..count).map(|_| None).collect();
             for (lane, owner) in self.lanes.iter().enumerate() {
-                let experiments = (lane..count).step_by(self.lanes.len()).map(|ei| {
-                    let prior = previous.and_then(|p| p.get(&self.problem.declaration.experiments[ei].experiment_id)).cloned();
-                    (ei, prior)
-                }).collect::<Vec<_>>();
-                let request = Request { x: x.clone(), demand, experiments, reply: reply.clone(),
-                    #[cfg(test)] gate: self.wave_gate.clone() };
-                if owner.request.as_ref().is_none_or(|sender| sender.send(request).is_err()) {
+                let experiments = (lane..count)
+                    .step_by(self.lanes.len())
+                    .map(|ei| {
+                        let prior = previous
+                            .and_then(|p| {
+                                p.get(&self.problem.declaration.experiments[ei].experiment_id)
+                            })
+                            .cloned();
+                        (ei, prior)
+                    })
+                    .collect::<Vec<_>>();
+                let request = Request {
+                    x: x.clone(),
+                    demand,
+                    experiments,
+                    reply: reply.clone(),
+                    #[cfg(test)]
+                    gate: self.wave_gate.clone(),
+                };
+                if owner
+                    .request
+                    .as_ref()
+                    .is_none_or(|sender| sender.send(request).is_err())
+                {
                     for ei in (lane..count).step_by(self.lanes.len()) {
-                        results[ei] = Some(Err(ProblemError::internal("fit experiment lane stopped before dispatch")));
+                        results[ei] = Some(Err(ProblemError::internal(
+                            "fit experiment lane stopped before dispatch",
+                        )));
                     }
                 }
             }
@@ -192,19 +281,33 @@ impl ExperimentTeam {
                     Ok((ei, value)) => results[ei] = Some(value),
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Err(mpsc::RecvTimeoutError::Timeout) => {
-                        if stop.is_none() { stop = self.execution.check().err(); }
+                        if stop.is_none() {
+                            stop = self.execution.check().err();
+                        }
                     }
                 }
             }
-            if let Some(error) = stop { return Err(error); }
+            if let Some(error) = stop {
+                return Err(error);
+            }
             // Every dispatched request has returned or disconnected. Never replay a
             // started experiment following a panic, cancellation or lane failure.
-            results.into_iter().map(|value| value.unwrap_or_else(||
-                Err(ProblemError::internal("fit experiment lane returned no result")))).collect()
+            results
+                .into_iter()
+                .map(|value| {
+                    value.unwrap_or_else(|| {
+                        Err(ProblemError::internal(
+                            "fit experiment lane returned no result",
+                        ))
+                    })
+                })
+                .collect()
         };
         match self.borrowed {
             Some(_) => work(),
-            None => service.quiescent_phase(self.lanes.len(), 0, &self.execution, work).map_err(|e| e.into_problem())?,
+            None => service
+                .quiescent_phase(self.lanes.len(), 0, &self.execution, work)
+                .map_err(|e| e.into_problem())?,
         }
     }
 }

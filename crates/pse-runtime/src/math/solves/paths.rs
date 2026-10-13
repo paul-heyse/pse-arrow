@@ -2377,7 +2377,8 @@ pub(crate) fn run_path(
             path.request.policy.step,
             1.,
             path.request.policy.subdivisions,
-        )?.with_effort(path.request.policy.effort)?;
+        )?
+        .with_effort(path.request.policy.effort)?;
         let mut chart = path.request.selection.as_ref().map(|s| s.previous.clone());
         let mut transport = origin_transport(path, &point, orientation_id);
         let mut source = orientation_id;

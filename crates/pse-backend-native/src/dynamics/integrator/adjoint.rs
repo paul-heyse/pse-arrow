@@ -296,7 +296,10 @@ impl<'o> Passes<'_, 'o> {
                     .to_vec();
             }
             let mut observer = IgnoreSamples;
-            let mut output = SampleOutput { retention: SampleRetention::Full, observer: &mut observer };
+            let mut output = SampleOutput {
+                retention: SampleRetention::Full,
+                observer: &mut observer,
+            };
             record_start(shared, &solver, p, r, start, &mut output)?;
             // The segment's own unwind catch records its statistics before an abort
             // continues to the outer boundary.
@@ -581,8 +584,11 @@ impl<'o> Passes<'_, 'o> {
                     break;
                 }
                 let mut observer = IgnoreSamples;
-                SampleOutput { retention: SampleRetention::Full, observer: &mut observer }
-                    .push(r, p, sample(shared, s, t, false)?)?;
+                SampleOutput {
+                    retention: SampleRetention::Full,
+                    observer: &mut observer,
+                }
+                .push(r, p, sample(shared, s, t, false)?)?;
             }
             r.completed_time = time;
             shared.progress.push(crate::solve::Event {

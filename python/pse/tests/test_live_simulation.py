@@ -12,7 +12,6 @@ import pytest
 import pse
 from pse.tests.canonical_fixture import CanonicalFixture
 
-
 SAMPLES = [0.0, 0.25, 0.5, 0.75, 1.0]
 SOURCE = """package live {
  def D {
@@ -58,12 +57,19 @@ def prepare(
     package = runtime.modeling_from_documents(
         [{"package.toml": manifest, "models/live.pse": SOURCE}], physical
     )
-    case = next(row.declaration_id for row in package.declarations() if row.name == "run")
+    case = next(
+        row.declaration_id for row in package.declarations() if row.name == "run"
+    )
     return package.prepare_simulation(
         case,
         pse.SimulationSettings(
-            method="diffsol", start=0, end=1, samples=SAMPLES,
-            atol=[1e-8], rtol=1e-8, parameter_scales=[1],
+            method="diffsol",
+            start=0,
+            end=1,
+            samples=SAMPLES,
+            atol=[1e-8],
+            rtol=1e-8,
+            parameter_scales=[1],
             sensitivity=sensitivity,
         ),
     )
@@ -135,7 +141,11 @@ def test_live_samples_keep_attempt_identity_and_joined_value_retention(
     assert result.canonical_attempt_key == handle.canonical_attempt_key
     assert kinds.count("attempt_finished") == kinds.count("selected") == 1
     assert kinds.count("recording_closed") == kinds.count("joined") == 1
-    assert kinds.index("attempt_finished") < kinds.index("selected") < kinds.index("joined")
+    assert (
+        kinds.index("attempt_finished")
+        < kinds.index("selected")
+        < kinds.index("joined")
+    )
     live = pa.concat_tables(tables)
     assert live.num_rows == len(SAMPLES)
     assert acknowledged == sorted(acknowledged)
@@ -221,7 +231,9 @@ def test_closing_live_cursor_detaches_without_cancelling_and_preserves_escaped_t
         computation = result.completion.computation
         assert computation is not None
         assert computation.completed_samples == len(SAMPLES)
-        assert pa.table(result.table("runtime.simulation_samples")).num_rows == len(SAMPLES)
+        assert pa.table(result.table("runtime.simulation_samples")).num_rows == len(
+            SAMPLES
+        )
     finally:
         cursor.close()
         runtime.close()

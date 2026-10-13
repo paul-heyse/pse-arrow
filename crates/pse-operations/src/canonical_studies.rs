@@ -231,7 +231,10 @@ fn decode_outcome_point(mut row: Object) -> Result<StudyOutcomePoint, CanonicalE
         ordinal: decode_uint(required(&mut row, "ordinal")?)?,
         occurrence: decode_uint(required(&mut row, "occurrence")?)?,
         descriptor: decode_bytes(required(&mut row, "descriptor")?)?,
-        admission: match row.remove("admission") { None | Some(Value::None) => None, Some(value) => Some(decode_bytes(value)?) },
+        admission: match row.remove("admission") {
+            None | Some(Value::None) => None,
+            Some(value) => Some(decode_bytes(value)?),
+        },
         policy: decode_bytes(required(&mut row, "policy")?)?,
         outcome: decode_bytes(required(&mut row, "outcome")?)?,
     };
@@ -293,24 +296,47 @@ impl StudyScope {
 /// Exact input-phase capability for new source activation and scientific run publication.
 /// Mutation owners recheck its complete scope and actual lease inside their transaction.
 #[derive(Clone, Debug)]
-pub struct StudyAdmissionAuthority { scope: StudyScope, fence: AttemptFence }
+pub struct StudyAdmissionAuthority {
+    scope: StudyScope,
+    fence: AttemptFence,
+}
 impl StudyAdmissionAuthority {
     /// Capture the already-claimed input phase, without granting a new scientific start.
     pub fn new(scope: &StudyScope, fence: &AttemptFence) -> Result<Self, CanonicalError> {
         if fence.run() != study_admission_run(&scope.point.key)
-            || !matches!(scope.action(None)?.kind, ActionKind::Wait(pse_model::study::WaitReason::ScientificAdmission)) {
-            return Err(CanonicalError::Configuration("source publication requires its pending admission owner".into()));
+            || !matches!(
+                scope.action(None)?.kind,
+                ActionKind::Wait(pse_model::study::WaitReason::ScientificAdmission)
+            )
+        {
+            return Err(CanonicalError::Configuration(
+                "source publication requires its pending admission owner".into(),
+            ));
         }
-        Ok(Self { scope: scope.clone(), fence: fence.clone() })
+        Ok(Self {
+            scope: scope.clone(),
+            fence: fence.clone(),
+        })
     }
     /// Original occurrence, independent of preparation and owner replacement.
-    pub fn point_key(&self) -> &str { &self.scope.point.key }
+    pub fn point_key(&self) -> &str {
+        &self.scope.point.key
+    }
     pub(crate) fn encode(&self) -> Result<Value, CanonicalError> {
         let mut value = Object::new();
         value.insert("study", Value::String(self.scope.study.clone()));
         value.insert("generation", codec::encode_uint(self.scope.generation)?);
         value.insert("point", Value::String(self.scope.point.key.clone()));
-        value.insert("expected", Value::Array(scope_expected(&self.scope)?.into_iter().map(Value::Object).collect::<Vec<_>>().into()));
+        value.insert(
+            "expected",
+            Value::Array(
+                scope_expected(&self.scope)?
+                    .into_iter()
+                    .map(Value::Object)
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+        );
         value.insert("run", Value::String(self.fence.run().into()));
         value.insert("attempt", Value::String(self.fence.attempt().into()));
         value.insert("authority", codec::encode_uint(self.fence.generation())?);
@@ -391,7 +417,9 @@ pub fn point_key(study: &str, key: OccurrenceKey) -> String {
     hash.finish_hash().to_hex()
 }
 /// Stable separate input-admission execution; it never consumes a native point attempt.
-pub fn study_admission_run(point: &str) -> String { format!("study-admission:{point}") }
+pub fn study_admission_run(point: &str) -> String {
+    format!("study-admission:{point}")
+}
 
 /// Decode the policy facts with the native monotone concurrency revision.
 pub fn point_facts(point: &StudyPoint) -> Result<PointFacts, CanonicalError> {
@@ -622,7 +650,7 @@ impl CanonicalStore {
                             }
                             let key = point_key(&row.key, point.policy.key);
                             let facts = PointFacts {
-                admitted_seed_need: None,
+                                admitted_seed_need: None,
                                 key: point.policy.key,
                                 revision: 0,
                                 native_started: false,
@@ -657,9 +685,16 @@ impl CanonicalStore {
                             if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                                 let mut admission_run = point.run.clone();
                                 admission_run.key = study_admission_run(&key);
-                                admission_run.request = encode(&(1_u8, "study-scientific-admission", &point.descriptor, &point.policy))?;
+                                admission_run.request = encode(&(
+                                    1_u8,
+                                    "study-scientific-admission",
+                                    &point.descriptor,
+                                    &point.policy,
+                                ))?;
                                 self.begin_run(&admission_run).await?;
-                            } else { self.begin_run(&point.run).await?; }
+                            } else {
+                                self.begin_run(&point.run).await?;
+                            }
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
@@ -802,9 +837,16 @@ impl CanonicalStore {
                 if point.policy.seed_need == pse_model::study::SeedNeed::Pending {
                     let mut admission_run = point.run.clone();
                     admission_run.key = study_admission_run(&key);
-                    admission_run.request = encode(&(1_u8, "study-scientific-admission", &point.descriptor, &point.policy))?;
+                    admission_run.request = encode(&(
+                        1_u8,
+                        "study-scientific-admission",
+                        &point.descriptor,
+                        &point.policy,
+                    ))?;
                     self.check_execution_run_identity(&admission_run).await?;
-                } else { self.check_execution_run_identity(&point.run).await?; }
+                } else {
+                    self.check_execution_run_identity(&point.run).await?;
+                }
             }
             self.cancel_study(&expected.key).await.map(Some)
         })
@@ -1339,7 +1381,10 @@ impl CanonicalStore {
 
     /// Claim only the input-admission phase, under the existing writer and lease fences.
     pub async fn claim_study_admission(
-        &self, scope: &StudyScope, worker: &str, lifetime: Duration,
+        &self,
+        scope: &StudyScope,
+        worker: &str,
+        lifetime: Duration,
     ) -> Result<Option<AttemptFence>, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -1372,8 +1417,12 @@ impl CanonicalStore {
     }
     /// Publish one immutable selected-admission result under its actual input-phase fence.
     pub async fn complete_study_admission(
-        &self, scope: &StudyScope, fence: &AttemptFence, admission: &[u8],
-        seed_need: Option<pse_model::study::SeedNeed>, diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
+        &self,
+        scope: &StudyScope,
+        fence: &AttemptFence,
+        admission: &[u8],
+        seed_need: Option<pse_model::study::SeedNeed>,
+        diagnostic: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     ) -> Result<StudyPoint, CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async { within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -2115,26 +2164,118 @@ mod canonical_studies_server_unit {
         point.policy.seed_need = SeedNeed::Pending;
         point.policy.start = StartPolicy::Fresh;
         let parent = request(&revision, "lazy-parent");
-        store.create_study("lazy-lease", &parent, b"metadata", std::slice::from_ref(&point), &|| false).await.unwrap();
+        store
+            .create_study(
+                "lazy-lease",
+                &parent,
+                b"metadata",
+                std::slice::from_ref(&point),
+                &|| false,
+            )
+            .await
+            .unwrap();
         let key = point_key("lazy-lease", OccurrenceKey(0));
         let scope = store.study_scope(&key).await.unwrap();
-        assert!(store.claim_study_point(&scope, None, "bad-native", "worker", Duration::from_secs(60)).await.is_err());
-        let first = store.claim_study_admission(&scope, "first", Duration::from_secs(60)).await.unwrap().unwrap();
-        assert!(store.claim_study_admission(&scope, "second", Duration::from_secs(60)).await.unwrap().is_none());
-        store.db.query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET expires_at=0;")
-            .bind(("attempt", first.attempt().to_owned())).await.unwrap().check().unwrap();
-        let second = store.claim_study_admission(&scope, "second", Duration::from_secs(60)).await.unwrap().unwrap();
+        assert!(
+            store
+                .claim_study_point(
+                    &scope,
+                    None,
+                    "bad-native",
+                    "worker",
+                    Duration::from_secs(60)
+                )
+                .await
+                .is_err()
+        );
+        let first = store
+            .claim_study_admission(&scope, "first", Duration::from_secs(60))
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            store
+                .claim_study_admission(&scope, "second", Duration::from_secs(60))
+                .await
+                .unwrap()
+                .is_none()
+        );
+        store
+            .db
+            .query("UPDATE ONLY type::record('canonical_attempts',$attempt) SET expires_at=0;")
+            .bind(("attempt", first.attempt().to_owned()))
+            .await
+            .unwrap()
+            .check()
+            .unwrap();
+        let second = store
+            .claim_study_admission(&scope, "second", Duration::from_secs(60))
+            .await
+            .unwrap()
+            .unwrap();
         assert!(second.generation() > first.generation());
         store.begin_run(&point.run).await.unwrap();
-        assert!(store.complete_study_admission(&scope, &first, b"selected", Some(SeedNeed::Required), None).await.is_err());
-        let admitted = store.complete_study_admission(&scope, &second, b"selected", Some(SeedNeed::Required), None).await.unwrap();
+        assert!(
+            store
+                .complete_study_admission(
+                    &scope,
+                    &first,
+                    b"selected",
+                    Some(SeedNeed::Required),
+                    None
+                )
+                .await
+                .is_err()
+        );
+        let admitted = store
+            .complete_study_admission(&scope, &second, b"selected", Some(SeedNeed::Required), None)
+            .await
+            .unwrap();
         assert_eq!(point_facts(&admitted).unwrap().attempt_count, 0);
         assert!(!admitted.assigned);
-        assert!(store.complete_study_admission(&scope, &second, b"changed", Some(SeedNeed::Required), None).await.is_err());
-        assert_eq!(store.complete_study_admission(&scope, &second, b"selected", Some(SeedNeed::Required), None).await.unwrap().admission.unwrap().as_slice(), b"selected");
+        assert!(
+            store
+                .complete_study_admission(
+                    &scope,
+                    &second,
+                    b"changed",
+                    Some(SeedNeed::Required),
+                    None
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            store
+                .complete_study_admission(
+                    &scope,
+                    &second,
+                    b"selected",
+                    Some(SeedNeed::Required),
+                    None
+                )
+                .await
+                .unwrap()
+                .admission
+                .unwrap()
+                .as_slice(),
+            b"selected"
+        );
         let current = store.study_scope(&key).await.unwrap();
-        assert!(matches!(current.action(None).unwrap().kind, ActionKind::Start(StartProvenance::Fresh)));
-        let native = store.claim_study_point(&current, None, "first-native", "worker", Duration::from_secs(60)).await.unwrap();
+        assert!(matches!(
+            current.action(None).unwrap().kind,
+            ActionKind::Start(StartProvenance::Fresh)
+        ));
+        let native = store
+            .claim_study_point(
+                &current,
+                None,
+                "first-native",
+                "worker",
+                Duration::from_secs(60),
+            )
+            .await
+            .unwrap();
         assert_eq!(point_facts(&native.point).unwrap().attempt_count, 1);
         let _ = database;
         store.remove_isolated_fixture().await.unwrap();
@@ -2144,36 +2285,122 @@ mod canonical_studies_server_unit {
     async fn canonical_lazy_publication_fences_new_effects_and_recovers_exact_receipts() {
         for cancellation in [false, true] {
             let (store, _database, revision) = fixture().await;
-            let mut points = vec![occurrence(&revision, 0, vec![]), occurrence(&revision, 1, vec![])];
-            for point in &mut points { point.policy.seed_need = SeedNeed::Pending; }
-            store.create_study("publication-fence", &request(&revision, "parent"), b"metadata", &points, &|| false).await.unwrap();
+            let mut points = vec![
+                occurrence(&revision, 0, vec![]),
+                occurrence(&revision, 1, vec![]),
+            ];
+            for point in &mut points {
+                point.policy.seed_need = SeedNeed::Pending;
+            }
+            store
+                .create_study(
+                    "publication-fence",
+                    &request(&revision, "parent"),
+                    b"metadata",
+                    &points,
+                    &|| false,
+                )
+                .await
+                .unwrap();
             let first_key = point_key("publication-fence", OccurrenceKey(0));
             let second_key = point_key("publication-fence", OccurrenceKey(1));
             let first_scope = store.study_scope(&first_key).await.unwrap();
             let second_scope = store.study_scope(&second_key).await.unwrap();
-            let first = store.claim_study_admission(&first_scope, "first", Duration::from_secs(60)).await.unwrap().unwrap();
-            let second = store.claim_study_admission(&second_scope, "second", Duration::from_secs(60)).await.unwrap().unwrap();
+            let first = store
+                .claim_study_admission(&first_scope, "first", Duration::from_secs(60))
+                .await
+                .unwrap()
+                .unwrap();
+            let second = store
+                .claim_study_admission(&second_scope, "second", Duration::from_secs(60))
+                .await
+                .unwrap()
+                .unwrap();
             let first_authority = StudyAdmissionAuthority::new(&first_scope, &first).unwrap();
             let second_authority = StudyAdmissionAuthority::new(&second_scope, &second).unwrap();
             let first_problem = format!("study-variant:{first_key}");
             let first_operation = format!("study-variant-source:{first_key}");
-            let receipt = store.edit_with_study_admission(&first_problem, None, &first_operation, &[], &first_authority).await.unwrap();
-            let mut science = points[0].run.clone(); science.revision = receipt.clone();
-            let published = store.begin_run_with_study_admission(&science, &first_authority).await.unwrap();
+            let receipt = store
+                .edit_with_study_admission(
+                    &first_problem,
+                    None,
+                    &first_operation,
+                    &[],
+                    &first_authority,
+                )
+                .await
+                .unwrap();
+            let mut science = points[0].run.clone();
+            science.revision = receipt.clone();
+            let published = store
+                .begin_run_with_study_admission(&science, &first_authority)
+                .await
+                .unwrap();
             let second_problem = format!("study-variant:{second_key}");
             let second_operation = format!("study-variant-source:{second_key}");
-            let crate::canonical_staging::StageOutcome::Closed(stage) = store.stage_edits(&second_problem, None, &second_operation, &[]).await.unwrap() else { panic!("fresh stage"); };
-            if cancellation { store.cancel_study("publication-fence").await.unwrap(); }
+            let crate::canonical_staging::StageOutcome::Closed(stage) = store
+                .stage_edits(&second_problem, None, &second_operation, &[])
+                .await
+                .unwrap()
             else {
-                store.db.query("UPDATE canonical_attempts SET expires_at=0 WHERE key IN [$first,$second];")
-                    .bind(("first", first.attempt().to_owned())).bind(("second", second.attempt().to_owned())).await.unwrap().check().unwrap();
+                panic!("fresh stage");
+            };
+            if cancellation {
+                store.cancel_study("publication-fence").await.unwrap();
+            } else {
+                store
+                    .db
+                    .query(
+                        "UPDATE canonical_attempts SET expires_at=0 WHERE key IN [$first,$second];",
+                    )
+                    .bind(("first", first.attempt().to_owned()))
+                    .bind(("second", second.attempt().to_owned()))
+                    .await
+                    .unwrap()
+                    .check()
+                    .unwrap();
             }
-            assert!(store.activate_source_stage_authorized(&stage, Some(&second_authority)).await.is_err());
+            assert!(
+                store
+                    .activate_source_stage_authorized(&stage, Some(&second_authority))
+                    .await
+                    .is_err()
+            );
             assert!(store.revision(&second_operation).await.unwrap().is_none());
-            assert!(store.begin_run_with_study_admission(&points[1].run, &second_authority).await.is_err());
-            assert!(store.canonical_run(&points[1].run.key).await.unwrap().is_none());
-            assert_eq!(store.edit_with_study_admission(&first_problem, None, &first_operation, &[], &first_authority).await.unwrap(), receipt);
-            assert_eq!(store.begin_run_with_study_admission(&science, &first_authority).await.unwrap().key, published.key);
+            assert!(
+                store
+                    .begin_run_with_study_admission(&points[1].run, &second_authority)
+                    .await
+                    .is_err()
+            );
+            assert!(
+                store
+                    .canonical_run(&points[1].run.key)
+                    .await
+                    .unwrap()
+                    .is_none()
+            );
+            assert_eq!(
+                store
+                    .edit_with_study_admission(
+                        &first_problem,
+                        None,
+                        &first_operation,
+                        &[],
+                        &first_authority
+                    )
+                    .await
+                    .unwrap(),
+                receipt
+            );
+            assert_eq!(
+                store
+                    .begin_run_with_study_admission(&science, &first_authority)
+                    .await
+                    .unwrap()
+                    .key,
+                published.key
+            );
             store.abandon_source_stage(&stage).await.unwrap();
             store.remove_isolated_fixture().await.unwrap();
         }

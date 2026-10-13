@@ -242,7 +242,9 @@ impl ModelingTrajectory {
             .map_err(relation)?;
         if request.wants(pse_relations::generated::runtime::modeling_trajectory_modes::RELATION_ID)
         {
-            for (sample, &(time, mode_index)) in self.inner.report.coverage.points.iter().enumerate() {
+            for (sample, &(time, mode_index)) in
+                self.inner.report.coverage.points.iter().enumerate()
+            {
                 if columns
                     .skip_next::<pse_model::generated::runtime::modeling_trajectory_modes::Row>()
                 {
@@ -449,9 +451,12 @@ impl ModelingTrajectory {
             }
             let samples = if r.coverage.retention == native::SampleRetention::Full {
                 r.samples.as_slice()
-            } else { &[] };
+            } else {
+                &[]
+            };
             let width = outputs.len();
-            let total = samples.len()
+            let total = samples
+                .len()
                 .checked_mul(width)
                 .ok_or_else(|| contract("trajectory projection extent"))?;
             let start = request.range.start.min(total);
@@ -553,34 +558,66 @@ impl ModelingTrajectory {
 impl ModelingSimulation {
     /// Project provisional output rows with the same authored member/quantity/canonical
     /// unit meaning as terminal simulation_samples. Attempt identity stays explicit.
-    pub(in crate::workflow) fn live_sample_rows(&self, run_id: RunId, accuracy_attempt: u64,
-        ordinal: usize, sample: &native::Sample)
-        -> Result<Vec<pse_model::generated::runtime::live_simulation_samples::Row>, WorkflowError> {
+    pub(in crate::workflow) fn live_sample_rows(
+        &self,
+        run_id: RunId,
+        accuracy_attempt: u64,
+        ordinal: usize,
+        sample: &native::Sample,
+    ) -> Result<Vec<pse_model::generated::runtime::live_simulation_samples::Row>, WorkflowError>
+    {
         let product = self.model().compiled();
-        let mode = self.modes.get(sample.mode).ok_or_else(|| contract("live trajectory mode absent"))?;
+        let mode = self
+            .modes
+            .get(sample.mode)
+            .ok_or_else(|| contract("live trajectory mode absent"))?;
         let mode_identity = mode.model.compiled().admitted.case().key();
-        let mode = i64::try_from(sample.mode).map_err(|_| contract("live trajectory mode ordinal extent"))?;
-        let outputs = pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id()).map_err(math)?;
-        let rows = pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id).map_err(math)?;
+        let mode = i64::try_from(sample.mode)
+            .map_err(|_| contract("live trajectory mode ordinal extent"))?;
+        let outputs =
+            pse_math::index::CheckedInventory::new(&product.admitted.outputs, |o| o.row_id())
+                .map_err(math)?;
+        let rows = pse_math::index::CheckedInventory::new(product.admitted.case().rows(), |r| r.id)
+            .map_err(math)?;
         if sample.outputs.len() != self.contract.outputs.len() {
             return Err(contract("live trajectory output extent"));
         }
-        self.contract.outputs.iter().enumerate().map(|(column, id)| {
-            let ModelingOutput::Member(symbol) = outputs.get(id)
-                .ok_or_else(|| contract("trajectory output lineage absent"))? else {
-                    return Err(contract("trajectory output is not an authored member")); };
-            let row = rows.get(id).ok_or_else(|| contract("trajectory physical row absent"))?;
-            let unit = self.quantities.quantity_type(row.quantity).map_err(math)?.canonical_unit;
-            Ok(pse_model::generated::runtime::live_simulation_samples::Row {
-                run_id,
-                mode,
-                mode_identity,
-                accuracy_attempt: i64::try_from(accuracy_attempt).map_err(|_| contract("live accuracy attempt ordinal extent"))?,
-                sample: i64::try_from(ordinal).map_err(|_| contract("live sample ordinal extent"))?,
-                time: sample.time,
-                symbol_id: *symbol, quantity_id: row.quantity.as_id(), unit_id: unit.as_id(),
-                value: sample.outputs[column],
+        self.contract
+            .outputs
+            .iter()
+            .enumerate()
+            .map(|(column, id)| {
+                let ModelingOutput::Member(symbol) = outputs
+                    .get(id)
+                    .ok_or_else(|| contract("trajectory output lineage absent"))?
+                else {
+                    return Err(contract("trajectory output is not an authored member"));
+                };
+                let row = rows
+                    .get(id)
+                    .ok_or_else(|| contract("trajectory physical row absent"))?;
+                let unit = self
+                    .quantities
+                    .quantity_type(row.quantity)
+                    .map_err(math)?
+                    .canonical_unit;
+                Ok(
+                    pse_model::generated::runtime::live_simulation_samples::Row {
+                        run_id,
+                        mode,
+                        mode_identity,
+                        accuracy_attempt: i64::try_from(accuracy_attempt)
+                            .map_err(|_| contract("live accuracy attempt ordinal extent"))?,
+                        sample: i64::try_from(ordinal)
+                            .map_err(|_| contract("live sample ordinal extent"))?,
+                        time: sample.time,
+                        symbol_id: *symbol,
+                        quantity_id: row.quantity.as_id(),
+                        unit_id: unit.as_id(),
+                        value: sample.outputs[column],
+                    },
+                )
             })
-        }).collect()
+            .collect()
     }
 }

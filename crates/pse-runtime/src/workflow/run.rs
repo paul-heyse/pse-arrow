@@ -485,10 +485,15 @@ impl super::ModelingSimulation {
     /// Bind a bounded live subscription before any native effect. Dropping the cursor
     /// detaches only that subscription; the run retains cancellation and drain ownership.
     pub fn start_live(
-        &self, options: super::LiveSimulationOptions,
+        &self,
+        options: super::LiveSimulationOptions,
     ) -> Result<(RunHandle, super::LiveSimulationCursor), WorkflowError> {
-        let (handle, cursor) = self.start_owned_live(None, self.admission_deadline()?, None, Some(options))?;
-        Ok((handle, cursor.ok_or_else(|| contract("live subscription absent"))?))
+        let (handle, cursor) =
+            self.start_owned_live(None, self.admission_deadline()?, None, Some(options))?;
+        Ok((
+            handle,
+            cursor.ok_or_else(|| contract("live subscription absent"))?,
+        ))
     }
     /// Start with caller cancellation linked through pending admission and native drain.
     pub fn start_with_cancel(
@@ -546,13 +551,19 @@ impl super::ModelingSimulation {
         deadline: std::time::Instant,
         parent: Option<crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        self.start_owned_live(attempt, deadline, parent, None).map(|(handle, _)| handle)
+        self.start_owned_live(attempt, deadline, parent, None)
+            .map(|(handle, _)| handle)
     }
     fn start_owned_live(
-        &self, attempt: Option<DurableAttempt>, deadline: std::time::Instant,
-        parent: Option<crate::CancelSource>, live: Option<super::LiveSimulationOptions>,
+        &self,
+        attempt: Option<DurableAttempt>,
+        deadline: std::time::Instant,
+        parent: Option<crate::CancelSource>,
+        live: Option<super::LiveSimulationOptions>,
     ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
-        if let Some(options) = live { options.admit(self.profile())?; }
+        if let Some(options) = live {
+            options.admit(self.profile())?;
+        }
         let activity = self.runtime.admit_activity()?;
         activity.sync_scope(|| {
             let runtime = self.runtime.clone();

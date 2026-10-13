@@ -154,9 +154,20 @@ impl FitProblem {
             return 1;
         };
         let chains = 2 * self.parameter_columns.iter().flatten().count();
-        let experiment_cores = self.profile.experiment_workers.into_inner()
-            .min(self.experiments.len()).min(cores);
-        let admitted = cores / self.profile.solver.controls.threads.max(experiment_cores).max(1);
+        let experiment_cores = self
+            .profile
+            .experiment_workers
+            .into_inner()
+            .min(self.experiments.len())
+            .min(cores);
+        let admitted = cores
+            / self
+                .profile
+                .solver
+                .controls
+                .threads
+                .max(experiment_cores)
+                .max(1);
         controls
             .workers
             .map_or(usize::MAX, PositiveCount::into_inner)

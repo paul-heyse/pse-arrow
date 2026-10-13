@@ -108,7 +108,11 @@ fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
     };
     let encoded = serde_json::to_value(request).unwrap();
     assert_eq!(encoded["version"], 6);
-    assert!(encoded["inputs"]["value"][0]["policy"].get("seed_need").is_none());
+    assert!(
+        encoded["inputs"]["value"][0]["policy"]
+            .get("seed_need")
+            .is_none()
+    );
     let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
     assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
     for version in [1, 3] {
@@ -985,13 +989,15 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
-async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement() {
+async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement()
+ {
     retained_input_study_survives_producer_retirement_and_worker_replacement(false).await;
 }
 
 #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
 #[tokio::test]
-async fn canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement() {
+async fn canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement()
+ {
     retained_input_study_survives_producer_retirement_and_worker_replacement(true).await;
 }
 
@@ -1046,30 +1052,91 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
     let before_selection = runtime.shared.math().preparations().views;
     if lazy {
         let scalar = package.quantities.neutral_dimensionless().unwrap();
-        let unit = package.quantities.quantity_type(scalar).unwrap().canonical_unit;
-        let selected = definition.points.iter().enumerate().map(|(ordinal, admitted)| {
-            let overlay = PointOverlay { assignments: admitted.binding.entries.values().map(|entry| {
-                assert_eq!(entry.quantity, scalar.as_id(), "fixture overlay is canonical Scalar");
-                BindingAssignment { target: BindingTarget::Member(entry.member), value: BindingQuantity {
-                    magnitude: entry.canonical, quantity: entry.quantity, unit: unit.as_id(),
-                } }
-            }).collect() };
-            assert!(!overlay.assignments.is_empty(), "the lazy seed control also admits a physical overlay");
-            SelectedStudyVariant { ordinal: ordinal as u64, point: StudyPoint {
-                operation: admitted.operation.operation.clone(), preparation: admitted.operation.preparation.clone(), overlay,
-                policy: StudyPointPolicy { key: admitted.policy.key, dependencies: admitted.policy.dependencies.clone(),
-                    start: admitted.policy.start.clone(), attempt_limit: admitted.policy.attempt_limit },
-            } }
-        }).collect();
-        let alternative = SourceDelta { parent: package.revision_id().into(), ..Default::default() };
-        definition = package.admit_study_input_sources(&physical, &StudyInputs::Lazy(StudyVariants {
-            version: pse_model::document::Version, source: OperationSource::of(&package),
-            choices: vec![SourceChoice { alternatives: vec![alternative.clone(), alternative] }], selected,
-        }), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+        let unit = package
+            .quantities
+            .quantity_type(scalar)
+            .unwrap()
+            .canonical_unit;
+        let selected = definition
+            .points
+            .iter()
+            .enumerate()
+            .map(|(ordinal, admitted)| {
+                let overlay = PointOverlay {
+                    assignments: admitted
+                        .binding
+                        .entries
+                        .values()
+                        .map(|entry| {
+                            assert_eq!(
+                                entry.quantity,
+                                scalar.as_id(),
+                                "fixture overlay is canonical Scalar"
+                            );
+                            BindingAssignment {
+                                target: BindingTarget::Member(entry.member),
+                                value: BindingQuantity {
+                                    magnitude: entry.canonical,
+                                    quantity: entry.quantity,
+                                    unit: unit.as_id(),
+                                },
+                            }
+                        })
+                        .collect(),
+                };
+                assert!(
+                    !overlay.assignments.is_empty(),
+                    "the lazy seed control also admits a physical overlay"
+                );
+                SelectedStudyVariant {
+                    ordinal: ordinal as u64,
+                    point: StudyPoint {
+                        operation: admitted.operation.operation.clone(),
+                        preparation: admitted.operation.preparation.clone(),
+                        overlay,
+                        policy: StudyPointPolicy {
+                            key: admitted.policy.key,
+                            dependencies: admitted.policy.dependencies.clone(),
+                            start: admitted.policy.start.clone(),
+                            attempt_limit: admitted.policy.attempt_limit,
+                        },
+                    },
+                }
+            })
+            .collect();
+        let alternative = SourceDelta {
+            parent: package.revision_id().into(),
+            ..Default::default()
+        };
+        definition = package
+            .admit_study_input_sources(
+                &physical,
+                &StudyInputs::Lazy(StudyVariants {
+                    version: pse_model::document::Version,
+                    source: OperationSource::of(&package),
+                    choices: vec![SourceChoice {
+                        alternatives: vec![alternative.clone(), alternative],
+                    }],
+                    selected,
+                }),
+                &StudyOutputDemand::Full {},
+                &cancel,
+            )
+            .await
+            .unwrap();
         assert!(definition.points.is_empty());
-        assert!(definition.graph().points.iter().all(|policy| policy.seed_need == SeedNeed::Pending));
-        assert_eq!(runtime.shared.math().preparations().views, before_selection,
-            "lazy descriptor admission must not construct target science to check an explicit seed");
+        assert!(
+            definition
+                .graph()
+                .points
+                .iter()
+                .all(|policy| policy.seed_need == SeedNeed::Pending)
+        );
+        assert_eq!(
+            runtime.shared.math().preparations().views,
+            before_selection,
+            "lazy descriptor admission must not construct target science to check an explicit seed"
+        );
     }
     let policies = definition.graph().points;
     let handle = runtime
@@ -1077,8 +1144,11 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         .await
         .unwrap();
     if lazy {
-        assert_eq!(runtime.shared.math().preparations().views, before_selection,
-            "activation owns the seed capsule without constructing selected source/overlay science");
+        assert_eq!(
+            runtime.shared.math().preparations().views,
+            before_selection,
+            "activation owns the seed capsule without constructing selected source/overlay science"
+        );
     }
     let study = handle.study_id().to_string();
     let store = runtime.canonical_store().unwrap();
@@ -1099,15 +1169,17 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
     let retained_assessment = retained.assessment().unwrap().clone();
     let retained_primal = match &retained.start().payload {
         pse_backend_native::solve::WarmPayload::Root(primal)
-        | pse_backend_native::solve::WarmPayload::Nlp { primal, .. } => primal.iter().map(|value| value.to_bits()).collect::<Vec<_>>(),
+        | pse_backend_native::solve::WarmPayload::Nlp { primal, .. } => primal
+            .iter()
+            .map(|value| value.to_bits())
+            .collect::<Vec<_>>(),
         other => panic!("original root fixture has an unexpected warm payload: {other:?}"),
     };
     drop(retained);
     for point in &policies {
         let native = store
             .canonical_study_point(&pse_operations::canonical_studies::point_key(
-                &study,
-                point.key,
+                &study, point.key,
             ))
             .await
             .unwrap()
@@ -1130,11 +1202,19 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         );
         if lazy {
             let facts = pse_operations::canonical_studies::point_facts(&native).unwrap();
-            assert_eq!(pse_operations::canonical_studies::point_policy(&native).unwrap().seed_need, SeedNeed::Pending);
+            assert_eq!(
+                pse_operations::canonical_studies::point_policy(&native)
+                    .unwrap()
+                    .seed_need,
+                SeedNeed::Pending
+            );
             assert!(facts.admitted_seed_need.is_none());
             assert!(native.admission.is_none());
             assert_eq!(facts.attempt_count, 0);
-            assert!(store.canonical_run(&native.run).await.unwrap().is_none(), "unselected science has no published native run");
+            assert!(
+                store.canonical_run(&native.run).await.unwrap().is_none(),
+                "unselected science has no published native run"
+            );
         }
     }
     drop(package);
@@ -1163,44 +1243,129 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
         })
         .unwrap();
     if lazy {
-        let owned = replacement.operations().unwrap().artifact_seed(&capsule).await.unwrap();
-        assert_eq!(owned.header(), &retained_header, "copied original header survives producer retirement");
-        assert_eq!(owned.assessment(), Some(&retained_assessment), "copied scientific seed permission survives retirement");
+        let owned = replacement
+            .operations()
+            .unwrap()
+            .artifact_seed(&capsule)
+            .await
+            .unwrap();
+        assert_eq!(
+            owned.header(),
+            &retained_header,
+            "copied original header survives producer retirement"
+        );
+        assert_eq!(
+            owned.assessment(),
+            Some(&retained_assessment),
+            "copied scientific seed permission survives retirement"
+        );
         drop(owned);
         let mut selection_lane = study::StudyCandidateLane::new();
         for policy in &policies {
             let key = pse_operations::canonical_studies::point_key(&study, policy.key);
             let scope = store.study_scope(&key).await.unwrap();
-            assert!(matches!(scope.action(None).unwrap().kind, ActionKind::Wait(WaitReason::ScientificAdmission)));
-            assert!(store.claim_study_point(&scope, None, "unselected-explicit-seed", "replacement", Duration::from_secs(60)).await.is_err());
-            assert!(replacement.admit_study_candidate(&scope, &mut selection_lane, &cancel).await.unwrap());
+            assert!(matches!(
+                scope.action(None).unwrap().kind,
+                ActionKind::Wait(WaitReason::ScientificAdmission)
+            ));
+            assert!(
+                store
+                    .claim_study_point(
+                        &scope,
+                        None,
+                        "unselected-explicit-seed",
+                        "replacement",
+                        Duration::from_secs(60)
+                    )
+                    .await
+                    .is_err()
+            );
+            assert!(
+                replacement
+                    .admit_study_candidate(&scope, &mut selection_lane, &cancel)
+                    .await
+                    .unwrap()
+            );
             let selected = store.canonical_study_point(&key).await.unwrap().unwrap();
             let facts = pse_operations::canonical_studies::point_facts(&selected).unwrap();
             assert_eq!(facts.admitted_seed_need, Some(SeedNeed::Required));
-            assert_eq!(facts.attempt_count, 0, "source/overlay admission consumes no native attempt");
+            assert_eq!(
+                facts.attempt_count, 0,
+                "source/overlay admission consumes no native attempt"
+            );
             assert!(!selected.assigned && selected.attempt.is_none());
             let scope = store.study_scope(&key).await.unwrap();
             let unresolved = Some(SeedFact {
                 role: SeedRole::PrimalSolution,
                 availability: SeedAvailability::Unresolved,
             });
-            assert!(matches!(scope.action(unresolved.clone()).unwrap().kind, ActionKind::Wait(WaitReason::SeedResolution { role: SeedRole::PrimalSolution })));
-            assert!(store.claim_study_point(&scope, unresolved, "unresolved-explicit-seed", "replacement", Duration::from_secs(60)).await.is_err());
-            let prepared = replacement.prepare_study_candidate_in_lane(&scope, &mut selection_lane, &cancel).await.unwrap();
-            assert!(matches!(prepared.seed.as_ref(), Some(SeedFact { role: SeedRole::PrimalSolution,
-                availability: SeedAvailability::Compatible { seed } }) if *seed == solution));
-            assert_eq!(scope.action(prepared.seed.clone()).unwrap().kind,
-                ActionKind::Start(StartProvenance::Explicit { role: SeedRole::PrimalSolution, seed: solution }));
-            let PreparedStudyOperation::DeclaredCase(case) = &prepared.operation else { panic!("original declared case"); };
-            assert!(case.stored_seed_owner.is_some(), "selected target carries its admitted seed allocation");
-            assert_eq!(case.solve.source_start(None).unwrap().iter().map(|value| value.to_bits()).collect::<Vec<_>>(), retained_primal,
-                "authorized explicit start carries the exact retained original warm coordinates");
+            assert!(matches!(
+                scope.action(unresolved.clone()).unwrap().kind,
+                ActionKind::Wait(WaitReason::SeedResolution {
+                    role: SeedRole::PrimalSolution
+                })
+            ));
+            assert!(
+                store
+                    .claim_study_point(
+                        &scope,
+                        unresolved,
+                        "unresolved-explicit-seed",
+                        "replacement",
+                        Duration::from_secs(60)
+                    )
+                    .await
+                    .is_err()
+            );
+            let prepared = replacement
+                .prepare_study_candidate_in_lane(&scope, &mut selection_lane, &cancel)
+                .await
+                .unwrap();
+            assert!(
+                matches!(prepared.seed.as_ref(), Some(SeedFact { role: SeedRole::PrimalSolution,
+                availability: SeedAvailability::Compatible { seed } }) if *seed == solution)
+            );
+            assert_eq!(
+                scope.action(prepared.seed.clone()).unwrap().kind,
+                ActionKind::Start(StartProvenance::Explicit {
+                    role: SeedRole::PrimalSolution,
+                    seed: solution
+                })
+            );
+            let PreparedStudyOperation::DeclaredCase(case) = &prepared.operation else {
+                panic!("original declared case");
+            };
+            assert!(
+                case.stored_seed_owner.is_some(),
+                "selected target carries its admitted seed allocation"
+            );
+            assert_eq!(
+                case.solve
+                    .source_start(None)
+                    .unwrap()
+                    .iter()
+                    .map(|value| value.to_bits())
+                    .collect::<Vec<_>>(),
+                retained_primal,
+                "authorized explicit start carries the exact retained original warm coordinates"
+            );
             drop(prepared);
             let selected = store.canonical_study_point(&key).await.unwrap().unwrap();
-            assert!(!selected.assigned && selected.attempt.is_none(), "compatibility is established before any native claim");
+            assert!(
+                !selected.assigned && selected.attempt.is_none(),
+                "compatibility is established before any native claim"
+            );
         }
         selection_lane.close().await.unwrap();
-        assert!(replacement.operations().unwrap().seed(solution).await.is_err(), "preparation cannot resurrect fresh producer lookup");
+        assert!(
+            replacement
+                .operations()
+                .unwrap()
+                .seed(solution)
+                .await
+                .is_err(),
+            "preparation cannot resurrect fresh producer lookup"
+        );
     }
     for _ in 0..8 {
         if handle
@@ -3869,49 +4034,185 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
 async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head() {
     let runtime = durable_runtime();
     let (package, _) = related_definition(&runtime).await;
-    let fixed = package.declarations().await.unwrap().iter().find(|row| row.name == "Fixed").unwrap().declaration_id;
+    let fixed = package
+        .declarations()
+        .await
+        .unwrap()
+        .iter()
+        .find(|row| row.name == "Fixed")
+        .unwrap()
+        .declaration_id;
     let base = package.canonical_revision().unwrap().clone();
     let mut requested = point(fixed, 9, vec![], StartPolicy::Fresh);
-    if let OperationRequest::DeclaredCase(case) = &mut requested.operation { case.settings.backend = None; }
-    let mut invalid = requested.clone(); invalid.policy.key = OccurrenceKey(3);
+    if let OperationRequest::DeclaredCase(case) = &mut requested.operation {
+        case.settings.backend = None;
+    }
+    let mut invalid = requested.clone();
+    invalid.policy.key = OccurrenceKey(3);
     let alternatives = vec![
-        SourceDelta { parent: package.revision_id().into(), ..Default::default() },
-        SourceDelta { parent: package.revision_id().into(), removals: vec![pse_model::generated::identities::DeclarationId::from_bytes([0;16])], ..Default::default() },
+        SourceDelta {
+            parent: package.revision_id().into(),
+            ..Default::default()
+        },
+        SourceDelta {
+            parent: package.revision_id().into(),
+            removals: vec![pse_model::generated::identities::DeclarationId::from_bytes(
+                [0; 16],
+            )],
+            ..Default::default()
+        },
     ];
-    let variants = StudyVariants { version: pse_model::document::Version,
-        source: OperationSource::of(&package), choices: vec![SourceChoice { alternatives }],
-        selected: vec![SelectedStudyVariant { ordinal: 0, point: requested }, SelectedStudyVariant { ordinal: 1, point: invalid }],
+    let variants = StudyVariants {
+        version: pse_model::document::Version,
+        source: OperationSource::of(&package),
+        choices: vec![SourceChoice { alternatives }],
+        selected: vec![
+            SelectedStudyVariant {
+                ordinal: 0,
+                point: requested,
+            },
+            SelectedStudyVariant {
+                ordinal: 1,
+                point: invalid,
+            },
+        ],
     };
     let (physical, _) = sources(CASES);
     let cancel = crate::CancelSource::new();
     let before = runtime.shared.math().preparations().views;
-    let definition = package.admit_study_input_sources(&physical, &StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
+    let definition = package
+        .admit_study_input_sources(
+            &physical,
+            &StudyInputs::Lazy(variants),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
     assert!(definition.points.is_empty());
     assert_eq!(definition.point_count(), 2);
-    assert!(definition.graph().points.iter().all(|point| point.seed_need == SeedNeed::Pending));
-    let handle = runtime.start_defined_study(physical, definition, &cancel).await.unwrap();
-    assert_eq!(runtime.shared.math().preparations().views, before, "descriptor admission and activation construct no selected science");
+    assert!(
+        definition
+            .graph()
+            .points
+            .iter()
+            .all(|point| point.seed_need == SeedNeed::Pending)
+    );
+    let handle = runtime
+        .start_defined_study(physical, definition, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(
+        runtime.shared.math().preparations().views,
+        before,
+        "descriptor admission and activation construct no selected science"
+    );
     let study = handle.study_id().to_string();
     let valid_key = pse_operations::canonical_studies::point_key(&study, OccurrenceKey(9));
     let invalid_key = pse_operations::canonical_studies::point_key(&study, OccurrenceKey(3));
-    let scope = runtime.canonical_store().unwrap().study_scope(&valid_key).await.unwrap();
-    assert!(runtime.canonical_store().unwrap().claim_study_point(&scope, None, "pending-native", "worker", Duration::from_secs(60)).await.is_err());
-    assert!(runtime.admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel).await.unwrap());
-    let selected = runtime.canonical_store().unwrap().canonical_study_point(&valid_key).await.unwrap().unwrap();
-    assert_eq!(selected.ordinal, 0, "visible order is selection order, not Cartesian ordinal or key order");
-    assert_eq!(pse_operations::canonical_studies::point_facts(&selected).unwrap().attempt_count, 0);
-    let science = runtime.canonical_store().unwrap().canonical_run(&selected.run).await.unwrap().unwrap();
-    assert_eq!(science.revision, format!("study-variant-source:{valid_key}"));
+    let scope = runtime
+        .canonical_store()
+        .unwrap()
+        .study_scope(&valid_key)
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .canonical_store()
+            .unwrap()
+            .claim_study_point(
+                &scope,
+                None,
+                "pending-native",
+                "worker",
+                Duration::from_secs(60)
+            )
+            .await
+            .is_err()
+    );
+    assert!(
+        runtime
+            .admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel)
+            .await
+            .unwrap()
+    );
+    let selected = runtime
+        .canonical_store()
+        .unwrap()
+        .canonical_study_point(&valid_key)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        selected.ordinal, 0,
+        "visible order is selection order, not Cartesian ordinal or key order"
+    );
+    assert_eq!(
+        pse_operations::canonical_studies::point_facts(&selected)
+            .unwrap()
+            .attempt_count,
+        0
+    );
+    let science = runtime
+        .canonical_store()
+        .unwrap()
+        .canonical_run(&selected.run)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        science.revision,
+        format!("study-variant-source:{valid_key}")
+    );
     assert_eq!(package.canonical_revision().unwrap(), &base);
-    let scope = runtime.canonical_store().unwrap().study_scope(&invalid_key).await.unwrap();
-    assert!(runtime.admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel).await.unwrap());
-    let invalid = runtime.canonical_store().unwrap().canonical_study_point(&invalid_key).await.unwrap().unwrap();
+    let scope = runtime
+        .canonical_store()
+        .unwrap()
+        .study_scope(&invalid_key)
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .admit_study_candidate(&scope, &mut study::StudyCandidateLane::new(), &cancel)
+            .await
+            .unwrap()
+    );
+    let invalid = runtime
+        .canonical_store()
+        .unwrap()
+        .canonical_study_point(&invalid_key)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(invalid.settled);
     assert!(invalid.attempt.is_none());
-    assert_eq!(pse_operations::canonical_studies::point_facts(&invalid).unwrap().attempt_count, 0);
-    assert!(runtime.canonical_store().unwrap().canonical_run(&invalid.run).await.unwrap().is_none());
+    assert_eq!(
+        pse_operations::canonical_studies::point_facts(&invalid)
+            .unwrap()
+            .attempt_count,
+        0
+    );
+    assert!(
+        runtime
+            .canonical_store()
+            .unwrap()
+            .canonical_run(&invalid.run)
+            .await
+            .unwrap()
+            .is_none()
+    );
     assert_eq!(package.canonical_revision().unwrap(), &base);
-    runtime.canonical_store().unwrap().edit(&base.problem, Some(&base.key), "base-head-control-after-variants", &[]).await.unwrap();
+    runtime
+        .canonical_store()
+        .unwrap()
+        .edit(
+            &base.problem,
+            Some(&base.key),
+            "base-head-control-after-variants",
+            &[],
+        )
+        .await
+        .unwrap();
     handle.cancel().await.unwrap();
 }
 
@@ -3920,25 +4221,79 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
 async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_science() {
     let runtime = durable_runtime();
     let (package, explicit) = related_definition(&runtime).await;
-    let requested = StudyPoint { operation: explicit.points[0].operation.operation.clone(),
-        preparation: explicit.points[0].operation.preparation.clone(), overlay: PointOverlay::default(),
-        policy: StudyPointPolicy { key: OccurrenceKey(77), dependencies: vec![], start: StartPolicy::Fresh, attempt_limit: 1 } };
-    let variants = StudyVariants { version: pse_model::document::Version, source: OperationSource::of(&package),
-        choices: vec![SourceChoice { alternatives: vec![SourceDelta { parent: package.revision_id().into(),
-            removals: vec![pse_model::generated::identities::DeclarationId::from_bytes([0;16])], ..Default::default() }] }],
-        selected: vec![SelectedStudyVariant { ordinal: 0, point: requested }] };
+    let requested = StudyPoint {
+        operation: explicit.points[0].operation.operation.clone(),
+        preparation: explicit.points[0].operation.preparation.clone(),
+        overlay: PointOverlay::default(),
+        policy: StudyPointPolicy {
+            key: OccurrenceKey(77),
+            dependencies: vec![],
+            start: StartPolicy::Fresh,
+            attempt_limit: 1,
+        },
+    };
+    let variants = StudyVariants {
+        version: pse_model::document::Version,
+        source: OperationSource::of(&package),
+        choices: vec![SourceChoice {
+            alternatives: vec![SourceDelta {
+                parent: package.revision_id().into(),
+                removals: vec![pse_model::generated::identities::DeclarationId::from_bytes(
+                    [0; 16],
+                )],
+                ..Default::default()
+            }],
+        }],
+        selected: vec![SelectedStudyVariant {
+            ordinal: 0,
+            point: requested,
+        }],
+    };
     let (physical, _) = sources(CASES);
     let cancel = crate::CancelSource::new();
-    let definition = package.admit_study_input_sources(&physical, &StudyInputs::Lazy(variants), &StudyOutputDemand::Full {}, &cancel).await.unwrap();
-    let handle = runtime.start_defined_study(physical, definition, &cancel).await.unwrap();
+    let definition = package
+        .admit_study_input_sources(
+            &physical,
+            &StudyInputs::Lazy(variants),
+            &StudyOutputDemand::Full {},
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let handle = runtime
+        .start_defined_study(physical, definition, &cancel)
+        .await
+        .unwrap();
     let before = runtime.shared.math().preparations().views;
     handle.cancel().await.unwrap();
-    let key = pse_operations::canonical_studies::point_key(&handle.study_id().to_string(), OccurrenceKey(77));
-    let scope = runtime.canonical_store().unwrap().study_scope(&key).await.unwrap();
+    let key = pse_operations::canonical_studies::point_key(
+        &handle.study_id().to_string(),
+        OccurrenceKey(77),
+    );
+    let scope = runtime
+        .canonical_store()
+        .unwrap()
+        .study_scope(&key)
+        .await
+        .unwrap();
     let action = scope.action(None).unwrap();
     assert!(matches!(action.kind, ActionKind::Cancel));
-    runtime.settle_study_candidate(&scope, &action, None).await.unwrap();
-    assert!(runtime.finalize_canonical_study(&handle.study_id().to_string()).await.unwrap());
-    assert!(runtime.retained_study_admissions(&handle.study_id().to_string()).await.unwrap().is_empty());
+    runtime
+        .settle_study_candidate(&scope, &action, None)
+        .await
+        .unwrap();
+    assert!(
+        runtime
+            .finalize_canonical_study(&handle.study_id().to_string())
+            .await
+            .unwrap()
+    );
+    assert!(
+        runtime
+            .retained_study_admissions(&handle.study_id().to_string())
+            .await
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(runtime.shared.math().preparations().views, before);
 }

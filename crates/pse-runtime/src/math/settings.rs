@@ -211,7 +211,9 @@ impl BlockSolveOverride {
         let mut profile = original.clone();
         profile.block_overrides.clear();
         profile.block_workers = 1;
-        profile.selection = self.backend.map_or(SolverSelection::Auto, SolverSelection::Explicit);
+        profile.selection = self
+            .backend
+            .map_or(SolverSelection::Auto, SolverSelection::Explicit);
         profile.backend = BackendSettings::from_document(self.settings.clone());
         if let Some(controls) = &self.controls {
             controls.validate()?;
@@ -222,7 +224,10 @@ impl BlockSolveOverride {
                 || controls.iterations > original.controls.iterations
                 || controls.history > original.controls.history
                 || controls.threads > original.controls.threads
-                || original.controls.foreign_bytes.is_some_and(|cap| controls.foreign_bytes.is_none_or(|bytes| bytes > cap))
+                || original
+                    .controls
+                    .foreign_bytes
+                    .is_some_and(|cap| controls.foreign_bytes.is_none_or(|bytes| bytes > cap))
             {
                 return Err(ProblemError::Contract("block override changes original start/reuse/derivative permission or expands aggregate controls".into()));
             }
@@ -234,7 +239,9 @@ impl BlockSolveOverride {
 mod defaults {
     use super::{PolicyKind, SolveIntent, SolverProfile};
 
-    pub(super) fn block_workers() -> usize { SolverProfile::default().block_workers }
+    pub(super) fn block_workers() -> usize {
+        SolverProfile::default().block_workers
+    }
     pub(super) fn controls() -> super::Controls {
         SolverProfile::default().controls
     }
@@ -281,7 +288,8 @@ impl SolveSettings {
     pub fn profile(self) -> Result<SolverProfile, MathRuntimeError> {
         let presolve = Policy::new(self.presolve, &self.presolve_options, self.required_passes)?;
         self.controls.validate()?;
-        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096 {
+        if self.block_workers == 0 || self.block_workers > 4096 || self.block_overrides.len() > 4096
+        {
             return Err(ProblemError::Contract("finite block execution extent".into()).into());
         }
         if let Some(accuracy) = self.reconstruction {
@@ -326,22 +334,45 @@ mod tests {
     fn block_overrides_refuse_unknown_identity_and_expanded_or_changed_start_controls() {
         let id = pse_structural::incidence::BlockId(pse_ids::ContentHash::from_bytes([61; 32]));
         let mut profile = SolverProfile::default();
-        profile.block_overrides.insert(id, BlockSolveOverride { backend: Some(Backend::Kinsol), settings: None, controls: None });
+        profile.block_overrides.insert(
+            id,
+            BlockSolveOverride {
+                backend: Some(Backend::Kinsol),
+                settings: None,
+                controls: None,
+            },
+        );
         assert!(profile.validate_block_ids(std::iter::empty()).is_err());
         profile.validate_block_ids(std::iter::once(id)).unwrap();
-        let document = SolveSettings { block_overrides: profile.block_overrides.clone(), block_workers: 2, ..Default::default() };
+        let document = SolveSettings {
+            block_overrides: profile.block_overrides.clone(),
+            block_workers: 2,
+            ..Default::default()
+        };
         let wire = serde_json::to_string(&document).unwrap();
         let roundtrip: SolveSettings = serde_json::from_str(&wire).unwrap();
         assert!(roundtrip.block_overrides.contains_key(&id));
         assert_eq!(roundtrip.block_workers, 2);
         let effective = profile.block_profile(id).unwrap();
-        assert_eq!(effective.selection, SolverSelection::Explicit(Backend::Kinsol));
+        assert_eq!(
+            effective.selection,
+            SolverSelection::Explicit(Backend::Kinsol)
+        );
         assert_eq!(effective.numerics.key(), profile.numerics.key());
         assert!(effective.block_overrides.is_empty());
         for controls in [
-            Controls { iterations: profile.controls.iterations + 1, ..profile.controls.clone() },
-            Controls { start: pse_backend_native::solve::StartPolicy::PreviousAccepted, ..profile.controls.clone() },
-            Controls { time_limit: profile.controls.time_limit * 2, ..profile.controls.clone() },
+            Controls {
+                iterations: profile.controls.iterations + 1,
+                ..profile.controls.clone()
+            },
+            Controls {
+                start: pse_backend_native::solve::StartPolicy::PreviousAccepted,
+                ..profile.controls.clone()
+            },
+            Controls {
+                time_limit: profile.controls.time_limit * 2,
+                ..profile.controls.clone()
+            },
         ] {
             profile.block_overrides.get_mut(&id).unwrap().controls = Some(controls);
             assert!(profile.validate_block_ids(std::iter::once(id)).is_err());

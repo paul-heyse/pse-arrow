@@ -13,11 +13,11 @@ from pse._analyses import Analysis
 from pse._artifacts import ScientificArtifact
 from pse._build import (
     DiagnosticReport,
+    _NativeLiveSimulationCursor,
+    _NativeLiveSimulationEvent,
     _NativePreparedOperation,
     _NativeProgressStream,
     _NativeRunHandle,
-    _NativeLiveSimulationCursor,
-    _NativeLiveSimulationEvent,
     _NativeRunResult,
     _NativeScientificReplay,
     _NativeStart,
@@ -309,8 +309,10 @@ class LiveSimulationCursor:
         return self
 
     def __exit__(
-        self, exc_type: type[BaseException] | None,
-        exc_value: BaseException | None, traceback: TracebackType | None,
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         self.close()
 

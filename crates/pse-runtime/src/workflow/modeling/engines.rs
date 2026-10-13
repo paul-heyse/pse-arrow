@@ -704,7 +704,9 @@ impl Initializer<'_> {
             1.,
             self.policy.growth,
             self.policy.maximum_attempts,
-        ).and_then(|steps| steps.with_effort(self.policy.effort)) {
+        )
+        .and_then(|steps| steps.with_effort(self.policy.effort))
+        {
             Ok(steps) => steps,
             Err(error) => {
                 self.report.failure = Some(
@@ -747,13 +749,22 @@ impl Initializer<'_> {
                     if fraction == 1. {
                         return true;
                     }
-                    let effort = self.report.attempts.last()
+                    let effort = self
+                        .report
+                        .attempts
+                        .last()
                         .and_then(|attempt| attempt.result.as_ref().ok())
                         .and_then(|result| match &result.outcome {
-                            crate::math::solves::Outcome::Native(report) => crate::math::strategy::path_control::EffortObservation::from_report(report),
+                            crate::math::solves::Outcome::Native(report) => {
+                                crate::math::strategy::path_control::EffortObservation::from_report(
+                                    report,
+                                )
+                            }
                             _ => None,
                         });
-                    if !initial && let Err(error) = steps.accepted_effort(1. - progress, false, effort) {
+                    if !initial
+                        && let Err(error) = steps.accepted_effort(1. - progress, false, effort)
+                    {
                         self.report.failure =
                             Some(error.boundary_diagnostic(
                                 pse_diagnostics::DiagnosticStage::Initialization,
@@ -928,15 +939,37 @@ mod tests {
         ).await;
         policy.initial_step = 0.25;
         policy.minimum_step = 0.01;
-        let baseline = package.initialize_model(&analysis, policy.clone(), &crate::CancelSource::new()).await.unwrap();
-        policy.effort = Some(pse_model::strategy::EffortPolicy { target_iterations: 1 });
-        let adapted = package.initialize_model(&analysis, policy.clone(), &crate::CancelSource::new()).await.unwrap();
+        let baseline = package
+            .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
+        policy.effort = Some(pse_model::strategy::EffortPolicy {
+            target_iterations: 1,
+        });
+        let adapted = package
+            .initialize_model(&analysis, policy.clone(), &crate::CancelSource::new())
+            .await
+            .unwrap();
         assert!(baseline.completed, "{}", initialization_summary(&baseline));
         assert!(adapted.completed, "{}", initialization_summary(&adapted));
-        let fractions = |report: &ModelingInitializationReport| report.attempts.iter().filter_map(|attempt| {
-            if let ModelingInitializationStep::Homotopy(fraction) = attempt.step { Some(fraction) } else { None }
-        }).collect::<Vec<_>>();
-        assert_ne!(fractions(&baseline), fractions(&adapted), "actual native effort must affect the selected optional rule");
+        let fractions = |report: &ModelingInitializationReport| {
+            report
+                .attempts
+                .iter()
+                .filter_map(|attempt| {
+                    if let ModelingInitializationStep::Homotopy(fraction) = attempt.step {
+                        Some(fraction)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_ne!(
+            fractions(&baseline),
+            fractions(&adapted),
+            "actual native effort must affect the selected optional rule"
+        );
         assert!(adapted.attempts.len() <= policy.maximum_attempts);
         for report in [&baseline, &adapted] {
             let original = report.attempts.last().unwrap().result.as_ref().unwrap();

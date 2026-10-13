@@ -517,30 +517,66 @@ mod tests {
     #[cfg(feature = "highs")]
     #[test]
     fn coupled_three_scc_tears_preserve_global_cost_mandatory_group_and_whole_dag() {
-        let g = graph(&[(0, 1, 0), (1, 0, 1), (1, 2, 0), (2, 3, 0), (3, 2, 2), (3, 4, 0), (4, 5, 0), (5, 4, 3)]);
+        let g = graph(&[
+            (0, 1, 0),
+            (1, 0, 1),
+            (1, 2, 0),
+            (2, 3, 0),
+            (3, 2, 2),
+            (3, 4, 0),
+            (4, 5, 0),
+            (5, 4, 3),
+        ]);
         let mut declaration = g.declaration().clone();
         for decision in &mut declaration.decisions {
-            if decision.id == sid(40) { decision.cost = 6.0; }
-            if decision.id == sid(41) { decision.policy = Policy::Mandatory; }
+            if decision.id == sid(40) {
+                decision.cost = 6.0;
+            }
+            if decision.id == sid(41) {
+                decision.policy = Policy::Mandatory;
+            }
         }
         let registry = pse_quantity::standard::standard_registry().unwrap();
-        let g = FlowGraph::admit(declaration, &registry, pse_structural::projection::GraphLimits { nodes: 20, edges: 20 }).unwrap();
+        let g = FlowGraph::admit(
+            declaration,
+            &registry,
+            pse_structural::projection::GraphLimits {
+                nodes: 20,
+                edges: 20,
+            },
+        )
+        .unwrap();
         // Each separate SCC would avoid the shared cost 6. The complete model pays
         // it once, preserving the mandatory cost 2, rather than costs 2+3+4.
         let controls = Controls::default();
-        let (selected, report) = solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
+        let (selected, report) =
+            solve(&g, &controls, Execution::new(Default::default(), &controls)).unwrap();
         let selected = selected.unwrap();
         assert_eq!(selected.decisions, BTreeSet::from([sid(40), sid(41)]));
         assert_eq!(selected.cost, 8.0);
         assert_eq!(selected.order, g.witness(&selected.decisions).unwrap());
         assert_eq!(selected.order.len(), 6);
-        assert!(report.quality.as_ref().is_some_and(crate::quality::Quality::feasible));
+        assert!(
+            report
+                .quality
+                .as_ref()
+                .is_some_and(crate::quality::Quality::feasible)
+        );
         // Independently enumerate the finite global choices and check the original DAG.
         let mut best = f64::INFINITY;
         for mask in 0..16 {
-            let choices: BTreeSet<_> = (0..4).filter(|bit| mask & (1 << bit) != 0).map(|bit| sid(40 + bit)).collect();
+            let choices: BTreeSet<_> = (0..4)
+                .filter(|bit| mask & (1 << bit) != 0)
+                .map(|bit| sid(40 + bit))
+                .collect();
             if g.witness(&choices).is_ok() {
-                let cost: f64 = g.declaration().decisions.iter().filter(|decision| choices.contains(&decision.id)).map(|decision| decision.cost).sum();
+                let cost: f64 = g
+                    .declaration()
+                    .decisions
+                    .iter()
+                    .filter(|decision| choices.contains(&decision.id))
+                    .map(|decision| decision.cost)
+                    .sum();
                 best = best.min(cost);
             }
         }

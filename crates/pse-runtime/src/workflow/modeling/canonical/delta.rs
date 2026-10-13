@@ -231,7 +231,8 @@ impl ModelingPackage {
         let deadline = super::super::preparation_deadline(cancel)?;
         let scoped = cancel.with_deadline(Some(deadline));
         let parent = self.delta_parent(&scoped).await?;
-        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false).await
+        self.apply_delta_parent_ordered_mode(delta, parent, &scoped, None, None, false)
+            .await
     }
 
     pub(in crate::workflow::modeling) async fn apply_delta_parent_ordered(
@@ -242,7 +243,8 @@ impl ModelingPackage {
         parsed: Option<reload::ParsedEdit>,
         order: Option<Vec<DeclarationId>>,
     ) -> Result<Self, WorkflowError> {
-        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true).await
+        self.apply_delta_parent_ordered_mode(delta, parent, cancel, parsed, order, true)
+            .await
     }
 
     async fn apply_delta_parent_ordered_mode(

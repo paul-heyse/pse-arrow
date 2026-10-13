@@ -1246,4 +1246,6 @@ def test_lazy_study_public_descriptor_retains_exact_source_without_admitting_sci
     assert retained.source == package.operation_source
     assert retained.selected[0].point.policy.key == 17
     assert retained.choices[0].alternatives[0].parent == package.canonical_revision
-    assert codec.decode_json(codec.encode_json(definition), type(definition)) == definition
+    assert (
+        codec.decode_json(codec.encode_json(definition), type(definition)) == definition
+    )

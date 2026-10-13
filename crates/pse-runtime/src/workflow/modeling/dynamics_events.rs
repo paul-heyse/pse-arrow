@@ -356,8 +356,10 @@ impl ModelingPackage {
                 }
                 // One active mode owns each grid/endpoint assessment. The worst
                 // mode bounds their retained checks; it is not one trajectory per mode.
-                result.retained_check_cells = result.retained_check_cells.max(next.retained_check_cells);
-                result.full_sample_payload_bytes = result.full_sample_payload_bytes
+                result.retained_check_cells =
+                    result.retained_check_cells.max(next.retained_check_cells);
+                result.full_sample_payload_bytes = result
+                    .full_sample_payload_bytes
                     .checked_add(next.full_sample_payload_bytes)
                     .ok_or_else(|| contract("dynamic mode sample payload extent"))?;
                 result.bytes = result
@@ -409,7 +411,12 @@ impl ModelingPackage {
         result.contract.identity = result.key;
         result
             .profile
-            .validate_retention(&result.contract, &result.parameters, native::SampleRetention::Compact, 0)
+            .validate_retention(
+                &result.contract,
+                &result.parameters,
+                native::SampleRetention::Compact,
+                0,
+            )
             .map_err(|e| WorkflowError::Math(e.into()))?;
         // Mode identities/support change when the admitted modes are composed.
         result.layout = Arc::new(

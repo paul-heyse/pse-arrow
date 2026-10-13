@@ -935,20 +935,30 @@ impl DurableAttempt {
         self.output = output;
     }
     pub(super) fn begin_live_samples(&self) -> Result<(), WorkflowError> {
-        self.acknowledgments.expect(self.fence()?, &pse_relations::generated::runtime::live_simulation_samples::RELATION_ID.to_string())
+        self.acknowledgments.expect(
+            self.fence()?,
+            &pse_relations::generated::runtime::live_simulation_samples::RELATION_ID.to_string(),
+        )
     }
     pub(super) async fn publish_live_samples(
         &mut self,
         table: &pse_relations::columnar::FieldCheckedBatch,
     ) -> Result<u64, WorkflowError> {
         if self.live_prefix_failed {
-            return Err(contract("live sample recording is incomplete after an earlier refusal"));
+            return Err(contract(
+                "live sample recording is incomplete after an earlier refusal",
+            ));
         }
         let fence = self.fence()?.clone();
         let result = super::result_projection::append_live_sample_batch(
-            &self.operations.store, &fence, &self.operations.pool, &self.acknowledgments,
-            &mut self.live_prefix, table,
-        ).await;
+            &self.operations.store,
+            &fence,
+            &self.operations.pool,
+            &self.acknowledgments,
+            &mut self.live_prefix,
+            table,
+        )
+        .await;
         if let Err(error) = result {
             self.live_prefix_failed = true;
             return Err(error);
@@ -961,10 +971,13 @@ impl DurableAttempt {
         }
         let fence = self.fence()?.clone();
         super::result_projection::finish_result_table_prefix(
-            &self.operations.store, &fence,
+            &self.operations.store,
+            &fence,
             pse_relations::generated::runtime::live_simulation_samples::RELATION_ID,
-            &self.acknowledgments, self.live_prefix,
-        ).await
+            &self.acknowledgments,
+            self.live_prefix,
+        )
+        .await
     }
     #[cfg(any(
         feature = "solver-diffsol",

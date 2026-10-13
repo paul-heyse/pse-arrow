@@ -405,7 +405,10 @@ impl RawMapCapture {
         if !retain {
             self.history.omitted = self.history.omitted.saturating_add(1);
         }
-        let map_role = matches!(role, RawMapRole::FixedPointEvaluation | RawMapRole::RestartScreening);
+        let map_role = matches!(
+            role,
+            RawMapRole::FixedPointEvaluation | RawMapRole::RestartScreening
+        );
         let successful_map = failure.is_none() && values.is_some() && map_role;
         let length = x.len().min(SAMPLE_COORDINATES);
         let mut captured = Vec::with_capacity(length);
@@ -474,9 +477,22 @@ mod tests {
             accuracy: Some(ContentHash::from_bytes([33; 32])),
         };
         let mut capture = RawMapCapture::new(&contract, contract.identity, 0, true, &[0.25])
-            .unwrap().with_inner_context(context);
-        capture.record(&contract, &[1.0], Some(&[2.0]), RawMapRole::FixedPointEvaluation, None);
-        capture.record(&contract, &[3.0], None, RawMapRole::FixedPointEvaluation, Some(RawMapFailure::Trial));
+            .unwrap()
+            .with_inner_context(context);
+        capture.record(
+            &contract,
+            &[1.0],
+            Some(&[2.0]),
+            RawMapRole::FixedPointEvaluation,
+            None,
+        );
+        capture.record(
+            &contract,
+            &[3.0],
+            None,
+            RawMapRole::FixedPointEvaluation,
+            Some(RawMapFailure::Trial),
+        );
         let history = capture.finish();
         assert_eq!(history.omitted, 2);
         for sample in [&history.last_successful, &history.last_evaluation] {
@@ -487,8 +503,14 @@ mod tests {
             assert_eq!(sample.inner_accuracy, context.accuracy);
             assert_eq!(sample.inner_tolerance, None);
         }
-        assert_eq!(history.last_successful.as_ref().unwrap().values[0].input, 1.0);
-        assert_eq!(history.last_evaluation.as_ref().unwrap().values[0].input, 3.0);
+        assert_eq!(
+            history.last_successful.as_ref().unwrap().values[0].input,
+            1.0
+        );
+        assert_eq!(
+            history.last_evaluation.as_ref().unwrap().values[0].input,
+            3.0
+        );
     }
     #[test]
     fn raw_map_capture_retains_physical_residuals_and_failed_last_point_with_bounded_history() {

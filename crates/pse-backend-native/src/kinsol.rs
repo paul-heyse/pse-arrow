@@ -9,13 +9,13 @@
 //! settings are typed [`Method`] fields (Plan 22 Y6); one-sided bounds are shifted to
 //! native sign constraints.
 mod restarts;
-pub use restarts::RestartSchedule;
 use crate::{
     NleOracle, OracleContract, ProblemError,
     callback::CallbackState,
     quality::{Quality, Tolerances, Violation, interval},
     solve::*,
 };
+pub use restarts::RestartSchedule;
 use std::{
     ffi::{c_long, c_void},
     marker::PhantomData,
@@ -1480,13 +1480,16 @@ impl Session {
         }
         self.callback.state = CallbackState::new(execution.clone());
         self.callback.raw_map = match &self.callback.function {
-            Function::FixedPoint(oracle) => Some(RawMapCapture::new(
-                oracle.contract(),
-                self.compatibility.profile,
-                controls.history,
-                oracle.physical_tear_coordinates(),
-                &tolerances.rows,
-            )?.with_inner_context(oracle.inner_context())),
+            Function::FixedPoint(oracle) => Some(
+                RawMapCapture::new(
+                    oracle.contract(),
+                    self.compatibility.profile,
+                    controls.history,
+                    oracle.physical_tear_coordinates(),
+                    &tolerances.rows,
+                )?
+                .with_inner_context(oracle.inner_context()),
+            ),
             _ => None,
         };
         self.callback.setup_calls = 0;
@@ -2874,35 +2877,102 @@ mod tests {
     #[test]
     fn authorized_recycle_restarts_screen_starts_reset_history_and_preserve_total_cap() {
         let run = |starts: Vec<Vec<f64>>, cap, cancel_at, shape| {
-            let controls = Controls { iterations: cap, history: 3, ..Default::default() };
+            let controls = Controls {
+                iterations: cap,
+                history: 3,
+                ..Default::default()
+            };
             let mut execution = execution();
-            let method = Method { strategy: Strategy::FixedPoint, anderson: 1, anderson_delay: 1, damping: fraction(0.75), ..Default::default() };
+            let method = Method {
+                strategy: Strategy::FixedPoint,
+                anderson: 1,
+                anderson_delay: 1,
+                damping: fraction(0.75),
+                ..Default::default()
+            };
             execution.memory = Some(anderson_storage(1, method).unwrap().0);
-            let oracle = ObservedMap { inner: crate::solver_tests::Polynomial::new(), shape, calls: 0, cancel_at, cancel: execution.cancel.clone(), original_nonfinite: None };
-            let mut session = Session::new(Function::FixedPoint(Box::new(oracle)), Settings { method, ..settings() }, execution.clone(), crate::solver_tests::stamp(Backend::Kinsol)).unwrap();
-            let schedule = RestartSchedule { starts, iterations: 1 };
-            session.solve_with_restarts(&[0.0], &controls, &ResolvedAccuracy::verification(), execution, &Tolerances { variables: vec![0.01], rows: vec![0.01], integrality: 0.01 }, None, Some(&schedule))
+            let oracle = ObservedMap {
+                inner: crate::solver_tests::Polynomial::new(),
+                shape,
+                calls: 0,
+                cancel_at,
+                cancel: execution.cancel.clone(),
+                original_nonfinite: None,
+            };
+            let mut session = Session::new(
+                Function::FixedPoint(Box::new(oracle)),
+                Settings {
+                    method,
+                    ..settings()
+                },
+                execution.clone(),
+                crate::solver_tests::stamp(Backend::Kinsol),
+            )
+            .unwrap();
+            let schedule = RestartSchedule {
+                starts,
+                iterations: 1,
+            };
+            session.solve_with_restarts(
+                &[0.0],
+                &controls,
+                &ResolvedAccuracy::verification(),
+                execution,
+                &Tolerances {
+                    variables: vec![0.01],
+                    rows: vec![0.01],
+                    integrality: 0.01,
+                },
+                None,
+                Some(&schedule),
+            )
         };
         let succeeded = run(vec![vec![2.0]], 2, None, RevealingMap::Affine(0.5)).unwrap();
         assert!(succeeded.quality.as_ref().unwrap().feasible());
         assert_eq!(succeeded.evidence.work.iterations, Some(2));
-        assert_eq!(succeeded.metrics["recycle.native_attempts"], Metric::Integer(2));
+        assert_eq!(
+            succeeded.metrics["recycle.native_attempts"],
+            Metric::Integer(2)
+        );
         let history = succeeded.evidence.raw_map.as_ref().unwrap();
-        assert!(history.samples.iter().any(|sample| sample.role == RawMapRole::RestartScreening));
+        assert!(
+            history
+                .samples
+                .iter()
+                .any(|sample| sample.role == RawMapRole::RestartScreening)
+        );
         assert!(history.samples.len() <= 3);
-        let capped = run(vec![vec![1.0], vec![2.0]], 2, None, RevealingMap::Affine(0.5)).unwrap();
+        let capped = run(
+            vec![vec![1.0], vec![2.0]],
+            2,
+            None,
+            RevealingMap::Affine(0.5),
+        )
+        .unwrap();
         assert_eq!(capped.evidence.work.iterations, Some(2));
-        assert_eq!(capped.metrics["recycle.native_attempts"], Metric::Integer(2));
+        assert_eq!(
+            capped.metrics["recycle.native_attempts"],
+            Metric::Integer(2)
+        );
         assert!(!capped.quality.as_ref().unwrap().feasible());
         let failed_screen = run(vec![vec![2.0]], 3, None, RevealingMap::DomainLeaving).unwrap();
-        assert_eq!(failed_screen.metrics["recycle.native_attempts"], Metric::Integer(1));
+        assert_eq!(
+            failed_screen.metrics["recycle.native_attempts"],
+            Metric::Integer(1)
+        );
         let history = failed_screen.evidence.raw_map.as_ref().unwrap();
-        assert_eq!(history.last_evaluation.as_ref().unwrap().role, RawMapRole::RestartScreening);
+        assert_eq!(
+            history.last_evaluation.as_ref().unwrap().role,
+            RawMapRole::RestartScreening
+        );
         assert!(history.last_evaluation.as_ref().unwrap().failure.is_some());
         assert!(history.last_successful.is_some());
         let cancelled = run(vec![vec![2.0]], 3, Some(1), RevealingMap::Affine(0.5)).unwrap();
         assert_eq!(cancelled.termination.category, Termination::Cancelled);
-        assert_eq!(cancelled.metrics["recycle.native_attempts"], Metric::Integer(1));
+        assert_eq!(
+            cancelled.metrics["recycle.native_attempts"],
+            Metric::Integer(1)
+        );
         assert!(cancelled.evidence.raw_map.is_some());
     }
     #[test]
