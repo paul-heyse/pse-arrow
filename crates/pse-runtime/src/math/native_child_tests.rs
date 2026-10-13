@@ -123,9 +123,20 @@ fn private_native_fake_process() {
     send(&mut channel, &hello, RESPONSE_LIMIT, &scope).unwrap();
     if mode == "foreign" { return; }
     let request: Request = receive(&mut channel, REQUEST_LIMIT, &scope).unwrap();
+    if mode == "oversize" {
+        channel.write_all(&((RESPONSE_LIMIT + 1) as u64).to_le_bytes()).unwrap();
+        return;
+    }
+    if mode == "truncated" {
+        channel.write_all(&128_u64.to_le_bytes()).unwrap();
+        channel.write_all(b"{").unwrap();
+        return;
+    }
     if mode == "late" { std::thread::sleep(Duration::from_secs(30)); }
     let point = if mode == "invalid" { vec![9.0] } else { vec![2.0] };
-    let _ = send(&mut channel, &Response { attempt, execution: request.execution, request: request.request, result: Ok(point) }, RESPONSE_LIMIT, &scope);
+    let _ = send(&mut channel, &Response { attempt, execution: request.execution,
+        request: if mode == "response" { ContentHash::from_bytes([0;32]) } else { request.request },
+        result: Ok(point) }, RESPONSE_LIMIT, &scope);
 }
 
 fn fake_child(mode: &str, marker: &Path) -> NativeChild {
@@ -139,7 +150,7 @@ async fn private_native_process_death_foreign_attempt_and_original_residual_refu
     let (service, _) = super::super::tests::service_with_policy(512<<20,
         super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
     let baseline = service.pool.reserved();
-    for mode in ["death", "foreign", "invalid"] {
+    for mode in ["death", "foreign", "response", "oversize", "truncated", "invalid"] {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
         let handle = service.solve_portable_root(source(), fake_child(mode, &marker), FlightCancellation::default(), None).unwrap();
@@ -149,6 +160,24 @@ async fn private_native_process_death_foreign_attempt_and_original_residual_refu
         assert!(!Path::new(&format!("/proc/{pid}")).exists(), "{mode}: failure returned before actual reap");
         assert_eq!(service.pool.reserved(), baseline, "{mode}: owned parent charges released after reap");
     }
+}
+
+#[tokio::test]
+async fn private_native_queue_wait_uses_original_clock_without_launch_or_cancellation() {
+    let (service, _) = super::super::tests::service_with_policy(512<<20,
+        super::super::MathPolicy { worker_bytes: 256<<20, foreign_bytes: 1<<20, ..Default::default() });
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("must-not-launch");
+    let child = fake_child("late", &marker);
+    let occupied = service.cpu.clone().acquire_many_owned(2).await.unwrap();
+    let control = FlightCancellation::default();
+    let handle = service.solve_portable_root(source(), child, control.clone(),
+        Some(Instant::now()+Duration::from_millis(20))).unwrap();
+    assert!(handle.finish().await.is_err());
+    assert!(!marker.exists());
+    assert!(!control.flag().load(std::sync::atomic::Ordering::Acquire));
+    drop(occupied);
+    assert_eq!(service.pool.reserved(), 0);
 }
 
 #[tokio::test]
