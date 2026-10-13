@@ -299,8 +299,8 @@ impl Recipe {
 pub fn portable_payload_hash(payload: &[u8]) -> ContentHash {
     pse_ids::scientific_replay::admitted_recipe_payload_hash(payload)
 }
-/// Reconstruct only from the opaque authority issued at the controlled canonical
-/// product boundary. Every scientific record must be present in those exact bytes.
+/// Reconstruct only from opaque authority issued at a controlled canonical product
+/// or private admitted native-process boundary. Every scientific record must be present in those exact bytes.
 /// Missing receipts are errors, with no admission or physical-inference fallback.
 /// # Errors
 /// Unsupported interpretation, incomplete receipts or numerical construction failure.

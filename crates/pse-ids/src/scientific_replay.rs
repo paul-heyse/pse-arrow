@@ -75,6 +75,32 @@ impl QualifiedScientificRecipe {
         qualification: ContentHash,
         request: ContentHash,
     ) -> Result<Self, IdError> {
+        Self::qualified(payload, expected_digest, qualification, request, "qualified-recipe")
+    }
+    /// Cross the private parent-to-native-child scientific admission boundary.
+    ///
+    /// # Safety
+    /// The exact payload must come directly from an admitted compiler body in the
+    /// trusted parent, over its private inherited process channel. Before minting,
+    /// the child must authenticate the expected executable/build, attempt, profile,
+    /// original deadline and complete physical/factory closure. The parent remains
+    /// the original scientific assessment authority. Arbitrary DTOs, caller hashes,
+    /// public stdin or descriptor-only providers do not qualify. Reserve
+    /// `scratch_bytes` before decoding. This grants no canonical publication role.
+    ///
+    /// # Errors
+    /// Oversized, malformed or digest-mismatching descriptors are refused.
+    #[allow(unsafe_code, reason = "ADR-0185 controlled private process scientific authority; no unsafe memory operation")]
+    pub unsafe fn from_admitted_process_message(
+        payload: Vec<u8>, expected_digest: ContentHash,
+        execution: ContentHash, request: ContentHash,
+    ) -> Result<Self, IdError> {
+        Self::qualified(payload, expected_digest, execution, request, "admitted-process-message")
+    }
+    fn qualified(
+        payload: Vec<u8>, expected_digest: ContentHash, qualification: ContentHash,
+        request: ContentHash, source: &str,
+    ) -> Result<Self, IdError> {
         Self::scratch_bytes(payload.len())?;
         if admitted_recipe_payload_hash(&payload) != expected_digest {
             return Err(IdError::ScientificRecipeDigest);
@@ -83,7 +109,7 @@ impl QualifiedScientificRecipe {
             serde_json::from_slice(&payload).map_err(|_| IdError::ScientificRecipeEncoding)?;
         let mut scope = FramedHasher::new(Frame::MathReplayAuthorityV1);
         scope
-            .str("qualified-recipe")
+            .str(source)
             .hash(&expected_digest)
             .hash(&qualification)
             .hash(&request);
@@ -106,7 +132,7 @@ impl QualifiedScientificRecipe {
     pub fn payload(&self) -> &[u8] {
         &self.payload
     }
-    /// Store-owned immutable product identity.
+    /// Qualified immutable product or authenticated private execution identity.
     pub fn qualification(&self) -> ContentHash {
         self.qualification
     }
